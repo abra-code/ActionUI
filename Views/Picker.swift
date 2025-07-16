@@ -8,7 +8,7 @@
      "title": "Select Option",    // Optional: String, defaults to ""
      "options": ["Option1", "Option2"], // Required: Array of strings
      "pickerStyle": "menu",       // Optional: "menu", "wheel", "segmented"
-     "commandID": "picker.select", // Optional: String for action identifier
+     "actionID": "picker.select", // Optional: String for action identifier
      "padding": 10.0,            // Optional: CGFloat for padding
      "font": "body",             // Optional: SwiftUI font (e.g., "title", "body")
      "foregroundColor": "blue",  // Optional: SwiftUI color (e.g., "red", "blue")
@@ -21,7 +21,7 @@ import SwiftUI
 
 struct Picker: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["title", "options", "pickerStyle", "commandID", "padding", "font", "foregroundColor", "hidden"]
+        let supportedProperties = ["title", "options", "pickerStyle", "actionID", "padding", "font", "foregroundColor", "hidden"]
         var validatedProperties = properties
         
         if let options = properties["options"] as? [String], options.isEmpty {
@@ -47,7 +47,7 @@ struct Picker: StaticElement, ViewBuilder {
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Picker") { element, state, dialogGUID in
+        registry.register("Picker") { element, state, windowUUID in
             let properties = validateProperties(element.properties)
             let title = properties["title"] as? String ?? ""
             let items = (properties["options"] as? [String]) ?? []
@@ -58,8 +58,8 @@ struct Picker: StaticElement, ViewBuilder {
                 get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? items.first ?? "" },
                 set: { newValue in
                     state.wrappedValue[element.id] = ["value": newValue]
-                    if let commandID = properties["commandID"] as? String {
-                        commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                    if let actionID = properties["actionID"] as? String {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
                 }
             )) {

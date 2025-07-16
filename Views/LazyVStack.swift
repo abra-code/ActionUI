@@ -1,7 +1,7 @@
 /*
- Sample JSON for VStack:
+ Sample JSON for LazyVStack (ActionUI):
  {
-   "type": "VStack",
+   "type": "LazyVStack",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "spacing": 10.0,     // Optional: CGFloat for spacing between elements
@@ -11,13 +11,13 @@
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: The spacing and alignment properties are specific to VStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: The spacing and alignment properties are specific to LazyVStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
  }
 */
 
 import SwiftUI
 
-struct VStack: StaticElement, ViewBuilder {
+struct LazyVStack: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         let supportedProperties = ["spacing", "alignment"]
         var validatedProperties = properties
@@ -25,7 +25,7 @@ struct VStack: StaticElement, ViewBuilder {
         if let spacing = properties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if properties["spacing"] != nil {
-            print("Warning: VStack spacing must be a CGFloat; ignoring")
+            print("Warning: LazyVStack spacing must be a CGFloat; ignoring")
             validatedProperties["spacing"] = nil
         }
         
@@ -33,7 +33,7 @@ struct VStack: StaticElement, ViewBuilder {
            ["leading", "center", "trailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if properties["alignment"] != nil {
-            print("Warning: VStack alignment must be 'leading', 'center', or 'trailing'; ignoring")
+            print("Warning: LazyVStack alignment must be 'leading', 'center', or 'trailing'; ignoring")
             validatedProperties["alignment"] = nil
         }
         
@@ -41,14 +41,14 @@ struct VStack: StaticElement, ViewBuilder {
             if supportedProperties.contains(key) {
                 return true
             } else {
-                print("Warning: Property '\(key)' is not supported for VStack; ignoring")
+                print("Warning: Property '\(key)' is not supported for LazyVStack; ignoring")
                 return false
             }
         }
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("VStack") { element, state, windowUUID in
+        registry.register("LazyVStack") { element, state, windowUUID in
             let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
             let spacing = validatedProperties["spacing"] as? CGFloat ?? 0.0
             let alignmentString = validatedProperties["alignment"] as? String
@@ -63,7 +63,7 @@ struct VStack: StaticElement, ViewBuilder {
             let children = element.children ?? []
             
             return AnyView(
-                SwiftUI.VStack(alignment: alignment, spacing: spacing) {
+                SwiftUI.LazyVStack(alignment: alignment, spacing: spacing) {
                     ForEach(children.indices, id: \.self) { index in
                         ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
                     }

@@ -1,23 +1,23 @@
 /*
- Sample JSON for VStack:
+ Sample JSON for LazyHStack (ActionUI):
  {
-   "type": "VStack",
+   "type": "LazyHStack",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "spacing": 10.0,     // Optional: CGFloat for spacing between elements
-     "alignment": "center" // Optional: Horizontal alignment (e.g., "leading", "center", "trailing")
+     "alignment": "center" // Optional: Vertical alignment (e.g., "top", "center", "bottom")
    },
    "children": [
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: The spacing and alignment properties are specific to VStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: The spacing and alignment properties are specific to LazyHStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
  }
 */
 
 import SwiftUI
 
-struct VStack: StaticElement, ViewBuilder {
+struct LazyHStack: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         let supportedProperties = ["spacing", "alignment"]
         var validatedProperties = properties
@@ -25,15 +25,15 @@ struct VStack: StaticElement, ViewBuilder {
         if let spacing = properties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if properties["spacing"] != nil {
-            print("Warning: VStack spacing must be a CGFloat; ignoring")
+            print("Warning: LazyHStack spacing must be a CGFloat; ignoring")
             validatedProperties["spacing"] = nil
         }
         
         if let alignment = properties["alignment"] as? String,
-           ["leading", "center", "trailing"].contains(alignment) {
+           ["top", "center", "bottom"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if properties["alignment"] != nil {
-            print("Warning: VStack alignment must be 'leading', 'center', or 'trailing'; ignoring")
+            print("Warning: LazyHStack alignment must be 'top', 'center', or 'bottom'; ignoring")
             validatedProperties["alignment"] = nil
         }
         
@@ -41,21 +41,21 @@ struct VStack: StaticElement, ViewBuilder {
             if supportedProperties.contains(key) {
                 return true
             } else {
-                print("Warning: Property '\(key)' is not supported for VStack; ignoring")
+                print("Warning: Property '\(key)' is not supported for LazyHStack; ignoring")
                 return false
             }
         }
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("VStack") { element, state, windowUUID in
+        registry.register("LazyHStack") { element, state, windowUUID in
             let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
             let spacing = validatedProperties["spacing"] as? CGFloat ?? 0.0
             let alignmentString = validatedProperties["alignment"] as? String
-            let alignment: HorizontalAlignment = {
+            let alignment: VerticalAlignment = {
                 switch alignmentString {
-                case "leading": return .leading
-                case "trailing": return .trailing
+                case "top": return .top
+                case "bottom": return .bottom
                 default: return .center
                 }
             }()
@@ -63,7 +63,7 @@ struct VStack: StaticElement, ViewBuilder {
             let children = element.children ?? []
             
             return AnyView(
-                SwiftUI.VStack(alignment: alignment, spacing: spacing) {
+                SwiftUI.LazyHStack(alignment: alignment, spacing: spacing) {
                     ForEach(children.indices, id: \.self) { index in
                         ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
                     }

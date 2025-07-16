@@ -100,7 +100,7 @@ struct Image: StaticElement, ViewBuilder {
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Image") { element, state, dialogGUID in
+        registry.register("Image") { element, state, windowUUID in
             let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
             
             var image: SwiftUI.Image? = nil
@@ -123,7 +123,7 @@ struct Image: StaticElement, ViewBuilder {
                 image = finalImage
             }
             
-            return AnyView(image) // Base view for modifier application in UILibraryView
+            return AnyView(image) // Base view for modifier application in ActionUIView
         }
     }
 }

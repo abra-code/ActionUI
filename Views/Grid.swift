@@ -1,4 +1,3 @@
-
 /*
  Sample JSON for Grid (macOS, iOS, iPadOS only):
  {
@@ -15,13 +14,10 @@
        ]
      ], // Required: Array of arrays of UIElement objects
      "alignment": "center",        // Optional: "topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"
-     "horizontalSpacing": 8.0,    // Optional: CGFloat for horizontal spacing
-     "verticalSpacing": 8.0,      // Optional: CGFloat for vertical spacing
-     "padding": 10.0,             // Optional: CGFloat for padding
-     "font": "body",              // Optional: SwiftUI font (e.g., "title", "body")
-     "foregroundColor": "blue",   // Optional: SwiftUI color (e.g., "red", "blue")
-     "hidden": false              // Optional: Boolean to hide the view
+     "horizontalSpacing": 8.0,    // Optional: CGFloat for horizontal spacing between columns
+     "verticalSpacing": 8.0       // Optional: CGFloat for vertical spacing between rows
    }
+   // Note: These properties (rows, alignment, horizontalSpacing, verticalSpacing) are specific to Grid. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
  }
 */
 
@@ -29,7 +25,7 @@ import SwiftUI
 
 struct Grid: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["rows", "alignment", "horizontalSpacing", "verticalSpacing", "padding", "font", "foregroundColor", "hidden"]
+        let supportedProperties = ["rows", "alignment", "horizontalSpacing", "verticalSpacing"]
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
@@ -49,6 +45,18 @@ struct Grid: StaticElement, ViewBuilder {
             print("Warning: Grid alignment '\(alignment)' invalid; using SwiftUI default")
             validatedProperties["alignment"] = nil
         }
+        if let horizontalSpacing = properties["horizontalSpacing"] as? CGFloat {
+            validatedProperties["horizontalSpacing"] = horizontalSpacing
+        } else if properties["horizontalSpacing"] != nil {
+            print("Warning: Grid horizontalSpacing must be a CGFloat; ignoring")
+            validatedProperties["horizontalSpacing"] = nil
+        }
+        if let verticalSpacing = properties["verticalSpacing"] as? CGFloat {
+            validatedProperties["verticalSpacing"] = verticalSpacing
+        } else if properties["verticalSpacing"] != nil {
+            print("Warning: Grid verticalSpacing must be a CGFloat; ignoring")
+            validatedProperties["verticalSpacing"] = nil
+        }
         #endif
         
         return validatedProperties.filter { key, _ in
@@ -63,12 +71,13 @@ struct Grid: StaticElement, ViewBuilder {
     
     static func register(in registry: ViewBuilderRegistry) {
         #if os(iOS) || os(macOS)
-        registry.register("Grid") { element, state, dialogGUID in
-            let properties = validateProperties(element.properties)
-            let rows = (properties["rows"] as? [[UIElement]]) ?? []
-            let horizontalSpacing = properties["horizontalSpacing"] as? CGFloat
-            let verticalSpacing = properties["verticalSpacing"] as? CGFloat
-            let alignmentString = properties["alignment"] as? String
+        registry.register("Grid") { element, state, windowUUID in
+            let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
+            
+            let rows = (validatedProperties["rows"] as? [[UIElement]]) ?? []
+            let horizontalSpacing = validatedProperties["horizontalSpacing"] as? CGFloat
+            let verticalSpacing = validatedProperties["verticalSpacing"] as? CGFloat
+            let alignmentString = validatedProperties["alignment"] as? String
             let alignment: Alignment = {
                 switch alignmentString {
                 case "topLeading": return .topLeading
@@ -82,12 +91,13 @@ struct Grid: StaticElement, ViewBuilder {
                 default: return .center
                 }
             }()
+            
             return AnyView(
                 SwiftUI.Grid(alignment: alignment, horizontalSpacing: horizontalSpacing, verticalSpacing: verticalSpacing) {
                     ForEach(rows.indices, id: \.self) { rowIndex in
                         SwiftUI.GridRow {
                             ForEach(rows[rowIndex]) { child in
-                                UILibraryView(element: child, state: state, dialogGUID: dialogGUID)
+                                ActionUIView(element: child, state: state, windowUUID: windowUUID)
                             }
                         }
                     }

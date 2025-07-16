@@ -6,7 +6,7 @@
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "placeholder": "Enter text here", // Optional: String, defaults to "Enter text"
-     "commandID": "editor.changed",    // Optional: String for action identifier
+     "actionID": "editor.changed",    // Optional: String for action identifier
      "padding": 10.0,                 // Optional: CGFloat for padding
      "font": "body",                  // Optional: SwiftUI font (e.g., "title", "body")
      "foregroundColor": "blue",       // Optional: SwiftUI color (e.g., "red", "blue")
@@ -19,7 +19,7 @@ import SwiftUI
 
 struct TextEditor: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["placeholder", "commandID", "padding", "font", "foregroundColor", "hidden"]
+        let supportedProperties = ["placeholder", "actionID", "padding", "font", "foregroundColor", "hidden"]
         var validatedProperties = properties
         
         if validatedProperties["placeholder"] == nil {
@@ -37,7 +37,7 @@ struct TextEditor: StaticElement, ViewBuilder {
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("TextEditor") { element, state, dialogGUID in
+        registry.register("TextEditor") { element, state, windowUUID in
             let properties = validateProperties(element.properties)
             let placeholder = properties["placeholder"] as? String ?? "Enter text"
             if state.wrappedValue[element.id] == nil {
@@ -48,8 +48,8 @@ struct TextEditor: StaticElement, ViewBuilder {
                     get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
                     set: { newValue in
                         state.wrappedValue[element.id] = ["value": newValue]
-                        if let commandID = properties["commandID"] as? String {
-                            commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                        if let actionID = properties["actionID"] as? String {
+                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                         }
                     }
                 ))

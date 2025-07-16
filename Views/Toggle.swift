@@ -7,7 +7,7 @@
    "properties": {
      "label": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch", "checkbox", "button"; defaults to "switch"
-     "commandID": "toggle.changed", // Optional: String for action identifier
+     "actionID": "toggle.changed", // Optional: String for action identifier
      "padding": 10.0,          // Optional: CGFloat for padding
      "font": "body",           // Optional: SwiftUI font (e.g., "title", "body")
      "foregroundColor": "blue", // Optional: SwiftUI color (e.g., "red", "blue")
@@ -20,7 +20,7 @@ import SwiftUI
 
 struct Toggle: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["label", "style", "commandID", "padding", "font", "foregroundColor", "hidden"]
+        let supportedProperties = ["label", "style", "actionID", "padding", "font", "foregroundColor", "hidden"]
         var validatedProperties = properties
         
         if let style = properties["style"] as? String, !["switch", "checkbox", "button"].contains(style) {
@@ -45,7 +45,7 @@ struct Toggle: StaticElement, ViewBuilder {
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Toggle") { element, state, dialogGUID in
+        registry.register("Toggle") { element, state, windowUUID in
             let properties = validateProperties(element.properties)
             let label = properties["label"] as? String ?? "Toggle"
             let style = properties["style"] as? String ?? "switch"
@@ -57,8 +57,8 @@ struct Toggle: StaticElement, ViewBuilder {
                     get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? false },
                     set: { newValue in
                         state.wrappedValue[element.id] = ["value": newValue]
-                        if let commandID = properties["commandID"] as? String {
-                            commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                        if let actionID = properties["actionID"] as? String {
+                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                         }
                     }
                 ))

@@ -1,52 +1,42 @@
 /*
- Sample JSON for HStack:
+ Sample JSON for Group:
  {
-   "type": "HStack",
+   "type": "Group",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "properties": {
-     "spacing": 10.0      // Optional: CGFloat for spacing between elements
-   },
+   "properties": {},
    "children": [
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: The spacing property is specific to HStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: Group has no specific properties and does not control layout geometry, relying on the parent container for alignment and spacing. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers to the group as a whole.
  }
 */
 
 import SwiftUI
 
-struct HStack: StaticElement, ViewBuilder {
+struct Group: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["spacing"]
+        let supportedProperties: [String] = []
         var validatedProperties = properties
-        
-        if let spacing = properties["spacing"] as? CGFloat {
-            validatedProperties["spacing"] = spacing
-        } else if properties["spacing"] != nil {
-            print("Warning: HStack spacing must be a CGFloat; ignoring")
-            validatedProperties["spacing"] = nil
-        }
         
         return validatedProperties.filter { key, _ in
             if supportedProperties.contains(key) {
                 return true
             } else {
-                print("Warning: Property '\(key)' is not supported for HStack; ignoring")
+                print("Warning: Property '\(key)' is not supported for Group; ignoring")
                 return false
             }
         }
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("HStack") { element, state, windowUUID in
+        registry.register("Group") { element, state, windowUUID in
             let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
-            let spacing = validatedProperties["spacing"] as? CGFloat ?? 0.0
             
             let children = element.children ?? []
             
             return AnyView(
-                SwiftUI.HStack(spacing: spacing) {
+                SwiftUI.Group {
                     ForEach(children.indices, id: \.self) { index in
                         ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
                     }

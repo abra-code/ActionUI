@@ -8,7 +8,7 @@
    "properties": {
      "placeholder": "Select an option", // Optional: String, defaults to ""
      "options": ["Option1", "Option2"], // Optional: Array of strings, defaults to []
-     "commandID": "combo.select",      // Optional: String for action identifier
+     "actionID": "combo.select",      // Optional: String for action identifier
      "padding": 10.0,                 // Optional: CGFloat for padding
      "font": "body",                  // Optional: SwiftUI font (e.g., "title", "body")
      "foregroundColor": "blue",       // Optional: SwiftUI color (e.g., "red", "blue")
@@ -22,7 +22,7 @@ import SwiftUI
 
 struct ComboBox: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["placeholder", "options", "commandID", "padding", "font", "foregroundColor", "hidden", "pickerStyle"]
+        let supportedProperties = ["placeholder", "options", "actionID", "padding", "font", "foregroundColor", "hidden", "pickerStyle"]
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
@@ -54,7 +54,7 @@ struct ComboBox: StaticElement, ViewBuilder {
     
     static func register(in registry: ViewBuilderRegistry) {
         #if os(macOS) || os(iOS) || os(iPadOS)
-        registry.register("ComboBox") { element, state, dialogGUID in
+        registry.register("ComboBox") { element, state, windowUUID in
             let properties = StaticElement.getValidatedProperties(element: element, state: state)
             let placeholder = properties["placeholder"] as? String ?? ""
             let items = (properties["options"] as? [String]) ?? []
@@ -66,8 +66,8 @@ struct ComboBox: StaticElement, ViewBuilder {
                 get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
                 set: { newValue in
                     state.wrappedValue[element.id] = ["value": newValue]
-                    if let commandID = properties["commandID"] as? String {
-                        commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                    if let actionID = properties["actionID"] as? String {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
                 }
             )

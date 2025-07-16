@@ -8,8 +8,8 @@
      "columns": ["Name", "Age"],           // Required: Array of strings for column headers
      "rows": [["Alice", "30"], ["Bob", "25"]], // Optional: Array of string arrays, defaults to []
      "widths": [100, 50],                 // Optional: Array of integers for column widths
-     "commandID": "table.select",          // Optional: String for selection action identifier
-     "doubleClickCommandID": "table.doubleClick", // Optional: String for double-click action
+     "actionID": "table.select",          // Optional: String for selection action identifier
+     "doubleClickActionID": "table.doubleClick", // Optional: String for double-click action
      "padding": 10.0,                     // Optional: CGFloat for padding
      "font": "body",                      // Optional: SwiftUI font (e.g., "title", "body")
      "foregroundColor": "blue",           // Optional: SwiftUI color (e.g., "red", "blue")
@@ -22,7 +22,7 @@ import SwiftUI
 
 struct Table: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["columns", "rows", "widths", "commandID", "doubleClickCommandID", "padding", "font", "foregroundColor", "hidden"]
+        let supportedProperties = ["columns", "rows", "widths", "actionID", "doubleClickActionID", "padding", "font", "foregroundColor", "hidden"]
         var validatedProperties = properties
         
         #if os(macOS)
@@ -67,7 +67,7 @@ struct Table: StaticElement, ViewBuilder {
     
     static func register(in registry: ViewBuilderRegistry) {
         #if os(macOS)
-        registry.register("Table") { element, state, dialogGUID in
+        registry.register("Table") { element, state, windowUUID in
             let properties = validateProperties(element.properties)
             let columns = (properties["columns"] as? [String]) ?? []
             let widths = (properties["widths"] as? [Int]) ?? []
@@ -77,8 +77,8 @@ struct Table: StaticElement, ViewBuilder {
                     get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String },
                     set: { newValue in
                         state.wrappedValue[element.id] = ["value": newValue ?? ""]
-                        if let commandID = properties["commandID"] as? String {
-                            commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                        if let actionID = properties["actionID"] as? String {
+                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                         }
                     }
                 )) {
@@ -90,14 +90,14 @@ struct Table: StaticElement, ViewBuilder {
                     }
                 }
                 .onChange(of: state.wrappedValue[element.id]?["value"]) { newValue in
-                    if let commandID = properties["commandID"] as? String, newValue != nil {
-                        commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                    if let actionID = properties["actionID"] as? String, newValue != nil {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
                 }
                 .onTapGesture(count: 2) {
-                    if let commandID = properties["doubleClickCommandID"] as? String,
+                    if let actionID = properties["doubleClickActionID"] as? String,
                        let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String {
-                        commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
                 }
             )

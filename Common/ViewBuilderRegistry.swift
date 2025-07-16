@@ -12,26 +12,30 @@ class ViewBuilderRegistry {
         builders[type] = builder
     }
     
-    func build(for element: UIElement, state: Binding<[Int: Any]>, dialogGUID: String) -> AnyView {
-        builders[element.type]?(element, state, dialogGUID) ?? AnyView(EmptyView())
+    func build(for element: UIElement, state: Binding<[Int: Any]>, windowUUID: String) -> AnyView {
+        builders[element.type]?(element, state, windowUUID) ?? AnyView(EmptyView())
     }
     
     static func initRegistry() -> ViewBuilderRegistry {
         let registry = ViewBuilderRegistry()
-        VStack.register(in: registry)
-        HStack.register(in: registry)
-        Spacer.register(in: registry)
-        Text.register(in: registry)
+        AsyncImage.register(in: registry)
         Button.register(in: registry)
-        TextField.register(in: registry)
-        Picker.register(in: registry)
-        Image.register(in: registry)
-        Toggle.register(in: registry)
-        List.register(in: registry)
- //       ComboBox.register(in: registry) DISABLED
-        Table.register(in: registry)
-        TextEditor.register(in: registry)
+//       ComboBox.register(in: registry) DISABLED
+        EmptyView.register(in: registry)
         Grid.register(in: registry)
+        Group.register(in: registry)
+        HStack.register(in: registry)
+        Image.register(in: registry)
+        List.register(in: registry)
+        Picker.register(in: registry)
+        Spacer.register(in: registry)
+        Table.register(in: registry)
+        Text.register(in: registry)
+        TextEditor.register(in: registry)
+        TextField.register(in: registry)
+        Toggle.register(in: registry)
+        VStack.register(in: registry)
+        ZStack.register(in: registry)
         return registry
     }
 }

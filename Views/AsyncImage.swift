@@ -8,7 +8,6 @@
      "placeholder": "photo",                 // Optional: String for SF Symbol or asset name for placeholder, defaults to "photo"
      "resizable": true,                     // Optional: Boolean to make image resizable, defaults to true
      "scaleMode": "fit",                    // Optional: "fit" or "fill" for scaling mode, defaults to "fit"
-     "scrollable": false,                   // Optional: Boolean to wrap in ScrollView for oversized images, defaults to false
      "padding": 10.0,                      // Optional: CGFloat for padding
      "font": "body",                       // Optional: SwiftUI font (e.g., "title", "body")
      "foregroundColor": "blue",             // Optional: SwiftUI color (e.g., "red", "blue")
@@ -21,7 +20,7 @@ import SwiftUI
 
 struct AsyncImage: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["url", "placeholder", "resizable", "scaleMode", "scrollable", "padding", "font", "foregroundColor", "hidden"]
+        let supportedProperties = ["url", "placeholder", "resizable", "scaleMode", "padding", "font", "foregroundColor", "hidden"]
         var validatedProperties = properties
         
         // Validate url
@@ -57,15 +56,7 @@ struct AsyncImage: StaticElement, ViewBuilder {
         if validatedProperties["scaleMode"] == nil {
             validatedProperties["scaleMode"] = "fit" // Default to fit
         }
-        
-        // Validate scrollable
-        if let scrollable = properties["scrollable"] as? Bool {
-            validatedProperties["scrollable"] = scrollable
-        } else if properties["scrollable"] != nil {
-            print("Warning: AsyncImage scrollable must be a boolean; ignoring")
-            validatedProperties["scrollable"] = nil
-        }
-        
+                
         return validatedProperties.filter { key, _ in
             if supportedProperties.contains(key) {
                 return true
@@ -84,7 +75,6 @@ struct AsyncImage: StaticElement, ViewBuilder {
             let placeholder = validatedProperties["placeholder"] as? String ?? "photo"
             let resizable = validatedProperties["resizable"] as? Bool ?? true
             let scaleMode = validatedProperties["scaleMode"] as? String ?? "fit"
-            let scrollable = validatedProperties["scrollable"] as? Bool ?? false
             
             var placeholderView = SwiftUI.Image(systemName: placeholder)
             if resizable {
@@ -92,7 +82,7 @@ struct AsyncImage: StaticElement, ViewBuilder {
             }
             
             guard let urlString = urlString, let url = URL(string: urlString) else {
-                return scrollable ? AnyView(ScrollView(.both, showsIndicators: true) { placeholderView }) : AnyView(placeholderView)
+                return AnyView(placeholderView)
             }
             
             var asyncImage = SwiftUI.AsyncImage(url: url) { phase in
@@ -103,20 +93,8 @@ struct AsyncImage: StaticElement, ViewBuilder {
                     placeholderView
                 }
             }
-            
-            if scrollable {
-                asyncImage = asyncImage.scrollable(.both, showsIndicators: true)
-            }
-            
+                        
             return AnyView(asyncImage)
-        }
-    }
-}
-
-extension SwiftUI.View {
-    func scrollable(_ axes: Axis.Set, showsIndicators: Bool = true) -> some View {
-        ScrollView(axes, showsIndicators: showsIndicators) {
-            self
         }
     }
 }

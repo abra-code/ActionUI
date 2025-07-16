@@ -36,7 +36,7 @@ struct Text: StaticElement, ViewBuilder {
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Text") { element, state, dialogGUID in
+        registry.register("Text") { element, state, windowUUID in
             let properties = getValidatedProperties(element: element, state: state)
             
             let text = properties["text"] as? String ?? ""

@@ -25,25 +25,47 @@ struct StaticElement: UIElement, Codable {
     }
     
     private static let knownTypes: Set<String> = [
-        "VStack", "HStack", "Spacer", "Text", "Button", "TextField", "Picker", "Image", "Toggle", "List", "ComboBox", "TextEditor",
-        "Grid", "Table"
+		"AsyncImage",
+		"Button",
+	//  "ComboBox", DISABLED
+		"EmptyView",
+		"Grid",
+		"Group",
+		"HStack",
+		"Image",
+		"List",
+		"Picker",
+		"Spacer",
+		"Table",
+		"Text",
+		"TextEditor",
+		"TextField",
+		"Toggle",
+		"View",
+		"VStack",
+		"ZStack"
     ]
     
     private static let validators: [String: (StaticElement.Type) -> ([String: Any]) -> [String: Any]] = [
-        "VStack": { _ in VStack.validateProperties },
-        "HStack": { _ in HStack.validateProperties },
-        "Spacer": { _ in Spacer.validateProperties },
-        "Text": { _ in Text.validateProperties },
+        "AsyncImage": { _ in AsyncImage.validateProperties },
         "Button": { _ in Button.validateProperties },
-        "TextField": { _ in TextField.validateProperties },
-        "Picker": { _ in Picker.validateProperties },
-        "Image": { _ in Image.validateProperties },
-        "Toggle": { _ in Toggle.validateProperties },
-        "List": { _ in List.validateProperties },
 //        "ComboBox": { _ in ComboBox.validateProperties }, DISABLED
+        "EmptyView": { _ in EmptyView.validateProperties },
+        "Grid": { _ in Grid.validateProperties },
+        "Group": { _ in Group.validateProperties },
+        "HStack": { _ in HStack.validateProperties },
+        "Image": { _ in Image.validateProperties },
+        "List": { _ in List.validateProperties },
+        "Picker": { _ in Picker.validateProperties },
+        "Spacer": { _ in Spacer.validateProperties },
         "Table": { _ in Table.validateProperties },
+        "Text": { _ in Text.validateProperties },
         "TextEditor": { _ in TextEditor.validateProperties },
-        "Grid": { _ in Grid.validateProperties }
+        "TextField": { _ in TextField.validateProperties },
+        "Toggle": { _ in Toggle.validateProperties },
+        "View": { _ in View.validateProperties },
+        "VStack": { _ in VStack.validateProperties },
+        "ZStack": { _ in ZStack.validateProperties }
     ]
     
     init(id: Int = 0, type: String, properties: [String: Any], children: [UIElement]?) {

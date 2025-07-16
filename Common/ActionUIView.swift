@@ -1,12 +1,12 @@
 import SwiftUI
 
-struct UILibraryView: View {
+struct ActionUIView: View {
     let element: UIElement
     let state: Binding<[Int: Any]>
-    let dialogGUID: String
+    let windowUUID: String
     
     var body: some View {
-        let baseView = ViewBuilderRegistry.shared.build(for: element, state: state, dialogGUID: dialogGUID)
+        let baseView = ViewBuilderRegistry.shared.build(for: element, state: state, windowUUID: windowUUID)
         return ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties)
     }
 }

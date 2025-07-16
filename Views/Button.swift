@@ -6,7 +6,7 @@
    "properties": {
      "title": "Click Me",    // Optional: String, defaults to "Button"
      "disabled": false,      // Optional: Boolean to disable the button
-     "commandID": "button.click", // Optional: String for action identifier
+     "actionID": "button.click", // Optional: String for action identifier
      "padding": 10.0,        // Optional: CGFloat for padding
      "font": "body",         // Optional: SwiftUI font role (e.g., "largeTitle", "title", "title2", "title3", "headline", "subheadline", "body", "callout", "caption", "caption2", "footnote") or custom font name (e.g., "Helvetica", "Times New Roman"), defaults to "body"
      "foregroundColor": "blue", // Optional: SwiftUI color (e.g., "red", "blue", "green", "yellow", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "primary", "secondary") or hex RGBA (e.g., "#FF0000" for red, "#FF0000FF" for red with full opacity), defaults to primary
@@ -21,7 +21,7 @@ import SwiftUI
 
 struct Button: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["title", "disabled", "commandID", "padding", "font", "foregroundColor", "hidden", "style", "role"]
+        let supportedProperties = ["title", "disabled", "actionID", "padding", "font", "foregroundColor", "hidden", "style", "role"]
         var validatedProperties = properties
         
         if validatedProperties["title"] == nil {
@@ -65,7 +65,7 @@ struct Button: StaticElement, ViewBuilder {
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Button") { element, state, dialogGUID in
+        registry.register("Button") { element, state, windowUUID in
             let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
             
             let title = validatedProperties["title"] as? String ?? "Button"
@@ -78,14 +78,14 @@ struct Button: StaticElement, ViewBuilder {
                 buttonRole = .cancel
             }
             
-            let commandID = validatedProperties["commandID"] as? String
+            let actionID = validatedProperties["actionID"] as? String
             
             return AnyView(
                 SwiftUI.Button(
                     role: buttonRole,
                     action: {
-                        if let commandID = commandID {
-                            commandHandler(commandID, dialogGUID: dialogGUID, controlID: element.id, controlPartID: 0, model: UIModel.shared)
+                        if let actionID = actionID {
+                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                         }
                     },
                     label: {
