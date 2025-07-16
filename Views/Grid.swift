@@ -17,7 +17,7 @@
      "horizontalSpacing": 8.0,    // Optional: CGFloat for horizontal spacing between columns
      "verticalSpacing": 8.0       // Optional: CGFloat for vertical spacing between rows
    }
-   // Note: These properties (rows, alignment, horizontalSpacing, verticalSpacing) are specific to Grid. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: These properties (rows, alignment, horizontalSpacing, verticalSpacing) are specific to Grid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -25,14 +25,13 @@ import SwiftUI
 
 struct Grid: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["rows", "alignment", "horizontalSpacing", "verticalSpacing"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
         #if os(watchOS) || os(tvOS)
         print("Warning: Grid is not supported on watchOS/tvOS; defaulting to empty properties")
         validatedProperties = [:]
         #else
-        if let rows = properties["rows"] as? [[Any]], !rows.isEmpty {
+        if let rows = validatedProperties["rows"] as? [[Any]], !rows.isEmpty {
             validatedProperties["rows"] = rows.map { row in
                 row.compactMap { ($0 as? [String: Any]).flatMap { try? StaticElement(from: $0) } }
             }
@@ -40,33 +39,26 @@ struct Grid: StaticElement, ViewBuilder {
             print("Warning: Grid requires non-empty 'rows'; defaulting to empty")
             validatedProperties["rows"] = []
         }
-        if let alignment = properties["alignment"] as? String,
+        if let alignment = validatedProperties["alignment"] as? String,
            !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
             print("Warning: Grid alignment '\(alignment)' invalid; using SwiftUI default")
             validatedProperties["alignment"] = nil
         }
-        if let horizontalSpacing = properties["horizontalSpacing"] as? CGFloat {
+        if let horizontalSpacing = validatedProperties["horizontalSpacing"] as? CGFloat {
             validatedProperties["horizontalSpacing"] = horizontalSpacing
-        } else if properties["horizontalSpacing"] != nil {
+        } else if validatedProperties["horizontalSpacing"] != nil {
             print("Warning: Grid horizontalSpacing must be a CGFloat; ignoring")
             validatedProperties["horizontalSpacing"] = nil
         }
-        if let verticalSpacing = properties["verticalSpacing"] as? CGFloat {
+        if let verticalSpacing = validatedProperties["verticalSpacing"] as? CGFloat {
             validatedProperties["verticalSpacing"] = verticalSpacing
-        } else if properties["verticalSpacing"] != nil {
+        } else if validatedProperties["verticalSpacing"] != nil {
             print("Warning: Grid verticalSpacing must be a CGFloat; ignoring")
             validatedProperties["verticalSpacing"] = nil
         }
         #endif
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for Grid; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {

@@ -11,7 +11,7 @@
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: The spacing and alignment properties are specific to VStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: These properties are specific to VStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -19,32 +19,24 @@ import SwiftUI
 
 struct VStack: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["spacing", "alignment"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
-        if let spacing = properties["spacing"] as? CGFloat {
+        if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
-        } else if properties["spacing"] != nil {
+        } else if validatedProperties["spacing"] != nil {
             print("Warning: VStack spacing must be a CGFloat; ignoring")
             validatedProperties["spacing"] = nil
         }
         
-        if let alignment = properties["alignment"] as? String,
+        if let alignment = validatedProperties["alignment"] as? String,
            ["leading", "center", "trailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
-        } else if properties["alignment"] != nil {
+        } else if validatedProperties["alignment"] != nil {
             print("Warning: VStack alignment must be 'leading', 'center', or 'trailing'; ignoring")
             validatedProperties["alignment"] = nil
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for VStack; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {

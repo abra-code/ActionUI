@@ -1,4 +1,3 @@
-
 /*
  Sample JSON for Table (macOS only):
  {
@@ -8,13 +7,9 @@
      "columns": ["Name", "Age"],           // Required: Array of strings for column headers
      "rows": [["Alice", "30"], ["Bob", "25"]], // Optional: Array of string arrays, defaults to []
      "widths": [100, 50],                 // Optional: Array of integers for column widths
-     "actionID": "table.select",          // Optional: String for selection action identifier
-     "doubleClickActionID": "table.doubleClick", // Optional: String for double-click action
-     "padding": 10.0,                     // Optional: CGFloat for padding
-     "font": "body",                      // Optional: SwiftUI font (e.g., "title", "body")
-     "foregroundColor": "blue",           // Optional: SwiftUI color (e.g., "red", "blue")
-     "hidden": false                      // Optional: Boolean to hide the view
+     "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action identifier
    }
+   // Note: These properties are specific to Table. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -22,23 +17,22 @@ import SwiftUI
 
 struct Table: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["columns", "rows", "widths", "actionID", "doubleClickActionID", "padding", "font", "foregroundColor", "hidden"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
         #if os(macOS)
-        if properties["columns"] == nil {
+        if validatedProperties["columns"] == nil {
             print("Warning: Table requires 'columns'; defaulting to empty")
             validatedProperties["columns"] = []
         }
-        validatedProperties["rows"] = properties["rows"] as? [[String]] ?? []
-        if let columns = properties["columns"] as? [String],
-           let widths = properties["widths"] as? [Int],
+        validatedProperties["rows"] = validatedProperties["rows"] as? [[String]] ?? []
+        if let columns = validatedProperties["columns"] as? [String],
+           let widths = validatedProperties["widths"] as? [Int],
            widths.count > columns.count {
             print("Warning: Table widths count (\(widths.count)) exceeds columns count (\(columns.count)); ignoring extra widths")
             validatedProperties["widths"] = Array(widths.prefix(columns.count))
         }
-        if let columns = properties["columns"] as? [String],
-           let rows = properties["rows"] as? [[String]] {
+        if let columns = validatedProperties["columns"] as? [String],
+           let rows = validatedProperties["rows"] as? [[String]] {
             validatedProperties["rows"] = rows.map { row in
                 if row.count < columns.count {
                     print("Warning: Table row has \(row.count) values, expected \(columns.count); padding with empty strings")
@@ -50,25 +44,24 @@ struct Table: StaticElement, ViewBuilder {
                 return row
             }
         }
+        if let doubleClickActionID = validatedProperties["doubleClickActionID"] as? String {
+            validatedProperties["doubleClickActionID"] = doubleClickActionID
+        } else if validatedProperties["doubleClickActionID"] != nil {
+            print("Warning: Table doubleClickActionID must be a string; ignoring")
+            validatedProperties["doubleClickActionID"] = nil
+        }
         #else
         print("Warning: Table is macOS-only; defaulting to empty properties")
         validatedProperties = [:]
         #endif
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for Table; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {
         #if os(macOS)
         registry.register("Table") { element, state, windowUUID in
-            let properties = validateProperties(element.properties)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             let columns = (properties["columns"] as? [String]) ?? []
             let widths = (properties["widths"] as? [Int]) ?? []
             let rows = ((properties["rows"] as? [[String]]) ?? []).map { TableRow(id: UUID().uuidString, values: $0) }

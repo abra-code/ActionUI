@@ -1,4 +1,3 @@
-
 /*
  Sample JSON for List:
  {
@@ -6,13 +5,9 @@
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "items": ["Item1", "Item2"], // Optional: Array of strings, defaults to []
-     "actionID": "list.select",  // Optional: String for selection action identifier
      "doubleClickActionID": "list.doubleClick", // Optional: String for double-click action (macOS only)
-     "padding": 10.0,            // Optional: CGFloat for padding
-     "font": "body",             // Optional: SwiftUI font (e.g., "title", "body")
-     "foregroundColor": "blue",  // Optional: SwiftUI color (e.g., "red", "blue")
-     "hidden": false             // Optional: Boolean to hide the view
    }
+   // Note: These properties are specific to List. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -20,24 +15,23 @@ import SwiftUI
 
 struct List: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["items", "actionID", "doubleClickActionID", "padding", "font", "foregroundColor", "hidden"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
-        validatedProperties["items"] = properties["items"] as? [String] ?? []
+        validatedProperties["items"] = validatedProperties["items"] as? [String] ?? []
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for List; ignoring")
-                return false
-            }
+        if let doubleClickActionID = validatedProperties["doubleClickActionID"] as? String {
+            validatedProperties["doubleClickActionID"] = doubleClickActionID
+        } else if validatedProperties["doubleClickActionID"] != nil {
+            print("Warning: List doubleClickActionID must be a string; ignoring")
+            validatedProperties["doubleClickActionID"] = nil
         }
+        
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("List") { element, state, windowUUID in
-            let properties = validateProperties(element.properties)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             let items = (properties["items"] as? [String]) ?? []
             if state.wrappedValue[element.id] == nil {
                 state.wrappedValue[element.id] = ["value": ""]

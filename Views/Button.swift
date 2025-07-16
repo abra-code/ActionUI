@@ -14,6 +14,7 @@
      "style": "plain",       // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain"
      "role": "destructive"   // Optional: Button role (e.g., "destructive", "cancel")
    }
+   // Note: These properties are specific to Button. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -21,8 +22,7 @@ import SwiftUI
 
 struct Button: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["title", "disabled", "actionID", "padding", "font", "foregroundColor", "hidden", "style", "role"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["title"] == nil {
             validatedProperties["title"] = "Button"
@@ -33,35 +33,28 @@ struct Button: StaticElement, ViewBuilder {
             print("Warning: Button disabled must be a boolean; ignoring")
             validatedProperties["disabled"] = nil
         }
-        if let style = properties["style"] as? String {
+        if let style = validatedProperties["style"] as? String {
             if !["plain", "bordered", "borderedProminent"].contains(style) {
                 print("Warning: Button style '\(style)' invalid; defaulting to 'plain'")
                 validatedProperties["style"] = "plain"
             }
-        } else if properties["style"] != nil {
+        } else if validatedProperties["style"] != nil {
             print("Warning: Button style must be a string; defaulting to 'plain'")
             validatedProperties["style"] = "plain"
         } else {
             validatedProperties["style"] = "plain"
         }
-        if let role = properties["role"] as? String {
+        if let role = validatedProperties["role"] as? String {
             if !["destructive", "cancel"].contains(role) {
                 print("Warning: Button role '\(role)' invalid; ignoring")
                 validatedProperties["role"] = nil
             }
-        } else if properties["role"] != nil {
+        } else if validatedProperties["role"] != nil {
             print("Warning: Button role must be a string; ignoring")
             validatedProperties["role"] = nil
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for Button; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {

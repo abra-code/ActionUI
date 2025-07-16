@@ -10,7 +10,7 @@
      { "type": "Text", "properties": { "text": "Background" } },
      { "type": "Text", "properties": { "text": "Foreground" } }
    ]
-   // Note: The alignment property is specific to ZStack. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: These properties are specific to ZStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -18,25 +18,17 @@ import SwiftUI
 
 struct ZStack: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["alignment"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
-        if let alignment = properties["alignment"] as? String,
+        if let alignment = validatedProperties["alignment"] as? String,
            ["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
-        } else if properties["alignment"] != nil {
+        } else if validatedProperties["alignment"] != nil {
             print("Warning: ZStack alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring")
             validatedProperties["alignment"] = nil
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for ZStack; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {

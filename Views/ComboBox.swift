@@ -1,6 +1,4 @@
 /*
- CURRENTLY DISABLED - two part control presents a challenge which properties apply to which part
- 
  Sample JSON for ComboBox (macOS, iOS, iPadOS only):
  {
    "type": "ComboBox",
@@ -8,13 +6,9 @@
    "properties": {
      "placeholder": "Select an option", // Optional: String, defaults to ""
      "options": ["Option1", "Option2"], // Optional: Array of strings, defaults to []
-     "actionID": "combo.select",      // Optional: String for action identifier
-     "padding": 10.0,                 // Optional: CGFloat for padding
-     "font": "body",                  // Optional: SwiftUI font (e.g., "title", "body")
-     "foregroundColor": "blue",       // Optional: SwiftUI color (e.g., "red", "blue")
-     "hidden": false                  // Optional: Boolean to hide the view
      "pickerStyle": "menu"            // Optional: String ("menu", "wheel", "segmented") for Picker style
    }
+   // Note: These properties are specific to ComboBox. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -22,34 +16,26 @@ import SwiftUI
 
 struct ComboBox: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["placeholder", "options", "actionID", "padding", "font", "foregroundColor", "hidden", "pickerStyle"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
         #if os(watchOS) || os(tvOS)
         print("Warning: ComboBox is not supported on watchOS/tvOS; defaulting to empty properties")
         validatedProperties = [:]
         #else
-        if let options = properties["options"] as? [String], options.isEmpty {
+        if let options = validatedProperties["options"] as? [String], options.isEmpty {
             print("Warning: ComboBox options is empty; initializing with empty array")
             validatedProperties["options"] = []
         }
         if validatedProperties["placeholder"] == nil {
             validatedProperties["placeholder"] = ""
         }
-        if let pickerStyle = properties["pickerStyle"] as? String, !["menu", "wheel", "segmented"].contains(pickerStyle) {
+        if let pickerStyle = validatedProperties["pickerStyle"] as? String, !["menu", "wheel", "segmented"].contains(pickerStyle) {
             print("Warning: ComboBox pickerStyle '\(pickerStyle)' invalid; defaulting to 'menu'")
             validatedProperties["pickerStyle"] = "menu"
         }
         #endif
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for ComboBox; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {

@@ -15,7 +15,7 @@
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: The columns, spacing, and alignment properties are specific to LazyVGrid. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: The columns, spacing, and alignment properties are specific to LazyVGrid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -23,10 +23,9 @@ import SwiftUI
 
 struct LazyVGrid: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["columns", "spacing", "alignment"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
-        if let columns = properties["columns"] as? [[String: Any]] {
+        if let columns = validatedProperties["columns"] as? [[String: Any]] {
             var validatedColumns: [[String: Any]] = []
             for column in columns {
                 var validatedColumn: [String: Any] = [:]
@@ -46,34 +45,27 @@ struct LazyVGrid: StaticElement, ViewBuilder {
                 print("Warning: LazyVGrid columns must contain valid minimum or flexible values; ignoring")
                 validatedProperties["columns"] = nil
             }
-        } else if properties["columns"] != nil {
+        } else if validatedProperties["columns"] != nil {
             print("Warning: LazyVGrid columns must be an array of dictionaries; ignoring")
             validatedProperties["columns"] = nil
         }
         
-        if let spacing = properties["spacing"] as? CGFloat {
+        if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
-        } else if properties["spacing"] != nil {
+        } else if validatedProperties["spacing"] != nil {
             print("Warning: LazyVGrid spacing must be a CGFloat; ignoring")
             validatedProperties["spacing"] = nil
         }
         
-        if let alignment = properties["alignment"] as? String,
+        if let alignment = validatedProperties["alignment"] as? String,
            ["leading", "center", "trailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
-        } else if properties["alignment"] != nil {
+        } else if validatedProperties["alignment"] != nil {
             print("Warning: LazyVGrid alignment must be 'leading', 'center', or 'trailing'; ignoring")
             validatedProperties["alignment"] = nil
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for LazyVGrid; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {

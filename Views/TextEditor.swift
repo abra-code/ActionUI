@@ -1,17 +1,12 @@
-
 /*
  Sample JSON for TextEditor:
  {
    "type": "TextEditor",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "placeholder": "Enter text here", // Optional: String, defaults to "Enter text"
-     "actionID": "editor.changed",    // Optional: String for action identifier
-     "padding": 10.0,                 // Optional: CGFloat for padding
-     "font": "body",                  // Optional: SwiftUI font (e.g., "title", "body")
-     "foregroundColor": "blue",       // Optional: SwiftUI color (e.g., "red", "blue")
-     "hidden": false                  // Optional: Boolean to hide the view
+     "placeholder": "Enter text here" // Optional: String, defaults to "Enter text"
    }
+   // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -19,26 +14,18 @@ import SwiftUI
 
 struct TextEditor: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["placeholder", "actionID", "padding", "font", "foregroundColor", "hidden"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["placeholder"] == nil {
             validatedProperties["placeholder"] = "Enter text"
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for TextEditor; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("TextEditor") { element, state, windowUUID in
-            let properties = validateProperties(element.properties)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             let placeholder = properties["placeholder"] as? String ?? "Enter text"
             if state.wrappedValue[element.id] == nil {
                 state.wrappedValue[element.id] = ["value": ""]

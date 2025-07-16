@@ -8,7 +8,7 @@
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: Group has no specific properties and does not control layout geometry, relying on the parent container for alignment and spacing. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers to the group as a whole.
+   // Note: Group has no specific properties and does not control layout geometry, relying on the parent container for alignment and spacing. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are supported and applied via ModifierRegistry.shared.applyModifiers to the group as a whole.
  }
 */
 
@@ -16,17 +16,7 @@ import SwiftUI
 
 struct Group: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties: [String] = []
-        var validatedProperties = properties
-        
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for Group; ignoring")
-                return false
-            }
-        }
+        return View.validateProperties(properties)
     }
     
     static func register(in registry: ViewBuilderRegistry) {

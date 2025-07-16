@@ -1,4 +1,3 @@
-
 /*
  Sample JSON for Toggle:
  {
@@ -7,12 +6,8 @@
    "properties": {
      "label": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch", "checkbox", "button"; defaults to "switch"
-     "actionID": "toggle.changed", // Optional: String for action identifier
-     "padding": 10.0,          // Optional: CGFloat for padding
-     "font": "body",           // Optional: SwiftUI font (e.g., "title", "body")
-     "foregroundColor": "blue", // Optional: SwiftUI color (e.g., "red", "blue")
-     "hidden": false           // Optional: Boolean to hide the view
    }
+   // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -20,10 +15,9 @@ import SwiftUI
 
 struct Toggle: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["label", "style", "actionID", "padding", "font", "foregroundColor", "hidden"]
-        var validatedProperties = properties
+        var validatedProperties = View.validateProperties(properties)
         
-        if let style = properties["style"] as? String, !["switch", "checkbox", "button"].contains(style) {
+        if let style = validatedProperties["style"] as? String, !["switch", "checkbox", "button"].contains(style) {
             print("Warning: Toggle style '\(style)' invalid; defaulting to switch")
             validatedProperties["style"] = "switch"
         }
@@ -34,19 +28,12 @@ struct Toggle: StaticElement, ViewBuilder {
             validatedProperties["label"] = "Toggle"
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for Toggle; ignoring")
-                return false
-            }
-        }
+        return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("Toggle") { element, state, windowUUID in
-            let properties = validateProperties(element.properties)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             let label = properties["label"] as? String ?? "Toggle"
             let style = properties["style"] as? String ?? "switch"
             if state.wrappedValue[element.id] == nil {

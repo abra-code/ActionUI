@@ -14,17 +14,18 @@
        "height": 100.0     // Optional: CGFloat for height
      },
      "opacity": 1.0,       // Optional: Float (0.0 to 1.0) for view transparency
-     "cornerRadius": 5.0   // Optional: CGFloat for rounded corners
+     "cornerRadius": 5.0,  // Optional: CGFloat for rounded corners
+     "actionID": "view.action" // Optional: String for action identifier, applicable to all elements with action handlers
    }
-   // Note: These properties serve as the baseline for all views. All additional properties/modifiers inherited from SwiftUI's View protocol are supported and applied via ModifierRegistry.shared.applyModifiers.
+   // Note: These properties serve as the baseline for all views. All additional properties/modifiers inherited from SwiftUI's View protocol are supported and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties). Only view/control-specific properties are listed in derived views.
  }
 */
 
 import SwiftUI
 
-struct View: StaticElement, ViewBuilder {
+struct View: StaticElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        let supportedProperties = ["padding", "hidden", "foregroundColor", "font", "background", "frame", "opacity", "cornerRadius"]
+        let supportedProperties = ["padding", "hidden", "foregroundColor", "font", "background", "frame", "opacity", "cornerRadius", "actionID"]
         var validatedProperties = properties
         
         if let padding = properties["padding"] as? CGFloat {
@@ -101,14 +102,14 @@ struct View: StaticElement, ViewBuilder {
             validatedProperties["cornerRadius"] = nil
         }
         
-        return validatedProperties.filter { key, _ in
-            if supportedProperties.contains(key) {
-                return true
-            } else {
-                print("Warning: Property '\(key)' is not supported for base View; ignoring")
-                return false
-            }
+        if let actionID = properties["actionID"] as? String {
+            validatedProperties["actionID"] = actionID
+        } else if properties["actionID"] != nil {
+            print("Warning: View actionID must be a string; ignoring")
+            validatedProperties["actionID"] = nil
         }
+        
+        return validatedProperties
     }
     
     // this is a base View. It is never created explicitly so does not have a register() function
