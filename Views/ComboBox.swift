@@ -8,7 +8,7 @@
      "options": ["Option1", "Option2"], // Optional: Array of strings, defaults to []
      "pickerStyle": "menu"            // Optional: String ("menu", "wheel", "segmented") for Picker style
    }
-   // Note: These properties are specific to ComboBox. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to ComboBox. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -84,5 +84,9 @@ struct ComboBox: StaticElement, ViewBuilder {
             return AnyView(EmptyView())
         }
         #endif
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }

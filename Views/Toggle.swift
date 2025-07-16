@@ -7,7 +7,7 @@
      "label": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch", "checkbox", "button"; defaults to "switch"
    }
-   // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -39,24 +39,29 @@ struct Toggle: StaticElement, ViewBuilder {
             if state.wrappedValue[element.id] == nil {
                 state.wrappedValue[element.id] = ["value": false]
             }
+            let toggleBinding = Binding(
+                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? false },
+                set: { newValue in
+                    state.wrappedValue[element.id] = ["value": newValue]
+                    if let actionID = properties["actionID"] as? String {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                    }
+                }
+            )
             return AnyView(
-                SwiftUI.Toggle(label, isOn: Binding(
-                    get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? false },
-                    set: { newValue in
-                        state.wrappedValue[element.id] = ["value": newValue]
-                        if let actionID = properties["actionID"] as? String {
-                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                SwiftUI.Toggle(label, isOn: toggleBinding)
+                    .toggleStyle({
+                        switch style {
+                        case "checkbox": return .checkbox
+                        case "button": return .button
+                        default: return .switch
                         }
-                    }
-                ))
-                .toggleStyle({
-                    switch style {
-                    case "checkbox": return .checkbox
-                    case "button": return .button
-                    default: return .switch
-                    }
-                }())
+                    }())
             )
         }
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }

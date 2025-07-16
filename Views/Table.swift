@@ -9,7 +9,7 @@
      "widths": [100, 50],                 // Optional: Array of integers for column widths
      "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action identifier
    }
-   // Note: These properties are specific to Table. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Table. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -65,16 +65,17 @@ struct Table: StaticElement, ViewBuilder {
             let columns = (properties["columns"] as? [String]) ?? []
             let widths = (properties["widths"] as? [Int]) ?? []
             let rows = ((properties["rows"] as? [[String]]) ?? []).map { TableRow(id: UUID().uuidString, values: $0) }
-            return AnyView(
-                SwiftUI.Table(rows, selection: Binding(
-                    get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String },
-                    set: { newValue in
-                        state.wrappedValue[element.id] = ["value": newValue ?? ""]
-                        if let actionID = properties["actionID"] as? String {
-                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                        }
+            let selectionBinding = Binding(
+                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String },
+                set: { newValue in
+                    state.wrappedValue[element.id] = ["value": newValue ?? ""]
+                    if let actionID = properties["actionID"] as? String {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
-                )) {
+                }
+            )
+            return AnyView(
+                SwiftUI.Table(rows, selection: selectionBinding) {
                     ForEach(Array(columns.enumerated()), id: \.offset) { index, column in
                         SwiftUI.TableColumn(column, value: \.values[index]) { row in
                             SwiftUI.Text(row.values[index])
@@ -101,6 +102,10 @@ struct Table: StaticElement, ViewBuilder {
             return AnyView(EmptyView())
         }
         #endif
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }
 

@@ -17,7 +17,7 @@
      "horizontalSpacing": 8.0,    // Optional: CGFloat for horizontal spacing between columns
      "verticalSpacing": 8.0       // Optional: CGFloat for vertical spacing between rows
    }
-   // Note: These properties (rows, alignment, horizontalSpacing, verticalSpacing) are specific to Grid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties (rows, alignment, horizontalSpacing, verticalSpacing) are specific to Grid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -102,5 +102,9 @@ struct Grid: StaticElement, ViewBuilder {
             return AnyView(EmptyView())
         }
         #endif
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }

@@ -4,9 +4,9 @@
    "type": "TextEditor",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "placeholder": "Enter text here" // Optional: String, defaults to "Enter text"
+     "placeholder": "Enter text here", // Optional: String, defaults to "Enter text"
    }
-   // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -30,29 +30,34 @@ struct TextEditor: StaticElement, ViewBuilder {
             if state.wrappedValue[element.id] == nil {
                 state.wrappedValue[element.id] = ["value": ""]
             }
-            return AnyView(
-                SwiftUI.TextEditor(text: Binding(
-                    get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
-                    set: { newValue in
-                        state.wrappedValue[element.id] = ["value": newValue]
-                        if let actionID = properties["actionID"] as? String {
-                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                        }
+            let textBinding = Binding(
+                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
+                set: { newValue in
+                    state.wrappedValue[element.id] = ["value": newValue]
+                    if let actionID = properties["actionID"] as? String {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
-                ))
-                .overlay(
-                    Group {
-                        if (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String == "" {
-                            SwiftUI.Text(placeholder)
-                                .foregroundColor(.gray)
-                                .allowsHitTesting(false)
-                        } else {
-                            EmptyView()
-                        }
-                    },
-                    alignment: .topLeading
-                )
+                }
+            )
+            return AnyView(
+                SwiftUI.TextEditor(text: textBinding)
+                    .overlay(
+                        Group {
+                            if (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String == "" {
+                                SwiftUI.Text(placeholder)
+                                    .foregroundColor(.gray)
+                                    .allowsHitTesting(false)
+                            } else {
+                                EmptyView()
+                            }
+                        },
+                        alignment: .topLeading
+                    )
             )
         }
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }

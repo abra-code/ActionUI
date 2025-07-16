@@ -7,7 +7,7 @@
      "items": ["Item1", "Item2"], // Optional: Array of strings, defaults to []
      "doubleClickActionID": "list.doubleClick", // Optional: String for double-click action (macOS only)
    }
-   // Note: These properties are specific to List. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to List. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -36,15 +36,16 @@ struct List: StaticElement, ViewBuilder {
             if state.wrappedValue[element.id] == nil {
                 state.wrappedValue[element.id] = ["value": ""]
             }
-            var list = SwiftUI.List(items, id: \.self, selection: Binding(
-                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String },
+            let selectionBinding = Binding(
+                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
                 set: { newValue in
                     state.wrappedValue[element.id] = ["value": newValue ?? ""]
                     if let actionID = properties["actionID"] as? String {
                         actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
                 }
-            )) { item in
+            )
+            var list = SwiftUI.List(items, id: \.self, selection: selectionBinding) { item in
                 SwiftUI.Text(item)
             }
             .onChange(of: state.wrappedValue[element.id]?["value"]) { newValue in
@@ -62,5 +63,9 @@ struct List: StaticElement, ViewBuilder {
             #endif
             return AnyView(list)
         }
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }

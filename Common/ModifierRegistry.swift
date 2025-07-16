@@ -12,11 +12,23 @@ class ModifierRegistry {
     
     static func setupModifiers() {
 		View.registerModifiers()
-		Button.registerModifiers()
-		AsyncImage.registerModifiers()
-		Image.registerModifiers()
-		Spacer.registerModifiers()
-		Picker.registerModifiers()
+		Text.registerModifiers()
+		List.registerModifiers()
+		LazyHStack.registerModifiers()
+		EmptyView.registerModifiers()
+		Grid.registerModifiers()
+		TextField.registerModifiers()
+		LazyVGrid.registerModifiers()
+		Group.registerModifiers()
+		HStack.registerModifiers()
+		TextEditor.registerModifiers()
+		LazyVStack.registerModifiers()
+		ComboBox.registerModifiers()
+		ZStack.registerModifiers()
+		Table.registerModifiers()
+		Toggle.registerModifiers()
+		VStack.registerModifiers()
+		LazyHGrid.registerModifiers()
 		// Add other views as needed
 	}
 

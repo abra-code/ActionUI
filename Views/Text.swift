@@ -6,7 +6,7 @@
    "properties": {
      "text": "Hello, World!", // Optional: String, defaults to empty string
    }
-   // Note: These properties are specific to Text. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Text. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -28,18 +28,14 @@ struct Text: StaticElement, ViewBuilder {
             let properties = StaticElement.getValidatedProperties(element: element, state: state)
             
             let text = properties["text"] as? String ?? ""
-            let padding = properties["padding"] as? CGFloat ?? 0.0
-            let font = properties["font"]
-            let foregroundColor = properties["foregroundColor"]
-            let hidden = properties["hidden"] as? Bool ?? false
             
             return AnyView(
                 SwiftUI.Text(text)
-                    .font(FontUtility.resolveFont(font))
-                    .foregroundColor(ColorUtility.resolveColor(foregroundColor))
-                    .padding(padding)
-                    .opacity(hidden ? 0 : 1)
             )
         }
+    }
+    
+    static func registerModifiers() {
+        // No specific modifiers beyond base View properties
     }
 }
