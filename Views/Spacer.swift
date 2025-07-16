@@ -29,8 +29,16 @@ struct Spacer: StaticElement, ViewBuilder {
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("Spacer") { element, _, _ in
             let properties = StaticElement.getValidatedProperties(element: element, state: nil)
-            let minLength = properties["minLength"] as? CGFloat
-            return AnyView(SwiftUI.Spacer().frame(minWidth: minLength))
+            return AnyView(SwiftUI.Spacer())
+        }
+    }
+    
+    static func registerModifiers() {
+        ModifierRegistry.shared.register("minLength") { view, properties in
+            if let minLength = properties["minLength"] as? CGFloat {
+                return AnyView(view.frame(minWidth: minLength))
+            }
+            return view
         }
     }
 }

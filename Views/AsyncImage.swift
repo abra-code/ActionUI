@@ -58,32 +58,35 @@ struct AsyncImage: StaticElement, ViewBuilder {
     
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("AsyncImage") { element, state, windowUUID in
-            let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             
-            let urlString = validatedProperties["url"] as? String
-            let placeholder = validatedProperties["placeholder"] as? String ?? "photo"
-            let resizable = validatedProperties["resizable"] as? Bool ?? true
-            let scaleMode = validatedProperties["scaleMode"] as? String ?? "fit"
-            
-            var placeholderView = SwiftUI.Image(systemName: placeholder)
-            if resizable {
-                placeholderView = placeholderView.resizable().scaledToFit(scaleMode == "fit" ? .fit : .fill)
-            }
+            let urlString = properties["url"] as? String
+            let placeholder = properties["placeholder"] as? String ?? "photo"
             
             guard let urlString = urlString, let url = URL(string: urlString) else {
-                return AnyView(placeholderView)
+                return AnyView(SwiftUI.Image(systemName: placeholder))
             }
             
-            var asyncImage = SwiftUI.AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    resizable ? image.resizable().scaledToFit(scaleMode == "fit" ? .fit : .fill) : image
-                case .failure, .empty:
-                    placeholderView
+            return AnyView(
+                SwiftUI.AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                    case .failure, .empty:
+                        SwiftUI.Image(systemName: placeholder)
+                    }
                 }
+            )
+        }
+    }
+    
+    static func registerModifiers() {
+        ModifierRegistry.shared.register("resizable") { view, properties in
+            if let resizable = properties["resizable"] as? Bool, resizable {
+                let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
+                return AnyView(view.resizable().scaledToFit(scaleMode == "fit" ? .fit : .fill))
             }
-            
-            return AnyView(asyncImage)
+            return view
         }
     }
 }

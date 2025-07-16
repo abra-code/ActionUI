@@ -8,7 +8,7 @@
      "options": ["Option1", "Option2"], // Required: Array of strings
      "pickerStyle": "menu"       // Optional: "menu", "wheel", "segmented"
    }
-   // Note: These properties are specific to Picker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Picker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -41,7 +41,7 @@ struct Picker: StaticElement, ViewBuilder {
             if state.wrappedValue[element.id] == nil {
                 state.wrappedValue[element.id] = ["value": items.first ?? ""]
             }
-            var picker = SwiftUI.Picker(title, selection: Binding(
+            let selectionBinding = Binding(
                 get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? items.first ?? "" },
                 set: { newValue in
                     state.wrappedValue[element.id] = ["value": newValue]
@@ -49,20 +49,28 @@ struct Picker: StaticElement, ViewBuilder {
                         actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
                 }
-            )) {
-                ForEach(items, id: \.self) { item in
-                    SwiftUI.Text(item).tag(item)
+            )
+            return AnyView(
+                SwiftUI.Picker(title, selection: selectionBinding) {
+                    ForEach(items, id: \.self) { item in
+                        SwiftUI.Text(item).tag(item)
+                    }
                 }
-            }
+            )
+        }
+    }
+    
+    static func registerModifiers() {
+        ModifierRegistry.shared.register("pickerStyle") { view, properties in
             if let style = properties["pickerStyle"] as? String {
                 switch style {
-                case "menu": picker = picker.pickerStyle(.menu)
-                case "wheel": picker = picker.pickerStyle(.wheel)
-                case "segmented": picker = picker.pickerStyle(.segmented)
-                default: break
+                case "menu": return AnyView(view.pickerStyle(.menu))
+                case "wheel": return AnyView(view.pickerStyle(.wheel))
+                case "segmented": return AnyView(view.pickerStyle(.segmented))
+                default: return view
                 }
             }
-            return AnyView(picker)
+            return view
         }
     }
 }

@@ -9,9 +9,8 @@
      "filePath": "/path/to/image.jpg", // Optional: String for local file path
      "resizable": true,          // Optional: Boolean to make image resizable, defaults to true
      "scaleMode": "fit",         // Optional: String ("fit" or "fill") for scaling mode, defaults to "fit"
-     "disabled": false          // Optional: Boolean to disable interactions, defaults to false
    }
-   // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
    // Note: To enable scrolling, wrap Image in a ScrollView manually, e.g.:
    // {
    //   "type": "ScrollView",
@@ -66,42 +65,33 @@ struct Image: StaticElement, ViewBuilder {
             }
         }
         
-        // Validate disabled
-        if let disabled = validatedProperties["disabled"] as? Bool {
-            validatedProperties["disabled"] = disabled
-        } else if validatedProperties["disabled"] != nil {
-            print("Warning: Image disabled must be a boolean; defaulting to false")
-            validatedProperties["disabled"] = false
-        }
-        
         return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("Image") { element, state, windowUUID in
-            let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             
             var image: SwiftUI.Image? = nil
-            if let systemName = validatedProperties["systemName"] as? String {
+            if let systemName = properties["systemName"] as? String {
                 image = SwiftUI.Image(systemName: systemName)
-            } else if let name = validatedProperties["name"] as? String {
+            } else if let name = properties["name"] as? String {
                 image = SwiftUI.Image(name)
-            } else if let filePath = validatedProperties["filePath"] as? String {
-                // Assuming filePath is now handled by a helper or SwiftUI directly
+            } else if let filePath = properties["filePath"] as? String {
                 image = SwiftUI.Image(filePath) // Placeholder; adjust if a helper is used
             }
             
-            // Fallback to photo if no image was set
-            let finalImage = image ?? SwiftUI.Image(systemName: "photo")
-            
-            if validatedProperties["resizable"] as? Bool ?? true {
-                let scaleMode = validatedProperties["scaleMode"] as? String ?? "fit"
-                image = finalImage.resizable().scaledToFit(scaleMode == "fit" ? .fit : .fill)
-            } else {
-                image = finalImage
+            return AnyView(image ?? SwiftUI.Image(systemName: "photo"))
+        }
+    }
+    
+    static func registerModifiers() {
+        ModifierRegistry.shared.register("resizable") { view, properties in
+            if let resizable = properties["resizable"] as? Bool, resizable {
+                let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
+                return AnyView(view.resizable().scaledToFit(scaleMode == "fit" ? .fit : .fill))
             }
-            
-            return AnyView(image) // Base view for modifier application in ActionUIView
+            return view
         }
     }
 }

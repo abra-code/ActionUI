@@ -54,10 +54,10 @@ struct Button: StaticElement, ViewBuilder {
     
     static func register(in registry: ViewBuilderRegistry) {
         registry.register("Button") { element, state, windowUUID in
-            let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
             
-            let title = validatedProperties["title"] as? String ?? "Button"
-            let role = validatedProperties["role"] as? String
+            let title = properties["title"] as? String ?? "Button"
+            let role = properties["role"] as? String
             
             var buttonRole: ButtonRole?
             if role == "destructive" {
@@ -66,7 +66,7 @@ struct Button: StaticElement, ViewBuilder {
                 buttonRole = .cancel
             }
             
-            let actionID = validatedProperties["actionID"] as? String
+            let actionID = properties["actionID"] as? String
             
             return AnyView(
                 SwiftUI.Button(
@@ -81,6 +81,19 @@ struct Button: StaticElement, ViewBuilder {
                     }
                 )
             )
+        }
+    }
+    
+    static func registerModifiers() {
+        ModifierRegistry.shared.register("style") { view, properties in
+            if let style = properties["style"] as? String {
+                switch style {
+                case "bordered": return AnyView(view.buttonStyle(.bordered))
+                case "borderedProminent": return AnyView(view.buttonStyle(.borderedProminent))
+                default: return AnyView(view.buttonStyle(.plain))
+                }
+            }
+            return view
         }
     }
 }
