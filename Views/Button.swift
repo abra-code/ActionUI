@@ -6,11 +6,6 @@
    "properties": {
      "title": "Click Me",    // Optional: String, defaults to "Button"
      "disabled": false,      // Optional: Boolean to disable the button
-     "actionID": "button.click", // Optional: String for action identifier
-     "padding": 10.0,        // Optional: CGFloat for padding
-     "font": "body",         // Optional: SwiftUI font role (e.g., "largeTitle", "title", "title2", "title3", "headline", "subheadline", "body", "callout", "caption", "caption2", "footnote") or custom font name (e.g., "Helvetica", "Times New Roman"), defaults to "body"
-     "foregroundColor": "blue", // Optional: SwiftUI color (e.g., "red", "blue", "green", "yellow", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "primary", "secondary") or hex RGBA (e.g., "#FF0000" for red, "#FF0000FF" for red with full opacity), defaults to primary
-     "hidden": false,        // Optional: Boolean to hide the view
      "style": "plain",       // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain"
      "role": "destructive"   // Optional: Button role (e.g., "destructive", "cancel")
    }
