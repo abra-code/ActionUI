@@ -33,8 +33,8 @@ struct Spacer: StaticElement, ViewBuilder {
         }
     }
     
-    static func registerModifiers() {
-        ModifierRegistry.shared.register("minLength") { view, properties in
+    static func registerModifiers(registry: ModifierRegistry) {
+        registry.register("minLength") { view, properties in
             if let minLength = properties["minLength"] as? CGFloat {
                 return AnyView(view.frame(minWidth: minLength))
             }

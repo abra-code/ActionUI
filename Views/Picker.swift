@@ -60,8 +60,8 @@ struct Picker: StaticElement, ViewBuilder {
         }
     }
     
-    static func registerModifiers() {
-        ModifierRegistry.shared.register("pickerStyle") { view, properties in
+    static func registerModifiers(registry: ModifierRegistry) {
+        registry.register("pickerStyle") { view, properties in
             if let style = properties["pickerStyle"] as? String {
                 switch style {
                 case "menu": return AnyView(view.pickerStyle(.menu))

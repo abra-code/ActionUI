@@ -119,8 +119,8 @@ struct View: StaticElement {
         return validatedProperties
     }
     
-    static func registerModifiers() {
-        ModifierRegistry.shared.register("padding") { view, properties in
+    static func registerModifiers(registry: ModifierRegistry) {
+        registry.register("padding") { view, properties in
             if let padding = properties["padding"] as? CGFloat {
                 return AnyView(view.padding(padding))
             } else if let padding = properties["padding"] as? [String: CGFloat] {
@@ -134,14 +134,14 @@ struct View: StaticElement {
             return view
         }
         
-        ModifierRegistry.shared.register("font") { view, properties in
+        registry.register("font") { view, properties in
             if let font = properties["font"] as? String {
                 return AnyView(view.font(FontHelper.resolveFont(font)))
             }
             return view
         }
         
-        ModifierRegistry.shared.register("foregroundColor") { view, properties in
+        registry.register("foregroundColor") { view, properties in
             if let color = properties["foregroundColor"] {
                 if let resolvedColor = ColorHelper.resolveColor(color) {
                     return AnyView(view.foregroundColor(resolvedColor))
@@ -150,18 +150,18 @@ struct View: StaticElement {
             return view
         }
         
-        ModifierRegistry.shared.register("disabled") { view, properties in
+        registry.register("disabled") { view, properties in
             if let disabled = properties["disabled"] as? Bool {
                 return AnyView(view.disabled(disabled))
             }
             return view
         }
         
-        ModifierRegistry.shared.register("hidden") { view, _ in
+        registry.register("hidden") { view, _ in
             return AnyView(view.hidden())
         }
         
-        ModifierRegistry.shared.register("background") { view, properties in
+        registry.register("background") { view, properties in
             if let background = properties["background"] as? String {
                 if let color = ColorHelper.resolveColor(background) {
                     return AnyView(view.background(color))
@@ -170,7 +170,7 @@ struct View: StaticElement {
             return view
         }
         
-        ModifierRegistry.shared.register("frame") { view, properties in
+        registry.register("frame") { view, properties in
             if let frame = properties["frame"] as? [String: Any] {
                 var width: CGFloat? = (frame["width"] as? CGFloat)
                 var height: CGFloat? = (frame["height"] as? CGFloat)
@@ -179,14 +179,14 @@ struct View: StaticElement {
             return view
         }
         
-        ModifierRegistry.shared.register("opacity") { view, properties in
+        registry.register("opacity") { view, properties in
             if let opacity = properties["opacity"] as? Float, (0.0...1.0).contains(opacity) {
                 return AnyView(view.opacity(Double(opacity)))
             }
             return view
         }
         
-        ModifierRegistry.shared.register("cornerRadius") { view, properties in
+        registry.register("cornerRadius") { view, properties in
             if let cornerRadius = properties["cornerRadius"] as? CGFloat {
                 return AnyView(view.cornerRadius(cornerRadius))
             }

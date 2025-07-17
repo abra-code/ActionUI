@@ -84,8 +84,8 @@ struct Button: StaticElement, ViewBuilder {
         }
     }
     
-    static func registerModifiers() {
-        ModifierRegistry.shared.register("style") { view, properties in
+    static func registerModifiers(registry: ModifierRegistry) {
+        registry.register("style") { view, properties in
             if let style = properties["style"] as? String {
                 switch style {
                 case "bordered": return AnyView(view.buttonStyle(.bordered))

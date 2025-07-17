@@ -27,12 +27,16 @@ struct StaticElement: UIElement, Codable {
     private static let knownTypes: Set<String> = [
 		"AsyncImage",
 		"Button",
-	//  "ComboBox", DISABLED
+//		"ComboBox", DISABLED multi-part
 		"EmptyView",
 		"Grid",
 		"Group",
 		"HStack",
 		"Image",
+		"LazyHGrid",
+		"LazyHStack",
+		"LazyVGrid",
+		"LazyVStack",
 		"List",
 		"Picker",
 		"Spacer",
@@ -55,6 +59,10 @@ struct StaticElement: UIElement, Codable {
         "Group": { _ in Group.validateProperties },
         "HStack": { _ in HStack.validateProperties },
         "Image": { _ in Image.validateProperties },
+        "LazyHGrid": { _ in LazyHGrid.validateProperties },
+        "LazyHStack": { _ in LazyHStack.validateProperties },
+        "LazyVGrid": { _ in LazyVGrid.validateProperties },
+        "LazyVStack": { _ in LazyVStack.validateProperties },
         "List": { _ in List.validateProperties },
         "Picker": { _ in Picker.validateProperties },
         "Spacer": { _ in Spacer.validateProperties },

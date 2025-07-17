@@ -47,7 +47,7 @@ struct HStack: StaticElement, ViewBuilder {
         }
     }
     
-    static func registerModifiers() {
+    static func registerModifiers(registry: ModifierRegistry) {
         // No specific modifiers beyond base View properties
     }
 }

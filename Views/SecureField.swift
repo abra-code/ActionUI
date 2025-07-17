@@ -1,30 +1,38 @@
 /*
- Sample JSON for TextField:
+ Sample JSON for SecureField:
  {
-   "type": "TextField",
+   "type": "SecureField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "placeholder": "Enter text", // Optional: String, defaults to ""
+     "placeholder": "Enter password", // Optional: String, defaults to ""
+     "textContentType": "password"   // Optional: String for content type (e.g., "password", "newPassword"), defaults to nil
    }
-   // Note: These properties are specific to TextField. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to SecureField. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct TextField: StaticElement, ViewBuilder {
+struct SecureField: StaticElement, ViewBuilder {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["placeholder"] == nil {
             validatedProperties["placeholder"] = ""
         }
+        if let textContentType = validatedProperties["textContentType"] as? String,
+           ["password", "newPassword"].contains(textContentType) {
+            validatedProperties["textContentType"] = textContentType
+        } else if validatedProperties["textContentType"] != nil {
+            print("Warning: SecureField textContentType must be 'password' or 'newPassword'; ignoring")
+            validatedProperties["textContentType"] = nil
+        }
         
         return validatedProperties
     }
     
     static func register(in registry: ViewBuilderRegistry) {
-        registry.register("TextField") { element, state, windowUUID in
+        registry.register("SecureField") { element, state, windowUUID in
             let properties = StaticElement.getValidatedProperties(element: element, state: state)
             let placeholder = properties["placeholder"] as? String ?? ""
             if state.wrappedValue[element.id] == nil {
@@ -40,12 +48,15 @@ struct TextField: StaticElement, ViewBuilder {
                 }
             )
             return AnyView(
-                SwiftUI.TextField(placeholder, text: textBinding)
+                SecureField(placeholder, text: textBinding)
             )
         }
     }
     
     static func registerModifiers(registry: ModifierRegistry) {
-        // No specific modifiers beyond base View properties
+        registry.register("textContentType") { view, properties in
+            guard let textContentType = properties["textContentType"] as? String else { return view }
+            return AnyView(view.textContentType(textContentType))
+        }
     }
 }

@@ -1,0 +1,52 @@
+/*
+ Sample JSON for ProgressView:
+ {
+   "type": "ProgressView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "value": 0.5,        // Optional: Progress value (Double 0.0 to 1.0), defaults to nil (indeterminate)
+     "label": "Loading",  // Optional: String for label, defaults to nil
+   }
+   // Note: These properties are specific to ProgressView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+*/
+
+import SwiftUI
+
+struct ProgressView: StaticElement, ViewBuilder {
+    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+        var validatedProperties = View.validateProperties(properties)
+        
+        if let value = validatedProperties["value"] as? Double, (0.0...1.0).contains(value) {
+            validatedProperties["value"] = value
+        } else if validatedProperties["value"] != nil {
+            print("Warning: ProgressView value must be between 0.0 and 1.0; defaulting to nil")
+            validatedProperties["value"] = nil
+        }
+        if validatedProperties["label"] == nil {
+            validatedProperties["label"] = nil
+        }
+        
+        return validatedProperties
+    }
+    
+    static func register(in registry: ViewBuilderRegistry) {
+        registry.register("ProgressView") { element, state, windowUUID in
+            let properties = StaticElement.getValidatedProperties(element: element, state: state)
+            let value = properties["value"] as? Double
+            return AnyView(
+                ProgressView(value: value)
+            )
+        }
+    }
+    
+    static func registerModifiers(registry: ModifierRegistry) {
+        registry.register("label") { view, properties in
+            guard let label = properties["label"] as? String else { return view }
+            return AnyView(view.overlay(
+                SwiftUI.Text(label),
+                alignment: .center
+            ))
+        }
+    }
+}

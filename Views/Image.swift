@@ -85,8 +85,8 @@ struct Image: StaticElement, ViewBuilder {
         }
     }
     
-    static func registerModifiers() {
-        ModifierRegistry.shared.register("resizable") { view, properties in
+    static func registerModifiers(registry: ModifierRegistry) {
+        registry.register("resizable") { view, properties in
             if let resizable = properties["resizable"] as? Bool, resizable {
                 let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
                 return AnyView(view.resizable().scaledToFit(scaleMode == "fit" ? .fit : .fill))
