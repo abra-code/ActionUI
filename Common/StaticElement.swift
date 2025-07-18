@@ -23,66 +23,65 @@ struct StaticElement: UIElement, Codable {
         defer { negativeIDCounter -= 1 }
         return negativeIDCounter
     }
-    
-    private static let knownTypes: Set<String> = [
-		"AsyncImage",
-		"Button",
-//		"ComboBox", DISABLED multi-part
-		"EmptyView",
-		"Grid",
-		"Group",
-		"HStack",
-		"Image",
-		"LazyHGrid",
-		"LazyHStack",
-		"LazyVGrid",
-		"LazyVStack",
-		"List",
-		"Picker",
-		"Spacer",
-		"Table",
-		"Text",
-		"TextEditor",
-		"TextField",
-		"Toggle",
-		"View",
-		"VStack",
-		"ZStack"
-    ]
-    
+        
     private static let validators: [String: (StaticElement.Type) -> ([String: Any]) -> [String: Any]] = [
-        "AsyncImage": { _ in AsyncImage.validateProperties },
-        "Button": { _ in Button.validateProperties },
-//        "ComboBox": { _ in ComboBox.validateProperties }, DISABLED
-        "EmptyView": { _ in EmptyView.validateProperties },
-        "Grid": { _ in Grid.validateProperties },
-        "Group": { _ in Group.validateProperties },
-        "HStack": { _ in HStack.validateProperties },
-        "Image": { _ in Image.validateProperties },
-        "LazyHGrid": { _ in LazyHGrid.validateProperties },
-        "LazyHStack": { _ in LazyHStack.validateProperties },
-        "LazyVGrid": { _ in LazyVGrid.validateProperties },
-        "LazyVStack": { _ in LazyVStack.validateProperties },
-        "List": { _ in List.validateProperties },
-        "Picker": { _ in Picker.validateProperties },
-        "Spacer": { _ in Spacer.validateProperties },
-        "Table": { _ in Table.validateProperties },
-        "Text": { _ in Text.validateProperties },
-        "TextEditor": { _ in TextEditor.validateProperties },
-        "TextField": { _ in TextField.validateProperties },
-        "Toggle": { _ in Toggle.validateProperties },
-        "View": { _ in View.validateProperties },
-        "VStack": { _ in VStack.validateProperties },
-        "ZStack": { _ in ZStack.validateProperties }
+		"AsyncImage": { _ in AsyncImage.validateProperties },
+		"Button": { _ in Button.validateProperties },
+		"Canvas": { _ in Canvas.validateProperties },
+		"ColorPicker": { _ in ColorPicker.validateProperties },
+		// "ComboBox": { _ in ComboBox.validateProperties },
+		"DatePicker": { _ in DatePicker.validateProperties },
+		"DisclosureGroup": { _ in DisclosureGroup.validateProperties },
+		"Divider": { _ in Divider.validateProperties },
+		"EmptyView": { _ in EmptyView.validateProperties },
+		"Form": { _ in Form.validateProperties },
+		"Gauge": { _ in Gauge.validateProperties },
+		"Grid": { _ in Grid.validateProperties },
+		"Group": { _ in Group.validateProperties },
+		"HStack": { _ in HStack.validateProperties },
+		"Image": { _ in Image.validateProperties },
+		"KeyframeAnimator": { _ in KeyframeAnimator.validateProperties },
+		"Label": { _ in Label.validateProperties },
+		"LazyHGrid": { _ in LazyHGrid.validateProperties },
+		"LazyHStack": { _ in LazyHStack.validateProperties },
+		"LazyVGrid": { _ in LazyVGrid.validateProperties },
+		"LazyVStack": { _ in LazyVStack.validateProperties },
+		"Link": { _ in Link.validateProperties },
+		"List": { _ in List.validateProperties },
+		"Map": { _ in Map.validateProperties },
+		"Menu": { _ in Menu.validateProperties },
+		"NavigationLink": { _ in NavigationLink.validateProperties },
+		"NavigationView": { _ in NavigationView.validateProperties },
+		"PhaseAnimator": { _ in PhaseAnimator.validateProperties },
+		"Picker": { _ in Picker.validateProperties },
+		"ProgressView": { _ in ProgressView.validateProperties },
+		"ScrollView": { _ in ScrollView.validateProperties },
+		"ScrollViewReader": { _ in ScrollViewReader.validateProperties },
+		"Section": { _ in Section.validateProperties },
+		"SecureField": { _ in SecureField.validateProperties },
+		"ShareLink": { _ in ShareLink.validateProperties },
+		"Slider": { _ in Slider.validateProperties },
+		"Spacer": { _ in Spacer.validateProperties },
+		"StepSlider": { _ in StepSlider.validateProperties },
+		"TabBarItem": { _ in TabBarItem.validateProperties },
+		"Table": { _ in Table.validateProperties },
+		"TabView": { _ in TabView.validateProperties },
+		"Text": { _ in Text.validateProperties },
+		"TextEditor": { _ in TextEditor.validateProperties },
+		"TextField": { _ in TextField.validateProperties },
+		"Toggle": { _ in Toggle.validateProperties },
+		"VideoPlayer": { _ in VideoPlayer.validateProperties },
+		"View": { _ in View.validateProperties },
+		"VStack": { _ in VStack.validateProperties },
+		"ZStack": { _ in ZStack.validateProperties }
+		// 
+		//"WebView": { _ in WebView.validateProperties },
+		//"RichTextEditor": { _ in RichTextEditor.validateProperties }
     ]
     
     init(id: Int = 0, type: String, properties: [String: Any], children: [UIElement]?) {
-        let validatedType = StaticElement.knownTypes.contains(type) ? type : {
-            print("Warning: Unknown type '\(type)' \(type == "Table" ? "(Table is macOS-only)" : type == "ComboBox" ? "(ComboBox is macOS/iOS/iPadOS-only)" : ""); defaulting to EmptyView")
-            return "EmptyView"
-        }()
         
-        let validatedProperties = validatedType == "EmptyView" ? [:] : (StaticElement.validators[validatedType]?(StaticElement.self)?(properties) ?? properties)
+        let validatedProperties = (StaticElement.validators[validatedType]?(StaticElement.self)?(properties) ?? properties)
         
         self.id = id == 0 ? StaticElement.generateNegativeID() : id
         self.type = validatedType
