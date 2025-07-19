@@ -4,55 +4,59 @@
    "type": "Divider",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "color": "#FF0000",  // Optional: Color for the divider, defaults to system gray if invalid or nil
-     "thickness": 2.0     // Optional: Thickness of the divider, defaults to 1.0
+     "background": "#FF0000", // Optional: Color for the divider background, defaults to system gray if invalid or nil
+     "frameHeight": 2.0,     // Optional: Thickness for horizontal divider, defaults to 1.0
+     "frameWidth": 0.0       // Optional: Thickness for vertical divider, defaults to 0.0 (ignored unless specified)
    }
-   // Note: These properties are specific to Divider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
-   // Design Decision: Moved color and thickness modifications to registerModifiers() to comply with the guide's directive for centralized modifier management. Invalid color resolution is set to nil, allowing Divider's default color to apply, and nil properties do not trigger modifier application.
+   // Note: These properties are specific to Divider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Divider: StaticElement, ViewBuilder {
+struct Divider: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
-        if let color = validatedProperties["color"] as? String {
-            if let resolvedColor = ColorHelper.resolveColor(color) {
-                validatedProperties["color"] = resolvedColor
+        if let background = validatedProperties["background"] as? String {
+            if let resolvedColor = ColorHelper.resolveColor(background) {
+                validatedProperties["background"] = resolvedColor
             } else {
-                print("Warning: Divider color '\(color)' invalid; setting to nil to use Divider's default")
-                validatedProperties["color"] = nil
+                print("Warning: Divider background '\(background)' invalid; setting to nil")
+                validatedProperties["background"] = nil
             }
         }
-        if let thickness = validatedProperties["thickness"] as? Double, thickness > 0 {
-            validatedProperties["thickness"] = thickness
-        } else if validatedProperties["thickness"] != nil {
-            print("Warning: Divider thickness must be a positive number; defaulting to 1.0")
-            validatedProperties["thickness"] = 1.0
+        if let frameHeight = validatedProperties["frameHeight"] as? Double, frameHeight > 0 {
+            validatedProperties["frameHeight"] = frameHeight
+        } else if validatedProperties["frameHeight"] != nil {
+            print("Warning: Divider frameHeight must be a positive number; defaulting to 1.0")
+            validatedProperties["frameHeight"] = 1.0
+        }
+        if let frameWidth = validatedProperties["frameWidth"] as? Double, frameWidth > 0 {
+            validatedProperties["frameWidth"] = frameWidth
+        } else if validatedProperties["frameWidth"] != nil {
+            print("Warning: Divider frameWidth must be a positive number; defaulting to 0.0")
+            validatedProperties["frameWidth"] = 0.0
         }
         
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Divider") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            return AnyView(
-                Divider()
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        return AnyView(Divider())
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("color") { view, properties in
-            guard let color = properties["color"] as? Color else { return view } // Skip if nil
-            return AnyView(view.background(color))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let background = properties["background"] as? Color {
+            modifiedView = AnyView(modifiedView.background(background))
         }
-        registry.register("thickness") { view, properties in
-            guard let thickness = properties["thickness"] as? Double else { return view } // Skip if nil
-            return AnyView(view.frame(height: thickness))
+        if let frameHeight = properties["frameHeight"] as? Double {
+            modifiedView = AnyView(modifiedView.frame(height: frameHeight))
         }
+        if let frameWidth = properties["frameWidth"] as? Double, frameWidth > 0 {
+            modifiedView = AnyView(modifiedView.frame(width: frameWidth))
+        }
+        return modifiedView
     }
 }

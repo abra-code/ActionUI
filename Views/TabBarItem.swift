@@ -8,13 +8,13 @@
      "content": { "type": "Text", "properties": { "text": "Home" } }, // Required: Nested view
      "systemImage": "house" // Optional: String for SF Symbol, defaults to nil
    }
-   // Note: These properties are specific to TabBarItem. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to TabBarItem. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct TabBarItem: StaticElement, ViewBuilder {
+struct TabBarItem: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -32,37 +32,30 @@ struct TabBarItem: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("TabBarItem") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let title = properties["title"] as? String ?? "Item"
-            let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
-            let systemImage = properties["systemImage"] as? String
-            return AnyView(
-                TabView {
-                    ViewBuilderRegistry.shared.buildView(from: content, state: state, windowUUID: windowUUID)
-                        .tabItem {
-                            if let image = systemImage {
-                                Label(title, systemImage: image)
-                            } else {
-                                Text(title)
-                            }
-                        }
-                }
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let title = validatedProperties["title"] as? String ?? "Item"
+        let content = validatedProperties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
+        let systemImage = validatedProperties["systemImage"] as? String
+        
+        return AnyView(
+            SwiftUI.TabView {
+                ActionUIView(element: try! StaticElement(from: content), state: state, windowUUID: windowUUID)
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("systemImage") { view, properties in
-            guard let systemImage = properties["systemImage"] as? String else { return view }
-            return AnyView(view.tabItem {
-                if let existingView = view as? some View {
-                    Label((properties["title"] as? String) ?? "Item", systemImage: systemImage)
-                } else {
-                    Label((properties["title"] as? String) ?? "Item", systemImage: systemImage)
-                }
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        let title = properties["title"] as? String ?? "Item"
+        if let systemImage = properties["systemImage"] as? String {
+            modifiedView = AnyView(modifiedView.tabItem {
+                Label(title, systemImage: systemImage)
+            })
+        } else {
+            modifiedView = AnyView(modifiedView.tabItem {
+                Text(title)
             })
         }
+        return modifiedView
     }
 }

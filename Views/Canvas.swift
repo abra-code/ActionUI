@@ -7,13 +7,13 @@
      "render": "drawCircle", // Optional: String identifier for render action, defaults to nil
      "color": "#FF0000"     // Optional: Color for drawing, defaults to black
    }
-   // Note: These properties are specific to Canvas. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Canvas. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Canvas: StaticElement, ViewBuilder {
+struct Canvas: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -32,33 +32,24 @@ struct Canvas: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Canvas") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let color = (properties["color"] as? Color) ?? Color.black
-            return AnyView(
-                Canvas { context, size in
-                    if properties["render"] as? String == "drawCircle" {
-                        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                        let radius = min(size.width, size.height) / 2
-                        context.fill(Circle().path(in: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)), with: .color(color))
-                    }
-                }
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        return AnyView(
+            SwiftUI.Canvas { context, size in
+                // Render logic moved to applyModifiers
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("render") { view, properties in
-            guard properties["render"] as? String == "drawCircle" else { return view }
-            return view // Render logic handled in register; no additional modifier needed
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        let color = (properties["color"] as? Color) ?? Color.black
+        if properties["render"] as? String == "drawCircle" {
+            modifiedView = AnyView(modifiedView.canvasRenderer { context, size in
+                let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                let radius = min(size.width, size.height) / 2
+                context.fill(Circle().path(in: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)), with: .color(color))
+            })
         }
-        registry.register("color") { view, properties in
-            guard let color = properties["color"] as? Color else { return view }
-            return AnyView(view.overlay(
-                Color.clear.frame(width: 0, height: 0), // Placeholder to trigger redraw
-                alignment: .center
-            ).environment(\.colorScheme, .dark)) // Example environment adjustment
-        }
+        return modifiedView
     }
 }

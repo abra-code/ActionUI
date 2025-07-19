@@ -7,13 +7,13 @@
      "placeholder": "Enter password", // Optional: String, defaults to ""
      "textContentType": "password"   // Optional: String for content type (e.g., "password", "newPassword"), defaults to nil
    }
-   // Note: These properties are specific to SecureField. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to SecureField. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct SecureField: StaticElement, ViewBuilder {
+struct SecureField: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -31,32 +31,31 @@ struct SecureField: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("SecureField") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let placeholder = properties["placeholder"] as? String ?? ""
-            if state.wrappedValue[element.id] == nil {
-                state.wrappedValue[element.id] = ["value": ""]
-            }
-            let textBinding = Binding(
-                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
-                set: { newValue in
-                    state.wrappedValue[element.id] = ["value": newValue]
-                    if let actionID = properties["actionID"] as? String {
-                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                    }
-                }
-            )
-            return AnyView(
-                SecureField(placeholder, text: textBinding)
-            )
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let placeholder = validatedProperties["placeholder"] as? String ?? ""
+        if state.wrappedValue[element.id] == nil {
+            state.wrappedValue[element.id] = ["value": ""]
         }
+        let textBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
+            set: { newValue in
+                state.wrappedValue[element.id] = ["value": newValue]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                }
+            }
+        )
+        
+        return AnyView(
+            SwiftUI.SecureField(placeholder, text: textBinding)
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("textContentType") { view, properties in
-            guard let textContentType = properties["textContentType"] as? String else { return view }
-            return AnyView(view.textContentType(textContentType))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let textContentType = properties["textContentType"] as? String {
+            modifiedView = AnyView(modifiedView.textContentType(textContentType))
         }
+        return modifiedView
     }
 }

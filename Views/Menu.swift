@@ -9,13 +9,13 @@
        { "type": "Button", "properties": { "title": "Option 1" } }
      ] // Required: Array of child views (typically Buttons)
    }
-   // Note: These properties are specific to Menu. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Menu. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Menu: StaticElement, ViewBuilder {
+struct Menu: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -32,25 +32,25 @@ struct Menu: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Menu") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let label = properties["label"] as? String ?? "Menu"
-            let children = properties["children"] as? [[String: Any]] ?? []
-            return AnyView(
-                Menu(label) {
-                    ForEach(children.indices, id: \.self) { index in
-                        ViewBuilderRegistry.shared.buildView(from: children[index], state: state, windowUUID: windowUUID)
-                    }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let children = validatedProperties["children"] as? [[String: Any]] ?? []
+        
+        return AnyView(
+            SwiftUI.Menu {
+                ForEach(children.indices, id: \.self) { index in
+                    ActionUIView(element: try! StaticElement(from: children[index]), state: state, windowUUID: windowUUID)
                 }
-            )
-        }
+            } label: {
+                EmptyView()
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("label") { view, properties in
-            guard let label = properties["label"] as? String else { return view }
-            return AnyView((view as? some View)?.overlay(Text(label), alignment: .center) ?? Text(label))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let label = properties["label"] as? String {
+            modifiedView = AnyView(modifiedView.overlay(Text(label), alignment: .center))
         }
+        return modifiedView
     }
 }

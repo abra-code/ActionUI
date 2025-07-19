@@ -11,15 +11,15 @@
      { "type": "Text", "properties": { "text": "Item 1" } },
      { "type": "Text", "properties": { "text": "Item 2" } }
    ]
-   // Note: These properties are specific to VStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to VStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct VStack: StaticElement, ViewBuilder {
+struct VStack: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
@@ -39,32 +39,27 @@ struct VStack: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("VStack") { element, state, windowUUID in
-            let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
-            let spacing = validatedProperties["spacing"] as? CGFloat ?? 0.0
-            let alignmentString = validatedProperties["alignment"] as? String
-            let alignment: HorizontalAlignment = {
-                switch alignmentString {
-                case "leading": return .leading
-                case "trailing": return .trailing
-                default: return .center
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let spacing = validatedProperties["spacing"] as? CGFloat ?? 0.0
+        let alignmentString = validatedProperties["alignment"] as? String
+        let alignment: HorizontalAlignment = {
+            switch alignmentString {
+            case "leading": return .leading
+            case "trailing": return .trailing
+            default: return .center
+            }
+        }()
+        
+        return AnyView(
+            SwiftUI.VStack(alignment: alignment, spacing: spacing) {
+                ForEach(element.children ?? [], id: \.id) { child in
+                    ActionUIView(element: child, state: state, windowUUID: windowUUID)
                 }
-            }()
-            
-            let children = element.children ?? []
-            
-            return AnyView(
-                SwiftUI.VStack(alignment: alignment, spacing: spacing) {
-                    ForEach(children.indices, id: \.self) { index in
-                        ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
-                    }
-                }
-            )
-        }
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        // No specific modifiers beyond base View properties
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        return view // No specific modifiers beyond base View properties
     }
 }

@@ -7,13 +7,13 @@
      "label": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch", "checkbox", "button"; defaults to "switch"
    }
-   // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Toggle: StaticElement, ViewBuilder {
+struct Toggle: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -31,37 +31,40 @@ struct Toggle: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Toggle") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let label = properties["label"] as? String ?? "Toggle"
-            let style = properties["style"] as? String ?? "switch"
-            if state.wrappedValue[element.id] == nil {
-                state.wrappedValue[element.id] = ["value": false]
-            }
-            let toggleBinding = Binding(
-                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? false },
-                set: { newValue in
-                    state.wrappedValue[element.id] = ["value": newValue]
-                    if let actionID = properties["actionID"] as? String {
-                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                    }
-                }
-            )
-            return AnyView(
-                SwiftUI.Toggle(label, isOn: toggleBinding)
-                    .toggleStyle({
-                        switch style {
-                        case "checkbox": return .checkbox
-                        case "button": return .button
-                        default: return .switch
-                        }
-                    }())
-            )
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        if state.wrappedValue[element.id] == nil {
+            state.wrappedValue[element.id] = ["value": false]
         }
+        let toggleBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? false },
+            set: { newValue in
+                state.wrappedValue[element.id] = ["value": newValue]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                }
+            }
+        )
+        
+        return AnyView(
+            SwiftUI.Toggle("", isOn: toggleBinding)
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        // No specific modifiers beyond base View properties
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let label = properties["label"] as? String {
+            modifiedView = AnyView(modifiedView.toggleLabel(Text(label)))
+        }
+        if let style = properties["style"] as? String {
+            let toggleStyle = {
+                switch style {
+                case "checkbox": return ToggleStyle.checkbox
+                case "button": return ToggleStyle.button
+                default: return ToggleStyle.switch
+                }
+            }()
+            modifiedView = AnyView(modifiedView.toggleStyle(toggleStyle))
+        }
+        return modifiedView
     }
 }

@@ -8,13 +8,13 @@
      "systemImage": "star.fill", // Optional: String for SF Symbol, defaults to nil
      "imageName": "customIcon" // Optional: String for asset catalog image, defaults to nil
    }
-   // Note: These properties are specific to Label. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Label. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Label: StaticElement, ViewBuilder {
+struct Label: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -31,30 +31,31 @@ struct Label: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Label") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let title = properties["title"] as? String ?? ""
-            return AnyView(
-                Label(title: { SwiftUI.Text(title) }, icon: { EmptyView() })
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        return AnyView(
+            SwiftUI.Label(title: { EmptyView() }, icon: { EmptyView() })
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("systemImage") { view, properties in
-            guard let systemImage = properties["systemImage"] as? String else { return view }
-            return AnyView(view.labelStyle(DefaultLabelStyle()).overlay(
-                SwiftUI.Image(systemName: systemImage),
-                alignment: .leading
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        let title = properties["title"] as? String ?? ""
+        if let systemImage = properties["systemImage"] as? String {
+            modifiedView = AnyView(modifiedView.labelStyle(DefaultLabelStyle()).overlay(
+                SwiftUI.Label(title, systemImage: systemImage),
+                alignment: .center
+            ))
+        } else if let imageName = properties["imageName"] as? String {
+            modifiedView = AnyView(modifiedView.labelStyle(DefaultLabelStyle()).overlay(
+                SwiftUI.Label(title, image: imageName),
+                alignment: .center
+            ))
+        } else {
+            modifiedView = AnyView(modifiedView.labelStyle(DefaultLabelStyle()).overlay(
+                SwiftUI.Text(title),
+                alignment: .center
             ))
         }
-        registry.register("imageName") { view, properties in
-            guard let imageName = properties["imageName"] as? String else { return view }
-            return AnyView(view.labelStyle(DefaultLabelStyle()).overlay(
-                SwiftUI.Image(imageName),
-                alignment: .leading
-            ))
-        }
+        return modifiedView
     }
 }

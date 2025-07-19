@@ -8,13 +8,13 @@
      "range": { "min": 0, "max": 5 }, // Optional: Dictionary with min/max values
      "stepCount": 5       // Optional: Number of steps (Int), defaults to 5
    }
-   // Note: These properties are specific to StepSlider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to StepSlider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct StepSlider: StaticElement, ViewBuilder {
+struct StepSlider: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -49,49 +49,48 @@ struct StepSlider: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
         #if os(macOS)
         if #available(macOS 13.0, *) {
-            registry.register("StepSlider") { element, state, windowUUID in
-                let properties = StaticElement.getValidatedProperties(element: element, state: state)
-                let initialValue = (properties["value"] as? Int) ?? 0
-                let range = properties["range"] as? [String: Int] ?? ["min": 0, "max": 5]
-                if state.wrappedValue[element.id] == nil {
-                    state.wrappedValue[element.id] = ["value": initialValue]
-                }
-                let valueBinding = Binding(
-                    get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Int ?? initialValue },
-                    set: { newValue in
-                        state.wrappedValue[element.id] = ["value": newValue]
-                        if let actionID = properties["actionID"] as? String {
-                            actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                        }
+            let initialValue = (validatedProperties["value"] as? Int) ?? 0
+            if state.wrappedValue[element.id] == nil {
+                state.wrappedValue[element.id] = ["value": initialValue]
+            }
+            let valueBinding = Binding(
+                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Int ?? initialValue },
+                set: { newValue in
+                    state.wrappedValue[element.id] = ["value": newValue]
+                    if let actionID = validatedProperties["actionID"] as? String {
+                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
                     }
-                )
-                return AnyView(
-                    StepSlider(value: valueBinding, in: range["min"]!...range["max"]!)
-                )
-            }
+                }
+            )
+            return AnyView(
+                SwiftUI.StepSlider(value: valueBinding)
+            )
         } else {
-            registry.register("StepSlider") { _, _, _ in
-                print("Warning: StepSlider requires macOS 13.0 or later")
-                return AnyView(EmptyView())
-            }
+            print("Warning: StepSlider requires macOS 13.0 or later")
+            return AnyView(SwiftUI.EmptyView())
         }
         #else
-        registry.register("StepSlider") { _, _, _ in
-            print("Warning: StepSlider is macOS-only")
-            return AnyView(EmptyView())
-        }
+        print("Warning: StepSlider is macOS-only")
+        return AnyView(SwiftUI.EmptyView())
         #endif
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("stepCount") { view, properties in
-            guard let stepCount = properties["stepCount"] as? Int else { return view }
-            return AnyView(view.stepperStyle(DefaultStepperStyle()).onChange(of: stepCount) { _ in
-                // Note: Step count is set during construction; this is a placeholder for dynamic updates if needed
-            })
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        #if os(macOS)
+        if #available(macOS 13.0, *) {
+            var modifiedView = view
+            if let range = properties["range"] as? [String: Int] {
+                modifiedView = AnyView(modifiedView.stepSliderRange(range["min"]!...range["max"]!))
+            }
+            if let stepCount = properties["stepCount"] as? Int {
+                modifiedView = AnyView(modifiedView.stepSliderStepCount(stepCount))
+            }
+            return modifiedView
         }
+        #endif
+        return view
     }
 }

@@ -8,13 +8,13 @@
      "range": { "min": 0.0, "max": 100.0 }, // Optional: Dictionary with min/max values
      "step": 1.0          // Optional: Step increment (Double), defaults to 1.0
    }
-   // Note: These properties are specific to Slider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Slider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Slider: StaticElement, ViewBuilder {
+struct Slider: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -39,35 +39,34 @@ struct Slider: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Slider") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let initialValue = (properties["value"] as? Double) ?? 0.0
-            let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 100.0]
-            if state.wrappedValue[element.id] == nil {
-                state.wrappedValue[element.id] = ["value": initialValue]
-            }
-            let valueBinding = Binding(
-                get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },
-                set: { newValue in
-                    state.wrappedValue[element.id] = ["value": newValue]
-                    if let actionID = properties["actionID"] as? String {
-                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                    }
-                }
-            )
-            return AnyView(
-                Slider(value: valueBinding, in: range["min"]!...range["max"]!)
-            )
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let initialValue = (validatedProperties["value"] as? Double) ?? 0.0
+        if state.wrappedValue[element.id] == nil {
+            state.wrappedValue[element.id] = ["value": initialValue]
         }
+        let valueBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },
+            set: { newValue in
+                state.wrappedValue[element.id] = ["value": newValue]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                }
+            }
+        )
+        
+        return AnyView(
+            SwiftUI.Slider(value: valueBinding)
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("step") { view, properties in
-            guard let step = properties["step"] as? Double else { return view }
-            return AnyView(view.sliderStyle(DefaultSliderStyle()).onChange(of: step) { _ in
-                // Note: Step is set during construction; this is a placeholder for dynamic updates if needed
-            })
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let range = properties["range"] as? [String: Double] {
+            modifiedView = AnyView(modifiedView.sliderRange(range["min"]!...range["max"]!))
         }
+        if let step = properties["step"] as? Double {
+            modifiedView = AnyView(modifiedView.sliderStep(step))
+        }
+        return modifiedView
     }
 }

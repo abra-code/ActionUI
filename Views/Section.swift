@@ -9,13 +9,13 @@
        { "type": "Text", "properties": { "text": "Item 1" } }
      ] // Required: Array of child views
    }
-   // Note: These properties are specific to Section. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Section. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Section: StaticElement, ViewBuilder {
+struct Section: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -32,25 +32,23 @@ struct Section: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Section") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let header = properties["header"] as? String
-            let children = properties["children"] as? [[String: Any]] ?? []
-            return AnyView(
-                Section(header: header.map { Text($0) } ?? nil) {
-                    ForEach(children.indices, id: \.self) { index in
-                        ViewBuilderRegistry.shared.buildView(from: children[index], state: state, windowUUID: windowUUID)
-                    }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let children = validatedProperties["children"] as? [[String: Any]] ?? []
+        
+        return AnyView(
+            SwiftUI.Section {
+                ForEach(children.indices, id: \.self) { index in
+                    ActionUIView(element: try! StaticElement(from: children[index]), state: state, windowUUID: windowUUID)
                 }
-            )
-        }
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("header") { view, properties in
-            guard let header = properties["header"] as? String else { return view }
-            return AnyView(view.sectionHeader(Text(header)))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let header = properties["header"] as? String {
+            modifiedView = AnyView(modifiedView.sectionHeader(Text(header)))
         }
+        return modifiedView
     }
 }

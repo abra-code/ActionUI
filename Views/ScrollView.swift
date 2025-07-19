@@ -8,13 +8,13 @@
      "axis": "vertical",  // Optional: "vertical", "horizontal", or "both"; defaults to "vertical"
      "showsIndicators": true // Optional: Boolean for scroll indicators, defaults to true
    }
-   // Note: These properties are specific to ScrollView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to ScrollView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct ScrollView: StaticElement, ViewBuilder {
+struct ScrollView: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -39,31 +39,30 @@ struct ScrollView: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("ScrollView") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
-            let axis = (properties["axis"] as? String) ?? "vertical"
-            let showsIndicators = properties["showsIndicators"] as? Bool ?? true
-            let axes: Axis.Set = {
-                switch axis {
-                case "horizontal": return .horizontal
-                case "both": return [.horizontal, .vertical]
-                default: return .vertical
-                }
-            }()
-            return AnyView(
-                ScrollView(axes) {
-                    ViewBuilderRegistry.shared.buildView(from: content, state: state, windowUUID: windowUUID)
-                }
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let content = validatedProperties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
+        let axis = (validatedProperties["axis"] as? String) ?? "vertical"
+        let showsIndicators = validatedProperties["showsIndicators"] as? Bool ?? true
+        let axes: Axis.Set = {
+            switch axis {
+            case "horizontal": return .horizontal
+            case "both": return [.horizontal, .vertical]
+            default: return .vertical
+            }
+        }()
+        
+        return AnyView(
+            ScrollView(axes) {
+                ActionUIView(element: try! StaticElement(from: content), state: state, windowUUID: windowUUID)
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("showsIndicators") { view, properties in
-            guard let showsIndicators = properties["showsIndicators"] as? Bool else { return view }
-            return AnyView(view.scrollContentBackground(.hidden).scrollIndicators(showsIndicators ? .automatic : .hidden))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let showsIndicators = properties["showsIndicators"] as? Bool {
+            modifiedView = AnyView(modifiedView.scrollContentBackground(.hidden).scrollIndicators(showsIndicators ? .automatic : .hidden))
         }
+        return modifiedView
     }
 }

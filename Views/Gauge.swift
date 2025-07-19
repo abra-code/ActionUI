@@ -8,13 +8,13 @@
      "label": "Progress", // Optional: String for label, defaults to nil
      "style": "accessoryCircular" // Optional: "accessoryCircular", "accessoryLinear", "circular", "linear"; defaults to "accessoryCircular"
    }
-   // Note: These properties are specific to Gauge. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Gauge. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Gauge: StaticElement, ViewBuilder {
+struct Gauge: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -36,25 +36,22 @@ struct Gauge: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Gauge") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let value = (properties["value"] as? Double) ?? 0.0
-            return AnyView(
-                Gauge(value: value) {
-                    if let label = properties["label"] as? String {
-                        Text(label)
-                    } else {
-                        EmptyView()
-                    }
-                }
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let value = (validatedProperties["value"] as? Double) ?? 0.0
+        
+        return AnyView(
+            SwiftUI.Gauge(value: value) {
+                EmptyView()
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("style") { view, properties in
-            guard let style = properties["style"] as? String else { return view }
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let label = properties["label"] as? String {
+            modifiedView = AnyView(modifiedView.gaugeLabel(Text(label)))
+        }
+        if let style = properties["style"] as? String {
             let gaugeStyle = {
                 switch style {
                 case "accessoryLinear": return GaugeStyle.accessoryLinear
@@ -63,7 +60,8 @@ struct Gauge: StaticElement, ViewBuilder {
                 default: return GaugeStyle.accessoryCircular
                 }
             }()
-            return AnyView(view.gaugeStyle(gaugeStyle))
+            modifiedView = AnyView(modifiedView.gaugeStyle(gaugeStyle))
         }
+        return modifiedView
     }
 }

@@ -7,13 +7,13 @@
      "title": "Visit Site", // Optional: String for title, defaults to "Link"
      "url": "https://example.com" // Required: URL string
    }
-   // Note: These properties are specific to Link. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Link. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Link: StaticElement, ViewBuilder {
+struct Link: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -35,26 +35,25 @@ struct Link: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Link") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            guard let url = properties["url"] as? URL else {
-                print("Warning: Link requires a valid URL")
-                return AnyView(EmptyView())
-            }
-            let title = properties["title"] as? String ?? "Link"
-            return AnyView(
-                Link(destination: url) {
-                    Text(title)
-                }
-            )
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        guard let url = validatedProperties["url"] as? URL else {
+            print("Warning: Link requires a valid URL")
+            return AnyView(SwiftUI.EmptyView())
         }
+        let title = validatedProperties["title"] as? String ?? "Link"
+        
+        return AnyView(
+            SwiftUI.Link(destination: url) {
+                Text(title)
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("title") { view, properties in
-            guard let title = properties["title"] as? String else { return view }
-            return AnyView((view as? some View)?.overlay(Text(title), alignment: .center) ?? Text(title))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let title = properties["title"] as? String {
+            modifiedView = AnyView(modifiedView.overlay(Text(title), alignment: .center))
         }
+        return modifiedView
     }
 }

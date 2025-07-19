@@ -9,13 +9,13 @@
      ], // Required: Array of TabBarItem views
      "selection": 0 // Optional: Integer for selected tab index, defaults to 0
    }
-   // Note: These properties are specific to TabView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to TabView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct TabView: StaticElement, ViewBuilder {
+struct TabView: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -35,40 +35,23 @@ struct TabView: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("TabView") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let children = properties["children"] as? [[String: Any]] ?? []
-            let initialSelection = (properties["selection"] as? Int) ?? 0
-            if state.wrappedValue[element.id] == nil {
-                state.wrappedValue[element.id] = ["selection": initialSelection]
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let children = validatedProperties["children"] as? [[String: Any]] ?? []
+        
+        return AnyView(
+            SwiftUI.TabView {
+                ForEach(children.indices, id: \.self) { index in
+                    ActionUIView(element: try! StaticElement(from: children[index]), state: state, windowUUID: windowUUID)
+                }
             }
-            let selectionBinding = Binding(
-                get: { (state.wrappedValue[element.id] as? [String: Any])?["selection"] as? Int ?? initialSelection },
-                set: { newValue in
-                    state.wrappedValue[element.id] = ["selection": newValue]
-                    if let actionID = properties["actionID"] as? String {
-                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
-                    }
-                }
-            )
-            return AnyView(
-                TabView(selection: selectionBinding) {
-                    ForEach(children.indices, id: \.self) { index in
-                        ViewBuilderRegistry.shared.buildView(from: children[index], state: state, windowUUID: windowUUID)
-                    }
-                }
-            )
-        }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("selection") { view, properties in
-            guard let selection = properties["selection"] as? Int else { return view }
-            if let tabView = view as? TabViewRepresentable {
-                tabView.selectedIndex = selection
-            }
-            return view
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let selection = properties["selection"] as? Int {
+            modifiedView = AnyView(modifiedView.tabViewSelection(selection))
         }
+        return modifiedView
     }
 }

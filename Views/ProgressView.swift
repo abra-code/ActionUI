@@ -7,13 +7,13 @@
      "value": 0.5,        // Optional: Progress value (Double 0.0 to 1.0), defaults to nil (indeterminate)
      "label": "Loading",  // Optional: String for label, defaults to nil
    }
-   // Note: These properties are specific to ProgressView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to ProgressView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct ProgressView: StaticElement, ViewBuilder {
+struct ProgressView: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -30,23 +30,19 @@ struct ProgressView: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("ProgressView") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            let value = properties["value"] as? Double
-            return AnyView(
-                ProgressView(value: value)
-            )
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let value = validatedProperties["value"] as? Double
+        
+        return AnyView(
+            SwiftUI.ProgressView(value: value)
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("label") { view, properties in
-            guard let label = properties["label"] as? String else { return view }
-            return AnyView(view.overlay(
-                SwiftUI.Text(label),
-                alignment: .center
-            ))
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let label = properties["label"] as? String {
+            modifiedView = AnyView(modifiedView.overlay(SwiftUI.Text(label), alignment: .center))
         }
+        return modifiedView
     }
 }

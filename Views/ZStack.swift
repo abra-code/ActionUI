@@ -10,15 +10,15 @@
      { "type": "Text", "properties": { "text": "Background" } },
      { "type": "Text", "properties": { "text": "Foreground" } }
    ]
-   // Note: These properties are specific to ZStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to ZStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct ZStack: StaticElement, ViewBuilder {
+struct ZStack: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let alignment = validatedProperties["alignment"] as? String,
            ["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
@@ -31,37 +31,32 @@ struct ZStack: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("ZStack") { element, state, windowUUID in
-            let validatedProperties = StaticElement.getValidatedProperties(element: element, state: state)
-            let alignmentString = validatedProperties["alignment"] as? String
-            let alignment: Alignment = {
-                switch alignmentString {
-                case "topLeading": return .topLeading
-                case "top": return .top
-                case "topTrailing": return .topTrailing
-                case "leading": return .leading
-                case "trailing": return .trailing
-                case "bottomLeading": return .bottomLeading
-                case "bottom": return .bottom
-                case "bottomTrailing": return .bottomTrailing
-                default: return .center
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        let alignmentString = validatedProperties["alignment"] as? String
+        let alignment: Alignment = {
+            switch alignmentString {
+            case "topLeading": return .topLeading
+            case "top": return .top
+            case "topTrailing": return .topTrailing
+            case "leading": return .leading
+            case "trailing": return .trailing
+            case "bottomLeading": return .bottomLeading
+            case "bottom": return .bottom
+            case "bottomTrailing": return .bottomTrailing
+            default: return .center
+            }
+        }()
+        
+        return AnyView(
+            SwiftUI.ZStack(alignment: alignment) {
+                ForEach(element.children ?? [], id: \.id) { child in
+                    ActionUIView(element: child, state: state, windowUUID: windowUUID)
                 }
-            }()
-            
-            let children = element.children ?? []
-            
-            return AnyView(
-                SwiftUI.ZStack(alignment: alignment) {
-                    ForEach(children.indices, id: \.self) { index in
-                        ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
-                    }
-                }
-            )
-        }
+            }
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        // No specific modifiers beyond base View properties
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        return view // No specific modifiers beyond base View properties
     }
 }

@@ -1,10 +1,9 @@
-
 import SwiftUI
 
 class ActionUIModel: ObservableObject {
     static let shared = ActionUIModel()
     
-    @Published var descriptions: [String: UIElement] = [:]
+    @Published var descriptions: [String: ActionUIElement] = [:]
     @Published var states: [String: [Int: Any]] = [:]
     
     func loadDescription(from data: Data, format: String, windowUUID: String) throws {

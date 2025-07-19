@@ -8,12 +8,13 @@
      "subject": "Check this out",
      "message": "Look at this link!"
    }
+   // Note: These properties are specific to ShareLink. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct ShareLink: StaticElement, ViewBuilder {
+struct ShareLink: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -33,38 +34,33 @@ struct ShareLink: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
         if #available(iOS 16.1, macOS 13.1, *) {
-            registry.register("ShareLink") { element, state, windowUUID in
-                let properties = StaticElement.getValidatedProperties(element: element, state: state)
-                guard let item = properties["item"] as? String, let url = URL(string: item) else {
-                    print("Warning: ShareLink requires a valid URL")
-                    return AnyView(EmptyView())
-                }
-                let subject = properties["subject"] as? String
-                let message = properties["message"] as? String
-                return AnyView(
-                    ShareLink(item: url, subject: Text(subject ?? ""), message: Text(message ?? ""))
-                )
+            guard let item = validatedProperties["item"] as? String, let url = URL(string: item) else {
+                print("Warning: ShareLink requires a valid URL")
+                return AnyView(SwiftUI.EmptyView())
             }
+            let subject = validatedProperties["subject"] as? String
+            let message = validatedProperties["message"] as? String
+            return AnyView(
+                SwiftUI.ShareLink(item: url, subject: Text(subject ?? ""), message: Text(message ?? ""))
+            )
         } else {
-            registry.register("ShareLink") { _, _, _ in
-                print("Warning: ShareLink requires iOS 16.1 or macOS 13.1")
-                return AnyView(EmptyView())
-            }
+            print("Warning: ShareLink requires iOS 16.1 or macOS 13.1")
+            return AnyView(SwiftUI.EmptyView())
         }
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
         if #available(iOS 16.1, macOS 13.1, *) {
-            registry.register("subject") { view, properties in
-                guard let subject = properties["subject"] as? String else { return view }
-                return AnyView((view as? some View)?.overlay(Text(subject), alignment: .top) ?? Text(subject))
+            if let subject = properties["subject"] as? String {
+                modifiedView = AnyView(modifiedView.overlay(Text(subject), alignment: .top))
             }
-            registry.register("message") { view, properties in
-                guard let message = properties["message"] as? String else { return view }
-                return AnyView((view as? some View)?.overlay(Text(message), alignment: .bottom) ?? Text(message))
+            if let message = properties["message"] as? String {
+                modifiedView = AnyView(modifiedView.overlay(Text(message), alignment: .bottom))
             }
         }
+        return modifiedView
     }
 }

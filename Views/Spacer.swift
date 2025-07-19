@@ -6,13 +6,13 @@
    "properties": {
      "minLength": 20.0    // Optional: CGFloat for minimum length
    }
-   // Note: These properties are specific to Spacer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Spacer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 
-struct Spacer: StaticElement, ViewBuilder {
+struct Spacer: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -26,19 +26,17 @@ struct Spacer: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
-        registry.register("Spacer") { element, _, _ in
-            let properties = StaticElement.getValidatedProperties(element: element, state: nil)
-            return AnyView(SwiftUI.Spacer())
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        return AnyView(
+            SwiftUI.Spacer()
+        )
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("minLength") { view, properties in
-            if let minLength = properties["minLength"] as? CGFloat {
-                return AnyView(view.frame(minWidth: minLength))
-            }
-            return view
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        if let minLength = properties["minLength"] as? CGFloat {
+            modifiedView = AnyView(modifiedView.frame(minWidth: minLength))
         }
+        return modifiedView
     }
 }

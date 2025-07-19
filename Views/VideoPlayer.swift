@@ -7,14 +7,14 @@
      "url": "https://example.com/video.mp4", // Optional: URL string for video, defaults to nil
      "autoplay": true    // Optional: Boolean for autoplay, defaults to false
    }
-   // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
 
 import SwiftUI
 import AVKit
 
-struct VideoPlayer: StaticElement, ViewBuilder {
+struct VideoPlayer: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         
@@ -38,44 +38,40 @@ struct VideoPlayer: StaticElement, ViewBuilder {
         return validatedProperties
     }
     
-    static func register(in registry: ViewBuilderRegistry) {
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
         #if canImport(AVKit)
-        registry.register("VideoPlayer") { element, state, windowUUID in
-            let properties = StaticElement.getValidatedProperties(element: element, state: state)
-            guard let url = properties["url"] as? URL else {
-                print("Warning: VideoPlayer requires a valid URL")
-                return AnyView(EmptyView())
-            }
-            let player = AVPlayer(url: url)
-            let autoplay = properties["autoplay"] as? Bool ?? false
-            if autoplay {
-                player.play()
-            }
-            return AnyView(
-                VideoPlayer(player: player)
-            )
+        guard let url = validatedProperties["url"] as? URL else {
+            print("Warning: VideoPlayer requires a valid URL")
+            return AnyView(SwiftUI.EmptyView())
         }
+        let player = AVPlayer(url: url)
+        return AnyView(
+            SwiftUI.VideoPlayer(player: player)
+        )
         #else
-        registry.register("VideoPlayer") { _, _, _ in
-            print("Warning: VideoPlayer requires AVKit")
-            return AnyView(EmptyView())
-        }
+        print("Warning: VideoPlayer requires AVKit")
+        return AnyView(SwiftUI.EmptyView())
         #endif
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
         #if canImport(AVKit)
-        registry.register("autoplay") { view, properties in
-            guard let autoplay = properties["autoplay"] as? Bool else { return view }
-            if let player = (view as? VideoPlayerRepresentable)?.player {
-                if autoplay {
-                    player.play()
-                } else {
-                    player.pause()
-                }
+        var modifiedView = view
+        if let autoplay = properties["autoplay"] as? Bool, let player = (modifiedView as? VideoPlayerRepresentable)?.player {
+            if autoplay {
+                player.play()
+            } else {
+                player.pause()
             }
-            return view
         }
+        return modifiedView
+        #else
+        return view
         #endif
     }
+}
+
+// Placeholder protocol for VideoPlayerRepresentable (to be refined with actual player access)
+protocol VideoPlayerRepresentable: View {
+    var player: AVPlayer? { get }
 }

@@ -18,15 +18,15 @@
      "actionID": "view.action", // Optional: String for action identifier, applicable to all elements with action handlers
      "disabled": false     // Optional: Boolean to disable user interaction
    }
-   // Note: These properties serve as the baseline for all views. All additional properties/modifiers inherited from SwiftUI's View protocol are supported and applied via ModifierRegistry.shared.applyModifiers(to: baseView, properties: element.properties). Only view/control-specific properties are listed in derived views.
+   // Note: These properties serve as the baseline for all views. All additional properties/modifiers inherited from SwiftUI's View protocol are supported and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). Only view/control-specific properties are listed in derived views.
  }
 */
 
 import SwiftUI
 
-struct View: StaticElement {
+struct View: ActionUIViewElement {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        var validatedProperties = properties // Base validation handled by inheritance
+        var validatedProperties = properties
         
         if let padding = properties["padding"] as? CGFloat {
             validatedProperties["padding"] = padding
@@ -119,80 +119,59 @@ struct View: StaticElement {
         return validatedProperties
     }
     
-    static func registerModifiers(registry: ModifierRegistry) {
-        registry.register("padding") { view, properties in
-            if let padding = properties["padding"] as? CGFloat {
-                return AnyView(view.padding(padding))
-            } else if let padding = properties["padding"] as? [String: CGFloat] {
-                return AnyView(view.padding(EdgeInsets(
-                    top: padding["top"] ?? 0,
-                    leading: padding["leading"] ?? 0,
-                    bottom: padding["bottom"] ?? 0,
-                    trailing: padding["trailing"] ?? 0
-                )))
-            }
-            return view
-        }
-        
-        registry.register("font") { view, properties in
-            if let font = properties["font"] as? String {
-                return AnyView(view.font(FontHelper.resolveFont(font)))
-            }
-            return view
-        }
-        
-        registry.register("foregroundColor") { view, properties in
-            if let color = properties["foregroundColor"] {
-                if let resolvedColor = ColorHelper.resolveColor(color) {
-                    return AnyView(view.foregroundColor(resolvedColor))
-                }
-            }
-            return view
-        }
-        
-        registry.register("disabled") { view, properties in
-            if let disabled = properties["disabled"] as? Bool {
-                return AnyView(view.disabled(disabled))
-            }
-            return view
-        }
-        
-        registry.register("hidden") { view, _ in
-            return AnyView(view.hidden())
-        }
-        
-        registry.register("background") { view, properties in
-            if let background = properties["background"] as? String {
-                if let color = ColorHelper.resolveColor(background) {
-                    return AnyView(view.background(color))
-                }
-            }
-            return view
-        }
-        
-        registry.register("frame") { view, properties in
-            if let frame = properties["frame"] as? [String: Any] {
-                var width: CGFloat? = (frame["width"] as? CGFloat)
-                var height: CGFloat? = (frame["height"] as? CGFloat)
-                return AnyView(view.frame(width: width, height: height))
-            }
-            return view
-        }
-        
-        registry.register("opacity") { view, properties in
-            if let opacity = properties["opacity"] as? Float, (0.0...1.0).contains(opacity) {
-                return AnyView(view.opacity(Double(opacity)))
-            }
-            return view
-        }
-        
-        registry.register("cornerRadius") { view, properties in
-            if let cornerRadius = properties["cornerRadius"] as? CGFloat {
-                return AnyView(view.cornerRadius(cornerRadius))
-            }
-            return view
-        }
+    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+        // View is never instantiated directly; return EmptyView as a fallback
+        return AnyView(EmptyView())
     }
     
-    // this is a base View. It is never created explicitly so does not have a register() function
+    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+        var modifiedView = view
+        
+        if let padding = properties["padding"] as? CGFloat {
+            modifiedView = AnyView(modifiedView.padding(padding))
+        } else if let padding = properties["padding"] as? [String: CGFloat] {
+            modifiedView = AnyView(modifiedView.padding(EdgeInsets(
+                top: padding["top"] ?? 0,
+                leading: padding["leading"] ?? 0,
+                bottom: padding["bottom"] ?? 0,
+                trailing: padding["trailing"] ?? 0
+            )))
+        }
+        
+        if let font = properties["font"] as? String {
+            modifiedView = AnyView(modifiedView.font(FontHelper.resolveFont(font)))
+        }
+        
+        if let foregroundColor = properties["foregroundColor"], let resolvedColor = ColorHelper.resolveColor(foregroundColor) {
+            modifiedView = AnyView(modifiedView.foregroundColor(resolvedColor))
+        }
+        
+        if let disabled = properties["disabled"] as? Bool {
+            modifiedView = AnyView(modifiedView.disabled(disabled))
+        }
+        
+        if properties["hidden"] as? Bool == true {
+            modifiedView = AnyView(modifiedView.hidden())
+        }
+        
+        if let background = properties["background"] as? String, let color = ColorHelper.resolveColor(background) {
+            modifiedView = AnyView(modifiedView.background(color))
+        }
+        
+        if let frame = properties["frame"] as? [String: Any] {
+            let width = frame["width"] as? CGFloat
+            let height = frame["height"] as? CGFloat
+            modifiedView = AnyView(modifiedView.frame(width: width, height: height))
+        }
+        
+        if let opacity = properties["opacity"] as? Float, (0.0...1.0).contains(opacity) {
+            modifiedView = AnyView(modifiedView.opacity(Double(opacity)))
+        }
+        
+        if let cornerRadius = properties["cornerRadius"] as? CGFloat {
+            modifiedView = AnyView(modifiedView.cornerRadius(cornerRadius))
+        }
+        
+        return modifiedView
+    }
 }
