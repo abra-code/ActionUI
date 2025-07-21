@@ -42,7 +42,7 @@ struct ColorPicker: ActionUIViewElement {
             set: { newValue in
                 state.wrappedValue[element.id] = ["value": newValue]
                 if let actionID = validatedProperties["actionID"] as? String {
-                   ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, controlPartID: 0)
+                   ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )

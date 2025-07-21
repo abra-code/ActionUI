@@ -66,7 +66,7 @@ struct Button: ActionUIViewElement {
                 action: {
                     if let actionID = actionID {
                         // Use singleton ActionUIModel.shared for action handling
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, controlPartID: 0)
+                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 },
                 label: {

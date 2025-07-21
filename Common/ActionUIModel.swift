@@ -38,11 +38,11 @@ class ActionUIModel: ObservableObject {
     
     // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
     // Uses ActionUIModel.shared for state access
-    func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, controlPartID: Int) {
+    func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int) {
         if let handler = actionHandlers[actionID] {
-            handler(actionID, windowUUID, viewID, controlPartID)
+            handler(actionID, windowUUID, viewID, viewPartID)
         } else if let defaultHandler = defaultActionHandler {
-            defaultHandler(actionID, windowUUID, viewID, controlPartID)
+            defaultHandler(actionID, windowUUID, viewID, viewPartID)
         } else {
             print("Warning: No handler registered for actionID '\(actionID)' and no default handler set")
         }
@@ -73,10 +73,10 @@ class ActionUIModel: ObservableObject {
         )
     }
     
-    // Retrieves the value of a view based on viewID and controlPartID
-    // For Table/List with [[String]] content, controlPartID == 0 returns tab-separated values, controlPartID >= 1 returns the indexed column (or "" if out of bounds)
+    // Retrieves the value of a view based on viewID and viewPartID
+    // For Table/List with [[String]] content, viewPartID == 0 returns tab-separated values, viewPartID >= 1 returns the indexed column (or "" if out of bounds)
     // For List with [String] content or other views, returns the "value" from state
-    func getControlValue(windowUUID: String, viewID: Int, controlPartID: Int = 0) -> Any? {
+    func getControlValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
         guard let state = states[windowUUID]?[viewID] as? [String: Any] else {
             return nil
         }
@@ -85,10 +85,10 @@ class ActionUIModel: ObservableObject {
         // Design decision: Preserve extra columns in "content" beyond displayed columns to support runtime data (e.g., database IDs)
         if let content = state["content"] as? [[String]],
            let selectedRow = state["value"] as? [String] {
-            if controlPartID == 0 {
+            if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
-            } else if controlPartID > 0 {
-                return selectedRow.count > controlPartID - 1 ? selectedRow[controlPartID - 1] : ""
+            } else if viewPartID > 0 {
+                return selectedRow.count > viewPartID - 1 ? selectedRow[viewPartID - 1] : ""
             }
             return nil
         } else if let selectedItem = state["value"] as? String {
@@ -104,7 +104,7 @@ class ActionUIModel: ObservableObject {
     // For Table: Accepts [[String]], preserves all columns, pads rows for display if needed
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
-    func setControlValue(windowUUID: String, viewID: Int, value: Any, controlPartID: Int = 0) {
+    func setControlValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
         var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? ["value": "", "content": []]
         
         if let newRows = value as? [[String]],
