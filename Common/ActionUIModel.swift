@@ -38,11 +38,11 @@ class ActionUIModel: ObservableObject {
     
     // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
     // Uses ActionUIModel.shared for state access
-    func actionHandler(_ actionID: String, windowUUID: String, controlID: Int, controlPartID: Int) {
+    func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, controlPartID: Int) {
         if let handler = actionHandlers[actionID] {
-            handler(actionID, windowUUID, controlID, controlPartID)
+            handler(actionID, windowUUID, viewID, controlPartID)
         } else if let defaultHandler = defaultActionHandler {
-            defaultHandler(actionID, windowUUID, controlID, controlPartID)
+            defaultHandler(actionID, windowUUID, viewID, controlPartID)
         } else {
             print("Warning: No handler registered for actionID '\(actionID)' and no default handler set")
         }
@@ -73,11 +73,11 @@ class ActionUIModel: ObservableObject {
         )
     }
     
-    // Retrieves the value of a view based on controlID and controlPartID
+    // Retrieves the value of a view based on viewID and controlPartID
     // For Table/List with [[String]] content, controlPartID == 0 returns tab-separated values, controlPartID >= 1 returns the indexed column (or "" if out of bounds)
     // For List with [String] content or other views, returns the "value" from state
-    func getControlValue(windowUUID: String, controlID: Int, controlPartID: Int = 0) -> Any? {
-        guard let state = states[windowUUID]?[controlID] as? [String: Any] else {
+    func getControlValue(windowUUID: String, viewID: Int, controlPartID: Int = 0) -> Any? {
+        guard let state = states[windowUUID]?[viewID] as? [String: Any] else {
             return nil
         }
         
@@ -104,8 +104,8 @@ class ActionUIModel: ObservableObject {
     // For Table: Accepts [[String]], preserves all columns, pads rows for display if needed
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
-    func setControlValue(windowUUID: String, controlID: Int, value: Any, controlPartID: Int = 0) {
-        var controlState = states[windowUUID]?[controlID] as? [String: Any] ?? ["value": "", "content": []]
+    func setControlValue(windowUUID: String, viewID: Int, value: Any, controlPartID: Int = 0) {
+        var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? ["value": "", "content": []]
         
         if let newRows = value as? [[String]],
            let validatedProperties = controlState["validatedProperties"] as? [String: Any],
@@ -148,14 +148,14 @@ class ActionUIModel: ObservableObject {
             controlState["value"] = value
         }
         
-        states[windowUUID, default: [:]][controlID] = controlState
+        states[windowUUID, default: [:]][viewID] = controlState
     }
     
     // Appends items to a view’s content, updating state and validatedProperties
     // For Table: Appends [[String]], preserves all columns, pads rows for display
     // For List: Appends [String] or [[String]], converts [String] to [[String]]
-    func appendItems(windowUUID: String, controlID: Int, items: Any) {
-        var controlState = states[windowUUID]?[controlID] as? [String: Any] ?? ["content": [], "value": ""]
+    func appendItems(windowUUID: String, viewID: Int, items: Any) {
+        var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? ["content": [], "value": ""]
         
         if let newRows = items as? [[String]],
            let validatedProperties = controlState["validatedProperties"] as? [String: Any],
@@ -189,6 +189,6 @@ class ActionUIModel: ObservableObject {
             }
         }
         
-        states[windowUUID, default: [:]][controlID] = controlState
+        states[windowUUID, default: [:]][viewID] = controlState
     }
 }

@@ -63,7 +63,7 @@ struct List: ActionUIViewElement {
                 state.wrappedValue[element.id] = newState
                 if let actionID = validatedProperties["actionID"] as? String {
                     // Use singleton ActionUIModel.shared for action handling
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, controlPartID: 0)
                 }
             }
         )
@@ -94,7 +94,7 @@ struct List: ActionUIViewElement {
                    let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
                    !selectedRow.isEmpty {
                     // Use singleton ActionUIModel.shared for action handling
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0)
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, controlPartID: 0)
                 }
             }
             #endif
