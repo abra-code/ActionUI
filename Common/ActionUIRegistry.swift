@@ -6,13 +6,13 @@
 import SwiftUI
 
 class ActionUIRegistry {
-    struct ViewRegistration {
+    struct ViewConstruction {
         let buildElement: (ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView
         let validateProperties: ([String: Any]) -> [String: Any]
         let applyModifiers: ((AnyView, [String: Any]) -> AnyView)?
     }
     
-    private var registrations: [String: ViewRegistration] = [:]
+    private var registrations: [String: ViewConstruction] = [:]
     
     static let shared = ActionUIRegistry()
     
@@ -75,13 +75,13 @@ class ActionUIRegistry {
         // Add additional view classes as needed with proper implementations
     }
     
-    func registerView(type: String, registration: ViewRegistration) {
-        registrations[type] = registration
+    func registerView(type: String, construction: ViewConstruction) {
+        registrations[type] = construction
     }
     
     func validateProperties(forType type: String, properties: [String: Any]) -> [String: Any] {
-        if let registration = registrations[type] {
-            return registration.validateProperties(properties)
+        if let viewConstruction = registrations[type] {
+            return viewConstruction.validateProperties(properties)
         }
         return properties // Fallback to base properties if type not registered
     }
@@ -116,8 +116,8 @@ class ActionUIRegistry {
     }
     
     func build(for element: ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
-        if let registration = registrations[element.type] {
-            return registration.buildElement(element, state, windowUUID, validatedProperties)
+        if let viewConstruction = registrations[element.type] {
+            return viewConstruction.buildElement(element, state, windowUUID, validatedProperties)
         }
         return AnyView(EmptyView())
     }
@@ -127,7 +127,7 @@ class ActionUIRegistry {
         var modifiedView = View.applyModifiers(to: view, properties: properties)
         
         // Step 2: Apply specialized view modifications if available
-        if let registration = registrations[type], let applyModifiers = registration.applyModifiers {
+        if let viewConstruction = registrations[type], let applyModifiers = viewConstruction.applyModifiers {
             modifiedView = applyModifiers(modifiedView, properties)
         }
         

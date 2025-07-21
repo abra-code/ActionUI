@@ -72,11 +72,11 @@ struct StaticElement: ActionUIElement, Codable {
     }
     
     static func register<T: ActionUIViewConstruction>(registry: ActionUIRegistry) {
-        let registration = ActionUIRegistry.ViewRegistration(
+        let construction = ActionUIRegistry.ViewConstruction(
             buildElement: T.buildElement,
             validateProperties: T.validateProperties,
             applyModifiers: T.applyModifiers
         )
-        registry.registerView(type: String(describing: T.self), registration: registration)
+        registry.registerView(type: String(describing: T.self), construction: construction)
     }
 }
