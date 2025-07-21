@@ -16,6 +16,7 @@
 import SwiftUI
 
 struct Button: ActionUIViewElement {
+    // Validates properties specific to Button; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties
         
@@ -45,7 +46,7 @@ struct Button: ActionUIViewElement {
         
         return validatedProperties
     }
-    
+            
     static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
         let title = validatedProperties["title"] as? String ?? "Button"
         let role = validatedProperties["role"] as? String
@@ -64,7 +65,8 @@ struct Button: ActionUIViewElement {
                 role: buttonRole,
                 action: {
                     if let actionID = actionID {
-                        actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                        // Use singleton ActionUIModel.shared for action handling
+                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0)
                     }
                 },
                 label: {
@@ -73,7 +75,7 @@ struct Button: ActionUIViewElement {
             )
         )
     }
-    
+        
     static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
         var modifiedView = view
         

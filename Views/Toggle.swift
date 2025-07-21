@@ -40,7 +40,7 @@ struct Toggle: ActionUIViewElement {
             set: { newValue in
                 state.wrappedValue[element.id] = ["value": newValue]
                 if let actionID = validatedProperties["actionID"] as? String {
-                    actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0, model: ActionUIModel.shared)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, controlID: element.id, controlPartID: 0)
                 }
             }
         )
