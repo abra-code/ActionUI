@@ -13,7 +13,7 @@
 
 import SwiftUI
 
-struct TextField: ActionUIViewElement {
+struct TextField: ActionUIViewConstruction {
     // Validates properties specific to TextField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties

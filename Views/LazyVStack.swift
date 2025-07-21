@@ -17,7 +17,7 @@
 
 import SwiftUI
 
-struct LazyVStack: ActionUIViewElement {
+struct LazyVStack: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         

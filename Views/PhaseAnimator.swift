@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct PhaseAnimator: ActionUIViewElement {
+struct PhaseAnimator: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         

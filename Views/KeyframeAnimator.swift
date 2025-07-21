@@ -13,7 +13,7 @@
 
 import SwiftUI
 
-struct KeyframeAnimator: ActionUIViewElement {
+struct KeyframeAnimator: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         

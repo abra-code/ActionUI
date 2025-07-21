@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct Divider: ActionUIViewElement {
+struct Divider: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties
         

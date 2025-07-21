@@ -24,7 +24,7 @@
 
 import SwiftUI
 
-struct View: ActionUIViewElement {
+struct View: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties
         

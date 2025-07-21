@@ -10,7 +10,7 @@
 
 import SwiftUI
 
-struct EmptyView: ActionUIViewElement {
+struct EmptyView: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         return properties // No specific properties to validate; rely on external View.validateProperties
     }

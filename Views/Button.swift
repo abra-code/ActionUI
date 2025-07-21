@@ -15,7 +15,7 @@
 
 import SwiftUI
 
-struct Button: ActionUIViewElement {
+struct Button: ActionUIViewConstruction {
     // Validates properties specific to Button; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties

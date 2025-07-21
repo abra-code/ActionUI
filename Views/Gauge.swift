@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct Gauge: ActionUIViewElement {
+struct Gauge: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         

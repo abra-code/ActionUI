@@ -15,7 +15,7 @@
 
 import SwiftUI
 
-struct Table: ActionUIViewElement {
+struct Table: ActionUIViewConstruction {
     // Validates properties specific to Table; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties

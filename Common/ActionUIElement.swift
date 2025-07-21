@@ -17,7 +17,7 @@ protocol ActionUIElement {
     var children: [ActionUIElement]? { get }
 }
 
-protocol ActionUIViewElement {
+protocol ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any]
     static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView
     static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView
@@ -71,7 +71,7 @@ struct StaticElement: ActionUIElement, Codable {
         self.init(id: id, type: type, properties: properties, children: children)
     }
     
-    static func register<T: ActionUIViewElement>(registry: ActionUIRegistry) {
+    static func register<T: ActionUIViewConstruction>(registry: ActionUIRegistry) {
         let registration = ActionUIRegistry.ViewRegistration(
             buildElement: T.buildElement,
             validateProperties: T.validateProperties,

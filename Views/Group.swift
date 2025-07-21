@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct Group: ActionUIViewElement {
+struct Group: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         return View.validateProperties(properties)
     }

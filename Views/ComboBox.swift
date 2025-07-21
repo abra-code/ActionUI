@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct ComboBox: ActionUIViewElement {
+struct ComboBox: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         

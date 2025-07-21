@@ -14,7 +14,7 @@
 import SwiftUI
 import AVKit
 
-struct VideoPlayer: ActionUIViewElement {
+struct VideoPlayer: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = View.validateProperties(properties)
         

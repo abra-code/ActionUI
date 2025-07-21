@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-struct SecureField: ActionUIViewElement {
+struct SecureField: ActionUIViewConstruction {
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties

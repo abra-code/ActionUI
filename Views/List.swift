@@ -13,7 +13,7 @@
 
 import SwiftUI
 
-struct List: ActionUIViewElement {
+struct List: ActionUIViewConstruction {
     // Validates properties specific to List; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties

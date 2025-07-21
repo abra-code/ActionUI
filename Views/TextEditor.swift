@@ -12,7 +12,7 @@
 
 import SwiftUI
 
-struct TextEditor: ActionUIViewElement {
+struct TextEditor: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties
         

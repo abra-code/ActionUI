@@ -16,7 +16,7 @@
 
 import SwiftUI
 
-struct DisclosureGroup: ActionUIViewElement {
+struct DisclosureGroup: ActionUIViewConstruction {
     static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
         let label = validatedProperties["label"] as? String ?? ""
         let initialExpanded = validatedProperties["isExpanded"] as? Bool

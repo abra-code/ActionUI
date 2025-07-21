@@ -16,7 +16,7 @@
 
 import SwiftUI
 
-struct ZStack: ActionUIViewElement {
+struct ZStack: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties
         

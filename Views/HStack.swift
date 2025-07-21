@@ -16,7 +16,7 @@
 
 import SwiftUI
 
-struct HStack: ActionUIViewElement {
+struct HStack: ActionUIViewConstruction {
     static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
         var validatedProperties = properties
         
