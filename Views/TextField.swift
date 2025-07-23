@@ -14,8 +14,10 @@
 import SwiftUI
 
 struct TextField: ActionUIViewConstruction {
+    static var valueType: Any.Type? { String.self } // Value is the text input
+    
     // Validates properties specific to TextField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         // Default to empty string if placeholder is not provided
@@ -25,21 +27,23 @@ struct TextField: ActionUIViewConstruction {
         
         return validatedProperties
     }
-        
-    // Builds the SwiftUI.TextField view, binding its text to state and triggering actionID on submit.
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    
+    // Builds the SwiftUI.TextField view, binding its text to state and triggering actionID on submit
+    // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let placeholder = validatedProperties["placeholder"] as? String ?? ""
-        let actionID = validatedProperties["actionID"] as? String
         
-        // Initialize state with empty text if not present
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = [
-                "value": "",
-                "validatedProperties": validatedProperties
-            ]
+        // Initialize TextField-specific state only if not already set
+        // Design decision: Merges value (String) conditionally to avoid overwriting existing properties
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var viewSpecificState: [String: Any] = [:]
+        if newState["value"] == nil {
+            viewSpecificState["value"] = ""
+        }
+        if !viewSpecificState.isEmpty {
+            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
         }
         
-        // Bind text to state[element.id]["value"]
         let textBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
             set: { newValue in
@@ -49,20 +53,16 @@ struct TextField: ActionUIViewConstruction {
             }
         )
         
+        let actionID = validatedProperties["actionID"] as? String
+        
         return AnyView(
             SwiftUI.TextField(placeholder, text: textBinding)
                 .onSubmit {
                     // Trigger actionID only on submit (e.g., Return key)
                     if let actionID = actionID {
-                        // Use singleton ActionUIModel.shared for action handling
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 }
         )
-    }
-        
-    // Apply no specific modifiers; rely on ActionUIRegistry for baseline View properties
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view
     }
 }

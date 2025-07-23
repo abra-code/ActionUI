@@ -14,7 +14,7 @@
 import SwiftUI
 
 struct Canvas: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["render"] == nil {
@@ -32,7 +32,7 @@ struct Canvas: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { _, _, _, _ in
         return AnyView(
             SwiftUI.Canvas { context, size in
                 // Render logic moved to applyModifiers
@@ -40,7 +40,7 @@ struct Canvas: ActionUIViewConstruction {
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         let color = (properties["color"] as? Color) ?? Color.black
         if properties["render"] as? String == "drawCircle" {

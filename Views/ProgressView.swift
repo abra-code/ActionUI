@@ -14,7 +14,10 @@
 import SwiftUI
 
 struct ProgressView: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Double to reflect progress value for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { Double.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let value = validatedProperties["value"] as? Double, (0.0...1.0).contains(value) {
@@ -30,15 +33,24 @@ struct ProgressView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
-        let value = validatedProperties["value"] as? Double
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
+        let initialValue = (validatedProperties["value"] as? Double) ?? 0.0
+        let valueBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },
+            set: { newValue in
+                state.wrappedValue[element.id] = ["value": newValue]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                }
+            }
+        )
         
         return AnyView(
-            SwiftUI.ProgressView(value: value)
+            SwiftUI.ProgressView(value: valueBinding)
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let label = properties["label"] as? String {
             modifiedView = AnyView(modifiedView.overlay(SwiftUI.Text(label), alignment: .center))

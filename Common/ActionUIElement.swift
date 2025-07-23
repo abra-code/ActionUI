@@ -18,9 +18,17 @@ protocol ActionUIElement {
 }
 
 protocol ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any]
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView
+    // Design decision: Optional valueType allows views to omit state; defaults to Void in ActionUIRegistry
+    static var valueType: Any.Type? { get }
+    
+    // Design decision: Optional closure allows views to skip validation; defaults to returning input properties if nil
+    static var validateProperties: (([String: Any]) -> [String: Any])? { get }
+    
+    // Design decision: Optional closure allows views to defer to defaults; returns EmptyView if nil
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? { get }
+    
+    // Design decision: Optional closure allows views to skip custom modifiers; defaults to returning input view if nil
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? { get }
 }
 
 struct StaticElement: ActionUIElement, Codable {
@@ -72,11 +80,7 @@ struct StaticElement: ActionUIElement, Codable {
     }
     
     static func register<T: ActionUIViewConstruction>(registry: ActionUIRegistry) {
-        let construction = ActionUIRegistry.ViewConstruction(
-            buildElement: T.buildElement,
-            validateProperties: T.validateProperties,
-            applyModifiers: T.applyModifiers
-        )
-        registry.registerView(type: String(describing: T.self), construction: construction)
+        // Design decision: Registers the type itself, allowing runtime lookup of optional closure properties
+        registry.registerView(type: String(describing: T.self), constructionType: T.self)
     }
 }

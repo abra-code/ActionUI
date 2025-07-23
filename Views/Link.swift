@@ -14,7 +14,10 @@
 import SwiftUI
 
 struct Link: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since Link is a navigational view with no interactive state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["title"] == nil {
@@ -35,7 +38,7 @@ struct Link: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         guard let url = validatedProperties["url"] as? URL else {
             print("Warning: Link requires a valid URL")
             return AnyView(SwiftUI.EmptyView())
@@ -49,7 +52,7 @@ struct Link: ActionUIViewConstruction {
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let title = properties["title"] as? String {
             modifiedView = AnyView(modifiedView.overlay(Text(title), alignment: .center))

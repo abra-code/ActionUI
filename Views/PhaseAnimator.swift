@@ -15,7 +15,7 @@
 import SwiftUI
 
 struct PhaseAnimator: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["content"] == nil {
@@ -32,7 +32,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         if #available(iOS 17.0, macOS 14.0, *) {
             let content = validatedProperties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
             let values = validatedProperties["values"] as? [Double] ?? [0.0, 1.0]
@@ -50,7 +50,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         }
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if #available(iOS 17.0, macOS 14.0, *) {
             if let trigger = properties["trigger"] as? String {

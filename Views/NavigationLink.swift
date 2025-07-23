@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct NavigationLink: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Bool to reflect isActive state for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { Bool.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["label"] == nil {
@@ -37,19 +40,31 @@ struct NavigationLink: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let destination = validatedProperties["destination"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
+        let isActiveBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? (validatedProperties["isActive"] as? Bool ?? false) },
+            set: { newValue in
+                state.wrappedValue[element.id] = ["value": newValue]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                }
+            }
+        )
         
         return AnyView(
             SwiftUI.NavigationLink(
-                destination: ActionUIView(element: try! StaticElement(from: destination), state: state, windowUUID: windowUUID)
+                isActive: isActiveBinding,
+                destination: {
+                    ActionUIView(element: try! StaticElement(from: destination), state: state, windowUUID: windowUUID)
+                }
             ) {
                 EmptyView()
             }
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         let label = properties["label"] as? String ?? "Link"
         if let isActive = properties["isActive"] as? Bool {

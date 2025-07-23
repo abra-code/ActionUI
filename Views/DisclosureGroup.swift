@@ -17,7 +17,10 @@
 import SwiftUI
 
 struct DisclosureGroup: ActionUIViewConstruction {
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    // Design decision: Defines valueType as Bool to reflect isExpanded state for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { Bool.self }
+    
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let label = validatedProperties["label"] as? String ?? ""
         let initialExpanded = validatedProperties["isExpanded"] as? Bool
         if state.wrappedValue[element.id] == nil {
@@ -33,7 +36,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
             }
         )
         return AnyView(
-            DisclosureGroup(isExpanded: expandedBinding) {
+            SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
                 ForEach(element.children ?? [], id: \.id) { child in
                     ActionUIView(element: child, state: state, windowUUID: windowUUID)
                 }
@@ -43,7 +46,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         )
     }
     
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         if let label = properties["label"] as? String {
@@ -60,9 +63,5 @@ struct DisclosureGroup: ActionUIViewConstruction {
         }
         
         return validatedProperties
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers for DisclosureGroup
-    }
+    }    
 }

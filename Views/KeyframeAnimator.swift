@@ -13,8 +13,8 @@
 
 import SwiftUI
 
-struct KeyframeAnimator: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+struct KeyframeAnimator: ActionUIViewConstruction {    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["content"] == nil {
@@ -28,7 +28,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         if #available(iOS 17.0, macOS 14.0, *) {
             let content = validatedProperties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
             let keyframes = validatedProperties["keyframes"] as? [String: [String: Double]] ?? ["0%": ["opacity": 0.0], "100%": ["opacity": 1.0]]
@@ -55,9 +55,5 @@ struct KeyframeAnimator: ActionUIViewConstruction {
             print("Warning: KeyframeAnimator requires iOS 17.0 or macOS 14.0")
             return AnyView(SwiftUI.EmptyView())
         }
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // Keyframes handled in buildElement
     }
 }

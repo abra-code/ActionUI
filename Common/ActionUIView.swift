@@ -9,6 +9,6 @@ struct ActionUIView: View {
         let registry = ActionUIRegistry.shared
         let validatedProperties = registry.getValidatedProperties(element: element, state: state)
         let baseView = registry.build(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        return registry.applyModifiers(to: baseView, properties: validatedProperties, type: element.type)
+        return registry.applyModifiers(to: baseView, properties: validatedProperties, element: element, state: state)
     }
 }

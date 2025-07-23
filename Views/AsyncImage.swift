@@ -16,7 +16,10 @@
 import SwiftUI
 
 struct AsyncImage: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since AsyncImage is a static view with no interactive state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let url = validatedProperties["url"] as? String, URL(string: url) == nil {
@@ -49,7 +52,7 @@ struct AsyncImage: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let urlString = validatedProperties["url"] as? String
         let placeholder = validatedProperties["placeholder"] as? String ?? "photo"
         
@@ -69,7 +72,7 @@ struct AsyncImage: ActionUIViewConstruction {
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let resizable = properties["resizable"] as? Bool, resizable {
             let scaleMode = (properties["scaleMode"] as? String) ?? "fit"

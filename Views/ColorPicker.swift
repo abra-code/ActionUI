@@ -14,7 +14,9 @@
 import SwiftUI
 
 struct ColorPicker: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var valueType: Any.Type? { Color.self } // Value is the selected color
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["label"] == nil {
@@ -32,17 +34,30 @@ struct ColorPicker: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    // Builds the ColorPicker view, binding selection to state
+    // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let initialColor = (validatedProperties["selectedColor"] as? Color) ?? Color.clear
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = ["value": initialColor]
+        
+        // Initialize ColorPicker-specific state only if not already set
+        // Design decision: Merges value (Color) conditionally to avoid overwriting existing properties
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var viewSpecificState: [String: Any] = [:]
+        if newState["value"] == nil {
+            viewSpecificState["value"] = initialColor
         }
+        if !viewSpecificState.isEmpty {
+            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+        }
+        
         let colorBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Color ?? initialColor },
             set: { newValue in
-                state.wrappedValue[element.id] = ["value": newValue]
+                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+                newState["value"] = newValue
+                state.wrappedValue[element.id] = newState
                 if let actionID = validatedProperties["actionID"] as? String {
-                   ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )
@@ -52,7 +67,7 @@ struct ColorPicker: ActionUIViewConstruction {
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let label = properties["label"] as? String {
             modifiedView = AnyView(modifiedView.colorPickerStyle(.wheel).overlay(Text(label), alignment: .top))

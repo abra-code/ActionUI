@@ -16,8 +16,10 @@
 import SwiftUI
 
 struct Table: ActionUIViewConstruction {
+    static let valueType: Any.Type = [String].self // Value is the selected row as [String]
+    
     // Validates properties specific to Table; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         if validatedProperties["columns"] == nil {
@@ -57,21 +59,30 @@ struct Table: ActionUIViewConstruction {
         
         return validatedProperties
     }
-        
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    
+    // Builds the Table view, binding selection to state and handling double-click actions
+    // Design decision: Appends Table-specific state (content, selectedRowID, value) only if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         #if os(macOS)
         let columns = (validatedProperties["columns"] as? [String]) ?? []
         let widths = (validatedProperties["widths"] as? [Int]) ?? []
         let rows = ((validatedProperties["rows"] as? [[String]]) ?? []).map { TableRow(id: UUID().uuidString, values: $0) }
         
-        // Initialize state if not present
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = [
-                "content": validatedProperties["rows"] as? [[String]] ?? [],
-                "selectedRowID": nil as String?,
-                "value": [] as [String],
-                "validatedProperties": validatedProperties
-            ]
+        // Append Table-specific state only if not already set
+        // Design decision: Merges content, selectedRowID, and value ([String]) conditionally to avoid overwriting existing properties
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var viewSpecificState: [String: Any] = [:]
+        if newState["content"] == nil {
+            viewSpecificState["content"] = validatedProperties["rows"] as? [[String]] ?? []
+        }
+        if newState["selectedRowID"] == nil {
+            viewSpecificState["selectedRowID"] = nil as String?
+        }
+        if newState["value"] == nil {
+            viewSpecificState["value"] = [] as [String]
+        }
+        if !viewSpecificState.isEmpty {
+            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
         }
         
         let selectionBinding = Binding<String?>(
@@ -88,7 +99,6 @@ struct Table: ActionUIViewConstruction {
                 }
                 state.wrappedValue[element.id] = newState
                 if let actionID = validatedProperties["actionID"] as? String {
-                    // Use singleton ActionUIModel.shared for action handling
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
@@ -122,9 +132,8 @@ struct Table: ActionUIViewConstruction {
             }
             .onTapGesture(count: 2) {
                 if let doubleClickActionID = doubleClickActionID,
-                   let selectedRowID = (state.wrappedValue[element.id] as? [String: Any])?["selectedRowID"] as? String,
-                   let content = (state.wrappedValue[element.id] as? [String: Any])?["content"] as? [[String]] {
-                    // Use singleton ActionUIModel.shared for action handling
+                   let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
+                   !selectedRow.isEmpty {
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
@@ -132,10 +141,6 @@ struct Table: ActionUIViewConstruction {
         #else
         return AnyView(EmptyView())
         #endif
-    }
-        
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers beyond base View properties
     }
 }
 

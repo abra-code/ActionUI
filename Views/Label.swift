@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct Label: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since Label is a static view with no interactive state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["title"] == nil {
@@ -31,13 +34,13 @@ struct Label: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         return AnyView(
             SwiftUI.Label(title: { EmptyView() }, icon: { EmptyView() })
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         let title = properties["title"] as? String ?? ""
         if let systemImage = properties["systemImage"] as? String {

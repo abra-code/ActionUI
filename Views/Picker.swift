@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct Picker: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as String to reflect selected option for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { String.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let options = validatedProperties["options"] as? [String], options.isEmpty {
@@ -33,7 +36,7 @@ struct Picker: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let items = (validatedProperties["options"] as? [String]) ?? []
         let initialValue = items.first ?? ""
         if state.wrappedValue[element.id] == nil {
@@ -58,7 +61,7 @@ struct Picker: ActionUIViewConstruction {
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let title = properties["title"] as? String {
             modifiedView = AnyView(modifiedView.pickerLabel(Text(title)))

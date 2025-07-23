@@ -28,7 +28,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Image: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since Image is a static view with no interactive state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
@@ -64,7 +67,7 @@ struct Image: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         var image: SwiftUI.Image? = nil
         if let systemName = validatedProperties["systemName"] as? String {
             image = SwiftUI.Image(systemName: systemName)
@@ -77,7 +80,7 @@ struct Image: ActionUIViewConstruction {
         return AnyView(image ?? SwiftUI.Image(systemName: "photo"))
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let resizable = properties["resizable"] as? Bool, resizable {
             let scaleMode = (properties["scaleMode"] as? String) ?? "fit"

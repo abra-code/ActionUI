@@ -13,7 +13,10 @@
 import SwiftUI
 
 struct Text: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since Text is a static display view with no interactive state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         if validatedProperties["text"] == nil {
@@ -23,15 +26,11 @@ struct Text: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let text = validatedProperties["text"] as? String ?? ""
         
         return AnyView(
             SwiftUI.Text(text)
         )
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers beyond base View properties
     }
 }

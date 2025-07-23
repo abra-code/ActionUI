@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct ShareLink: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since ShareLink triggers actions without storing state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let item = validatedProperties["item"] as? String, let _ = URL(string: item) {
@@ -34,7 +37,7 @@ struct ShareLink: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         if #available(iOS 16.1, macOS 13.1, *) {
             guard let item = validatedProperties["item"] as? String, let url = URL(string: item) else {
                 print("Warning: ShareLink requires a valid URL")
@@ -51,7 +54,7 @@ struct ShareLink: ActionUIViewConstruction {
         }
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if #available(iOS 16.1, macOS 13.1, *) {
             if let subject = properties["subject"] as? String {

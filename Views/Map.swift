@@ -15,7 +15,10 @@ import SwiftUI
 import MapKit
 
 struct Map: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as CLLocationCoordinate2D to reflect map's center coordinate for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { CLLocationCoordinate2D.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let coordinate = validatedProperties["coordinate"] as? [String: Double] {
@@ -35,11 +38,28 @@ struct Map: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         #if canImport(MapKit)
-        let coordinate = validatedProperties["coordinate"] as? CLLocationCoordinate2D
+        let initialCoordinate = (validatedProperties["coordinate"] as? CLLocationCoordinate2D) ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
+        let showsUserLocation = validatedProperties["showsUserLocation"] as? Bool ?? false
+        
+        let regionBinding = Binding(
+            get: {
+                if let coord = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? CLLocationCoordinate2D {
+                    return MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
+                }
+                return MKCoordinateRegion(center: initialCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
+            },
+            set: { newRegion in
+                state.wrappedValue[element.id] = ["value": newRegion.center]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                }
+            }
+        )
+        
         return AnyView(
-            SwiftUI.Map(coordinateRegion: .constant(coordinate.map { MKCoordinateRegion(center: $0, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)) } ?? MKCoordinateRegion()))
+            SwiftUI.Map(coordinateRegion: regionBinding, showsUserLocation: showsUserLocation)
         )
         #else
         print("Warning: Map requires MapKit")
@@ -47,15 +67,9 @@ struct Map: ActionUIViewConstruction {
         #endif
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         #if canImport(MapKit)
         var modifiedView = view
-        if let coordinate = properties["coordinate"] as? CLLocationCoordinate2D {
-            modifiedView = AnyView(modifiedView.mapStyle(.standard).overlay(
-                Map(coordinateRegion: .constant(MKCoordinateRegion(center: coordinate, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))),
-                alignment: .center
-            ))
-        }
         if let showsUserLocation = properties["showsUserLocation"] as? Bool {
             modifiedView = AnyView(modifiedView.mapStyle(.standard).showsUserLocation(showsUserLocation))
         }

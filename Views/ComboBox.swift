@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct ComboBox: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as String to reflect selected option for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { String.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         #if os(watchOS) || os(tvOS)
@@ -38,14 +41,12 @@ struct ComboBox: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         #if os(macOS) || os(iOS) || os(iPadOS)
         let items = (validatedProperties["options"] as? [String]) ?? []
         let placeholder = validatedProperties["placeholder"] as? String ?? ""
         let pickerStyle = validatedProperties["pickerStyle"] as? String ?? "menu"
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = ["value": ""]
-        }
+        
         let binding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
             set: { newValue in
@@ -77,9 +78,5 @@ struct ComboBox: ActionUIViewConstruction {
         print("Warning: ComboBox is not supported on this platform")
         return AnyView(SwiftUI.EmptyView())
         #endif
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No view-specific modifiers; base modifiers handled by ActionUIRegistry
     }
 }

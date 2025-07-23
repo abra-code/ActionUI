@@ -15,7 +15,10 @@ import SwiftUI
 import AVKit
 
 struct VideoPlayer: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Void since VideoPlayer manages AVPlayer without user-modifiable state
+    static var valueType: Any.Type? { Void.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let urlString = validatedProperties["url"] as? String {
@@ -38,7 +41,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         #if canImport(AVKit)
         guard let url = validatedProperties["url"] as? URL else {
             print("Warning: VideoPlayer requires a valid URL")
@@ -54,7 +57,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         #endif
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         #if canImport(AVKit)
         var modifiedView = view
         if let autoplay = properties["autoplay"] as? Bool, let player = (modifiedView as? VideoPlayerRepresentable)?.player {

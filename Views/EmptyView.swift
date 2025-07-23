@@ -11,15 +11,7 @@
 import SwiftUI
 
 struct EmptyView: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
-        return properties // No specific properties to validate; rely on external View.validateProperties
-    }
-    
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { _, _, _, _ in
         return AnyView(SwiftUI.EmptyView())
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers beyond base View properties
     }
 }

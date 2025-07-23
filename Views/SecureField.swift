@@ -15,8 +15,11 @@
 import SwiftUI
 
 struct SecureField: ActionUIViewConstruction {
+    // Design decision: Defines valueType as String to reflect secure text input for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { String.self }
+    
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         // Default to empty string if placeholder is not provided
@@ -36,18 +39,10 @@ struct SecureField: ActionUIViewConstruction {
     }
         
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let placeholder = validatedProperties["placeholder"] as? String ?? ""
         let actionID = validatedProperties["actionID"] as? String
-        
-        // Initialize state with empty text if not present
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = [
-                "value": "",
-                "validatedProperties": validatedProperties
-            ]
-        }
-        
+                
         // Bind text to state[element.id]["value"]
         let textBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
@@ -71,7 +66,7 @@ struct SecureField: ActionUIViewConstruction {
     }
     
     // Applies modifiers specific to SecureField, such as textContentType
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let textContentType = properties["textContentType"] as? String {
             // Apply textContentType for password autofill or new password suggestions

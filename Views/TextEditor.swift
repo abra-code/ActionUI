@@ -13,7 +13,10 @@
 import SwiftUI
 
 struct TextEditor: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as String to reflect text input for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { String.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         if let placeholder = validatedProperties["placeholder"] as? String {
@@ -26,10 +29,7 @@ struct TextEditor: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = ["value": ""]
-        }
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let textBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
             set: { newValue in
@@ -61,9 +61,5 @@ struct TextEditor: ActionUIViewConstruction {
                 SwiftUI.TextEditor(text: textBinding)
             )
         }
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers beyond base View properties
     }
 }

@@ -24,7 +24,7 @@
 import SwiftUI
 
 struct Grid: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         #if os(watchOS) || os(tvOS)
@@ -61,7 +61,7 @@ struct Grid: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         #if os(watchOS) || os(tvOS)
         return AnyView(EmptyView())
         #else
@@ -95,9 +95,5 @@ struct Grid: ActionUIViewConstruction {
             }
         )
         #endif
-    }
-    
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers beyond base View properties
     }
 }

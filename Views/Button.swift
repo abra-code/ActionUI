@@ -16,8 +16,10 @@
 import SwiftUI
 
 struct Button: ActionUIViewConstruction {
+    static var valueType: Any.Type? { Void.self } // Button has no stateful value, only triggers actions
+    
     // Validates properties specific to Button; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         if validatedProperties["title"] == nil {
@@ -46,10 +48,13 @@ struct Button: ActionUIViewConstruction {
         
         return validatedProperties
     }
-            
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    
+    // Builds the Button view, relying on ActionUIRegistry.build for state initialization
+    // Design decision: No value state is initialized, as Button has no stateful value (valueType is Void)
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let title = validatedProperties["title"] as? String ?? "Button"
         let role = validatedProperties["role"] as? String
+        let actionID = validatedProperties["actionID"] as? String
         
         var buttonRole: ButtonRole?
         if role == "destructive" {
@@ -58,14 +63,11 @@ struct Button: ActionUIViewConstruction {
             buttonRole = .cancel
         }
         
-        let actionID = validatedProperties["actionID"] as? String
-        
         return AnyView(
             SwiftUI.Button(
                 role: buttonRole,
                 action: {
                     if let actionID = actionID {
-                        // Use singleton ActionUIModel.shared for action handling
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 },
@@ -75,8 +77,8 @@ struct Button: ActionUIViewConstruction {
             )
         )
     }
-        
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         
         if let buttonStyle = properties["buttonStyle"] as? String {

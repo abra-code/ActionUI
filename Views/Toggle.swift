@@ -14,7 +14,9 @@
 import SwiftUI
 
 struct Toggle: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var valueType: Any.Type? { Bool.self } // Value is the toggle's on/off state
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if let style = validatedProperties["style"] as? String, !["switch", "checkbox", "button"].contains(style) {
@@ -31,14 +33,26 @@ struct Toggle: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = ["value": false]
+    // Builds the Toggle view, binding isOn to state
+    // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
+        // Initialize Toggle-specific state only if not already set
+        // Design decision: Merges value (Bool) conditionally to avoid overwriting existing properties
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var viewSpecificState: [String: Any] = [:]
+        if newState["value"] == nil {
+            viewSpecificState["value"] = false
         }
+        if !viewSpecificState.isEmpty {
+            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+        }
+        
         let toggleBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Bool ?? false },
             set: { newValue in
-                state.wrappedValue[element.id] = ["value": newValue]
+                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+                newState["value"] = newValue
+                state.wrappedValue[element.id] = newState
                 if let actionID = validatedProperties["actionID"] as? String {
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
@@ -50,7 +64,7 @@ struct Toggle: ActionUIViewConstruction {
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let label = properties["label"] as? String {
             modifiedView = AnyView(modifiedView.toggleLabel(Text(label)))

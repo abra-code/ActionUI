@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct StepSlider: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Int to reflect value state for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { Int.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         #if os(macOS)
@@ -49,7 +52,7 @@ struct StepSlider: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         #if os(macOS)
         if #available(macOS 13.0, *) {
             let initialValue = (validatedProperties["value"] as? Int) ?? 0
@@ -78,7 +81,7 @@ struct StepSlider: ActionUIViewConstruction {
         #endif
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         #if os(macOS)
         if #available(macOS 13.0, *) {
             var modifiedView = view

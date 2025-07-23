@@ -16,7 +16,10 @@
 import SwiftUI
 
 struct TabView: ActionUIViewConstruction {
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    // Design decision: Defines valueType as Int to reflect selected tab index for type-safe string parsing in ActionUIModel
+    static var valueType: Any.Type? { Int.self }
+    
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = View.validateProperties(properties)
         
         if validatedProperties["children"] == nil {
@@ -35,19 +38,33 @@ struct TabView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let children = validatedProperties["children"] as? [[String: Any]] ?? []
+        let initialSelection = (validatedProperties["selection"] as? Int) ?? 0
+        if state.wrappedValue[element.id] == nil {
+            state.wrappedValue[element.id] = ["value": initialSelection]
+        }
+        let selectionBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Int ?? initialSelection },
+            set: { newValue in
+                state.wrappedValue[element.id] = ["value": newValue]
+                if let actionID = validatedProperties["actionID"] as? String {
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                }
+            }
+        )
         
         return AnyView(
-            SwiftUI.TabView {
+            SwiftUI.TabView(selection: selectionBinding) {
                 ForEach(children.indices, id: \.self) { index in
                     ActionUIView(element: try! StaticElement(from: children[index]), state: state, windowUUID: windowUUID)
+                        .tag(index)
                 }
             }
         )
     }
     
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
+    static var applyModifiers: ((AnyView, [String: Any]) -> AnyView)? = { view, properties in
         var modifiedView = view
         if let selection = properties["selection"] as? Int {
             modifiedView = AnyView(modifiedView.tabViewSelection(selection))

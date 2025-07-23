@@ -14,8 +14,10 @@
 import SwiftUI
 
 struct List: ActionUIViewConstruction {
+    static let valueType: Any.Type = [String].self // Value is the selected item as [String]
+    
     // Validates properties specific to List; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static func validateProperties(_ properties: [String: Any]) -> [String: Any] {
+    static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
         var validatedProperties = properties
         
         if validatedProperties["items"] == nil {
@@ -35,18 +37,25 @@ struct List: ActionUIViewConstruction {
         
         return validatedProperties
     }
-        
-    static func buildElement(_ element: ActionUIElement, _ state: Binding<[Int: Any]>, _ windowUUID: String, validatedProperties: [String: Any]) -> AnyView {
+    
+    // Builds the List view, binding selection to state and handling double-click actions
+    // Design decision: Appends List-specific state (content, value) only if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    static var buildElement: ((ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> AnyView)? = { element, state, windowUUID, validatedProperties in
         let items = (validatedProperties["items"] as? [[String]]) ?? []
         let displayItems = items.map { $0.first ?? "" } // Display first column only
         
-        // Initialize state if not present
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = [
-                "content": validatedProperties["items"] as? [[String]] ?? [],
-                "value": [] as [String],
-                "validatedProperties": validatedProperties
-            ]
+        // Append List-specific state only if not already set
+        // Design decision: Merges content and value ([String]) conditionally to avoid overwriting existing properties
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var viewSpecificState: [String: Any] = [:]
+        if newState["content"] == nil {
+            viewSpecificState["content"] = validatedProperties["items"] as? [[String]] ?? []
+        }
+        if newState["value"] == nil {
+            viewSpecificState["value"] = [] as [String]
+        }
+        if !viewSpecificState.isEmpty {
+            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
         }
         
         let selectionBinding = Binding<String?>(
@@ -62,7 +71,6 @@ struct List: ActionUIViewConstruction {
                 }
                 state.wrappedValue[element.id] = newState
                 if let actionID = validatedProperties["actionID"] as? String {
-                    // Use singleton ActionUIModel.shared for action handling
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
@@ -93,15 +101,10 @@ struct List: ActionUIViewConstruction {
                 if let doubleClickActionID = doubleClickActionID,
                    let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
                    !selectedRow.isEmpty {
-                    // Use singleton ActionUIModel.shared for action handling
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
             #endif
         )
-    }
-        
-    static func applyModifiers(_ view: AnyView, _ properties: [String: Any]) -> AnyView {
-        return view // No specific modifiers beyond base View properties
     }
 }
