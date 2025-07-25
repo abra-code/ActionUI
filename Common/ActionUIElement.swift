@@ -81,6 +81,6 @@ struct StaticElement: ActionUIElement, Codable {
     
     static func register<T: ActionUIViewConstruction>(registry: ActionUIRegistry) {
         // Design decision: Registers the type itself, allowing runtime lookup of optional closure properties
-        registry.registerView(type: String(describing: T.self), constructionType: T.self)
+        registry.registerView(elementType: String(describing: T.self), constructionType: T.self)
     }
 }

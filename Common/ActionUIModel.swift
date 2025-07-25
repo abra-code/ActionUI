@@ -89,7 +89,7 @@ class ActionUIModel: ObservableObject {
     // Retrieves the value of a view based on viewID and viewPartID
     // For Table/List with [[String]] content, viewPartID == 0 returns tab-separated values, viewPartID >= 1 returns the indexed column (or "" if out of bounds)
     // For List with [String] content or other views, returns the "value" from state
-    func getControlValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
+    func getElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
         guard let state = states[windowUUID]?[viewID] as? [String: Any] else {
             return nil
         }
@@ -117,7 +117,7 @@ class ActionUIModel: ObservableObject {
     // For Table: Accepts [[String]], preserves all columns, pads rows for display if needed
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
-    func setControlValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
+    func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
         var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? [:]
         
         if let newRows = value as? [[String]],
@@ -166,8 +166,8 @@ class ActionUIModel: ObservableObject {
     
     // Converts control value to a string representation for scripting
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
-    func getControlValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String {
-        guard let value = getControlValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID) else {
+    func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String {
+        guard let value = getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID) else {
             return ""
         }
         
@@ -199,22 +199,22 @@ class ActionUIModel: ObservableObject {
             // Design decision: Serializes CLLocationCoordinate2D as JSON string matching Map's coordinate property format
             return "{\"latitude\":\(coordinate.latitude),\"longitude\":\(coordinate.longitude)}"
         default:
-            print("Warning: Unsupported value type for getControlValueAsString: \(type(of: value))")
+            print("Warning: Unsupported value type for getElementValueAsString: \(type(of: value))")
             return ""
         }
     }
     
-    // Converts a string to the view's value type and delegates to setControlValue
+    // Converts a string to the view's value type and delegates to setElementValue
     // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
-    func setControlValueFromString(windowUUID: String, viewID: Int, viewPartID: Int = 0, stringValue: String) {
-        guard let element = descriptions[windowUUID]?.findElement(by: viewID),
-              let valueType = ActionUIRegistry.shared.getValueType(forType: element.type) else {
-            print("Warning: No view found for windowUUID '\(windowUUID)' and viewID '\(viewID)' or valueType not registered")
+    func setElementValueFromString(windowUUID: String, viewID: Int, viewPartID: Int = 0, stringValue: String) {
+        guard let element = descriptions[windowUUID]?.findElement(by: viewID) else {
+            print("Warning: No view found for windowUUID '\(windowUUID)' and viewID '\(viewID)'")
             return
         }
         
         var value: Any?
         
+        let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
         if valueType == [String].self {
             value = stringValue.split(separator: "\t").map { String($0) }
         } else if valueType == [[String]].self {
@@ -285,22 +285,22 @@ class ActionUIModel: ObservableObject {
                 return
             }
         } else if valueType == Void.self {
-            print("Warning: View with Void valueType does not support setControlValueFromString: \(element.type)")
+            print("Warning: View with Void valueType does not support setElementValueFromString: \(element.type)")
             return
         } else {
-            print("Warning: Unsupported valueType for setControlValueFromString: \(valueType)")
+            print("Warning: Unsupported valueType for setElementValueFromString: \(valueType)")
             return
         }
         
         if let value = value {
-            setControlValue(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
+            setElementValue(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
         }
     }
     
     // Appends items to a view’s content, updating state and validatedProperties
     // For Table: Appends [[String]], preserves all columns, pads rows for display
     // For List: Appends [String] or [[String]], converts [String] to [[String]]
-    func appendItems(windowUUID: String, viewID: Int, items: Any) {
+    func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
         var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? [:]
         
         if let newRows = items as? [[String]],
@@ -341,7 +341,7 @@ class ActionUIModel: ObservableObject {
     // Retrieves a property value for a view by its name
     // Design decision: Accesses validatedProperties to ensure consistency with rendered views, as these are validated by ActionUIRegistry
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging
-    func getProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
+    func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
         guard let controlState = states[windowUUID]?[viewID] as? [String: Any],
               let validatedProperties = controlState["validatedProperties"] as? [String: Any] else {
             print("Warning: No state found for windowUUID '\(windowUUID)' and viewID '\(viewID)'")
@@ -358,7 +358,7 @@ class ActionUIModel: ObservableObject {
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
     // Updates states[windowUUID][viewID] to trigger SwiftUI refresh, relying on viewID and @Published for isolated view updates
     // Uses findElement(by:) to get the view's type for validation
-    func setProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
+    func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let element = descriptions[windowUUID]?.findElement(by: viewID) else {
             print("Warning: No view found for windowUUID '\(windowUUID)' and viewID '\(viewID)'")
             return
@@ -374,7 +374,7 @@ class ActionUIModel: ObservableObject {
         
         // Re-validate to ensure compliance with view-specific rules
         // Design decision: Validation ensures properties like 'disabled' are correctly typed and defaults are applied (e.g., false for invalid 'disabled')
-        let reValidatedProperties = ActionUIRegistry.shared.validateProperties(forType: element.type, properties: View.validateProperties(validatedProperties))
+        let reValidatedProperties = ActionUIRegistry.shared.validateProperties(forElementType: element.type, properties: View.validateProperties(validatedProperties))
         
         // Update state to trigger refresh
         // Design decision: Storing in states[windowUUID][viewID] leverages @Published to notify SwiftUI, with viewID ensuring only the target view redraws

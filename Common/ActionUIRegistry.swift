@@ -71,11 +71,11 @@ class ActionUIRegistry {
     }
     
     // Design decision: Registers the type conforming to ActionUIViewConstruction, using optional closure properties with defaults
-    func registerView(type: String, constructionType: any ActionUIViewConstruction.Type) {
-        registrations[type] = constructionType
+    func registerView(elementType: String, constructionType: any ActionUIViewConstruction.Type) {
+        registrations[elementType] = constructionType
     }
     
-    func validateProperties(forType type: String, properties: [String: Any]) -> [String: Any] {
+    func validateProperties(forElementType type: String, properties: [String: Any]) -> [String: Any] {
         if let constructionType = registrations[type],
            let validate = constructionType.validateProperties {
             return validate(properties)
@@ -86,7 +86,7 @@ class ActionUIRegistry {
     func getValidatedProperties(element: ActionUIElement, state: Binding<[Int: Any]>) -> [String: Any] {
         if state.wrappedValue[element.id] == nil {
             let baseValidated = View.validateProperties(element.properties)
-            let validatedProperties = validateProperties(forType: element.type, properties: baseValidated)
+            let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
             state.wrappedValue[element.id] = [
                 "validatedProperties": validatedProperties,
                 "rawProperties": element.properties
@@ -99,21 +99,21 @@ class ActionUIRegistry {
         
         if rawProperties != element.properties {
             let baseValidated = View.validateProperties(element.properties)
-            validatedProperties = validateProperties(forType: element.type, properties: baseValidated)
+            validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
             var newState = currentState
             newState["validatedProperties"] = validatedProperties
             newState["rawProperties"] = element.properties
             state.wrappedValue[element.id] = newState
         } else {
-            validatedProperties = currentState["validatedProperties"] as? [String: Any] ?? validateProperties(forType: element.type, properties: View.validateProperties(element.properties))
+            validatedProperties = currentState["validatedProperties"] as? [String: Any] ?? validateProperties(forElementType: element.type, properties: View.validateProperties(element.properties))
         }
         
         return validatedProperties
     }
     
-    // Retrieves the value type for a given view type
+    // Retrieves the value type for a given view element type
     // Design decision: Returns Void if valueType is not implemented, ensuring compatibility with non-interactive views
-    func getValueType(forType type: String) -> Any.Type? {
+    func getElementValueType(forElementType type: String) -> Any.Type {
         return registrations[type]?.valueType ?? Void.self
     }
     
