@@ -17,7 +17,7 @@ struct ColorPicker: ActionUIViewConstruction {
     static var valueType: Any.Type? { Color.self } // Value is the selected color
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["label"] == nil {
             validatedProperties["label"] = "Color"

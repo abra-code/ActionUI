@@ -15,7 +15,7 @@ import SwiftUI
 
 struct Canvas: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["render"] == nil {
             validatedProperties["render"] = nil

@@ -19,7 +19,7 @@ import SwiftUI
 
 struct LazyHStack: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing

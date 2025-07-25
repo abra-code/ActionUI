@@ -19,7 +19,7 @@ struct VideoPlayer: ActionUIViewConstruction {
     static var valueType: Any.Type? { Void.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let urlString = validatedProperties["url"] as? String {
             if let url = URL(string: urlString) {

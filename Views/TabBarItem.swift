@@ -16,7 +16,7 @@ import SwiftUI
 
 struct TabBarItem: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["title"] == nil {
             validatedProperties["title"] = "Item"

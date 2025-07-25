@@ -17,7 +17,7 @@ import SwiftUI
 
 struct Menu: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["label"] == nil {
             validatedProperties["label"] = "Menu"

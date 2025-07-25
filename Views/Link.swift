@@ -18,7 +18,7 @@ struct Link: ActionUIViewConstruction {
     static var valueType: Any.Type? { Void.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["title"] == nil {
             validatedProperties["title"] = "Link"

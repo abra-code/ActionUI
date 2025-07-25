@@ -20,7 +20,7 @@ struct TabView: ActionUIViewConstruction {
     static var valueType: Any.Type? { Int.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["children"] == nil {
             print("Warning: TabView requires 'children'; defaulting to empty array")

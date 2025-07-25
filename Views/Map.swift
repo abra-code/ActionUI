@@ -19,7 +19,7 @@ struct Map: ActionUIViewConstruction {
     static var valueType: Any.Type? { CLLocationCoordinate2D.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let coordinate = validatedProperties["coordinate"] as? [String: Double] {
             let latitude = coordinate["latitude"] ?? 0.0

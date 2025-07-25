@@ -18,7 +18,7 @@ struct Slider: ActionUIViewConstruction {
     static var valueType: Any.Type? { Double.self } // Value is the slider's position
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let value = validatedProperties["value"] as? Double {
             validatedProperties["value"] = value

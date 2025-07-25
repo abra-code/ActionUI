@@ -19,7 +19,7 @@ struct Gauge: ActionUIViewConstruction {
     static var valueType: Any.Type? { Double.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let value = validatedProperties["value"] as? Double, (0.0...1.0).contains(value) {
             validatedProperties["value"] = value

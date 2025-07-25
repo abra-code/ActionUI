@@ -16,7 +16,7 @@ import SwiftUI
 
 struct PhaseAnimator: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
             print("Warning: PhaseAnimator requires 'content'; defaulting to EmptyView")

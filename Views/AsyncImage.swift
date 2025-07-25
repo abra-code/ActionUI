@@ -20,7 +20,7 @@ struct AsyncImage: ActionUIViewConstruction {
     static var valueType: Any.Type? { Void.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let url = validatedProperties["url"] as? String, URL(string: url) == nil {
             print("Warning: AsyncImage url '\(url)' is not a valid URL; defaulting to placeholder")

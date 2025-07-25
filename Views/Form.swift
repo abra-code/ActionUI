@@ -16,7 +16,7 @@ import SwiftUI
 
 struct Form: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["children"] == nil {
             print("Warning: Form requires 'children'; defaulting to empty array")

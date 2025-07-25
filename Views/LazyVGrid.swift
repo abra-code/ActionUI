@@ -23,7 +23,7 @@ import SwiftUI
 
 struct LazyVGrid: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let columns = validatedProperties["columns"] as? [[String: Any]] {
             var validatedColumns: [[String: Any]] = []

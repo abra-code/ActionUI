@@ -23,7 +23,7 @@ import SwiftUI
 
 struct LazyHGrid: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let rows = validatedProperties["rows"] as? [[String: Any]] {
             var validatedRows: [[String: Any]] = []

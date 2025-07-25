@@ -15,7 +15,7 @@ import SwiftUI
 
 struct NavigationView: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
             print("Warning: NavigationView requires 'content'; defaulting to EmptyView")

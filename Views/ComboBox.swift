@@ -19,7 +19,7 @@ struct ComboBox: ActionUIViewConstruction {
     static var valueType: Any.Type? { String.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
         print("Warning: ComboBox is not supported on watchOS/tvOS; defaulting to empty properties")

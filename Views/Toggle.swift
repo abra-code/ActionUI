@@ -17,7 +17,7 @@ struct Toggle: ActionUIViewConstruction {
     static var valueType: Any.Type? { Bool.self } // Value is the toggle's on/off state
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let style = validatedProperties["style"] as? String, !["switch", "checkbox", "button"].contains(style) {
             print("Warning: Toggle style '\(style)' invalid; defaulting to switch")

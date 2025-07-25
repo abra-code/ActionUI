@@ -25,7 +25,7 @@ import SwiftUI
 
 struct Grid: ActionUIViewConstruction {
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
         print("Warning: Grid is not supported on watchOS/tvOS; defaulting to empty properties")

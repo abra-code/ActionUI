@@ -19,7 +19,7 @@ struct Picker: ActionUIViewConstruction {
     static var valueType: Any.Type? { String.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if let options = validatedProperties["options"] as? [String], options.isEmpty {
             print("Warning: Picker options is empty; initializing with empty array")

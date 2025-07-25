@@ -32,7 +32,7 @@ struct Image: ActionUIViewConstruction {
     static var valueType: Any.Type? { Void.self }
     
     static var validateProperties: (([String: Any]) -> [String: Any])? = { properties in
-        var validatedProperties = View.validateProperties(properties)
+        var validatedProperties = properties
         
         if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
             print("Warning: Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image")
