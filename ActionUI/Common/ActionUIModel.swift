@@ -22,16 +22,16 @@ class ActionUIModel: ObservableObject {
     @Published var states: [String: [Int: Any]] = [:]
     
     // Registry for action handlers, mapping actionID to closures that handle user interactions
-    private var actionHandlers: [String: (String, String, Int, Int) -> Void] = [:]
+    private var actionHandlers: [String: (String, String, Int, Int, Any?) -> Void] = [:]
     
     // Default handler for actions with no specific handler registered, used for all unmatched actionIDs
-    private var defaultActionHandler: ((String, String, Int, Int) -> Void)?
+    private var defaultActionHandler: ((String, String, Int, Int, Any?) -> Void)?
     
     // Register a handler for a specific actionID
     // Parameters:
     // - actionID: The identifier for the action (e.g. "button.click", "table.doubleClick")
     // - handler: Closure to execute when the actionID is triggered
-    func registerActionHandler(for actionID: String, handler: @escaping (String, String, Int, Int) -> Void) {
+    func registerActionHandler(for actionID: String, handler: @escaping (String, String, Int, Int, Any?) -> Void) {
         actionHandlers[actionID] = handler
     }
     
@@ -41,7 +41,7 @@ class ActionUIModel: ObservableObject {
     }
     
     // Set the default handler for unmatched actionIDs
-    func setDefaultActionHandler(_ handler: @escaping (String, String, Int, Int) -> Void) {
+    func setDefaultActionHandler(_ handler: @escaping (String, String, Int, Int, Any?) -> Void) {
         defaultActionHandler = handler
     }
     
@@ -52,11 +52,11 @@ class ActionUIModel: ObservableObject {
     
     // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
     // Uses ActionUIModel.shared for state access
-    func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int) {
+    func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
         if let handler = actionHandlers[actionID] {
-            handler(actionID, windowUUID, viewID, viewPartID)
+            handler(actionID, windowUUID, viewID, viewPartID, context)
         } else if let defaultHandler = defaultActionHandler {
-            defaultHandler(actionID, windowUUID, viewID, viewPartID)
+            defaultHandler(actionID, windowUUID, viewID, viewPartID, context)
         } else {
             print("Warning: No handler registered for actionID '\(actionID)' and no default handler set")
         }
