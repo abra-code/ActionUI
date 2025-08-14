@@ -44,10 +44,10 @@ struct Menu: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let label = properties["label"] as? String {
-            return AnyView(view.overlay(SwiftUI.Text(label), alignment: .center))
+            return view.overlay(SwiftUI.Text(label), alignment: .center)
         }
-        return AnyView(view)
+        return view
     }
 }

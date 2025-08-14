@@ -86,13 +86,13 @@ struct ProgressView: ActionUIViewConstruction {
             }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         #if canImport(UIKit)
         if properties["value"] == nil || properties["total"] == nil {
             modifiedView = modifiedView.progressViewStyle(.circular)
         }
         #endif
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

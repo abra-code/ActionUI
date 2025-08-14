@@ -30,10 +30,10 @@ struct Spacer: ActionUIViewConstruction {
         return SwiftUI.Spacer()
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let minLength = properties["minLength"] as? CGFloat {
-            return AnyView(view.frame(minWidth: minLength))
+            return view.frame(minWidth: minLength)
         }
-        return AnyView(view)
+        return view
     }
 }

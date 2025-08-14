@@ -32,7 +32,7 @@ struct Label: ActionUIViewConstruction {
         return SwiftUI.Label(title: { SwiftUI.EmptyView() }, icon: { SwiftUI.EmptyView() })
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         let title = properties["title"] as? String ?? ""
         if let systemImage = properties["systemImage"] as? String {
@@ -51,6 +51,6 @@ struct Label: ActionUIViewConstruction {
                 alignment: .center
             )
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

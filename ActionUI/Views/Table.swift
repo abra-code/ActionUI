@@ -9,11 +9,16 @@
      "widths": [100, 50],                 // Optional: Array of integers for column widths
      "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action identifier
    }
-   // Note: The Table view is macOS-only, showing a multi-column table with string values. Selection is stored as [String] in state["value"], using row IDs for tracking. Rows are padded with empty strings if shorter than columns. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. The buildView closure is simplified using helper functions for state initialization, selection binding, and table construction. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. For dynamic columns on macOS 14.4+, uses TableColumnForEach to generate columns from the columns array, requiring macOS 14.4+ for TableColumnForEach availability. For earlier versions, falls back to a placeholder message.
  }
+   // Note: The Table view is macOS-only, showing a multi-column table with string values. Selection is stored as [String] in state["value"], using row IDs for tracking. Rows are padded with empty strings if shorter than columns. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+, requiring macOS 14.4+ for TableColumnForEach availability. Falls back to a placeholder message for earlier versions.
 */
 
 import SwiftUI
+
+struct TableRowData: Identifiable {
+    let id: String
+    let values: [String]
+}
 
 struct Table: ActionUIViewConstruction {
     static let valueType: Any.Type = [String].self // Value is the selected row as [String]
@@ -66,20 +71,32 @@ struct Table: ActionUIViewConstruction {
         return validatedProperties
     }
     
-#if os(macOS)
-    // Helper struct to make columns Identifiable for TableColumnForEach
-    struct ColumnData: Identifiable {
-        let id: Int // Use index as ID for stability
-        let name: String
-        let width: CGFloat?
-    }
-    
-    // Helper function to initialize state
-    private static func initializeState(element: any ActionUIElement, state: Binding<[Int: Any]>, rows: [[String]]) {
-        let newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+    // Builds the Table view, binding selection to state and handling double-click actions
+    // Design decision: Appends Table-specific state (content, selectedRowID, value) only if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+        #if os(macOS)
+        let columns = (properties["columns"] as? [String]) ?? []
+        let widths = (properties["widths"] as? [Int]) ?? []
+        let rows = ((properties["rows"] as? [[String]]) ?? []).map { TableRowData(id: UUID().uuidString, values: $0) }
+        
+        // Helper struct for TableColumnForEach
+        struct ColumnData: Identifiable {
+            let id: Int // Use index as ID for stability
+            let name: String
+            let width: CGFloat?
+        }
+        
+        // Prepare ColumnData for TableColumnForEach
+        let columnData = columns.enumerated().map { (index, name) in
+            ColumnData(id: index, name: name, width: widths.count > index ? CGFloat(widths[index]) : nil)
+        }
+        
+        // Append Table-specific state only if not already set
+        // Design decision: Merges content, selectedRowID, and value ([String]) conditionally to avoid overwriting existing properties
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]
         if newState["content"] == nil {
-            viewSpecificState["content"] = rows
+            viewSpecificState["content"] = properties["rows"] as? [[String]] ?? []
         }
         if newState["selectedRowID"] == nil {
             viewSpecificState["selectedRowID"] = nil as String?
@@ -90,14 +107,11 @@ struct Table: ActionUIViewConstruction {
         if !viewSpecificState.isEmpty {
             state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
         }
-    }
-    
-    // Helper function to create selection binding
-    private static func makeSelectionBinding(element: any ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, properties: [String: Any], rows: [TableRow]) -> Binding<String?> {
-        Binding<String?>(
+        
+        let selectionBinding = Binding<String?>(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["selectedRowID"] as? String },
             set: { newValue in
-                var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["selectedRowID"] = newValue
                 if let selectedRowID = newValue,
                    let selectedRow = rows.first(where: { $0.id == selectedRowID }) {
@@ -113,16 +127,10 @@ struct Table: ActionUIViewConstruction {
                 }
             }
         )
-    }
-    
-    // Helper function to build the Table view
-    private static func buildTableView(columns: [String], widths: [Int], rows: [TableRow], selectionBinding: Binding<String?>) -> any SwiftUI.View {
+        
+        let doubleClickActionID = properties["doubleClickActionID"] as? String
+        
         if #available(macOS 14.4, *) {
-            // Prepare ColumnData for TableColumnForEach
-            let columnData = columns.enumerated().map { (index, name) in
-                ColumnData(id: index, name: name, width: widths.count > index ? CGFloat(widths[index]) : nil)
-            }
-            
             return SwiftUI.Table(rows, selection: selectionBinding) {
                 TableColumnForEach(columnData) { column in
                     SwiftUI.TableColumn(column.name) { row in
@@ -131,43 +139,20 @@ struct Table: ActionUIViewConstruction {
                     .width(column.width)
                 }
             }
-        } else {
-            // Fallback for pre-macOS 14.4: Show a placeholder message
-            return SwiftUI.Text("Table requires macOS 14.4 or later for dynamic columns")
-        }
-    }
-    
-    // Helper function to handle rows change
-    private static func handleRowsChange(newRows: [[String]]?, state: Binding<[Int: Any]>, element: any ActionUIElement, rows: [TableRow]) {
-        var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        let newContent: [[String]] = newRows ?? []
-        newState["content"] = newContent
-        if let selectedRowID = newState["selectedRowID"] as? String,
-           !rows.contains(where: { $0.id == selectedRowID }) {
-            newState["selectedRowID"] = nil
-            newState["value"] = [] as [String]
-        }
-        if var validatedProperties = newState["validatedProperties"] as? [String: Any] {
-            validatedProperties["rows"] = newContent
-            newState["validatedProperties"] = validatedProperties
-        }
-        state.wrappedValue[element.id] = newState
-    }
-#endif // os(macOS)
-    
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { (element: any ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, properties: [String: Any]) -> any SwiftUI.View in
-        #if os(macOS)
-        let columns: [String] = (properties["columns"] as? [String]) ?? []
-        let widths: [Int] = (properties["widths"] as? [Int]) ?? []
-        let rows: [TableRow] = ((properties["rows"] as? [[String]]) ?? []).map { TableRow(id: UUID().uuidString, values: $0) }
-        let doubleClickActionID: String? = properties["doubleClickActionID"] as? String
-        
-        initializeState(element: element, state: state, rows: properties["rows"] as? [[String]] ?? [])
-        let selectionBinding = makeSelectionBinding(element: element, state: state, windowUUID: windowUUID, properties: properties, rows: rows)
-        
-        return buildTableView(columns: columns, widths: widths, rows: rows, selectionBinding: selectionBinding)
             .onChange(of: properties["rows"] as? [[String]]) { newRows in
-                handleRowsChange(newRows: newRows, state: state, element: element, rows: rows)
+                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+                let newContent = newRows ?? []
+                newState["content"] = newContent
+                if let selectedRowID = newState["selectedRowID"] as? String,
+                   !rows.contains(where: { $0.id == selectedRowID }) {
+                    newState["selectedRowID"] = nil
+                    newState["value"] = [] as [String]
+                }
+                if var validatedProperties = newState["validatedProperties"] as? [String: Any] {
+                    validatedProperties["rows"] = newContent
+                    newState["validatedProperties"] = validatedProperties
+                }
+                state.wrappedValue[element.id] = newState
             }
             .onTapGesture(count: 2) {
                 if let doubleClickActionID = doubleClickActionID,
@@ -178,13 +163,11 @@ struct Table: ActionUIViewConstruction {
                     }
                 }
             }
+        } else {
+            return SwiftUI.Text("Table requires macOS 14.4 or later for dynamic columns")
+        }
         #else
         return SwiftUI.EmptyView()
         #endif
     }
-}
-
-struct TableRow: Identifiable {
-    let id: String
-    let values: [String]
 }

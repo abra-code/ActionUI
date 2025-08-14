@@ -42,7 +42,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         if let scrollTo = properties["scrollTo"] as? Int {
             let anchor = (properties["anchor"] as? String).flatMap {
@@ -60,7 +60,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
                 }
             }
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }
 

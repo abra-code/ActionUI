@@ -37,7 +37,7 @@ struct TabBarItem: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         let title = properties["title"] as? String ?? "Item"
         if let systemImage = properties["systemImage"] as? String {
@@ -49,6 +49,6 @@ struct TabBarItem: ActionUIViewConstruction {
                 SwiftUI.Text(title)
             }
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

@@ -96,11 +96,11 @@ struct NavigationStack: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         if let navigationTitle = properties["navigationTitle"] as? String {
             modifiedView = modifiedView.navigationTitle(navigationTitle)
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

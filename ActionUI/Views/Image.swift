@@ -80,13 +80,13 @@ struct Image: ActionUIViewConstruction {
         return image ?? SwiftUI.Image(systemName: "photo")
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let resizable = properties["resizable"] as? Bool, resizable {
             let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
             if var imageView: SwiftUI.Image = view as? SwiftUI.Image {
-                return AnyView(imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill))
+                return imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
             }
         }
-        return AnyView(view)
+        return view
     }
 }

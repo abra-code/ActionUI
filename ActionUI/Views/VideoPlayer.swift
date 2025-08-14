@@ -55,7 +55,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         #endif
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         #if canImport(AVKit)
         var modifiedView = view
         if let autoplay = properties["autoplay"] as? Bool, let player = (modifiedView as? any VideoPlayerRepresentable)?.player {
@@ -65,7 +65,7 @@ struct VideoPlayer: ActionUIViewConstruction {
                 player.pause()
             }
         }
-        return AnyView(modifiedView)
+        return modifiedView
         #else
         return view
         #endif

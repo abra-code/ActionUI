@@ -46,7 +46,7 @@ struct Divider: ActionUIViewConstruction {
         return SwiftUI.Divider()
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         if let background = properties["background"] as? Color {
             modifiedView = modifiedView.background(background)
@@ -57,6 +57,6 @@ struct Divider: ActionUIViewConstruction {
         if let frameWidth = properties["frameWidth"] as? Double, frameWidth > 0 {
             modifiedView = modifiedView.frame(width: frameWidth)
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

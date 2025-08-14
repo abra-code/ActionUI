@@ -56,10 +56,10 @@ struct ScrollView: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let showsIndicators = properties["showsIndicators"] as? Bool {
-            return AnyView(view.scrollContentBackground(.hidden).scrollIndicators(showsIndicators ? .automatic : .hidden))
+            return view.scrollContentBackground(.hidden).scrollIndicators(showsIndicators ? .automatic : .hidden)
         }
-        return AnyView(view)
+        return view
     }
 }

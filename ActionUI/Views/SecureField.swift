@@ -80,7 +80,7 @@ struct SecureField: ActionUIViewConstruction {
     
     // Applies modifiers specific to SecureField, such as textContentType
     // Design decision: Relies on default macOS text field style (likely rounded) for HIG compliance; textContentType is iOS-only
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         #if canImport(UIKit)
         if let textContentType = properties["textContentType"] as? String {
@@ -96,6 +96,6 @@ struct SecureField: ActionUIViewConstruction {
             }
         }
         #endif
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

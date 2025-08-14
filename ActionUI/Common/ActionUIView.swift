@@ -1,15 +1,37 @@
 import SwiftUI
 
-struct ActionUIView: SwiftUI.View {
-        
+struct ActionUIView: SwiftUI.View, Equatable {
     let element: any ActionUIElement
     let state: Binding<[Int: Any]>
     let windowUUID: String
     
-    var body: AnyView {
+    var body: some SwiftUI.View {
         let registry = ActionUIRegistry.shared
         let validatedProperties = registry.getValidatedProperties(element: element, state: state)
         let baseView = registry.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         return registry.applyModifiers(to: baseView, properties: validatedProperties, element: element, state: state)
+    }
+    
+    // Equatable conformance: Compare element, relevant state, and windowUUID
+    static func == (lhs: ActionUIView, rhs: ActionUIView) -> Bool {
+        guard lhs.element.id == rhs.element.id,
+              lhs.element.type == rhs.element.type,
+              lhs.windowUUID == rhs.windowUUID,
+              PropertyComparison.arePropertiesEqual(
+                lhs.element.properties,
+                rhs.element.properties
+              ) else {
+            return false
+        }
+        // Compare children if present
+        if let lhsChildren = lhs.element.children, let rhsChildren = rhs.element.children {
+            guard lhsChildren.count == rhsChildren.count else { return false }
+            return zip(lhsChildren, rhsChildren).allSatisfy { $0 as? StaticElement == $1 as? StaticElement }
+        }
+        // Compare relevant state for the element
+        let lhsState = (lhs.state.wrappedValue[lhs.element.id] as? [String: Any]) ?? [:]
+        let rhsState = (rhs.state.wrappedValue[rhs.element.id] as? [String: Any]) ?? [:]
+        return PropertyComparison.arePropertiesEqual(lhsState, rhsState) &&
+               lhs.element.children == nil && rhs.element.children == nil
     }
 }

@@ -114,7 +114,7 @@ struct DatePicker: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         if let displayStyle = properties["displayStyle"] as? String {
             switch displayStyle {
@@ -140,6 +140,6 @@ struct DatePicker: ActionUIViewConstruction {
                 modifiedView = modifiedView.datePickerStyle(.automatic)
             }
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

@@ -49,10 +49,10 @@ struct Link: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let title = properties["title"] as? String {
-            return AnyView(view.overlay(SwiftUI.Text(title), alignment: .center))
+            return view.overlay(SwiftUI.Text(title), alignment: .center)
         }
-        return AnyView(view)
+        return view
     }
 }

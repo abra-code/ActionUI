@@ -93,7 +93,7 @@ struct Picker: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         var modifiedView = view
         if let style = properties["pickerStyle"] as? String {
             switch style {
@@ -112,6 +112,6 @@ struct Picker: ActionUIViewConstruction {
                 modifiedView = modifiedView.pickerStyle(.menu)
             }
         }
-        return AnyView(modifiedView)
+        return modifiedView
     }
 }

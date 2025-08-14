@@ -11,7 +11,7 @@
 import SwiftUI
 import Foundation
 
-// Protocol defining the structure of an ActionUI element, used for JSON-based UI construction
+// Protocol defining the structure of an ActionUIElement, used for JSON-based UI construction
 protocol ActionUIElement: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
@@ -24,7 +24,7 @@ protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var validateProperties: ([String: Any]) -> [String: Any] { get }
     static var buildView: ((any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View) { get }
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> SwiftUI.AnyView { get }
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View { get }
 }
 
 // Default implementations for ActionUIViewConstruction
@@ -33,8 +33,8 @@ extension ActionUIViewConstruction {
         return Void.self
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> SwiftUI.AnyView {
-        return { view, _ in SwiftUI.AnyView(view) }
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View {
+        return { view, _ in view }
     }
 }
 
@@ -108,7 +108,7 @@ struct StaticElement: ActionUIElement {
         let childrenArray = dictionary["children"] as? [[String: Any]]
         let children = try childrenArray?.map { try StaticElement(from: $0) }
         self.init(id: id, type: type, properties: properties, children: children)
-    }    
+    }
 }
 
 // Extension to make StaticElement Equatable

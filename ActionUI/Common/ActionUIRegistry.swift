@@ -155,7 +155,7 @@ class ActionUIRegistry {
         if let constructionType = registrations[element.type] {
             modifiedView = constructionType.applyModifiers(modifiedView, validatedPropertiesBinding.wrappedValue)
         }
-        
-        return modifiedView
+        return AnyView(modifiedView)
     }
 }
+

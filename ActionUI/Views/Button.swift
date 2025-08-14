@@ -76,7 +76,7 @@ struct Button: ActionUIViewConstruction {
         )
     }
     
-    static var applyModifiers: ((any SwiftUI.View, [String: Any]) -> AnyView)? = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let buttonStyle = properties["buttonStyle"] as? String {
             if var buttonView = view as? SwiftUI.Button<SwiftUI.Text> {
                 var modifiedView: any SwiftUI.View
@@ -88,9 +88,9 @@ struct Button: ActionUIViewConstruction {
                 default:
                     modifiedView = buttonView.buttonStyle(.plain)
                 }
-                return AnyView(modifiedView)
+                return modifiedView
             }
         }
-        return AnyView(view)
+        return view
     }
 }
