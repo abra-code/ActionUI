@@ -2,15 +2,18 @@
  Sample JSON for Table view (macOS only):
  {
    "type": "Table",
-   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "columns": ["Name", "Age"],           // Required: Array of strings for column headers
-     "rows": [["Alice", "30", "ID1"], ["Bob", "25", "ID2"]], // Optional: Array of string arrays, defaults to []. Extra columns preserved in content.
-     "widths": [100, 50],                 // Optional: Array of integers for column widths
-     "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action identifier
+     "itemType": { "viewType": "Button", "actionContext": "rowColumnIndex" }, // Required, rowColumnIndex returns Point(row: Int, column: Int)
+     "columns": ["Name", "Action"], // Required: Array of strings for column headers
+     "rows": [["Alice", "Click"], ["Bob", "Edit"]], // Required: Array of string arrays
+     "widths": [100, 80], // Optional: Array of integers for column widths
+     "actionID": "table.action", // Optional: For Button viewType
+     "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
    }
+   // Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
+   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses ImageHelper.makeImage, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
  }
-   // Note: The Table view is macOS-only, showing a multi-column table with string values. Selection is stored as [String] in state["value"], using row IDs for tracking. Rows are padded with empty strings if shorter than columns. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+, requiring macOS 14.4+ for TableColumnForEach availability. Falls back to a placeholder message for earlier versions.
 */
 
 import SwiftUI
@@ -20,12 +23,39 @@ struct TableRowData: Identifiable {
     let values: [String]
 }
 
+struct ColumnData: Identifiable {
+    let id: Int
+    let name: String
+    let width: CGFloat
+}
+
 struct Table: ActionUIViewConstruction {
     static let valueType: Any.Type = [String].self // Value is the selected row as [String]
     
-    // Validates properties specific to Table; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
         var validatedProperties = properties
+        
+        var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
+        let viewType = itemType["viewType"] as? String ?? "Text"
+        if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
+            print("Warning: Table itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text")
+            itemType["viewType"] = "Text"
+        }
+        if viewType == "Image" || viewType == "AsyncImage" {
+            let dataInterpretation = itemType["dataInterpretation"] as? String
+            if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
+                print("Warning: Table itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName")
+                itemType["dataInterpretation"] = "systemName"
+            }
+        }
+        if viewType == "Button" {
+            let actionContext = itemType["actionContext"] as? String
+            if !["title", "rowIndex", "columnIndex", "rowColumnIndex"].contains(actionContext) {
+                print("Warning: Table itemType.actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title")
+                itemType["actionContext"] = "title"
+            }
+        }
+        validatedProperties["itemType"] = itemType
         
         if validatedProperties["columns"] == nil {
             validatedProperties["columns"] = []
@@ -49,21 +79,21 @@ struct Table: ActionUIViewConstruction {
                 return row
             }
         }
-        if validatedProperties["widths"] == nil {
-            validatedProperties["widths"] = []
-        } else if !(validatedProperties["widths"] is [Int]) {
-            print("Warning: Table widths must be an array of integers; defaulting to []")
-            validatedProperties["widths"] = []
+        if let widths = properties["widths"] as? [Int] {
+            validatedProperties["widths"] = widths
+        } else if properties["widths"] != nil {
+            print("Warning: Table widths must be an array of integers; ignoring")
+            validatedProperties["widths"] = nil
         }
-        if let widths = validatedProperties["widths"] as? [Int],
-           let columns = validatedProperties["columns"] as? [String],
-           widths.count > columns.count {
-            print("Warning: Table widths count (\(widths.count)) exceeds columns count (\(columns.count)); truncating")
-            validatedProperties["widths"] = Array(widths[0..<columns.count])
+        if let actionID = properties["actionID"] as? String {
+            validatedProperties["actionID"] = actionID
+        } else if properties["actionID"] != nil {
+            print("Warning: Table actionID must be a string; ignoring")
+            validatedProperties["actionID"] = nil
         }
-        if let doubleClickActionID = validatedProperties["doubleClickActionID"] as? String {
+        if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
-        } else if validatedProperties["doubleClickActionID"] != nil {
+        } else if properties["doubleClickActionID"] != nil {
             print("Warning: Table doubleClickActionID must be a string; ignoring")
             validatedProperties["doubleClickActionID"] = nil
         }
@@ -71,37 +101,35 @@ struct Table: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    // Builds the Table view, binding selection to state and handling double-click actions
-    // Design decision: Appends Table-specific state (content, selectedRowID, value) only if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
-        #if os(macOS)
-        let columns = (properties["columns"] as? [String]) ?? []
-        let widths = (properties["widths"] as? [Int]) ?? []
-        let rows = ((properties["rows"] as? [[String]]) ?? []).map { TableRowData(id: UUID().uuidString, values: $0) }
-        
-        // Helper struct for TableColumnForEach
-        struct ColumnData: Identifiable {
-            let id: Int // Use index as ID for stability
-            let name: String
-            let width: CGFloat?
+        #if canImport(AppKit)
+        guard #available(macOS 14.4, *) else {
+            return SwiftUI.Text("Table requires macOS 14.4 or later")
         }
         
-        // Prepare ColumnData for TableColumnForEach
+        let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
+        let viewType = itemType["viewType"] as? String ?? "Text"
+        let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
+        let actionContext = itemType["actionContext"] as? String ?? "title"
+        let columns = (properties["columns"] as? [String]) ?? []
+        let rows = (properties["rows"] as? [[String]]) ?? []
+        let widths = (properties["widths"] as? [Int])?.map { CGFloat($0) } ?? Array(repeating: CGFloat(100), count: columns.count)
+        
         let columnData = columns.enumerated().map { (index, name) in
-            ColumnData(id: index, name: name, width: widths.count > index ? CGFloat(widths[index]) : nil)
+            ColumnData(id: index, name: name, width: widths.indices.contains(index) ? widths[index] : 100)
+        }
+        let rowData = rows.enumerated().map { (index, row) in
+            TableRowData(id: "row-\(index)", values: row)
         }
         
         // Append Table-specific state only if not already set
-        // Design decision: Merges content, selectedRowID, and value ([String]) conditionally to avoid overwriting existing properties
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]
         if newState["content"] == nil {
-            viewSpecificState["content"] = properties["rows"] as? [[String]] ?? []
+            viewSpecificState["content"] = rows
         }
         if newState["selectedRowID"] == nil {
             viewSpecificState["selectedRowID"] = nil as String?
-        }
-        if newState["value"] == nil {
             viewSpecificState["value"] = [] as [String]
         }
         if !viewSpecificState.isEmpty {
@@ -114,13 +142,13 @@ struct Table: ActionUIViewConstruction {
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["selectedRowID"] = newValue
                 if let selectedRowID = newValue,
-                   let selectedRow = rows.first(where: { $0.id == selectedRowID }) {
+                   let selectedRow = rowData.first(where: { $0.id == selectedRowID }) {
                     newState["value"] = selectedRow.values
                 } else {
                     newState["value"] = [] as [String]
                 }
                 state.wrappedValue[element.id] = newState
-                if let actionID = properties["actionID"] as? String {
+                if let actionID = properties["actionID"] as? String, viewType != "Button" {
                     Task { @MainActor in
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
@@ -128,43 +156,72 @@ struct Table: ActionUIViewConstruction {
             }
         )
         
-        let doubleClickActionID = properties["doubleClickActionID"] as? String
-        
-        if #available(macOS 14.4, *) {
-            return SwiftUI.Table(rows, selection: selectionBinding) {
-                TableColumnForEach(columnData) { column in
-                    SwiftUI.TableColumn(column.name) { row in
-                        SwiftUI.Text(row.values[column.id])
+        return SwiftUI.Table(rowData, selection: selectionBinding) {
+            SwiftUI.TableColumnForEach(columnData) { column in
+                SwiftUI.TableColumn(column.name) { row in
+                    let value = row.values[column.id]
+                    SwiftUI.Group {
+                        switch viewType {
+                        case "Text":
+                            SwiftUI.Text(value)
+                        case "Button":
+                            SwiftUI.Button(value) {
+                                if let actionID = properties["actionID"] as? String {
+                                    let context: Any = {
+                                        switch actionContext {
+                                        case "rowIndex": return rowData.firstIndex(where: { $0.id == row.id }) ?? -1
+                                        case "columnIndex": return column.id
+                                        case "rowColumnIndex": return Point(row: rowData.firstIndex(where: { $0.id == row.id }) ?? -1, column: column.id)
+                                        default: return value
+                                        }
+                                    }()
+                                    Task { @MainActor in
+                                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
+                                    }
+                                }
+                            }
+                        case "Image":
+                            ImageHelper.makeImage(from: value, interpretation: dataInterpretation)
+                        case "AsyncImage":
+                            SwiftUI.AsyncImage(url: URL(string: value)) { image in
+                                image.resizable().scaledToFit()
+                            } placeholder: {
+                                SwiftUI.ProgressView()
+                            }
+                        default:
+                            SwiftUI.Text(value)
+                        }
                     }
-                    .width(column.width)
+                    .id("\(element.id)-\(row.id)-\(column.id)") // Stable ID for diffing
+                }
+                .width(column.width)
+            }
+        }
+        .onChange(of: properties["rows"] as? [[String]]) { newRows in
+            var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+            let newContent = newRows ?? []
+            newState["content"] = newContent
+            if let selectedRowID = newState["selectedRowID"] as? String,
+               !rowData.contains(where: { $0.id == selectedRowID }) {
+                newState["selectedRowID"] = nil
+                newState["value"] = [] as [String]
+            }
+            if var validatedProperties = newState["validatedProperties"] as? [String: Any] {
+                validatedProperties["rows"] = newContent
+                newState["validatedProperties"] = validatedProperties
+            }
+            state.wrappedValue[element.id] = newState
+        }
+        .onTapGesture(count: 2) {
+            if let doubleClickActionID = properties["doubleClickActionID"] as? String,
+               let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
+               !selectedRow.isEmpty,
+               let index = rowData.firstIndex(where: { $0.values == selectedRow }) {
+                let context: Any = actionContext == "rowIndex" ? index : selectedRow.first ?? ""
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
                 }
             }
-            .onChange(of: properties["rows"] as? [[String]]) { newRows in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                let newContent = newRows ?? []
-                newState["content"] = newContent
-                if let selectedRowID = newState["selectedRowID"] as? String,
-                   !rows.contains(where: { $0.id == selectedRowID }) {
-                    newState["selectedRowID"] = nil
-                    newState["value"] = [] as [String]
-                }
-                if var validatedProperties = newState["validatedProperties"] as? [String: Any] {
-                    validatedProperties["rows"] = newContent
-                    newState["validatedProperties"] = validatedProperties
-                }
-                state.wrappedValue[element.id] = newState
-            }
-            .onTapGesture(count: 2) {
-                if let doubleClickActionID = doubleClickActionID,
-                   let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
-                   !selectedRow.isEmpty {
-                    Task { @MainActor in
-                        ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
-                }
-            }
-        } else {
-            return SwiftUI.Text("Table requires macOS 14.4 or later for dynamic columns")
         }
         #else
         return SwiftUI.EmptyView()

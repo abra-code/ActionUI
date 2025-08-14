@@ -68,22 +68,24 @@ struct Image: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
-        var image: SwiftUI.Image? = nil
+        var image: SwiftUI.Image
         if let systemName = properties["systemName"] as? String {
             image = SwiftUI.Image(systemName: systemName)
         } else if let name = properties["name"] as? String {
             image = SwiftUI.Image(name)
         } else if let filePath = properties["filePath"] as? String {
-            image = SwiftUI.Image(filePath)
+            image = SwiftUI.Image(contentsOfFile: filePath)
+        } else {
+            image = SwiftUI.Image(systemName: "photo")
         }
         
-        return image ?? SwiftUI.Image(systemName: "photo")
+        return image
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
         if let resizable = properties["resizable"] as? Bool, resizable {
             let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
-            if var imageView: SwiftUI.Image = view as? SwiftUI.Image {
+            if let imageView = view as? SwiftUI.Image {
                 return imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
             }
         }

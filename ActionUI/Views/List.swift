@@ -2,12 +2,15 @@
  Sample JSON for List view:
  {
    "type": "List",
-   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "items": ["Item1", "Item2"], // Optional: Array of strings or array of string arrays, defaults to [], validated as [[String]]
+     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image/AsyncImage), "actionContext": "title"|"rowIndex" (for Button) }
+     "items": ["Item1", "Item2"], // Required: Array of strings or string arrays
+     "actionID": "list.action", // Optional: For Button viewType
      "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
    }
-   // Note: The List shows a single-column list of strings, using the first element of each item if provided as string arrays. Selection is stored as [String] in state. On macOS, double-click triggers doubleClickActionID if a row is selected. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
+   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
+   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses ImageHelper.makeImage, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
  }
 */
 
@@ -19,17 +22,45 @@ struct List: ActionUIViewConstruction {
     static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
         var validatedProperties = properties
         
+        var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
+        let viewType = itemType["viewType"] as? String ?? "Text"
+        if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
+            print("Warning: List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text")
+            itemType["viewType"] = "Text"
+        }
+        if viewType == "Image" || viewType == "AsyncImage" {
+            let dataInterpretation = itemType["dataInterpretation"] as? String
+            if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
+                print("Warning: List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName")
+                itemType["dataInterpretation"] = "systemName"
+            }
+        }
+        if viewType == "Button" {
+            let actionContext = itemType["actionContext"] as? String
+            if !["title", "rowIndex"].contains(actionContext) {
+                print("Warning: List itemType.actionContext must be 'title' or 'rowIndex' for Button; defaulting to title")
+                itemType["actionContext"] = "title"
+            }
+        }
+        validatedProperties["itemType"] = itemType
+        
         if validatedProperties["items"] == nil {
             validatedProperties["items"] = []
         } else if let items = validatedProperties["items"] as? [String] {
             validatedProperties["items"] = items.map { [$0] }
         } else if !(validatedProperties["items"] is [[String]]) {
-            print("Warning: List items must be an array of strings or array of string arrays; defaulting to []")
+            print("Warning: List items must be an array of strings or string arrays; defaulting to []")
             validatedProperties["items"] = []
         }
-        if let doubleClickActionID = validatedProperties["doubleClickActionID"] as? String {
+        if let actionID = properties["actionID"] as? String {
+            validatedProperties["actionID"] = actionID
+        } else if properties["actionID"] != nil {
+            print("Warning: List actionID must be a string; ignoring")
+            validatedProperties["actionID"] = nil
+        }
+        if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
-        } else if validatedProperties["doubleClickActionID"] != nil {
+        } else if properties["doubleClickActionID"] != nil {
             print("Warning: List doubleClickActionID must be a string; ignoring")
             validatedProperties["doubleClickActionID"] = nil
         }
@@ -37,9 +68,15 @@ struct List: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { (element: any ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, properties: [String: Any]) -> any SwiftUI.View in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+        let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
+        let viewType = itemType["viewType"] as? String ?? "Text"
+        let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
+        let actionContext = itemType["actionContext"] as? String ?? "title"
         let items: [[String]] = (properties["items"] as? [[String]]) ?? []
-        let displayItems: [String] = items.map { $0.first ?? "" } // Display first column only
+        let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
+        let actionID = properties["actionID"] as? String
+        let doubleClickActionID = properties["doubleClickActionID"] as? String
         
         // Append List-specific state only if not already set
         var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
@@ -69,7 +106,7 @@ struct List: ActionUIViewConstruction {
                     newState["value"] = [] as [String]
                 }
                 state.wrappedValue[element.id] = newState
-                if let actionID = properties["actionID"] as? String {
+                if let actionID = properties["actionID"] as? String, viewType != "Button" {
                     Task { @MainActor in
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
@@ -77,10 +114,36 @@ struct List: ActionUIViewConstruction {
             }
         )
         
-        let doubleClickActionID: String? = properties["doubleClickActionID"] as? String
-        
-        return SwiftUI.List(displayItems, id: \.self, selection: selectionBinding) { item in
-            SwiftUI.Text(item)
+        return SwiftUI.List(selection: selectionBinding) {
+            SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
+                SwiftUI.Group {
+                    let item = displayItems[index]
+                    switch viewType {
+                    case "Text":
+                        SwiftUI.Text(item)
+                    case "Button":
+                        SwiftUI.Button(item) {
+                            if let actionID = actionID {
+                                let context: Any = actionContext == "rowIndex" ? index : item
+                                Task { @MainActor in
+                                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
+                                }
+                            }
+                        }
+                    case "Image":
+                        ImageHelper.makeImage(from: item, interpretation: dataInterpretation)
+                    case "AsyncImage":
+                        SwiftUI.AsyncImage(url: URL(string: item)) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            SwiftUI.ProgressView()
+                        }
+                    default:
+                        SwiftUI.Text(item)
+                    }
+                }
+                .id("\(element.id)-\(index)") // Stable ID for diffing
+            }
         }
         .onChange(of: properties["items"] as? [[String]]) { newItems in
             var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
@@ -96,13 +159,15 @@ struct List: ActionUIViewConstruction {
             }
             state.wrappedValue[element.id] = newState
         }
-        #if os(macOS)
+        #if canImport(AppKit)
         .onTapGesture(count: 2) {
             if let doubleClickActionID = doubleClickActionID,
                let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
-               !selectedRow.isEmpty {
+               !selectedRow.isEmpty,
+               let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
+                let context: Any = actionContext == "rowIndex" ? index : selectedRow[0]
                 Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
                 }
             }
         }
