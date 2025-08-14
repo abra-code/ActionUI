@@ -9,8 +9,7 @@
      "path": ["detail"] // Optional: Array of String for navigation path
    }
    // Note: These properties are specific to NavigationStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
- }
-*/
+ */
 
 import SwiftUI
 
@@ -79,7 +78,8 @@ struct NavigationStack: ActionUIViewConstruction {
             set: { newPath in
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 // Store path as an array of strings
-                let newPathArray = newPath.isEmpty ? [] : (0..<newPath.count).compactMap { newPath[$0] as? String }
+                // Design decision: Use String(describing:) to convert CodableRepresentation elements to strings for JSON compatibility
+                let newPathArray = newPath.codable.map { String(describing: $0) }
                 newState["path"] = newPathArray
                 newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState

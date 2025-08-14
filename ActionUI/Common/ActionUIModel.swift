@@ -29,7 +29,7 @@ class ActionUIModel: ObservableObject {
     
     // Register a handler for a specific actionID
     // Parameters:
-    // - actionID: The identifier for the action (e.g., "button.click", "table.doubleClick")
+    // - actionID: The identifier for the action (e.g. "button.click", "table.doubleClick")
     // - handler: Closure to execute when the actionID is triggered
     func registerActionHandler(for actionID: String, handler: @escaping (String, String, Int, Int) -> Void) {
         actionHandlers[actionID] = handler

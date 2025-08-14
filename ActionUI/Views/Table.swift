@@ -4,12 +4,12 @@
    "type": "Table",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "columns": ["Name", "Age"],           // Required: Array of strings for column headers
+     "columns": ["Name", "Age"],           // Required: Array of strings for column headers; max 10, truncated if more
      "rows": [["Alice", "30", "ID1"], ["Bob", "25", "ID2"]], // Optional: Array of string arrays, defaults to []. Extra columns preserved in content.
-     "widths": [100, 50],                 // Optional: Array of integers for column widths
+     "widths": [100, 50],                 // Optional: Array of integers for column widths; max 10
      "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action identifier
    }
-   // Note: The Table view is macOS-only, showing a multi-column table with string values. Selection is stored as [String] in state["value"], using row IDs for tracking. Rows are padded with empty strings if shorter than columns. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. The buildView closure is simplified using helper functions for state initialization, selection binding, table construction, and column creation. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts with ActionUI types. The buildTableView function returns SwiftUI.Table directly, using implicit @SwiftUI.TableColumnBuilder in the Table closure to ensure type checker compatibility.
+   // Note: The Table view is macOS-only, showing a multi-column table with string values. Selection is stored as [String] in state["value"], using row IDs for tracking. Rows are padded with empty strings if shorter than columns. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. The buildView closure is simplified using helper functions for state initialization, selection binding, table construction, and column building. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. For dynamic columns on macOS 14.4+, uses chained if statements in @TableColumnBuilder<TableRow, Never> (up to 10 columns) leveraging Optional conformance; requires macOS 14.4+ for conditional conformance. For earlier versions, falls back to a placeholder message.
  }
 */
 
@@ -27,6 +27,11 @@ struct Table: ActionUIViewConstruction {
         } else if !(validatedProperties["columns"] is [String]) {
             print("Warning: Table columns must be an array of strings; defaulting to []")
             validatedProperties["columns"] = []
+        }
+        let maxColumns = 10
+        if let columns = validatedProperties["columns"] as? [String], columns.count > maxColumns {
+            print("Warning: Table supports up to \(maxColumns) columns due to builder limits; truncating to first \(maxColumns)")
+            validatedProperties["columns"] = Array(columns[0..<maxColumns])
         }
         if validatedProperties["rows"] == nil {
             validatedProperties["rows"] = []
@@ -50,6 +55,10 @@ struct Table: ActionUIViewConstruction {
             print("Warning: Table widths must be an array of integers; defaulting to []")
             validatedProperties["widths"] = []
         }
+        if let widths = validatedProperties["widths"] as? [Int], widths.count > maxColumns {
+            print("Warning: Table widths truncated to first \(maxColumns)")
+            validatedProperties["widths"] = Array(widths[0..<maxColumns])
+        }
         if let doubleClickActionID = validatedProperties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if validatedProperties["doubleClickActionID"] != nil {
@@ -60,6 +69,7 @@ struct Table: ActionUIViewConstruction {
         return validatedProperties
     }
     
+#if os(macOS)
     // Helper function to initialize state
     private static func initializeState(element: any ActionUIElement, state: Binding<[Int: Any]>, rows: [[String]]) {
         let newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
@@ -102,19 +112,60 @@ struct Table: ActionUIViewConstruction {
     }
     
     // Helper function to create a single TableColumn
-    private static func makeColumn(index: Int, column: String, width: CGFloat?) -> SwiftUI.TableColumn<TableRow, Never, SwiftUI.Text, SwiftUI.Text> {
+    @inline(__always)
+    private static func makeColumn(index: Int, column: String, width: CGFloat?) -> some TableColumnContent<TableRow, Never> {
         SwiftUI.TableColumn(column) { row in
             SwiftUI.Text(row.values[index])
         }
         .width(width)
     }
     
+    // Helper function to build columns dynamically using chained if statements (requires macOS 14.4+ for Optional conformance)
+    @TableColumnBuilder<TableRow, Never>
+    @available(macOS 14.4, *)
+    private static func buildColumns(columns: [String], widths: [Int]) -> some TableColumnContent<TableRow, Never> {
+        if columns.count > 0 {
+            makeColumn(index: 0, column: columns[0], width: widths.count > 0 ? CGFloat(widths[0]) : nil)
+        }
+        if columns.count > 1 {
+            makeColumn(index: 1, column: columns[1], width: widths.count > 1 ? CGFloat(widths[1]) : nil)
+        }
+        if columns.count > 2 {
+            makeColumn(index: 2, column: columns[2], width: widths.count > 2 ? CGFloat(widths[2]) : nil)
+        }
+        if columns.count > 3 {
+            makeColumn(index: 3, column: columns[3], width: widths.count > 3 ? CGFloat(widths[3]) : nil)
+        }
+        if columns.count > 4 {
+            makeColumn(index: 4, column: columns[4], width: widths.count > 4 ? CGFloat(widths[4]) : nil)
+        }
+        if columns.count > 5 {
+            makeColumn(index: 5, column: columns[5], width: widths.count > 5 ? CGFloat(widths[5]) : nil)
+        }
+        if columns.count > 6 {
+            makeColumn(index: 6, column: columns[6], width: widths.count > 6 ? CGFloat(widths[6]) : nil)
+        }
+        if columns.count > 7 {
+            makeColumn(index: 7, column: columns[7], width: widths.count > 7 ? CGFloat(widths[7]) : nil)
+        }
+        if columns.count > 8 {
+            makeColumn(index: 8, column: columns[8], width: widths.count > 8 ? CGFloat(widths[8]) : nil)
+        }
+        if columns.count > 9 {
+            makeColumn(index: 9, column: columns[9], width: widths.count > 9 ? CGFloat(widths[9]) : nil)
+        }
+    }
+    
     // Helper function to build the Table view
-    private static func buildTableView(columns: [String], widths: [Int], rows: [TableRow], selectionBinding: Binding<String?>) -> SwiftUI.Table<[TableRow], Never> {
-        SwiftUI.Table(rows, selection: selectionBinding) {
-            SwiftUI.ForEach(Array(columns.enumerated()), id: \.offset) { index, column in
-                makeColumn(index: index, column: column, width: widths.count > index ? CGFloat(widths[index]) : nil)
+    private static func buildTableView(columns: [String], widths: [Int], rows: [TableRow], selectionBinding: Binding<String?>) -> any SwiftUI.View {
+        if #available(macOS 14.4, *) {
+            SwiftUI.Table(rows, selection: selectionBinding) {
+                buildColumns(columns: columns, widths: widths)
             }
+        } else {
+            // Fallback for pre-macOS 14.4: Use a fixed number of columns or alternative view (e.g., List)
+            // For simplicity, show a message or empty
+            SwiftUI.Text("Table requires macOS 14.4 or later for dynamic columns")
         }
     }
     
@@ -134,6 +185,7 @@ struct Table: ActionUIViewConstruction {
         }
         state.wrappedValue[element.id] = newState
     }
+#endif // os(macOS)
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { (element: any ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, properties: [String: Any]) -> any SwiftUI.View in
         #if os(macOS)

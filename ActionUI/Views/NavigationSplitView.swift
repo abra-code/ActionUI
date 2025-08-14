@@ -7,8 +7,8 @@
      "sidebar": { "type": "Text", "properties": { "text": "Sidebar" } }, // Required: Nested view for sidebar
      "content": { "type": "Text", "properties": { "text": "Content" } }, // Required: Nested view for content
      "detail": { "type": "Text", "properties": { "text": "Detail" } }, // Required: Nested view for detail
-     "columnVisibility": "all", // Optional: "all", "sidebar", "content", "detail"; defaults to "all"
-     "preferredCompactColumn": "sidebar" // Optional: "sidebar", "content", "detail"; defaults to "sidebar"
+     "columnVisibility": "all", // Optional: "automatic", "all", "doubleColumn", "detail"; defaults to "all"
+     "style": "balanced" // Optional: "automatic", "balanced", "prominentDetail"; defaults to "automatic"
    }
    // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
@@ -35,7 +35,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         }
         
         // Validate columnVisibility
-        let validVisibilities = ["all", "sidebar", "content", "detail"]
+        let validVisibilities = ["automatic", "all", "doubleColumn", "detail"]
         if let visibility = validatedProperties["columnVisibility"] as? String, validVisibilities.contains(visibility) {
             validatedProperties["columnVisibility"] = visibility
         } else if validatedProperties["columnVisibility"] != nil {
@@ -45,15 +45,15 @@ struct NavigationSplitView: ActionUIViewConstruction {
             validatedProperties["columnVisibility"] = "all"
         }
         
-        // Validate preferredCompactColumn
-        let validColumns = ["sidebar", "content", "detail"]
-        if let column = validatedProperties["preferredCompactColumn"] as? String, validColumns.contains(column) {
-            validatedProperties["preferredCompactColumn"] = column
-        } else if validatedProperties["preferredCompactColumn"] != nil {
-            print("Warning: NavigationSplitView preferredCompactColumn must be one of \(validColumns); defaulting to 'sidebar' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
-            validatedProperties["preferredCompactColumn"] = "sidebar"
+        // Validate style
+        let validStyles = ["automatic", "balanced", "prominentDetail"]
+        if let style = validatedProperties["style"] as? String, validStyles.contains(style) {
+            validatedProperties["style"] = style
+        } else if validatedProperties["style"] != nil {
+            print("Warning: NavigationSplitView style must be one of \(validStyles); defaulting to 'automatic' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            validatedProperties["style"] = "automatic"
         } else {
-            validatedProperties["preferredCompactColumn"] = "sidebar"
+            validatedProperties["style"] = "automatic"
         }
         
         return validatedProperties
@@ -80,8 +80,8 @@ struct NavigationSplitView: ActionUIViewConstruction {
             get: {
                 if let visibility = (state.wrappedValue[element.id] as? [String: Any])?["columnVisibility"] as? String {
                     switch visibility {
-                    case "sidebar": return .sidebarOnly
-                    case "content": return .contentOnly
+                    case "automatic": return .automatic
+                    case "doubleColumn": return .doubleColumn
                     case "detail": return .detailOnly
                     default: return .all
                     }
@@ -92,11 +92,11 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 let newVisibilityString: String
                 switch newVisibility {
-                case .sidebarOnly: newVisibilityString = "sidebar"
-                case .contentOnly: newVisibilityString = "content"
+                case .automatic: newVisibilityString = "automatic"
+                case .doubleColumn: newVisibilityString = "doubleColumn"
                 case .detailOnly: newVisibilityString = "detail"
                 case .all: newVisibilityString = "all"
-                @unknown default: newVisibilityString = "all"
+                default: newVisibilityString = "all"
                 }
                 newState["columnVisibility"] = newVisibilityString
                 newState["validatedProperties"] = properties
@@ -120,14 +120,14 @@ struct NavigationSplitView: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, [String: Any]) -> AnyView = { view, properties in
         var modifiedView = view
-        if let column = properties["preferredCompactColumn"] as? String {
-            switch column {
-            case "sidebar":
-                modifiedView = modifiedView.preferredCompactColumn(.sidebar)
-            case "content":
-                modifiedView = modifiedView.preferredCompactColumn(.content)
-            case "detail":
-                modifiedView = modifiedView.preferredCompactColumn(.detail)
+        if let style = properties["style"] as? String {
+            switch style {
+            case "balanced":
+                modifiedView = modifiedView.navigationSplitViewStyle(.balanced)
+            case "prominentDetail":
+                modifiedView = modifiedView.navigationSplitViewStyle(.prominentDetail)
+            case "automatic":
+                modifiedView = modifiedView.navigationSplitViewStyle(.automatic)
             default:
                 break
             }
