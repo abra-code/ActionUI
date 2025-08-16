@@ -97,7 +97,7 @@ class ActionUIModel: ObservableObject {
         
         // Handle Table or List with multi-column content
         // Design decision: Preserve extra columns in "content" beyond displayed columns to support runtime data (e.g., database IDs)
-        if let content = state["content"] as? [[String]],
+        if let _ = state["content"] as? [[String]],
            let selectedRow = state["value"] as? [String] {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
@@ -126,11 +126,7 @@ class ActionUIModel: ObservableObject {
            let columns = validatedProperties["columns"] as? [String] {
             // Table: Pad rows for display, preserve all columns in content
             let validatedRows = newRows.map { row in
-                if row.count < columns.count {
-                    print("Warning: Row has \(row.count) values, expected at least \(columns.count); padding with empty strings")
-                    return row + Array(repeating: "", count: columns.count - row.count)
-                }
-                return row
+                (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
             }
             controlState["content"] = newRows
             if let selectedRow = controlState["value"] as? [String],
@@ -309,18 +305,12 @@ class ActionUIModel: ObservableObject {
            let columns = validatedProperties["columns"] as? [String],
            var currentContent = controlState["content"] as? [[String]] {
             // Table: Append full rows, validate for display
-            let validatedRows = newRows.map { row in
-                if row.count < columns.count {
-                    print("Warning: Row has \(row.count) values, expected at least \(columns.count); padding with empty strings")
-                    return row + Array(repeating: "", count: columns.count - row.count)
-                }
-                return row
-            }
             currentContent.append(contentsOf: newRows)
             controlState["content"] = currentContent
             if var validatedProperties = controlState["validatedProperties"] as? [String: Any] {
+                // Table: Pad rows with missing values for display
                 validatedProperties["rows"] = currentContent.map { row in
-                    row.count < columns.count ? row + Array(repeating: "", count: columns.count - row.count) : row
+                    (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
                 }
                 controlState["validatedProperties"] = validatedProperties
             }
