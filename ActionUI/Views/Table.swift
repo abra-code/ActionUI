@@ -192,7 +192,6 @@ struct Table: ActionUIViewConstruction {
                             SwiftUI.Text(value)
                         }
                     }
-                    .id("\(element.id)-\(row.id)-\(column.id)") // Stable ID for diffing
                 }
                 .width(column.width)
             }

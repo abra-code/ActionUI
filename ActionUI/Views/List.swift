@@ -142,7 +142,6 @@ struct List: ActionUIViewConstruction {
                         SwiftUI.Text(item)
                     }
                 }
-                .id("\(element.id)-\(index)") // Stable ID for diffing
             }
         }
         .onChange(of: properties["items"] as? [[String]]) { newItems in
