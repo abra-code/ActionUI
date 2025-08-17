@@ -22,7 +22,7 @@
 import SwiftUI
 
 struct LazyHGrid: ActionUIViewConstruction {
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if let rows = validatedProperties["rows"] as? [[String: Any]] {
@@ -68,7 +68,7 @@ struct LazyHGrid: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let spacing = properties["spacing"] as? CGFloat ?? 0.0
         let alignmentString = properties["alignment"] as? String
         let alignment: VerticalAlignment = {

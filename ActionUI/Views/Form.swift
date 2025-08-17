@@ -16,7 +16,7 @@ import SwiftUI
 
 struct Form: ActionUIViewConstruction {
         
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["children"] == nil {
@@ -29,7 +29,7 @@ struct Form: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let children = properties["children"] as? [[String: Any]] ?? []
         
         return SwiftUI.Form {

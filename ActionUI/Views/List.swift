@@ -19,7 +19,7 @@ import SwiftUI
 struct List: ActionUIViewConstruction {
     static let valueType: Any.Type = [String].self // Value is the selected item as [String]
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
@@ -68,7 +68,7 @@ struct List: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"

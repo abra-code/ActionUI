@@ -1,12 +1,13 @@
+// Sources/Views/Button.swift
 /*
  Sample JSON for Button:
  {
    "type": "Button",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Click Me",    // Optional: String, defaults to "Button"
+     "title": "Click Me",    // Optional: String, defaults to "Button" in buildView
      "disabled": false,      // Optional: Boolean to disable the button (handled by View)
-     "buttonStyle": "plain", // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain"
+     "buttonStyle": "plain", // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain" in applyModifiers
      "role": "destructive"   // Optional: Button role (e.g., "destructive", "cancel")
    }
    // Note: These properties are specific to Button. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
@@ -17,32 +18,37 @@ import SwiftUI
 
 struct Button: ActionUIViewConstruction {
     // Button has no stateful value, only triggers actions
+    static var valueType: Any.Type { Void.self }
     
     // Validates properties specific to Button; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if validatedProperties["title"] == nil {
-            validatedProperties["title"] = "Button"
+        // Validate title
+        if let title = validatedProperties["title"], !(title is String) {
+            logger.log("Invalid type for Button title: expected String, got \(type(of: title)), ignoring", .warning)
+            validatedProperties["title"] = nil
         }
+        
+        // Validate buttonStyle
         if let buttonStyle = validatedProperties["buttonStyle"] as? String {
             if !["plain", "bordered", "borderedProminent"].contains(buttonStyle) {
-                print("Warning: Button buttonStyle '\(buttonStyle)' invalid; defaulting to 'plain'")
-                validatedProperties["buttonStyle"] = "plain"
+                logger.log("Invalid Button buttonStyle '\(buttonStyle)', ignoring", .warning)
+                validatedProperties["buttonStyle"] = nil
             }
         } else if validatedProperties["buttonStyle"] != nil {
-            print("Warning: Button buttonStyle must be a string; defaulting to 'plain'")
-            validatedProperties["buttonStyle"] = "plain"
-        } else {
-            validatedProperties["buttonStyle"] = "plain"
+            logger.log("Invalid type for Button buttonStyle: expected String, got \(type(of: validatedProperties["buttonStyle"]!)), ignoring", .warning)
+            validatedProperties["buttonStyle"] = nil
         }
+        
+        // Validate role
         if let role = validatedProperties["role"] as? String {
             if !["destructive", "cancel"].contains(role) {
-                print("Warning: Button role '\(role)' invalid; ignoring")
+                logger.log("Invalid Button role '\(role)', ignoring", .warning)
                 validatedProperties["role"] = nil
             }
         } else if validatedProperties["role"] != nil {
-            print("Warning: Button role must be a string; ignoring")
+            logger.log("Invalid type for Button role: expected String, got \(type(of: validatedProperties["role"]!)), ignoring", .warning)
             validatedProperties["role"] = nil
         }
         
@@ -51,7 +57,7 @@ struct Button: ActionUIViewConstruction {
     
     // Builds the Button view, relying on ActionUIRegistry.build for state initialization
     // Design decision: No value state is initialized, as Button has no stateful value (valueType is Void)
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let title = properties["title"] as? String ?? "Button"
         let role = properties["role"] as? String
         let actionID = properties["actionID"] as? String
@@ -76,19 +82,16 @@ struct Button: ActionUIViewConstruction {
         )
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
-        if let buttonStyle = properties["buttonStyle"] as? String {
-            if var buttonView = view as? SwiftUI.Button<SwiftUI.Text> {
-                var modifiedView: any SwiftUI.View
-                switch buttonStyle {
-                case "bordered":
-                    modifiedView = buttonView.buttonStyle(.bordered)
-                case "borderedProminent":
-                    modifiedView = buttonView.buttonStyle(.borderedProminent)
-                default:
-                    modifiedView = buttonView.buttonStyle(.plain)
-                }
-                return modifiedView
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+        if var buttonView = view as? SwiftUI.Button<SwiftUI.Text> {
+            let buttonStyle = properties["buttonStyle"] as? String ?? "plain"
+            switch buttonStyle {
+            case "bordered":
+                return buttonView.buttonStyle(.bordered)
+            case "borderedProminent":
+                return buttonView.buttonStyle(.borderedProminent)
+            default:
+                return buttonView.buttonStyle(.plain)
             }
         }
         return view

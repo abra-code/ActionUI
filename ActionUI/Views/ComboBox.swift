@@ -17,7 +17,7 @@ struct ComboBox: ActionUIViewConstruction {
     // Design decision: Defines valueType as String to reflect selected option for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { String.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
@@ -44,7 +44,7 @@ struct ComboBox: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         #if os(macOS) || os(iOS)
         let items = (properties["options"] as? [String]) ?? []
         let placeholder = properties["placeholder"] as? String ?? ""

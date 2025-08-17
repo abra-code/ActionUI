@@ -22,7 +22,7 @@ struct SecureField: ActionUIViewConstruction {
     static var valueType: Any.Type { String.self }
     
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Default to empty string if placeholder is not provided
@@ -43,7 +43,7 @@ struct SecureField: ActionUIViewConstruction {
     
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         let actionID = properties["actionID"] as? String
         
@@ -80,7 +80,7 @@ struct SecureField: ActionUIViewConstruction {
     
     // Applies modifiers specific to SecureField, such as textContentType
     // Design decision: Relies on default macOS text field style (likely rounded) for HIG compliance; textContentType is iOS-only
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)
         if let textContentType = properties["textContentType"] as? String {

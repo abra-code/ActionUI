@@ -15,11 +15,11 @@ import SwiftUI
 struct Text: ActionUIViewConstruction {
     // Design decision: Defines valueType as Void since Text is a static display view with no interactive state
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         return properties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let text = properties["text"] as? String ?? ""
         
         return SwiftUI.Text(text)

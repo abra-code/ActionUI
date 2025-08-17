@@ -17,7 +17,7 @@ import SwiftUI
 struct Slider: ActionUIViewConstruction {
     static var valueType: Any.Type { Double.self } // Value is the slider's position
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if let value = validatedProperties["value"] as? Double {
@@ -50,7 +50,7 @@ struct Slider: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let initialValue = (properties["value"] as? Double) ?? 0.0
         let value = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]

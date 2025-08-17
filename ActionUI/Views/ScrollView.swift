@@ -15,7 +15,7 @@
 import SwiftUI
 
 struct ScrollView: ActionUIViewConstruction {
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
@@ -39,7 +39,7 @@ struct ScrollView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
         let axis = (properties["axis"] as? String) ?? "vertical"
         let showsIndicators = properties["showsIndicators"] as? Bool ?? true
@@ -56,7 +56,7 @@ struct ScrollView: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         if let showsIndicators = properties["showsIndicators"] as? Bool {
             return view.scrollContentBackground(.hidden).scrollIndicators(showsIndicators ? .automatic : .hidden)
         }

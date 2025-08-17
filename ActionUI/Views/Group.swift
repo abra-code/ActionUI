@@ -16,11 +16,11 @@ import SwiftUI
 
 struct Group: ActionUIViewConstruction {
 
-    static var validateProperties: ([String : Any]) -> [String : Any] = { properties in
+    static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, _ in
         return properties
     }
         
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let children = element.children ?? []
         
         return SwiftUI.Group {

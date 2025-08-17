@@ -17,7 +17,7 @@
 import SwiftUI
 
 struct ZStack: ActionUIViewConstruction {
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if let alignment = validatedProperties["alignment"] as? String,
@@ -31,7 +31,7 @@ struct ZStack: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let alignmentString = properties["alignment"] as? String
         let alignment: Alignment = {
             switch alignmentString {

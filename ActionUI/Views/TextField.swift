@@ -1,10 +1,11 @@
+// Sources/Views/TextField.swift
 /*
  Sample JSON for TextField:
  {
    "type": "TextField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "placeholder": "Enter text", // Optional: String for placeholder, defaults to ""
+     "placeholder": "Enter text", // Optional: String for placeholder, defaults to "" in buildView
      "textContentType": "username", // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
      "actionID": "text.submit"   // Optional: String for action triggered on submit (e.g., Return key)
    }
@@ -21,17 +22,13 @@ import UIKit
 struct TextField: ActionUIViewConstruction {
     static var valueType: Any.Type { String.self } // Value is the text input
     
-    // Validates properties specific to TextField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    // Validates properties specific to TextField; baseline properties are validated by ActionUIRegistry.validateProperties
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Default to empty string if placeholder is not provided
-        if validatedProperties["placeholder"] == nil {
-            validatedProperties["placeholder"] = ""
-        }
         // Validate textContentType as String or nil
-        if validatedProperties["textContentType"] != nil, !(validatedProperties["textContentType"] is String) {
-            print("Warning: TextField textContentType must be a String; defaulting to nil")
+        if let textContentType = validatedProperties["textContentType"], !(textContentType is String) {
+            logger.log("Invalid type for textContentType: expected String, got \(type(of: textContentType)), defaulting to nil", .warning)
             validatedProperties["textContentType"] = nil
         }
         
@@ -40,11 +37,10 @@ struct TextField: ActionUIViewConstruction {
     
     // Builds the SwiftUI.TextField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         
-        // Initialize TextField-specific state only if not already set
-        // Design decision: Merges value (String) conditionally to avoid overwriting existing properties
+        // Initialize TextField-specific state only if not set
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
@@ -79,7 +75,7 @@ struct TextField: ActionUIViewConstruction {
     
     // Applies TextField-specific modifiers (e.g., textContentType)
     // Design decision: Relies on default macOS text field style (likely rounded) for HIG compliance; textContentType is iOS-only
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)
         if let textContentType = properties["textContentType"] as? String {

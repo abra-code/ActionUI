@@ -1,21 +1,38 @@
+// Common/ActionUIRegistry.swift
+import SwiftUI
+
 /*
  ActionUIRegistry manages the registration and invocation of view-specific builders, validators, and modifiers.
  Views are automatically registered during initialization of ActionUIRegistry.shared.
+ The logger is client-configurable, defaulting to ConsoleLogger with verbose level.
 */
 
-import SwiftUI
-
-// Manages registration and invocation of view-specific builders, validators, and modifiers
 @MainActor
 class ActionUIRegistry {
     // Design decision: Stores the type conforming to ActionUIViewConstruction, allowing runtime lookup of optional closure properties
-    private var registrations: [String: any ActionUIViewConstruction.Type] = [:]
+    internal var registrations: [String: any ActionUIViewConstruction.Type] = [:]
+    
+    // Logger for validation, view building, and modifier application
+    // Design decision: Client-configurable via setLogger, defaults to ConsoleLogger for consistency
+    private var logger: any ActionUILogger
     
     static let shared = ActionUIRegistry()
     
     private init() {
+        // Initialize with default ConsoleLogger
+        self.logger = ConsoleLogger(maxLevel: .verbose)
         // Automatically register supported SwiftUI view types
-        // Design decision: Registers all 48 views during initialization to simplify client integration
+        registerAllViews()
+    }
+    
+    // Allows clients to set a custom logger (e.g., XCTestLogger)
+    // Design decision: Mirrors ActionUIModel.registerActionHandler for client customization
+    func setLogger(_ logger: any ActionUILogger) {
+        self.logger = logger
+    }
+    
+    // Register all supported views
+    internal func registerAllViews() {
         register(AsyncImage.self)
         register(Button.self)
         register(Canvas.self)
@@ -65,8 +82,8 @@ class ActionUIRegistry {
         register(View.self)
         register(ZStack.self)
         register(TabView.self)
-        // removed deprecated NavigationView
-        // add more view registrations if needed
+        // Removed deprecated NavigationView
+        // Add more view registrations if needed
     }
     
     // Registers a view construction type using its type name
@@ -74,20 +91,22 @@ class ActionUIRegistry {
     @inline(__always)
     func register(_ type: any ActionUIViewConstruction.Type) {
         registrations[String(describing: type.self)] = type
+        logger.log("Registered view type: \(String(describing: type.self))", .info)
     }
-        
-    // Validates properties for a given element type, falling back to base properties if type not registered
+    
+    // Validates properties for a given element type, returning unchanged properties if type not registered
     func validateProperties(forElementType type: String, properties: [String: Any]) -> [String: Any] {
         if let constructionType = registrations[type] {
-            return constructionType.validateProperties(properties)
+            return constructionType.validateProperties(properties, logger)
         }
+        logger.log("No registration found for type \(type), returning unchanged properties", .warning)
         return properties
     }
     
     // Retrieves validated properties for an element, updating state if properties have changed
     func getValidatedProperties(element: any ActionUIElement, state: Binding<[Int: Any]>) -> [String: Any] {
         if state.wrappedValue[element.id] == nil {
-            let baseValidated = View.validateProperties(element.properties)
+            let baseValidated = View.validateProperties(element.properties, logger)
             let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
             state.wrappedValue[element.id] = [
                 "validatedProperties": validatedProperties,
@@ -101,14 +120,14 @@ class ActionUIRegistry {
         
         // Compare properties using helper function
         if !PropertyComparison.arePropertiesEqual(rawProperties, element.properties) {
-            let baseValidated = View.validateProperties(element.properties)
+            let baseValidated = View.validateProperties(element.properties, logger)
             validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
             var newState = currentState
             newState["validatedProperties"] = validatedProperties
             newState["rawProperties"] = element.properties
             state.wrappedValue[element.id] = newState
         } else {
-            validatedProperties = currentState["validatedProperties"] as? [String: Any] ?? validateProperties(forElementType: element.type, properties: View.validateProperties(element.properties))
+            validatedProperties = currentState["validatedProperties"] as? [String: Any] ?? validateProperties(forElementType: element.type, properties: View.validateProperties(element.properties, logger))
         }
         
         return validatedProperties
@@ -131,8 +150,9 @@ class ActionUIRegistry {
         }
         
         if let constructionType = registrations[element.type] {
-            return constructionType.buildView(element, state, windowUUID, validatedProperties)
+            return constructionType.buildView(element, state, windowUUID, validatedProperties, logger)
         }
+        logger.log("No construction type found for \(element.type), returning EmptyView", .warning)
         return SwiftUI.EmptyView()
     }
     
@@ -149,11 +169,11 @@ class ActionUIRegistry {
         
         // Step 1: Apply base View modifications dynamically
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
-        var modifiedView = View.applyModifiers(view, validatedPropertiesBinding.wrappedValue)
+        var modifiedView = View.applyModifiers(view, validatedPropertiesBinding.wrappedValue, logger)
         
         // Step 2: Apply specialized view modifications if available
         if let constructionType = registrations[element.type] {
-            modifiedView = constructionType.applyModifiers(modifiedView, validatedPropertiesBinding.wrappedValue)
+            modifiedView = constructionType.applyModifiers(modifiedView, validatedPropertiesBinding.wrappedValue, logger)
         }
         return AnyView(modifiedView)
     }

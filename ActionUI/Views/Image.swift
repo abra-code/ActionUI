@@ -30,7 +30,7 @@ import UniformTypeIdentifiers
 struct Image: ActionUIViewConstruction {
     // Design decision: Defines valueType as Void since Image is a static view with no interactive state
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
@@ -67,7 +67,7 @@ struct Image: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         var image: SwiftUI.Image
         if let systemName = properties["systemName"] as? String {
             image = SwiftUI.Image(systemName: systemName)
@@ -82,7 +82,7 @@ struct Image: ActionUIViewConstruction {
         return image
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         if let resizable = properties["resizable"] as? Bool, resizable {
             let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
             if let imageView = view as? SwiftUI.Image {

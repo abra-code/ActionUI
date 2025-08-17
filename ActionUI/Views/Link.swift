@@ -1,11 +1,12 @@
+// Sources/Views/Link.swift
 /*
  Sample JSON for Link:
  {
    "type": "Link",
-   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "id": 1,
    "properties": {
-     "title": "Visit Site", // Optional: String for title, defaults to "Link"
-     "url": "https://example.com" // Required: URL string
+     "title": "Visit Site", // Optional: String for title, defaults to "Link" in buildView
+     "url": "https://example.com" // Optional: URL string, returns EmptyView if nil or invalid
    }
    // Note: These properties are specific to Link. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
@@ -14,32 +15,32 @@
 import SwiftUI
 
 struct Link: ActionUIViewConstruction {
-    // Design decision: Defines valueType as Void since Link is a navigational view with no interactive state
+    static var valueType: Any.Type { Void.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if validatedProperties["title"] == nil {
-            validatedProperties["title"] = "Link"
+        if let title = validatedProperties["title"], !(title is String) {
+            logger.log("Invalid type for Link title: expected String, got \(type(of: title)), ignoring", .warning)
+            validatedProperties["title"] = nil
         }
+        
         if let urlString = validatedProperties["url"] as? String {
-            if let url = URL(string: urlString) {
-                validatedProperties["url"] = url
-            } else {
-                print("Warning: Link url '\(urlString)' invalid; defaulting to nil")
+            if URL(string: urlString) == nil {
+                logger.log("Invalid Link url '\(urlString)', ignoring", .warning)
                 validatedProperties["url"] = nil
             }
-        } else {
-            print("Warning: Link requires 'url'; defaulting to nil")
+        } else if validatedProperties["url"] != nil {
+            logger.log("Invalid type for Link url: expected String, got \(type(of: properties["url"]!)), ignoring", .warning)
             validatedProperties["url"] = nil
         }
         
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         guard let url = properties["url"] as? URL else {
-            print("Warning: Link requires a valid URL")
+            logger.log("Link missing valid URL, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
         let title = properties["title"] as? String ?? "Link"
@@ -49,7 +50,7 @@ struct Link: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         if let title = properties["title"] as? String {
             return view.overlay(SwiftUI.Text(title), alignment: .center)
         }

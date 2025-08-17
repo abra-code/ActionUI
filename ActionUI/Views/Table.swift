@@ -32,7 +32,7 @@ struct ColumnData: Identifiable {
 struct Table: ActionUIViewConstruction {
     static let valueType: Any.Type = [String].self // Value is the selected row as [String]
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
@@ -101,7 +101,7 @@ struct Table: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         #if canImport(AppKit)
         guard #available(macOS 14.4, *) else {
             return SwiftUI.Text("Table requires macOS 14.4 or later")

@@ -26,7 +26,7 @@ import SwiftUI
 
 struct Grid: ActionUIViewConstruction {
         
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
@@ -63,7 +63,7 @@ struct Grid: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         #if os(watchOS) || os(tvOS)
         return EmptyView()
         #else

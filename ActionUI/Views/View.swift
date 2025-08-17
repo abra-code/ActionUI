@@ -1,20 +1,21 @@
+// Sources/Views/View.swift
 /*
  Sample JSON for View (base structure for all views):
  {
    "type": "View",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "padding": 10.0,      // Optional: CGFloat for padding around the view
+     "padding": 10.0,      // Optional: Double for padding around the view
      "hidden": false,      // Optional: Boolean to hide the view
      "foregroundColor": "blue", // Optional: SwiftUI color (e.g., "red", "blue") for text or content tint
      "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
      "background": "white", // Optional: SwiftUI color (e.g., "red", "blue") or hex (e.g., "#FF0000") for background, applied via .background() modifier (color only for now)
      "frame": {            // Optional: Dictionary defining view size (e.g., {"width": 100, "height": 100})
-       "width": 100.0,     // Optional: CGFloat for width
-       "height": 100.0     // Optional: CGFloat for height
+       "width": 100.0,     // Optional: Double for width
+       "height": 100.0     // Optional: Double for height
      },
-     "opacity": 1.0,       // Optional: Float (0.0 to 1.0) for view transparency
-     "cornerRadius": 5.0,  // Optional: CGFloat for rounded corners
+     "opacity": 1.0,       // Optional: Double (0.0 to 1.0) for view transparency
+     "cornerRadius": 5.0,  // Optional: Double for rounded corners
      "actionID": "view.action", // Optional: String for action identifier, applicable to all elements with action handlers
      "disabled": false     // Optional: Boolean to disable user interaction
    }
@@ -25,117 +26,90 @@
 import SwiftUI
 
 struct View: ActionUIViewConstruction {
+    static var valueType: Any.Type { Void.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let padding = properties["padding"] as? CGFloat {
-            validatedProperties["padding"] = padding
-        } else if properties["padding"] != nil {
-            print("Warning: View padding must be a CGFloat; ignoring")
+        if !(properties["padding"] is Double?), properties["padding"] != nil {
+            logger.log("Invalid type for padding: expected Double, got \(type(of: properties["padding"]!)), ignoring", .warning)
             validatedProperties["padding"] = nil
         }
         
-        if let hidden = properties["hidden"] as? Bool {
-            validatedProperties["hidden"] = hidden
-        } else if properties["hidden"] != nil {
-            print("Warning: View hidden must be a Boolean; ignoring")
+        if !(properties["hidden"] is Bool?), properties["hidden"] != nil {
+            logger.log("Invalid type for hidden: expected Bool, got \(type(of: properties["hidden"]!)), ignoring", .warning)
             validatedProperties["hidden"] = nil
         }
         
-        if let foregroundColor = properties["foregroundColor"] as? String {
-            validatedProperties["foregroundColor"] = foregroundColor
-        } else if properties["foregroundColor"] != nil {
-            print("Warning: View foregroundColor must be a string; ignoring")
+        if !(properties["foregroundColor"] is String?), properties["foregroundColor"] != nil {
+            logger.log("Invalid type for foregroundColor: expected String, got \(type(of: properties["foregroundColor"]!)), ignoring", .warning)
             validatedProperties["foregroundColor"] = nil
         }
         
-        if let font = properties["font"] as? String {
-            validatedProperties["font"] = font
-        } else if properties["font"] != nil {
-            print("Warning: View font must be a string; ignoring")
+        if !(properties["font"] is String?), properties["font"] != nil {
+            logger.log("Invalid type for font: expected String, got \(type(of: properties["font"]!)), ignoring", .warning)
             validatedProperties["font"] = nil
         }
         
-        if let background = properties["background"] as? String {
-            validatedProperties["background"] = background
-        } else if properties["background"] != nil {
-            print("Warning: View background must be a string; ignoring")
+        if !(properties["background"] is String?), properties["background"] != nil {
+            logger.log("Invalid type for background: expected String, got \(type(of: properties["background"]!)), ignoring", .warning)
             validatedProperties["background"] = nil
         }
         
         if let frame = properties["frame"] as? [String: Any] {
-            var validatedFrame: [String: Any] = [:]
-            if let width = frame["width"] as? CGFloat {
-                validatedFrame["width"] = width
-            } else if frame["width"] != nil {
-                print("Warning: View frame width must be a CGFloat; ignoring")
-            }
-            if let height = frame["height"] as? CGFloat {
-                validatedFrame["height"] = height
-            } else if frame["height"] != nil {
-                print("Warning: View frame height must be a CGFloat; ignoring")
-            }
-            if !validatedFrame.isEmpty {
-                validatedProperties["frame"] = validatedFrame
+            if !(frame["width"] is Double) || !(frame["height"] is Double) {
+                logger.log("Invalid frame: must contain both width and height as Double, ignoring", .warning)
+                validatedProperties["frame"] = nil
             }
         } else if properties["frame"] != nil {
-            print("Warning: View frame must be a dictionary; ignoring")
+            logger.log("Invalid type for frame: expected dictionary, got \(type(of: properties["frame"]!)), ignoring", .warning)
             validatedProperties["frame"] = nil
         }
         
-        if let opacity = properties["opacity"] as? Float {
-            if (0.0...1.0).contains(opacity) {
-                validatedProperties["opacity"] = opacity
-            } else {
-                print("Warning: View opacity must be between 0.0 and 1.0; ignoring")
+        if let opacity = properties["opacity"] as? Double {
+            if !(0.0...1.0).contains(opacity) {
+                logger.log("Invalid opacity: must be between 0.0 and 1.0, ignoring", .warning)
                 validatedProperties["opacity"] = nil
             }
         } else if properties["opacity"] != nil {
-            print("Warning: View opacity must be a Float; ignoring")
+            logger.log("Invalid type for opacity: expected Double, got \(type(of: properties["opacity"]!)), ignoring", .warning)
             validatedProperties["opacity"] = nil
         }
         
-        if let cornerRadius = properties["cornerRadius"] as? CGFloat {
-            validatedProperties["cornerRadius"] = cornerRadius
-        } else if properties["cornerRadius"] != nil {
-            print("Warning: View cornerRadius must be a CGFloat; ignoring")
+        if !(properties["cornerRadius"] is Double?), properties["cornerRadius"] != nil {
+            logger.log("Invalid type for cornerRadius: expected Double, got \(type(of: properties["cornerRadius"]!)), ignoring", .warning)
             validatedProperties["cornerRadius"] = nil
         }
         
-        if let actionID = properties["actionID"] as? String {
-            validatedProperties["actionID"] = actionID
-        } else if properties["actionID"] != nil {
-            print("Warning: View actionID must be a string; ignoring")
+        if !(properties["actionID"] is String?), properties["actionID"] != nil {
+            logger.log("Invalid type for actionID: expected String, got \(type(of: properties["actionID"]!)), ignoring", .warning)
             validatedProperties["actionID"] = nil
         }
         
-        if let disabled = properties["disabled"] as? Bool {
-            validatedProperties["disabled"] = disabled
-        } else if properties["disabled"] != nil {
-            print("Warning: View disabled must be a Boolean; ignoring")
+        if !(properties["disabled"] is Bool?), properties["disabled"] != nil {
+            logger.log("Invalid type for disabled: expected Bool, got \(type(of: properties["disabled"]!)), ignoring", .warning)
             validatedProperties["disabled"] = nil
         }
         
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         // View is never instantiated directly; return EmptyView as a fallback
         return SwiftUI.EmptyView()
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         
-        if let padding = properties["padding"] as? CGFloat {
-            modifiedView = modifiedView.padding(padding)
-        } else if let padding = properties["padding"] as? [String: CGFloat] {
+        if let padding = properties["padding"] as? Double {
+            modifiedView = modifiedView.padding(CGFloat(padding))
+        } else if let padding = properties["padding"] as? [String: Double] {
             modifiedView = modifiedView.padding(EdgeInsets(
-                top: padding["top"] ?? 0,
-                leading: padding["leading"] ?? 0,
-                bottom: padding["bottom"] ?? 0,
-                trailing: padding["trailing"] ?? 0
+                top: CGFloat(padding["top"] ?? 0),
+                leading: CGFloat(padding["leading"] ?? 0),
+                bottom: CGFloat(padding["bottom"] ?? 0),
+                trailing: CGFloat(padding["trailing"] ?? 0)
             ))
         }
         
@@ -159,18 +133,18 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.background(color)
         }
         
-        if let frame = properties["frame"] as? [String: Any] {
-            let width = frame["width"] as? CGFloat
-            let height = frame["height"] as? CGFloat
-            modifiedView = modifiedView.frame(width: width, height: height)
+        if let frame = properties["frame"] as? [String: Any],
+           let width = frame["width"] as? Double,
+           let height = frame["height"] as? Double {
+            modifiedView = modifiedView.frame(width: CGFloat(width), height: CGFloat(height))
         }
         
-        if let opacity = properties["opacity"] as? Float, (0.0...1.0).contains(opacity) {
-            modifiedView = modifiedView.opacity(Double(opacity))
+        if let opacity = properties["opacity"] as? Double, (0.0...1.0).contains(opacity) {
+            modifiedView = modifiedView.opacity(opacity)
         }
         
-        if let cornerRadius = properties["cornerRadius"] as? CGFloat {
-            modifiedView = modifiedView.cornerRadius(cornerRadius)
+        if let cornerRadius = properties["cornerRadius"] as? Double {
+            modifiedView = modifiedView.cornerRadius(CGFloat(cornerRadius))
         }
         
         return modifiedView

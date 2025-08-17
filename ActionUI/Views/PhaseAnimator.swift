@@ -26,7 +26,7 @@ import SwiftUI
 internal import Combine // Explicitly set access level to internal
 
 struct PhaseAnimator: ActionUIViewConstruction {
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
@@ -98,7 +98,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         if #available(iOS 17.0, macOS 14.0, *) {
             let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
             let values = properties["values"] as? [Double] ?? [0.0, 1.0]

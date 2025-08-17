@@ -21,7 +21,7 @@ import UIKit
 struct ProgressView: ActionUIViewConstruction {
     static var valueType: Any.Type { Double?.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if let value = validatedProperties["value"] as? Double, value >= 0 {
@@ -48,7 +48,7 @@ struct ProgressView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { (element: any ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, properties: [String: Any]) -> any SwiftUI.View in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let value: Double? = properties["value"] as? Double
         let total: Double? = properties["total"] as? Double
         let label: String? = properties["label"] as? String
@@ -86,7 +86,7 @@ struct ProgressView: ActionUIViewConstruction {
             }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)
         if properties["value"] == nil || properties["total"] == nil {

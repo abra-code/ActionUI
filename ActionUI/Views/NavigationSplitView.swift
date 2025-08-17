@@ -20,7 +20,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
     // Design decision: Defines valueType as NavigationSplitViewVisibility to reflect column visibility state
     static var valueType: Any.Type { SwiftUI.NavigationSplitViewVisibility.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate sidebar, content, detail
@@ -59,7 +59,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let sidebar = properties["sidebar"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
         let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
         let detail = properties["detail"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
@@ -118,7 +118,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         if let style = properties["style"] as? String {
             switch style {

@@ -22,9 +22,9 @@ protocol ActionUIElement: Identifiable, Codable {
 // Protocol for constructing SwiftUI views from ActionUI elements
 protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
-    static var validateProperties: ([String: Any]) -> [String: Any] { get }
-    static var buildView: ((any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View) { get }
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View { get }
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
+    static var buildView: ((any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
 }
 
 // Default implementations for ActionUIViewConstruction
@@ -33,8 +33,8 @@ extension ActionUIViewConstruction {
         return Void.self
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View {
-        return { view, _ in view }
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View {
+        return { view, _, _ in view }
     }
 }
 

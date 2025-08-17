@@ -16,7 +16,7 @@ import SwiftUI
 
 struct Canvas: ActionUIViewConstruction {
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["render"] == nil {
@@ -34,7 +34,7 @@ struct Canvas: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let color = (properties["color"] as? Color) ?? Color.black
         let render = (properties["render"] as? String) ?? "none"
         

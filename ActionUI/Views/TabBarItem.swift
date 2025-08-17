@@ -15,7 +15,7 @@
 import SwiftUI
 
 struct TabBarItem: ActionUIViewConstruction {
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["title"] == nil {
@@ -29,7 +29,7 @@ struct TabBarItem: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
         
         return SwiftUI.TabView {
@@ -37,7 +37,7 @@ struct TabBarItem: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         let title = properties["title"] as? String ?? "Item"
         if let systemImage = properties["systemImage"] as? String {

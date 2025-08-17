@@ -12,11 +12,11 @@ import SwiftUI
 
 struct EmptyView: ActionUIViewConstruction {
     
-    static var validateProperties: ([String : Any]) -> [String : Any] = { properties in
+    static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, _ in
         return properties
     }
         
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { _, _, _, _ in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, _, _ in
         return SwiftUI.EmptyView()
     }
 }

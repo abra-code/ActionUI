@@ -16,7 +16,7 @@ struct TextEditor: ActionUIViewConstruction {
     // Design decision: Defines valueType as String to reflect text input for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { String.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate placeholder
@@ -30,7 +30,7 @@ struct TextEditor: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         // Initialize TextEditor-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]

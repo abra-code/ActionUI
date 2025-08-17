@@ -36,7 +36,7 @@ struct AnimationValues: Equatable {
 struct KeyframeAnimator: ActionUIViewConstruction {
     static var valueType: Any.Type { AnimationValues.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate content
@@ -129,7 +129,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         if #available(iOS 17.0, macOS 14.0, *) {
             let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
             let initialValueDict = properties["initialValue"] as? [String: Any] ?? ["opacity": 0.0, "scale": 1.0, "rotation": 0.0]

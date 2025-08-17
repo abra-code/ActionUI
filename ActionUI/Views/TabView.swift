@@ -19,7 +19,7 @@ struct TabView: ActionUIViewConstruction {
     // Design decision: Defines valueType as Int to reflect selected tab index for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { Int.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["children"] == nil {
@@ -38,7 +38,7 @@ struct TabView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let children = properties["children"] as? [[String: Any]] ?? []
         let initialSelection = (properties["selection"] as? Int) ?? 0
         if state.wrappedValue[element.id] == nil {

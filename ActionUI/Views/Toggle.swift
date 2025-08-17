@@ -16,7 +16,7 @@ import SwiftUI
 struct Toggle: ActionUIViewConstruction {
     static var valueType: Any.Type { Bool.self } // Value is the toggle's on/off state
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate style based on platform
@@ -38,7 +38,7 @@ struct Toggle: ActionUIViewConstruction {
     
     // Builds the Toggle view, binding isOn to state
     // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         // Initialize Toggle-specific state only if not set
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]
@@ -69,7 +69,7 @@ struct Toggle: ActionUIViewConstruction {
         return SwiftUI.Toggle(title, isOn: toggleBinding)
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         if let style = properties["style"] as? String {
             switch style {

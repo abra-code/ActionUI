@@ -20,7 +20,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
     // Design decision: Defines valueType as Bool to reflect isExpanded state for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { Bool.self }
     
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate label
@@ -48,7 +48,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let label = properties["label"] as? String ?? ""
         let initialExpanded = properties["isExpanded"] as? Bool ?? false
         

@@ -15,7 +15,7 @@
 import SwiftUI
 
 struct ScrollViewReader: ActionUIViewConstruction {
-    static var validateProperties: ([String: Any]) -> [String: Any] = { properties in
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
@@ -34,7 +34,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any]) -> any SwiftUI.View = { element, state, windowUUID, properties in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
         
         return SwiftUI.ScrollViewReader { proxy in
@@ -42,7 +42,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any]) -> any SwiftUI.View = { view, properties in
+    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         if let scrollTo = properties["scrollTo"] as? Int {
             let anchor = (properties["anchor"] as? String).flatMap {
