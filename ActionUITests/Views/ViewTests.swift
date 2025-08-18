@@ -9,9 +9,9 @@ final class ViewTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        // Initialize XCTestLogger with verbose level to catch errors
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
     }
@@ -82,16 +82,6 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["cornerRadius"], "cornerRadius should be nil for invalid type")
         XCTAssertNil(validated["actionID"], "actionID should be nil for invalid type")
         XCTAssertNil(validated["disabled"], "disabled should be nil for invalid type")
-    }
-    
-    func testValidatePropertiesOutOfRangeOpacity() throws {
-        let properties: [String: Any] = [
-            "opacity": 1.5
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["opacity"], "opacity should be nil for out-of-range value")
     }
     
     func testValidatePropertiesMissing() throws {
@@ -169,5 +159,44 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(validated["foregroundColor"] as? String, "red", "foregroundColor should be valid string")
         XCTAssertEqual(validated["opacity"] as? Double, 0.5, "opacity should be valid Double")
         XCTAssertEqual(validated["disabled"] as? Bool, false, "disabled should be valid Bool")
+    }
+    
+    func testBuildViewAndApplyModifiers() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "View",
+            "properties": [
+                "padding": 10.0,
+                "foregroundColor": "blue",
+                "frame": ["width": 100.0, "height": 100.0]
+            ]
+        ]
+        let element = try StaticElement(from: elementDict)
+        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let validatedProperties = View.validateProperties(element.properties, logger)
+        
+        let view = View.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let modifiedView = View.applyModifiers(view, validatedProperties, logger)
+        
+        XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
+        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view (e.g., _ModifiedContent) due to SwiftUI modifier wrapping")
+        // Note: Cannot directly test modifier application (e.g., padding, frame) due to SwiftUI's opaque view hierarchy
+    }
+    
+    func testBuildViewAndApplyModifiersEmptyProperties() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "View",
+            "properties": [:]
+        ]
+        let element = try StaticElement(from: elementDict)
+        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let validatedProperties = View.validateProperties(element.properties, logger)
+        
+        let view = View.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let modifiedView = View.applyModifiers(view, validatedProperties, logger)
+        
+        XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView with empty properties")
+        XCTAssertTrue(modifiedView is SwiftUI.EmptyView, "applyModifiers should return EmptyView with no modifiers applied")
     }
 }

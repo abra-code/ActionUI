@@ -11,13 +11,13 @@
      "contentMode": "fit"                   // Optional: "fit" or "fill" for scaling mode, defaults to "fit" in buildView
    }
    // Note: These properties are specific to AsyncImage. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: Invalid URLs (e.g., "invalid-url") are allowed and will construct AsyncImage, which may fail to download but should not crash.
  }
 */
 
 import SwiftUI
 
 struct AsyncImage: ActionUIViewConstruction {
-    // Design decision: Defines valueType as Void since AsyncImage is a static view with no interactive state
     static var valueType: Any.Type { Void.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
@@ -25,10 +25,7 @@ struct AsyncImage: ActionUIViewConstruction {
         
         // Validate url
         if let url = validatedProperties["url"] as? String {
-            if URL(string: url) == nil {
-                logger.log("Invalid AsyncImage url '\(url)', ignoring", .warning)
-                validatedProperties["url"] = nil
-            }
+            // Allow any string URL, even if invalid (e.g., "invalid-url"); AsyncImage will handle download failure
         } else if validatedProperties["url"] != nil {
             logger.log("Invalid type for AsyncImage url: expected String, got \(type(of: validatedProperties["url"]!)), ignoring", .warning)
             validatedProperties["url"] = nil
