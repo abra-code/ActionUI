@@ -1,3 +1,4 @@
+// Sources/Views/DatePicker.swift
 /*
  Sample JSON for DatePicker:
  {
@@ -23,8 +24,9 @@ struct DatePicker: ActionUIViewConstruction {
         var validatedProperties = properties
         
         // Validate label
-        if validatedProperties["label"] == nil {
-            validatedProperties["label"] = "Date"
+        if !(validatedProperties["label"] is String?), validatedProperties["label"] != nil {
+            logger.log("DatePicker requires 'label' as String; ignoring", .warning)
+            validatedProperties["label"] = nil
         }
         
         // Validate displayStyle
@@ -33,25 +35,38 @@ struct DatePicker: ActionUIViewConstruction {
         #else
         let validStyles = ["automatic", "compact", "graphical"]
         #endif
-        if let displayStyle = validatedProperties["displayStyle"] as? String, !validStyles.contains(displayStyle) {
-            logger.log("DatePicker displayStyle '\(displayStyle)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); defaulting to 'automatic'", .warning)
-            validatedProperties["displayStyle"] = "automatic"
-        }
-        if validatedProperties["displayStyle"] == nil {
-            validatedProperties["displayStyle"] = "automatic"
+        if let displayStyle = validatedProperties["displayStyle"] as? String {
+            if !validStyles.contains(displayStyle) {
+                logger.log("DatePicker displayStyle '\(displayStyle)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); ignoring", .warning)
+                validatedProperties["displayStyle"] = nil
+            }
+        } else if validatedProperties["displayStyle"] != nil {
+            logger.log("DatePicker requires 'displayStyle' as String; ignoring", .warning)
+            validatedProperties["displayStyle"] = nil
         }
         
         // Validate range
         if let range = validatedProperties["range"] as? [String: String] {
             var validatedRange: [String: Date] = [:]
             let dateFormatter = ISO8601DateFormatter()
+            var isValid = true
             if let start = range["start"], let date = dateFormatter.date(from: start) {
                 validatedRange["start"] = date
+            } else {
+                if range["start"] != nil {
+                    logger.log("DatePicker range.start '\(String(describing: range["start"]))' invalid ISO 8601 string; ignoring range", .warning)
+                }
+                isValid = false
             }
             if let end = range["end"], let date = dateFormatter.date(from: end) {
                 validatedRange["end"] = date
+            } else {
+                if range["end"] != nil {
+                    logger.log("DatePicker range.end '\(String(describing: range["end"]))' invalid ISO 8601 string; ignoring range", .warning)
+                }
+                isValid = false
             }
-            if !validatedRange.isEmpty, let start = validatedRange["start"], let end = validatedRange["end"], start <= end {
+            if isValid, let start = validatedRange["start"], let end = validatedRange["end"], start <= end {
                 validatedProperties["range"] = validatedRange
             } else {
                 logger.log("DatePicker range must have valid start/end ISO 8601 dates with start <= end; ignoring", .warning)
@@ -71,6 +86,9 @@ struct DatePicker: ActionUIViewConstruction {
                 logger.log("DatePicker selectedDate '\(selectedDate)' invalid; ignoring", .warning)
                 validatedProperties["selectedDate"] = nil
             }
+        } else if validatedProperties["selectedDate"] != nil {
+            logger.log("DatePicker selectedDate must be a String; ignoring", .warning)
+            validatedProperties["selectedDate"] = nil
         }
         
         return validatedProperties
@@ -139,6 +157,8 @@ struct DatePicker: ActionUIViewConstruction {
             default:
                 modifiedView = modifiedView.datePickerStyle(.automatic)
             }
+        } else {
+            modifiedView = modifiedView.datePickerStyle(.automatic)
         }
         return modifiedView
     }

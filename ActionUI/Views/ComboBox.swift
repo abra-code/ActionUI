@@ -1,3 +1,4 @@
+// Sources/Views/ComboBox.swift
 /*
  Sample JSON for ComboBox (macOS, iOS, iPadOS only):
  {
@@ -27,17 +28,17 @@ struct ComboBox: ActionUIViewConstruction {
         // Validate options
         if let options = validatedProperties["options"] as? [String] {
             if options.isEmpty {
-                logger.log("ComboBox options is empty; initializing with empty array", .warning)
-                validatedProperties["options"] = []
+                logger.log("ComboBox options is empty", .warning)
             }
-        } else {
-            logger.log("ComboBox requires 'options' as [String]; defaulting to empty array", .warning)
-            validatedProperties["options"] = []
+        } else if validatedProperties["options"] != nil {
+            logger.log("ComboBox requires 'options' as [String]; ignoring", .warning)
+            validatedProperties["options"] = nil
         }
         
         // Validate placeholder
-        if validatedProperties["placeholder"] == nil {
-            validatedProperties["placeholder"] = ""
+        if !(validatedProperties["placeholder"] is String?), validatedProperties["placeholder"] != nil {
+            logger.log("ComboBox requires 'placeholder' as String; ignoring", .warning)
+            validatedProperties["placeholder"] = nil
         }
         #endif
         
@@ -66,7 +67,10 @@ struct ComboBox: ActionUIViewConstruction {
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
                 newState["validatedProperties"] = properties // Include validated properties per ActionUI guidelines
-                state.wrappedValue[element.id] = newState
+                state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
+                    ["value": newValue, "validatedProperties": properties],
+                    uniquingKeysWith: { _, new in new }
+                )
                 if let actionID = properties["actionID"] as? String {
                     Task { @MainActor in
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
