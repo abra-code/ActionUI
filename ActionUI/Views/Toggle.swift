@@ -26,7 +26,7 @@ struct Toggle: ActionUIViewConstruction {
         let validStyles = ["switch", "button"]
         #endif
         if let style = validatedProperties["style"] as? String, !validStyles.contains(style) {
-            print("Warning: Toggle style '\(style)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); defaulting to 'switch'")
+            logger.log("Toggle style '\(style)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); defaulting to 'switch'", .warning)
             validatedProperties["style"] = "switch"
         }
         if validatedProperties["style"] == nil {
@@ -77,7 +77,7 @@ struct Toggle: ActionUIViewConstruction {
                 #if os(macOS)
                 modifiedView = modifiedView.toggleStyle(CheckboxToggleStyle())
                 #else
-                print("Warning: CheckboxToggleStyle unavailable on iOS/visionOS/MacCatalyst; using SwitchToggleStyle")
+                logger.log("CheckboxToggleStyle unavailable on iOS/visionOS/MacCatalyst; using SwitchToggleStyle", .warning)
                 modifiedView = modifiedView.toggleStyle(SwitchToggleStyle())
                 #endif
             case "button":

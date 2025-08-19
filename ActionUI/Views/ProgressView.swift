@@ -27,7 +27,7 @@ struct ProgressView: ActionUIViewConstruction {
         if let value = validatedProperties["value"] as? Double, value >= 0 {
             validatedProperties["value"] = value
         } else if validatedProperties["value"] != nil {
-            print("Warning: ProgressView value must be a non-negative Double; defaulting to nil")
+            logger.log("ProgressView value must be a non-negative Double; defaulting to nil", .warning)
             validatedProperties["value"] = nil
         }
         
@@ -36,12 +36,12 @@ struct ProgressView: ActionUIViewConstruction {
         } else if validatedProperties["value"] != nil {
             validatedProperties["total"] = 1.0
         } else if validatedProperties["total"] != nil {
-            print("Warning: ProgressView total must be a positive Double; defaulting to nil")
+            logger.log("ProgressView total must be a positive Double; defaulting to nil", .warning)
             validatedProperties["total"] = nil
         }
         
         if validatedProperties["label"] != nil, !(validatedProperties["label"] is String) {
-            print("Warning: ProgressView label must be a String; defaulting to nil")
+            logger.log("ProgressView label must be a String; defaulting to nil", .warning)
             validatedProperties["label"] = nil
         }
         

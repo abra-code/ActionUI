@@ -22,7 +22,7 @@ struct TabBarItem: ActionUIViewConstruction {
             validatedProperties["title"] = "Item"
         }
         if validatedProperties["content"] == nil {
-            print("Warning: TabBarItem requires 'content'; defaulting to EmptyView")
+            logger.log("TabBarItem requires 'content'; defaulting to EmptyView", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         }
         

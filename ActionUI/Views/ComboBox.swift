@@ -21,17 +21,17 @@ struct ComboBox: ActionUIViewConstruction {
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
-        print("Warning: ComboBox is not supported on watchOS/tvOS; defaulting to empty properties")
+        logger.log("ComboBox is not supported on watchOS/tvOS; defaulting to empty properties", .warning)
         validatedProperties = [:]
         #else
         // Validate options
         if let options = validatedProperties["options"] as? [String] {
             if options.isEmpty {
-                print("Warning: ComboBox options is empty; initializing with empty array")
+                logger.log("ComboBox options is empty; initializing with empty array", .warning)
                 validatedProperties["options"] = []
             }
         } else {
-            print("Warning: ComboBox requires 'options' as [String]; defaulting to empty array")
+            logger.log("ComboBox requires 'options' as [String]; defaulting to empty array", .warning)
             validatedProperties["options"] = []
         }
         
@@ -85,7 +85,7 @@ struct ComboBox: ActionUIViewConstruction {
             .pickerStyle(.menu)
         }
         #else
-        print("Warning: ComboBox is not supported on this platform")
+        logger.log("ComboBox is not supported on this platform", .warning)
         return SwiftUI.EmptyView()
         #endif
     }

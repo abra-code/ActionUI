@@ -42,18 +42,18 @@ struct LazyHGrid: ActionUIViewConstruction {
             if !validatedRows.isEmpty {
                 validatedProperties["rows"] = validatedRows
             } else {
-                print("Warning: LazyHGrid rows must contain valid minimum or flexible values; ignoring")
+                logger.log("LazyHGrid rows must contain valid minimum or flexible values; ignoring", .warning)
                 validatedProperties["rows"] = nil
             }
         } else if validatedProperties["rows"] != nil {
-            print("Warning: LazyHGrid rows must be an array of dictionaries; ignoring")
+            logger.log("LazyHGrid rows must be an array of dictionaries; ignoring", .warning)
             validatedProperties["rows"] = nil
         }
         
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
-            print("Warning: LazyHGrid spacing must be a CGFloat; ignoring")
+            logger.log("LazyHGrid spacing must be a CGFloat; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         
@@ -61,7 +61,7 @@ struct LazyHGrid: ActionUIViewConstruction {
            ["top", "center", "bottom"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if validatedProperties["alignment"] != nil {
-            print("Warning: LazyHGrid alignment must be 'top', 'center', or 'bottom'; ignoring")
+            logger.log("LazyHGrid alignment must be 'top', 'center', or 'bottom'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
         

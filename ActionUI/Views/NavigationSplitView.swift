@@ -26,10 +26,10 @@ struct NavigationSplitView: ActionUIViewConstruction {
         // Validate sidebar, content, detail
         for key in ["sidebar", "content", "detail"] {
             if validatedProperties[key] == nil {
-                print("Warning: NavigationSplitView requires '\(key)'; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+                logger.log("NavigationSplitView requires '\(key)'; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
                 validatedProperties[key] = ["type": "EmptyView", "properties": [:]]
             } else if !(validatedProperties[key] is [String: Any]) {
-                print("Warning: NavigationSplitView '\(key)' must be a dictionary; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+                logger.log("NavigationSplitView '\(key)' must be a dictionary; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
                 validatedProperties[key] = ["type": "EmptyView", "properties": [:]]
             }
         }
@@ -39,7 +39,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         if let visibility = validatedProperties["columnVisibility"] as? String, validVisibilities.contains(visibility) {
             validatedProperties["columnVisibility"] = visibility
         } else if validatedProperties["columnVisibility"] != nil {
-            print("Warning: NavigationSplitView columnVisibility must be one of \(validVisibilities); defaulting to 'all' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            logger.log("NavigationSplitView columnVisibility must be one of \(validVisibilities); defaulting to 'all' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
             validatedProperties["columnVisibility"] = "all"
         } else {
             validatedProperties["columnVisibility"] = "all"
@@ -50,7 +50,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         if let style = validatedProperties["style"] as? String, validStyles.contains(style) {
             validatedProperties["style"] = style
         } else if validatedProperties["style"] != nil {
-            print("Warning: NavigationSplitView style must be one of \(validStyles); defaulting to 'automatic' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            logger.log("NavigationSplitView style must be one of \(validStyles); defaulting to 'automatic' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
             validatedProperties["style"] = "automatic"
         } else {
             validatedProperties["style"] = "automatic"

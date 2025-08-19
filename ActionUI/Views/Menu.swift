@@ -23,7 +23,7 @@ struct Menu: ActionUIViewConstruction {
             validatedProperties["label"] = "Menu"
         }
         if validatedProperties["children"] == nil {
-            print("Warning: Menu requires 'children'; defaulting to empty array")
+            logger.log("Menu requires 'children'; defaulting to empty array", .warning)
             validatedProperties["children"] = []
         } else if let children = validatedProperties["children"] as? [[String: Any]] {
             validatedProperties["children"] = children

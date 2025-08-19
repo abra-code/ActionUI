@@ -22,10 +22,10 @@ struct NavigationStack: ActionUIViewConstruction {
         
         // Validate content
         if validatedProperties["content"] == nil {
-            print("Warning: NavigationStack requires 'content'; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            logger.log("NavigationStack requires 'content'; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         } else if !(validatedProperties["content"] is [String: Any]) {
-            print("Warning: NavigationStack content must be a dictionary; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            logger.log("NavigationStack content must be a dictionary; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         }
         
@@ -33,7 +33,7 @@ struct NavigationStack: ActionUIViewConstruction {
         if let path = validatedProperties["path"] as? [String] {
             validatedProperties["path"] = path
         } else if validatedProperties["path"] != nil {
-            print("Warning: NavigationStack path must be an array of strings; ignoring on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            logger.log("NavigationStack path must be an array of strings; ignoring on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
             validatedProperties["path"] = []
         }
         
@@ -41,7 +41,7 @@ struct NavigationStack: ActionUIViewConstruction {
         if let title = validatedProperties["navigationTitle"] as? String {
             validatedProperties["navigationTitle"] = title
         } else if validatedProperties["navigationTitle"] != nil {
-            print("Warning: NavigationStack navigationTitle must be a String; ignoring on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))")
+            logger.log("NavigationStack navigationTitle must be a String; ignoring on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
             validatedProperties["navigationTitle"] = nil
         }
         

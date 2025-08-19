@@ -24,7 +24,7 @@ struct ZStack: ActionUIViewConstruction {
            ["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if validatedProperties["alignment"] != nil {
-            print("Warning: ZStack alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring")
+            logger.log("ZStack alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
         

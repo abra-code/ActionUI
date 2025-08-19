@@ -1,11 +1,13 @@
+// Sources/Views/ColorPicker.swift
 /*
  Sample JSON for ColorPicker:
  {
    "type": "ColorPicker",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Pick a Color", // Optional: String for title, defaults to "Color"
-     "selectedColor": "#FF0000" // Optional: Initial color (hex string), defaults to clear
+     "title": "Pick a Color", // Optional: String for title, defaults to "Color" in buildView
+     "selectedColor": "#FF0000", // Optional: Initial color (hex or named color), defaults to clear in buildView
+     "actionID": "colorpicker.action" // Optional: String for action identifier, triggers on color change
    }
    // Note: These properties are specific to ColorPicker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
@@ -19,19 +21,22 @@ struct ColorPicker: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate title
-        if validatedProperties["title"] == nil {
-            validatedProperties["title"] = "Color"
+        // Validate title (optional, must be String)
+        if let title = validatedProperties["title"], !(title is String) {
+            logger.log("Invalid type for ColorPicker title: expected String, got \(type(of: title)), ignoring", .warning)
+            validatedProperties["title"] = nil
         }
         
-        // Validate selectedColor
-        if let selectedColor = validatedProperties["selectedColor"] as? String {
-            if let color = ColorHelper.resolveColor(selectedColor) {
-                validatedProperties["selectedColor"] = color
-            } else {
-                print("Warning: ColorPicker selectedColor '\(selectedColor)' invalid; defaulting to clear")
-                validatedProperties["selectedColor"] = Color.clear
-            }
+        // Validate selectedColor (optional, must be String; defaults applied in buildView)
+        if let selectedColor = validatedProperties["selectedColor"], !(selectedColor is String) {
+            logger.log("Invalid type for ColorPicker selectedColor: expected String, got \(type(of: selectedColor)), ignoring", .warning)
+            validatedProperties["selectedColor"] = nil
+        }
+        
+        // Validate actionID (optional, must be String)
+        if let actionID = validatedProperties["actionID"], !(actionID is String) {
+            logger.log("Invalid type for ColorPicker actionID: expected String, got \(type(of: actionID)), ignoring", .warning)
+            validatedProperties["actionID"] = nil
         }
         
         return validatedProperties
@@ -40,8 +45,7 @@ struct ColorPicker: ActionUIViewConstruction {
     // Builds the ColorPicker view, binding selection to state
     // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let initialColor = (properties["selectedColor"] as? Color) ?? Color.clear
-        
+        let initialColor = ColorHelper.resolveColor((properties["selectedColor"] as? String) ?? "clear") ?? Color.clear
         // Initialize ColorPicker-specific state only if not already set
         // Design decision: Merges value (Color) and validatedProperties conditionally to avoid overwriting existing properties
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
@@ -53,6 +57,7 @@ struct ColorPicker: ActionUIViewConstruction {
         if !viewSpecificState.isEmpty {
             state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
         }
+        let title = properties["title"] as? String ?? "Color"
         
         let colorBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Color ?? initialColor },
@@ -68,8 +73,6 @@ struct ColorPicker: ActionUIViewConstruction {
                 }
             }
         )
-        
-        let title = properties["title"] as? String ?? "Color"
         
         return SwiftUI.ColorPicker(title, selection: colorBinding)
     }

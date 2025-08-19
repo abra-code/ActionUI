@@ -24,11 +24,11 @@ struct Picker: ActionUIViewConstruction {
         // Validate options
         if let options = validatedProperties["options"] as? [String] {
             if options.isEmpty {
-                print("Warning: Picker options is empty; initializing with empty array")
+                logger.log("Picker options is empty; initializing with empty array", .warning)
                 validatedProperties["options"] = []
             }
         } else {
-            print("Warning: Picker requires 'options' as [String]; defaulting to empty array")
+            logger.log("Picker requires 'options' as [String]; defaulting to empty array", .warning)
             validatedProperties["options"] = []
         }
         
@@ -39,7 +39,7 @@ struct Picker: ActionUIViewConstruction {
         let validStyles = ["menu", "segmented", "wheel"]
         #endif
         if let style = validatedProperties["pickerStyle"] as? String, !validStyles.contains(style) {
-            print("Warning: Picker style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); defaulting to 'menu'")
+            logger.log("Picker style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); defaulting to 'menu'", .warning)
             validatedProperties["pickerStyle"] = "menu"
         }
         if validatedProperties["pickerStyle"] == nil {
@@ -99,7 +99,7 @@ struct Picker: ActionUIViewConstruction {
             switch style {
             case "wheel":
                 #if os(macOS)
-                print("Warning: wheel PickerStyle unavailable on macOS; using menu")
+                logger.log("wheel PickerStyle unavailable on macOS; using menu", .warning)
                 modifiedView = modifiedView.pickerStyle(.menu)
                 #else
                 modifiedView = modifiedView.pickerStyle(.wheel)

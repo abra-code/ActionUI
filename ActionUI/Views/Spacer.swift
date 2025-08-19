@@ -19,7 +19,7 @@ struct Spacer: ActionUIViewConstruction {
         if let minLength = validatedProperties["minLength"] as? CGFloat {
             validatedProperties["minLength"] = minLength
         } else if validatedProperties["minLength"] != nil {
-            print("Warning: Spacer minLength must be a CGFloat; ignoring")
+            logger.log("Spacer minLength must be a CGFloat; ignoring", .warning)
             validatedProperties["minLength"] = nil
         }
         

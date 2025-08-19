@@ -27,7 +27,7 @@ struct Map: ActionUIViewConstruction {
             let longitude = coordinate["longitude"] ?? 0.0
             validatedProperties["coordinate"] = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         } else if validatedProperties["coordinate"] != nil {
-            print("Warning: Map coordinate must be a dictionary with latitude/longitude Doubles; defaulting to (0.0, 0.0)")
+            logger.log("Map coordinate must be a dictionary with latitude/longitude Doubles; defaulting to (0.0, 0.0)", .warning)
             validatedProperties["coordinate"] = CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
         }
         
@@ -37,7 +37,7 @@ struct Map: ActionUIViewConstruction {
         } else if let showsUserLocation = validatedProperties["showsUserLocation"] as? Bool {
             validatedProperties["showsUserLocation"] = showsUserLocation
         } else {
-            print("Warning: Map showsUserLocation must be a Boolean; defaulting to false")
+            logger.log("Map showsUserLocation must be a Boolean; defaulting to false", .warning)
             validatedProperties["showsUserLocation"] = false
         }
         
@@ -82,7 +82,7 @@ struct Map: ActionUIViewConstruction {
         
         return MapKit.Map(coordinateRegion: regionBinding, showsUserLocation: showsUserLocation)
         #else
-        print("Warning: Map requires MapKit")
+        logger.log("Map requires MapKit", .warning)
         return SwiftUI.EmptyView()
         #endif
     }

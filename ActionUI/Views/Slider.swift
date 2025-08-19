@@ -23,7 +23,7 @@ struct Slider: ActionUIViewConstruction {
         if let value = validatedProperties["value"] as? Double {
             validatedProperties["value"] = value
         } else if validatedProperties["value"] != nil {
-            print("Warning: Slider value must be a Double; defaulting to 0.0")
+            logger.log("Slider value must be a Double; defaulting to 0.0", .warning)
             validatedProperties["value"] = 0.0
         }
         if let range = validatedProperties["range"] as? [String: Double] {
@@ -33,17 +33,17 @@ struct Slider: ActionUIViewConstruction {
                 validatedRange["max"] = max
                 validatedProperties["range"] = validatedRange
             } else {
-                print("Warning: Slider range must have valid min/max Doubles with min <= max; defaulting to 0.0...1.0")
+                logger.log("Slider range must have valid min/max Doubles with min <= max; defaulting to 0.0...1.0", .warning)
                 validatedProperties["range"] = ["min": 0.0, "max": 1.0]
             }
         } else if validatedProperties["range"] != nil {
-            print("Warning: Slider range must be a dictionary with min/max Doubles; defaulting to 0.0...1.0")
+            logger.log("Slider range must be a dictionary with min/max Doubles; defaulting to 0.0...1.0", .warning)
             validatedProperties["range"] = ["min": 0.0, "max": 1.0]
         }
         if let step = validatedProperties["step"] as? Double, step > 0 {
             validatedProperties["step"] = step
         } else if validatedProperties["step"] != nil {
-            print("Warning: Slider step must be a positive Double; defaulting to 1.0")
+            logger.log("Slider step must be a positive Double; defaulting to 1.0", .warning)
             validatedProperties["step"] = 1.0
         }
         

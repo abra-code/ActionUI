@@ -20,7 +20,7 @@ struct Form: ActionUIViewConstruction {
         var validatedProperties = properties
         
         if validatedProperties["children"] == nil {
-            print("Warning: Form requires 'children'; defaulting to empty array")
+            logger.log("Form requires 'children'; defaulting to empty array", .warning)
             validatedProperties["children"] = []
         } else if let children = validatedProperties["children"] as? [[String: Any]] {
             validatedProperties["children"] = children

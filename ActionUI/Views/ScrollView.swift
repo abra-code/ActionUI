@@ -19,12 +19,12 @@ struct ScrollView: ActionUIViewConstruction {
         var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
-            print("Warning: ScrollView requires 'content'; defaulting to EmptyView")
+            logger.log("ScrollView requires 'content'; defaulting to EmptyView", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         }
         if let axis = validatedProperties["axis"] as? String,
            !["vertical", "horizontal", "both"].contains(axis) {
-            print("Warning: ScrollView axis '\(axis)' invalid; defaulting to 'vertical'")
+            logger.log("ScrollView axis '\(axis)' invalid; defaulting to 'vertical'", .warning)
             validatedProperties["axis"] = "vertical"
         }
         if validatedProperties["showsIndicators"] == nil {
@@ -32,7 +32,7 @@ struct ScrollView: ActionUIViewConstruction {
         } else if let showsIndicators = validatedProperties["showsIndicators"] as? Bool {
             validatedProperties["showsIndicators"] = showsIndicators
         } else {
-            print("Warning: ScrollView showsIndicators must be a Boolean; defaulting to true")
+            logger.log("ScrollView showsIndicators must be a Boolean; defaulting to true", .warning)
             validatedProperties["showsIndicators"] = true
         }
         

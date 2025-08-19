@@ -30,7 +30,7 @@ struct Grid: ActionUIViewConstruction {
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
-        print("Warning: Grid is not supported on watchOS/tvOS; defaulting to empty properties")
+        logger.log("Grid is not supported on watchOS/tvOS; defaulting to empty properties", .warning)
         validatedProperties = [:]
         #else
         if let rows = validatedProperties["rows"] as? [[Any]], !rows.isEmpty {
@@ -38,24 +38,24 @@ struct Grid: ActionUIViewConstruction {
                 row.compactMap { ($0 as? [String: Any]).flatMap { try? StaticElement(from: $0) } }
             }
         } else {
-            print("Warning: Grid requires non-empty 'rows'; defaulting to empty")
+            logger.log("Grid requires non-empty 'rows'; defaulting to empty", .warning)
             validatedProperties["rows"] = []
         }
         if let alignment = validatedProperties["alignment"] as? String,
            !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
-            print("Warning: Grid alignment '\(alignment)' invalid; using SwiftUI default")
+            logger.log("Grid alignment '\(alignment)' invalid; using SwiftUI default", .warning)
             validatedProperties["alignment"] = nil
         }
         if let horizontalSpacing = validatedProperties["horizontalSpacing"] as? CGFloat {
             validatedProperties["horizontalSpacing"] = horizontalSpacing
         } else if validatedProperties["horizontalSpacing"] != nil {
-            print("Warning: Grid horizontalSpacing must be a CGFloat; ignoring")
+            logger.log("Grid horizontalSpacing must be a CGFloat; ignoring", .warning)
             validatedProperties["horizontalSpacing"] = nil
         }
         if let verticalSpacing = validatedProperties["verticalSpacing"] as? CGFloat {
             validatedProperties["verticalSpacing"] = verticalSpacing
         } else if validatedProperties["verticalSpacing"] != nil {
-            print("Warning: Grid verticalSpacing must be a CGFloat; ignoring")
+            logger.log("Grid verticalSpacing must be a CGFloat; ignoring", .warning)
             validatedProperties["verticalSpacing"] = nil
         }
         #endif

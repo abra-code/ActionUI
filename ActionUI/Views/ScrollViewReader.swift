@@ -19,7 +19,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
         var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
-            print("Warning: ScrollViewReader requires 'content'; defaulting to EmptyView")
+            logger.log("ScrollViewReader requires 'content'; defaulting to EmptyView", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         }
         if let scrollTo = validatedProperties["scrollTo"] as? Int {
@@ -27,7 +27,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
         }
         if let anchor = validatedProperties["anchor"] as? String,
            !["top", "center", "bottom"].contains(anchor) {
-            print("Warning: ScrollViewReader anchor '\(anchor)' invalid; defaulting to 'center'")
+            logger.log("ScrollViewReader anchor '\(anchor)' invalid; defaulting to 'center'", .warning)
             validatedProperties["anchor"] = "center"
         }
         

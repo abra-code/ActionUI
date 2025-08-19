@@ -40,57 +40,74 @@ extension SwiftUI.Image {
         self.init(systemName: "photo")
         #endif
     }
-}
-
-class ImageHelper {
-    // Creates a SwiftUI Image from a string and interpretation mode
+    
+    // Initializes a SwiftUI Image from a string and interpretation mode
     // Parameters:
     // - text: The string to interpret (e.g., SF Symbol name, asset name, file path)
     // - interpretation: "path", "systemName", "assetName", or "mixed"
-    // Returns: A SwiftUI View (Image or fallback)
-    // Design decision: Aligns with Image.swift, using SwiftUI.Image initializers and UTType for path validation
-    static func makeImage(from text: String, interpretation: String) -> SwiftUI.Image {
+    init(from text: String, interpretation: String) {
+        var systemName: String?
+        var filePath: String?
+        
         switch interpretation {
         case "systemName":
-            return SwiftUI.Image(systemName: text)
+            systemName = text
         case "assetName":
-            return SwiftUI.Image(text)
+            break // assetName = text
         case "path":
-            if let filePath = validateFilePath(text) {
-                return SwiftUI.Image(contentsOfFile: filePath)
+            filePath = ImageHelper.validateImageFilePath(text)
+            if filePath == nil {
+                systemName = "photo"
             }
-            return SwiftUI.Image(systemName: "photo")
-        case "mixed":
+        case "mixed": // mixed on unspecified/unknown inpterpreation falls to check all possibilities
+            fallthrough
+        default:
             if text.contains("/") {
-                if let filePath = validateFilePath(text) {
-                    return SwiftUI.Image(contentsOfFile: filePath)
+                filePath = ImageHelper.validateImageFilePath(text)
+                if filePath == nil {
+                    systemName = "photo"
                 }
             }
-            #if canImport(UIKit)
-            if UIImage(named: text) != nil {
-                return SwiftUI.Image(text)
+            
+            if filePath == nil, systemName == nil { // try if we can find bundled asset of that name
+#if canImport(UIKit)
+                if UIImage(named: text) != nil {
+                    // assetName = text
+                } else {
+                    systemName = text
+                }
+#elseif canImport(AppKit)
+                if NSImage(named: text) != nil {
+                    // assetName = text
+                } else {
+                    systemName = text
+                }
+#endif
             }
-            #elseif canImport(AppKit)
-            if NSImage(named: text) != nil {
-                return SwiftUI.Image(text)
-            }
-            #endif
-            return SwiftUI.Image(systemName: text)
-        default:
-            return SwiftUI.Image(systemName: text)
+        }
+        
+        if let filePath = filePath {
+            self.init(contentsOfFile: filePath)
+        }
+        else if let systemName = systemName {
+            self.init(systemName: systemName)
+        }
+        else {
+            self.init(text)
         }
     }
-    
+}
+
+class ImageHelper {
     // Validates a file path for image or PDF content
     // Returns the file path if valid, nil otherwise
     // Design decision: Reuses Image.swift's UTType logic for consistency
-    private static func validateFilePath(_ filePath: String) -> String? {
+    internal static func validateImageFilePath(_ filePath: String) -> String? {
         let pathExtension = URL(fileURLWithPath: filePath).pathExtension
         if let uti = UTType(filenameExtension: pathExtension),
            uti.conforms(to: .image) || uti.conforms(to: .pdf) {
             return filePath
         }
-        print("Warning: Image filePath '\(filePath)' is not an image or PDF; ignoring")
         return nil
     }
 }

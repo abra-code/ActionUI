@@ -34,7 +34,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         if let children = properties["children"] as? [[String: Any]] {
             validatedProperties["children"] = children
         } else {
-            print("Warning: DisclosureGroup requires 'children'; defaulting to empty array")
+            logger.log("DisclosureGroup requires 'children'; defaulting to empty array", .warning)
             validatedProperties["children"] = []
         }
         

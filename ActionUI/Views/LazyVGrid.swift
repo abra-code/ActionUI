@@ -42,18 +42,18 @@ struct LazyVGrid: ActionUIViewConstruction {
             if !validatedColumns.isEmpty {
                 validatedProperties["columns"] = validatedColumns
             } else {
-                print("Warning: LazyVGrid columns must contain valid minimum or flexible values; ignoring")
+                logger.log("LazyVGrid columns must contain valid minimum or flexible values; ignoring", .warning)
                 validatedProperties["columns"] = nil
             }
         } else if validatedProperties["columns"] != nil {
-            print("Warning: LazyVGrid columns must be an array of dictionaries; ignoring")
+            logger.log("LazyVGrid columns must be an array of dictionaries; ignoring", .warning)
             validatedProperties["columns"] = nil
         }
         
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
-            print("Warning: LazyVGrid spacing must be a CGFloat; ignoring")
+            logger.log("LazyVGrid spacing must be a CGFloat; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         
@@ -61,7 +61,7 @@ struct LazyVGrid: ActionUIViewConstruction {
            ["leading", "center", "trailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if validatedProperties["alignment"] != nil {
-            print("Warning: LazyVGrid alignment must be 'leading', 'center', or 'trailing'; ignoring")
+            logger.log("LazyVGrid alignment must be 'leading', 'center', or 'trailing'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
         

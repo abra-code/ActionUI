@@ -34,7 +34,7 @@ struct DatePicker: ActionUIViewConstruction {
         let validStyles = ["automatic", "compact", "graphical"]
         #endif
         if let displayStyle = validatedProperties["displayStyle"] as? String, !validStyles.contains(displayStyle) {
-            print("Warning: DatePicker displayStyle '\(displayStyle)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); defaulting to 'automatic'")
+            logger.log("DatePicker displayStyle '\(displayStyle)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); defaulting to 'automatic'", .warning)
             validatedProperties["displayStyle"] = "automatic"
         }
         if validatedProperties["displayStyle"] == nil {
@@ -54,11 +54,11 @@ struct DatePicker: ActionUIViewConstruction {
             if !validatedRange.isEmpty, let start = validatedRange["start"], let end = validatedRange["end"], start <= end {
                 validatedProperties["range"] = validatedRange
             } else {
-                print("Warning: DatePicker range must have valid start/end ISO 8601 dates with start <= end; ignoring")
+                logger.log("DatePicker range must have valid start/end ISO 8601 dates with start <= end; ignoring", .warning)
                 validatedProperties["range"] = nil
             }
         } else if validatedProperties["range"] != nil {
-            print("Warning: DatePicker range must be a dictionary with start/end ISO 8601 strings; ignoring")
+            logger.log("DatePicker range must be a dictionary with start/end ISO 8601 strings; ignoring", .warning)
             validatedProperties["range"] = nil
         }
         
@@ -68,7 +68,7 @@ struct DatePicker: ActionUIViewConstruction {
             if let date = dateFormatter.date(from: selectedDate) {
                 validatedProperties["selectedDate"] = date
             } else {
-                print("Warning: DatePicker selectedDate '\(selectedDate)' invalid; ignoring")
+                logger.log("DatePicker selectedDate '\(selectedDate)' invalid; ignoring", .warning)
                 validatedProperties["selectedDate"] = nil
             }
         }
@@ -126,14 +126,14 @@ struct DatePicker: ActionUIViewConstruction {
                 #if os(macOS)
                 modifiedView = modifiedView.datePickerStyle(.stepperField)
                 #else
-                print("Warning: stepperField DatePickerStyle unavailable on iOS/visionOS/MacCatalyst; using compact")
+                logger.log("stepperField DatePickerStyle unavailable on iOS/visionOS/MacCatalyst; using compact", .warning)
                 modifiedView = modifiedView.datePickerStyle(.compact)
                 #endif
             case "field":
                 #if os(macOS)
                 modifiedView = modifiedView.datePickerStyle(.field)
                 #else
-                print("Warning: field DatePickerStyle unavailable on iOS/visionOS/MacCatalyst; using compact")
+                logger.log("field DatePickerStyle unavailable on iOS/visionOS/MacCatalyst; using compact", .warning)
                 modifiedView = modifiedView.datePickerStyle(.compact)
                 #endif
             default:

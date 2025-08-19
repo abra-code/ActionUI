@@ -24,7 +24,7 @@ struct VStack: ActionUIViewConstruction {
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
-            print("Warning: VStack spacing must be a CGFloat; ignoring")
+            logger.log("VStack spacing must be a CGFloat; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         
@@ -32,7 +32,7 @@ struct VStack: ActionUIViewConstruction {
            ["leading", "center", "trailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if validatedProperties["alignment"] != nil {
-            print("Warning: VStack alignment must be 'leading', 'center', or 'trailing'; ignoring")
+            logger.log("VStack alignment must be 'leading', 'center', or 'trailing'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
         

@@ -34,7 +34,7 @@ struct SecureField: ActionUIViewConstruction {
            ["password", "newPassword", "oneTimeCode"].contains(textContentType) {
             validatedProperties["textContentType"] = textContentType
         } else if validatedProperties["textContentType"] != nil {
-            print("Warning: SecureField textContentType must be 'password', 'newPassword', or 'oneTimeCode'; defaulting to nil")
+            logger.log("SecureField textContentType must be 'password', 'newPassword', or 'oneTimeCode'; defaulting to nil", .warning)
             validatedProperties["textContentType"] = nil
         }
         

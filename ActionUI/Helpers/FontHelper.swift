@@ -22,9 +22,9 @@ struct FontHelper {
     /// Maps a font property (SwiftUI font role or custom font name) to a SwiftUI Font.
     /// - Parameter font: The font property from JSON (e.g., "largeTitle", "Helvetica").
     /// - Returns: A SwiftUI Font, defaulting to .body if invalid or nil.
-    static func resolveFont(_ font: Any?) -> Font {
+    static func resolveFont(_ font: Any?, _ logger: any ActionUILogger) -> Font {
         guard let fontString = font as? String else {
-            print("Warning: Font must be a string; defaulting to 'body'")
+            logger.log("Font must be a string; defaulting to 'body'", .warning)
             return .body
         }
         

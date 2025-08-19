@@ -30,49 +30,49 @@ struct PhaseAnimator: ActionUIViewConstruction {
         var validatedProperties = properties
         
         if validatedProperties["content"] == nil {
-            print("Warning: PhaseAnimator requires 'content'; defaulting to EmptyView")
+            logger.log("PhaseAnimator requires 'content'; defaulting to EmptyView", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         }
         if validatedProperties["values"] as? [Double] == nil {
-            print("Warning: PhaseAnimator requires 'values'; defaulting to [0.0, 1.0]")
+            logger.log("PhaseAnimator requires 'values'; defaulting to [0.0, 1.0]", .warning)
             validatedProperties["values"] = [0.0, 1.0]
         }
         if validatedProperties["trigger"] == nil {
-            print("Warning: PhaseAnimator requires 'trigger'; defaulting to 'onAppear'")
+            logger.log("PhaseAnimator requires 'trigger'; defaulting to 'onAppear'", .warning)
             validatedProperties["trigger"] = "onAppear"
         }
         if validatedProperties["trigger"] as? String == "onTimer" {
             if validatedProperties["timerInterval"] == nil {
-                print("Warning: onTimer requires 'timerInterval'; defaulting to 1.0")
+                logger.log("onTimer requires 'timerInterval'; defaulting to 1.0", .warning)
                 validatedProperties["timerInterval"] = 1.0
             }
         }
         if validatedProperties["trigger"] as? String == "onStateChange" {
             if validatedProperties["stateKey"] == nil {
-                print("Warning: onStateChange requires 'stateKey'; defaulting to 'default'")
+                logger.log("onStateChange requires 'stateKey'; defaulting to 'default'", .warning)
                 validatedProperties["stateKey"] = "default"
             }
         }
         if let animation = validatedProperties["animation"] as? [String: Any] {
             var validatedAnimation = animation
             if validatedAnimation["type"] == nil {
-                print("Warning: animation requires 'type'; defaulting to 'linear'")
+                logger.log("animation requires 'type'; defaulting to 'linear'", .warning)
                 validatedAnimation["type"] = "linear"
             }
             let animationType = validatedAnimation["type"] as? String ?? "linear"
             if animationType != "spring" && animationType != "interactiveSpring" {
                 if validatedAnimation["duration"] == nil {
-                    print("Warning: \(animationType) requires 'duration'; defaulting to 1.0")
+                    logger.log("\(animationType) requires 'duration'; defaulting to 1.0", .warning)
                     validatedAnimation["duration"] = 1.0
                 }
             }
             if animationType == "spring" || animationType == "interactiveSpring" {
                 if validatedAnimation["response"] == nil {
-                    print("Warning: \(animationType) requires 'response'; defaulting to 0.5")
+                    logger.log("\(animationType) requires 'response'; defaulting to 0.5", .warning)
                     validatedAnimation["response"] = 0.5
                 }
                 if validatedAnimation["dampingFraction"] == nil {
-                    print("Warning: \(animationType) 'dampingFraction' missing; defaulting to 1.0")
+                    logger.log("\(animationType) 'dampingFraction' missing; defaulting to 1.0", .warning)
                     validatedAnimation["dampingFraction"] = 1.0
                 }
                 if validatedAnimation["blendDuration"] == nil {
@@ -86,7 +86,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
             }
             if animationType == "timingCurve" {
                 if validatedAnimation["controlPoints"] as? [Double] == nil {
-                    print("Warning: timingCurve requires 'controlPoints'; defaulting to [0.0, 0.0, 1.0, 1.0]")
+                    logger.log("timingCurve requires 'controlPoints'; defaulting to [0.0, 0.0, 1.0, 1.0]", .warning)
                     validatedAnimation["controlPoints"] = [0.0, 0.0, 1.0, 1.0]
                 }
             }
@@ -170,7 +170,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
             
             return view
         } else {
-            print("Warning: PhaseAnimator requires iOS 17.0 or macOS 14.0")
+            logger.log("PhaseAnimator requires iOS 17.0 or macOS 14.0", .warning)
             return SwiftUI.EmptyView()
         }
     }

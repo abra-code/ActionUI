@@ -41,26 +41,26 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         
         // Validate content
         if validatedProperties["content"] == nil {
-            print("Warning: KeyframeAnimator requires 'content'; defaulting to EmptyView")
+            logger.log("KeyframeAnimator requires 'content'; defaulting to EmptyView", .warning)
             validatedProperties["content"] = ["type": "EmptyView", "properties": [:]]
         }
         
         // Validate initialValue
         if validatedProperties["initialValue"] == nil {
-            print("Warning: KeyframeAnimator requires 'initialValue'; defaulting to opacity: 0.0, scale: 1.0, rotation: 0.0")
+            logger.log("KeyframeAnimator requires 'initialValue'; defaulting to opacity: 0.0, scale: 1.0, rotation: 0.0", .warning)
             validatedProperties["initialValue"] = ["opacity": 0.0, "scale": 1.0, "rotation": 0.0]
         }
         
         // Validate trigger
         if validatedProperties["trigger"] == nil {
-            print("Warning: KeyframeAnimator requires 'trigger'; defaulting to 'onAppear'")
+            logger.log("KeyframeAnimator requires 'trigger'; defaulting to 'onAppear'", .warning)
             validatedProperties["trigger"] = "onAppear"
         }
         
         // Validate timerInterval for onTimer
         if validatedProperties["trigger"] as? String == "onTimer" {
             if validatedProperties["timerInterval"] == nil {
-                print("Warning: onTimer requires 'timerInterval'; defaulting to 1.0")
+                logger.log("onTimer requires 'timerInterval'; defaulting to 1.0", .warning)
                 validatedProperties["timerInterval"] = 1.0
             }
         }
@@ -68,7 +68,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         // Validate stateKey for onStateChange
         if validatedProperties["trigger"] as? String == "onStateChange" {
             if validatedProperties["stateKey"] == nil {
-                print("Warning: onStateChange requires 'stateKey'; defaulting to 'default'")
+                logger.log("onStateChange requires 'stateKey'; defaulting to 'default'", .warning)
                 validatedProperties["stateKey"] = "default"
             }
         }
@@ -79,47 +79,47 @@ struct KeyframeAnimator: ActionUIViewConstruction {
             for (percent, keyframe) in keyframes {
                 var validatedKeyframe = keyframe
                 if validatedKeyframe["type"] == nil {
-                    print("Warning: keyframe at \(percent) requires 'type'; defaulting to 'linear'")
+                    logger.log("keyframe at \(percent) requires 'type'; defaulting to 'linear'", .warning)
                     validatedKeyframe["type"] = "linear"
                 }
                 if validatedKeyframe["value"] == nil {
-                    print("Warning: keyframe at \(percent) requires 'value'; defaulting to initialValue")
+                    logger.log("keyframe at \(percent) requires 'value'; defaulting to initialValue", .warning)
                     validatedKeyframe["value"] = validatedProperties["initialValue"] as? [String: Any] ?? ["opacity": 0.0, "scale": 1.0, "rotation": 0.0]
                 }
                 if validatedKeyframe["duration"] == nil {
-                    print("Warning: keyframe at \(percent) requires 'duration'; defaulting to 1.0")
+                    logger.log("keyframe at \(percent) requires 'duration'; defaulting to 1.0", .warning)
                     validatedKeyframe["duration"] = 1.0
                 }
                 let keyframeType = validatedKeyframe["type"] as? String ?? "linear"
                 if keyframeType == "spring" {
                     if validatedKeyframe["response"] == nil {
-                        print("Warning: spring keyframe at \(percent) requires 'response'; defaulting to 0.5")
+                        logger.log("spring keyframe at \(percent) requires 'response'; defaulting to 0.5", .warning)
                         validatedKeyframe["response"] = 0.5
                     }
                     if validatedKeyframe["dampingRatio"] == nil {
-                        print("Warning: spring keyframe at \(percent) 'dampingRatio' missing; defaulting to 1.0")
+                        logger.log("spring keyframe at \(percent) 'dampingRatio' missing; defaulting to 1.0", .warning)
                         validatedKeyframe["dampingRatio"] = 1.0
                     }
                 }
                 if keyframeType == "cubic" {
                     if validatedKeyframe["startVelocity"] == nil {
-                        print("Warning: cubic keyframe at \(percent) 'startVelocity' missing; defaulting to nil")
+                        logger.log("cubic keyframe at \(percent) 'startVelocity' missing; defaulting to nil", .warning)
                         validatedKeyframe["startVelocity"] = nil
                     }
                     if validatedKeyframe["endVelocity"] == nil {
-                        print("Warning: cubic keyframe at \(percent) 'endVelocity' missing; defaulting to nil")
+                        logger.log("cubic keyframe at \(percent) 'endVelocity' missing; defaulting to nil", .warning)
                         validatedKeyframe["endVelocity"] = nil
                     }
                 }
                 if !["linear", "spring", "cubic"].contains(keyframeType) {
-                    print("Warning: keyframe at \(percent) has invalid type '\(keyframeType)'; defaulting to 'linear'")
+                    logger.log("keyframe at \(percent) has invalid type '\(keyframeType)'; defaulting to 'linear'", .warning)
                     validatedKeyframe["type"] = "linear"
                 }
                 validatedKeyframes[percent] = validatedKeyframe
             }
             validatedProperties["keyframes"] = validatedKeyframes
         } else {
-            print("Warning: KeyframeAnimator requires 'keyframes'; defaulting to linear opacity animation")
+            logger.log("KeyframeAnimator requires 'keyframes'; defaulting to linear opacity animation", .warning)
             validatedProperties["keyframes"] = [
                 "0%": ["type": "linear", "value": ["opacity": 0.0], "duration": 1.0],
                 "100%": ["type": "linear", "value": ["opacity": 1.0], "duration": 1.0]
@@ -323,7 +323,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
             
             return view
         } else {
-            print("Warning: KeyframeAnimator requires iOS 17.0 or macOS 14.0; returning EmptyView")
+            logger.log("KeyframeAnimator requires iOS 17.0 or macOS 14.0; returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
     }

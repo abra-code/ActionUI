@@ -34,7 +34,7 @@ struct Image: ActionUIViewConstruction {
         var validatedProperties = properties
         
         if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
-            print("Warning: Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image")
+            logger.log("Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image", .warning)
             validatedProperties["systemName"] = "photo"
         }
         
@@ -43,12 +43,12 @@ struct Image: ActionUIViewConstruction {
         } else if let resizable = validatedProperties["resizable"] as? Bool {
             validatedProperties["resizable"] = resizable
         } else {
-            print("Warning: Image resizable must be a boolean; defaulting to true")
+            logger.log("Image resizable must be a boolean; defaulting to true", .warning)
             validatedProperties["resizable"] = true
         }
         
         if let scaleMode = validatedProperties["scaleMode"] as? String, !["fit", "fill"].contains(scaleMode) {
-            print("Warning: Image scaleMode '\(scaleMode)' invalid; defaulting to 'fit'")
+            logger.log("Image scaleMode '\(scaleMode)' invalid; defaulting to 'fit'", .warning)
             validatedProperties["scaleMode"] = "fit"
         }
         if validatedProperties["scaleMode"] == nil {
@@ -59,7 +59,7 @@ struct Image: ActionUIViewConstruction {
             let pathExtension = URL(fileURLWithPath: filePath).pathExtension
             if let uti = UTType(filenameExtension: pathExtension),
                !uti.conforms(to: .image) && !uti.conforms(to: .pdf) {
-                print("Warning: Image filePath '\(filePath)' is not an image or PDF; ignoring")
+                logger.log("Image filePath '\(filePath)' is not an image or PDF; ignoring", .warning)
                 validatedProperties["filePath"] = nil
             }
         }
@@ -74,7 +74,7 @@ struct Image: ActionUIViewConstruction {
         } else if let name = properties["name"] as? String {
             image = SwiftUI.Image(name)
         } else if let filePath = properties["filePath"] as? String {
-            image = SwiftUI.Image(contentsOfFile: filePath)
+            image = SwiftUI.Image(from: filePath, interpretation: "path")
         } else {
             image = SwiftUI.Image(systemName: "photo")
         }

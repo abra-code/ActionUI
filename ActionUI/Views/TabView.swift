@@ -23,7 +23,7 @@ struct TabView: ActionUIViewConstruction {
         var validatedProperties = properties
         
         if validatedProperties["children"] == nil {
-            print("Warning: TabView requires 'children'; defaulting to empty array")
+            logger.log("TabView requires 'children'; defaulting to empty array", .warning)
             validatedProperties["children"] = []
         } else if let children = validatedProperties["children"] as? [[String: Any]] {
             validatedProperties["children"] = children
@@ -31,7 +31,7 @@ struct TabView: ActionUIViewConstruction {
         if let selection = validatedProperties["selection"] as? Int {
             validatedProperties["selection"] = selection
         } else if validatedProperties["selection"] != nil {
-            print("Warning: TabView selection must be an Integer; defaulting to 0")
+            logger.log("TabView selection must be an Integer; defaulting to 0", .warning)
             validatedProperties["selection"] = 0
         }
         

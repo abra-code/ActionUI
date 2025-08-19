@@ -22,20 +22,20 @@ struct Divider: ActionUIViewConstruction {
             if let resolvedColor = ColorHelper.resolveColor(background) {
                 validatedProperties["background"] = resolvedColor
             } else {
-                print("Warning: Divider background '\(background)' invalid; setting to nil")
+                logger.log("Divider background '\(background)' invalid; setting to nil", .warning)
                 validatedProperties["background"] = nil
             }
         }
         if let frameHeight = validatedProperties["frameHeight"] as? Double, frameHeight > 0 {
             validatedProperties["frameHeight"] = frameHeight
         } else if validatedProperties["frameHeight"] != nil {
-            print("Warning: Divider frameHeight must be a positive number; defaulting to 1.0")
+            logger.log("Divider frameHeight must be a positive number; defaulting to 1.0", .warning)
             validatedProperties["frameHeight"] = 1.0
         }
         if let frameWidth = validatedProperties["frameWidth"] as? Double, frameWidth > 0 {
             validatedProperties["frameWidth"] = frameWidth
         } else if validatedProperties["frameWidth"] != nil {
-            print("Warning: Divider frameWidth must be a positive number; defaulting to 0.0")
+            logger.log("Divider frameWidth must be a positive number; defaulting to 0.0", .warning)
             validatedProperties["frameWidth"] = 0.0
         }
         

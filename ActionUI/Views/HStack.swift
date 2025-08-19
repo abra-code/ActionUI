@@ -24,7 +24,7 @@ struct HStack: ActionUIViewConstruction {
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
-            print("Warning: HStack spacing must be a CGFloat; ignoring")
+            logger.log("HStack spacing must be a CGFloat; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         

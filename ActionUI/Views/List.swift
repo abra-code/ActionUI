@@ -10,7 +10,7 @@
      "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
    }
    // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
-   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses ImageHelper.makeImage, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
  }
 */
 
@@ -25,20 +25,20 @@ struct List: ActionUIViewConstruction {
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
-            print("Warning: List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text")
+            logger.log("List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
             itemType["viewType"] = "Text"
         }
         if viewType == "Image" || viewType == "AsyncImage" {
             let dataInterpretation = itemType["dataInterpretation"] as? String
             if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
-                print("Warning: List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName")
+                logger.log("List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName", .warning)
                 itemType["dataInterpretation"] = "systemName"
             }
         }
         if viewType == "Button" {
             let actionContext = itemType["actionContext"] as? String
             if !["title", "rowIndex"].contains(actionContext) {
-                print("Warning: List itemType.actionContext must be 'title' or 'rowIndex' for Button; defaulting to title")
+                logger.log("List itemType.actionContext must be 'title' or 'rowIndex' for Button; defaulting to title", .warning)
                 itemType["actionContext"] = "title"
             }
         }
@@ -49,19 +49,19 @@ struct List: ActionUIViewConstruction {
         } else if let items = validatedProperties["items"] as? [String] {
             validatedProperties["items"] = items.map { [$0] }
         } else if !(validatedProperties["items"] is [[String]]) {
-            print("Warning: List items must be an array of strings or string arrays; defaulting to []")
+            logger.log("List items must be an array of strings or string arrays; defaulting to []", .warning)
             validatedProperties["items"] = []
         }
         if let actionID = properties["actionID"] as? String {
             validatedProperties["actionID"] = actionID
         } else if properties["actionID"] != nil {
-            print("Warning: List actionID must be a string; ignoring")
+            logger.log("List actionID must be a string; ignoring", .warning)
             validatedProperties["actionID"] = nil
         }
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if properties["doubleClickActionID"] != nil {
-            print("Warning: List doubleClickActionID must be a string; ignoring")
+            logger.log("List doubleClickActionID must be a string; ignoring", .warning)
             validatedProperties["doubleClickActionID"] = nil
         }
         
@@ -131,7 +131,7 @@ struct List: ActionUIViewConstruction {
                             }
                         }
                     case "Image":
-                        ImageHelper.makeImage(from: item, interpretation: dataInterpretation)
+                        SwiftUI.Image(from: item, interpretation: dataInterpretation)
                     case "AsyncImage":
                         SwiftUI.AsyncImage(url: URL(string: item)) { image in
                             image.resizable().scaledToFit()

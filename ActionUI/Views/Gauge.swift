@@ -26,7 +26,7 @@ struct Gauge: ActionUIViewConstruction {
         if let value = validatedProperties["value"] as? Double {
             validatedProperties["value"] = value
         } else if validatedProperties["value"] != nil {
-            print("Warning: Gauge value must be a Double; defaulting to 0.0")
+            logger.log("Gauge value must be a Double; defaulting to 0.0", .warning)
             validatedProperties["value"] = 0.0
         }
         
@@ -34,14 +34,14 @@ struct Gauge: ActionUIViewConstruction {
         if let label = validatedProperties["label"] as? String {
             validatedProperties["label"] = label
         } else if validatedProperties["label"] != nil {
-            print("Warning: Gauge label must be a String; defaulting to nil")
+            logger.log("Gauge label must be a String; defaulting to nil", .warning)
             validatedProperties["label"] = nil
         }
         
         // Validate style
         let validStyles = ["accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity"]
         if let style = validatedProperties["style"] as? String, !validStyles.contains(style) {
-            print("Warning: Gauge style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); defaulting to 'accessoryCircular'")
+            logger.log("Gauge style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); defaulting to 'accessoryCircular'", .warning)
             validatedProperties["style"] = "accessoryCircular"
         }
         if validatedProperties["style"] == nil {
@@ -56,11 +56,11 @@ struct Gauge: ActionUIViewConstruction {
                 validatedRange["max"] = max
                 validatedProperties["range"] = validatedRange
             } else {
-                print("Warning: Gauge range must have valid min/max Doubles with min <= max; defaulting to 0.0...1.0")
+                logger.log("Gauge range must have valid min/max Doubles with min <= max; defaulting to 0.0...1.0", .warning)
                 validatedProperties["range"] = ["min": 0.0, "max": 1.0]
             }
         } else if validatedProperties["range"] != nil {
-            print("Warning: Gauge range must be a dictionary with min/max Doubles; defaulting to 0.0...1.0")
+            logger.log("Gauge range must be a dictionary with min/max Doubles; defaulting to 0.0...1.0", .warning)
             validatedProperties["range"] = ["min": 0.0, "max": 1.0]
         }
         

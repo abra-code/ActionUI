@@ -86,7 +86,7 @@ final class ButtonTests: XCTestCase {
         let validatedProperties = Button.validateProperties(element.properties, logger)
         
         let view = Button.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-        let modifiedView = Button.applyModifiers(view, validatedProperties, logger)
+        let _ = Button.applyModifiers(view, validatedProperties, logger)
         
         XCTAssertTrue(view is SwiftUI.Button<SwiftUI.Text>, "buildView should return Button")
         // Note: Cannot check modifiedView type as SwiftUI.Button<SwiftUI.Text> due to SwiftUI's modifier wrapping (e.g., _ModifiedContent)
@@ -104,7 +104,7 @@ final class ButtonTests: XCTestCase {
         let validatedProperties = Button.validateProperties(element.properties, logger)
         
         let view = Button.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-        let modifiedView = Button.applyModifiers(view, validatedProperties, logger)
+        let _ = Button.applyModifiers(view, validatedProperties, logger)
         
         XCTAssertTrue(view is SwiftUI.Button<SwiftUI.Text>, "buildView should return Button with default title")
         // Note: Cannot check modifiedView type as SwiftUI.Button<SwiftUI.Text> due to SwiftUI's modifier wrapping (e.g., _ModifiedContent)

@@ -12,7 +12,7 @@
      "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
    }
    // Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
-   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses ImageHelper.makeImage, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
  }
 */
 
@@ -38,20 +38,20 @@ struct Table: ActionUIViewConstruction {
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
-            print("Warning: Table itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text")
+            logger.log("Table itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
             itemType["viewType"] = "Text"
         }
         if viewType == "Image" || viewType == "AsyncImage" {
             let dataInterpretation = itemType["dataInterpretation"] as? String
             if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
-                print("Warning: Table itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName")
+                logger.log("Table itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName", .warning)
                 itemType["dataInterpretation"] = "systemName"
             }
         }
         if viewType == "Button" {
             let actionContext = itemType["actionContext"] as? String
             if !["title", "rowIndex", "columnIndex", "rowColumnIndex"].contains(actionContext) {
-                print("Warning: Table itemType.actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title")
+                logger.log("Table itemType.actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title", .warning)
                 itemType["actionContext"] = "title"
             }
         }
@@ -60,20 +60,20 @@ struct Table: ActionUIViewConstruction {
         if validatedProperties["columns"] == nil {
             validatedProperties["columns"] = []
         } else if !(validatedProperties["columns"] is [String]) {
-            print("Warning: Table columns must be an array of strings; defaulting to []")
+            logger.log("Table columns must be an array of strings; defaulting to []", .warning)
             validatedProperties["columns"] = []
         }
         if validatedProperties["rows"] == nil {
             validatedProperties["rows"] = []
         } else if !(validatedProperties["rows"] is [[String]]) {
-            print("Warning: Table rows must be an array of string arrays; defaulting to []")
+            logger.log("Table rows must be an array of string arrays; defaulting to []", .warning)
             validatedProperties["rows"] = []
         }
         if let rows = validatedProperties["rows"] as? [[String]],
            let columns = validatedProperties["columns"] as? [String] {
             validatedProperties["rows"] = rows.map { row in
                 if row.count < columns.count {
-                    print("Warning: Table row has \(row.count) values, expected at least \(columns.count); padding with empty strings")
+                    logger.log("Table row has \(row.count) values, expected at least \(columns.count); padding with empty strings", .warning)
                     return row + Array(repeating: "", count: columns.count - row.count)
                 }
                 return row
@@ -82,19 +82,19 @@ struct Table: ActionUIViewConstruction {
         if let widths = properties["widths"] as? [Int] {
             validatedProperties["widths"] = widths
         } else if properties["widths"] != nil {
-            print("Warning: Table widths must be an array of integers; ignoring")
+            logger.log("Table widths must be an array of integers; ignoring", .warning)
             validatedProperties["widths"] = nil
         }
         if let actionID = properties["actionID"] as? String {
             validatedProperties["actionID"] = actionID
         } else if properties["actionID"] != nil {
-            print("Warning: Table actionID must be a string; ignoring")
+            logger.log("Table actionID must be a string; ignoring", .warning)
             validatedProperties["actionID"] = nil
         }
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if properties["doubleClickActionID"] != nil {
-            print("Warning: Table doubleClickActionID must be a string; ignoring")
+            logger.log("Table doubleClickActionID must be a string; ignoring", .warning)
             validatedProperties["doubleClickActionID"] = nil
         }
         
@@ -181,7 +181,7 @@ struct Table: ActionUIViewConstruction {
                                 }
                             }
                         case "Image":
-                            ImageHelper.makeImage(from: value, interpretation: dataInterpretation)
+                            SwiftUI.Image(from: value, interpretation: dataInterpretation)
                         case "AsyncImage":
                             SwiftUI.AsyncImage(url: URL(string: value)) { image in
                                 image.resizable().scaledToFit()

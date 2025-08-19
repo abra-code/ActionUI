@@ -25,7 +25,7 @@ struct LazyVStack: ActionUIViewConstruction {
         if let spacing = validatedProperties["spacing"] as? CGFloat {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
-            print("Warning: LazyVStack spacing must be a CGFloat; ignoring")
+            logger.log("LazyVStack spacing must be a CGFloat; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         
@@ -33,7 +33,7 @@ struct LazyVStack: ActionUIViewConstruction {
            ["leading", "center", "trailing"].contains(alignment) {
             validatedProperties["alignment"] = alignment
         } else if validatedProperties["alignment"] != nil {
-            print("Warning: LazyVStack alignment must be 'leading', 'center', or 'trailing'; ignoring")
+            logger.log("LazyVStack alignment must be 'leading', 'center', or 'trailing'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
         

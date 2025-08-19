@@ -23,7 +23,7 @@ struct TextEditor: ActionUIViewConstruction {
         if let placeholder = validatedProperties["placeholder"] as? String {
             validatedProperties["placeholder"] = placeholder
         } else if validatedProperties["placeholder"] != nil {
-            print("Warning: TextEditor placeholder must be a string; ignoring")
+            logger.log("TextEditor placeholder must be a string; ignoring", .warning)
             validatedProperties["placeholder"] = nil
         }
         
