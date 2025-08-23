@@ -1,12 +1,19 @@
+// Sources/Views/NavigationSplitView.swift
 /*
  Sample JSON for NavigationSplitView:
  {
    "type": "NavigationSplitView",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in properties["sidebar"] by StaticElement.init(from:).
+     "type": "Text", "properties": { "text": "Sidebar" }
+   },
+   "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in properties["content"].
+     "type": "Text", "properties": { "text": "Content" }
+   },
+   "detail": {           // Required: Single child view for detail. Note: Declared as a top-level key in JSON but stored in properties["detail"].
+     "type": "Text", "properties": { "text": "Detail" }
+   },
    "properties": {
-     "sidebar": { "type": "Text", "properties": { "text": "Sidebar" } }, // Required: Nested view for sidebar
-     "content": { "type": "Text", "properties": { "text": "Content" } }, // Required: Nested view for content
-     "detail": { "type": "Text", "properties": { "text": "Detail" } }, // Required: Nested view for detail
      "columnVisibility": "all", // Optional: "automatic", "all", "doubleColumn", "detail"; defaults to "all"
      "style": "balanced" // Optional: "automatic", "balanced", "prominentDetail"; defaults to "automatic"
    }
@@ -24,35 +31,27 @@ struct NavigationSplitView: ActionUIViewConstruction {
         var validatedProperties = properties
         
         // Validate sidebar, content, detail
+        // Note: Expects sidebar, content, detail in properties as any ActionUIElement, set by StaticElement.init(from:).
         for key in ["sidebar", "content", "detail"] {
-            if validatedProperties[key] == nil {
+            if let child = validatedProperties[key] as? any ActionUIElement {
+                logger.log("Validated \(key): \((child as? StaticElement)?.type ?? "nil")", .debug)
+            } else {
                 logger.log("NavigationSplitView requires '\(key)'; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
-                validatedProperties[key] = ["type": "EmptyView", "properties": [:]]
-            } else if !(validatedProperties[key] is [String: Any]) {
-                logger.log("NavigationSplitView '\(key)' must be a dictionary; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
-                validatedProperties[key] = ["type": "EmptyView", "properties": [:]]
+                validatedProperties[key] = StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
             }
         }
         
         // Validate columnVisibility
-        let validVisibilities = ["automatic", "all", "doubleColumn", "detail"]
-        if let visibility = validatedProperties["columnVisibility"] as? String, validVisibilities.contains(visibility) {
-            validatedProperties["columnVisibility"] = visibility
-        } else if validatedProperties["columnVisibility"] != nil {
-            logger.log("NavigationSplitView columnVisibility must be one of \(validVisibilities); defaulting to 'all' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
-            validatedProperties["columnVisibility"] = "all"
-        } else {
+        if let columnVisibility = validatedProperties["columnVisibility"] as? String,
+           !["automatic", "all", "doubleColumn", "detail"].contains(columnVisibility) {
+            logger.log("Invalid NavigationSplitView columnVisibility: \(columnVisibility); defaulting to 'all'", .warning)
             validatedProperties["columnVisibility"] = "all"
         }
         
         // Validate style
-        let validStyles = ["automatic", "balanced", "prominentDetail"]
-        if let style = validatedProperties["style"] as? String, validStyles.contains(style) {
-            validatedProperties["style"] = style
-        } else if validatedProperties["style"] != nil {
-            logger.log("NavigationSplitView style must be one of \(validStyles); defaulting to 'automatic' on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
-            validatedProperties["style"] = "automatic"
-        } else {
+        if let style = validatedProperties["style"] as? String,
+           !["automatic", "balanced", "prominentDetail"].contains(style) {
+            logger.log("Invalid NavigationSplitView style: \(style); defaulting to 'automatic'", .warning)
             validatedProperties["style"] = "automatic"
         }
         
@@ -60,22 +59,21 @@ struct NavigationSplitView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let sidebar = properties["sidebar"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
-        let content = properties["content"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
-        let detail = properties["detail"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
+        let sidebar = properties["sidebar"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
+        let content = properties["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
+        let detail = properties["detail"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
         
         // Initialize NavigationSplitView-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]
         if newState["columnVisibility"] == nil {
-            viewSpecificState["columnVisibility"] = properties["columnVisibility"] as? String ?? "all"
+            viewSpecificState["columnVisibility"] = (properties["columnVisibility"] as? String) ?? "all"
         }
         viewSpecificState["validatedProperties"] = properties
         if !viewSpecificState.isEmpty {
             state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
         }
         
-        // Bind columnVisibility
         let visibilityBinding = Binding<NavigationSplitViewVisibility>(
             get: {
                 if let visibility = (state.wrappedValue[element.id] as? [String: Any])?["columnVisibility"] as? String {
@@ -110,11 +108,11 @@ struct NavigationSplitView: ActionUIViewConstruction {
         )
         
         return SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-            ActionUIView(element: try! StaticElement(from: sidebar), state: state, windowUUID: windowUUID)
+            ActionUIView(element: sidebar, state: state, windowUUID: windowUUID)
         } content: {
-            ActionUIView(element: try! StaticElement(from: content), state: state, windowUUID: windowUUID)
+            ActionUIView(element: content, state: state, windowUUID: windowUUID)
         } detail: {
-            ActionUIView(element: try! StaticElement(from: detail), state: state, windowUUID: windowUUID)
+            ActionUIView(element: detail, state: state, windowUUID: windowUUID)
         }
     }
     

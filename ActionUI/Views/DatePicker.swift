@@ -52,42 +52,37 @@ struct DatePicker: ActionUIViewConstruction {
             var isValid = true
             if let start = range["start"], let date = dateFormatter.date(from: start) {
                 validatedRange["start"] = date
-            } else {
-                if range["start"] != nil {
-                    logger.log("DatePicker range.start '\(String(describing: range["start"]))' invalid ISO 8601 string; ignoring range", .warning)
-                }
+            } else if range["start"] != nil {
+                logger.log("DatePicker range.start '\(String(describing: range["start"]))' invalid ISO 8601 string; ignoring range", .warning)
                 isValid = false
             }
             if let end = range["end"], let date = dateFormatter.date(from: end) {
                 validatedRange["end"] = date
-            } else {
-                if range["end"] != nil {
-                    logger.log("DatePicker range.end '\(String(describing: range["end"]))' invalid ISO 8601 string; ignoring range", .warning)
-                }
+            } else if range["end"] != nil {
+                logger.log("DatePicker range.end '\(String(describing: range["end"]))' invalid ISO 8601 string; ignoring range", .warning)
                 isValid = false
             }
-            if isValid, let start = validatedRange["start"], let end = validatedRange["end"], start <= end {
+            if isValid && !validatedRange.isEmpty {
                 validatedProperties["range"] = validatedRange
             } else {
-                logger.log("DatePicker range must have valid start/end ISO 8601 dates with start <= end; ignoring", .warning)
                 validatedProperties["range"] = nil
             }
         } else if validatedProperties["range"] != nil {
-            logger.log("DatePicker range must be a dictionary with start/end ISO 8601 strings; ignoring", .warning)
+            logger.log("DatePicker requires 'range' as [String: String]; ignoring", .warning)
             validatedProperties["range"] = nil
         }
         
         // Validate selectedDate
         if let selectedDate = validatedProperties["selectedDate"] as? String {
             let dateFormatter = ISO8601DateFormatter()
-            if let date = dateFormatter.date(from: selectedDate) {
-                validatedProperties["selectedDate"] = date
-            } else {
-                logger.log("DatePicker selectedDate '\(selectedDate)' invalid; ignoring", .warning)
+            if dateFormatter.date(from: selectedDate) == nil {
+                logger.log("DatePicker selectedDate '\(selectedDate)' invalid ISO 8601 string; ignoring", .warning)
                 validatedProperties["selectedDate"] = nil
+            } else {
+                validatedProperties["selectedDate"] = dateFormatter.date(from: selectedDate)
             }
         } else if validatedProperties["selectedDate"] != nil {
-            logger.log("DatePicker selectedDate must be a String; ignoring", .warning)
+            logger.log("DatePicker requires 'selectedDate' as String; ignoring", .warning)
             validatedProperties["selectedDate"] = nil
         }
         
@@ -95,11 +90,17 @@ struct DatePicker: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+        let dateFormatter = ISO8601DateFormatter()
         let initialDate = (properties["selectedDate"] as? Date) ?? Date()
+        
         // Initialize state if not set
         if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = ["value": initialDate, "validatedProperties": properties]
+            state.wrappedValue[element.id] = [:]
         }
+        state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
+            ["value": initialDate, "validatedProperties": properties],
+            uniquingKeysWith: { _, new in new }
+        )
         
         let dateBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Date ?? initialDate },

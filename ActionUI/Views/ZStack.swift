@@ -47,8 +47,10 @@ struct ZStack: ActionUIViewConstruction {
             }
         }()
         
+        let children = element.children ?? []
+        
         return SwiftUI.ZStack(alignment: alignment) {
-            ForEach(element.children ?? [], id: \.id) { child in
+            ForEach(children, id: \.id) { child in
                 ActionUIView(element: child, state: state, windowUUID: windowUUID)
             }
         }

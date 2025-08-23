@@ -24,8 +24,8 @@ struct Group: ActionUIViewConstruction {
         let children = element.children ?? []
         
         return SwiftUI.Group {
-            ForEach(children.indices, id: \.self) { index in
-                ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
+            ForEach(children, id: \.id) { child in
+                ActionUIView(element: child, state: state, windowUUID: windowUUID)
             }
         }
     }

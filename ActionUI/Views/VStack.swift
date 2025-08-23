@@ -21,10 +21,10 @@ struct VStack: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let spacing = validatedProperties["spacing"] as? CGFloat {
+        if let spacing = validatedProperties.cgFloat(forKey: "spacing") {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
-            logger.log("VStack spacing must be a CGFloat; ignoring", .warning)
+            logger.log("VStack spacing must be numeric; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         
@@ -40,7 +40,7 @@ struct VStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let spacing = properties["spacing"] as? CGFloat ?? 0.0
+        let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
         let alignmentString = properties["alignment"] as? String
         let alignment: HorizontalAlignment = {
             switch alignmentString {
@@ -50,8 +50,10 @@ struct VStack: ActionUIViewConstruction {
             }
         }()
         
+        let children = element.children ?? []
+        
         return SwiftUI.VStack(alignment: alignment, spacing: spacing) {
-            ForEach(element.children ?? [], id: \.id) { child in
+            ForEach(children, id: \.id) { child in
                 ActionUIView(element: child, state: state, windowUUID: windowUUID)
             }
         }

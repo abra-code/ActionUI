@@ -29,7 +29,7 @@ struct LazyVGrid: ActionUIViewConstruction {
             var validatedColumns: [[String: Any]] = []
             for column in columns {
                 var validatedColumn: [String: Any] = [:]
-                if let minimum = column["minimum"] as? CGFloat {
+                if let minimum = column.cgFloat(forKey: "minimum") {
                     validatedColumn["minimum"] = minimum
                 }
                 if let flexible = column["flexible"] as? Bool {
@@ -50,7 +50,7 @@ struct LazyVGrid: ActionUIViewConstruction {
             validatedProperties["columns"] = nil
         }
         
-        if let spacing = validatedProperties["spacing"] as? CGFloat {
+        if let spacing = validatedProperties.cgFloat(forKey: "spacing") {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
             logger.log("LazyVGrid spacing must be a CGFloat; ignoring", .warning)
@@ -69,7 +69,7 @@ struct LazyVGrid: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let spacing = properties["spacing"] as? CGFloat ?? 0.0
+        let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
         let alignmentString = properties["alignment"] as? String
         let alignment: HorizontalAlignment = {
             switch alignmentString {
@@ -80,7 +80,7 @@ struct LazyVGrid: ActionUIViewConstruction {
         }()
         
         let columns = (properties["columns"] as? [[String: Any]])?.compactMap { column in
-            if let minimum = column["minimum"] as? CGFloat {
+            if let minimum = column.cgFloat(forKey: "minimum") {
                 return GridItem(.fixed(minimum))
             } else if let flexible = column["flexible"] as? Bool, flexible {
                 return GridItem(.flexible())
@@ -91,8 +91,8 @@ struct LazyVGrid: ActionUIViewConstruction {
         let children = element.children ?? []
         
         return SwiftUI.LazyVGrid(columns: columns, alignment: alignment, spacing: spacing) {
-            ForEach(children.indices, id: \.self) { index in
-                ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
+            ForEach(children, id: \.id) { child in
+                ActionUIView(element: child, state: state, windowUUID: windowUUID)
             }
         }
     }

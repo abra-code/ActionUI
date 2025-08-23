@@ -1,10 +1,11 @@
+// Sources/Views/HStack.swift
 /*
  Sample JSON for HStack:
  {
    "type": "HStack",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "spacing": 10.0      // Optional: CGFloat for spacing between elements
+     "spacing": 10.0      // Optional: Double for spacing between elements
    },
    "children": [
      { "type": "Text", "properties": { "text": "Item 1" } },
@@ -17,14 +18,11 @@
 import SwiftUI
 
 struct HStack: ActionUIViewConstruction {
-        
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let spacing = validatedProperties["spacing"] as? CGFloat {
-            validatedProperties["spacing"] = spacing
-        } else if validatedProperties["spacing"] != nil {
-            logger.log("HStack spacing must be a CGFloat; ignoring", .warning)
+        if validatedProperties["spacing"] != nil, !(validatedProperties["spacing"] is Double) {
+            logger.log("HStack spacing must be a number; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         
@@ -32,7 +30,7 @@ struct HStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let spacing = properties["spacing"] as? CGFloat ?? 0.0
+        let spacing = properties.cgFloat(forKey: "spacing")
         
         return SwiftUI.HStack(spacing: spacing) {
             ForEach(element.children ?? [], id: \.id) { child in

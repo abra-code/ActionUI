@@ -108,10 +108,8 @@ final class AsyncImageTests: XCTestCase {
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         
-        XCTAssertNoThrow({ [self] in
-            let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-            _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
-        }, "buildView and applyModifiers should not throw for valid URL")
+        let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.AsyncImage<AnyView>) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
         // Note: Cannot inspect AsyncImage phase or modifiers due to SwiftUI's opaque hierarchy and async nature
@@ -132,10 +130,8 @@ final class AsyncImageTests: XCTestCase {
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         
-        XCTAssertNoThrow({ [self] in
-            let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-            _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
-        }, "buildView and applyModifiers should not throw for invalid URL")
+        let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
@@ -155,10 +151,8 @@ final class AsyncImageTests: XCTestCase {
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         
-        XCTAssertNoThrow({ [self] in
-            let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-            _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
-        }, "buildView and applyModifiers should not throw for missing URL")
+        let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

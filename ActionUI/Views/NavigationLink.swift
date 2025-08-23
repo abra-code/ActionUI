@@ -4,9 +4,11 @@
  {
    "type": "NavigationLink",
    "id": 1,
+   "destination": {      // Optional: Single child view. Note: Declared as a top-level key in JSON but stored in properties["destination"] by StaticElement.init(from:).
+     "type": "Text", "properties": { "text": "Detail" }
+   },
    "properties": {
      "label": "Go to Detail", // Optional: String for label, defaults to "Link" in buildView
-     "destination": { "type": "Text", "properties": { "text": "Detail" } }, // Optional: Nested view, defaults to EmptyView in buildView
      "link": "detail" // Optional: String identifier for navigation, returns EmptyView if nil or invalid
    }
    // Note: These properties are specific to NavigationLink. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
@@ -28,9 +30,12 @@ struct NavigationLink: ActionUIViewConstruction {
         }
         
         // Validate destination
-        if let destination = validatedProperties["destination"], !(destination is [String: Any]) {
-            logger.log("Invalid type for NavigationLink destination: expected dictionary, got \(type(of: destination)), ignoring", .warning)
-            validatedProperties["destination"] = nil
+        // Note: Expects destination in properties["destination"] as any ActionUIElement, set by StaticElement.init(from:).
+        if let destination = validatedProperties["destination"] as? any ActionUIElement {
+            logger.log("Validated destination: \((destination as? StaticElement)?.type ?? "nil")", .debug)
+        } else {
+            logger.log("NavigationLink destination invalid or missing; defaulting to EmptyView", .warning)
+            validatedProperties["destination"] = StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
         }
         
         // Validate link
@@ -50,7 +55,7 @@ struct NavigationLink: ActionUIViewConstruction {
             logger.log("NavigationLink missing valid link, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
-        let destination = properties["destination"] as? [String: Any] ?? ["type": "EmptyView", "properties": [:]]
+        let destination = properties["destination"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
         let label = properties["label"] as? String ?? "Link"
         
         // Initialize NavigationLink-specific state
@@ -69,10 +74,10 @@ struct NavigationLink: ActionUIViewConstruction {
         }
         .navigationDestination(for: String.self) { value in
             if value == link {
-                ActionUIView(element: try! StaticElement(from: destination), state: state, windowUUID: windowUUID)
+                ActionUIView(element: destination, state: state, windowUUID: windowUUID)
             } else {
                 SwiftUI.EmptyView()
             }
         }
-    }    
+    }
 }

@@ -1,3 +1,4 @@
+// Sources/Views/Gauge.swift
 /*
  Sample JSON for Gauge:
  {
@@ -16,51 +17,50 @@
 import SwiftUI
 
 struct Gauge: ActionUIViewConstruction {
-    // Design decision: Defines valueType as Double to reflect the gauge's value for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { Double.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate value
-        if let value = validatedProperties["value"] as? Double {
-            validatedProperties["value"] = value
-        } else if validatedProperties["value"] != nil {
-            logger.log("Gauge value must be a Double; defaulting to 0.0", .warning)
-            validatedProperties["value"] = 0.0
+        if (properties.double(forKey: "value") == nil), properties["value"] != nil {
+            logger.log("Gauge value must be a number; defaulting to 0.0", .warning)
+            validatedProperties["value"] = nil
         }
         
         // Validate label
-        if let label = validatedProperties["label"] as? String {
-            validatedProperties["label"] = label
-        } else if validatedProperties["label"] != nil {
+        if !(properties["label"] is String?), properties["label"] != nil {
             logger.log("Gauge label must be a String; defaulting to nil", .warning)
             validatedProperties["label"] = nil
         }
         
         // Validate style
         let validStyles = ["accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity"]
-        if let style = validatedProperties["style"] as? String, !validStyles.contains(style) {
-            logger.log("Gauge style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); defaulting to 'accessoryCircular'", .warning)
-            validatedProperties["style"] = "accessoryCircular"
-        }
-        if validatedProperties["style"] == nil {
-            validatedProperties["style"] = "accessoryCircular"
+        if let style = validatedProperties["style"] as? String {
+            if !validStyles.contains(style) {
+                logger.log("Gauge style '\(style)' invalid; defaulting to nil", .warning)
+                validatedProperties["style"] = nil
+            }
         }
         
         // Validate range
-        if let range = validatedProperties["range"] as? [String: Double] {
+        if let range = properties["range"] as? [String: Any] {
             var validatedRange: [String: Double] = [:]
-            if let min = range["min"], let max = range["max"], min <= max {
+            if let min = range.double(forKey: "min") {
                 validatedRange["min"] = min
-                validatedRange["max"] = max
-                validatedProperties["range"] = validatedRange
             } else {
-                logger.log("Gauge range must have valid min/max Doubles with min <= max; defaulting to 0.0...1.0", .warning)
-                validatedProperties["range"] = ["min": 0.0, "max": 1.0]
+                logger.log("Gauge range.min must be a number; defaulting to 0.0", .warning)
+                validatedRange["min"] = 0.0
             }
-        } else if validatedProperties["range"] != nil {
-            logger.log("Gauge range must be a dictionary with min/max Doubles; defaulting to 0.0...1.0", .warning)
+            if let max = range.double(forKey: "max") {
+                validatedRange["max"] = max
+            } else {
+                logger.log("Gauge range.max must be a number; defaulting to 1.0", .warning)
+                validatedRange["max"] = 1.0
+            }
+            validatedProperties["range"] = validatedRange
+        } else if properties["range"] != nil {
+            logger.log("Gauge range must be a dictionary with min/max; defaulting to 0.0...1.0", .warning)
             validatedProperties["range"] = ["min": 0.0, "max": 1.0]
         }
         
@@ -68,30 +68,46 @@ struct Gauge: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let initialValue = (properties["value"] as? Double) ?? 0.0
-        let value = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue
+        let initialValue = (properties.double(forKey: "value")) ?? 0.0
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
         let min = range["min"] ?? 0.0
         let max = range["max"] ?? 1.0
         
-        return SwiftUI.Gauge(value: value, in: min...max) {
+        // Initialize Gauge-specific state
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        var viewSpecificState: [String: Any] = [:]
+        if newState["value"] == nil {
+            viewSpecificState["value"] = initialValue
+        }
+        viewSpecificState["validatedProperties"] = properties
+        if !viewSpecificState.isEmpty {
+            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+        }
+        
+        let valueBinding = Binding(
+            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },
+            set: { newValue in
+                if (min...max).contains(newValue) {
+                    var updatedState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+                    updatedState["value"] = newValue
+                    updatedState["validatedProperties"] = properties
+                    state.wrappedValue[element.id] = updatedState
+                    if let actionID = properties["actionID"] as? String {
+                        Task { @MainActor in
+                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        }
+                    }
+                } else {
+                    logger.log("Gauge value \(newValue) out of range \(min)...\(max); ignoring", .warning)
+                }
+            }
+        )
+        
+        return SwiftUI.Gauge(value: valueBinding.wrappedValue, in: min...max) {
             if let label = properties["label"] as? String {
                 SwiftUI.Text(label)
             } else {
                 SwiftUI.EmptyView()
-            }
-        }
-        .onChange(of: (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double) { newValue in
-            Task { @MainActor in
-                if let newValue = newValue, (min...max).contains(newValue) {
-                    state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-                        ["value": newValue, "validatedProperties": properties],
-                        uniquingKeysWith: { _, new in new }
-                    )
-                    if let actionID = properties["actionID"] as? String {
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
-                }
             }
         }
     }

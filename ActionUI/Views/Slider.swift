@@ -20,10 +20,10 @@ struct Slider: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let value = validatedProperties["value"] as? Double {
-            validatedProperties["value"] = value
+        if let value = validatedProperties.double(forKey: "value") {
+            //
         } else if validatedProperties["value"] != nil {
-            logger.log("Slider value must be a Double; defaulting to 0.0", .warning)
+            logger.log("Slider value must be a number; defaulting to 0.0", .warning)
             validatedProperties["value"] = 0.0
         }
         if let range = validatedProperties["range"] as? [String: Double] {
@@ -40,7 +40,7 @@ struct Slider: ActionUIViewConstruction {
             logger.log("Slider range must be a dictionary with min/max Doubles; defaulting to 0.0...1.0", .warning)
             validatedProperties["range"] = ["min": 0.0, "max": 1.0]
         }
-        if let step = validatedProperties["step"] as? Double, step > 0 {
+        if let step = validatedProperties.double(forKey: "step"), step > 0 {
             validatedProperties["step"] = step
         } else if validatedProperties["step"] != nil {
             logger.log("Slider step must be a positive Double; defaulting to 1.0", .warning)
@@ -51,12 +51,12 @@ struct Slider: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let initialValue = (properties["value"] as? Double) ?? 0.0
+        let initialValue = (properties.double(forKey: "value")) ?? 0.0
         let value = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
         let min = range["min"] ?? 0.0
         let max = range["max"] ?? 1.0
-        let step = properties["step"] as? Double
+        let step = properties.double(forKey: "step")
         
         let valueBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },

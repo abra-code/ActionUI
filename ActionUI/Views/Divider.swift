@@ -1,3 +1,4 @@
+// Sources/Views/Divider.swift
 /*
  Sample JSON for Divider:
  {
@@ -18,25 +19,32 @@ struct Divider: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let background = validatedProperties["background"] as? String {
-            if let resolvedColor = ColorHelper.resolveColor(background) {
-                validatedProperties["background"] = resolvedColor
-            } else {
-                logger.log("Divider background '\(background)' invalid; setting to nil", .warning)
-                validatedProperties["background"] = nil
+        // Validate background
+        if !(properties["background"] is String?), properties["background"] != nil {
+            logger.log("Divider background must be a String; ignoring", .warning)
+            validatedProperties["background"] = nil
+        }
+        
+        // Validate frameHeight
+        if let frameHeight = validatedProperties.cgFloat(forKey: "frameHeight") {
+            if frameHeight <= 0 {
+                logger.log("Divider frameHeight must be a positive Double; ignoring", .warning)
+                validatedProperties["frameHeight"] = nil
             }
-        }
-        if let frameHeight = validatedProperties["frameHeight"] as? Double, frameHeight > 0 {
-            validatedProperties["frameHeight"] = frameHeight
         } else if validatedProperties["frameHeight"] != nil {
-            logger.log("Divider frameHeight must be a positive number; defaulting to 1.0", .warning)
-            validatedProperties["frameHeight"] = 1.0
+            logger.log("Invalid type for frameHeight: expected Double, got \(type(of: validatedProperties["frameHeight"]!)), ignoring", .warning)
+            validatedProperties["frameHeight"] = nil
         }
-        if let frameWidth = validatedProperties["frameWidth"] as? Double, frameWidth > 0 {
-            validatedProperties["frameWidth"] = frameWidth
+        
+        // Validate frameWidth
+        if let frameWidth = validatedProperties.cgFloat(forKey: "frameWidth") {
+            if frameWidth <= 0 {
+                logger.log("Divider frameWidth must be a positive Double; ignoring", .warning)
+                validatedProperties["frameWidth"] = nil
+            }
         } else if validatedProperties["frameWidth"] != nil {
-            logger.log("Divider frameWidth must be a positive number; defaulting to 0.0", .warning)
-            validatedProperties["frameWidth"] = 0.0
+            logger.log("Invalid type for frameWidth: expected Double, got \(type(of: validatedProperties["frameWidth"]!)), ignoring", .warning)
+            validatedProperties["frameWidth"] = nil
         }
         
         return validatedProperties
@@ -48,13 +56,12 @@ struct Divider: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
-        if let background = properties["background"] as? Color {
-            modifiedView = modifiedView.background(background)
-        }
-        if let frameHeight = properties["frameHeight"] as? Double {
-            modifiedView = modifiedView.frame(height: frameHeight)
-        }
-        if let frameWidth = properties["frameWidth"] as? Double, frameWidth > 0 {
+        let background = (properties["background"] as? String).flatMap { ColorHelper.resolveColor($0) } ?? .gray
+        modifiedView = modifiedView.background(background)
+        let frameHeight = properties.cgFloat(forKey: "frameHeight") ?? 1.0
+        modifiedView = modifiedView.frame(height: frameHeight)
+        let frameWidth = properties.cgFloat(forKey: "frameWidth") ?? 0.0
+        if frameWidth > 0 {
             modifiedView = modifiedView.frame(width: frameWidth)
         }
         return modifiedView

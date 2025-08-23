@@ -26,21 +26,25 @@ struct TextField: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate textContentType as String or nil
-        if let textContentType = validatedProperties["textContentType"], !(textContentType is String) {
-            logger.log("Invalid type for textContentType: expected String, got \(type(of: textContentType)), defaulting to nil", .warning)
+        // Validate placeholder
+        if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
+            logger.log("TextField placeholder must be a String; defaulting to nil", .warning)
+            validatedProperties["placeholder"] = nil
+        }
+        
+        // Validate textContentType
+        if !(properties["textContentType"] is String?), properties["textContentType"] != nil {
+            logger.log("TextField textContentType must be a String; defaulting to nil", .warning)
             validatedProperties["textContentType"] = nil
         }
         
         return validatedProperties
     }
     
-    // Builds the SwiftUI.TextField view, binding its text to state and triggering actionID on submit
-    // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         
-        // Initialize TextField-specific state only if not set
+        // Initialize TextField-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
@@ -73,8 +77,6 @@ struct TextField: ActionUIViewConstruction {
             }
     }
     
-    // Applies TextField-specific modifiers (e.g., textContentType)
-    // Design decision: Relies on default macOS text field style (likely rounded) for HIG compliance; textContentType is iOS-only
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)

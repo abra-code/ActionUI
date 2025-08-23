@@ -1,10 +1,29 @@
+// Sources/ActionUIElement.swift
 /*
  Sample JSON for ActionUIElement (base structure for all elements):
  {
-   "type": "View",       // Matches the view class name (e.g., "DisclosureGroup", "Divider")
+   "type": "View",       // Matches the view class name (e.g., "NavigationStack", "NavigationLink", "NavigationSplitView")
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {},     // Optional: Dictionary of view-specific properties
-   "children": []        // Optional: Array of child elements
+   "children": [],       // Optional: Array of child elements
+   "rows": [             // Optional: Array of arrays of child elements (for Grid). Note: Handled as a top-level key in JSON but stored in properties["rows"].
+     [
+       { "type": "Text", "properties": { "text": "Cell1" } },
+       { "type": "Button", "properties": { "title": "Click" } }
+     ]
+   ],
+   "content": {          // Optional: Single child view (for NavigationStack, etc.). Note: Handled as a top-level key in JSON but stored in properties["content"].
+     "type": "Text", "properties": { "text": "Home" }
+   },
+   "destination": {      // Optional: Single child view (for NavigationLink). Note: Handled as a top-level key in JSON but stored in properties["destination"].
+     "type": "Text", "properties": { "text": "Detail" }
+   },
+   "sidebar": {          // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in properties["sidebar"].
+     "type": "Text", "properties": { "text": "Sidebar" }
+   },
+   "detail": {           // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in properties["detail"].
+     "type": "Text", "properties": { "text": "Detail" }
+   }
  }
 */
 
@@ -49,52 +68,57 @@ struct StaticElement: ActionUIElement {
     private static var negativeIDCounter: Int = -1
     
     // Generates a unique negative ID for elements without an explicit ID
-    private static func generateNegativeID() -> Int {
+    internal static func generateNegativeID() -> Int {
         defer { negativeIDCounter -= 1 }
         return negativeIDCounter
     }
     
-    // Initializes a StaticElement with optional ID, type, properties, and children
-    init(id: Int = 0, type: String, properties: [String: Any], children: [any ActionUIElement]?) {
-        self.id = id == 0 ? StaticElement.generateNegativeID() : id
+    // Initializes a StaticElement with explicit values
+    init(id: Int, type: String, properties: [String: Any], children: [any ActionUIElement]?) {
+        self.id = id
         self.type = type
         self.properties = properties
-        self.children = type == "EmptyView" ? nil : children
+        self.children = children
     }
     
-    // Coding keys for JSON serialization
+    // Codable conformance for encoding
     enum CodingKeys: String, CodingKey {
-        case id, type, properties, children
+        case id, type, properties, children, rows, content, destination, sidebar, detail
     }
     
-    // Decodes a StaticElement from JSON
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(Int.self, forKey: .id) ?? StaticElement.generateNegativeID()
+        id = try container.decode(Int.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
-        let rawProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
-        properties = try rawProperties.mapValues { try AnyCodable.convertAnyCodableToAny($0) }
-        if let childrenArray = try container.decodeIfPresent([AnyCodable].self, forKey: .children) {
-            children = try childrenArray.map { try $0.asActionUIElement() }
-        } else {
-            children = nil
-        }
+        let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
+        properties = decodedProperties.mapValues { $0.value }
+        let decodedChildren = try container.decodeIfPresent([AnyCodable].self, forKey: .children)
+        children = decodedChildren?.compactMap { $0.value as? any ActionUIElement }
     }
     
-    // Encodes a StaticElement to JSON
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(type, forKey: .type)
-        // Encode properties using AnyCodable to handle serialization
         let encodableProperties = try properties.mapValues { try AnyCodable.convertAnyToAnyCodable($0) }
         try container.encodeIfPresent(encodableProperties, forKey: .properties)
-        // Encode children using AnyCodable to handle ActionUIElement array
         if let children = children {
             let encodableChildren = children.map { AnyCodable($0) }
             try container.encodeIfPresent(encodableChildren, forKey: .children)
         } else {
             try container.encodeNil(forKey: .children)
+        }
+        // Encode component-specific keys as top-level if present in properties
+        for key in ["rows", "content", "destination", "sidebar", "detail"] {
+            if let value = properties[key] as? [any ActionUIElement] {
+                let encodableValue = value.map { AnyCodable($0) }
+                try container.encodeIfPresent(encodableValue, forKey: CodingKeys(rawValue: key)!)
+            } else if let value = properties[key] as? [[any ActionUIElement]] {
+                let encodableValue = value.map { row in row.map { AnyCodable($0) } }
+                try container.encodeIfPresent(encodableValue, forKey: CodingKeys(rawValue: key)!)
+            } else if let value = properties[key] as? any ActionUIElement {
+                try container.encodeIfPresent(AnyCodable(value), forKey: CodingKeys(rawValue: key)!)
+            }
         }
     }
     
@@ -107,7 +131,34 @@ struct StaticElement: ActionUIElement {
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         let childrenArray = dictionary["children"] as? [[String: Any]]
         let children = try childrenArray?.map { try StaticElement(from: $0) }
-        self.init(id: id, type: type, properties: properties, children: children)
+        
+        var updatedProperties = properties
+        
+        // Decode rows for Grid
+        // Note: JSON specifies "rows" as a top-level key, but we move it to properties["rows"] to align with existing Grid code expecting rows in properties.
+        if let rowsArray = dictionary["rows"] as? [[[String: Any]]] {
+            let rows = try rowsArray.map { row in
+                try row.map { try StaticElement(from: $0) }
+            }
+            updatedProperties["rows"] = rows
+        }
+        
+        // Decode single child views for navigation components
+        // Note: JSON specifies "content", "destination", "sidebar", "detail" as top-level keys, but we move them to properties for compatibility with existing component code.
+        for key in ["content", "destination", "sidebar", "detail"] {
+            if let childDict = dictionary[key] as? [String: Any] {
+                do {
+                    let childElement = try StaticElement(from: childDict)
+                    updatedProperties[key] = childElement
+                } catch {
+                    // Log error and skip invalid child, leaving property unset
+                    // ActionUILogger.shared.log("Failed to parse \(key) element: \(error)", .error)
+                    print("Error: Failed to parse \(key) element: \(error)")
+                }
+            }
+        }
+        
+        self.init(id: id, type: type, properties: updatedProperties, children: children)
     }
 }
 

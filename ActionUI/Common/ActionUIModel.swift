@@ -100,6 +100,11 @@ class ActionUIModel: ObservableObject {
         }
     }
     
+    func loadDescription(from dict: [String:Any], windowUUID: String) throws {
+        let element = try StaticElement(from: dict)
+        descriptions[windowUUID] = element
+    }
+    
     func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
         try loadDescription(from: data, format: format, windowUUID: windowUUID)
         let plistData = try PropertyListEncoder().encode(descriptions[windowUUID]!)
@@ -148,6 +153,11 @@ class ActionUIModel: ObservableObject {
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
     func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
+        guard descriptions[windowUUID]?.findElement(by: viewID) != nil else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID); skipping value set", .warning)
+            return
+        }
+        
         var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? [:]
         
         if let newRows = value as? [[String]],

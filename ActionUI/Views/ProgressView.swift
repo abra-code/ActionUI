@@ -24,15 +24,15 @@ struct ProgressView: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let value = validatedProperties["value"] as? Double, value >= 0 {
-            validatedProperties["value"] = value
+        if let value = validatedProperties.double(forKey: "value"), value >= 0 {
+           //
         } else if validatedProperties["value"] != nil {
             logger.log("ProgressView value must be a non-negative Double; defaulting to nil", .warning)
             validatedProperties["value"] = nil
         }
         
-        if let total = validatedProperties["total"] as? Double, total > 0 {
-            validatedProperties["total"] = total
+        if let total = validatedProperties.double(forKey: "total"), total > 0 {
+            //
         } else if validatedProperties["value"] != nil {
             validatedProperties["total"] = 1.0
         } else if validatedProperties["total"] != nil {
@@ -49,8 +49,8 @@ struct ProgressView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let value: Double? = properties["value"] as? Double
-        let total: Double? = properties["total"] as? Double
+        let value: Double? = properties.double(forKey: "value")
+        let total: Double? = properties.double(forKey: "total")
         let label: String? = properties["label"] as? String
         let actionID: String? = properties["actionID"] as? String
         

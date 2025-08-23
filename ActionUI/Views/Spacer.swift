@@ -16,7 +16,7 @@ struct Spacer: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let minLength = validatedProperties["minLength"] as? CGFloat {
+        if let minLength = validatedProperties.cgFloat(forKey: "minLength") {
             validatedProperties["minLength"] = minLength
         } else if validatedProperties["minLength"] != nil {
             logger.log("Spacer minLength must be a CGFloat; ignoring", .warning)
@@ -31,7 +31,7 @@ struct Spacer: ActionUIViewConstruction {
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
-        if let minLength = properties["minLength"] as? CGFloat {
+        if let minLength = properties.cgFloat(forKey: "minLength") {
             return view.frame(minWidth: minLength)
         }
         return view

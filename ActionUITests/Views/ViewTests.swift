@@ -50,8 +50,8 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(validated["font"] as? String, "body", "font should be valid string")
         XCTAssertEqual(validated["background"] as? String, "#FFFFFF", "background should be valid string")
         if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame["width"] as? Double, 100.0, "frame.width should be valid Double")
-            XCTAssertEqual(frame["height"] as? Double, 100.0, "frame.height should be valid Double")
+            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be valid Double")
+            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be valid Double")
             XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be valid string")
         } else {
             XCTFail("frame should be valid dictionary")
@@ -66,9 +66,9 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be valid string")
         if let shadow = validated["shadow"] as? [String: Any] {
             XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be valid string")
-            XCTAssertEqual(shadow["radius"] as? Double, 5.0, "shadow.radius should be valid Double")
-            XCTAssertEqual(shadow["x"] as? Double, 0.0, "shadow.x should be valid Double")
-            XCTAssertEqual(shadow["y"] as? Double, 2.0, "shadow.y should be valid Double")
+            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be valid Double")
+            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 0.0, "shadow.x should be valid Double")
+            XCTAssertEqual(shadow.cgFloat(forKey: "y"), 2.0, "shadow.y should be valid Double")
         } else {
             XCTFail("shadow should be valid dictionary")
         }
@@ -187,7 +187,7 @@ final class ViewTests: XCTestCase {
         
         if let shadow = validated["shadow"] as? [String: Any] {
             XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be valid string")
-            XCTAssertEqual(shadow["radius"] as? Double, 5.0, "shadow.radius should be valid Double")
+            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be valid number")
             XCTAssertEqual(shadow["x"] as? Double, nil, "shadow.x should be nil when not provided")
             XCTAssertEqual(shadow["y"] as? Double, nil, "shadow.y should be nil when not provided")
         } else {

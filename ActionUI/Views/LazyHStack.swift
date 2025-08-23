@@ -22,7 +22,7 @@ struct LazyHStack: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let spacing = validatedProperties["spacing"] as? CGFloat {
+        if let spacing = validatedProperties.cgFloat(forKey: "spacing") {
             validatedProperties["spacing"] = spacing
         } else if validatedProperties["spacing"] != nil {
             logger.log("LazyHStack spacing must be a CGFloat; ignoring", .warning)
@@ -41,7 +41,7 @@ struct LazyHStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let spacing = properties["spacing"] as? CGFloat ?? 0.0
+        let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
         let alignmentString = properties["alignment"] as? String
         let alignment: VerticalAlignment = {
             switch alignmentString {
@@ -54,8 +54,8 @@ struct LazyHStack: ActionUIViewConstruction {
         let children = element.children ?? []
         
         return SwiftUI.LazyHStack(alignment: alignment, spacing: spacing) {
-            ForEach(children.indices, id: \.self) { index in
-                ActionUIView(element: children[index], state: state, windowUUID: windowUUID)
+            ForEach(children, id: \.id) { child in
+                ActionUIView(element: child, state: state, windowUUID: windowUUID)
             }
         }
     }

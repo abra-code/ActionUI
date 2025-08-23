@@ -93,6 +93,28 @@ struct ActionUIVerifier {
             return []
         }
     }
+    
+    // must ensure unique view ids in the whole view tree
+    func verifyUniqueIDs(json: [String: Any], seenIDs: inout Set<Int>, logger: any ActionUILogger) throws {
+		if let id = json["id"] as? Int {
+			if seenIDs.contains(id) {
+				throw NSError(domain: "ActionUIVerifier", code: -1, userInfo: [NSLocalizedDescriptionKey: "Duplicate ID \(id) found"])
+			}
+			seenIDs.insert(id)
+		}
+		if let children = json["children"] as? [[String: Any]] {
+			for child in children {
+				try verifyUniqueIDs(json: child, seenIDs: &seenIDs, logger: logger)
+			}
+		}
+		if let rows = (json["properties"] as? [String: Any])?["rows"] as? [[[String: Any]]] {
+			for row in rows {
+				for cell in row {
+					try verifyUniqueIDs(json: cell, seenIDs: &seenIDs, logger: logger)
+				}
+			}
+		}
+	}
 }
 
 // Custom logger for verifier tool
