@@ -1,3 +1,4 @@
+// Sources/Views/VStack.swift
 /*
  Sample JSON for VStack:
  {
@@ -21,9 +22,7 @@ struct VStack: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let spacing = validatedProperties.cgFloat(forKey: "spacing") {
-            validatedProperties["spacing"] = spacing
-        } else if validatedProperties["spacing"] != nil {
+        if validatedProperties["spacing"] != nil, validatedProperties.cgFloat(forKey: "spacing") == nil {
             logger.log("VStack spacing must be numeric; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }

@@ -1,16 +1,17 @@
+// Sources/Views/ZStack.swift
 /*
  Sample JSON for ZStack:
  {
    "type": "ZStack",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "alignment": "center" // Optional: Alignment (e.g., "topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing")
+     "alignment": "center" // Optional: String ("topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing")
    },
    "children": [
      { "type": "Text", "properties": { "text": "Background" } },
      { "type": "Text", "properties": { "text": "Foreground" } }
    ]
-   // Note: These properties are specific to ZStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: The alignment property is specific to ZStack. Common SwiftUI.View properties (padding, hidden, foregroundColor, font, background, frame, offset, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) are inherited and applied via ActionUIRegistry.shared.applyModifiers (from View.applyModifiers).
  }
 */
 
@@ -20,11 +21,14 @@ struct ZStack: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let alignment = validatedProperties["alignment"] as? String,
-           ["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
-            validatedProperties["alignment"] = alignment
+        // Validate alignment
+        if let alignment = validatedProperties["alignment"] as? String {
+            if !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
+                logger.log("ZStack alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring", .warning)
+                validatedProperties["alignment"] = nil
+            }
         } else if validatedProperties["alignment"] != nil {
-            logger.log("ZStack alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring", .warning)
+            logger.log("Invalid type for alignment: expected String, got \(type(of: validatedProperties["alignment"]!)), ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
         
@@ -32,7 +36,7 @@ struct ZStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let alignmentString = properties["alignment"] as? String
+        let alignmentString = properties["alignment"] as? String ?? "center"
         let alignment: Alignment = {
             switch alignmentString {
             case "topLeading": return .topLeading

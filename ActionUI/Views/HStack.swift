@@ -21,7 +21,7 @@ struct HStack: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if validatedProperties["spacing"] != nil, !(validatedProperties["spacing"] is Double) {
+        if validatedProperties["spacing"] != nil, (validatedProperties.cgFloat(forKey:"spacing") == nil) {
             logger.log("HStack spacing must be a number; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
