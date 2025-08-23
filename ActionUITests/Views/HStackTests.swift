@@ -44,17 +44,20 @@ final class HStackTests: XCTestCase {
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        // Note: Redundant check, as buildView always returns any SwiftUI.View; child assertions provide specificity
-        XCTAssertTrue(view is any SwiftUI.View, "View should be a SwiftUI view")
+                
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
+        }
         
-        XCTAssertEqual(element.children?.count, 2, "HStack should have 2 children")
-        XCTAssertEqual((element.children?[0] as? StaticElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((element.children?[0] as? StaticElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((element.children?[1] as? StaticElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((element.children?[1] as? StaticElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual(children.count, 2, "HStack should have 2 children")
+        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? StaticElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? StaticElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? StaticElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testHStackJSONDecoding() {
@@ -73,11 +76,18 @@ final class HStackTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "HStack", "Element type should be HStack")
         XCTAssertEqual(element.properties["spacing"] as? Double, 10.0, "Spacing should be 10.0")
-        XCTAssertEqual(element.children?.count, 2, "Children should have 2 elements")
-        XCTAssertEqual((element.children?[0] as? StaticElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((element.children?[0] as? StaticElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((element.children?[1] as? StaticElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((element.children?[1] as? StaticElement)?.id, 3, "Second child ID should be 3")
+
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else
+        {
+            XCTFail("Children should not be nil")
+            return
+        }
+
+        XCTAssertEqual(children.count, 2, "Children should have 2 elements")
+        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? StaticElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? StaticElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? StaticElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testHStackValidatePropertiesValid() {
@@ -118,13 +128,12 @@ final class HStackTests: XCTestCase {
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        // Note: Redundant check, as buildView always returns any SwiftUI.View; child assertions provide specificity
-        XCTAssertTrue(view is any SwiftUI.View, "View should be a SwiftUI view")
         
-        XCTAssertEqual(element.children?.count, 2, "HStack should have 2 children")
+        let children = element.subviews?["children"] as? [any ActionUIElement]
+        XCTAssertEqual(children?.count, 2, "HStack should have 2 children")
         XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
     }
 }

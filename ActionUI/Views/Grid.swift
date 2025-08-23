@@ -4,7 +4,7 @@
  {
    "type": "Grid",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "rows": [             // Required: Array of arrays of ActionUIElement objects. Note: Declared as a top-level key in JSON but stored in properties["rows"] by StaticElement.init(from:).
+   "rows": [             // Required: Array of arrays of ActionUIElement objects. Note: Declared as a top-level key in JSON but stored in subviews["rows"] by StaticElement.init(from:).
      [
        { "type": "Text", "properties": { "text": "Cell1" } },
        { "type": "Button", "properties": { "title": "Click" } }
@@ -30,17 +30,11 @@ struct Grid: ActionUIViewConstruction {
         var validatedProperties = properties
         
         #if os(watchOS) || os(tvOS)
+
         logger.log("Grid is not supported on watchOS/tvOS; defaulting to empty properties", .warning)
         validatedProperties = [:]
+        
         #else
-        // Validate rows
-        // Note: Expects rows in properties["rows"] as [[any ActionUIElement]], set by StaticElement.init(from:) after decoding from top-level JSON "rows" key.
-        if let rows = validatedProperties["rows"] as? [[any ActionUIElement]], !rows.isEmpty {
-            logger.log("Validated rows: \(rows.map { $0.map { ($0 as? StaticElement)?.type ?? "nil" } })", .debug)
-        } else {
-            logger.log("Grid requires non-empty 'rows' of ActionUIElement; defaulting to empty", .warning)
-            validatedProperties["rows"] = []
-        }
         
         // Validate alignment
         if let alignment = validatedProperties["alignment"] as? String,
@@ -67,7 +61,7 @@ struct Grid: ActionUIViewConstruction {
         #if os(watchOS) || os(tvOS)
         return EmptyView()
         #else
-        let rows = (properties["rows"] as? [[any ActionUIElement]]) ?? []
+        let rows = (element.subviews?["rows"] as? [[any ActionUIElement]]) ?? []
         let horizontalSpacing = properties.cgFloat(forKey: "horizontalSpacing")
         let verticalSpacing = properties.cgFloat(forKey: "verticalSpacing")
         let alignmentString = properties["alignment"] as? String

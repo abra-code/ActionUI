@@ -81,7 +81,7 @@ final class TextFieldTests: XCTestCase {
         XCTAssertEqual(element.properties["textContentType"] as? String, "username", "textContentType should be username")
         XCTAssertEqual(element.properties["actionID"] as? String, "text.submit", "actionID should be text.submit")
         XCTAssertEqual(element.properties["padding"] as? Double, 10.0, "Padding should be 10.0")
-        XCTAssertNil(element.children, "Children should be nil")
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
     func testTextFieldValidatePropertiesValid() {

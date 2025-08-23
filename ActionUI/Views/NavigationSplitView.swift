@@ -4,13 +4,13 @@
  {
    "type": "NavigationSplitView",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in properties["sidebar"] by StaticElement.init(from:).
+   "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by StaticElement.init(from:).
      "type": "Text", "properties": { "text": "Sidebar" }
    },
-   "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in properties["content"].
+   "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
      "type": "Text", "properties": { "text": "Content" }
    },
-   "detail": {           // Required: Single child view for detail. Note: Declared as a top-level key in JSON but stored in properties["detail"].
+   "detail": {           // Required: Single child view for detail. Note: Declared as a top-level key in JSON but stored in subviews["detail"].
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
@@ -29,18 +29,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
-        // Validate sidebar, content, detail
-        // Note: Expects sidebar, content, detail in properties as any ActionUIElement, set by StaticElement.init(from:).
-        for key in ["sidebar", "content", "detail"] {
-            if let child = validatedProperties[key] as? any ActionUIElement {
-                logger.log("Validated \(key): \((child as? StaticElement)?.type ?? "nil")", .debug)
-            } else {
-                logger.log("NavigationSplitView requires '\(key)'; defaulting to EmptyView on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString))", .warning)
-                validatedProperties[key] = StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
-            }
-        }
-        
+                
         // Validate columnVisibility
         if let columnVisibility = validatedProperties["columnVisibility"] as? String,
            !["automatic", "all", "doubleColumn", "detail"].contains(columnVisibility) {
@@ -59,9 +48,9 @@ struct NavigationSplitView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let sidebar = properties["sidebar"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
-        let content = properties["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
-        let detail = properties["detail"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
+        let sidebar = element.subviews?["sidebar"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let detail = element.subviews?["detail"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         // Initialize NavigationSplitView-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]

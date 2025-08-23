@@ -79,7 +79,7 @@ final class ActionUITests: XCTestCase {
         XCTAssertEqual(element.properties["actionID"] as? String, "text.submit", "actionID should match")
         XCTAssertEqual(element.properties.double(forKey: "padding"), 8.0, "Padding should be retrieved as Double with value 8.0")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 8.0, "Padding should be retrieved as CGFloat with value 8.0")
-        XCTAssertNil(element.children, "Children should be nil")
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
         
         // Arrange: Set up state binding
         let state = model.state(for: windowUUID)

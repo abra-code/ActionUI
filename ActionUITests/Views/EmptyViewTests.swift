@@ -66,6 +66,6 @@ final class EmptyViewTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "EmptyView", "Element type should be EmptyView")
         XCTAssertEqual(element.properties["padding"] as? Double, 10.0, "Padding should be 10.0")
-        XCTAssertNil(element.children, "Children should be nil")
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
 }

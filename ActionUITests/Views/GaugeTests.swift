@@ -83,7 +83,7 @@ final class GaugeTests: XCTestCase {
         XCTAssertEqual(element.properties["style"] as? String, "accessoryCircular", "Style should be accessoryCircular")
         XCTAssertEqual((element.properties["range"] as? [String: Double])?["min"], 0.0, "Range min should be 0.0")
         XCTAssertEqual((element.properties["range"] as? [String: Double])?["max"], 100.0, "Range max should be 100.0")
-        XCTAssertNil(element.children, "Children should be nil")
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
     func testGaugeValidatePropertiesValid() {

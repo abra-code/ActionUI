@@ -4,7 +4,7 @@
  {
    "type": "ScrollViewReader",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "content": {          // Required: Single child view (typically ScrollView). Note: Declared as a top-level key in JSON but stored in properties["content"] by StaticElement.init(from:).
+   "content": {          // Required: Single child view (typically ScrollView). Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
      "type": "ScrollView", "properties": { "content": { "type": "Text", "properties": { "text": "Item 1" } } }
    },
    "properties": {
@@ -20,16 +20,7 @@ import SwiftUI
 struct ScrollViewReader: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
-        // Validate content
-        // Note: Expects content in properties["content"] as any ActionUIElement, set by StaticElement.init(from:).
-        if let content = validatedProperties["content"] as? any ActionUIElement {
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
-        } else {
-            logger.log("ScrollViewReader requires 'content'; defaulting to EmptyView", .warning)
-            validatedProperties["content"] = StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
-        }
-        
+                
         // Validate scrollTo
         if let scrollTo = validatedProperties["scrollTo"] as? Int {
             validatedProperties["scrollTo"] = scrollTo
@@ -49,7 +40,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let content = properties["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
+        let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         return SwiftUI.ScrollViewReader { proxy in
             ActionUIView(element: content, state: state, windowUUID: windowUUID)

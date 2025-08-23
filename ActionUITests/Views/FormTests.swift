@@ -58,14 +58,16 @@ final class FormTests: XCTestCase {
         )
         
         // Verify children
-        XCTAssertNotNil(element.children, "Children should not be nil")
-        XCTAssertEqual(element.children?.count, 2, "Should have 2 children")
-        if let children = element.children {
-            XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
-            XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
-            XCTAssertEqual((children[1] as? StaticElement)?.type, "Button", "Second child should be Button")
-            XCTAssertEqual((children[1] as? StaticElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
         }
+        
+        XCTAssertEqual(children.count, 2, "Should have 2 children")
+        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
+        XCTAssertEqual((children[1] as? StaticElement)?.type, "Button", "Second child should be Button")
+        XCTAssertEqual((children[1] as? StaticElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
     }
     
     func testFormJSONDecoding() {
@@ -83,12 +85,15 @@ final class FormTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
         XCTAssertEqual(element.properties["padding"] as? Double, 10.0, "Padding should be 10.0")
-        XCTAssertNotNil(element.children, "Children should not be nil")
-        XCTAssertEqual(element.children?.count, 1, "Should have 1 child")
-        if let children = element.children {
-            XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "Child should be Text")
-            XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
+
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
         }
+
+        XCTAssertEqual(children.count, 1, "Should have 1 child")
+        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "Child should be Text")
+        XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
     }
     
     func testFormValidateProperties() {

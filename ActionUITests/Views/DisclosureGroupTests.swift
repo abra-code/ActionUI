@@ -165,9 +165,10 @@ final class DisclosureGroupTests: XCTestCase {
         XCTAssertEqual(element.properties["isExpanded"] as? Bool, true, "isExpanded should be true")
         
         // Verify children are StaticElement instances
-        XCTAssertNotNil(element.children, "Children should not be nil")
-        XCTAssertEqual(element.children?.count, 2, "Should have 2 children")
-        if let children = element.children {
+        let children = element.subviews?["children"] as? [any ActionUIElement]
+        XCTAssertNotNil(children, "Children should not be nil")
+        if let children {
+            XCTAssertEqual(children.count, 2, "Should have 2 children")
             XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
             XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Hello, World!", "First child text should be correct")
             XCTAssertEqual((children[1] as? StaticElement)?.type, "Button", "Second child should be Button")
@@ -219,7 +220,7 @@ final class DisclosureGroupTests: XCTestCase {
                 ForEach(children.indices, id: \.self) { index in
                     guard let childElement = try? StaticElement(from: children[index]) else {
                         logger.log("Failed to create StaticElement from child at index \(index)", .error)
-                        return ActionUIView(element: StaticElement(id: -1, type: "EmptyView", properties: [:], children: nil), state: state, windowUUID: windowUUID)
+                        return ActionUIView(element: StaticElement(id: -1, type: "EmptyView", properties: [:], subviews: nil), state: state, windowUUID: windowUUID)
                     }
                     return ActionUIView(element: childElement, state: state, windowUUID: windowUUID)
                 }

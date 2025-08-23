@@ -9,7 +9,7 @@
  {
    "type": "NavigationStack",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in properties["content"] by StaticElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
      "type": "Text", "properties": { "text": "Home" }
    },
    "properties": {
@@ -56,10 +56,9 @@ final class NavigationStackTests: XCTestCase {
         
         do {
             let element = try StaticElement(from: elementDict)
-            logger.log("Raw content: \(String(describing: element.properties["content"]))", .debug)
-            let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-            let content = validatedProperties["content"] as? any ActionUIElement
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
+            let _ = NavigationStack.validateProperties(element.properties, logger)
+            let content = element.subviews?["content"] as? any ActionUIElement
+            logger.log("content: \((content as? StaticElement)?.type ?? "nil")", .debug)
             
             XCTAssertEqual(element.id, 1, "Element ID should be 1")
             XCTAssertEqual(element.type, "NavigationStack", "Element type should be NavigationStack")
@@ -67,7 +66,7 @@ final class NavigationStackTests: XCTestCase {
             XCTAssertEqual((content as? StaticElement)?.id, 2, "Content ID should be 2")
             XCTAssertEqual((element.properties["navigationTitle"] as? String), "App", "Navigation title should be App")
             XCTAssertEqual((element.properties["path"] as? [String])?.count, 1, "Path should have 1 element")
-            XCTAssertNil(element.children, "Children should be nil")
+            XCTAssertNil(element.subviews?["children"], "Children should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }
@@ -85,9 +84,9 @@ final class NavigationStackTests: XCTestCase {
         
         do {
             let element = try StaticElement(from: elementDict)
-            let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-            let content = validatedProperties["content"] as? any ActionUIElement
-            XCTAssertEqual((content as? StaticElement)?.type, "EmptyView", "Malformed content should default to EmptyView")
+            let _ = NavigationStack.validateProperties(element.properties, logger)
+            let content = element.subviews?["content"] as? any ActionUIElement
+            XCTAssertNil(content, "Malformed content should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }

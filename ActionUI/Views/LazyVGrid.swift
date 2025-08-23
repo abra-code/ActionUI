@@ -88,7 +88,7 @@ struct LazyVGrid: ActionUIViewConstruction {
             return nil
         } ?? [GridItem(.flexible())]
         
-        let children = element.children ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.LazyVGrid(columns: columns, alignment: alignment, spacing: spacing) {
             ForEach(children, id: \.id) { child in

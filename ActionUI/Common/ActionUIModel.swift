@@ -430,7 +430,7 @@ extension ActionUIElement {
         if self.id == viewID {
             return self
         }
-        if let children = self.children {
+        if let children = self.subviews?["children"] as? [any ActionUIElement] {
             for child in children {
                 if let found = child.findElement(by: viewID) {
                     return found

@@ -66,7 +66,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
             }
         )
         
-        let children = element.children ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
             ForEach(children, id: \.id) { child in

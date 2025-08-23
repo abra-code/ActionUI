@@ -51,7 +51,7 @@ struct LazyHStack: ActionUIViewConstruction {
             }
         }()
         
-        let children = element.children ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.LazyHStack(alignment: alignment, spacing: spacing) {
             ForEach(children, id: \.id) { child in

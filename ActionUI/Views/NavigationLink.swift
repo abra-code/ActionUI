@@ -4,7 +4,7 @@
  {
    "type": "NavigationLink",
    "id": 1,
-   "destination": {      // Optional: Single child view. Note: Declared as a top-level key in JSON but stored in properties["destination"] by StaticElement.init(from:).
+   "destination": {      // Optional: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["destination"] by StaticElement.init(from:).
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
@@ -28,16 +28,7 @@ struct NavigationLink: ActionUIViewConstruction {
             logger.log("Invalid type for NavigationLink label: expected String, got \(type(of: label)), ignoring", .warning)
             validatedProperties["label"] = nil
         }
-        
-        // Validate destination
-        // Note: Expects destination in properties["destination"] as any ActionUIElement, set by StaticElement.init(from:).
-        if let destination = validatedProperties["destination"] as? any ActionUIElement {
-            logger.log("Validated destination: \((destination as? StaticElement)?.type ?? "nil")", .debug)
-        } else {
-            logger.log("NavigationLink destination invalid or missing; defaulting to EmptyView", .warning)
-            validatedProperties["destination"] = StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
-        }
-        
+                
         // Validate link
         if let link = validatedProperties["link"] as? String, link.isEmpty {
             logger.log("Invalid NavigationLink link: empty string, ignoring", .warning)
@@ -55,7 +46,7 @@ struct NavigationLink: ActionUIViewConstruction {
             logger.log("NavigationLink missing valid link, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
-        let destination = properties["destination"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
+        let destination = element.subviews?["destination"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let label = properties["label"] as? String ?? "Link"
         
         // Initialize NavigationLink-specific state

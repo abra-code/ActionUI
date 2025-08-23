@@ -21,7 +21,7 @@ struct Group: ActionUIViewConstruction {
     }
         
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let children = element.children ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.Group {
             ForEach(children, id: \.id) { child in

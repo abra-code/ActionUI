@@ -5,23 +5,23 @@
    "type": "View",       // Matches the view class name (e.g., "NavigationStack", "NavigationLink", "NavigationSplitView")
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {},     // Optional: Dictionary of view-specific properties
-   "children": [],       // Optional: Array of child elements
-   "rows": [             // Optional: Array of arrays of child elements (for Grid). Note: Handled as a top-level key in JSON but stored in properties["rows"].
+   "children": [],       // Optional: Array of child elements. Note: Handled as a top-level key in JSON but stored in subviews["children"]
+   "rows": [             // Optional: Array of arrays of child elements (for Grid). Note: Handled as a top-level key in JSON but stored in subviews["rows"]
      [
        { "type": "Text", "properties": { "text": "Cell1" } },
        { "type": "Button", "properties": { "title": "Click" } }
      ]
    ],
-   "content": {          // Optional: Single child view (for NavigationStack, etc.). Note: Handled as a top-level key in JSON but stored in properties["content"].
+   "content": {          // Optional: Single child view (for NavigationStack, etc.). Note: Handled as a top-level key in JSON but stored in subviews["content"]
      "type": "Text", "properties": { "text": "Home" }
    },
-   "destination": {      // Optional: Single child view (for NavigationLink). Note: Handled as a top-level key in JSON but stored in properties["destination"].
+   "destination": {      // Optional: Single child view (for NavigationLink). Note: Handled as a top-level key in JSON but stored in subviews["destination"]
      "type": "Text", "properties": { "text": "Detail" }
    },
-   "sidebar": {          // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in properties["sidebar"].
+   "sidebar": {          // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in subviews["sidebar"]
      "type": "Text", "properties": { "text": "Sidebar" }
    },
-   "detail": {           // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in properties["detail"].
+   "detail": {           // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in subviews["detail"]
      "type": "Text", "properties": { "text": "Detail" }
    }
  }
@@ -35,7 +35,7 @@ protocol ActionUIElement: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
-    var children: [any ActionUIElement]? { get }
+    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar" or "detail"
 }
 
 // Protocol for constructing SwiftUI views from ActionUI elements
@@ -62,7 +62,7 @@ struct StaticElement: ActionUIElement {
     let id: Int
     let type: String
     let properties: [String: Any]
-    let children: [any ActionUIElement]?
+    var subviews: [String: Any]?
     
     // Counter for generating unique negative IDs when not specified
     private static var negativeIDCounter: Int = -1
@@ -74,50 +74,73 @@ struct StaticElement: ActionUIElement {
     }
     
     // Initializes a StaticElement with explicit values
-    init(id: Int, type: String, properties: [String: Any], children: [any ActionUIElement]?) {
+    init(id: Int, type: String, properties: [String: Any], subviews: [String: Any]?) {
         self.id = id
         self.type = type
         self.properties = properties
-        self.children = children
+        self.subviews = subviews
     }
     
     // Codable conformance for encoding
-    enum CodingKeys: String, CodingKey {
+    enum ElementCodingKeys: String, CodingKey {
         case id, type, properties, children, rows, content, destination, sidebar, detail
     }
     
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: ElementCodingKeys.self)
         id = try container.decode(Int.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
         let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
         properties = decodedProperties.mapValues { $0.value }
         let decodedChildren = try container.decodeIfPresent([AnyCodable].self, forKey: .children)
-        children = decodedChildren?.compactMap { $0.value as? any ActionUIElement }
+        if decodedChildren != nil {
+            if (subviews == nil) { subviews = [:] }
+            self.subviews!["children"] = decodedChildren?.compactMap { $0.value as? any ActionUIElement }
+        }
+        
+        let decodedRows = try container.decodeIfPresent([[AnyCodable]].self, forKey: .rows)
+        if decodedRows != nil {
+            if (subviews == nil) { subviews = [:] }
+            self.subviews!["rows"] = decodedRows as? [[any ActionUIElement]]
+        }
+        
+        for key in ["content", "destination", "sidebar", "detail"] {
+            if let decodedContent = try container.decodeIfPresent(AnyCodable.self, forKey: ElementCodingKeys(rawValue: key)!) {
+                if (subviews == nil) { subviews = [:] }
+                self.subviews![key] = decodedContent as? any ActionUIElement
+            }
+        }
     }
     
     func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
+        var container = encoder.container(keyedBy: ElementCodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(type, forKey: .type)
         let encodableProperties = try properties.mapValues { try AnyCodable.convertAnyToAnyCodable($0) }
         try container.encodeIfPresent(encodableProperties, forKey: .properties)
-        if let children = children {
+        if let children = subviews?["children"] as? [any ActionUIElement] {
             let encodableChildren = children.map { AnyCodable($0) }
             try container.encodeIfPresent(encodableChildren, forKey: .children)
         } else {
             try container.encodeNil(forKey: .children)
         }
+        
+        guard let subviews else {
+            return
+        }
+        
         // Encode component-specific keys as top-level if present in properties
-        for key in ["rows", "content", "destination", "sidebar", "detail"] {
-            if let value = properties[key] as? [any ActionUIElement] {
-                let encodableValue = value.map { AnyCodable($0) }
-                try container.encodeIfPresent(encodableValue, forKey: CodingKeys(rawValue: key)!)
-            } else if let value = properties[key] as? [[any ActionUIElement]] {
-                let encodableValue = value.map { row in row.map { AnyCodable($0) } }
-                try container.encodeIfPresent(encodableValue, forKey: CodingKeys(rawValue: key)!)
-            } else if let value = properties[key] as? any ActionUIElement {
-                try container.encodeIfPresent(AnyCodable(value), forKey: CodingKeys(rawValue: key)!)
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail"] {
+            if let anySubview = subviews[key] {
+                if let value = anySubview as? [any ActionUIElement] {
+                    let encodableValue = value.map { AnyCodable($0) }
+                    try container.encodeIfPresent(encodableValue, forKey: ElementCodingKeys(rawValue: key)!)
+                } else if let value = anySubview as? [[any ActionUIElement]] {
+                    let encodableValue = value.map { row in row.map { AnyCodable($0) } }
+                    try container.encodeIfPresent(encodableValue, forKey: ElementCodingKeys(rawValue: key)!)
+                } else if let value = anySubview as? any ActionUIElement {
+                    try container.encodeIfPresent(AnyCodable(value), forKey: ElementCodingKeys(rawValue: key)!)
+                }
             }
         }
     }
@@ -130,26 +153,37 @@ struct StaticElement: ActionUIElement {
         }
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         let childrenArray = dictionary["children"] as? [[String: Any]]
+        // Note: JSON specifies "children" as a top-level key, but we move it to subviews["children"]
         let children = try childrenArray?.map { try StaticElement(from: $0) }
-        
-        var updatedProperties = properties
-        
+        var subviews: [String: Any]?
+        if children != nil {
+            subviews = [:]
+            subviews!["children"] = children
+        }
+                
         // Decode rows for Grid
-        // Note: JSON specifies "rows" as a top-level key, but we move it to properties["rows"] to align with existing Grid code expecting rows in properties.
+        // Note: JSON specifies "rows" as a top-level key, but we move it to subviews["rows"]
         if let rowsArray = dictionary["rows"] as? [[[String: Any]]] {
             let rows = try rowsArray.map { row in
                 try row.map { try StaticElement(from: $0) }
             }
-            updatedProperties["rows"] = rows
+            
+            if subviews == nil {
+                subviews = [:]
+            }
+            subviews!["rows"] = rows
         }
         
         // Decode single child views for navigation components
-        // Note: JSON specifies "content", "destination", "sidebar", "detail" as top-level keys, but we move them to properties for compatibility with existing component code.
+        // Note: JSON specifies "content", "destination", "sidebar", "detail" as top-level keys, but we move them to subviews
         for key in ["content", "destination", "sidebar", "detail"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
                     let childElement = try StaticElement(from: childDict)
-                    updatedProperties[key] = childElement
+                    if subviews == nil {
+                        subviews = [:]
+                    }
+                    subviews![key] = childElement
                 } catch {
                     // Log error and skip invalid child, leaving property unset
                     // ActionUILogger.shared.log("Failed to parse \(key) element: \(error)", .error)
@@ -158,7 +192,7 @@ struct StaticElement: ActionUIElement {
             }
         }
         
-        self.init(id: id, type: type, properties: updatedProperties, children: children)
+        self.init(id: id, type: type, properties: properties, subviews: subviews)
     }
 }
 
@@ -170,10 +204,13 @@ extension StaticElement: Equatable {
               PropertyComparison.arePropertiesEqual(lhs.properties, rhs.properties) else {
             return false
         }
-        if let lhsChildren = lhs.children, let rhsChildren = rhs.children {
+        
+        let lhsChildren = lhs.subviews?["children"] as? [StaticElement]
+        let rhsChildren = rhs.subviews?["children"] as? [StaticElement]
+        if let lhsChildren, let rhsChildren {
             guard lhsChildren.count == rhsChildren.count else { return false }
-            return zip(lhsChildren, rhsChildren).allSatisfy { $0 as? StaticElement == $1 as? StaticElement }
+            return zip(lhsChildren, rhsChildren).allSatisfy { $0 == $1 }
         }
-        return lhs.children == nil && rhs.children == nil
+        return (lhsChildren == nil) && (rhsChildren == nil)
     }
 }

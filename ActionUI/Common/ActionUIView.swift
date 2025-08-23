@@ -23,15 +23,23 @@ struct ActionUIView: SwiftUI.View, Equatable {
               ) else {
             return false
         }
+        
         // Compare children if present
-        if let lhsChildren = lhs.element.children, let rhsChildren = rhs.element.children {
+        let lhsChildren = lhs.element.subviews?["children"] as? [StaticElement]
+        let rhsChildren = rhs.element.subviews?["children"] as? [StaticElement]
+
+        if let lhsChildren, let rhsChildren {
             guard lhsChildren.count == rhsChildren.count else { return false }
-            return zip(lhsChildren, rhsChildren).allSatisfy { $0 as? StaticElement == $1 as? StaticElement }
+            let allEqual = zip(lhsChildren, rhsChildren).allSatisfy { $0 == $1 }
+            if !allEqual {
+                return false
+            }
         }
+        
         // Compare relevant state for the element
         let lhsState = (lhs.state.wrappedValue[lhs.element.id] as? [String: Any]) ?? [:]
         let rhsState = (rhs.state.wrappedValue[rhs.element.id] as? [String: Any]) ?? [:]
         return PropertyComparison.arePropertiesEqual(lhsState, rhsState) &&
-               lhs.element.children == nil && rhs.element.children == nil
+               (lhsChildren == nil) && (rhsChildren == nil)
     }
 }

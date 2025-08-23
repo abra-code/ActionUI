@@ -7,7 +7,12 @@
      "selection": 0 // Optional: Integer for selected tab index, defaults to 0
    },
    "children": [
-     { "type": "TabBarItem", "properties": { "title": "Home", "content": { "type": "Text", "properties": { "text": "Home" } } } }
+     {
+       "type": "TabBarItem",
+       "id": 2,
+       "properties": {"title": "Home"},
+       "content": {"type": "Text", "properties": {"text": "Home"}}
+     }
    ] // Required: Array of TabBarItem views
    // Note: These properties are specific to TabView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
@@ -33,7 +38,7 @@ struct TabView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let children = element.children ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         let initialSelection = (properties["selection"] as? Int) ?? 0
         if state.wrappedValue[element.id] == nil {
             state.wrappedValue[element.id] = ["value": initialSelection]

@@ -9,7 +9,7 @@
  {
    "type": "ScrollViewReader",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in properties["content"] by StaticElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
      "type": "ScrollView", "properties": { "content": { "type": "Text", "properties": { "text": "Item 1" } } }
    },
    "properties": {
@@ -56,10 +56,9 @@ final class ScrollViewReaderTests: XCTestCase {
         
         do {
             let element = try StaticElement(from: elementDict)
-            logger.log("Raw content: \(String(describing: element.properties["content"]))", .debug)
-            let validatedProperties = ScrollViewReader.validateProperties(element.properties, logger)
-            let content = validatedProperties["content"] as? any ActionUIElement
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
+            let _ = ScrollViewReader.validateProperties(element.properties, logger)
+            let content = element.subviews?["content"] as? any ActionUIElement
+            logger.log("content: \((content as? StaticElement)?.type ?? "nil")", .debug)
             
             XCTAssertEqual(element.id, 1, "Element ID should be 1")
             XCTAssertEqual(element.type, "ScrollViewReader", "Element type should be ScrollViewReader")
@@ -67,7 +66,7 @@ final class ScrollViewReaderTests: XCTestCase {
             XCTAssertEqual((content as? StaticElement)?.id, 2, "Content ID should be 2")
             XCTAssertEqual((element.properties["scrollTo"] as? Int), 5, "ScrollTo should be 5")
             XCTAssertEqual((element.properties["anchor"] as? String), "top", "Anchor should be top")
-            XCTAssertNil(element.children, "Children should be nil")
+            XCTAssertNil(element.subviews?["children"], "Children should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }
@@ -85,9 +84,9 @@ final class ScrollViewReaderTests: XCTestCase {
         
         do {
             let element = try StaticElement(from: elementDict)
-            let validatedProperties = ScrollViewReader.validateProperties(element.properties, logger)
-            let content = validatedProperties["content"] as? any ActionUIElement
-            XCTAssertEqual((content as? StaticElement)?.type, "EmptyView", "Malformed content should default to EmptyView")
+            let _ = ScrollViewReader.validateProperties(element.properties, logger)
+            let content = element.subviews?["content"] as? any ActionUIElement
+            XCTAssertNil(content, "Malformed content should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }

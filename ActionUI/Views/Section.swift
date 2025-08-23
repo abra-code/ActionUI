@@ -21,7 +21,7 @@ struct Section: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let children = element.children ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         let header = properties["header"] as? String
         

@@ -4,7 +4,7 @@
  {
    "type": "KeyframeAnimator",
    "id": 1,
-   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in properties["content"] by StaticElement.init(from:).
+   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
      "type": "Text", "properties": { "text": "Animating" }
    },
    "properties": {
@@ -37,24 +37,13 @@ struct AnimationValues: Equatable {
 struct KeyframeAnimator: ActionUIViewConstruction {
     static var valueType: Any.Type { Void.self }
     
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        var validatedProperties = properties
-        
-        // Validate content
-        // Note: Expects content in properties["content"] as any ActionUIElement, set by StaticElement.init(from:).
-        if let content = validatedProperties["content"] as? any ActionUIElement {
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
-        } else {
-            logger.log("KeyframeAnimator requires 'content'; defaulting to EmptyView", .warning)
-            validatedProperties["content"] = nil
-        }
-        
-        return validatedProperties
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, _ in
+        return properties
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         if #available(iOS 17.0, macOS 14.0, *) {
-            let content = properties["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], children: nil)
+            let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
             let initialValue = (properties["initialValue"] as? [String: Any]).map {
                 AnimationValues(
                     opacity: $0.double(forKey: "opacity") ?? 1.0,
