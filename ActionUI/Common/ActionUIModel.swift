@@ -422,21 +422,3 @@ class ActionUIModel: ObservableObject {
         states[windowUUID, default: [:]][viewID] = controlState
     }
 }
-
-// Extension to find an element by ID in the element hierarchy
-// Design decision: Recursive search supports nested JSON structures, enabling validation of properties for views at any depth
-extension ActionUIElement {
-    func findElement(by viewID: Int) -> (any ActionUIElement)? {
-        if self.id == viewID {
-            return self
-        }
-        if let children = self.subviews?["children"] as? [any ActionUIElement] {
-            for child in children {
-                if let found = child.findElement(by: viewID) {
-                    return found
-                }
-            }
-        }
-        return nil
-    }
-}

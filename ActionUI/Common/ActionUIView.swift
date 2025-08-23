@@ -1,3 +1,4 @@
+// Sources/ActionUIView.swift
 import SwiftUI
 
 struct ActionUIView: SwiftUI.View, Equatable {
@@ -14,32 +15,56 @@ struct ActionUIView: SwiftUI.View, Equatable {
     
     // Equatable conformance: Compare element, relevant state, and windowUUID
     static func == (lhs: ActionUIView, rhs: ActionUIView) -> Bool {
+        // Compare element.id, element.type, windowUUID, and element.properties
         guard lhs.element.id == rhs.element.id,
               lhs.element.type == rhs.element.type,
               lhs.windowUUID == rhs.windowUUID,
-              PropertyComparison.arePropertiesEqual(
-                lhs.element.properties,
-                rhs.element.properties
-              ) else {
+              PropertyComparison.arePropertiesEqual(lhs.element.properties, rhs.element.properties) else {
             return false
-        }
-        
-        // Compare children if present
-        let lhsChildren = lhs.element.subviews?["children"] as? [StaticElement]
-        let rhsChildren = rhs.element.subviews?["children"] as? [StaticElement]
-
-        if let lhsChildren, let rhsChildren {
-            guard lhsChildren.count == rhsChildren.count else { return false }
-            let allEqual = zip(lhsChildren, rhsChildren).allSatisfy { $0 == $1 }
-            if !allEqual {
-                return false
-            }
         }
         
         // Compare relevant state for the element
         let lhsState = (lhs.state.wrappedValue[lhs.element.id] as? [String: Any]) ?? [:]
         let rhsState = (rhs.state.wrappedValue[rhs.element.id] as? [String: Any]) ?? [:]
-        return PropertyComparison.arePropertiesEqual(lhsState, rhsState) &&
-               (lhsChildren == nil) && (rhsChildren == nil)
+        guard PropertyComparison.arePropertiesEqual(lhsState, rhsState) else {
+            return false
+        }
+        
+        // Compare subviews
+        let lhsSubviews = lhs.element.subviews ?? [:]
+        let rhsSubviews = rhs.element.subviews ?? [:]
+        guard lhsSubviews.keys.sorted() == rhsSubviews.keys.sorted() else {
+            return false
+        }
+        
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail"] {
+            let lhsValue = lhsSubviews[key]
+            let rhsValue = rhsSubviews[key]
+            
+            switch (lhsValue, rhsValue) {
+            case (nil, nil):
+                continue
+            case (let lhsChildren as [StaticElement], let rhsChildren as [StaticElement]):
+                guard lhsChildren.count == rhsChildren.count,
+                      zip(lhsChildren, rhsChildren).allSatisfy({ $0 == $1 }) else {
+                    return false
+                }
+            case (let lhsRows as [[StaticElement]], let rhsRows as [[StaticElement]]):
+                guard lhsRows.count == rhsRows.count,
+                      zip(lhsRows, rhsRows).allSatisfy({ zip($0, $1).allSatisfy({ $0 == $1 }) }) else {
+                    return false
+                }
+            case (let lhsChild as StaticElement, let rhsChild as StaticElement):
+                guard lhsChild == rhsChild else {
+                    return false
+                }
+            case (nil, _), (_, nil):
+                return false
+            default:
+                return false // Type mismatch or unsupported type
+            }
+        }
+        
+        return true
     }
 }

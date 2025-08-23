@@ -92,22 +92,23 @@ struct StaticElement: ActionUIElement {
         type = try container.decode(String.self, forKey: .type)
         let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
         properties = decodedProperties.mapValues { $0.value }
-        let decodedChildren = try container.decodeIfPresent([AnyCodable].self, forKey: .children)
-        if decodedChildren != nil {
-            if (subviews == nil) { subviews = [:] }
-            self.subviews!["children"] = decodedChildren?.compactMap { $0.value as? any ActionUIElement }
+        
+        // Initialize subviews if any subview keys are present
+        subviews = nil // Start with nil
+        if let children = try container.decodeIfPresent([StaticElement].self, forKey: .children) {
+            if subviews == nil { subviews = [:] }
+            subviews!["children"] = children
         }
         
-        let decodedRows = try container.decodeIfPresent([[AnyCodable]].self, forKey: .rows)
-        if decodedRows != nil {
-            if (subviews == nil) { subviews = [:] }
-            self.subviews!["rows"] = decodedRows as? [[any ActionUIElement]]
+        if let rows = try container.decodeIfPresent([[StaticElement]].self, forKey: .rows) {
+            if subviews == nil { subviews = [:] }
+            subviews!["rows"] = rows
         }
         
         for key in ["content", "destination", "sidebar", "detail"] {
-            if let decodedContent = try container.decodeIfPresent(AnyCodable.self, forKey: ElementCodingKeys(rawValue: key)!) {
-                if (subviews == nil) { subviews = [:] }
-                self.subviews![key] = decodedContent as? any ActionUIElement
+            if let child = try container.decodeIfPresent(StaticElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
+                if subviews == nil { subviews = [:] }
+                subviews![key] = child
             }
         }
     }
@@ -118,29 +119,38 @@ struct StaticElement: ActionUIElement {
         try container.encode(type, forKey: .type)
         let encodableProperties = try properties.mapValues { try AnyCodable.convertAnyToAnyCodable($0) }
         try container.encodeIfPresent(encodableProperties, forKey: .properties)
-        if let children = subviews?["children"] as? [any ActionUIElement] {
-            let encodableChildren = children.map { AnyCodable($0) }
-            try container.encodeIfPresent(encodableChildren, forKey: .children)
+        
+        // Early exit if subviews is nil
+        guard let subviews else {
+            try container.encodeNil(forKey: .children)
+            try container.encodeNil(forKey: .rows)
+            try container.encodeNil(forKey: .content)
+            try container.encodeNil(forKey: .destination)
+            try container.encodeNil(forKey: .sidebar)
+            try container.encodeNil(forKey: .detail)
+            return
+        }
+        
+        // Encode children
+        if let children = subviews["children"] as? [StaticElement] {
+            try container.encodeIfPresent(children, forKey: .children)
         } else {
             try container.encodeNil(forKey: .children)
         }
         
-        guard let subviews else {
-            return
+        // Encode rows
+        if let rows = subviews["rows"] as? [[StaticElement]] {
+            try container.encodeIfPresent(rows, forKey: .rows)
+        } else {
+            try container.encodeNil(forKey: .rows)
         }
         
-        // Encode component-specific keys as top-level if present in properties
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail"] {
-            if let anySubview = subviews[key] {
-                if let value = anySubview as? [any ActionUIElement] {
-                    let encodableValue = value.map { AnyCodable($0) }
-                    try container.encodeIfPresent(encodableValue, forKey: ElementCodingKeys(rawValue: key)!)
-                } else if let value = anySubview as? [[any ActionUIElement]] {
-                    let encodableValue = value.map { row in row.map { AnyCodable($0) } }
-                    try container.encodeIfPresent(encodableValue, forKey: ElementCodingKeys(rawValue: key)!)
-                } else if let value = anySubview as? any ActionUIElement {
-                    try container.encodeIfPresent(AnyCodable(value), forKey: ElementCodingKeys(rawValue: key)!)
-                }
+        // Encode single child views
+        for key in ["content", "destination", "sidebar", "detail"] {
+            if let child = subviews[key] as? StaticElement {
+                try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
+            } else {
+                try container.encodeNil(forKey: ElementCodingKeys(rawValue: key)!)
             }
         }
     }
@@ -199,18 +209,98 @@ struct StaticElement: ActionUIElement {
 // Extension to make StaticElement Equatable
 extension StaticElement: Equatable {
     static func == (lhs: StaticElement, rhs: StaticElement) -> Bool {
+        // Compare id, type, and properties
         guard lhs.id == rhs.id,
               lhs.type == rhs.type,
               PropertyComparison.arePropertiesEqual(lhs.properties, rhs.properties) else {
             return false
         }
         
-        let lhsChildren = lhs.subviews?["children"] as? [StaticElement]
-        let rhsChildren = rhs.subviews?["children"] as? [StaticElement]
-        if let lhsChildren, let rhsChildren {
-            guard lhsChildren.count == rhsChildren.count else { return false }
-            return zip(lhsChildren, rhsChildren).allSatisfy { $0 == $1 }
+        // Handle nil and empty subviews
+        let lhsSubviews = lhs.subviews ?? [:]
+        let rhsSubviews = rhs.subviews ?? [:]
+        guard lhsSubviews.keys.sorted() == rhsSubviews.keys.sorted() else {
+            return false
         }
-        return (lhsChildren == nil) && (rhsChildren == nil)
+        
+        // Compare all subviews keys
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail"] {
+            let lhsValue = lhsSubviews[key]
+            let rhsValue = rhsSubviews[key]
+            
+            switch (lhsValue, rhsValue) {
+            case (nil, nil):
+                continue
+            case (let lhsChildren as [StaticElement], let rhsChildren as [StaticElement]):
+                guard lhsChildren.count == rhsChildren.count,
+                      zip(lhsChildren, rhsChildren).allSatisfy({ $0 == $1 }) else {
+                    return false
+                }
+            case (let lhsRows as [[StaticElement]], let rhsRows as [[StaticElement]]):
+                guard lhsRows.count == rhsRows.count,
+                      zip(lhsRows, rhsRows).allSatisfy({ zip($0, $1).allSatisfy({ $0 == $1 }) }) else {
+                    return false
+                }
+            case (let lhsChild as StaticElement, let rhsChild as StaticElement):
+                guard lhsChild == rhsChild else {
+                    return false
+                }
+            case (nil, _), (_, nil):
+                return false
+            default:
+                return false // Type mismatch or unsupported type
+            }
+        }
+        
+        return true
+    }
+}
+
+// Extension to find an element by ID in the element hierarchy
+// Design decision: Recursive search supports nested JSON structures, enabling validation of properties for views at any depth
+// In ActionUIElement.swift, replace the existing extension with:
+
+extension ActionUIElement {
+    func findElement(by viewID: Int) -> (any ActionUIElement)? {
+        // Check if the current element matches the ID
+        if self.id == viewID {
+            return self
+        }
+        
+        // Check all possible subview keys
+        guard let subviews = self.subviews else {
+            return nil
+        }
+        
+        // Search in "children" (array of elements)
+        if let children = subviews["children"] as? [any ActionUIElement] {
+            for child in children {
+                if let found = child.findElement(by: viewID) {
+                    return found
+                }
+            }
+        }
+        
+        // Search in "rows" (array of arrays of elements)
+        if let rows = subviews["rows"] as? [[any ActionUIElement]] {
+            for row in rows {
+                for child in row {
+                    if let found = child.findElement(by: viewID) {
+                        return found
+                    }
+                }
+            }
+        }
+        
+        // Search in single-child keys: "content", "destination", "sidebar", "detail"
+        for key in ["content", "destination", "sidebar", "detail"] {
+            if let child = subviews[key] as? any ActionUIElement {
+                if let found = child.findElement(by: viewID) {
+                    return found
+                }
+            }
+        }
+        
+        return nil
     }
 }
