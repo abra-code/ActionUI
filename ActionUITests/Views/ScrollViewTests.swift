@@ -9,7 +9,7 @@
  {
    "type": "ScrollView",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Scrollable content" }
    },
    "properties": {
@@ -55,15 +55,15 @@ final class ScrollViewTests: XCTestCase {
         ]
         
         do {
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let _ = ScrollView.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
+            logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
             
             XCTAssertEqual(element.id, 1, "Element ID should be 1")
             XCTAssertEqual(element.type, "ScrollView", "Element type should be ScrollView")
-            XCTAssertEqual((content as? StaticElement)?.type, "Text", "Content should be Text")
-            XCTAssertEqual((content as? StaticElement)?.id, 2, "Content ID should be 2")
+            XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
+            XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
             XCTAssertEqual((element.properties["axis"] as? String), "vertical", "Axis should be vertical")
             XCTAssertEqual((element.properties["showsIndicators"] as? Bool), true, "ShowsIndicators should be true")
             XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -83,7 +83,7 @@ final class ScrollViewTests: XCTestCase {
         ]
         
         do {
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let _ = ScrollView.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content, "Malformed content should be nil")

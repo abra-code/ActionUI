@@ -41,7 +41,7 @@ final class GaugeTests: XCTestCase {
                 "range": ["min": 0.0, "max": 100.0]
             ]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Gauge.validateProperties(element.properties, logger)
         
@@ -74,7 +74,7 @@ final class GaugeTests: XCTestCase {
             ]
         ]
         
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Gauge", "Element type should be Gauge")

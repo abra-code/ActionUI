@@ -4,7 +4,7 @@
  {
    "type": "NavigationSplitView",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by StaticElement.init(from:).
+   "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Sidebar" }
    },
    "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
@@ -48,9 +48,9 @@ struct NavigationSplitView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let sidebar = element.subviews?["sidebar"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let detail = element.subviews?["detail"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let sidebar = element.subviews?["sidebar"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let detail = element.subviews?["detail"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         // Initialize NavigationSplitView-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]

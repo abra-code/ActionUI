@@ -4,7 +4,7 @@
  {
    "type": "Grid",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "rows": [             // Required: Array of arrays of ActionUIElement objects. Note: Declared as a top-level key in JSON but stored in subviews["rows"] by StaticElement.init(from:).
+   "rows": [             // Required: Array of arrays of ActionUIElement objects. Note: Declared as a top-level key in JSON but stored in subviews["rows"] by ViewElement.init(from:).
      [
        { "type": "Text", "properties": { "text": "Cell1" } },
        { "type": "Button", "properties": { "title": "Click" } }

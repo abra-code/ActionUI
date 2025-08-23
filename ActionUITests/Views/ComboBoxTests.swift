@@ -112,7 +112,7 @@ final class ComboBoxTests: XCTestCase {
                 "options": ["Option1", "Option2"]
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         
@@ -130,7 +130,7 @@ final class ComboBoxTests: XCTestCase {
                 "options": ["Option1", "Option2"]
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         
@@ -146,7 +146,7 @@ final class ComboBoxTests: XCTestCase {
             "type": "ComboBox",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         
@@ -161,7 +161,7 @@ final class ComboBoxTests: XCTestCase {
             "type": "ComboBox",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         
@@ -180,7 +180,7 @@ final class ComboBoxTests: XCTestCase {
                 "options": ["Option1", "Option2"]
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         

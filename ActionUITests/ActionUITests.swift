@@ -57,7 +57,7 @@ final class ActionUITests: XCTestCase {
         
         let model = ActionUIModel.shared
         
-        // Parse JSON into StaticElement
+        // Parse JSON into ViewElement
         
         do {
             try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)

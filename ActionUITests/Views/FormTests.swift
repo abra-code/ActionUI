@@ -40,7 +40,7 @@ final class FormTests: XCTestCase {
                 ["id": 3, "type": "Button", "properties": ["label": "Submit", "actionID": "submitAction"]]
             ]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Form.validateProperties(element.properties, logger)
         
@@ -64,10 +64,10 @@ final class FormTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Should have 2 children")
-        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
-        XCTAssertEqual((children[1] as? StaticElement)?.type, "Button", "Second child should be Button")
-        XCTAssertEqual((children[1] as? StaticElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
+        XCTAssertEqual((children[1] as? ViewElement)?.type, "Button", "Second child should be Button")
+        XCTAssertEqual((children[1] as? ViewElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
     }
     
     func testFormJSONDecoding() {
@@ -80,7 +80,7 @@ final class FormTests: XCTestCase {
             ]
         ]
         
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
@@ -92,8 +92,8 @@ final class FormTests: XCTestCase {
         }
 
         XCTAssertEqual(children.count, 1, "Should have 1 child")
-        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "Child should be Text")
-        XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "Child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
     }
     
     func testFormValidateProperties() {

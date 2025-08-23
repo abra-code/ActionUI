@@ -82,7 +82,7 @@ final class CanvasTests: XCTestCase {
                 "actionID": "canvas.action"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
         
@@ -99,7 +99,7 @@ final class CanvasTests: XCTestCase {
             "type": "Canvas",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
         

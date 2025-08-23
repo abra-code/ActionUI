@@ -4,7 +4,7 @@
  {
    "type": "ScrollViewReader",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "content": {          // Required: Single child view (typically ScrollView). Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
+   "content": {          // Required: Single child view (typically ScrollView). Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
      "type": "ScrollView", "properties": { "content": { "type": "Text", "properties": { "text": "Item 1" } } }
    },
    "properties": {
@@ -40,7 +40,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         return SwiftUI.ScrollViewReader { proxy in
             ActionUIView(element: content, state: state, windowUUID: windowUUID)

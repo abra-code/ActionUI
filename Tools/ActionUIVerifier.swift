@@ -14,7 +14,7 @@ struct ActionUIVerifier {
     func verify(jsonPath: String) -> Bool {
         do {
             let data = try Data(contentsOf: URL(fileURLWithPath: jsonPath))
-            let element = try JSONDecoder().decode(StaticElement.self, from: data)
+            let element = try JSONDecoder().decode(ViewElement.self, from: data)
             return validateElement(element, path: jsonPath)
         } catch {
             logger.log("Failed to load or decode JSON at \(jsonPath): \(error)", .error)

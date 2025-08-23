@@ -81,7 +81,7 @@ final class ButtonTests: XCTestCase {
                 "role": "destructive"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Button.validateProperties(element.properties, logger)
         
@@ -99,7 +99,7 @@ final class ButtonTests: XCTestCase {
             "type": "Button",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Button.validateProperties(element.properties, logger)
         

@@ -244,7 +244,7 @@ final class ViewTests: XCTestCase {
                 "shadow": ["color": "black", "radius": 5.0, "x": 0.0, "y": 2.0]
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = View.validateProperties(element.properties, logger)
         
@@ -262,7 +262,7 @@ final class ViewTests: XCTestCase {
             "type": "View",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = View.validateProperties(element.properties, logger)
         
@@ -282,7 +282,7 @@ final class ViewTests: XCTestCase {
                 "accessibilityIdentifier": "view_1"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = View.validateProperties(element.properties, logger)
         

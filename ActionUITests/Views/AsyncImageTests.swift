@@ -104,7 +104,7 @@ final class AsyncImageTests: XCTestCase {
                 "contentMode": "fit"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         
@@ -126,7 +126,7 @@ final class AsyncImageTests: XCTestCase {
                 "contentMode": "fit"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         
@@ -147,7 +147,7 @@ final class AsyncImageTests: XCTestCase {
                 "contentMode": "fit"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         

@@ -40,13 +40,13 @@ enum PropertyComparison {
                         if !arePropertiesEqual(lhsDict, rhsDict) { return false }
                     case let (lhsArr as [Any], rhsArr as [Any]):
                         if !arePropertiesEqual(["array": lhsArr], ["array": rhsArr]) { return false }
-                    case let (lhsElem as StaticElement, rhsElem as StaticElement):
+                    case let (lhsElem as ViewElement, rhsElem as ViewElement):
                         if lhsElem != rhsElem { return false }
                     default:
                         return false
                     }
                 }
-            case let (lhsElem as StaticElement, rhsElem as StaticElement):
+            case let (lhsElem as ViewElement, rhsElem as ViewElement):
                 if lhsElem != rhsElem { return false }
             default:
                 return false

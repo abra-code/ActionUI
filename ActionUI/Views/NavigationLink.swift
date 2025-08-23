@@ -4,7 +4,7 @@
  {
    "type": "NavigationLink",
    "id": 1,
-   "destination": {      // Optional: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["destination"] by StaticElement.init(from:).
+   "destination": {      // Optional: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["destination"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
@@ -46,7 +46,7 @@ struct NavigationLink: ActionUIViewConstruction {
             logger.log("NavigationLink missing valid link, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
-        let destination = element.subviews?["destination"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let destination = element.subviews?["destination"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let label = properties["label"] as? String ?? "Link"
         
         // Initialize NavigationLink-specific state

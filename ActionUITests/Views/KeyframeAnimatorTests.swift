@@ -9,7 +9,7 @@
  {
    "type": "KeyframeAnimator",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Animating" }
    },
    "properties": {
@@ -61,15 +61,15 @@ final class KeyframeAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
+            logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
             
             XCTAssertEqual(element.id, 1, "Element ID should be 1")
             XCTAssertEqual(element.type, "KeyframeAnimator", "Element type should be KeyframeAnimator")
-            XCTAssertEqual((content as? StaticElement)?.type, "Text", "Content should be Text")
-            XCTAssertEqual((content as? StaticElement)?.id, 2, "Content ID should be 2")
+            XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
+            XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
             XCTAssertEqual((element.properties["initialValue"] as? [String: Any])?["opacity"] as? Double, 0.0, "Initial opacity should be 0.0")
             XCTAssertEqual((element.properties["trigger"] as? String), "onAppear", "Trigger should be onAppear")
             XCTAssertEqual((element.properties["keyframes"] as? [String: [String: Any]])?["0%"]?["type"] as? String, "linear", "Keyframe type should be linear")
@@ -90,10 +90,10 @@ final class KeyframeAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
-            XCTAssertNil(content as? StaticElement, "Malformed content should be nil")
+            XCTAssertNil(content as? ViewElement, "Malformed content should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }

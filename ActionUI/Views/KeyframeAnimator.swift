@@ -4,7 +4,7 @@
  {
    "type": "KeyframeAnimator",
    "id": 1,
-   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
+   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Animating" }
    },
    "properties": {
@@ -43,7 +43,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         if #available(iOS 17.0, macOS 14.0, *) {
-            let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+            let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
             let initialValue = (properties["initialValue"] as? [String: Any]).map {
                 AnimationValues(
                     opacity: $0.double(forKey: "opacity") ?? 1.0,

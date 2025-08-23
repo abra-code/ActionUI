@@ -28,25 +28,25 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithIdenticalChildren() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
-                    StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
+                    ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
-                    StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
+                    ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                 ]
             ]
         )
@@ -60,23 +60,23 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentChildren() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
                 ]
             ]
         )
@@ -90,34 +90,34 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithIdenticalRows() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
-                        StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
+                        ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                     ],
                     [
-                        StaticElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
+                        ViewElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
                     ]
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
-                        StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
+                        ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                     ],
                     [
-                        StaticElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
+                        ViewElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
                     ]
                 ]
             ]
@@ -132,26 +132,26 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentRows() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil)
                     ]
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell2"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell2"], subviews: nil)
                     ]
                 ]
             ]
@@ -166,20 +166,20 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithIdenticalContent() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
         let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
@@ -192,20 +192,20 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentContent() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Different"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Different"], subviews: nil)
             ]
         )
         let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
@@ -218,26 +218,26 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithIdenticalMixedSubviews() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
         let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
@@ -250,26 +250,26 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentMixedSubviews() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
         let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
@@ -282,7 +282,7 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentState() {
         // Arrange
-        let element = StaticElement(
+        let element = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
@@ -299,7 +299,7 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentWindowUUID() {
         // Arrange
-        let element = StaticElement(
+        let element = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
@@ -315,13 +315,13 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithEmptyAndNilSubviewsEarlyReturn() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: nil
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
@@ -337,22 +337,22 @@ final class ActionUIViewTests: XCTestCase {
     
     func testEquatableWithDifferentSubviewKeys() {
         // Arrange
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
             ]
         )
         let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
@@ -365,7 +365,7 @@ final class ActionUIViewTests: XCTestCase {
     
     func testBodyProducesValidView() {
         // Arrange
-        let element = StaticElement(
+        let element = ViewElement(
             id: 1,
             type: "Text",
             properties: ["text": "Hello"],

@@ -36,7 +36,7 @@ final class DisclosureGroupTests: XCTestCase {
             "type": "DisclosureGroup",
             "properties": ["label": "Test"]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
                 
@@ -86,7 +86,7 @@ final class DisclosureGroupTests: XCTestCase {
             "type": "DisclosureGroup",
             "properties": [:]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         
@@ -109,7 +109,7 @@ final class DisclosureGroupTests: XCTestCase {
                 ["id": 2, "type": "Text", "properties": ["text": "Content"]]
             ]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         
@@ -155,8 +155,8 @@ final class DisclosureGroupTests: XCTestCase {
             ]
         ]
         
-        // Decode JSON to StaticElement
-        let element = try! StaticElement(from: elementDict)
+        // Decode JSON to ViewElement
+        let element = try! ViewElement(from: elementDict)
         
         // Verify decoded element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -164,15 +164,15 @@ final class DisclosureGroupTests: XCTestCase {
         XCTAssertEqual(element.properties["label"] as? String, "Details", "Label should be Details")
         XCTAssertEqual(element.properties["isExpanded"] as? Bool, true, "isExpanded should be true")
         
-        // Verify children are StaticElement instances
+        // Verify children are ViewElement instances
         let children = element.subviews?["children"] as? [any ActionUIElement]
         XCTAssertNotNil(children, "Children should not be nil")
         if let children {
             XCTAssertEqual(children.count, 2, "Should have 2 children")
-            XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
-            XCTAssertEqual((children[0] as? StaticElement)?.properties["text"] as? String, "Hello, World!", "First child text should be correct")
-            XCTAssertEqual((children[1] as? StaticElement)?.type, "Button", "Second child should be Button")
-            XCTAssertEqual((children[1] as? StaticElement)?.properties["label"] as? String, "Click Me", "Second child label should be correct")
+            XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
+            XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Hello, World!", "First child text should be correct")
+            XCTAssertEqual((children[1] as? ViewElement)?.type, "Button", "Second child should be Button")
+            XCTAssertEqual((children[1] as? ViewElement)?.properties["label"] as? String, "Click Me", "Second child label should be correct")
         }
         
         // Test corrected buildView via ActionUIRegistry
@@ -218,9 +218,9 @@ final class DisclosureGroupTests: XCTestCase {
             let children = properties["children"] as? [[String: Any]] ?? []
             return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
                 ForEach(children.indices, id: \.self) { index in
-                    guard let childElement = try? StaticElement(from: children[index]) else {
-                        logger.log("Failed to create StaticElement from child at index \(index)", .error)
-                        return ActionUIView(element: StaticElement(id: -1, type: "EmptyView", properties: [:], subviews: nil), state: state, windowUUID: windowUUID)
+                    guard let childElement = try? ViewElement(from: children[index]) else {
+                        logger.log("Failed to create ViewElement from child at index \(index)", .error)
+                        return ActionUIView(element: ViewElement(id: -1, type: "EmptyView", properties: [:], subviews: nil), state: state, windowUUID: windowUUID)
                     }
                     return ActionUIView(element: childElement, state: state, windowUUID: windowUUID)
                 }

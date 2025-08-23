@@ -48,8 +48,8 @@ struct AnyCodable: Codable {
             self.value = arrayValue
             return
         }
-        // Finally, try StaticElement for nested ActionUIElement
-        if let elementValue = try? container.decode(StaticElement.self) {
+        // Finally, try ViewElement for nested ActionUIElement
+        if let elementValue = try? container.decode(ViewElement.self) {
             self.value = elementValue
             return
         }
@@ -90,8 +90,8 @@ struct AnyCodable: Codable {
             try container.encode(arrayValue)
             return
         }
-        // Finally, handle StaticElement for nested ActionUIElement
-        if let elementValue = value as? StaticElement {
+        // Finally, handle ViewElement for nested ActionUIElement
+        if let elementValue = value as? ViewElement {
             try container.encode(elementValue)
             return
         }
@@ -107,7 +107,7 @@ struct AnyCodable: Codable {
     
     // Converts the wrapped Codable value to an ActionUIElement, throwing if invalid
     func asActionUIElement() throws -> any ActionUIElement {
-        if let element = value as? StaticElement {
+        if let element = value as? ViewElement {
             return element
         }
         throw DecodingError.typeMismatch(
@@ -134,7 +134,7 @@ struct AnyCodable: Codable {
             return try dictValue.mapValues { try convertAnyCodableToAny($0) }
         case let arrayValue as [AnyCodable]:
             return try arrayValue.map { try convertAnyCodableToAny($0) }
-        case let elementValue as StaticElement:
+        case let elementValue as ViewElement:
             return elementValue
         default:
             throw DecodingError.typeMismatch(
@@ -162,7 +162,7 @@ struct AnyCodable: Codable {
             return AnyCodable(try dictValue.mapValues { try convertAnyToAnyCodable($0) })
         case let arrayValue as [Any]:
             return AnyCodable(try arrayValue.map { try convertAnyToAnyCodable($0) })
-        case let elementValue as StaticElement:
+        case let elementValue as ViewElement:
             return AnyCodable(elementValue)
         default:
             throw EncodingError.invalidValue(

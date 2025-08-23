@@ -4,7 +4,7 @@
  {
    "type": "NavigationStack",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
-   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
+   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Home" }
    },
    "properties": {
@@ -36,7 +36,7 @@ struct NavigationStack: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        let content = element.subviews?["content"] as? any ActionUIElement ?? StaticElement(id: StaticElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let initialPath = (properties["path"] as? [String]) ?? []
         
         // Initialize NavigationStack-specific state

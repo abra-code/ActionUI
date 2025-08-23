@@ -9,7 +9,7 @@
  {
    "type": "TabBarItem",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by StaticElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
      "type": "Text", "properties": { "text": "Home" }
    },
    "properties": {
@@ -55,15 +55,15 @@ final class TabBarItemTests: XCTestCase {
         ]
         
         do {
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let _ = TabBarItem.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
-            logger.log("Validated content: \((content as? StaticElement)?.type ?? "nil")", .debug)
+            logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
             
             XCTAssertEqual(element.id, 1, "Element ID should be 1")
             XCTAssertEqual(element.type, "TabBarItem", "Element type should be TabBarItem")
-            XCTAssertEqual((content as? StaticElement)?.type, "Text", "Content should be Text")
-            XCTAssertEqual((content as? StaticElement)?.id, 2, "Content ID should be 2")
+            XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
+            XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
             XCTAssertEqual((element.properties["title"] as? String), "Home", "Title should be Home")
             XCTAssertEqual((element.properties["systemImage"] as? String), "house", "SystemImage should be house")
             XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -83,7 +83,7 @@ final class TabBarItemTests: XCTestCase {
         ]
         
         do {
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let _ = TabBarItem.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content, "Malformed content should be nil")

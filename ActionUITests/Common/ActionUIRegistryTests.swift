@@ -43,7 +43,7 @@ final class ActionUIRegistryTests: XCTestCase {
                 "type": viewType,
                 "properties": [:]
             ]
-            let element = try StaticElement(from: elementDict)
+            let element = try ViewElement(from: elementDict)
             let state = ActionUIModel.shared.state(for: UUID().uuidString)
             let validatedProperties = registry.getValidatedProperties(element: element, state: state)
             
@@ -77,7 +77,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "type": "MockView",
             "properties": ["test": "value"]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let validatedProperties = registry.getValidatedProperties(element: element, state: state)
         let view = registry.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
         XCTAssertFalse(view is SwiftUI.EmptyView, "buildView for 'MockView' should return a valid view")
@@ -92,7 +92,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "type": "UnknownView",
             "properties": ["test": "value"]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         
         let validatedProperties = registry.getValidatedProperties(element: element, state: state)
@@ -109,7 +109,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "type": "TextField",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         
         await MainActor.run {
@@ -130,7 +130,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "type": "TextField",
             "properties": ["placeholder": "Enter text"]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         
         let validatedProperties = registry.getValidatedProperties(element: element, state: state)
         _ = registry.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)

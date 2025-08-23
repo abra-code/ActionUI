@@ -106,7 +106,7 @@ final class DatePickerTests: XCTestCase {
                 "selectedDate": "2024-07-16T00:00:00Z"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DatePicker.validateProperties(element.properties, logger)
         
@@ -123,7 +123,7 @@ final class DatePickerTests: XCTestCase {
             "type": "DatePicker",
             "properties": [:]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DatePicker.validateProperties(element.properties, logger)
         
@@ -143,7 +143,7 @@ final class DatePickerTests: XCTestCase {
                 "selectedDate": "2024-07-16T00:00:00Z"
             ]
         ]
-        let element = try StaticElement(from: elementDict)
+        let element = try ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DatePicker.validateProperties(element.properties, logger)
         

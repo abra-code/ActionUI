@@ -87,11 +87,11 @@ class ActionUIModel: ObservableObject {
     
     func loadDescription(from data: Data, format: String, windowUUID: String) throws {
         if format == "json" {
-            let element = try JSONDecoder().decode(StaticElement.self, from: data)
+            let element = try JSONDecoder().decode(ViewElement.self, from: data)
             descriptions[windowUUID] = element
             logger.log("Loaded JSON description for windowUUID: \(windowUUID)", .verbose)
         } else if format == "plist" {
-            let element = try PropertyListDecoder().decode(StaticElement.self, from: data)
+            let element = try PropertyListDecoder().decode(ViewElement.self, from: data)
             descriptions[windowUUID] = element
             logger.log("Loaded plist description for windowUUID: \(windowUUID)", .verbose)
         } else {
@@ -101,7 +101,7 @@ class ActionUIModel: ObservableObject {
     }
     
     func loadDescription(from dict: [String:Any], windowUUID: String) throws {
-        let element = try StaticElement(from: dict)
+        let element = try ViewElement(from: dict)
         descriptions[windowUUID] = element
     }
     

@@ -36,7 +36,7 @@ final class EmptyViewTests: XCTestCase {
             "type": "EmptyView",
             "properties": [:]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = EmptyView.validateProperties(element.properties, logger)
         
@@ -61,7 +61,7 @@ final class EmptyViewTests: XCTestCase {
             "properties": ["padding": 10.0]
         ]
         
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "EmptyView", "Element type should be EmptyView")

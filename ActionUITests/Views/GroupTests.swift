@@ -40,7 +40,7 @@ final class GroupTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Group.validateProperties(element.properties, logger)
         
@@ -54,10 +54,10 @@ final class GroupTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Group should have 2 children")
-        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? StaticElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? StaticElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? StaticElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
 
     }
     
@@ -72,7 +72,7 @@ final class GroupTests: XCTestCase {
             ]
         ]
         
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Group", "Element type should be Group")
@@ -83,10 +83,10 @@ final class GroupTests: XCTestCase {
         }
 
         XCTAssertEqual(children.count, 2, "Children should have 2 elements")
-        XCTAssertEqual((children[0] as? StaticElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? StaticElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? StaticElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? StaticElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testGroupValidatePropertiesValid() {
@@ -119,7 +119,7 @@ final class GroupTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Static"]]
             ]
         ]
-        let element = try! StaticElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict)
         ActionUIModel.shared.descriptions[windowUUID] = element
         let validatedProperties = Group.validateProperties(element.properties, logger)
         
@@ -140,7 +140,7 @@ final class GroupTests: XCTestCase {
                 ["type": "TextField", "id": 2, "properties": ["placeholder": "Enter text"]]
             ]
         ]
-        let reorderedElement = try! StaticElement(from: reorderedDict)
+        let reorderedElement = try! ViewElement(from: reorderedDict)
         ActionUIModel.shared.descriptions[windowUUID] = reorderedElement
         let reorderedValidatedProperties = Group.validateProperties(reorderedElement.properties, logger)
         

@@ -38,7 +38,7 @@ protocol ActionUIElement: Identifiable, Codable {
     var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar" or "detail"
 }
 
-// Protocol for constructing SwiftUI views from ActionUI elements
+// Protocol for constructing SwiftUI views from ActionUIElements
 protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
@@ -57,8 +57,8 @@ extension ActionUIViewConstruction {
     }
 }
 
-// Concrete implementation of ActionUIElement for static UI elements
-struct StaticElement: ActionUIElement {
+// Concrete implementation of ActionUIElement with data for constructing SwiftUI views
+struct ViewElement: ActionUIElement {
     let id: Int
     let type: String
     let properties: [String: Any]
@@ -73,7 +73,7 @@ struct StaticElement: ActionUIElement {
         return negativeIDCounter
     }
     
-    // Initializes a StaticElement with explicit values
+    // Initializes a ViewElement with explicit values
     init(id: Int, type: String, properties: [String: Any], subviews: [String: Any]?) {
         self.id = id
         self.type = type
@@ -95,18 +95,18 @@ struct StaticElement: ActionUIElement {
         
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
-        if let children = try container.decodeIfPresent([StaticElement].self, forKey: .children) {
+        if let children = try container.decodeIfPresent([ViewElement].self, forKey: .children) {
             if subviews == nil { subviews = [:] }
             subviews!["children"] = children
         }
         
-        if let rows = try container.decodeIfPresent([[StaticElement]].self, forKey: .rows) {
+        if let rows = try container.decodeIfPresent([[ViewElement]].self, forKey: .rows) {
             if subviews == nil { subviews = [:] }
             subviews!["rows"] = rows
         }
         
         for key in ["content", "destination", "sidebar", "detail"] {
-            if let child = try container.decodeIfPresent(StaticElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
+            if let child = try container.decodeIfPresent(ViewElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = child
             }
@@ -132,14 +132,14 @@ struct StaticElement: ActionUIElement {
         }
         
         // Encode children
-        if let children = subviews["children"] as? [StaticElement] {
+        if let children = subviews["children"] as? [ViewElement] {
             try container.encodeIfPresent(children, forKey: .children)
         } else {
             try container.encodeNil(forKey: .children)
         }
         
         // Encode rows
-        if let rows = subviews["rows"] as? [[StaticElement]] {
+        if let rows = subviews["rows"] as? [[ViewElement]] {
             try container.encodeIfPresent(rows, forKey: .rows)
         } else {
             try container.encodeNil(forKey: .rows)
@@ -147,7 +147,7 @@ struct StaticElement: ActionUIElement {
         
         // Encode single child views
         for key in ["content", "destination", "sidebar", "detail"] {
-            if let child = subviews[key] as? StaticElement {
+            if let child = subviews[key] as? ViewElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
                 try container.encodeNil(forKey: ElementCodingKeys(rawValue: key)!)
@@ -155,16 +155,16 @@ struct StaticElement: ActionUIElement {
         }
     }
     
-    // Initializes a StaticElement from a dictionary (e.g., parsed JSON)
+    // Initializes a ViewElement from a dictionary (e.g., parsed JSON)
     init(from dictionary: [String: Any]) throws {
-        let id = dictionary["id"] as? Int ?? StaticElement.generateNegativeID()
+        let id = dictionary["id"] as? Int ?? ViewElement.generateNegativeID()
         guard let type = dictionary["type"] as? String else {
-            throw NSError(domain: "StaticElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
+            throw NSError(domain: "ViewElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
         }
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         let childrenArray = dictionary["children"] as? [[String: Any]]
         // Note: JSON specifies "children" as a top-level key, but we move it to subviews["children"]
-        let children = try childrenArray?.map { try StaticElement(from: $0) }
+        let children = try childrenArray?.map { try ViewElement(from: $0) }
         var subviews: [String: Any]?
         if children != nil {
             subviews = [:]
@@ -175,7 +175,7 @@ struct StaticElement: ActionUIElement {
         // Note: JSON specifies "rows" as a top-level key, but we move it to subviews["rows"]
         if let rowsArray = dictionary["rows"] as? [[[String: Any]]] {
             let rows = try rowsArray.map { row in
-                try row.map { try StaticElement(from: $0) }
+                try row.map { try ViewElement(from: $0) }
             }
             
             if subviews == nil {
@@ -189,7 +189,7 @@ struct StaticElement: ActionUIElement {
         for key in ["content", "destination", "sidebar", "detail"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
-                    let childElement = try StaticElement(from: childDict)
+                    let childElement = try ViewElement(from: childDict)
                     if subviews == nil {
                         subviews = [:]
                     }
@@ -206,9 +206,9 @@ struct StaticElement: ActionUIElement {
     }
 }
 
-// Extension to make StaticElement Equatable
-extension StaticElement: Equatable {
-    static func == (lhs: StaticElement, rhs: StaticElement) -> Bool {
+// Extension to make ViewElement Equatable
+extension ViewElement: Equatable {
+    static func == (lhs: ViewElement, rhs: ViewElement) -> Bool {
         // Compare id, type, and properties
         guard lhs.id == rhs.id,
               lhs.type == rhs.type,
@@ -231,17 +231,17 @@ extension StaticElement: Equatable {
             switch (lhsValue, rhsValue) {
             case (nil, nil):
                 continue
-            case (let lhsChildren as [StaticElement], let rhsChildren as [StaticElement]):
+            case (let lhsChildren as [ViewElement], let rhsChildren as [ViewElement]):
                 guard lhsChildren.count == rhsChildren.count,
                       zip(lhsChildren, rhsChildren).allSatisfy({ $0 == $1 }) else {
                     return false
                 }
-            case (let lhsRows as [[StaticElement]], let rhsRows as [[StaticElement]]):
+            case (let lhsRows as [[ViewElement]], let rhsRows as [[ViewElement]]):
                 guard lhsRows.count == rhsRows.count,
                       zip(lhsRows, rhsRows).allSatisfy({ zip($0, $1).allSatisfy({ $0 == $1 }) }) else {
                     return false
                 }
-            case (let lhsChild as StaticElement, let rhsChild as StaticElement):
+            case (let lhsChild as ViewElement, let rhsChild as ViewElement):
                 guard lhsChild == rhsChild else {
                     return false
                 }

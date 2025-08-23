@@ -2,7 +2,7 @@
 /*
  ActionUIElementTests.swift
 
- Tests for StaticElement in ActionUIElement.swift, focusing on encoding/decoding, Equatable conformance, and findElement functionality.
+ Tests for ViewElement in ActionUIElement.swift, focusing on encoding/decoding, Equatable conformance, and findElement functionality.
  Verifies JSON serialization with various subviews (children, rows, content, destination, sidebar, detail),
  equality comparisons for all subviews types, and edge cases for robust JSON parsing and error handling.
  Also tests findElement(by:) for locating elements by ID in all possible subview keys and nested structures.
@@ -45,14 +45,14 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
         XCTAssertEqual(element.type, "View", "Type should be View")
         XCTAssertEqual(element.properties.double(forKey: "padding"), 8.0, "Padding should be 8.0")
         XCTAssertNotNil(element.subviews, "Subviews should not be nil")
-        if let children = element.subviews?["children"] as? [StaticElement] {
+        if let children = element.subviews?["children"] as? [ViewElement] {
             XCTAssertEqual(children.count, 2, "Should have 2 children")
             XCTAssertEqual(children[0].id, 2, "First child ID should be 2")
             XCTAssertEqual(children[0].type, "Text", "First child type should be Text")
@@ -61,12 +61,12 @@ final class ActionUIElementTests: XCTestCase {
             XCTAssertEqual(children[1].type, "Button", "Second child type should be Button")
             XCTAssertEqual(children[1].properties["title"] as? String, "Click", "Second child title should be Click")
         } else {
-            XCTFail("Children should be an array of StaticElement")
+            XCTFail("Children should be an array of ViewElement")
         }
         
         // Act: Encode back to JSON
         let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(StaticElement.self, from: encodedData)
+        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -96,14 +96,14 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
         XCTAssertEqual(element.type, "Grid", "Type should be Grid")
         XCTAssertEqual(element.properties.double(forKey: "spacing"), 10.0, "Spacing should be 10.0")
         XCTAssertNotNil(element.subviews, "Subviews should not be nil")
-        if let rows = element.subviews?["rows"] as? [[StaticElement]] {
+        if let rows = element.subviews?["rows"] as? [[ViewElement]] {
             XCTAssertEqual(rows.count, 2, "Should have 2 rows")
             XCTAssertEqual(rows[0].count, 2, "First row should have 2 elements")
             XCTAssertEqual(rows[0][0].id, 2, "First cell ID should be 2")
@@ -117,12 +117,12 @@ final class ActionUIElementTests: XCTestCase {
             XCTAssertEqual(rows[1][0].type, "Text", "Second row cell type should be Text")
             XCTAssertEqual(rows[1][0].properties["text"] as? String, "Cell2", "Second row cell text should be Cell2")
         } else {
-            XCTFail("Rows should be an array of arrays of StaticElement")
+            XCTFail("Rows should be an array of arrays of ViewElement")
         }
         
         // Act: Encode back to JSON
         let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(StaticElement.self, from: encodedData)
+        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -144,24 +144,24 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
         XCTAssertEqual(element.type, "NavigationStack", "Type should be NavigationStack")
         XCTAssertEqual(element.properties["title"] as? String, "Home", "Title should be Home")
         XCTAssertNotNil(element.subviews, "Subviews should not be nil")
-        if let content = element.subviews?["content"] as? StaticElement {
+        if let content = element.subviews?["content"] as? ViewElement {
             XCTAssertEqual(content.id, 2, "Content ID should be 2")
             XCTAssertEqual(content.type, "Text", "Content type should be Text")
             XCTAssertEqual(content.properties["text"] as? String, "Home", "Content text should be Home")
         } else {
-            XCTFail("Content should be a StaticElement")
+            XCTFail("Content should be a ViewElement")
         }
         
         // Act: Encode back to JSON
         let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(StaticElement.self, from: encodedData)
+        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -186,32 +186,32 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
         XCTAssertEqual(element.type, "NavigationStack", "Type should be NavigationStack")
         XCTAssertEqual(element.properties["title"] as? String, "Home", "Title should be Home")
         XCTAssertNotNil(element.subviews, "Subviews should not be nil")
-        if let children = element.subviews?["children"] as? [StaticElement] {
+        if let children = element.subviews?["children"] as? [ViewElement] {
             XCTAssertEqual(children.count, 1, "Should have 1 child")
             XCTAssertEqual(children[0].id, 2, "Child ID should be 2")
             XCTAssertEqual(children[0].type, "Text", "Child type should be Text")
             XCTAssertEqual(children[0].properties["text"] as? String, "Child1", "Child text should be Child1")
         } else {
-            XCTFail("Children should be an array of StaticElement")
+            XCTFail("Children should be an array of ViewElement")
         }
-        if let content = element.subviews?["content"] as? StaticElement {
+        if let content = element.subviews?["content"] as? ViewElement {
             XCTAssertEqual(content.id, 3, "Content ID should be 3")
             XCTAssertEqual(content.type, "Text", "Content type should be Text")
             XCTAssertEqual(content.properties["text"] as? String, "Content", "Content text should be Content")
         } else {
-            XCTFail("Content should be a StaticElement")
+            XCTFail("Content should be a ViewElement")
         }
         
         // Act: Encode back to JSON
         let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(StaticElement.self, from: encodedData)
+        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -232,7 +232,7 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -242,7 +242,7 @@ final class ActionUIElementTests: XCTestCase {
         
         // Act: Encode back to JSON
         let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(StaticElement.self, from: encodedData)
+        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -265,7 +265,7 @@ final class ActionUIElementTests: XCTestCase {
         
         // Act & Assert: Expect decoding failure
         XCTAssertThrowsError(
-            try JSONDecoder().decode(StaticElement.self, from: jsonData),
+            try JSONDecoder().decode(ViewElement.self, from: jsonData),
             "Should throw error for invalid children"
         ) { error in
             XCTAssertTrue(error is DecodingError, "Error should be DecodingError")
@@ -274,25 +274,25 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithIdenticalChildren() {
         // Arrange: Two identical elements with children
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
-                    StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
+                    ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
-                    StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil),
+                    ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                 ]
             ]
         )
@@ -303,23 +303,23 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithDifferentChildren() {
         // Arrange: Two elements with different children
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
                 ]
             ]
         )
@@ -330,34 +330,34 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithIdenticalRows() {
         // Arrange: Two identical elements with rows
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
-                        StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
+                        ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                     ],
                     [
-                        StaticElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
+                        ViewElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
                     ]
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
-                        StaticElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil),
+                        ViewElement(id: 3, type: "Button", properties: ["title": "Click"], subviews: nil)
                     ],
                     [
-                        StaticElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
+                        ViewElement(id: 4, type: "Text", properties: ["text": "Cell2"], subviews: nil)
                     ]
                 ]
             ]
@@ -369,26 +369,26 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithDifferentRows() {
         // Arrange: Two elements with different rows
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell1"], subviews: nil)
                     ]
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "Grid",
             properties: ["spacing": 10.0],
             subviews: [
                 "rows": [
                     [
-                        StaticElement(id: 2, type: "Text", properties: ["text": "Cell2"], subviews: nil)
+                        ViewElement(id: 2, type: "Text", properties: ["text": "Cell2"], subviews: nil)
                     ]
                 ]
             ]
@@ -400,20 +400,20 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithIdenticalContent() {
         // Arrange: Two identical elements with content
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
         
@@ -423,20 +423,20 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithDifferentContent() {
         // Arrange: Two elements with different content
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Different"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Different"], subviews: nil)
             ]
         )
         
@@ -446,26 +446,26 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithMixedSubviews() {
         // Arrange: Two identical elements with children and content
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
         
@@ -475,26 +475,26 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithDifferentMixedSubviews() {
         // Arrange: Two elements with different children and same content
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child2"], subviews: nil)
                 ],
-                "content": StaticElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
+                "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
         
@@ -504,13 +504,13 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithNilSubviews() {
         // Arrange: Two elements with nil subviews
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: nil
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
@@ -523,13 +523,13 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithEmptyAndNilSubviews() {
         // Arrange: One element with empty subviews, one with nil
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
             subviews: [:]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "View",
             properties: ["padding": 8.0],
@@ -542,22 +542,22 @@ final class ActionUIElementTests: XCTestCase {
     
     func testEquatableWithDifferentSubviewKeys() {
         // Arrange: Two elements with different subview keys
-        let element1 = StaticElement(
+        let element1 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
                 "children": [
-                    StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                    ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
                 ]
             ]
         )
-        let element2 = StaticElement(
+        let element2 = ViewElement(
             id: 1,
             type: "NavigationStack",
             properties: ["title": "Home"],
             subviews: [
-                "content": StaticElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
+                "content": ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
             ]
         )
         
@@ -580,7 +580,7 @@ final class ActionUIElementTests: XCTestCase {
         
         // Act & Assert: Expect decoding failure
         XCTAssertThrowsError(
-            try JSONDecoder().decode(StaticElement.self, from: jsonData),
+            try JSONDecoder().decode(ViewElement.self, from: jsonData),
             "Should throw error for missing type"
         ) { error in
             XCTAssertTrue(error is DecodingError, "Error should be DecodingError")
@@ -597,7 +597,7 @@ final class ActionUIElementTests: XCTestCase {
         ]
         
         // Act
-        let element = try StaticElement(from: dictionary)
+        let element = try ViewElement(from: dictionary)
         
         // Assert: Verify content is not set due to invalid data
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -622,7 +622,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 1)
@@ -650,7 +650,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 3)
@@ -683,7 +683,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 3)
@@ -708,7 +708,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -733,7 +733,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -758,7 +758,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -783,7 +783,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -822,7 +822,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 4)
@@ -849,7 +849,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 999)
@@ -871,7 +871,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(StaticElement.self, from: jsonData)
+        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
