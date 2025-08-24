@@ -22,10 +22,8 @@ struct LazyHStack: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let spacing = validatedProperties.cgFloat(forKey: "spacing") {
-            validatedProperties["spacing"] = spacing
-        } else if validatedProperties["spacing"] != nil {
-            logger.log("LazyHStack spacing must be a CGFloat; ignoring", .warning)
+        if validatedProperties.cgFloat(forKey: "spacing") == nil, validatedProperties["spacing"] != nil {
+            logger.log("LazyHStack spacing must be numeric; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         

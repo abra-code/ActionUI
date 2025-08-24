@@ -50,10 +50,8 @@ struct LazyHGrid: ActionUIViewConstruction {
             validatedProperties["rows"] = nil
         }
         
-        if let spacing = validatedProperties.cgFloat(forKey: "spacing") {
-            validatedProperties["spacing"] = spacing
-        } else if validatedProperties["spacing"] != nil {
-            logger.log("LazyHGrid spacing must be a CGFloat; ignoring", .warning)
+        if validatedProperties.cgFloat(forKey: "spacing") == nil, validatedProperties["spacing"] != nil {
+            logger.log("LazyHGrid spacing must be numeric; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
         

@@ -1,0 +1,157 @@
+// Tests/Views/LinkTests.swift
+/*
+ LinkTests.swift
+
+ Tests for the Link component in the ActionUI component library.
+ Verifies JSON decoding, property validation, and view construction.
+*/
+
+import XCTest
+import SwiftUI
+@testable import ActionUI
+
+@MainActor
+final class LinkTests: XCTestCase {
+    private var logger: XCTestLogger!
+    
+    override func setUp() {
+        super.setUp()
+        logger = XCTestLogger(maxLevel: .verbose)
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
+        ActionUIRegistry.shared.resetForTesting()
+        ActionUIModel.resetForTesting()
+    }
+    
+    override func tearDown() {
+        ActionUIRegistry.shared.resetForTesting()
+        ActionUIModel.resetForTesting()
+        logger = nil
+        super.tearDown()
+    }
+    
+    func testLinkConstructionValidURL() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Link",
+            "properties": [
+                "title": "Visit Site",
+                "url": "https://example.com",
+                "padding": 10.0
+            ]
+        ]
+        let element = try! ViewElement(from: elementDict)
+        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let validatedProperties = Link.validateProperties(element.properties, logger)
+        
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        
+        XCTAssertTrue(view is SwiftUI.Link<SwiftUI.Text>, "View should be a Link with Text label")
+    }
+    
+    func testLinkConstructionInvalidURL() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Link",
+            "properties": [
+                "title": "Visit Site",
+                "url": "invalid-url"
+            ]
+        ]
+        let element = try! ViewElement(from: elementDict)
+        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let validatedProperties = Link.validateProperties(element.properties, logger)
+        
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        // Swift's URL() does not fail when initialized with a string like "invalid-url"
+        XCTAssertTrue(view is SwiftUI.Link<SwiftUI.Text>, "View should be a Link with Text label for invalid URL string")
+    }
+    
+    func testLinkJSONDecoding() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Link",
+            "properties": [
+                "title": "Visit Site",
+                "url": "https://example.com",
+                "padding": 10.0,
+                "offset": ["x": 5.0, "y": -5.0]
+            ]
+        ]
+        
+        let element = try! ViewElement(from: elementDict)
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "Link", "Element type should be Link")
+        XCTAssertEqual(element.properties["title"] as? String, "Visit Site", "title should be Visit Site")
+        XCTAssertEqual(element.properties["url"] as? String, "https://example.com", "url should be https://example.com")
+        if let offset = element.properties["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
+        } else {
+            XCTFail("offset should be valid dictionary")
+        }
+    }
+    
+    func testLinkValidatePropertiesValid() {
+        let properties: [String: Any] = [
+            "title": "Visit Site",
+            "url": "https://example.com",
+            "padding": 10.0
+        ]
+        
+        let validated = Link.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated["title"] as? String, "Visit Site", "title should be preserved")
+        XCTAssertEqual(validated["url"] as? String, "https://example.com", "url should be preserved")
+        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+    }
+    
+    func testLinkValidatePropertiesInvalid() {
+        let properties: [String: Any] = [
+            "title": 123,
+            "url": 456
+        ]
+        
+        let validated = Link.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["title"], "Invalid title should be nil")
+        XCTAssertNil(validated["url"], "Invalid url should be nil")
+    }
+    
+    func testLinkValidatePropertiesInvalidURL() {
+        let properties: [String: Any] = [
+            "title": "Visit Site",
+            "url": "invalid-url"
+        ]
+        
+        let validated = Link.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated["title"] as? String, "Visit Site", "title should be preserved")
+        XCTAssertEqual(validated["url"] as? String, "invalid-url", "url should be preserved as a valid string")
+    }
+    
+    func testLinkValidatePropertiesMissing() {
+        let properties: [String: Any] = [:]
+        
+        let validated = Link.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["title"], "Missing title should be nil")
+        XCTAssertNil(validated["url"], "Missing url should be nil")
+    }
+    
+    func testLinkValidatePropertiesTitleOnly() {
+        let properties: [String: Any] = [
+            "title": "Visit Site"
+        ]
+        
+        let validated = Link.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated["title"] as? String, "Visit Site", "title should be preserved")
+        XCTAssertNil(validated["url"], "Missing url should be nil")
+    }
+}

@@ -20,18 +20,15 @@ struct Link: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let title = validatedProperties["title"], !(title is String) {
-            logger.log("Invalid type for Link title: expected String, got \(type(of: title)), ignoring", .warning)
+        // Validate title
+        if validatedProperties["title"] != nil && !(validatedProperties["title"] is String) {
+            logger.log("Invalid type for Link title: expected String, got \(type(of: validatedProperties["title"]!)), ignoring", .warning)
             validatedProperties["title"] = nil
         }
         
-        if let urlString = validatedProperties["url"] as? String {
-            if URL(string: urlString) == nil {
-                logger.log("Invalid Link url '\(urlString)', ignoring", .warning)
-                validatedProperties["url"] = nil
-            }
-        } else if validatedProperties["url"] != nil {
-            logger.log("Invalid type for Link url: expected String, got \(type(of: properties["url"]!)), ignoring", .warning)
+        // Validate url
+        if validatedProperties["url"] != nil && !(validatedProperties["url"] is String) {
+            logger.log("Invalid type for Link url: expected String, got \(type(of: validatedProperties["url"]!)), ignoring", .warning)
             validatedProperties["url"] = nil
         }
         
@@ -39,7 +36,7 @@ struct Link: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        guard let url = properties["url"] as? URL else {
+        guard let urlString = properties["url"] as? String, let url = URL(string: urlString) else {
             logger.log("Link missing valid URL, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }

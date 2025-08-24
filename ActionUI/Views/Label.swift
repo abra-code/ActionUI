@@ -1,3 +1,4 @@
+// Sources/Views/Label.swift
 /*
  Sample JSON for Label:
  {
@@ -15,20 +16,33 @@
 import SwiftUI
 
 struct Label: ActionUIViewConstruction {
-    
     // Design decision: Defines valueType as Void since Label is a static view with no interactive state
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if validatedProperties["title"] == nil {
-            validatedProperties["title"] = ""
+        // Validate title
+        if properties["title"] != nil && !(properties["title"] is String) {
+            logger.log("Label title must be a String; ignoring", .warning)
+            validatedProperties["title"] = nil
+        }
+        
+        // Validate systemImage
+        if properties["systemImage"] != nil && !(properties["systemImage"] is String) {
+            logger.log("Label systemImage must be a String; ignoring", .warning)
+            validatedProperties["systemImage"] = nil
+        }
+        
+        // Validate imageName
+        if properties["imageName"] != nil && !(properties["imageName"] is String) {
+            logger.log("Label imageName must be a String; ignoring", .warning)
+            validatedProperties["imageName"] = nil
         }
         
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, _ in
         return SwiftUI.Label(title: { SwiftUI.EmptyView() }, icon: { SwiftUI.EmptyView() })
     }
     

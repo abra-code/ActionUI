@@ -85,12 +85,7 @@ struct Table: ActionUIViewConstruction {
             logger.log("Table widths must be an array of integers; ignoring", .warning)
             validatedProperties["widths"] = nil
         }
-        if let actionID = properties["actionID"] as? String {
-            validatedProperties["actionID"] = actionID
-        } else if properties["actionID"] != nil {
-            logger.log("Table actionID must be a string; ignoring", .warning)
-            validatedProperties["actionID"] = nil
-        }
+
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if properties["doubleClickActionID"] != nil {

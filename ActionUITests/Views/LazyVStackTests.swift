@@ -1,0 +1,182 @@
+// Tests/Views/LazyVStackTests.swift
+/*
+ LazyVStackTests.swift
+
+ Tests for the LazyVStack component in the ActionUI component library.
+ Verifies JSON decoding, property validation, view construction, and subview handling.
+*/
+
+import XCTest
+import SwiftUI
+@testable import ActionUI
+
+@MainActor
+final class LazyVStackTests: XCTestCase {
+    private var logger: XCTestLogger!
+    
+    override func setUp() {
+        super.setUp()
+        logger = XCTestLogger(maxLevel: .verbose)
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
+        ActionUIRegistry.shared.resetForTesting()
+        ActionUIModel.resetForTesting()
+    }
+    
+    override func tearDown() {
+        ActionUIRegistry.shared.resetForTesting()
+        ActionUIModel.resetForTesting()
+        logger = nil
+        super.tearDown()
+    }
+    
+    func testLazyVStackConstruction() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "LazyVStack",
+            "properties": [
+                "spacing": 10.0,
+                "alignment": "center",
+                "padding": 20.0,
+                "offset": ["x": 15.0, "y": -5.0]
+            ],
+            "children": [
+                ["type": "Text", "id": 2, "properties": ["text": "Item 1"]],
+                ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
+            ]
+        ]
+        let element = try! ViewElement(from: elementDict)
+        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let validatedProperties = LazyVStack.validateProperties(element.properties, logger)
+        
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
+        }
+        
+        XCTAssertEqual(children.count, 2, "LazyVStack should have 2 children")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView>>, "View should be LazyVStack")
+    }
+    
+    func testLazyVStackJSONDecoding() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "LazyVStack",
+            "properties": [
+                "spacing": 10.0,
+                "alignment": "center",
+                "padding": 20.0,
+                "offset": ["x": 15.0]
+            ],
+            "children": [
+                ["type": "Text", "id": 2, "properties": ["text": "Item 1"]],
+                ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
+            ]
+        ]
+        
+        let element = try! ViewElement(from: elementDict)
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "LazyVStack", "Element type should be LazyVStack")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "spacing"), 10.0, "Spacing should be 10.0")
+        XCTAssertEqual(element.properties["alignment"] as? String, "center", "Alignment should be center")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 20.0, "Padding should be 20.0")
+        if let offset = element.properties["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be 15.0")
+            XCTAssertNil(offset["y"], "offset.y should be nil")
+        } else {
+            XCTFail("offset should be valid dictionary")
+        }
+        
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
+        }
+        
+        XCTAssertEqual(children.count, 2, "Children should have 2 elements")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+    }
+    
+    func testLazyVStackValidatePropertiesValid() {
+        let properties: [String: Any] = [
+            "spacing": 10.0,
+            "alignment": "center",
+            "padding": 20.0,
+            "offset": ["x": 15.0, "y": -5.0]
+        ]
+        
+        let validated = LazyVStack.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
+        XCTAssertEqual(validated["alignment"] as? String, "center", "Alignment should be valid")
+        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "Padding should be valid")
+        if let offset = validated["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be valid")
+        } else {
+            XCTFail("offset should be valid dictionary")
+        }
+    }
+    
+    func testLazyVStackValidatePropertiesInvalid() {
+        let properties: [String: Any] = [
+            "spacing": "10",
+            "alignment": "invalid"
+        ]
+        
+        let validated = LazyVStack.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["spacing"], "Invalid spacing should be nil")
+        XCTAssertNil(validated["alignment"], "Invalid alignment should be nil")
+    }
+    
+    func testLazyVStackValidatePropertiesMissing() {
+        let properties: [String: Any] = [:]
+        
+        let validated = LazyVStack.validateProperties(properties, logger)
+        
+        XCTAssertTrue(validated.isEmpty, "Empty properties should result in empty validated properties")
+        XCTAssertNil(validated["spacing"], "Missing spacing should be nil")
+        XCTAssertNil(validated["alignment"], "Missing alignment should be nil")
+    }
+    
+    func testLazyVStackNilProperties() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "LazyVStack",
+            "properties": [:],
+            "children": [
+                ["type": "Text", "id": 2, "properties": ["text": "Item 1"]],
+                ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
+            ]
+        ]
+        let element = try! ViewElement(from: elementDict)
+        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let validatedProperties = LazyVStack.validateProperties(element.properties, logger)
+        
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
+        }
+        
+        XCTAssertEqual(children.count, 2, "LazyVStack should have 2 children")
+        XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
+        XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
+        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView>>, "View should be LazyVStack")
+    }
+}

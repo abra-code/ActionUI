@@ -52,12 +52,7 @@ struct List: ActionUIViewConstruction {
             logger.log("List items must be an array of strings or string arrays; defaulting to []", .warning)
             validatedProperties["items"] = []
         }
-        if let actionID = properties["actionID"] as? String {
-            validatedProperties["actionID"] = actionID
-        } else if properties["actionID"] != nil {
-            logger.log("List actionID must be a string; ignoring", .warning)
-            validatedProperties["actionID"] = nil
-        }
+
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if properties["doubleClickActionID"] != nil {

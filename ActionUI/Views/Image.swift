@@ -1,3 +1,4 @@
+// Sources/Views/Image.swift
 /*
  Sample JSON for Image:
  {
@@ -33,35 +34,51 @@ struct Image: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
-            logger.log("Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image", .warning)
-            validatedProperties["systemName"] = "photo"
+        // Validate systemName
+        if properties["systemName"] != nil && !(properties["systemName"] is String) {
+            logger.log("Image systemName must be a String; ignoring", .warning)
+            validatedProperties["systemName"] = nil
         }
         
-        if validatedProperties["resizable"] == nil {
-            validatedProperties["resizable"] = true
-        } else if let resizable = validatedProperties["resizable"] as? Bool {
-            validatedProperties["resizable"] = resizable
-        } else {
-            logger.log("Image resizable must be a boolean; defaulting to true", .warning)
-            validatedProperties["resizable"] = true
+        // Validate name
+        if properties["name"] != nil && !(properties["name"] is String) {
+            logger.log("Image name must be a String; ignoring", .warning)
+            validatedProperties["name"] = nil
         }
         
-        if let scaleMode = validatedProperties["scaleMode"] as? String, !["fit", "fill"].contains(scaleMode) {
-            logger.log("Image scaleMode '\(scaleMode)' invalid; defaulting to 'fit'", .warning)
-            validatedProperties["scaleMode"] = "fit"
-        }
-        if validatedProperties["scaleMode"] == nil {
-            validatedProperties["scaleMode"] = "fit"
-        }
-        
-        if let filePath = validatedProperties["filePath"] as? String {
+        // Validate filePath
+        if let filePath = properties["filePath"] as? String {
             let pathExtension = URL(fileURLWithPath: filePath).pathExtension
             if let uti = UTType(filenameExtension: pathExtension),
                !uti.conforms(to: .image) && !uti.conforms(to: .pdf) {
                 logger.log("Image filePath '\(filePath)' is not an image or PDF; ignoring", .warning)
                 validatedProperties["filePath"] = nil
             }
+        } else if properties["filePath"] != nil {
+            logger.log("Image filePath must be a String; ignoring", .warning)
+            validatedProperties["filePath"] = nil
+        }
+        
+        // Validate resizable
+        if properties["resizable"] != nil && !(properties["resizable"] is Bool) {
+            logger.log("Image resizable must be a Bool; ignoring", .warning)
+            validatedProperties["resizable"] = nil
+        }
+        
+        // Validate scaleMode
+        if let scaleMode = properties["scaleMode"] as? String {
+            if !["fit", "fill"].contains(scaleMode) {
+                logger.log("Image scaleMode '\(scaleMode)' invalid; ignoring", .warning)
+                validatedProperties["scaleMode"] = nil
+            }
+        } else if properties["scaleMode"] != nil {
+            logger.log("Image scaleMode must be a String; ignoring", .warning)
+            validatedProperties["scaleMode"] = nil
+        }
+        
+        // Check if all image source properties are nil
+        if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
+            logger.log("Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image", .warning)
         }
         
         return validatedProperties
@@ -83,7 +100,8 @@ struct Image: ActionUIViewConstruction {
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
-        if let resizable = properties["resizable"] as? Bool, resizable {
+        let resizable = properties["resizable"] as? Bool ?? true
+        if resizable {
             let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
             if let imageView = view as? SwiftUI.Image {
                 return imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)

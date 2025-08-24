@@ -11,8 +11,8 @@
      "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
      "background": "white", // Optional: SwiftUI color (e.g., "red", "blue") or hex (e.g., "#FF0000") for background
      "frame": {            // Optional: Dictionary defining view size
-       "width": 100.0,     // Optional: Double for width
-       "height": 100.0,    // Optional: Double for height
+       "width": 100.0,     // Required: Double for width
+       "height": 100.0,    // Required: Double for height
        "alignment": "center" // Optional: String ("leading", "center", "trailing", etc.), defaults to "center"
      },
      "offset": {           // Optional: Dictionary for relative positioning
@@ -82,15 +82,19 @@ struct View: ActionUIViewConstruction {
             
             if let width = frame.cgFloat(forKey: "width") {
                 validFrame["width"] = width
-            } else if frame["width"] != nil {
-                logger.log("Invalid type for frame.width: expected Double, got \(type(of: frame["width"]!)), ignoring frame", .warning)
+            } else {
+                if frame["width"] != nil {
+                    logger.log("Invalid type for frame.width: expected Double, got \(type(of: frame["width"]!)), ignoring frame", .warning)
+                }
                 isValid = false
             }
             
             if let height = frame.cgFloat(forKey: "height") {
                 validFrame["height"] = height
-            } else if frame["height"] != nil {
-                logger.log("Invalid type for frame.height: expected Double, got \(type(of: frame["height"]!)), ignoring frame", .warning)
+            } else {
+                if frame["height"] != nil {
+                    logger.log("Invalid type for frame.height: expected Double, got \(type(of: frame["height"]!)), ignoring frame", .warning)
+                }
                 isValid = false
             }
             
@@ -102,7 +106,7 @@ struct View: ActionUIViewConstruction {
                 isValid = false
             }
             
-            validatedProperties["frame"] = isValid ? validFrame : nil
+            validatedProperties["frame"] = isValid && validFrame["width"] != nil && validFrame["height"] != nil ? validFrame : nil
         } else if validatedProperties["frame"] != nil {
             logger.log("Invalid type for frame: expected [String: Any], got \(type(of: validatedProperties["frame"]!)), ignoring", .warning)
             validatedProperties["frame"] = nil
