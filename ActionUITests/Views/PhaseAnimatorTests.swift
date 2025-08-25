@@ -57,7 +57,7 @@ final class PhaseAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = PhaseAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             logger.log("content: \((content as? ViewElement)?.type ?? "nil")", .debug)
@@ -85,7 +85,7 @@ final class PhaseAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = PhaseAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content, "Malformed content should be nil")

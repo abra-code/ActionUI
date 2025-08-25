@@ -63,7 +63,7 @@ final class NavigationSplitViewTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = NavigationSplitView.validateProperties(element.properties, logger)
             let sidebar = element.subviews?["sidebar"] as? any ActionUIElement
             let content = element.subviews?["content"] as? any ActionUIElement
@@ -101,7 +101,7 @@ final class NavigationSplitViewTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = NavigationSplitView.validateProperties(element.properties, logger)
             let sidebar = element.subviews?["sidebar"] as? any ActionUIElement
             XCTAssertNil(sidebar, "Malformed sidebar should be nil")

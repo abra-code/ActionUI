@@ -55,7 +55,7 @@ final class TabBarItemTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = TabBarItem.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
@@ -83,7 +83,7 @@ final class TabBarItemTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = TabBarItem.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content, "Malformed content should be nil")

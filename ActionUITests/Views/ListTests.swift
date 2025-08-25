@@ -44,7 +44,7 @@ final class ListTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = List.validateProperties(element.properties, logger)
         
@@ -116,7 +116,7 @@ final class ListTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "List", "Element type should be List")

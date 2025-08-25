@@ -40,7 +40,7 @@ final class LabelTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Label.validateProperties(element.properties, logger)
         
@@ -63,7 +63,7 @@ final class LabelTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Label", "Element type should be Label")

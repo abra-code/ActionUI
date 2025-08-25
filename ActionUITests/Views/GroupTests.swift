@@ -40,7 +40,7 @@ final class GroupTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Group.validateProperties(element.properties, logger)
         
@@ -72,7 +72,7 @@ final class GroupTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Group", "Element type should be Group")
@@ -119,7 +119,7 @@ final class GroupTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Static"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         ActionUIModel.shared.descriptions[windowUUID] = element
         let validatedProperties = Group.validateProperties(element.properties, logger)
         
@@ -140,7 +140,7 @@ final class GroupTests: XCTestCase {
                 ["type": "TextField", "id": 2, "properties": ["placeholder": "Enter text"]]
             ]
         ]
-        let reorderedElement = try! ViewElement(from: reorderedDict)
+        let reorderedElement = try! ViewElement(from: reorderedDict, logger: logger)
         ActionUIModel.shared.descriptions[windowUUID] = reorderedElement
         let reorderedValidatedProperties = Group.validateProperties(reorderedElement.properties, logger)
         

@@ -43,7 +43,7 @@ final class FormTests: XCTestCase {
                 ["id": 3, "type": "Button", "properties": ["label": "Submit", "actionID": "submitAction"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Form.validateProperties(element.properties, logger)
         
@@ -124,7 +124,7 @@ final class FormTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Form", "Element type should be Form")

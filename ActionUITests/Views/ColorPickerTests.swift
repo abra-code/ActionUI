@@ -75,7 +75,7 @@ final class ColorPickerTests: XCTestCase {
                 "selectedColor": "#FF0000"
             ]
         ]
-        let element = try ViewElement(from: elementDict)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         
@@ -92,7 +92,7 @@ final class ColorPickerTests: XCTestCase {
             "type": "ColorPicker",
             "properties": [:]
         ]
-        let element = try ViewElement(from: elementDict)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         
@@ -112,7 +112,7 @@ final class ColorPickerTests: XCTestCase {
                 "selectedColor": "#FF0000"
             ]
         ]
-        let element = try ViewElement(from: elementDict)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         

@@ -41,7 +41,7 @@ final class ImageTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Image.validateProperties(element.properties, logger)
         
@@ -65,7 +65,7 @@ final class ImageTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Image", "Element type should be Image")

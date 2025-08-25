@@ -81,7 +81,7 @@ final class DividerTests: XCTestCase {
                 "frameWidth": 3.0
             ]
         ]
-        let element = try ViewElement(from: elementDict)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
         
@@ -98,7 +98,7 @@ final class DividerTests: XCTestCase {
             "type": "Divider",
             "properties": [:]
         ]
-        let element = try ViewElement(from: elementDict)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
         

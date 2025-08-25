@@ -36,7 +36,7 @@ final class DisclosureGroupTests: XCTestCase {
             "type": "DisclosureGroup",
             "properties": ["label": "Test"]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
                 
@@ -86,7 +86,7 @@ final class DisclosureGroupTests: XCTestCase {
             "type": "DisclosureGroup",
             "properties": [:]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         
@@ -109,7 +109,7 @@ final class DisclosureGroupTests: XCTestCase {
                 ["id": 2, "type": "Text", "properties": ["text": "Content"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         
@@ -156,7 +156,7 @@ final class DisclosureGroupTests: XCTestCase {
         ]
         
         // Decode JSON to ViewElement
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         // Verify decoded element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -218,7 +218,7 @@ final class DisclosureGroupTests: XCTestCase {
             let children = properties["children"] as? [[String: Any]] ?? []
             return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
                 ForEach(children.indices, id: \.self) { index in
-                    guard let childElement = try? ViewElement(from: children[index]) else {
+                    guard let childElement = try? ViewElement(from: children[index], logger: logger) else {
                         logger.log("Failed to create ViewElement from child at index \(index)", .error)
                         return ActionUIView(element: ViewElement(id: -1, type: "EmptyView", properties: [:], subviews: nil), state: state, windowUUID: windowUUID)
                     }

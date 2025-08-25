@@ -597,7 +597,7 @@ final class ActionUIElementTests: XCTestCase {
         ]
         
         // Act
-        let element = try ViewElement(from: dictionary)
+        let element = try ViewElement(from: dictionary, logger: logger)
         
         // Assert: Verify content is not set due to invalid data
         XCTAssertEqual(element.id, 1, "ID should be 1")

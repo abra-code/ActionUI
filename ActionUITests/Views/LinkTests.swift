@@ -40,7 +40,7 @@ final class LinkTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Link.validateProperties(element.properties, logger)
         
@@ -60,7 +60,7 @@ final class LinkTests: XCTestCase {
                 "url": "invalid-url"
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Link.validateProperties(element.properties, logger)
         
@@ -83,7 +83,7 @@ final class LinkTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Link", "Element type should be Link")

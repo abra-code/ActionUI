@@ -61,7 +61,7 @@ final class KeyframeAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
@@ -90,7 +90,7 @@ final class KeyframeAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content as? ViewElement, "Malformed content should be nil")

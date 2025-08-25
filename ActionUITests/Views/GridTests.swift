@@ -69,7 +69,7 @@ final class GridTests: XCTestCase {
                 "verticalSpacing": 8.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
         
@@ -114,7 +114,7 @@ final class GridTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             logger.log("Raw rows: \(String(describing: element.subviews?["rows"]))", .debug)
             let _ = Grid.validateProperties(element.properties, logger)
             guard let rows = element.subviews?["rows"] as? [[any ActionUIElement]] else {
@@ -197,7 +197,7 @@ final class GridTests: XCTestCase {
                 "alignment": "center"
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
         

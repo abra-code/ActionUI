@@ -40,7 +40,7 @@ final class TextFieldTests: XCTestCase {
                 "actionID": "text.submit"
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         
@@ -73,7 +73,7 @@ final class TextFieldTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "TextField", "Element type should be TextField")

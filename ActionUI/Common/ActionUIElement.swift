@@ -171,7 +171,7 @@ struct ViewElement: ActionUIElement {
     }
     
     // Initializes a ViewElement from a dictionary (e.g., parsed JSON)
-    init(from dictionary: [String: Any]) throws {
+    init(from dictionary: [String: Any], logger: any ActionUILogger) throws {
         let id = dictionary["id"] as? Int ?? ViewElement.generateNegativeID()
         guard let type = dictionary["type"] as? String else {
             throw NSError(domain: "ViewElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
@@ -179,7 +179,7 @@ struct ViewElement: ActionUIElement {
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         let childrenArray = dictionary["children"] as? [[String: Any]]
         // Note: JSON specifies "children" as a top-level key, but we move it to subviews["children"]
-        let children = try childrenArray?.map { try ViewElement(from: $0) }
+        let children = try childrenArray?.map { try ViewElement(from: $0, logger: logger) }
         var subviews: [String: Any]?
         if children != nil {
             subviews = [:]
@@ -190,7 +190,7 @@ struct ViewElement: ActionUIElement {
         // Note: JSON specifies "rows" as a top-level key, but we move it to subviews["rows"]
         if let rowsArray = dictionary["rows"] as? [[[String: Any]]] {
             let rows = try rowsArray.map { row in
-                try row.map { try ViewElement(from: $0) }
+                try row.map { try ViewElement(from: $0, logger: logger) }
             }
             
             if subviews == nil {
@@ -204,15 +204,14 @@ struct ViewElement: ActionUIElement {
         for key in ["content", "destination", "sidebar", "detail"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
-                    let childElement = try ViewElement(from: childDict)
+                    let childElement = try ViewElement(from: childDict, logger: logger)
                     if subviews == nil {
                         subviews = [:]
                     }
                     subviews![key] = childElement
                 } catch {
                     // Log error and skip invalid child, leaving property unset
-                    // ActionUILogger.shared.log("Failed to parse \(key) element: \(error)", .error)
-                    print("[ERROR] Failed to parse \(key) element: \(error)")
+                    logger.log("Failed to parse \(key) element: \(error)", .error)
                 }
             }
         }

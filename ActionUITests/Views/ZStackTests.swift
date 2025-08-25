@@ -44,7 +44,7 @@ final class ZStackTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Foreground"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ZStack.validateProperties(element.properties, logger)
         
@@ -82,7 +82,7 @@ final class ZStackTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "ZStack", "Element type should be ZStack")
@@ -152,7 +152,7 @@ final class ZStackTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Foreground"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ZStack.validateProperties(element.properties, logger)
         

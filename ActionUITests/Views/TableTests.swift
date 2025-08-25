@@ -47,7 +47,7 @@ final class TableTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Table.validateProperties(element.properties, logger)
         
@@ -71,7 +71,7 @@ final class TableTests: XCTestCase {
                 "rows": [["Alice"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Table.validateProperties(element.properties, logger)
         
@@ -143,7 +143,7 @@ final class TableTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Table", "Element type should be Table")

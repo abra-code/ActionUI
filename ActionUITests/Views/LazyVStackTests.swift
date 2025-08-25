@@ -45,7 +45,7 @@ final class LazyVStackTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = LazyVStack.validateProperties(element.properties, logger)
         
@@ -82,7 +82,7 @@ final class LazyVStackTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "LazyVStack", "Element type should be LazyVStack")
@@ -161,7 +161,7 @@ final class LazyVStackTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict)
+        let element = try! ViewElement(from: elementDict, logger: logger)
         let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = LazyVStack.validateProperties(element.properties, logger)
         

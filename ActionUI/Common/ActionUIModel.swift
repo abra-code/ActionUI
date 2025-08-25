@@ -101,7 +101,7 @@ class ActionUIModel: ObservableObject {
     }
     
     func loadDescription(from dict: [String:Any], windowUUID: String) throws {
-        let element = try ViewElement(from: dict)
+        let element = try ViewElement(from: dict, logger: logger)
         descriptions[windowUUID] = element
     }
     

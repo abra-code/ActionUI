@@ -55,7 +55,7 @@ final class NavigationLinkTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = NavigationLink.validateProperties(element.properties, logger)
             let destination = element.subviews?["destination"] as? any ActionUIElement
             logger.log("destination: \((destination as? ViewElement)?.type ?? "nil")", .debug)
@@ -84,7 +84,7 @@ final class NavigationLinkTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict)
+            let element = try ViewElement(from: elementDict, logger: logger)
             let _ = NavigationLink.validateProperties(element.properties, logger)
             let destination = element.subviews?["destination"] as? any ActionUIElement
             XCTAssertNil(destination, "Malformed destination should be nil")
