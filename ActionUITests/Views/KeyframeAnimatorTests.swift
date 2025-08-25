@@ -9,7 +9,7 @@
  {
    "type": "KeyframeAnimator",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
+   "content": {
      "type": "Text", "properties": { "text": "Animating" }
    },
    "properties": {
@@ -29,6 +29,7 @@ import SwiftUI
 @MainActor
 final class KeyframeAnimatorTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -37,46 +38,76 @@ final class KeyframeAnimatorTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
-    func testKeyframeAnimatorJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testKeyframeAnimatorJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "KeyframeAnimator",
-            "content": ["type": "Text", "id": 2, "properties": ["text": "Animating"]],
-            "properties": [
-                "initialValue": ["opacity": 0.0, "scale": 1.0, "rotation": 0.0],
+            "content": {"type": "Text", "id": 2, "properties": {"text": "Animating"}},
+            "properties": {
+                "initialValue": {"opacity": 0.0, "scale": 1.0, "rotation": 0.0},
                 "trigger": "onAppear",
-                "keyframes": [
-                    "0%": ["type": "linear", "value": ["opacity": 0.0, "scale": 0.5], "duration": 0.8]
-                ]
-            ]
-        ]
-        
-        do {
-            let element = try ViewElement(from: elementDict, logger: logger)
-            let _ = KeyframeAnimator.validateProperties(element.properties, logger)
-            let content = element.subviews?["content"] as? any ActionUIElement
-            logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
-            
-            XCTAssertEqual(element.id, 1, "Element ID should be 1")
-            XCTAssertEqual(element.type, "KeyframeAnimator", "Element type should be KeyframeAnimator")
-            XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
-            XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
-            XCTAssertEqual((element.properties["initialValue"] as? [String: Any])?["opacity"] as? Double, 0.0, "Initial opacity should be 0.0")
-            XCTAssertEqual((element.properties["trigger"] as? String), "onAppear", "Trigger should be onAppear")
-            XCTAssertEqual((element.properties["keyframes"] as? [String: [String: Any]])?["0%"]?["type"] as? String, "linear", "Keyframe type should be linear")
-            XCTAssertNil(element.subviews?["children"], "Children should be nil")
-        } catch {
-            XCTFail("Failed to parse element: \(error)")
+                "keyframes": {
+                    "0%": {"type": "linear", "value": {"opacity": 0.0, "scale": 0.5}, "duration": 0.8}
+                }
+            }
         }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        let _ = KeyframeAnimator.validateProperties(element.properties, logger)
+        let content = element.subviews?["content"] as? any ActionUIElement
+        logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "KeyframeAnimator", "Element type should be KeyframeAnimator")
+        XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
+        XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
+        if let initialValue = element.properties["initialValue"] as? [String: Any] {
+            XCTAssertEqual(initialValue.double(forKey: "opacity"), 0.0, "Initial opacity should be 0.0")
+            XCTAssertEqual(initialValue.double(forKey: "scale"), 1.0, "Initial scale should be 1.0")
+            XCTAssertEqual(initialValue.double(forKey: "rotation"), 0.0, "Initial rotation should be 0.0")
+        } else {
+            XCTFail("initialValue should be valid dictionary")
+        }
+        XCTAssertEqual(element.properties["trigger"] as? String, "onAppear", "Trigger should be onAppear")
+        if let keyframes = element.properties["keyframes"] as? [String: [String: Any]], let keyframe = keyframes["0%"] {
+            XCTAssertEqual(keyframe["type"] as? String, "linear", "Keyframe type should be linear")
+            if let value = keyframe["value"] as? [String: Any] {
+                XCTAssertEqual(value.double(forKey: "opacity"), 0.0, "Keyframe opacity should be 0.0")
+                XCTAssertEqual(value.double(forKey: "scale"), 0.5, "Keyframe scale should be 0.5")
+            } else {
+                XCTFail("Keyframe value should be valid dictionary")
+            }
+            XCTAssertEqual(keyframe.double(forKey: "duration"), 0.8, "Keyframe duration should be 0.8")
+        } else {
+            XCTFail("keyframes should be valid dictionary")
+        }
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
     func testKeyframeAnimatorMalformedContent() {

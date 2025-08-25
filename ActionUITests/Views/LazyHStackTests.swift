@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class LazyHStackTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class LazyHStackTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -46,10 +49,10 @@ final class LazyHStackTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = LazyHStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
@@ -66,23 +69,36 @@ final class LazyHStackTests: XCTestCase {
         XCTAssertTrue(view is SwiftUI.LazyHStack<ForEach<[any ActionUIElement], Int, ActionUIView>>, "View should be LazyHStack")
     }
     
-    func testLazyHStackJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testLazyHStackJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "LazyHStack",
-            "properties": [
+            "properties": {
                 "spacing": 10.0,
                 "alignment": "center",
                 "padding": 20.0,
-                "offset": ["x": 15.0]
-            ],
+                "offset": {"x": 15.0, "y": -5.0}
+            },
             "children": [
-                ["type": "Text", "id": 2, "properties": ["text": "Item 1"]],
-                ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
+                {"type": "Text", "id": 2, "properties": {"text": "Item 1"}},
+                {"type": "Text", "id": 3, "properties": {"text": "Item 2"}}
             ]
-        ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let model = ActionUIModel.shared
+        
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "LazyHStack", "Element type should be LazyHStack")
@@ -91,7 +107,7 @@ final class LazyHStackTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 20.0, "Padding should be 20.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be 15.0")
-            XCTAssertNil(offset["y"], "offset.y should be nil")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
         } else {
             XCTFail("offset should be valid dictionary")
         }
@@ -162,10 +178,10 @@ final class LazyHStackTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = LazyHStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         

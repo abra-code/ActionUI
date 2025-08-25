@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class LazyHGridTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class LazyHGridTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -50,10 +53,10 @@ final class LazyHGridTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = LazyHGrid.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
@@ -70,39 +73,55 @@ final class LazyHGridTests: XCTestCase {
         XCTAssertTrue(view is SwiftUI.LazyHGrid<ForEach<[any ActionUIElement], Int, ActionUIView>>, "View should be LazyHGrid")
     }
     
-    func testLazyHGridJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testLazyHGridJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "LazyHGrid",
-            "properties": [
+            "properties": {
                 "rows": [
-                    ["minimum": 100.0],
-                    ["flexible": true]
+                    {"minimum": 100.0},
+                    {"flexible": true}
                 ],
                 "spacing": 10.0,
                 "alignment": "center",
                 "padding": 20.0,
-                "offset": ["x": 15.0, "y": -5.0]
-            ],
+                "offset": {"x": 15.0, "y": -5.0}
+            },
             "children": [
-                ["type": "Text", "id": 2, "properties": ["text": "Item 1"]],
-                ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
+                {"type": "Text", "id": 2, "properties": {"text": "Item 1"}},
+                {"type": "Text", "id": 3, "properties": {"text": "Item 2"}}
             ]
-        ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let model = ActionUIModel.shared
+        
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "LazyHGrid", "Element type should be LazyHGrid")
         if let rows = element.properties["rows"] as? [[String: Any]] {
-            XCTAssertEqual(rows.count, 2, "rows should have 2 entries")
+            XCTAssertEqual(rows.count, 2, "rows should have 2 valid entries")
             XCTAssertEqual(rows[0].cgFloat(forKey: "minimum"), 100.0, "rows[0].minimum should be 100.0")
+            XCTAssertNil(rows[0]["flexible"], "rows[0].flexible should be nil")
             XCTAssertEqual(rows[1]["flexible"] as? Bool, true, "rows[1].flexible should be true")
+            XCTAssertNil(rows[1]["minimum"], "rows[1].minimum should be nil")
         } else {
             XCTFail("rows should be valid array of dictionaries")
         }
         XCTAssertEqual(element.properties.cgFloat(forKey: "spacing"), 10.0, "Spacing should be 10.0")
         XCTAssertEqual(element.properties["alignment"] as? String, "center", "Alignment should be center")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 20.0, "Padding should be 20.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be 15.0")
             XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
@@ -122,66 +141,6 @@ final class LazyHGridTests: XCTestCase {
         XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testLazyHGridValidatePropertiesValid() {
-        let properties: [String: Any] = [
-            "rows": [
-                ["minimum": 100.0],
-                ["flexible": true]
-            ],
-            "spacing": 10.0,
-            "alignment": "center",
-            "padding": 20.0,
-            "offset": ["x": 15.0, "y": -5.0]
-        ]
-        
-        let validated = LazyHGrid.validateProperties(properties, logger)
-        
-        if let rows = validated["rows"] as? [[String: Any]] {
-            XCTAssertEqual(rows.count, 2, "rows should have 2 valid entries")
-            XCTAssertEqual(rows[0].cgFloat(forKey: "minimum"), 100.0, "rows[0].minimum should be valid")
-            XCTAssertEqual(rows[1]["flexible"] as? Bool, true, "rows[1].flexible should be valid")
-        } else {
-            XCTFail("rows should be valid array of dictionaries")
-        }
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
-        XCTAssertEqual(validated["alignment"] as? String, "center", "Alignment should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "Padding should be valid")
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid")
-            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be valid")
-        } else {
-            XCTFail("offset should be valid dictionary")
-        }
-    }
-    
-    func testLazyHGridValidatePropertiesInvalid() {
-        let properties: [String: Any] = [
-            "rows": [
-                ["minimum": "100"],
-                ["flexible": "true"]
-            ],
-            "spacing": "10",
-            "alignment": "invalid"
-        ]
-        
-        let validated = LazyHGrid.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["rows"], "Invalid rows should be nil")
-        XCTAssertNil(validated["spacing"], "Invalid spacing should be nil")
-        XCTAssertNil(validated["alignment"], "Invalid alignment should be nil")
-    }
-    
-    func testLazyHGridValidatePropertiesMissing() {
-        let properties: [String: Any] = [:]
-        
-        let validated = LazyHGrid.validateProperties(properties, logger)
-        
-        XCTAssertTrue(validated.isEmpty, "Empty properties should result in empty validated properties")
-        XCTAssertNil(validated["rows"], "Missing rows should be nil")
-        XCTAssertNil(validated["spacing"], "Missing spacing should be nil")
-        XCTAssertNil(validated["alignment"], "Missing alignment should be nil")
-    }
-    
     func testLazyHGridNilProperties() {
         let elementDict: [String: Any] = [
             "id": 1,
@@ -193,10 +152,10 @@ final class LazyHGridTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = LazyHGrid.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         

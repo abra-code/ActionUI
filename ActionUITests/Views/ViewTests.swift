@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class ViewTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class ViewTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -51,33 +54,33 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(validated["font"] as? String, "body", "font should be valid string")
         XCTAssertEqual(validated["background"] as? String, "#FFFFFF", "background should be valid string")
         if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be valid CGFloat")
-            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be valid CGFloat")
-            XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be valid string")
+            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
+            XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be center")
         } else {
-            XCTFail("frame should be valid dictionary")
+            XCTFail("frame should be a dictionary")
         }
         if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 10.0, "offset.x should be valid CGFloat")
-            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be valid CGFloat")
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 10.0, "offset.x should be 10.0")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
         } else {
-            XCTFail("offset should be valid dictionary")
+            XCTFail("offset should be a dictionary")
         }
-        XCTAssertEqual(validated.double(forKey: "opacity"), 0.5, "opacity should be valid Double")
-        XCTAssertEqual(validated.cgFloat(forKey: "cornerRadius"), 5.0, "cornerRadius should be valid CGFloat")
-        XCTAssertEqual(validated["actionID"] as? String, "view.action", "actionID should be valid string")
-        XCTAssertEqual(validated["disabled"] as? Bool, true, "disabled should be valid Bool")
-        XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be valid string")
-        XCTAssertEqual(validated["accessibilityHint"] as? String, "Base view", "accessibilityHint should be valid string")
-        XCTAssertEqual(validated["accessibilityHidden"] as? Bool, false, "accessibilityHidden should be valid Bool")
-        XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be valid string")
+        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.5, "opacity should be 0.5")
+        XCTAssertEqual(validated.cgFloat(forKey: "cornerRadius"), 5.0, "cornerRadius should be 5.0")
+        XCTAssertEqual(validated["actionID"] as? String, "view.action", "actionID should be view.action")
+        XCTAssertEqual(validated["disabled"] as? Bool, true, "disabled should be true")
+        XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be Test View")
+        XCTAssertEqual(validated["accessibilityHint"] as? String, "Base view", "accessibilityHint should be Base view")
+        XCTAssertEqual(validated["accessibilityHidden"] as? Bool, false, "accessibilityHidden should be false")
+        XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be view_1")
         if let shadow = validated["shadow"] as? [String: Any] {
-            XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be valid string")
-            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be valid CGFloat")
-            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 0.0, "shadow.x should be valid CGFloat")
-            XCTAssertEqual(shadow.cgFloat(forKey: "y"), 2.0, "shadow.y should be valid CGFloat")
+            XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be black")
+            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be 5.0")
+            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 0.0, "shadow.x should be 0.0")
+            XCTAssertEqual(shadow.cgFloat(forKey: "y"), 2.0, "shadow.y should be 2.0")
         } else {
-            XCTFail("shadow should be valid dictionary")
+            XCTFail("shadow should be a dictionary")
         }
     }
     
@@ -241,58 +244,130 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "padding should be valid CGFloat")
         XCTAssertEqual(validated["foregroundColor"] as? String, "red", "foregroundColor should be valid string")
-        XCTAssertEqual(validated.double(forKey: "opacity"), 0.5, "opacity should be valid Double")
+        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.5, "opacity should be valid CGFloat")
         XCTAssertEqual(validated["disabled"] as? Bool, false, "disabled should be valid Bool")
         XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be valid string")
         XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be valid string")
     }
     
     func testBuildViewAndApplyModifiers() throws {
-        let elementDict: [String: Any] = [
+        let jsonString = """
+        {
             "id": 1,
             "type": "View",
-            "properties": [
+            "properties": {
                 "padding": 10.0,
                 "foregroundColor": "blue",
-                "frame": ["width": 100.0, "height": 100.0, "alignment": "center"],
-                "offset": ["x": 10.0, "y": -5.0],
+                "frame": {"width": 100.0, "height": 100.0, "alignment": "center"},
+                "offset": {"x": 10.0, "y": -5.0},
                 "accessibilityLabel": "Test View",
                 "accessibilityHint": "Base view",
                 "accessibilityHidden": false,
                 "accessibilityIdentifier": "view_1",
-                "shadow": ["color": "black", "radius": 5.0, "x": 0.0, "y": 2.0]
-            ]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+                "shadow": {"color": "black", "radius": 5.0, "x": 0.0, "y": 2.0}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let view = View.buildView(element, state, windowUUID, validatedProperties, logger)
         let modifiedView = View.applyModifiers(view, validatedProperties, logger)
         
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
-        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view (e.g., _ModifiedContent) due to SwiftUI modifier wrapping")
-        // Note: Cannot directly test modifier application due to SwiftUI's opaque view hierarchy
+        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to SwiftUI modifier wrapping")
+        if let frame = element.properties["frame"] as? [String: Any] {
+            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
+            XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be center")
+        } else {
+            XCTFail("frame should be a dictionary")
+        }
+        if let offset = element.properties["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 10.0, "offset.x should be 10.0")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
+        } else {
+            XCTFail("offset should be a dictionary")
+        }
+        if let shadow = element.properties["shadow"] as? [String: Any] {
+            XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be black")
+            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be 5.0")
+            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 0.0, "shadow.x should be 0.0")
+            XCTAssertEqual(shadow.cgFloat(forKey: "y"), 2.0, "shadow.y should be 2.0")
+        } else {
+            XCTFail("shadow should be a dictionary")
+        }
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+        XCTAssertEqual(element.properties["foregroundColor"] as? String, "blue", "foregroundColor should be blue")
+        XCTAssertEqual(element.properties["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be Test View")
+        XCTAssertEqual(element.properties["accessibilityHint"] as? String, "Base view", "accessibilityHint should be Base view")
+        XCTAssertEqual(element.properties["accessibilityHidden"] as? Bool, false, "accessibilityHidden should be false")
+        XCTAssertEqual(element.properties["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be view_1")
+        
+        if state.wrappedValue[element.id] == nil {
+            logger.log("Warning: State for id \(element.id) is nil", .warning)
+        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
+            logger.log("State dictionary: \(stateDict)", .debug)
+        } else {
+            XCTFail("State should be a dictionary or nil")
+        }
     }
     
     func testBuildViewAndApplyModifiersEmptyProperties() throws {
-        let elementDict: [String: Any] = [
+        let jsonString = """
+        {
             "id": 1,
             "type": "View",
-            "properties": [:]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+            "properties": {}
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let view = View.buildView(element, state, windowUUID, validatedProperties, logger)
         let modifiedView = View.applyModifiers(view, validatedProperties, logger)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView with empty properties")
         XCTAssertTrue(modifiedView is SwiftUI.EmptyView, "applyModifiers should return EmptyView with no modifiers applied")
+        
+        if state.wrappedValue[element.id] == nil {
+            logger.log("Warning: State for id \(element.id) is nil", .warning)
+        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
+            logger.log("State dictionary: \(stateDict)", .debug)
+        } else {
+            XCTFail("State should be a dictionary or nil")
+        }
     }
-    
-    // MARK: - Offset Property Tests
     
     func testValidatePropertiesOffsetPartial() throws {
         let properties: [String: Any] = [
@@ -340,24 +415,54 @@ final class ViewTests: XCTestCase {
     }
     
     func testBuildViewAndApplyModifiersWithOffset() throws {
-        let elementDict: [String: Any] = [
+        let jsonString = """
+        {
             "id": 1,
             "type": "View",
-            "properties": [
-                "offset": ["x": 15.0, "y": -10.0],
+            "properties": {
+                "offset": {"x": 15.0, "y": -10.0},
                 "padding": 10.0
-            ]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let view = View.buildView(element, state, windowUUID, validatedProperties, logger)
         let modifiedView = View.applyModifiers(view, validatedProperties, logger)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
         XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to offset and padding modifiers")
-        // Note: Cannot directly test offset application due to SwiftUI's opaque view hierarchy
+        if let offset = element.properties["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be 15.0")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -10.0, "offset.y should be -10.0")
+        } else {
+            XCTFail("offset should be a dictionary")
+        }
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+        
+        if state.wrappedValue[element.id] == nil {
+            logger.log("Warning: State for id \(element.id) is nil", .warning)
+        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
+            logger.log("State dictionary: \(stateDict)", .debug)
+        } else {
+            XCTFail("State should be a dictionary or nil")
+        }
     }
     
 /* no XCUIApplication yet

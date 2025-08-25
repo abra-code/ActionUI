@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class LabelTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class LabelTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -41,34 +44,49 @@ final class LabelTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Label.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
         XCTAssertTrue(view is SwiftUI.Label<SwiftUI.EmptyView, SwiftUI.EmptyView>, "View should be a Label")
     }
     
-    func testLabelJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testLabelJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "Label",
-            "properties": [
+            "properties": {
                 "title": "Title",
                 "systemImage": "star.fill",
                 "padding": 10.0,
-                "offset": ["x": 5.0, "y": -5.0]
-            ]
-        ]
+                "offset": {"x": 5.0, "y": -5.0}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Label", "Element type should be Label")
         XCTAssertEqual(element.properties["title"] as? String, "Title", "title should be Title")
         XCTAssertEqual(element.properties["systemImage"] as? String, "star.fill", "systemImage should be star.fill")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
             XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
