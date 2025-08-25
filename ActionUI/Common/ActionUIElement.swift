@@ -87,6 +87,11 @@ struct ViewElement: ActionUIElement {
     }
     
     init(from decoder: Decoder) throws {
+        let key = CodingUserInfoKey(rawValue: "logger")
+        var logger: (any ActionUILogger)?
+        if let key {
+            logger = decoder.userInfo[key] as? any ActionUILogger
+        }
         let container = try decoder.container(keyedBy: ElementCodingKeys.self)
         id = try container.decode(Int.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
@@ -96,7 +101,7 @@ struct ViewElement: ActionUIElement {
             do {
                 convertedProperties[key] = try AnyCodable.convertAnyCodableToAny(value)
             } catch {
-                print("[ERROR] Failed to convert property '\(key)' for type '\(type)': \(error)")
+                logger?.log("Failed to convert property '\(key)' for type '\(type)': \(error)", .error)
             }
         }
         properties = convertedProperties
@@ -122,6 +127,11 @@ struct ViewElement: ActionUIElement {
     }
     
     func encode(to encoder: Encoder) throws {
+        let key = CodingUserInfoKey(rawValue: "logger")
+        var logger: (any ActionUILogger)?
+        if let key {
+            logger = encoder.userInfo[key] as? any ActionUILogger
+        }
         var container = encoder.container(keyedBy: ElementCodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(type, forKey: .type)
@@ -130,7 +140,7 @@ struct ViewElement: ActionUIElement {
             do {
                 encodableProperties[key] = try AnyCodable.convertAnyToAnyCodable(value)
             } catch {
-                print("[ERROR] Failed to encode property '\(key)' for type '\(type)': \(error)")
+                logger?.log("Failed to encode property '\(key)' for type '\(type)': \(error)", .error)
             }
         }
         try container.encodeIfPresent(encodableProperties, forKey: .properties)

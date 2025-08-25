@@ -45,7 +45,7 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -65,8 +65,8 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Encode back to JSON
-        let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
+        let encodedData = try JSONEncoder(logger: logger).encode(element)
+        let encodedElement = try JSONDecoder(logger: logger).decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -96,7 +96,7 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -121,8 +121,8 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Encode back to JSON
-        let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
+        let encodedData = try JSONEncoder(logger: logger).encode(element)
+        let encodedElement = try JSONDecoder(logger: logger).decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -144,7 +144,7 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -160,8 +160,8 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Encode back to JSON
-        let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
+        let encodedData = try JSONEncoder(logger: logger).encode(element)
+        let encodedElement = try JSONDecoder(logger: logger).decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -186,7 +186,7 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -210,8 +210,8 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Encode back to JSON
-        let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
+        let encodedData = try JSONEncoder(logger: logger).encode(element)
+        let encodedElement = try JSONDecoder(logger: logger).decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -232,7 +232,7 @@ final class ActionUIElementTests: XCTestCase {
         }
         
         // Act: Decode
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Assert: Verify decoded element
         XCTAssertEqual(element.id, 1, "ID should be 1")
@@ -241,8 +241,8 @@ final class ActionUIElementTests: XCTestCase {
         XCTAssertNil(element.subviews, "Subviews should be nil")
         
         // Act: Encode back to JSON
-        let encodedData = try JSONEncoder().encode(element)
-        let encodedElement = try JSONDecoder().decode(ViewElement.self, from: encodedData)
+        let encodedData = try JSONEncoder(logger: logger).encode(element)
+        let encodedElement = try JSONDecoder(logger: logger).decode(ViewElement.self, from: encodedData)
         
         // Assert: Verify round-trip
         XCTAssertEqual(encodedElement, element, "Encoded and decoded element should be equal")
@@ -265,7 +265,7 @@ final class ActionUIElementTests: XCTestCase {
         
         // Act & Assert: Expect decoding failure
         XCTAssertThrowsError(
-            try JSONDecoder().decode(ViewElement.self, from: jsonData),
+            try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData),
             "Should throw error for invalid children"
         ) { error in
             XCTAssertTrue(error is DecodingError, "Error should be DecodingError")
@@ -580,7 +580,7 @@ final class ActionUIElementTests: XCTestCase {
         
         // Act & Assert: Expect decoding failure
         XCTAssertThrowsError(
-            try JSONDecoder().decode(ViewElement.self, from: jsonData),
+            try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData),
             "Should throw error for missing type"
         ) { error in
             XCTAssertTrue(error is DecodingError, "Error should be DecodingError")
@@ -622,7 +622,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 1)
@@ -650,7 +650,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 3)
@@ -683,7 +683,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 3)
@@ -708,7 +708,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -733,7 +733,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -758,7 +758,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -783,7 +783,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)
@@ -822,7 +822,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 4)
@@ -849,7 +849,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 999)
@@ -871,7 +871,7 @@ final class ActionUIElementTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        let element = try JSONDecoder().decode(ViewElement.self, from: jsonData)
+        let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: jsonData)
         
         // Act
         let found = element.findElement(by: 2)

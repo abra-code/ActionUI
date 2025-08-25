@@ -5,7 +5,7 @@ import XCTest
 
 /// A logger that uses XCTest assertions for error-level messages and console output for other levels.
 /// Designed for use in unit tests to fail tests on errors while logging warnings, info, debug, and verbose messages to the console.
-class XCTestLogger: ActionUILogger {
+final class XCTestLogger: ActionUILogger, Sendable {
     /// The maximum logging level to include (e.g., set to .info to exclude debug and verbose logs).
     /// Logs with a level.rawValue greater than maxLevel.rawValue are ignored.
     private let maxLevel: Level

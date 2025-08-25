@@ -90,7 +90,9 @@ final class KeyframeAnimatorTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict, logger: logger)
+            // expecting failure, use ConsoleLogger instead of XCTestLogger
+            let consoleLogger = ConsoleLogger()
+            let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content as? ViewElement, "Malformed content should be nil")

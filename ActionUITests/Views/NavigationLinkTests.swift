@@ -84,7 +84,9 @@ final class NavigationLinkTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict, logger: logger)
+            // expecting failure, use ConsoleLogger instead of XCTestLogger
+            let consoleLogger = ConsoleLogger()
+            let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationLink.validateProperties(element.properties, logger)
             let destination = element.subviews?["destination"] as? any ActionUIElement
             XCTAssertNil(destination, "Malformed destination should be nil")

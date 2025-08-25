@@ -83,7 +83,9 @@ final class NavigationStackTests: XCTestCase {
         ]
         
         do {
-            let element = try ViewElement(from: elementDict, logger: logger)
+            // expecting failure, use ConsoleLogger instead of XCTestLogger
+            let consoleLogger = ConsoleLogger()
+            let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationStack.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElement
             XCTAssertNil(content, "Malformed content should be nil")
