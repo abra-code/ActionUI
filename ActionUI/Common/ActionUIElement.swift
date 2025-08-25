@@ -91,7 +91,15 @@ struct ViewElement: ActionUIElement {
         id = try container.decode(Int.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
         let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
-        properties = decodedProperties.mapValues { $0.value }
+        var convertedProperties: [String: Any] = [:]
+        for (key, value) in decodedProperties {
+            do {
+                convertedProperties[key] = try AnyCodable.convertAnyCodableToAny(value)
+            } catch {
+                print("[ERROR] Failed to convert property '\(key)' for type '\(type)': \(error)")
+            }
+        }
+        properties = convertedProperties
         
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
@@ -117,7 +125,14 @@ struct ViewElement: ActionUIElement {
         var container = encoder.container(keyedBy: ElementCodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(type, forKey: .type)
-        let encodableProperties = try properties.mapValues { try AnyCodable.convertAnyToAnyCodable($0) }
+        var encodableProperties: [String: AnyCodable] = [:]
+        for (key, value) in properties {
+            do {
+                encodableProperties[key] = try AnyCodable.convertAnyToAnyCodable(value)
+            } catch {
+                print("[ERROR] Failed to encode property '\(key)' for type '\(type)': \(error)")
+            }
+        }
         try container.encodeIfPresent(encodableProperties, forKey: .properties)
         
         // Early exit if subviews is nil
@@ -197,7 +212,7 @@ struct ViewElement: ActionUIElement {
                 } catch {
                     // Log error and skip invalid child, leaving property unset
                     // ActionUILogger.shared.log("Failed to parse \(key) element: \(error)", .error)
-                    print("Error: Failed to parse \(key) element: \(error)")
+                    print("[ERROR] Failed to parse \(key) element: \(error)")
                 }
             }
         }
@@ -258,8 +273,6 @@ extension ViewElement: Equatable {
 
 // Extension to find an element by ID in the element hierarchy
 // Design decision: Recursive search supports nested JSON structures, enabling validation of properties for views at any depth
-// In ActionUIElement.swift, replace the existing extension with:
-
 extension ActionUIElement {
     func findElement(by viewID: Int) -> (any ActionUIElement)? {
         // Check if the current element matches the ID

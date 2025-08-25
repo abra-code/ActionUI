@@ -3,7 +3,7 @@
  TableTests.swift
 
  Tests for the Table component in the ActionUI component library (macOS only).
- Verifies JSON decoding, property validation, view construction, and state handling.
+ Verifies JSON decoding, element creation from dictionaries, view construction, and state handling.
 */
 
 import XCTest
@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class TableTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class TableTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -45,10 +48,10 @@ final class TableTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Table.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
@@ -69,16 +72,63 @@ final class TableTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Table.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "View should be EmptyView on non-macOS platforms")
         #endif
     }
     
-    func testTableJSONDecoding() {
+    func testTableJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Table",
+            "properties": {
+                "itemType": {"viewType": "Button", "actionContext": "rowColumnIndex"},
+                "columns": ["Name", "Action"],
+                "rows": [["Alice", "Click"], ["Bob", "Edit"]],
+                "widths": [100, 80],
+                "actionID": "table.action",
+                "doubleClickActionID": "table.doubleClick",
+                "padding": 10.0
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "Table", "Element type should be Table")
+        if let itemType = element.properties["itemType"] as? [String: Any] {
+            XCTAssertEqual(itemType["viewType"] as? String, "Button", "itemType.viewType should be Button")
+            XCTAssertEqual(itemType["actionContext"] as? String, "rowColumnIndex", "itemType.actionContext should be rowColumnIndex")
+        } else {
+            XCTFail("itemType should be valid dictionary")
+        }
+        XCTAssertEqual(element.properties["columns"] as? [String], ["Name", "Action"], "columns should match")
+        XCTAssertEqual(element.properties["rows"] as? [[String]], [["Alice", "Click"], ["Bob", "Edit"]], "rows should match")
+        XCTAssertEqual(element.properties["widths"] as? [Int], [100, 80], "widths should match")
+        XCTAssertEqual(element.properties["actionID"] as? String, "table.action", "actionID should be table.action")
+        XCTAssertEqual(element.properties["doubleClickActionID"] as? String, "table.doubleClick", "doubleClickActionID should be table.doubleClick")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+    }
+    
+    func testTableElementCreation() {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Table",

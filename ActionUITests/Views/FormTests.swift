@@ -3,7 +3,7 @@
  FormTests.swift
 
  Tests for the Form component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state initialization.
+ Verifies JSON decoding, element creation from dictionaries, view construction, and state initialization.
 */
 
 import XCTest
@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class FormTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class FormTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -41,11 +44,10 @@ final class FormTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Form.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
-        _ = view // Ensure view is used
+        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for Form")
@@ -70,11 +72,53 @@ final class FormTests: XCTestCase {
         XCTAssertEqual((children[1] as? ViewElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
     }
     
-    func testFormJSONDecoding() {
+    func testFormJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Form",
+            "properties": {
+                "padding": 10.0
+            },
+            "children": [
+                {"id": 2, "type": "Text", "properties": {"text": "Field 1"}}
+            ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "Form", "Element type should be Form")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
+        
+        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+            XCTFail("Children should not be nil")
+            return
+        }
+        
+        XCTAssertEqual(children.count, 1, "Should have 1 child")
+        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "Child should be Text")
+        XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
+    }
+    
+    func testFormElementCreation() {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Form",
-            "properties": ["padding": 10.0],
+            "properties": ["padding": 10],
             "children": [
                 ["id": 2, "type": "Text", "properties": ["text": "Field 1"]]
             ]
@@ -84,13 +128,13 @@ final class FormTests: XCTestCase {
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
-        XCTAssertEqual(element.properties["padding"] as? Double, 10.0, "Padding should be 10.0")
-
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
+        
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
             return
         }
-
+        
         XCTAssertEqual(children.count, 1, "Should have 1 child")
         XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "Child should be Text")
         XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
@@ -100,6 +144,6 @@ final class FormTests: XCTestCase {
         let properties: [String: Any] = ["padding": 10.0]
         let validated = Form.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["padding"] as? Double, 10.0, "Padding should be valid")
+        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "Padding should be valid")
     }
 }

@@ -18,7 +18,7 @@ struct AnyCodable: Codable {
         self.value = value
     }
     
-    // Decodes a Codable value from a decoder, trying types in order of likelihood
+    // Decodes a Codable value from a decoder, handling nested structures
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         
@@ -39,16 +39,16 @@ struct AnyCodable: Codable {
             self.value = doubleValue
             return
         }
-        // Then try dictionary and array
-        if let dictionaryValue = try? container.decode([String: AnyCodable].self) {
-            self.value = dictionaryValue
-            return
-        }
+        // Try decoding arrays and dictionaries of AnyCodable
         if let arrayValue = try? container.decode([AnyCodable].self) {
             self.value = arrayValue
             return
         }
-        // Finally, try ViewElement for nested ActionUIElement
+        if let dictValue = try? container.decode([String: AnyCodable].self) {
+            self.value = dictValue
+            return
+        }
+        // Try decoding ViewElement for nested ActionUIElement
         if let elementValue = try? container.decode(ViewElement.self) {
             self.value = elementValue
             return
@@ -56,7 +56,7 @@ struct AnyCodable: Codable {
         // Throw if no supported type matches
         throw DecodingError.dataCorruptedError(
             in: container,
-            debugDescription: "Unsupported Codable type"
+            debugDescription: "Unsupported Codable type: \(container.codingPath)"
         )
     }
     
@@ -81,26 +81,26 @@ struct AnyCodable: Codable {
             try container.encode(doubleValue)
             return
         }
-        // Then handle dictionary and array
-        if let dictionaryValue = value as? [String: AnyCodable] {
-            try container.encode(dictionaryValue)
-            return
-        }
+        // Handle arrays and dictionaries
         if let arrayValue = value as? [AnyCodable] {
             try container.encode(arrayValue)
             return
         }
-        // Finally, handle ViewElement for nested ActionUIElement
+        if let dictValue = value as? [String: AnyCodable] {
+            try container.encode(dictValue)
+            return
+        }
+        // Handle ViewElement
         if let elementValue = value as? ViewElement {
             try container.encode(elementValue)
             return
         }
-        // Throw if no supported type matches
+        // Throw if unsupported
         throw EncodingError.invalidValue(
             value,
             EncodingError.Context(
                 codingPath: encoder.codingPath,
-                debugDescription: "Unsupported Codable type"
+                debugDescription: "Unsupported Codable type: \(type(of: value))"
             )
         )
     }

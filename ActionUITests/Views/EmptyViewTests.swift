@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class EmptyViewTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class EmptyViewTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -37,11 +40,10 @@ final class EmptyViewTests: XCTestCase {
             "properties": [:]
         ]
         let element = try! ViewElement(from: elementDict)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = EmptyView.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
-        _ = view // Ensure view is used
+        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for EmptyView")
@@ -54,18 +56,49 @@ final class EmptyViewTests: XCTestCase {
         )
     }
     
-    func testEmptyViewJSONDecoding() {
+    func testEmptyViewJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "EmptyView",
+            "properties": {
+                "padding": 10.0
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "EmptyView", "Element type should be EmptyView")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
+    }
+    
+    func testEmptyViewElementCreation() {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "EmptyView",
-            "properties": ["padding": 10.0]
+            "properties": ["padding": 10]
         ]
         
         let element = try! ViewElement(from: elementDict)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "EmptyView", "Element type should be EmptyView")
-        XCTAssertEqual(element.properties["padding"] as? Double, 10.0, "Padding should be 10.0")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
 }

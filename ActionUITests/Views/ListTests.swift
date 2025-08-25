@@ -3,7 +3,7 @@
  ListTests.swift
 
  Tests for the List component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state handling.
+ Verifies JSON decoding, element creation from dictionaries, view construction, and state handling.
 */
 
 import XCTest
@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class ListTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class ListTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -42,10 +45,10 @@ final class ListTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = List.validateProperties(element.properties, logger)
         
-        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
@@ -57,7 +60,50 @@ final class ListTests: XCTestCase {
         }
     }
     
-    func testListJSONDecoding() {
+    func testListJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "List",
+            "properties": {
+                "itemType": {"viewType": "Button", "actionContext": "rowIndex"},
+                "items": [["Item1", "Extra"], ["Item2", "Data"]],
+                "actionID": "list.action",
+                "doubleClickActionID": "list.doubleClick",
+                "padding": 10.0
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "List", "Element type should be List")
+        if let itemType = element.properties["itemType"] as? [String: Any] {
+            XCTAssertEqual(itemType["viewType"] as? String, "Button", "itemType.viewType should be Button")
+            XCTAssertEqual(itemType["actionContext"] as? String, "rowIndex", "itemType.actionContext should be rowIndex")
+        } else {
+            XCTFail("itemType should be valid dictionary")
+        }
+        XCTAssertEqual(element.properties["items"] as? [[String]], [["Item1", "Extra"], ["Item2", "Data"]], "items should match")
+        XCTAssertEqual(element.properties["actionID"] as? String, "list.action", "actionID should be list.action")
+        XCTAssertEqual(element.properties["doubleClickActionID"] as? String, "list.doubleClick", "doubleClickActionID should be list.doubleClick")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+    }
+    
+    func testListElementCreation() {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "List",
