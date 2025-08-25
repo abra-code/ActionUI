@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class ImageTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class ImageTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -42,36 +45,51 @@ final class ImageTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Image.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         
         XCTAssertTrue(view is SwiftUI.Image, "View should be an Image")
     }
     
-    func testImageJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testImageJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "Image",
-            "properties": [
+            "properties": {
                 "systemName": "star.fill",
                 "resizable": true,
                 "scaleMode": "fit",
                 "padding": 10.0,
-                "offset": ["x": 5.0, "y": -5.0]
-            ]
-        ]
+                "offset": {"x": 5.0, "y": -5.0}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Image", "Element type should be Image")
         XCTAssertEqual(element.properties["systemName"] as? String, "star.fill", "systemName should be star.fill")
         XCTAssertEqual(element.properties["resizable"] as? Bool, true, "resizable should be true")
         XCTAssertEqual(element.properties["scaleMode"] as? String, "fit", "scaleMode should be fit")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
             XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")

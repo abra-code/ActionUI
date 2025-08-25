@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class HStackTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class HStackTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -41,13 +44,13 @@ final class HStackTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         
-        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-                
+        
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
             return
@@ -60,28 +63,42 @@ final class HStackTests: XCTestCase {
         XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testHStackJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testHStackJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "HStack",
-            "properties": ["spacing": 10.0],
+            "properties": {"spacing": 10.0},
             "children": [
-                ["type": "Text", "id": 2, "properties": ["text": "Item 1"]],
-                ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
+                {"type": "Text", "id": 2, "properties": {"text": "Item 1"}},
+                {"type": "Text", "id": 3, "properties": {"text": "Item 2"}}
             ]
-        ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "HStack", "Element type should be HStack")
         XCTAssertEqual(element.properties.cgFloat(forKey: "spacing"), 10.0, "Spacing should be 10.0")
-
+        
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
             return
         }
-
+        
         XCTAssertEqual(children.count, 2, "Children should have 2 elements")
         XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
         XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
@@ -124,10 +141,10 @@ final class HStackTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = HStack.validateProperties(element.properties, logger)
         
-        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         

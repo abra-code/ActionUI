@@ -13,6 +13,7 @@ import SwiftUI
 @MainActor
 final class GaugeTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -21,12 +22,14 @@ final class GaugeTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -42,17 +45,17 @@ final class GaugeTests: XCTestCase {
             ]
         ]
         let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        let state = ActionUIModel.shared.state(for: windowUUID)
         let validatedProperties = Gauge.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
         _ = Gauge.applyModifiers(view, validatedProperties, logger) // Apply gaugeStyle
         
         logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
         XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for Gauge")
         
         let viewState = state.wrappedValue[element.id] as? [String: Any]
-        XCTAssertEqual(viewState?["value"] as? Double, 0.75, "Gauge state should include value")
+        XCTAssertEqual(viewState?.double(forKey: "value"), 0.75, "Gauge state should include value")
         XCTAssertTrue(
             PropertyComparison.arePropertiesEqual(
                 viewState?["validatedProperties"] as? [String: Any] ?? [:],
@@ -62,27 +65,41 @@ final class GaugeTests: XCTestCase {
         )
     }
     
-    func testGaugeJSONDecoding() {
-        let elementDict: [String: Any] = [
+    func testGaugeJSONDecoding() throws {
+        let jsonString = """
+        {
             "id": 1,
             "type": "Gauge",
-            "properties": [
+            "properties": {
                 "value": 0.75,
                 "label": "Progress",
                 "style": "accessoryCircular",
-                "range": ["min": 0.0, "max": 100.0]
-            ]
-        ]
+                "range": {"min": 0.0, "max": 100.0}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Gauge", "Element type should be Gauge")
-        XCTAssertEqual(element.properties["value"] as? Double, 0.75, "Value should be 0.75")
+        XCTAssertEqual(element.properties.double(forKey: "value"), 0.75, "Value should be 0.75")
         XCTAssertEqual(element.properties["label"] as? String, "Progress", "Label should be Progress")
         XCTAssertEqual(element.properties["style"] as? String, "accessoryCircular", "Style should be accessoryCircular")
-        XCTAssertEqual((element.properties["range"] as? [String: Double])?["min"], 0.0, "Range min should be 0.0")
-        XCTAssertEqual((element.properties["range"] as? [String: Double])?["max"], 100.0, "Range max should be 100.0")
+        XCTAssertEqual((element.properties["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Range min should be 0.0")
+        XCTAssertEqual((element.properties["range"] as? [String: Any])?.double(forKey: "max"), 100.0, "Range max should be 100.0")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
@@ -96,11 +113,11 @@ final class GaugeTests: XCTestCase {
         
         let validated = Gauge.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["value"] as? Double, 0.5, "Value should be valid")
+        XCTAssertEqual(validated.double(forKey: "value"), 0.5, "Value should be valid")
         XCTAssertEqual(validated["label"] as? String, "Progress", "Label should be valid")
         XCTAssertEqual(validated["style"] as? String, "accessoryLinearCapacity", "Style should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Double])?["min"], -10.0, "Range min should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Double])?["max"], 10.0, "Range max should be valid")
+        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), -10.0, "Range min should be valid")
+        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 10.0, "Range max should be valid")
     }
     
     func testGaugeValidatePropertiesInvalid() {
@@ -116,8 +133,8 @@ final class GaugeTests: XCTestCase {
         XCTAssertNil(validated.double(forKey: "value"), "Invalid value should default to nil")
         XCTAssertNil(validated["label"], "Invalid label should be nil")
         XCTAssertNil(validated["style"], "Invalid style should be nil")
-        XCTAssertEqual((validated["range"] as? [String: Double])?["min"], 0.0, "Invalid range min should default to 0.0")
-        XCTAssertEqual((validated["range"] as? [String: Double])?["max"], 1.0, "Invalid range max should default to 1.0")
+        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Invalid range min should default to 0.0")
+        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 1.0, "Invalid range max should default to 1.0")
     }
     
     func testGaugeValidatePropertiesMissing() {
