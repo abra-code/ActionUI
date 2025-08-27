@@ -45,18 +45,13 @@ struct ShareLink: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        if #available(iOS 16.1, macOS 13.1, *) {
-            guard let item = properties["item"] as? String, let url = URL(string: item) else {
-                logger.log("ShareLink missing valid URL, returning EmptyView", .warning)
-                return SwiftUI.EmptyView()
-            }
-            let subject = properties["subject"] as? String
-            let message = properties["message"] as? String
-            return SwiftUI.ShareLink(item: url, subject: SwiftUI.Text(subject ?? ""), message: SwiftUI.Text(message ?? ""))
-        } else {
-            logger.log("ShareLink requires iOS 16.1 or macOS 13.1, returning EmptyView", .warning)
+        guard let item = properties["item"] as? String, let url = URL(string: item) else {
+            logger.log("ShareLink missing valid URL, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
+        let subject = properties["subject"] as? String
+        let message = properties["message"] as? String
+        return SwiftUI.ShareLink(item: url, subject: SwiftUI.Text(subject ?? ""), message: SwiftUI.Text(message ?? ""))
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in

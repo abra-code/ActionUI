@@ -34,81 +34,76 @@ struct PhaseAnimator: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        if #available(iOS 17.0, macOS 14.0, *) {
-            let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-            let values = (properties["values"] as? [Double]) ?? [0.0, 1.0]
-            let trigger = (properties["trigger"] as? String) ?? "onAppear"
-            let timerInterval = (properties.double(forKey: "timerInterval")) ?? 1.0
-            let stateKey = (properties["stateKey"] as? String) ?? "counter"
-            let animationDict = (properties["animation"] as? [String: Any]) ?? ["type": "linear", "duration": 1.0]
-            
-            @State var animationTrigger: Int = 0
-            
-            // Define animation
-            let animation: Animation
-            let type = animationDict["type"] as? String ?? "linear"
-            let duration = animationDict.double(forKey: "duration") ?? 1.0
-            let response = animationDict.double(forKey: "response") ?? 0.5
-            let dampingFraction = animationDict.double(forKey: "dampingFraction") ?? 0.7
-            let blendDuration = animationDict.double(forKey: "blendDuration") ?? 0.0
-            let extraBounce = animationDict.double(forKey: "extraBounce") ?? 0.0
-            let controlPoints = animationDict["controlPoints"] as? [Double] ?? [0.0, 0.0, 1.0, 1.0] // TODO: array of doubles
-            
-            switch type {
-            case "linear":
-                animation = .linear(duration: duration)
-            case "easeIn":
-                animation = .easeIn(duration: duration)
-            case "easeOut":
-                animation = .easeOut(duration: duration)
-            case "easeInOut":
-                animation = .easeInOut(duration: duration)
-            case "spring":
-                animation = .spring(response: response, dampingFraction: dampingFraction, blendDuration: blendDuration)
-            case "interactiveSpring":
-                animation = .interactiveSpring(response: response, dampingFraction: dampingFraction, blendDuration: blendDuration)
-            case "smooth":
-                animation = .smooth(duration: duration, extraBounce: extraBounce)
-            case "bouncy":
-                animation = .bouncy(duration: duration, extraBounce: extraBounce)
-            case "timingCurve":
-                animation = .timingCurve(controlPoints[0], controlPoints[1], controlPoints[2], controlPoints[3], duration: duration)
-            default:
-                animation = .linear(duration: 1.0)
+        let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let values = (properties["values"] as? [Double]) ?? [0.0, 1.0]
+        let trigger = (properties["trigger"] as? String) ?? "onAppear"
+        let timerInterval = (properties.double(forKey: "timerInterval")) ?? 1.0
+        let stateKey = (properties["stateKey"] as? String) ?? "counter"
+        let animationDict = (properties["animation"] as? [String: Any]) ?? ["type": "linear", "duration": 1.0]
+        
+        @State var animationTrigger: Int = 0
+        
+        // Define animation
+        let animation: Animation
+        let type = animationDict["type"] as? String ?? "linear"
+        let duration = animationDict.double(forKey: "duration") ?? 1.0
+        let response = animationDict.double(forKey: "response") ?? 0.5
+        let dampingFraction = animationDict.double(forKey: "dampingFraction") ?? 0.7
+        let blendDuration = animationDict.double(forKey: "blendDuration") ?? 0.0
+        let extraBounce = animationDict.double(forKey: "extraBounce") ?? 0.0
+        let controlPoints = animationDict["controlPoints"] as? [Double] ?? [0.0, 0.0, 1.0, 1.0] // TODO: array of doubles
+        
+        switch type {
+        case "linear":
+            animation = .linear(duration: duration)
+        case "easeIn":
+            animation = .easeIn(duration: duration)
+        case "easeOut":
+            animation = .easeOut(duration: duration)
+        case "easeInOut":
+            animation = .easeInOut(duration: duration)
+        case "spring":
+            animation = .spring(response: response, dampingFraction: dampingFraction, blendDuration: blendDuration)
+        case "interactiveSpring":
+            animation = .interactiveSpring(response: response, dampingFraction: dampingFraction, blendDuration: blendDuration)
+        case "smooth":
+            animation = .smooth(duration: duration, extraBounce: extraBounce)
+        case "bouncy":
+            animation = .bouncy(duration: duration, extraBounce: extraBounce)
+        case "timingCurve":
+            animation = .timingCurve(controlPoints[0], controlPoints[1], controlPoints[2], controlPoints[3], duration: duration)
+        default:
+            animation = .linear(duration: 1.0)
+        }
+        
+        return SwiftUI.PhaseAnimator(
+            values,
+            trigger: animationTrigger,
+            content: { value in
+                ActionUIView(element: content, state: state, windowUUID: windowUUID)
+                    .opacity(value)
+            },
+            animation: { _ in animation }
+        )
+        .onAppear {
+            if trigger == "onAppear" {
+                animationTrigger += 1
             }
-            
-            return SwiftUI.PhaseAnimator(
-                values,
-                trigger: animationTrigger,
-                content: { value in
-                    ActionUIView(element: content, state: state, windowUUID: windowUUID)
-                        .opacity(value)
-                },
-                animation: { _ in animation }
-            )
-            .onAppear {
-                if trigger == "onAppear" {
-                    animationTrigger += 1
-                }
+        }
+        .onTapGesture {
+            if trigger == "onTap" {
+                animationTrigger += 1
             }
-            .onTapGesture {
-                if trigger == "onTap" {
-                    animationTrigger += 1
-                }
+        }
+        .onReceive(Timer.publish(every: timerInterval, on: .main, in: .common).autoconnect()) { _ in
+            if trigger == "onTimer" {
+                animationTrigger += 1
             }
-            .onReceive(Timer.publish(every: timerInterval, on: .main, in: .common).autoconnect()) { _ in
-                if trigger == "onTimer" {
-                    animationTrigger += 1
-                }
+        }
+        .onChange(of: (state.wrappedValue[0] as? [String: Any])?[stateKey] as? Int, initial: false) { _, newValue in
+            if trigger == "onStateChange", let newValue = newValue {
+                animationTrigger = newValue
             }
-            .onChange(of: (state.wrappedValue[0] as? [String: Any])?[stateKey] as? Int, initial: false) { _, newValue in
-                if trigger == "onStateChange", let newValue = newValue {
-                    animationTrigger = newValue
-                }
-            }
-        } else {
-            logger.log("PhaseAnimator requires iOS 17.0 or macOS 14.0; returning EmptyView", .warning)
-            return SwiftUI.EmptyView()
         }
     }
     

@@ -97,11 +97,7 @@ struct Table: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        #if canImport(AppKit)
-        guard #available(macOS 14.4, *) else {
-            return SwiftUI.Text("Table requires macOS 14.4 or later")
-        }
-        
+        #if canImport(AppKit)        
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
