@@ -190,47 +190,5 @@ final class DisclosureGroupTests: XCTestCase {
         XCTAssertNotNil(viewState, "State should be initialized for DisclosureGroup")
         XCTAssertEqual(viewState?["isExpanded"] as? Bool, true, "State isExpanded should be true")
         XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewState?["validatedProperties"] as? [String: Any] ?? [:], validatedProperties), "State validatedProperties should match")
-        
-        // Test buggy buildView (using properties["children"])
-        let buggyBuildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-            let label = properties["label"] as? String ?? ""
-            let initialExpanded = properties["isExpanded"] as? Bool ?? false
-            let viewState = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-                ["isExpanded": initialExpanded, "validatedProperties": properties],
-                uniquingKeysWith: { _, new in new }
-            )
-            state.wrappedValue[element.id] = viewState
-            let expandedBinding = Binding(
-                get: { (state.wrappedValue[element.id] as? [String: Any])?["isExpanded"] as? Bool ?? initialExpanded },
-                set: { newValue in
-                    let updatedState = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-                        ["isExpanded": newValue, "validatedProperties": properties],
-                        uniquingKeysWith: { _, new in new }
-                    )
-                    state.wrappedValue[element.id] = updatedState
-                    if let actionID = properties["actionID"] as? String {
-                        Task { @MainActor in
-                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                        }
-                    }
-                }
-            )
-            let children = properties["children"] as? [[String: Any]] ?? []
-            return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
-                ForEach(children.indices, id: \.self) { index in
-                    guard let childElement = try? ViewElement(from: children[index], logger: logger) else {
-                        logger.log("Failed to create ViewElement from child at index \(index)", .error)
-                        return ActionUIView(element: ViewElement(id: -1, type: "EmptyView", properties: [:], subviews: nil), state: state, windowUUID: windowUUID)
-                    }
-                    return ActionUIView(element: childElement, state: state, windowUUID: windowUUID)
-                }
-            } label: {
-                SwiftUI.Text(label)
-            }
-        }
-        
-        let buggyView = buggyBuildView(element, state, UUID().uuidString, validatedProperties, logger)
-        _ = DisclosureGroup.applyModifiers(buggyView, validatedProperties, logger)
-        // Note: Buggy buildView uses properties["children"], which is nil, so no children are rendered
     }
 }
