@@ -139,10 +139,8 @@ struct Table: ActionUIViewConstruction {
                     newState["value"] = [] as [String]
                 }
                 state.wrappedValue[element.id] = newState
-                if let actionID = properties["actionID"] as? String, viewType != "Button" {
-                    Task { @MainActor in
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                    ActionHelper.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, logger: logger)
                 }
             }
         )

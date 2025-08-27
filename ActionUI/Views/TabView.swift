@@ -47,10 +47,8 @@ struct TabView: ActionUIViewConstruction {
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Int ?? initialSelection },
             set: { newValue in
                 state.wrappedValue[element.id] = ["value": newValue]
-                if let actionID = properties["actionID"] as? String {
-                    Task { @MainActor in
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                    ActionHelper.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, logger: logger)
                 }
             }
         )

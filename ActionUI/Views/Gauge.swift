@@ -92,10 +92,8 @@ struct Gauge: ActionUIViewConstruction {
                     updatedState["value"] = newValue
                     updatedState["validatedProperties"] = properties
                     state.wrappedValue[element.id] = updatedState
-                    if let actionID = properties["actionID"] as? String {
-                        Task { @MainActor in
-                            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                        }
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionHelper.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, logger: logger)
                     }
                 } else {
                     logger.log("Gauge value \(newValue) out of range \(min)...\(max); ignoring", .warning)

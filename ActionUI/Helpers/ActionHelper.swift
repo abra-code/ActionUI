@@ -3,7 +3,7 @@ import Foundation
 
 struct ActionHelper {
     /// Dispatches an action handler asynchronously, ensuring it runs on the main thread after a background hop if called from the main thread.
-    static func dispatchActionAsync(
+    static func actionHandler(
         _ actionID: String,
         windowUUID: String,
         viewID: Int,

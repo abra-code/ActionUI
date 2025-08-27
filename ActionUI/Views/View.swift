@@ -22,6 +22,7 @@
      "opacity": 1.0,       // Optional: Double (0.0 to 1.0) for view transparency
      "cornerRadius": 5.0,  // Optional: Double for rounded corners
      "actionID": "view.action", // Optional: String for action identifier
+     "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change (user or programmatic)
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
@@ -84,7 +85,7 @@ struct View: ActionUIViewConstruction {
                 validFrame["width"] = width
             } else {
                 if frame["width"] != nil {
-                    logger.log("Invalid type for frame.width: expected Double, got \(type(of: frame["width"]!)), ignoring frame", .warning)
+                    logger.log("Invalid type for frame.width: expected Double, got \(type(of: frame["width"]!)), ignoring", .warning)
                 }
                 isValid = false
             }
@@ -93,20 +94,29 @@ struct View: ActionUIViewConstruction {
                 validFrame["height"] = height
             } else {
                 if frame["height"] != nil {
-                    logger.log("Invalid type for frame.height: expected Double, got \(type(of: frame["height"]!)), ignoring frame", .warning)
+                    logger.log("Invalid type for frame.height: expected Double, got \(type(of: frame["height"]!)), ignoring", .warning)
                 }
                 isValid = false
             }
             
-            if let alignment = frame["alignment"] as? String,
-               ["leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"].contains(alignment) {
-                validFrame["alignment"] = alignment
-            } else if frame["alignment"] != nil {
-                logger.log("Invalid frame.alignment: expected 'leading', 'center', 'trailing', 'top', 'bottom', 'topLeading', 'topTrailing', 'bottomLeading', 'bottomTrailing', got \(String(describing: frame["alignment"])), ignoring frame", .warning)
-                isValid = false
+            if let alignment = frame["alignment"] as? String {
+                let validAlignments = ["leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
+                if validAlignments.contains(alignment) {
+                    validFrame["alignment"] = alignment
+                } else {
+                    if frame["alignment"] != nil {
+                        logger.log("Invalid value for frame.alignment: expected one of \(validAlignments), got \(alignment), ignoring", .warning)
+                    }
+                    isValid = false
+                }
             }
             
-            validatedProperties["frame"] = isValid && validFrame["width"] != nil && validFrame["height"] != nil ? validFrame : nil
+            if isValid {
+                validatedProperties["frame"] = validFrame
+            } else {
+                logger.log("Invalid frame dictionary, ignoring", .warning)
+                validatedProperties["frame"] = nil
+            }
         } else if validatedProperties["frame"] != nil {
             logger.log("Invalid type for frame: expected [String: Any], got \(type(of: validatedProperties["frame"]!)), ignoring", .warning)
             validatedProperties["frame"] = nil
@@ -120,18 +130,23 @@ struct View: ActionUIViewConstruction {
             if let x = offset.cgFloat(forKey: "x") {
                 validOffset["x"] = x
             } else if offset["x"] != nil {
-                logger.log("Invalid type for offset.x: expected Double, got \(type(of: offset["x"]!)), ignoring offset", .warning)
+                logger.log("Invalid type for offset.x: expected Double, got \(type(of: offset["x"]!)), ignoring", .warning)
                 isValid = false
             }
             
             if let y = offset.cgFloat(forKey: "y") {
                 validOffset["y"] = y
             } else if offset["y"] != nil {
-                logger.log("Invalid type for offset.y: expected Double, got \(type(of: offset["y"]!)), ignoring offset", .warning)
+                logger.log("Invalid type for offset.y: expected Double, got \(type(of: offset["y"]!)), ignoring", .warning)
                 isValid = false
             }
             
-            validatedProperties["offset"] = isValid ? validOffset : nil
+            if isValid, !validOffset.isEmpty {
+                validatedProperties["offset"] = validOffset
+            } else {
+                logger.log("Invalid offset dictionary, ignoring", .warning)
+                validatedProperties["offset"] = nil
+            }
         } else if validatedProperties["offset"] != nil {
             logger.log("Invalid type for offset: expected [String: Any], got \(type(of: validatedProperties["offset"]!)), ignoring", .warning)
             validatedProperties["offset"] = nil
@@ -139,8 +154,10 @@ struct View: ActionUIViewConstruction {
         
         // Validate opacity
         if let opacity = properties.double(forKey: "opacity") {
-            if !(0.0...1.0).contains(opacity) {
-                logger.log("Invalid opacity: expected value between 0.0 and 1.0, got \(opacity), ignoring", .warning)
+            if (0.0...1.0).contains(opacity) {
+                // No reassignment needed; opacity is already valid in properties
+            } else {
+                logger.log("Invalid value for opacity: expected Double between 0.0 and 1.0, got \(opacity), ignoring", .warning)
                 validatedProperties["opacity"] = nil
             }
         } else if properties["opacity"] != nil {
@@ -149,8 +166,8 @@ struct View: ActionUIViewConstruction {
         }
         
         // Validate cornerRadius
-        if validatedProperties["cornerRadius"] != nil, validatedProperties.cgFloat(forKey: "cornerRadius") == nil {
-            logger.log("Invalid type for cornerRadius: expected Double, got \(type(of: validatedProperties["cornerRadius"]!)), ignoring", .warning)
+        if properties.cgFloat(forKey: "cornerRadius") == nil, properties["cornerRadius"] != nil {
+            logger.log("Invalid type for cornerRadius: expected Double, got \(type(of: properties["cornerRadius"]!)), ignoring", .warning)
             validatedProperties["cornerRadius"] = nil
         }
         
@@ -158,6 +175,12 @@ struct View: ActionUIViewConstruction {
         if !(properties["actionID"] is String?), properties["actionID"] != nil {
             logger.log("Invalid type for actionID: expected String, got \(type(of: properties["actionID"]!)), ignoring", .warning)
             validatedProperties["actionID"] = nil
+        }
+        
+        // Validate valueChangeActionID
+        if !(properties["valueChangeActionID"] is String?), properties["valueChangeActionID"] != nil {
+            logger.log("Invalid type for valueChangeActionID: expected String, got \(type(of: properties["valueChangeActionID"]!)), ignoring", .warning)
+            validatedProperties["valueChangeActionID"] = nil
         }
         
         // Validate disabled
@@ -188,70 +211,54 @@ struct View: ActionUIViewConstruction {
         }
         
         // Validate shadow
-        if let shadow = validatedProperties["shadow"] as? [String: Any] {
+        if let shadow = properties["shadow"] as? [String: Any] {
             var validShadow: [String: Any] = [:]
             var isValid = true
             
-            if let color = shadow["color"] as? String, ColorHelper.resolveColor(color) != nil {
+            if let color = shadow["color"] as? String {
                 validShadow["color"] = color
             } else if shadow["color"] != nil {
-                logger.log("Invalid shadow.color: expected valid color String, got \(String(describing: shadow["color"])), defaulting to black", .warning)
-                validShadow["color"] = "black"
-            } else {
+                logger.log("Invalid type for shadow.color: expected String, got \(type(of: shadow["color"]!)), using default black", .warning)
                 validShadow["color"] = "black"
             }
             
             if let radius = shadow.cgFloat(forKey: "radius") {
                 validShadow["radius"] = radius
             } else if shadow["radius"] != nil {
-                logger.log("Invalid type for shadow.radius: expected Double, got \(type(of: shadow["radius"]!)), ignoring shadow", .warning)
+                logger.log("Invalid type for shadow.radius: expected Double, got \(type(of: shadow["radius"]!)), ignoring", .warning)
                 isValid = false
             }
             
             if let x = shadow.cgFloat(forKey: "x") {
                 validShadow["x"] = x
             } else if shadow["x"] != nil {
-                logger.log("Invalid type for shadow.x: expected Double, got \(type(of: shadow["x"]!)), ignoring shadow", .warning)
+                logger.log("Invalid type for shadow.x: expected Double, got \(type(of: shadow["x"]!)), ignoring", .warning)
                 isValid = false
             }
             
             if let y = shadow.cgFloat(forKey: "y") {
                 validShadow["y"] = y
             } else if shadow["y"] != nil {
-                logger.log("Invalid type for shadow.y: expected Double, got \(type(of: shadow["y"]!)), ignoring shadow", .warning)
+                logger.log("Invalid type for shadow.y: expected Double, got \(type(of: shadow["y"]!)), ignoring", .warning)
                 isValid = false
             }
             
-            validatedProperties["shadow"] = isValid ? validShadow : nil
-        } else if validatedProperties["shadow"] != nil {
-            logger.log("Invalid type for shadow: expected [String: Any], got \(type(of: validatedProperties["shadow"]!)), ignoring", .warning)
-            validatedProperties["shadow"] = nil
-        }
-        
-        // Validate padding as EdgeInsets dictionary
-        if let padding = validatedProperties["padding"] as? [String: Any] {
-            var validatedPadding: [String: Any] = [:]
-            var isValid = true
-            let edges = ["top", "bottom", "leading", "trailing"]
-            
-            for edge in edges {
-                if let value = padding.cgFloat(forKey: edge) {
-                    validatedPadding[edge] = value
-                } else if padding[edge] != nil {
-                    logger.log("Invalid type for padding.\(edge): expected Double, got \(type(of: padding[edge]!)), ignoring padding", .warning)
-                    isValid = false
-                }
+            if isValid, !validShadow.isEmpty {
+                validatedProperties["shadow"] = validShadow
+            } else {
+                logger.log("Invalid shadow dictionary, ignoring", .warning)
+                validatedProperties["shadow"] = nil
             }
-            
-            validatedProperties["padding"] = isValid ? validatedPadding : nil
+        } else if properties["shadow"] != nil {
+            logger.log("Invalid type for shadow: expected [String: Any], got \(type(of: properties["shadow"]!)), ignoring", .warning)
+            validatedProperties["shadow"] = nil
         }
         
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, _, _ in
-        // View is never instantiated directly; return EmptyView as a fallback
-        return SwiftUI.EmptyView()
+    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+        SwiftUI.EmptyView()
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
