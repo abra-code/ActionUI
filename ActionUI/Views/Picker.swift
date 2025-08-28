@@ -4,32 +4,27 @@
    "type": "Picker",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Select Option",    // Optional: String, defaults to ""
-     "options": ["Option1", "Option2"], // Required: Array of strings
-     "pickerStyle": "menu"       // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only); defaults to "menu"
+     "title": "Select Option",    // Optional: String, no default
+     "options": ["Option1", "Option2"], // Optional: Array of strings, no default
+     "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only); no default
+     "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
+     "valueChangeActionID": "picker.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
    }
-   // Note: These properties are specific to Picker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
- }
-*/
+   // Note: actionID is triggered via onChange for user-initiated changes. valueChangeActionID is triggered for all value changes via the binding's set closure and dispatched asynchronously via ActionHelper. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
+ */
 
 import SwiftUI
 
 struct Picker: ActionUIViewConstruction {
-    // Design decision: Defines valueType as String to reflect selected option for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { String.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate options
-        if let options = validatedProperties["options"] as? [String] {
-            if options.isEmpty {
-                logger.log("Picker options is empty; initializing with empty array", .warning)
-                validatedProperties["options"] = []
-            }
-        } else {
-            logger.log("Picker requires 'options' as [String]; defaulting to empty array", .warning)
-            validatedProperties["options"] = []
+        if let options = properties["options"], !(options is [String]) {
+            logger.log("Picker 'options' must be [String]; setting to nil", .warning)
+            validatedProperties["options"] = nil
         }
         
         // Validate pickerStyle
@@ -38,17 +33,15 @@ struct Picker: ActionUIViewConstruction {
         #else
         let validStyles = ["menu", "segmented", "wheel"]
         #endif
-        if let style = validatedProperties["pickerStyle"] as? String, !validStyles.contains(style) {
-            logger.log("Picker style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); defaulting to 'menu'", .warning)
-            validatedProperties["pickerStyle"] = "menu"
-        }
-        if validatedProperties["pickerStyle"] == nil {
-            validatedProperties["pickerStyle"] = "menu"
+        if let style = properties["pickerStyle"] as? String, !validStyles.contains(style) {
+            logger.log("Picker style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); setting to nil", .warning)
+            validatedProperties["pickerStyle"] = nil
         }
         
         // Validate title
-        if validatedProperties["title"] == nil {
-            validatedProperties["title"] = ""
+        if let title = properties["title"], !(title is String) {
+            logger.log("Picker 'title' must be String; setting to nil", .warning)
+            validatedProperties["title"] = nil
         }
         
         return validatedProperties
@@ -60,35 +53,50 @@ struct Picker: ActionUIViewConstruction {
         
         // Initialize Picker-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = initialValue
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = initialValue
+            newState["validatedProperties"] = properties
+            state.wrappedValue[element.id] = newState
+            logger.log("Initialized state for viewID: \(element.id) with value: \(initialValue)", .debug)
         }
         
-        let selectionBinding = Binding(
+        // Create a specific binding for the value to ensure reactivity
+        let valueBinding = Binding<String>(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? initialValue },
             set: { newValue in
+                guard (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String != newValue else {
+                    logger.log("No change in value for viewID: \(element.id), skipping update", .debug)
+                    return
+                }
+                logger.log("Updating value for viewID: \(element.id) to \(newValue)", .debug)
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties // Include validated properties per ActionUI guidelines
+                newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState
-                if let actionID = properties["actionID"] as? String {
-                    Task { @MainActor in
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                
+                // Trigger valueChangeActionID asynchronously
+                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                    logger.log("Dispatching valueChangeActionID: \(valueChangeActionID) for viewID: \(element.id)", .debug)
+                    ActionHelper.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, logger: logger)
                 }
             }
         )
         
         let title = properties["title"] as? String ?? ""
+        let actionID = properties["actionID"] as? String
         
-        return SwiftUI.Picker(title, selection: selectionBinding) {
+        return SwiftUI.Picker(title, selection: valueBinding) {
             ForEach(items, id: \.self) { item in
                 SwiftUI.Text(item).tag(item)
+            }
+        }
+        .onChange(of: valueBinding.wrappedValue) { _, newValue in
+            if let actionID = actionID {
+                logger.log("Triggering actionID: \(actionID) for viewID: \(element.id)", .debug)
+                Task { @MainActor in
+                    logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                }
             }
         }
     }
@@ -99,8 +107,7 @@ struct Picker: ActionUIViewConstruction {
             switch style {
             case "wheel":
                 #if os(macOS)
-                logger.log("wheel PickerStyle unavailable on macOS; using menu", .warning)
-                modifiedView = modifiedView.pickerStyle(.menu)
+                logger.log("wheel PickerStyle unavailable on macOS; ignoring", .warning)
                 #else
                 modifiedView = modifiedView.pickerStyle(.wheel)
                 #endif
@@ -109,7 +116,7 @@ struct Picker: ActionUIViewConstruction {
             case "segmented":
                 modifiedView = modifiedView.pickerStyle(.segmented)
             default:
-                modifiedView = modifiedView.pickerStyle(.menu)
+                break // Should not reach here due to validateProperties
             }
         }
         return modifiedView
