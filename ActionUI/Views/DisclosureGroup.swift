@@ -59,7 +59,9 @@ struct DisclosureGroup: ActionUIViewConstruction {
                 )
                 state.wrappedValue[element.id] = updatedState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionHelper.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, logger: logger)
+                    Task { @MainActor in
+                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

@@ -10,7 +10,7 @@
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
      "valueChangeActionID": "picker.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
    }
-   // Note: actionID is triggered via onChange for user-initiated changes. valueChangeActionID is triggered for all value changes via the binding's set closure and dispatched asynchronously via ActionHelper. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
+   // Note: actionID is triggered via onChange for user-initiated changes. valueChangeActionID is triggered for continous value changes via the binding's set closure. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
  */
 
 import SwiftUI
@@ -74,10 +74,11 @@ struct Picker: ActionUIViewConstruction {
                 newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState
                 
-                // Trigger valueChangeActionID asynchronously
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     logger.log("Dispatching valueChangeActionID: \(valueChangeActionID) for viewID: \(element.id)", .debug)
-                    ActionHelper.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, logger: logger)
+                    Task { @MainActor in
+                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

@@ -1,0 +1,216 @@
+// Tests/Views/MapTests.swift
+/*
+ MapTests.swift
+
+ Tests for the Map component in the ActionUI component library.
+ Verifies JSON decoding, property validation, view construction, state binding, and annotation rendering.
+*/
+
+import XCTest
+import SwiftUI
+import MapKit
+@testable import ActionUI
+
+@MainActor
+final class MapTests: XCTestCase {
+    private var logger: XCTestLogger!
+    private var windowUUID: String!
+    
+    override func setUp() {
+        super.setUp()
+        logger = XCTestLogger(maxLevel: .verbose)
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
+        ActionUIRegistry.shared.resetForTesting()
+        ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
+    }
+    
+    override func tearDown() {
+        ActionUIRegistry.shared.resetForTesting()
+        ActionUIModel.resetForTesting()
+        logger = nil
+        windowUUID = nil
+        super.tearDown()
+    }
+    
+    func testMapConstructionAndStateBinding() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Map",
+            "properties": [
+                "coordinate": ["latitude": 37.33233141, "longitude": -122.0312186],
+                "showsUserLocation": true,
+                "interactionModes": ["pan", "zoom"],
+                "annotations": [
+                    ["coordinate": ["latitude": 37.332, "longitude": -122.031], "title": "Point A", "subtitle": "Location A"]
+                ]
+            ]
+        ]
+        let element = try! ViewElement(from: elementDict, logger: logger)
+        let state = ActionUIModel.shared.state(for: windowUUID)
+        let validatedProperties = Map.validateProperties(element.properties, logger)
+        
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = Map.applyModifiers(view, validatedProperties, logger)
+        
+        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for Map")
+        
+        let viewState = state.wrappedValue[element.id] as? [String: Any]
+        let stateCoord = viewState?["value"] as? CLLocationCoordinate2D
+        XCTAssertEqual(stateCoord!.latitude, 37.33233141, accuracy: 0.0001, "Map state should include coordinate latitude")
+        XCTAssertEqual(stateCoord!.longitude, -122.0312186, accuracy: 0.0001, "Map state should include coordinate longitude")
+        XCTAssertTrue(
+            PropertyComparison.arePropertiesEqual(
+                viewState?["validatedProperties"] as? [String: Any] ?? [:],
+                validatedProperties
+            ),
+            "State should include validated properties"
+        )
+    }
+    
+    func testMapJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Map",
+            "properties": {
+                "coordinate": { "latitude": 37.33233141, "longitude": -122.0312186 },
+                "showsUserLocation": true,
+                "interactionModes": ["pan", "zoom"],
+                "annotations": [
+                    {
+                        "coordinate": { "latitude": 37.332, "longitude": -122.031 },
+                        "title": "Point A",
+                        "subtitle": "Location A"
+                    }
+                ]
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let model = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let element = model.descriptions[windowUUID] else {
+            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+            return
+        }
+        
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "Map", "Element type should be Map")
+        let coord = element.properties["coordinate"] as? CLLocationCoordinate2D
+        XCTAssertEqual(coord!.latitude, 37.33233141, accuracy: 0.0001, "Coordinate latitude should be 37.33233141")
+        XCTAssertEqual(coord!.longitude, -122.0312186, accuracy: 0.0001, "Coordinate longitude should be -122.0312186")
+        XCTAssertEqual(element.properties["showsUserLocation"] as? Bool, true, "showsUserLocation should be true")
+        XCTAssertEqual(element.properties["interactionModes"] as? [String], ["pan", "zoom"], "interactionModes should be ['pan', 'zoom']")
+        let annotations = element.properties["annotations"] as? [[String: Any]]
+        XCTAssertEqual(annotations?.count, 1, "Annotations should have 1 item")
+        let annotation = annotations?.first
+        let annotationCoord = annotation?["coordinate"] as? CLLocationCoordinate2D
+        XCTAssertEqual(annotationCoord!.latitude, 37.332, accuracy: 0.0001, "Annotation coordinate latitude should be 37.332")
+        XCTAssertEqual(annotationCoord!.longitude, -122.031, accuracy: 0.0001, "Annotation coordinate longitude should be -122.031")
+        XCTAssertEqual(annotation?["title"] as? String, "Point A", "Annotation title should be Point A")
+        XCTAssertEqual(annotation?["subtitle"] as? String, "Location A", "Annotation subtitle should be Location A")
+        XCTAssertNil(element.subviews?["children"], "Children should be nil")
+    }
+    
+    func testMapValidatePropertiesValid() {
+        let properties: [String: Any] = [
+            "coordinate": ["latitude": 37.33233141, "longitude": -122.0312186],
+            "showsUserLocation": true,
+            "interactionModes": ["pan", "zoom", "rotate"],
+            "annotations": [
+                ["coordinate": ["latitude": 37.332, "longitude": -122.031], "title": "Point A", "subtitle": "Location A"]
+            ]
+        ]
+        
+        let validated = Map.validateProperties(properties, logger)
+        
+        let coord = validated["coordinate"] as? CLLocationCoordinate2D
+        XCTAssertEqual(coord!.latitude, 37.33233141, accuracy: 0.0001, "Coordinate latitude should be valid")
+        XCTAssertEqual(coord!.longitude, -122.0312186, accuracy: 0.0001, "Coordinate longitude should be valid")
+        XCTAssertEqual(validated["showsUserLocation"] as? Bool, true, "showsUserLocation should be valid")
+        XCTAssertEqual(validated["interactionModes"] as? [String], ["pan", "zoom", "rotate"], "interactionModes should be valid")
+        let annotations = validated["annotations"] as? [[String: Any]]
+        XCTAssertEqual(annotations?.count, 1, "Annotations should have 1 item")
+        let annotation = annotations?.first
+        let annotationCoord = annotation?["coordinate"] as? CLLocationCoordinate2D
+        XCTAssertEqual(annotationCoord!.latitude, 37.332, accuracy: 0.0001, "Annotation coordinate latitude should be valid")
+        XCTAssertEqual(annotationCoord!.longitude, -122.031, accuracy: 0.0001, "Annotation coordinate longitude should be valid")
+        XCTAssertEqual(annotation?["title"] as? String, "Point A", "Annotation title should be valid")
+        XCTAssertEqual(annotation?["subtitle"] as? String, "Location A", "Annotation subtitle should be valid")
+    }
+    
+    func testMapValidatePropertiesInvalid() {
+        let properties: [String: Any] = [
+            "coordinate": ["latitude": "invalid", "longitude": true],
+            "showsUserLocation": "true",
+            "interactionModes": ["invalid"],
+            "annotations": [
+                ["coordinate": ["latitude": "invalid", "longitude": true], "title": 123, "subtitle": false]
+            ]
+        ]
+        
+        let validated = Map.validateProperties(properties, logger)
+        
+        let coord = validated["coordinate"] as? CLLocationCoordinate2D
+        XCTAssertEqual(coord!.latitude, 0.0, accuracy: 0.0001, "Invalid coordinate should default to (0.0, 0.0)")
+        XCTAssertEqual(coord!.longitude, 0.0, accuracy: 0.0001, "Invalid coordinate should default to (0.0, 0.0)")
+        XCTAssertEqual(validated["showsUserLocation"] as? Bool, false, "Invalid showsUserLocation should default to false")
+        XCTAssertEqual(validated["interactionModes"] as? [String], ["pan", "zoom", "rotate"], "Invalid interactionModes should default to all")
+        let annotations = validated["annotations"] as? [[String: Any]]
+        XCTAssertEqual(annotations?.count, 0, "Invalid annotations should default to empty array")
+    }
+    
+    func testMapValidatePropertiesMissing() {
+        let properties: [String: Any] = [:]
+        
+        let validated = Map.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["coordinate"], "Missing coordinate should be nil")
+        XCTAssertEqual(validated["showsUserLocation"] as? Bool, false, "Missing showsUserLocation should default to false")
+        XCTAssertEqual(validated["interactionModes"] as? [String], ["pan", "zoom", "rotate"], "Missing interactionModes should default to all")
+        XCTAssertTrue(
+            PropertyComparison.arePropertiesEqual(
+                validated["annotations"] as? [String: Any] ?? [:],
+                [:]
+            ),
+            "Missing annotations should default to empty array"
+        )
+    }
+    
+    func testMapCameraBindingUpdatesState() {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Map",
+            "properties": [
+                "coordinate": ["latitude": 37.33233141, "longitude": -122.0312186],
+                "showsUserLocation": true
+            ]
+        ]
+        let model = ActionUIModel.shared
+        let element = try! ViewElement(from: elementDict, logger: logger)
+        let state = model.state(for: windowUUID)
+        let validatedProperties = Map.validateProperties(element.properties, logger)
+        
+        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = Map.applyModifiers(view, validatedProperties, logger)
+        
+        // Simulate camera change
+        let newCoord = CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060)
+        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: newCoord)
+        
+        let viewState = state.wrappedValue[element.id] as? [String: Any]
+        let stateCoord = viewState?["value"] as? CLLocationCoordinate2D
+        XCTAssertEqual(stateCoord!.latitude, 40.7128, accuracy: 0.0001, "Map state should update to new coordinate latitude")
+        XCTAssertEqual(stateCoord!.longitude, -74.0060, accuracy: 0.0001, "Map state should update to new coordinate longitude")
+    }
+}

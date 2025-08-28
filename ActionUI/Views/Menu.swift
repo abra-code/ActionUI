@@ -20,10 +20,6 @@ struct Menu: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if validatedProperties["label"] == nil {
-            validatedProperties["label"] = "Menu"
-        }
-        
         return validatedProperties
     }
     

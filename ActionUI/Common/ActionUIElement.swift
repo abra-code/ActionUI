@@ -39,6 +39,7 @@ protocol ActionUIElement: Identifiable, Codable {
 }
 
 // Protocol for constructing SwiftUI views from ActionUIElements
+@MainActor
 protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
