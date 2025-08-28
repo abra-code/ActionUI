@@ -11,10 +11,10 @@
      "actionID": "table.action", // Optional: For Button viewType
      "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
    }
+ }
    // Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
- }
-*/
+ */
 
 import SwiftUI
 
@@ -97,7 +97,7 @@ struct Table: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
-        #if canImport(AppKit)        
+        #if canImport(AppKit)
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
@@ -185,7 +185,7 @@ struct Table: ActionUIViewConstruction {
                 .width(column.width)
             }
         }
-        .onChange(of: properties["rows"] as? [[String]]) { newRows in
+        .onChange(of: properties["rows"] as? [[String]], initial: false) { oldRows, newRows in
             var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
             let newContent = newRows ?? []
             newState["content"] = newContent

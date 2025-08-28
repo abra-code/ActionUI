@@ -9,10 +9,10 @@
      "actionID": "list.action", // Optional: For Button viewType
      "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
    }
+ }
    // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
- }
-*/
+ */
 
 import SwiftUI
 
@@ -137,7 +137,7 @@ struct List: ActionUIViewConstruction {
                 }
             }
         }
-        .onChange(of: properties["items"] as? [[String]]) { newItems in
+        .onChange(of: properties["items"] as? [[String]], initial: false) { oldItems, newItems in
             var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
             let newContent: [[String]] = newItems ?? []
             newState["content"] = newContent
