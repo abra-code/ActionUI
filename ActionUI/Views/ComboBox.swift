@@ -52,13 +52,9 @@ struct ComboBox: ActionUIViewConstruction {
         
         // Initialize ComboBox-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = ""
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = ""
+            state.wrappedValue[element.id] = newState
         }
         
         let binding = Binding(
@@ -66,7 +62,6 @@ struct ComboBox: ActionUIViewConstruction {
             set: { newValue in
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties // Include validated properties per ActionUI guidelines
                 state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
                     ["value": newValue, "validatedProperties": properties],
                     uniquingKeysWith: { _, new in new }

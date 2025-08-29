@@ -55,15 +55,12 @@ struct ProgressView: ActionUIViewConstruction {
         let actionID: String? = properties["actionID"] as? String
         
         var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil, let value = value {
-            viewSpecificState["value"] = value
-        }
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = value
+            state.wrappedValue[element.id] = newState
         }
         
-        let currentValue: Double? = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? value
+        let currentValue: Double? = newState.double(forKey: "value") ?? value
         
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {

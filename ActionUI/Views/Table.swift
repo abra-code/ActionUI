@@ -115,16 +115,17 @@ struct Table: ActionUIViewConstruction {
         
         // Append Table-specific state only if not already set
         var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
+        var mutated = false
         if newState["content"] == nil {
-            viewSpecificState["content"] = rows
+            newState["content"] = rows
+            mutated = true
         }
         if newState["selectedRowID"] == nil {
-            viewSpecificState["selectedRowID"] = nil as String?
-            viewSpecificState["value"] = [] as [String]
+            newState["value"] = [] as [String]
+            mutated = true
         }
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+        if mutated {
+            state.wrappedValue[element.id] = newState
         }
         
         let selectionBinding = Binding<String?>(

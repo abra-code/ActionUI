@@ -33,13 +33,9 @@ struct TextEditor: ActionUIViewConstruction {
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         // Initialize TextEditor-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = ""
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = ""
+            state.wrappedValue[element.id] = newState
         }
         
         let textBinding = Binding(
@@ -47,7 +43,6 @@ struct TextEditor: ActionUIViewConstruction {
             set: { newValue in
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties // Include validated properties per ActionUI guidelines
                 state.wrappedValue[element.id] = newState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in

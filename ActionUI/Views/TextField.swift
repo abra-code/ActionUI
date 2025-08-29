@@ -49,13 +49,9 @@ struct TextField: ActionUIViewConstruction {
         
         // Initialize TextField-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = ""
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = ""
+            state.wrappedValue[element.id] = newState
         }
         
         let textBinding = Binding(

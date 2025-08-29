@@ -54,15 +54,11 @@ struct NavigationSplitView: ActionUIViewConstruction {
         
         // Initialize NavigationSplitView-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["columnVisibility"] == nil {
-            viewSpecificState["columnVisibility"] = (properties["columnVisibility"] as? String) ?? "all"
+            newState["columnVisibility"] = (properties["columnVisibility"] as? String) ?? "all"
+            state.wrappedValue[element.id] = newState
         }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
-        }
-        
+
         let visibilityBinding = Binding<NavigationSplitViewVisibility>(
             get: {
                 if let visibility = (state.wrappedValue[element.id] as? [String: Any])?["columnVisibility"] as? String {
@@ -86,7 +82,6 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 default: newVisibilityString = "all"
                 }
                 newState["columnVisibility"] = newVisibilityString
-                newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in

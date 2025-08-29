@@ -33,8 +33,8 @@ final class DividerTests: XCTestCase {
         let validated = Divider.validateProperties(properties, logger)
         
         XCTAssertEqual(validated["background"] as? String, "#FF0000", "background should be valid String")
-        XCTAssertEqual(validated["frameHeight"] as? Double, 2.0, "frameHeight should be valid Double")
-        XCTAssertEqual(validated["frameWidth"] as? Double, 3.0, "frameWidth should be valid Double")
+        XCTAssertEqual(validated.double(forKey: "frameHeight"), 2.0, "frameHeight should be valid Double")
+        XCTAssertEqual(validated.double(forKey: "frameWidth"), 3.0, "frameWidth should be valid Double")
     }
     
     func testValidatePropertiesInvalid() throws {

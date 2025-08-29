@@ -30,6 +30,18 @@ private extension CLLocationCoordinate2D {
     }
 }
 
+extension [String: Any] {
+    func coordinate(forKey key: String) -> CLLocationCoordinate2D? {
+        if let coordinate = self[key] as? [String: Any],
+           let latitude = coordinate.double(forKey: "latitude"),
+           let longitude = coordinate.double(forKey: "longitude") {
+            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+        return nil
+    }
+}
+
+
 struct Map: ActionUIViewConstruction {
     // Design decision: Defines valueType as CLLocationCoordinate2D to reflect map's center coordinate for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { CLLocationCoordinate2D.self }
@@ -45,14 +57,15 @@ struct Map: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate coordinate
-        if let coordinate = validatedProperties["coordinate"] as? [String: Double] {
-            let latitude = coordinate["latitude"] ?? 0.0
-            let longitude = coordinate["longitude"] ?? 0.0
-            validatedProperties["coordinate"] = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        // Validate coordinate if present
+        if let coordinate = validatedProperties["coordinate"] as? [String: Any] {
+            if validatedProperties.coordinate(forKey: "coordinate") == nil {
+                logger.log("Map coordinate must be a dictionary with latitude & longitude numeric values", .warning)
+                validatedProperties["coordinate"] = nil
+            }
         } else if validatedProperties["coordinate"] != nil {
-            logger.log("Map coordinate must be a dictionary with latitude/longitude Doubles; defaulting to (0.0, 0.0)", .warning)
-            validatedProperties["coordinate"] = CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
+            logger.log("Map coordinate must be a dictionary with latitude/longitude numeric values", .warning)
+            validatedProperties["coordinate"] = nil
         }
         
         // Validate showsUserLocation
@@ -84,25 +97,22 @@ struct Map: ActionUIViewConstruction {
         
         // Validate annotations
         if let annotations = validatedProperties["annotations"] as? [[String: Any]] {
-            let validatedAnnotations = annotations.compactMap { dict -> [String: Any]? in
-                var validatedAnnotation: [String: Any] = [:]
-                if let coord = dict["coordinate"] as? [String: Double] {
-                    let latitude = coord["latitude"] ?? 0.0
-                    let longitude = coord["longitude"] ?? 0.0
-                    validatedAnnotation["coordinate"] = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-                } else {
+            let validatedAnnotations = annotations.compactMap { annotationDict -> [String: Any]? in
+                var validatedAnnotation: [String: Any] = annotationDict
+                
+                if annotationDict.coordinate(forKey: "coordinate") == nil {
                     logger.log("Map annotation coordinate invalid; skipping annotation", .warning)
                     return nil
                 }
-                if let title = dict["title"] as? String? {
-                    validatedAnnotation["title"] = title
-                } else if dict["title"] != nil {
+                if annotationDict["title"] as? String? == nil,
+                   annotationDict["title"] != nil {
                     logger.log("Map annotation title must be a String; defaulting to nil", .warning)
+                    validatedAnnotation["title"] = nil
                 }
-                if let subtitle = dict["subtitle"] as? String? {
-                    validatedAnnotation["subtitle"] = subtitle
-                } else if dict["subtitle"] != nil {
+                if annotationDict["subtitle"] as? String? == nil,
+                   annotationDict["subtitle"] != nil {
                     logger.log("Map annotation subtitle must be a String; defaulting to nil", .warning)
+                    validatedAnnotation["subtitle"] = nil
                 }
                 return validatedAnnotation
             }
@@ -117,7 +127,7 @@ struct Map: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         #if canImport(MapKit)
-        let initialCoordinate = (properties["coordinate"] as? CLLocationCoordinate2D) ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
+        let initialCoordinate = properties.coordinate(forKey: "coordinate") ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
         let showsUserLocation = properties["showsUserLocation"] as? Bool ?? false
         let interactionModes = (properties["interactionModes"] as? [String])?.reduce(MapInteractionModes()) { modes, mode in
             switch mode {
@@ -129,7 +139,7 @@ struct Map: ActionUIViewConstruction {
         } ?? .all
 
         let annotations: [MapAnnotationItem] = (properties["annotations"] as? [[String: Any]])?.compactMap { dict in
-            guard let coord = dict["coordinate"] as? CLLocationCoordinate2D else { return nil }
+            guard let coord = dict.coordinate(forKey: "coordinate") else { return nil }
             return MapAnnotationItem(
                 coordinate: coord,
                 title: dict["title"] as? String,
@@ -137,16 +147,12 @@ struct Map: ActionUIViewConstruction {
             )
         } ?? []
 
-        var currentState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
-        if currentState["value"] == nil {
-            viewSpecificState["value"] = initialCoordinate
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        if newState["value"] == nil {
+            newState["value"] = initialCoordinate
+            state.wrappedValue[element.id] = newState
         }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = currentState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
-        }
-
+        
         func extractRegion(from pos: MapKit.MapCameraPosition) -> MKCoordinateRegion? {
             let children = Mirror(reflecting: pos).children
             for child in children {
@@ -167,7 +173,6 @@ struct Map: ActionUIViewConstruction {
                 if let region = extractRegion(from: newPosition) {
                     let coord = region.center
                     newState["value"] = coord
-                    newState["validatedProperties"] = properties
                     state.wrappedValue[element.id] = newState
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                         Task { @MainActor in

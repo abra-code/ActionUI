@@ -49,14 +49,11 @@ struct ColorPicker: ActionUIViewConstruction {
         // Initialize ColorPicker-specific state only if not already set
         // Design decision: Merges value (Color) and validatedProperties conditionally to avoid overwriting existing properties
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = initialColor
+            newState["value"] = initialColor
+            state.wrappedValue[element.id] = newState
         }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
-        }
+        
         let title = properties["title"] as? String ?? "Color"
         
         let colorBinding = Binding(
@@ -64,7 +61,6 @@ struct ColorPicker: ActionUIViewConstruction {
             set: { newValue in
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties // Include validated properties per ActionUI guidelines
                 state.wrappedValue[element.id] = newState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in

@@ -39,14 +39,12 @@ struct Toggle: ActionUIViewConstruction {
     // Builds the Toggle view, binding isOn to state
     // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+        
         // Initialize Toggle-specific state only if not set
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = false
-        }
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = false
+            state.wrappedValue[element.id] = newState
         }
         
         let toggleBinding = Binding(
@@ -54,7 +52,6 @@ struct Toggle: ActionUIViewConstruction {
             set: { newValue in
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties // Include validated properties per ActionUI guidelines
                 state.wrappedValue[element.id] = newState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in

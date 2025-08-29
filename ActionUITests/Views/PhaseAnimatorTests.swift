@@ -88,7 +88,7 @@ final class PhaseAnimatorTests: XCTestCase {
         XCTAssertEqual(element.type, "PhaseAnimator", "Element type should be PhaseAnimator")
         XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
         XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
-        XCTAssertEqual((element.properties["values"] as? [Double])?.count, 3, "Values should have 3 elements")
+        XCTAssertEqual((element.properties["values"] as? [Any])?.count, 3, "Values should have 3 elements")
         XCTAssertEqual(element.properties["trigger"] as? String, "onAppear", "Trigger should be onAppear")
         if let animation = animation {
             XCTAssertEqual(animation["type"] as? String, "spring", "Animation type should be spring")

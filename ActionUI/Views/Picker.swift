@@ -55,7 +55,6 @@ struct Picker: ActionUIViewConstruction {
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         if newState["value"] == nil {
             newState["value"] = initialValue
-            newState["validatedProperties"] = properties
             state.wrappedValue[element.id] = newState
             logger.log("Initialized state for viewID: \(element.id) with value: \(initialValue)", .debug)
         }
@@ -71,7 +70,6 @@ struct Picker: ActionUIViewConstruction {
                 logger.log("Updating value for viewID: \(element.id) to \(newValue)", .debug)
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState
                 
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {

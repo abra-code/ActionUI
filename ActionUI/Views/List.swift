@@ -75,15 +75,17 @@ struct List: ActionUIViewConstruction {
         
         // Append List-specific state only if not already set
         var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
-        if newState["content"] == nil {
-            viewSpecificState["content"] = items
-        }
+        var mutated = false
         if newState["value"] == nil {
-            viewSpecificState["value"] = [] as [String]
+            newState["value"] = [] as [String]
+            mutated = true
         }
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+        if newState["content"] == nil {
+            newState["content"] = items
+            mutated = true
+        }
+        if mutated {
+            state.wrappedValue[element.id] = newState
         }
         
         let selectionBinding = Binding<String?>(

@@ -18,7 +18,7 @@
 import SwiftUI
 
 struct NavigationLink: ActionUIViewConstruction {
-    static var valueType: Any.Type { AnyHashable.self }
+    static var valueType: Any.Type { String.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -51,13 +51,9 @@ struct NavigationLink: ActionUIViewConstruction {
         
         // Initialize NavigationLink-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["link"] == nil {
-            viewSpecificState["link"] = link
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["link"] = link
+            state.wrappedValue[element.id] = newState
         }
         
         return SwiftUI.NavigationLink(value: link) {

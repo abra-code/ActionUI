@@ -79,7 +79,7 @@ final class ActionUIModelTests: XCTestCase {
         logger.log("State for viewID 1: \(String(describing: model.states[windowUUID]?[1]))", .debug)
         let viewState = model.states[windowUUID]?[1] as? [String: Any]
         let validatedProperties = viewState?["validatedProperties"] as? [String: Any]
-        XCTAssertEqual(validatedProperties?["value"] as? Double, 0.75, "Property value should be updated")
+        XCTAssertEqual(validatedProperties?.double(forKey: "value"), 0.75, "Property value should be updated")
     }
     
     func testFindElement() {

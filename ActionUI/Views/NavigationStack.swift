@@ -41,13 +41,9 @@ struct NavigationStack: ActionUIViewConstruction {
         
         // Initialize NavigationStack-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["path"] == nil {
-            viewSpecificState["path"] = initialPath
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["path"] = initialPath
+            state.wrappedValue[element.id] = newState
         }
         
         // Use NavigationPath to manage navigation state
@@ -67,7 +63,6 @@ struct NavigationStack: ActionUIViewConstruction {
                 // Store path as an array of strings
                 let newPathArray = newPath.codable.map { String(describing: $0) }
                 newState["path"] = newPathArray
-                newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in

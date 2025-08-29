@@ -52,14 +52,14 @@ struct Slider: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let initialValue = (properties.double(forKey: "value")) ?? 0.0
-        let value = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue
+        let value = (state.wrappedValue[element.id] as? [String: Any])?.double(forKey: "value") ?? initialValue
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
         let min = range["min"] ?? 0.0
         let max = range["max"] ?? 1.0
         let step = properties.double(forKey: "step")
         
         let valueBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },
+            get: { (state.wrappedValue[element.id] as? [String: Any])?.double(forKey: "value") ?? initialValue },
             set: { newValue in
                 if (min...max).contains(newValue) {
                     state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(

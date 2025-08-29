@@ -144,15 +144,23 @@ final class DatePickerTests: XCTestCase {
             ]
         ]
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = DatePicker.validateProperties(element.properties, logger)
         
-        let _ = DatePicker.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        // Trigger complete construction of DatePicker
+        let windowUUID = UUID().uuidString
+        let state = ActionUIModel.shared.state(for: windowUUID)
+        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+        _ = actionUIView.body // Force body creation
         
-        // Verify state initialization
         let viewState = state.wrappedValue[element.id] as? [String: Any]
+        // Verify state initialization
         XCTAssertNotNil(viewState, "State should be initialized for DatePicker")
         XCTAssertNotNil(viewState?["value"] as? Date, "DatePicker state should include a Date value")
+
+        guard let validatedProperties = viewState?["validatedProperties"] as? [String: Any] else {
+            XCTFail("viewState should have validatedProperties")
+            return
+        }
+
         if let stateValue = viewState?["value"] as? Date, let selectedDate = validatedProperties["selectedDate"] as? Date {
             XCTAssertEqual(stateValue, selectedDate, "State value should match selectedDate")
         } else {

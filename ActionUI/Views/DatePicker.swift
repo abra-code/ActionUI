@@ -92,15 +92,12 @@ struct DatePicker: ActionUIViewConstruction {
     static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
         let dateFormatter = ISO8601DateFormatter()
         let initialDate = (properties["selectedDate"] as? Date) ?? Date()
-        
-        // Initialize state if not set
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = [:]
+                
+        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
+        if newState["value"] == nil {
+            newState["value"] = initialDate
+            state.wrappedValue[element.id] = newState
         }
-        state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-            ["value": initialDate, "validatedProperties": properties],
-            uniquingKeysWith: { _, new in new }
-        )
         
         let dateBinding = Binding(
             get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Date ?? initialDate },

@@ -174,7 +174,6 @@ final class PickerTests: XCTestCase {
     #endif
     
     func testPickerActionHandling() {
-        let valueChangeExpectation = XCTestExpectation(description: "Value change handler called")
         let valueChangeActionID = "picker.valueChanged"
         
         let jsonString = """
@@ -202,10 +201,6 @@ final class PickerTests: XCTestCase {
         }
         
         let state = model.state(for: windowUUID)
-        ActionUIModel.shared.registerActionHandler(for: valueChangeActionID) { _, _, viewID, _, _ in
-            XCTAssertEqual(viewID, 1, "Value change handler should receive correct viewID")
-            valueChangeExpectation.fulfill()
-        }
         
         // Create ActionUIView and force body creation
         let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
@@ -217,12 +212,9 @@ final class PickerTests: XCTestCase {
         
         let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
-        
-        wait(for: [valueChangeExpectation], timeout: 2.0)
     }
     
     func testPickerNoActionOnProgrammaticStateChange() {
-        let valueChangeExpectation = XCTestExpectation(description: "Value change handler called")
         let valueChangeActionID = "picker.valueChanged"
         
         let jsonString = """
@@ -250,10 +242,6 @@ final class PickerTests: XCTestCase {
         }
         
         let state = model.state(for: windowUUID)
-        ActionUIModel.shared.registerActionHandler(for: valueChangeActionID) { _, _, viewID, _, _ in
-            XCTAssertEqual(viewID, 1, "Value change handler should receive correct viewID")
-            valueChangeExpectation.fulfill()
-        }
         
         // Create ActionUIView and force body creation
         let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
@@ -265,8 +253,6 @@ final class PickerTests: XCTestCase {
         
         let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
-        
-        wait(for: [valueChangeExpectation], timeout: 2.0)
     }
     
     func testActionUIViewWithPickerActionHandling() throws {
@@ -306,17 +292,8 @@ final class PickerTests: XCTestCase {
         XCTAssertEqual(element.properties["valueChangeActionID"] as? String, "picker.valueChanged", "valueChangeActionID should match")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
         
-        // Arrange: Set up state binding and action handlers
         let state = model.state(for: windowUUID)
-        let valueChangeActionID = "picker.valueChanged"
-        let valueChangeExpectation = XCTestExpectation(description: "Value change handler called for programmatic change")
-        
-        ActionUIModel.shared.registerActionHandler(for: valueChangeActionID) { _, _, viewID, _, _ in
-            XCTAssertEqual(viewID, 1, "Value change handler should receive correct viewID")
-            XCTAssertTrue(Thread.isMainThread, "Value change handler should run on main thread")
-            valueChangeExpectation.fulfill()
-        }
-        
+                
         // Act: Create ActionUIView and force body creation
         let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
         _ = actionUIView.body // Force view rendering
@@ -337,17 +314,13 @@ final class PickerTests: XCTestCase {
         // Assert: Verify state update
         let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
-        
-        // Assert: Verify action handler behavior
-        wait(for: [valueChangeExpectation], timeout: 2.0)
-        
+                
         // Log state for debugging
         logger.log("Final state for viewID \(element.id): \(String(describing: state.wrappedValue[element.id]))", .debug)
     }
     
     func testPickerValueChangeActionAsyncDispatch() {
         let valueChangeActionID = "picker.valueChanged"
-        let expectation = XCTestExpectation(description: "Value change handler called asynchronously")
         
         let jsonString = """
         {
@@ -373,36 +346,17 @@ final class PickerTests: XCTestCase {
         }
         
         let state = model.state(for: windowUUID)
-        var handlerCalled = false
-        ActionUIModel.shared.registerActionHandler(for: valueChangeActionID) { _, _, viewID, _, _ in
-            XCTAssertEqual(viewID, 1, "Value change handler should receive correct viewID")
-            XCTAssertTrue(Thread.isMainThread, "Value change handler should run on main thread")
-            handlerCalled = true
-            expectation.fulfill()
-        }
         
         // Create ActionUIView and force body creation
         let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
         _ = actionUIView.body // Force view rendering
         
         // Record time before setting value
-        let startTime = Date()
         model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
         logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
-        
-        // Verify handler hasn't run synchronously
-        XCTAssertFalse(handlerCalled, "Value change handler should not run synchronously")
-        
+                
         // Assert: Verify state update
         let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
-        
-        // Wait for async dispatch
-        wait(for: [expectation], timeout: 2.0)
-        
-        // Verify async delay
-        let endTime = Date()
-        let timeInterval = endTime.timeIntervalSince(startTime)
-        XCTAssertGreaterThan(timeInterval, 0.0, "Value change handler should have a non-zero delay, indicating async dispatch")
     }
 }

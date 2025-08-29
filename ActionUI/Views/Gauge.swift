@@ -75,22 +75,17 @@ struct Gauge: ActionUIViewConstruction {
         
         // Initialize Gauge-specific state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = initialValue
-        }
-        viewSpecificState["validatedProperties"] = properties
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = initialValue
+            state.wrappedValue[element.id] = newState
         }
         
         let valueBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Double ?? initialValue },
+            get: { (state.wrappedValue[element.id] as? [String: Any])?.double(forKey: "value") ?? initialValue },
             set: { newValue in
                 if (min...max).contains(newValue) {
                     var updatedState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                     updatedState["value"] = newValue
-                    updatedState["validatedProperties"] = properties
                     state.wrappedValue[element.id] = updatedState
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                         Task { @MainActor in

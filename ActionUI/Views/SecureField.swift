@@ -47,14 +47,11 @@ struct SecureField: ActionUIViewConstruction {
         let placeholder = properties["placeholder"] as? String ?? ""
         let actionID = properties["actionID"] as? String
         
-        // Initialize state if not set
+        // Initialize value if not set
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        var viewSpecificState: [String: Any] = [:]
         if newState["value"] == nil {
-            viewSpecificState["value"] = ""
-        }
-        if !viewSpecificState.isEmpty {
-            state.wrappedValue[element.id] = newState.merging(viewSpecificState, uniquingKeysWith: { _, new in new })
+            newState["value"] = ""
+            state.wrappedValue[element.id] = newState
         }
         
         let textBinding = Binding(
@@ -62,7 +59,6 @@ struct SecureField: ActionUIViewConstruction {
             set: { newValue in
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties // Preserve validated properties
                 state.wrappedValue[element.id] = newState
             }
         )

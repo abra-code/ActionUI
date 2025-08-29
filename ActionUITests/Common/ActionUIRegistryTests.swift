@@ -50,7 +50,14 @@ final class ActionUIRegistryTests: XCTestCase {
             let view = registry.buildView(for: element, state: state, windowUUID: UUID().uuidString, validatedProperties: validatedProperties)
             
             // Allow EmptyView for specific types with empty properties
-            if viewType == "View" || viewType == "EmptyView" || viewType == "Link" || viewType == "ShareLink" || viewType == "VideoPlayer" || viewType == "NavigationLink" {
+            #if canImport(AppKit)
+            let tableViewType = ""
+            #else
+            // on non-macOS OSes Table construction does return EmptyView
+            let tableViewType = "Table"
+            #endif
+            
+            if viewType == "View" || viewType == "EmptyView" || viewType == "Link" || viewType == "ShareLink" || viewType == "VideoPlayer" || viewType == "NavigationLink" || viewType == tableViewType {
                 XCTAssertTrue(view is SwiftUI.EmptyView, "buildView for '\(viewType)' should return EmptyView with empty properties")
             } else {
                 XCTAssertFalse(view is SwiftUI.EmptyView, "buildView for '\(viewType)' should not return EmptyView")

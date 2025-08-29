@@ -80,7 +80,6 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         // Initialize state
         var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         newState["currentRepeatCount"] = currentRepeatCount
-        newState["validatedProperties"] = properties
         state.wrappedValue[element.id] = newState
         
         return SwiftUI.KeyframeAnimator(
@@ -190,7 +189,6 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 animationTrigger = newValue
                 var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 newState["value"] = newValue
-                newState["validatedProperties"] = properties
                 state.wrappedValue[element.id] = newState
             }
         }

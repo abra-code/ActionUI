@@ -105,31 +105,52 @@ class ActionUIRegistry {
     
     // Retrieves validated properties for an element, updating state if properties have changed
     func getValidatedProperties(element: any ActionUIElement, state: Binding<[Int: Any]>) -> [String: Any] {
-        if state.wrappedValue[element.id] == nil {
+        // initialize view element state if not done before
+        let elementState = state.wrappedValue[element.id] as? [String: Any]
+        if (elementState == nil) ||
+            (elementState?["rawProperties"] == nil) ||
+            (elementState?["validatedProperties"] == nil) {
             let baseValidated = View.validateProperties(element.properties, logger)
             let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
-            state.wrappedValue[element.id] = [
-                "validatedProperties": validatedProperties,
-                "rawProperties": element.properties
-            ]
+            if let elementState {
+                // if there was something in elementState but it was incomplete, add properties to existing state
+                var newState = elementState
+                newState["validatedProperties"] = validatedProperties
+                newState["rawProperties"] = element.properties
+                state.wrappedValue[element.id] = newState
+            } else {
+                // new state with just properties and nothing else
+                let newState = ["rawProperties": element.properties, "validatedProperties": validatedProperties]
+                state.wrappedValue[element.id] = newState
+            }
+            return validatedProperties
         }
         
-        let currentState = state.wrappedValue[element.id] as? [String: Any] ?? [:]
-        let rawProperties = currentState["rawProperties"] as? [String: Any] ?? [:]
-        let validatedProperties: [String: Any]
+        guard let currentState = state.wrappedValue[element.id] as? [String: Any] else {
+            logger.log("getValidatedProperties: view element state not intialized", .error)
+            return [:]
+        }
         
-        // Compare properties using helper function
+        guard let rawProperties = currentState["rawProperties"] as? [String: Any] else {
+            logger.log("getValidatedProperties: view element state has no rawProperties", .error)
+            return [:]
+        }
+        
+        // if some change was made to element.properties and it does not match previously stored properties
         if !PropertyComparison.arePropertiesEqual(rawProperties, element.properties) {
             let baseValidated = View.validateProperties(element.properties, logger)
-            validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
+            let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
             var newState = currentState
             newState["validatedProperties"] = validatedProperties
             newState["rawProperties"] = element.properties
             state.wrappedValue[element.id] = newState
-        } else {
-            validatedProperties = currentState["validatedProperties"] as? [String: Any] ?? validateProperties(forElementType: element.type, properties: View.validateProperties(element.properties, logger))
         }
         
+        guard let validatedProperties = currentState["validatedProperties"] as? [String: Any] else {
+            logger.log("getValidatedProperties: view element state has no validatedProperties", .error)
+            return [:]
+        }
+                
         return validatedProperties
     }
     
