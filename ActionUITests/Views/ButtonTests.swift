@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class ButtonTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class ButtonTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -81,11 +84,11 @@ final class ButtonTests: XCTestCase {
                 "role": "destructive"
             ]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = Button.validateProperties(element.properties, logger)
         
-        let view = Button.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = Button.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = Button.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = Button.applyModifiers(view, validatedProperties, logger)
         
         XCTAssertTrue(view is SwiftUI.Button<SwiftUI.Text>, "buildView should return Button")
@@ -99,11 +102,11 @@ final class ButtonTests: XCTestCase {
             "type": "Button",
             "properties": [:]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = Button.validateProperties(element.properties, logger)
         
-        let view = Button.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = Button.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = Button.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = Button.applyModifiers(view, validatedProperties, logger)
         
         XCTAssertTrue(view is SwiftUI.Button<SwiftUI.Text>, "buildView should return Button with default title")

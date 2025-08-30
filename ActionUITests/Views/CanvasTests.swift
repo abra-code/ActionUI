@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class CanvasTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class CanvasTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -82,11 +85,11 @@ final class CanvasTests: XCTestCase {
                 "actionID": "canvas.action"
             ]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = Canvas.validateProperties(element.properties, logger)
         
-        let view = Canvas.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = Canvas.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = Canvas.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Canvas) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
@@ -99,11 +102,11 @@ final class CanvasTests: XCTestCase {
             "type": "Canvas",
             "properties": [:]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = Canvas.validateProperties(element.properties, logger)
         
-        let view = Canvas.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = Canvas.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = Canvas.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Canvas) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent

@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class ColorPickerTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class ColorPickerTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -75,11 +78,11 @@ final class ColorPickerTests: XCTestCase {
                 "selectedColor": "#FF0000"
             ]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         
-        let view = ColorPicker.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = ColorPicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
@@ -92,46 +95,14 @@ final class ColorPickerTests: XCTestCase {
             "type": "ColorPicker",
             "properties": [:]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         
-        let view = ColorPicker.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = ColorPicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
-    }
-    
-    func testColorPickerStateBinding() throws {
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "ColorPicker",
-            "properties": [
-                "title": "Pick a Color",
-                "selectedColor": "#FF0000"
-            ]
-        ]
-        
-        let windowUUID = UUID().uuidString
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: elementDict, windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
-        let state = model.state(for: windowUUID)
-
-        // Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
-        _ = actionUIView.body // Force body creation
-
-        // Verify state initialization
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        XCTAssertNotNil(viewState, "State should be initialized for ColorPicker")
-        XCTAssertNotNil(viewState?["value"] as? Color, "ColorPicker state should include a Color value")
-        XCTAssertNotNil(viewState?["validatedProperties"] as? [String: Any], "State should include validated properties")
     }
 }

@@ -33,7 +33,7 @@ final class LabelTests: XCTestCase {
         super.tearDown()
     }
     
-    func testLabelConstruction() {
+    func testLabelConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Label",
@@ -43,13 +43,13 @@ final class LabelTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Label.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.Label<SwiftUI.EmptyView, SwiftUI.EmptyView>, "View should be a Label")
     }
@@ -72,16 +72,11 @@ final class LabelTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Label", "Element type should be Label")
         XCTAssertEqual(element.properties["title"] as? String, "Title", "title should be Title")

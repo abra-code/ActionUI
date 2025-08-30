@@ -55,22 +55,16 @@ final class ActionUITests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        do {
-            try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        } catch {
-            XCTFail("Failed to decode JSON: \(error)")
+        guard let windowModel = actionUIModel.windowModels[windowUUID] else {
+            XCTFail("Failed to retrive windowModel from actionUIModel for windowUUID: \(String(describing: windowUUID))")
             return
         }
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrive element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
+                
         // Verify parsed element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "TextField", "Element type should be TextField")
@@ -80,41 +74,38 @@ final class ActionUITests: XCTestCase {
         XCTAssertEqual(element.properties.double(forKey: "padding"), 8.0, "Padding should be retrieved as Double with value 8.0")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 8.0, "Padding should be retrieved as CGFloat with value 8.0")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
+
+        guard let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel from windowModel for element id: \(String(describing: element.id))")
+            return
+        }
         
-        // Arrange: Set up state binding
-        let state = model.state(for: windowUUID)
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        let view = actionUIView.body // Access the body to trigger view construction
         
-        // Act: Create ActionUIView
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
-        
-        // Act: Access the body to trigger view construction
-        let view = actionUIView.body
-        
-        // Assert: Verify state initialization
-        XCTAssertNotNil(state.wrappedValue[element.id], "State should be initialized for view ID \(element.id)")
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        XCTAssertNotNil(viewState, "View state should exist")
-        XCTAssertEqual(viewState?["value"] as? String, "", "TextField state should initialize value to empty string")
+        // Assert: Verify model initialization
+        XCTAssertEqual(viewModel.value as? String, "", "TextField state should initialize value to empty string")
         
         // Assert: Verify validated properties
-        let validatedProperties = viewState?["validatedProperties"] as? [String: Any]
-        XCTAssertNotNil(validatedProperties, "Validated properties should exist")
-        XCTAssertEqual(validatedProperties?["placeholder"] as? String, "Enter username", "Validated placeholder should match")
-        XCTAssertEqual(validatedProperties?["textContentType"] as? String, "username", "Validated textContentType should match")
-        XCTAssertEqual(validatedProperties?["actionID"] as? String, "text.submit", "Validated actionID should match")
-        XCTAssertEqual(validatedProperties?.double(forKey: "padding"), 8.0, "Validated padding should be Double with value 8.0")
-        XCTAssertEqual(validatedProperties?.cgFloat(forKey: "padding"), 8.0, "Validated padding should be CGFloat with value 8.0")
+        let validatedProperties = viewModel.validatedProperties
+        
+        XCTAssertFalse(validatedProperties.isEmpty, "Validated properties should exist")
+        XCTAssertEqual(validatedProperties["placeholder"] as? String, "Enter username", "Validated placeholder should match")
+        XCTAssertEqual(validatedProperties["textContentType"] as? String, "username", "Validated textContentType should match")
+        XCTAssertEqual(validatedProperties["actionID"] as? String, "text.submit", "Validated actionID should match")
+        XCTAssertEqual(validatedProperties.double(forKey: "padding"), 8.0, "Validated padding should be Double with value 8.0")
+        XCTAssertEqual(validatedProperties.cgFloat(forKey: "padding"), 8.0, "Validated padding should be CGFloat with value 8.0")
         
         // Assert: Verify view construction
         XCTAssertFalse(view is SwiftUI.EmptyView, "ActionUIView body should not return EmptyView")
         XCTAssertTrue(view is AnyView, "ActionUIView body should return AnyView after applying modifiers")
         
-        // Assert: Verify state binding
-        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "testuser")
-        let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        // Assert: Verify model binding
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "testuser")
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "testuser", "TextField state should update value correctly")
         
         // Log state for debugging
-        logger.log("Final state for viewID \(element.id): \(String(describing: viewState))", .debug)
+        logger.log("Final viewModel.states for viewID \(element.id): \(String(describing: viewModel.states))", .debug)
     }
 }

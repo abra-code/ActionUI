@@ -180,7 +180,7 @@ class ActionUIModel: ObservableObject {
         let viewModel = windowModel.viewModels[viewID]
         let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
         
-        if let content = viewModel?.states["content"] as? [[String]], let selectedRow = viewModel?.value as? [String] {
+        if let _ = viewModel?.states["content"] as? [[String]], let selectedRow = viewModel?.value as? [String] {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
             } else if viewPartID > 0 {

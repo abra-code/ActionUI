@@ -50,20 +50,20 @@ final class VStackTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = VStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
@@ -78,14 +78,6 @@ final class VStackTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "spacing"), 10.0, "spacing should be 10.0")
         XCTAssertEqual(element.properties["alignment"] as? String, "center", "alignment should be center")
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
     
     func testVStackJSONDecoding() throws {
@@ -105,13 +97,8 @@ final class VStackTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "VStack", "Element type should be VStack")
@@ -174,20 +161,20 @@ final class VStackTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = VStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
@@ -198,13 +185,5 @@ final class VStackTests: XCTestCase {
         XCTAssertNil(validatedProperties["spacing"], "spacing should be nil")
         XCTAssertNil(validatedProperties["alignment"], "alignment should be nil")
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
 }

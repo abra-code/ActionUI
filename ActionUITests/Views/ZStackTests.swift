@@ -54,20 +54,20 @@ final class ZStackTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = ZStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
@@ -87,14 +87,6 @@ final class ZStackTests: XCTestCase {
             XCTFail("offset should be a dictionary")
         }
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
     
     func testZStackJSONDecoding() throws {
@@ -118,13 +110,8 @@ final class ZStackTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "ZStack", "Element type should be ZStack")
@@ -202,20 +189,20 @@ final class ZStackTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = ZStack.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
@@ -240,13 +227,5 @@ final class ZStackTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         XCTAssertEqual(element.properties.cgFloat(forKey: "opacity"), 0.8, "opacity should be 0.8")
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
 }

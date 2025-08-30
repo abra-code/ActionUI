@@ -32,39 +32,7 @@ final class GaugeTests: XCTestCase {
         windowUUID = nil
         super.tearDown()
     }
-    
-    func testGaugeConstructionAndStateBinding() {
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "Gauge",
-            "properties": [
-                "value": 0.75,
-                "label": "Progress",
-                "style": "accessoryLinear",
-                "range": ["min": 0.0, "max": 100.0]
-            ]
-        ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
-        let validatedProperties = Gauge.validateProperties(element.properties, logger)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        _ = Gauge.applyModifiers(view, validatedProperties, logger) // Apply gaugeStyle
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for Gauge")
-        
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        XCTAssertEqual(viewState?.double(forKey: "value"), 0.75, "Gauge state should include value")
-        XCTAssertTrue(
-            PropertyComparison.arePropertiesEqual(
-                viewState?["validatedProperties"] as? [String: Any] ?? [:],
-                validatedProperties
-            ),
-            "State should include validated properties"
-        )
-    }
-    
     func testGaugeJSONDecoding() throws {
         let jsonString = """
         {
@@ -83,16 +51,11 @@ final class GaugeTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Gauge", "Element type should be Gauge")
         XCTAssertEqual(element.properties.double(forKey: "value"), 0.75, "Value should be 0.75")

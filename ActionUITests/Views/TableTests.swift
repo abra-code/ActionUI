@@ -54,25 +54,23 @@ final class TableTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = Table.validateProperties(element.properties, logger)
         
-        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            XCTAssertEqual(stateDict["content"] as? [[String]], [["Alice", "Click"], ["Bob", "Edit"]], "State content should match rows")
-        }
+        XCTAssertEqual(viewModel.states["content"] as? [[String]], [["Alice", "Click"], ["Bob", "Edit"]], "State content should match rows")
         
         if let itemType = element.properties["itemType"] as? [String: Any] {
             XCTAssertEqual(itemType["viewType"] as? String, "Text", "ItemType viewType should be Text")
@@ -85,14 +83,6 @@ final class TableTests: XCTestCase {
         XCTAssertEqual(element.properties["actionID"] as? String, "table.action", "ActionID should be table.action")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
         #endif
     }
     

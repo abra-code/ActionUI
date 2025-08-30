@@ -33,7 +33,7 @@ final class LazyVGridTests: XCTestCase {
         super.tearDown()
     }
     
-    func testLazyVGridConstruction() {
+    func testLazyVGridConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "LazyVGrid",
@@ -52,13 +52,12 @@ final class LazyVGridTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = LazyVGrid.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
@@ -99,15 +98,10 @@ final class LazyVGridTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "LazyVGrid", "Element type should be LazyVGrid")
         if let columns = element.properties["columns"] as? [[String: Any]] {
@@ -141,7 +135,7 @@ final class LazyVGridTests: XCTestCase {
         XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testLazyVGridNilProperties() {
+    func testLazyVGridNilProperties() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "LazyVGrid",
@@ -151,13 +145,12 @@ final class LazyVGridTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = LazyVGrid.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")

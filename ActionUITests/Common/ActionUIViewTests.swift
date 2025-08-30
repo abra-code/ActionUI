@@ -50,9 +50,10 @@ final class ActionUIViewTests: XCTestCase {
                 ]
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertEqual(view1, view2, "Views with identical children should be equal")
@@ -80,9 +81,10 @@ final class ActionUIViewTests: XCTestCase {
                 ]
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different children should not be equal")
@@ -122,9 +124,10 @@ final class ActionUIViewTests: XCTestCase {
                 ]
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+        
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertEqual(view1, view2, "Views with identical rows should be equal")
@@ -156,9 +159,10 @@ final class ActionUIViewTests: XCTestCase {
                 ]
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+        
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different rows should not be equal")
@@ -182,9 +186,10 @@ final class ActionUIViewTests: XCTestCase {
                 "content": ViewElement(id: 2, type: "Text", properties: ["text": "Home"], subviews: nil)
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+        
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertEqual(view1, view2, "Views with identical content should be equal")
@@ -208,9 +213,10 @@ final class ActionUIViewTests: XCTestCase {
                 "content": ViewElement(id: 2, type: "Text", properties: ["text": "Different"], subviews: nil)
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+        
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different content should not be equal")
@@ -240,9 +246,10 @@ final class ActionUIViewTests: XCTestCase {
                 "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+        
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertEqual(view1, view2, "Views with identical mixed subviews should be equal")
@@ -272,9 +279,10 @@ final class ActionUIViewTests: XCTestCase {
                 "content": ViewElement(id: 3, type: "Text", properties: ["text": "Content"], subviews: nil)
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+        
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different mixed subviews should not be equal")
@@ -288,10 +296,12 @@ final class ActionUIViewTests: XCTestCase {
             properties: ["padding": 8.0],
             subviews: nil
         )
-        let state1 = Binding.constant([1: ["key": "value1"] as [String: Any]] as [Int: Any])
-        let state2 = Binding.constant([1: ["key": "value2"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element, state: state1, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element, state: state2, windowUUID: "uuid")
+        let viewModel1 = ViewModel(properties: element.properties)
+        viewModel1.states = ["key": "value1"]
+        let viewModel2 = ViewModel(properties: element.properties)
+        viewModel2.states = ["key": "value2"]
+        let view1 = ActionUIView(element: element, model: viewModel1, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element, model: viewModel2, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different state should not be equal")
@@ -305,9 +315,10 @@ final class ActionUIViewTests: XCTestCase {
             properties: ["padding": 8.0],
             subviews: nil
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element, state: state, windowUUID: "uuid1")
-        let view2 = ActionUIView(element: element, state: state, windowUUID: "uuid2")
+
+        let viewModel = ViewModel(properties: element.properties)
+        let view1 = ActionUIView(element: element, model: viewModel, windowUUID: "uuid1")
+        let view2 = ActionUIView(element: element, model: viewModel, windowUUID: "uuid2")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different windowUUID should not be equal")
@@ -327,9 +338,10 @@ final class ActionUIViewTests: XCTestCase {
             properties: ["padding": 8.0],
             subviews: [:]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertEqual(view1, view2, "Views with nil and empty subviews should be equal with early return")
@@ -355,9 +367,10 @@ final class ActionUIViewTests: XCTestCase {
                 "content": ViewElement(id: 2, type: "Text", properties: ["text": "Child1"], subviews: nil)
             ]
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view1 = ActionUIView(element: element1, state: state, windowUUID: "uuid")
-        let view2 = ActionUIView(element: element2, state: state, windowUUID: "uuid")
+
+        let viewModel = ViewModel(properties: element1.properties)
+        let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
+        let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
         // Act & Assert
         XCTAssertNotEqual(view1, view2, "Views with different subview keys should not be equal")
@@ -371,8 +384,9 @@ final class ActionUIViewTests: XCTestCase {
             properties: ["text": "Hello"],
             subviews: nil
         )
-        let state = Binding.constant([1: ["key": "value"] as [String: Any]] as [Int: Any])
-        let view = ActionUIView(element: element, state: state, windowUUID: "uuid")
+
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ActionUIView(element: element, model: viewModel, windowUUID: "uuid")
         
         // Act
         let body = view.body

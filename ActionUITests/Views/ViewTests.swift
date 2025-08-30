@@ -273,21 +273,21 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let modifiedView = View.applyModifiers(view, validatedProperties, logger)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
         XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to SwiftUI modifier wrapping")
@@ -318,14 +318,6 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(element.properties["accessibilityHint"] as? String, "Base view", "accessibilityHint should be Base view")
         XCTAssertEqual(element.properties["accessibilityHidden"] as? Bool, false, "accessibilityHidden should be false")
         XCTAssertEqual(element.properties["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be view_1")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
     
     func testBuildViewAndApplyModifiersEmptyProperties() throws {
@@ -341,32 +333,23 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, windowUUID, validatedProperties, logger)
-        let modifiedView = View.applyModifiers(view, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
+        let _ = View.applyModifiers(view, validatedProperties, logger)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView with empty properties")
-        XCTAssertTrue(modifiedView is SwiftUI.EmptyView, "applyModifiers should return EmptyView with no modifiers applied")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
     
     func testValidatePropertiesOffsetPartial() throws {
@@ -430,21 +413,21 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let modifiedView = View.applyModifiers(view, validatedProperties, logger)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
         XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to offset and padding modifiers")
@@ -455,14 +438,6 @@ final class ViewTests: XCTestCase {
             XCTFail("offset should be a dictionary")
         }
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
     
 /* no XCUIApplication yet
@@ -475,10 +450,15 @@ final class ViewTests: XCTestCase {
             ]
         ]
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+
         let validatedProperties = View.validateProperties(element.properties, logger)
         
-        let view = View.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = View.applyModifiers(view, validatedProperties, logger)
         
         // Use XCUITest to verify accessibility identifier

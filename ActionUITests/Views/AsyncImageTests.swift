@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class AsyncImageTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class AsyncImageTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -104,12 +107,19 @@ final class AsyncImageTests: XCTestCase {
                 "contentMode": "fit"
             ]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         
-        let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-        _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+
+        // Act: Create ActionUIView
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        let _ = actionUIView.body // Access the body to trigger view construction
+
         // Note: Avoid strict type checks (e.g., SwiftUI.AsyncImage<AnyView>) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
         // Note: Cannot inspect AsyncImage phase or modifiers due to SwiftUI's opaque hierarchy and async nature
@@ -126,11 +136,11 @@ final class AsyncImageTests: XCTestCase {
                 "contentMode": "fit"
             ]
         ]
+
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
-        
-        let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
@@ -147,11 +157,11 @@ final class AsyncImageTests: XCTestCase {
                 "contentMode": "fit"
             ]
         ]
+
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
-        
-        let view = AsyncImage.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent

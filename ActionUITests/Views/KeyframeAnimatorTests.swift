@@ -69,15 +69,10 @@ final class KeyframeAnimatorTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         let _ = KeyframeAnimator.validateProperties(element.properties, logger)
         let content = element.subviews?["content"] as? any ActionUIElement

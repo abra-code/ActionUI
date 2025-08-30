@@ -4,8 +4,7 @@ import SwiftUI
 
 extension ActionUIModel {
     static func resetForTesting() {
-        shared.descriptions.removeAll()
-        shared.states.removeAll()
+        shared.windowModels.removeAll()
         shared.actionHandlers.removeAll()
         shared.removeDefaultActionHandler()
     }

@@ -52,17 +52,17 @@ final class PickerTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
+        // Trigger state initialization by creating ActionUIView
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        // Trigger state initialization by creating ActionUIView
-        let state = ActionUIModel.shared.state(for: windowUUID)
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         _ = actionUIView.body // Force body creation
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -74,40 +74,9 @@ final class PickerTests: XCTestCase {
         XCTAssertEqual(element.properties["valueChangeActionID"] as? String, "picker.valueChanged", "valueChangeActionID should match")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
         
-        XCTAssertNotNil(state.wrappedValue[element.id], "State should be initialized for element ID after body creation")
-        if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            XCTAssertEqual(stateDict["value"] as? String, "Option1", "State should initialize with first option")
-        } else {
-            XCTFail("State should be a dictionary")
-        }
+        XCTAssertEqual(viewModel.value as? String, "Option1", "State should initialize with first option")
     }
-    
-    func testPickerConstructionAndStateBinding() {
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "Picker",
-            "properties": [
-                "title": "Select Option",
-                "options": ["Option1", "Option2"],
-                "pickerStyle": "segmented",
-                "actionID": "picker.selection",
-                "valueChangeActionID": "picker.valueChanged"
-            ]
-        ]
-        let element = try! ViewElement(from: elementDict, logger: ConsoleLogger(maxLevel: .verbose))
-        let state = ActionUIModel.shared.state(for: windowUUID)
         
-        // Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
-        _ = actionUIView.body // Force body creation
-        
-        logger.log("After ActionUIView body creation: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        XCTAssertNotNil(state.wrappedValue[element.id], "ActionUIView should initialize state for Picker")
-        
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        XCTAssertEqual(viewState?["value"] as? String, "Option1", "Picker state should initialize with first option")
-    }
-    
     func testPickerValidatePropertiesValid() {
         let properties: [String: Any] = [
             "title": "Choose",
@@ -173,7 +142,7 @@ final class PickerTests: XCTestCase {
     }
     #endif
     
-    func testPickerActionHandling() {
+    func testPickerActionHandling() throws {
         let valueChangeActionID = "picker.valueChanged"
         
         let jsonString = """
@@ -192,29 +161,28 @@ final class PickerTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try! model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = model.state(for: windowUUID)
-        
+
         // Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         _ = actionUIView.body // Force view rendering
         
         // Simulate programmatic value change
-        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
         logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
         
-        let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
     }
     
-    func testPickerNoActionOnProgrammaticStateChange() {
+    func testPickerNoActionOnProgrammaticStateChange() throws {
         let valueChangeActionID = "picker.valueChanged"
         
         let jsonString = """
@@ -233,25 +201,24 @@ final class PickerTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try! model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = model.state(for: windowUUID)
-        
+
         // Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         _ = actionUIView.body // Force view rendering
         
         // Simulate programmatic value change
-        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
         logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
         
-        let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
     }
     
@@ -274,13 +241,8 @@ final class PickerTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         // Verify parsed element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -292,34 +254,35 @@ final class PickerTests: XCTestCase {
         XCTAssertEqual(element.properties["valueChangeActionID"] as? String, "picker.valueChanged", "valueChangeActionID should match")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
         
-        let state = model.state(for: windowUUID)
-                
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+
         // Act: Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         _ = actionUIView.body // Force view rendering
         
         // Assert: Verify state initialization
-        XCTAssertNotNil(state.wrappedValue[element.id], "State should be initialized for view ID \(element.id)")
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        XCTAssertNotNil(viewState, "View state should exist")
-        XCTAssertEqual(viewState?["value"] as? String, "Option1", "Picker state should initialize value to first option")
+        XCTAssertEqual(viewModel.value as? String, "Option1", "Picker state should initialize value to first option")
         
         // Assert: Verify view construction
         XCTAssertFalse(actionUIView.body is SwiftUI.EmptyView, "ActionUIView body should not return EmptyView")
         
         // Act: Simulate programmatic value change
-        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
         logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
         
         // Assert: Verify state update
-        let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
                 
         // Log state for debugging
-        logger.log("Final state for viewID \(element.id): \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("Final state for viewID \(element.id): \(String(describing: viewModel))", .debug)
     }
     
-    func testPickerValueChangeActionAsyncDispatch() {
+    func testPickerValueChangeActionAsyncDispatch() throws {
         let valueChangeActionID = "picker.valueChanged"
         
         let jsonString = """
@@ -337,26 +300,25 @@ final class PickerTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
-        try! model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = model.state(for: windowUUID)
-        
+
         // Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         _ = actionUIView.body // Force view rendering
         
         // Record time before setting value
-        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
         logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
                 
         // Assert: Verify state update
-        let updatedValue = model.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
         XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
     }
 }

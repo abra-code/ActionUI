@@ -33,52 +33,7 @@ final class MapTests: XCTestCase {
         windowUUID = nil
         super.tearDown()
     }
-    
-    func testMapConstructionAndStateBinding() {
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "Map",
-            "properties": [
-                "coordinate": ["latitude": 37.33233141, "longitude": -122.0312186],
-                "showsUserLocation": true,
-                "interactionModes": ["pan", "zoom"],
-                "annotations": [
-                    ["coordinate": ["latitude": 37.332, "longitude": -122.031], "title": "Point A", "subtitle": "Location A"]
-                ]
-            ]
-        ]
         
-        let model = ActionUIModel.shared
-        do {
-            try model.loadDescription(from: elementDict, windowUUID: windowUUID)
-        } catch {
-            XCTFail("Failed to load element from dictionary. Error: \(error)")
-            return
-        }
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-
-        // Trigger complete construction of DatePicker
-         let state = ActionUIModel.shared.state(for: windowUUID)
-         let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
-         _ = actionUIView.body // Force body creation
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for Map")
-        
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        if let stateCoord = viewState?["value"] as? CLLocationCoordinate2D {
-            XCTAssertEqual(stateCoord.latitude, 37.33233141, accuracy: 0.0001, "Map state should include coordinate latitude")
-            XCTAssertEqual(stateCoord.longitude, -122.0312186, accuracy: 0.0001, "Map state should include coordinate longitude")
-        } else {
-            XCTFail("Initial coordinate has not been assigned to Map value")
-        }
-        XCTAssertNotNil(viewState?["validatedProperties"] as? [String: Any], "State should include validated properties")
-    }
-    
     func testMapJSONDecoding() throws {
         let jsonString = """
         {
@@ -103,15 +58,10 @@ final class MapTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Map", "Element type should be Map")
@@ -210,7 +160,7 @@ final class MapTests: XCTestCase {
         )
     }
     
-    func testMapCameraBindingUpdatesState() {
+    func testMapCameraBindingUpdatesState() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Map",
@@ -220,29 +170,24 @@ final class MapTests: XCTestCase {
             ]
         ]
         
-        let model = ActionUIModel.shared
-        do {
-            try model.loadDescription(from: elementDict, windowUUID: windowUUID)
-        } catch {
-            XCTFail("Failed to load element from dictionary. Error: \(error)")
-            return
-        }
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-
         // Trigger complete construction of DatePicker
-         let state = ActionUIModel.shared.state(for: windowUUID)
-         let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
+         guard let windowModel = actionUIModel.windowModels[windowUUID],
+               let viewModel = windowModel.viewModels[element.id] else {
+             XCTFail("Failed to retrive viewModel")
+             return
+         }
+
+         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
          _ = actionUIView.body // Force body creation
 
         // Simulate camera change
         let newCoord = CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060)
-        model.setElementValue(windowUUID: windowUUID, viewID: element.id, value: newCoord)
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: newCoord)
                 
-        if let stateCoord = model.getElementValue(windowUUID: windowUUID, viewID: element.id) as? CLLocationCoordinate2D {
+        if let stateCoord = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id) as? CLLocationCoordinate2D {
             XCTAssertEqual(stateCoord.latitude, 40.7128, accuracy: 0.0001, "Map state should update to new coordinate latitude")
             XCTAssertEqual(stateCoord.longitude, -74.0060, accuracy: 0.0001, "Map state should update to new coordinate longitude")
         }

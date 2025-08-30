@@ -33,7 +33,7 @@ final class FormTests: XCTestCase {
         super.tearDown()
     }
     
-    func testFormConstructionWithChildren() {
+    func testFormConstructionWithChildren() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Form",
@@ -43,21 +43,14 @@ final class FormTests: XCTestCase {
                 ["id": 3, "type": "Button", "properties": ["label": "Submit", "actionID": "submitAction"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Form.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        XCTAssertNotNil(state.wrappedValue[element.id], "Registry should initialize state for Form")
-        XCTAssertTrue(
-            PropertyComparison.arePropertiesEqual(
-                (state.wrappedValue[element.id] as? [String: Any])?["validatedProperties"] as? [String: Any] ?? [:],
-                validatedProperties
-            ),
-            "State should include validated properties"
-        )
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.validatedProperties, validatedProperties), "View model should include validated properties")
         
         // Verify children
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
@@ -90,16 +83,11 @@ final class FormTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")

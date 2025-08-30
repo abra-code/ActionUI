@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class DividerTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class DividerTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -81,11 +84,11 @@ final class DividerTests: XCTestCase {
                 "frameWidth": 3.0
             ]
         ]
+
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
-        
-        let view = Divider.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = Divider.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
@@ -98,11 +101,11 @@ final class DividerTests: XCTestCase {
             "type": "Divider",
             "properties": [:]
         ]
+
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
-        
-        let view = Divider.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = Divider.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent

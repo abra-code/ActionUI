@@ -33,7 +33,7 @@ final class LinkTests: XCTestCase {
         super.tearDown()
     }
     
-    func testLinkConstructionValidURL() {
+    func testLinkConstructionValidURL() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Link",
@@ -43,18 +43,18 @@ final class LinkTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Link.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ActionUIRegistry.shared.buildView(for: element,  model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.Link<SwiftUI.Text>, "View should be a Link with Text label")
     }
     
-    func testLinkConstructionInvalidURL() {
+    func testLinkConstructionInvalidURL() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Link",
@@ -63,13 +63,13 @@ final class LinkTests: XCTestCase {
                 "url": "invalid-url"
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Link.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let view = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
         // Swift's URL() does not fail when initialized with a string like "invalid-url"
         XCTAssertTrue(view is SwiftUI.Link<SwiftUI.Text>, "View should be a Link with Text label for invalid URL string")
     }
@@ -92,14 +92,9 @@ final class LinkTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Link", "Element type should be Link")

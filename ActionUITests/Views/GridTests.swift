@@ -53,7 +53,7 @@ final class GridTests: XCTestCase {
         super.tearDown()
     }
     
-    func testGridConstruction() {
+    func testGridConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Grid",
@@ -72,13 +72,13 @@ final class GridTests: XCTestCase {
                 "verticalSpacing": 8.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         guard let rows = element.subviews?["rows"] as? [[any ActionUIElement]] else {
             XCTFail("Rows key not found in element.subviews dictionary")
@@ -122,16 +122,11 @@ final class GridTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
         // Parse JSON into ViewElement
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
         logger.log("Raw rows: \(String(describing: element.subviews?["rows"]))", .debug)
         let _ = Grid.validateProperties(element.properties, logger)
         guard let rows = element.subviews?["rows"] as? [[any ActionUIElement]] else {
@@ -194,7 +189,7 @@ final class GridTests: XCTestCase {
         XCTAssertNil(validatedProperties["verticalSpacing"], "Missing verticalSpacing should be nil")
     }
     
-    func testGridNilSpacing() {
+    func testGridNilSpacing() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Grid",
@@ -211,13 +206,13 @@ final class GridTests: XCTestCase {
                 "alignment": "center"
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        let _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
 
         XCTAssertNil(validatedProperties["horizontalSpacing"], "Horizontal spacing should be nil")
         XCTAssertNil(validatedProperties["verticalSpacing"], "Missing verticalSpacing should be nil")

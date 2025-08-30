@@ -47,6 +47,11 @@ struct TextField: ActionUIViewConstruction {
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         
+        // Initialize value if not set
+        if model.value == nil {
+            model.value = ""
+        }
+
         let textBinding = Binding(
             get: { model.value as? String ?? "" },
             set: { newValue in

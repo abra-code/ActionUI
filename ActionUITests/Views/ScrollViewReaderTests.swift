@@ -63,21 +63,21 @@ final class ScrollViewReaderTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = ScrollViewReader.validateProperties(element.properties, logger)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         let content = element.subviews?["content"] as? any ActionUIElement
         
@@ -88,14 +88,6 @@ final class ScrollViewReaderTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "scrollTo"), 5.0, "ScrollTo should be 5")
         XCTAssertEqual(element.properties["anchor"] as? String, "top", "Anchor should be top")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
-        
-        if state.wrappedValue[element.id] == nil {
-            logger.log("Warning: State for id \(element.id) is nil", .warning)
-        } else if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            logger.log("State dictionary: \(stateDict)", .debug)
-        } else {
-            XCTFail("State should be a dictionary or nil")
-        }
     }
     
     func testScrollViewReaderMalformedContent() {

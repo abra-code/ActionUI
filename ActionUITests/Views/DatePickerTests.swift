@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class DatePickerTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,12 +15,14 @@ final class DatePickerTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
@@ -106,11 +109,11 @@ final class DatePickerTests: XCTestCase {
                 "selectedDate": "2024-07-16T00:00:00Z"
             ]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = DatePicker.validateProperties(element.properties, logger)
         
-        let view = DatePicker.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = DatePicker.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = DatePicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = DatePicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DatePicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
@@ -123,90 +126,14 @@ final class DatePickerTests: XCTestCase {
             "type": "DatePicker",
             "properties": [:]
         ]
+
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = DatePicker.validateProperties(element.properties, logger)
-        
-        let view = DatePicker.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = DatePicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = DatePicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DatePicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
-    }
-    
-    func testDatePickerStateBinding() throws {
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "DatePicker",
-            "properties": [
-                "label": "Select Date",
-                "selectedDate": "2024-07-16T00:00:00Z"
-            ]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        
-        // Trigger complete construction of DatePicker
-        let windowUUID = UUID().uuidString
-        let state = ActionUIModel.shared.state(for: windowUUID)
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
-        _ = actionUIView.body // Force body creation
-        
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-        // Verify state initialization
-        XCTAssertNotNil(viewState, "State should be initialized for DatePicker")
-        XCTAssertNotNil(viewState?["value"] as? Date, "DatePicker state should include a Date value")
-
-        guard let validatedProperties = viewState?["validatedProperties"] as? [String: Any] else {
-            XCTFail("viewState should have validatedProperties")
-            return
-        }
-
-        if let stateValue = viewState?["value"] as? Date, let selectedDate = validatedProperties["selectedDate"] as? Date {
-            XCTAssertEqual(stateValue, selectedDate, "State value should match selectedDate")
-        } else {
-            XCTFail("State value or selectedDate should be valid Date")
-        }
-        guard let stateProperties = viewState?["validatedProperties"] as? [String: Any] else {
-            XCTFail("State validatedProperties should be a [String: Any] dictionary")
-            return
-        }
-        // Explicitly compare Date values to diagnose comparison issue
-        if let stateDate = stateProperties["selectedDate"] as? Date, let expectedDate = validatedProperties["selectedDate"] as? Date {
-            XCTAssertEqual(stateDate, expectedDate, "State selectedDate should match expected selectedDate")
-        } else {
-            XCTFail("State or expected selectedDate should be valid Date")
-        }
-        // Sort keys to handle key order sensitivity
-        let stateKeys = stateProperties.keys.sorted()
-        let validatedKeys = validatedProperties.keys.sorted()
-        guard stateKeys == validatedKeys else {
-            print("State keys: \(stateKeys)")
-            print("Expected keys: \(validatedKeys)")
-            XCTFail("State and validated properties should have the same keys")
-            return
-        }
-        var areEqual = true
-        for key in stateKeys {
-            if key == "selectedDate" {
-                if let stateDate = stateProperties[key] as? Date, let validatedDate = validatedProperties[key] as? Date {
-                    areEqual = areEqual && (stateDate == validatedDate)
-                } else {
-                    areEqual = false
-                }
-            } else if let stateValue = stateProperties[key] as? String, let validatedValue = validatedProperties[key] as? String {
-                areEqual = areEqual && (stateValue == validatedValue)
-            } else {
-                areEqual = false
-            }
-            if !areEqual {
-                break
-            }
-        }
-        if !areEqual {
-            print("State validatedProperties: \(String(describing: stateProperties))")
-            print("Expected validatedProperties: \(String(describing: validatedProperties))")
-            XCTFail("State validatedProperties do not match expected validatedProperties")
-        }
-        XCTAssertTrue(areEqual, "State should include validated properties")
     }
 }

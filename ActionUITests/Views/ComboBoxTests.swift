@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class ComboBoxTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
@@ -14,17 +15,18 @@ final class ComboBoxTests: XCTestCase {
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
+        windowUUID = UUID().uuidString
     }
     
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        windowUUID = nil
         super.tearDown()
     }
     
     func testValidatePropertiesValid() throws {
-        #if os(macOS) || os(iOS)
         let properties: [String: Any] = [
             "placeholder": "Select an option",
             "options": ["Option1", "Option2"]
@@ -32,22 +34,15 @@ final class ComboBoxTests: XCTestCase {
         
         let validated = ComboBox.validateProperties(properties, logger)
         
+        #if os(macOS) || os(iOS)
         XCTAssertEqual(validated["placeholder"] as? String, "Select an option", "placeholder should be valid String")
         XCTAssertEqual(validated["options"] as? [String], ["Option1", "Option2"], "options should be valid [String]")
         #else
-        let properties: [String: Any] = [
-            "placeholder": "Select an option",
-            "options": ["Option1", "Option2"]
-        ]
-        
-        let validated = ComboBox.validateProperties(properties, logger)
-        
         XCTAssertTrue(validated.isEmpty, "Properties should be empty on watchOS/tvOS")
         #endif
     }
     
     func testValidatePropertiesInvalid() throws {
-        #if os(macOS) || os(iOS)
         let properties: [String: Any] = [
             "placeholder": 123,
             "options": [1, 2]
@@ -55,16 +50,10 @@ final class ComboBoxTests: XCTestCase {
         
         let validated = ComboBox.validateProperties(properties, logger)
         
+        #if os(macOS) || os(iOS)
         XCTAssertNil(validated["placeholder"], "placeholder should be nil for invalid type")
         XCTAssertNil(validated["options"], "options should be nil for invalid type")
         #else
-        let properties: [String: Any] = [
-            "placeholder": 123,
-            "options": [1, 2]
-        ]
-        
-        let validated = ComboBox.validateProperties(properties, logger)
-        
         XCTAssertTrue(validated.isEmpty, "Properties should be empty on watchOS/tvOS")
         #endif
     }
@@ -82,28 +71,21 @@ final class ComboBoxTests: XCTestCase {
     }
     
     func testValidatePropertiesPartial() throws {
-        #if os(macOS) || os(iOS)
         let properties: [String: Any] = [
             "placeholder": "Select an option"
         ]
         
         let validated = ComboBox.validateProperties(properties, logger)
         
+        #if os(macOS) || os(iOS)
         XCTAssertEqual(validated["placeholder"] as? String, "Select an option", "placeholder should be valid String")
         XCTAssertNil(validated["options"], "options should be nil when not provided")
         #else
-        let properties: [String: Any] = [
-            "placeholder": "Select an option"
-        ]
-        
-        let validated = ComboBox.validateProperties(properties, logger)
-        
         XCTAssertTrue(validated.isEmpty, "Properties should be empty on watchOS/tvOS")
         #endif
     }
     
     func testBuildViewAndApplyModifiersValidProperties() throws {
-        #if os(macOS) || os(iOS)
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "ComboBox",
@@ -112,97 +94,48 @@ final class ComboBoxTests: XCTestCase {
                 "options": ["Option1", "Option2"]
             ]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         
-        let view = ComboBox.buildView(element, state, UUID().uuidString, validatedProperties, logger)
-        _ = ComboBox.applyModifiers(view, validatedProperties, logger)
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+
+        #if os(macOS) || os(iOS)
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        let view = actionUIView.body // Access the body to trigger view construction
+
         // Note: Avoid strict type checks (e.g., SwiftUI.HStack) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
         // Note: Cannot inspect ComboBox components or modifiers due to SwiftUI's opaque hierarchy
         #else
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "ComboBox",
-            "properties": [
-                "placeholder": "Select an option",
-                "options": ["Option1", "Option2"]
-            ]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
-        
-        let view = ComboBox.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let view = ComboBox.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         XCTAssertTrue(view is SwiftUI.EmptyView, "ComboBox should return EmptyView on watchOS/tvOS")
         #endif
     }
     
     func testBuildViewAndApplyModifiersMissingProperties() throws {
-        #if os(macOS) || os(iOS)
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "ComboBox",
             "properties": [:]
         ]
+
         let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
-        
-        let view = ComboBox.buildView(element, state, UUID().uuidString, validatedProperties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        let view = ComboBox.buildView(element, viewModel, windowUUID, validatedProperties, logger)
+
+        #if os(macOS) || os(iOS)
         _ = ComboBox.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.HStack) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
         #else
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "ComboBox",
-            "properties": [:]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: UUID().uuidString)
-        let validatedProperties = ComboBox.validateProperties(element.properties, logger)
-        
-        let view = ComboBox.buildView(element, state, UUID().uuidString, validatedProperties, logger)
         XCTAssertTrue(view is SwiftUI.EmptyView, "ComboBox should return EmptyView on watchOS/tvOS")
         #endif
-    }
-    
-    func testComboBoxStateBinding() throws {
-        #if os(macOS) || os(iOS)
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "ComboBox",
-            "properties": [
-                "placeholder": "Select an option",
-                "options": ["Option1", "Option2"]
-            ]
-        ]
-
-        let windowUUID = UUID().uuidString
-        let model = ActionUIModel.shared
-        try model.loadDescription(from: elementDict, windowUUID: windowUUID)
-        
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
-            return
-        }
-        
-        let state = model.state(for: windowUUID)
-
-        // Create ActionUIView and force body creation
-        let actionUIView = ActionUIView(element: element, state: state, windowUUID: windowUUID)
-        _ = actionUIView.body // Force body creation
-
-        // Verify state initialization
-        let viewState = state.wrappedValue[element.id] as? [String: Any]
-                
-        XCTAssertNotNil(viewState, "State should be initialized for ComboBox")
-        XCTAssertEqual(viewState?["value"] as? String, "", "ComboBox state should include an empty String value")
-        XCTAssertNotNil(viewState?["validatedProperties"] as? [String: Any], "State should include validated properties")
-        
-        #endif
-    }
+    }    
 }

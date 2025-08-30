@@ -33,7 +33,7 @@ final class ListTests: XCTestCase {
         super.tearDown()
     }
     
-    func testListConstruction() {
+    func testListConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "List",
@@ -44,20 +44,16 @@ final class ListTests: XCTestCase {
                 "padding": 10.0
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
+        let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = List.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
-        
-        if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            XCTAssertEqual(stateDict["content"] as? [[String]], [["Item1"], ["Item2"]], "State content should match items")
-            XCTAssertEqual(stateDict["value"] as? [String], [], "State value should be empty initially")
-        } else {
-            XCTFail("State should be a dictionary")
-        }
+        XCTAssertEqual(viewModel.states["content"] as? [[String]], [["Item1"], ["Item2"]], "State content should match items")
+        XCTAssertEqual(viewModel.value as? [String], [], "State value should be empty initially")
     }
     
     func testListJSONDecoding() throws {
@@ -79,21 +75,21 @@ final class ListTests: XCTestCase {
             return
         }
         
-        let model = ActionUIModel.shared
+        let actionUIModel = ActionUIModel.shared
         
-        try model.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        guard let element = model.descriptions[windowUUID] else {
-            XCTFail("Failed to retrieve element from model for windowUUID: \(String(describing: windowUUID))")
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
             return
         }
-        
-        let state = ActionUIModel.shared.state(for: windowUUID)
+
         let validatedProperties = List.validateProperties(element.properties, logger)
         
-        _ = ActionUIRegistry.shared.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
-        logger.log("After registry build: state[\(element.id)] = \(String(describing: state.wrappedValue[element.id]))", .debug)
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "List", "Element type should be List")
@@ -108,12 +104,8 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(element.properties["doubleClickActionID"] as? String, "list.doubleClick", "doubleClickActionID should be list.doubleClick")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         
-        if let stateDict = state.wrappedValue[element.id] as? [String: Any] {
-            XCTAssertEqual(stateDict["content"] as? [[String]], [["Item1", "Extra"], ["Item2", "Data"]], "State content should match items")
-            XCTAssertEqual(stateDict["value"] as? [String], [], "State value should be empty")
-        } else {
-            XCTFail("State should be a dictionary")
-        }
+        XCTAssertEqual(viewModel.states["content"] as? [[String]], [["Item1", "Extra"], ["Item2", "Data"]], "State content should match items")
+        XCTAssertEqual(viewModel.value as? [String], [], "State value should be empty")
     }
     
     func testListValidatePropertiesValid() {
