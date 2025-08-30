@@ -290,8 +290,8 @@ extension ActionUIElement {
             return self
         }
         
-        // Check all possible subview keys
-        guard let subviews = self.subviews else {
+        // Check all possible subview keys, if any
+        guard let subviews, !subviews.isEmpty else {
             return nil
         }
         
@@ -316,14 +316,22 @@ extension ActionUIElement {
         }
         
         // Search in single-child keys: "content", "destination", "sidebar", "detail"
-        for key in ["content", "destination", "sidebar", "detail"] {
-            if let child = subviews[key] as? any ActionUIElement {
-                if let found = child.findElement(by: viewID) {
-                    return found
-                }
-            }
+        if let content = subviews["content"] as? any ActionUIElement,
+           let found = content.findElement(by: viewID) {
+            return found
         }
-        
+        if let destination = subviews["destination"] as? any ActionUIElement,
+           let found = destination.findElement(by: viewID) {
+            return found
+        }
+        if let sidebar = subviews["sidebar"] as? any ActionUIElement,
+           let found = sidebar.findElement(by: viewID) {
+            return found
+        }
+        if let detail = subviews["detail"] as? any ActionUIElement,
+           let found = detail.findElement(by: viewID) {
+            return found
+        }
         return nil
     }
 }
