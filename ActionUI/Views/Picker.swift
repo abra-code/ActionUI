@@ -47,30 +47,26 @@ struct Picker: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let items = (properties["options"] as? [String]) ?? []
         let initialValue = items.first ?? ""
         
         // Initialize Picker-specific state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil {
-            newState["value"] = initialValue
-            state.wrappedValue[element.id] = newState
+        if model.value == nil {
+            model.value = initialValue
             logger.log("Initialized state for viewID: \(element.id) with value: \(initialValue)", .debug)
         }
         
         // Create a specific binding for the value to ensure reactivity
         let valueBinding = Binding<String>(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? initialValue },
+            get: { model.value as? String ?? initialValue },
             set: { newValue in
-                guard (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String != newValue else {
+                guard model.value as? String != newValue else {
                     logger.log("No change in value for viewID: \(element.id), skipping update", .debug)
                     return
                 }
                 logger.log("Updating value for viewID: \(element.id) to \(newValue)", .debug)
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["value"] = newValue
-                state.wrappedValue[element.id] = newState
+                model.value = newValue
                 
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     logger.log("Dispatching valueChangeActionID: \(valueChangeActionID) for viewID: \(element.id)", .debug)

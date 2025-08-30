@@ -57,7 +57,7 @@ struct Grid: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if os(watchOS) || os(tvOS)
         return EmptyView()
         #else
@@ -83,7 +83,7 @@ struct Grid: ActionUIViewConstruction {
             ForEach(rows.indices, id: \.self) { rowIndex in
                 SwiftUI.GridRow {
                     ForEach(rows[rowIndex], id: \.id) { child in
-                        ActionUIView(element: child, state: state, windowUUID: windowUUID)
+                        ActionUIView(element: child, model: model, windowUUID: windowUUID)
                     }
                 }
             }

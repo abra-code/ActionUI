@@ -43,7 +43,7 @@ protocol ActionUIElement: Identifiable, Codable {
 protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
-    static var buildView: ((any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
+    static var buildView: ((any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
 }
 

@@ -35,21 +35,19 @@ struct NavigationStack: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let initialPath = (properties["path"] as? [String]) ?? []
         
         // Initialize NavigationStack-specific state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["path"] == nil {
-            newState["path"] = initialPath
-            state.wrappedValue[element.id] = newState
+        if model.states["path"] == nil {
+            model.states["path"] = initialPath
         }
         
         // Use NavigationPath to manage navigation state
         let pathBinding = Binding<NavigationPath>(
             get: {
-                if let path = (state.wrappedValue[element.id] as? [String: Any])?["path"] as? [String] {
+                if let path = model.states["path"] as? [String] {
                     var navigationPath = NavigationPath()
                     for item in path {
                         navigationPath.append(item)
@@ -59,11 +57,9 @@ struct NavigationStack: ActionUIViewConstruction {
                 return NavigationPath()
             },
             set: { newPath in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 // Store path as an array of strings
                 let newPathArray = newPath.codable.map { String(describing: $0) }
-                newState["path"] = newPathArray
-                state.wrappedValue[element.id] = newState
+                model.states["path"] = newPathArray
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in
                     	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
@@ -73,7 +69,7 @@ struct NavigationStack: ActionUIViewConstruction {
         )
         
         return SwiftUI.NavigationStack(path: pathBinding) {
-            ActionUIView(element: content, state: state, windowUUID: windowUUID)
+            ActionUIView(element: content, model: model, windowUUID: windowUUID)
         }
     }
     

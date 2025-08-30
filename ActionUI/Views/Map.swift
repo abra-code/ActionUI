@@ -125,7 +125,7 @@ struct Map: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(MapKit)
         let initialCoordinate = properties.coordinate(forKey: "coordinate") ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
         let showsUserLocation = properties["showsUserLocation"] as? Bool ?? false
@@ -147,10 +147,8 @@ struct Map: ActionUIViewConstruction {
             )
         } ?? []
 
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil {
-            newState["value"] = initialCoordinate
-            state.wrappedValue[element.id] = newState
+        if model.value == nil {
+            model.value = initialCoordinate
         }
         
         func extractRegion(from pos: MapKit.MapCameraPosition) -> MKCoordinateRegion? {
@@ -163,17 +161,15 @@ struct Map: ActionUIViewConstruction {
 
         let positionBinding = Binding<MapKit.MapCameraPosition>(
             get: {
-                if let coord = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? CLLocationCoordinate2D {
+                if let coord = model.value as? CLLocationCoordinate2D {
                     return .region(MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
                 }
                 return .region(MKCoordinateRegion(center: initialCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
             },
             set: { newPosition in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 if let region = extractRegion(from: newPosition) {
                     let coord = region.center
-                    newState["value"] = coord
-                    state.wrappedValue[element.id] = newState
+                    model.value = coord
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                         Task { @MainActor in
                             ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)

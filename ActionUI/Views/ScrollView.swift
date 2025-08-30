@@ -41,7 +41,7 @@ struct ScrollView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let axis = (properties["axis"] as? String) ?? "vertical"
         let showsIndicators = properties["showsIndicators"] as? Bool ?? true
@@ -54,7 +54,7 @@ struct ScrollView: ActionUIViewConstruction {
         }()
         
         return SwiftUI.ScrollView(axes, showsIndicators: showsIndicators) {
-            ActionUIView(element: content, state: state, windowUUID: windowUUID)
+            ActionUIView(element: content, model: model, windowUUID: windowUUID)
         }
     }
     

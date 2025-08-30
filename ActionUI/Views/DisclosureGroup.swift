@@ -39,25 +39,18 @@ struct DisclosureGroup: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let label = properties["label"] as? String ?? ""
         let initialExpanded = properties["isExpanded"] as? Bool ?? false
         
-        // Initialize DisclosureGroup-specific state, merging with existing state
-        let viewState = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-            ["isExpanded": initialExpanded, "validatedProperties": properties],
-            uniquingKeysWith: { _, new in new }
-        )
-        state.wrappedValue[element.id] = viewState
+        // Initialize DisclosureGroup-specific state
+        model.states["isExpanded"] = initialExpanded
         
         let expandedBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["isExpanded"] as? Bool ?? initialExpanded },
+            get: { model.states["isExpanded"] as? Bool ?? initialExpanded },
             set: { newValue in
-                let updatedState = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-                    ["isExpanded": newValue, "validatedProperties": properties],
-                    uniquingKeysWith: { _, new in new }
-                )
-                state.wrappedValue[element.id] = updatedState
+                model.states["isExpanded"] = newValue
+                
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in
                     	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
@@ -70,7 +63,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         
         return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
             ForEach(children, id: \.id) { child in
-                ActionUIView(element: child, state: state, windowUUID: windowUUID)
+                ActionUIView(element: child, model: model, windowUUID: windowUUID)
             }
         } label: {
             SwiftUI.Text(label)

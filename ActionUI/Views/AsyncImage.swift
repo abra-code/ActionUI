@@ -57,7 +57,7 @@ struct AsyncImage: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let urlString = properties["url"] as? String
         let placeholder = properties["placeholder"] as? String ?? "photo"
         let resizable = properties["resizable"] as? Bool ?? true

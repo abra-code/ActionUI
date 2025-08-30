@@ -48,19 +48,17 @@ struct ProgressView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let value: Double? = properties.double(forKey: "value")
         let total: Double? = properties.double(forKey: "total")
         let label: String? = properties["label"] as? String
         let actionID: String? = properties["actionID"] as? String
         
-        var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil, let value = value {
-            newState["value"] = value
-            state.wrappedValue[element.id] = newState
+        if model.value == nil, let value = value {
+            model.value = value
         }
         
-        let currentValue: Double? = newState.double(forKey: "value") ?? value
+        let currentValue: Double? = model.states.double(forKey: "value") ?? value
         
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {

@@ -43,23 +43,19 @@ struct SecureField: ActionUIViewConstruction {
     
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         let actionID = properties["actionID"] as? String
         
         // Initialize value if not set
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil {
-            newState["value"] = ""
-            state.wrappedValue[element.id] = newState
+        if model.value == nil {
+            model.value = ""
         }
         
         let textBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
+            get: { model.value as? String ?? "" },
             set: { newValue in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["value"] = newValue
-                state.wrappedValue[element.id] = newState
+                model.value = newValue
             }
         )
         

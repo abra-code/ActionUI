@@ -33,7 +33,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         return properties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let values = (properties["values"] as? [Double]) ?? [0.0, 1.0]
         let trigger = (properties["trigger"] as? String) ?? "onAppear"
@@ -80,7 +80,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
             values,
             trigger: animationTrigger,
             content: { value in
-                ActionUIView(element: content, state: state, windowUUID: windowUUID)
+                ActionUIView(element: content, model: model, windowUUID: windowUUID)
                     .opacity(value)
             },
             animation: { _ in animation }
@@ -100,7 +100,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
                 animationTrigger += 1
             }
         }
-        .onChange(of: (state.wrappedValue[0] as? [String: Any])?[stateKey] as? Int, initial: false) { _, newValue in
+        .onChange(of: model.states[stateKey] as? Int, initial: false) { _, newValue in
             if trigger == "onStateChange", let newValue = newValue {
                 animationTrigger = newValue
             }

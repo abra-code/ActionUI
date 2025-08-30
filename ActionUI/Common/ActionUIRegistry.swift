@@ -103,55 +103,27 @@ class ActionUIRegistry {
         return properties
     }
     
-    // Retrieves validated properties for an element, updating state if properties have changed
-    func getValidatedProperties(element: any ActionUIElement, state: Binding<[Int: Any]>) -> [String: Any] {
-        // initialize view element state if not done before
-        let elementState = state.wrappedValue[element.id] as? [String: Any]
-        if (elementState == nil) ||
-            (elementState?["rawProperties"] == nil) ||
-            (elementState?["validatedProperties"] == nil) {
+    // Retrieves validated properties for an element, updating model if properties have changed
+    func getValidatedProperties(element: any ActionUIElement, model: ViewModel) -> [String: Any] {
+        // Initialize view element state if not done before
+        if model.properties.isEmpty || model.validatedProperties.isEmpty {
             let baseValidated = View.validateProperties(element.properties, logger)
             let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
-            if let elementState {
-                // if there was something in elementState but it was incomplete, add properties to existing state
-                var newState = elementState
-                newState["validatedProperties"] = validatedProperties
-                newState["rawProperties"] = element.properties
-                state.wrappedValue[element.id] = newState
-            } else {
-                // new state with just properties and nothing else
-                let newState = ["rawProperties": element.properties, "validatedProperties": validatedProperties]
-                state.wrappedValue[element.id] = newState
-            }
+            model.properties = element.properties
+            model.validatedProperties = validatedProperties
             return validatedProperties
         }
         
-        guard let currentState = state.wrappedValue[element.id] as? [String: Any] else {
-            logger.log("getValidatedProperties: view element state not intialized", .error)
-            return [:]
-        }
-        
-        guard let rawProperties = currentState["rawProperties"] as? [String: Any] else {
-            logger.log("getValidatedProperties: view element state has no rawProperties", .error)
-            return [:]
-        }
-        
-        // if some change was made to element.properties and it does not match previously stored properties
-        if !PropertyComparison.arePropertiesEqual(rawProperties, element.properties) {
+        // If properties have changed, update raw and validated properties
+        if !PropertyComparison.arePropertiesEqual(model.properties, element.properties) {
             let baseValidated = View.validateProperties(element.properties, logger)
             let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
-            var newState = currentState
-            newState["validatedProperties"] = validatedProperties
-            newState["rawProperties"] = element.properties
-            state.wrappedValue[element.id] = newState
+            model.properties = element.properties
+            model.validatedProperties = validatedProperties
+            return validatedProperties
         }
         
-        guard let validatedProperties = currentState["validatedProperties"] as? [String: Any] else {
-            logger.log("getValidatedProperties: view element state has no validatedProperties", .error)
-            return [:]
-        }
-                
-        return validatedProperties
+        return model.validatedProperties
     }
     
     // Retrieves the value type for a given view element type
@@ -159,44 +131,34 @@ class ActionUIRegistry {
     func getElementValueType(forElementType type: String) -> Any.Type {
         return registrations[type]?.valueType ?? Void.self
     }
-    
+        
     // Builds a SwiftUI view for an element, only passing validatedProperties, leaving value and view-specific state to buildView
-    func buildView(for element: any ActionUIElement, state: Binding<[Int: Any]>, windowUUID: String, validatedProperties: [String: Any]) -> any SwiftUI.View {
+    func buildView(for element: any ActionUIElement, model: ViewModel, windowUUID: String, validatedProperties: [String: Any]) -> any SwiftUI.View {
         // Initialize shared state if not present
         // Design decision: Ensures all views have validatedProperties, with value and view-specific state handled by buildView
-        if state.wrappedValue[element.id] == nil {
-            state.wrappedValue[element.id] = [
-                "validatedProperties": validatedProperties
-            ]
+        if model.validatedProperties.isEmpty {
+            model.validatedProperties = validatedProperties
         }
         
         if let constructionType = registrations[element.type] {
-            return constructionType.buildView(element, state, windowUUID, validatedProperties, logger)
+            return constructionType.buildView(element, model, windowUUID, validatedProperties, logger)
         }
         logger.log("No construction type found for \(element.type), returning EmptyView", .warning)
         return SwiftUI.EmptyView()
     }
     
-    // Applies modifiers to a view, using a Binding to state for dynamic updates
-    // Design decision: Binds to validatedProperties in state to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
+    // Applies modifiers to a view, using a ViewModel for dynamic updates
+    // Design decision: Uses validatedProperties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
     // Applies baseline View modifiers first, then view-specific modifiers, per the guide's modifier separation principle
-    func applyModifiers(to view: any SwiftUI.View, properties: [String: Any], element: any ActionUIElement, state: Binding<[Int: Any]>) -> AnyView {
-        // Bind to validatedProperties in state, falling back to provided properties
-        // Design decision: Binding ensures dynamic updates (e.g., for baseline properties like disabled) trigger view refreshes without re-rendering the entire hierarchy
-        let validatedPropertiesBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["validatedProperties"] as? [String: Any] ?? properties },
-            set: { state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(["validatedProperties": $0], uniquingKeysWith: { $1 }) }
-        )
-        
-        // Step 1: Apply base View modifications dynamically
+    func applyModifiers(to view: any SwiftUI.View, properties: [String: Any], element: any ActionUIElement, model: ViewModel) -> AnyView {
+        // Apply base View modifications dynamically
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
-        var modifiedView = View.applyModifiers(view, validatedPropertiesBinding.wrappedValue, logger)
+        var modifiedView = View.applyModifiers(view, properties, logger)
         
-        // Step 2: Apply specialized view modifications if available
+        // Apply specialized view modifications if available
         if let constructionType = registrations[element.type] {
-            modifiedView = constructionType.applyModifiers(modifiedView, validatedPropertiesBinding.wrappedValue, logger)
+            modifiedView = constructionType.applyModifiers(modifiedView, properties, logger)
         }
         return AnyView(modifiedView)
     }
 }
-

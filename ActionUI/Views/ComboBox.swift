@@ -45,27 +45,20 @@ struct ComboBox: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if os(macOS) || os(iOS)
         let items = (properties["options"] as? [String]) ?? []
         let placeholder = properties["placeholder"] as? String ?? ""
         
         // Initialize ComboBox-specific state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil {
-            newState["value"] = ""
-            state.wrappedValue[element.id] = newState
+        if model.value == nil {
+            model.value = ""
         }
         
         let binding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
+            get: { model.value as? String ?? "" },
             set: { newValue in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["value"] = newValue
-                state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-                    ["value": newValue, "validatedProperties": properties],
-                    uniquingKeysWith: { _, new in new }
-                )
+                model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in
                     	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)

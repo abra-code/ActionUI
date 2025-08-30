@@ -44,22 +44,13 @@ struct TextField: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         
-        // Initialize TextField-specific state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil {
-            newState["value"] = ""
-            state.wrappedValue[element.id] = newState
-        }
-        
         let textBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? String ?? "" },
+            get: { model.value as? String ?? "" },
             set: { newValue in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["value"] = newValue
-                state.wrappedValue[element.id] = newState
+                model.value = newValue
                 
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in

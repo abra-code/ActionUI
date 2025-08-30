@@ -42,7 +42,7 @@ struct Canvas: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let render = properties["render"] as? String ?? "none"
         let color = ColorHelper.resolveColor((properties["color"] as? String) ?? "black") ?? Color.black
         let actionID = properties["actionID"] as? String

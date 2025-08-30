@@ -47,21 +47,19 @@ struct NavigationSplitView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let sidebar = element.subviews?["sidebar"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let detail = element.subviews?["detail"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         // Initialize NavigationSplitView-specific state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["columnVisibility"] == nil {
-            newState["columnVisibility"] = (properties["columnVisibility"] as? String) ?? "all"
-            state.wrappedValue[element.id] = newState
+        if model.states["columnVisibility"] == nil {
+            model.states["columnVisibility"] = (properties["columnVisibility"] as? String) ?? "all"
         }
 
         let visibilityBinding = Binding<NavigationSplitViewVisibility>(
             get: {
-                if let visibility = (state.wrappedValue[element.id] as? [String: Any])?["columnVisibility"] as? String {
+                if let visibility = model.states["columnVisibility"] as? String {
                     switch visibility {
                     case "automatic": return .automatic
                     case "doubleColumn": return .doubleColumn
@@ -72,7 +70,6 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 return .all
             },
             set: { newVisibility in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
                 let newVisibilityString: String
                 switch newVisibility {
                 case .automatic: newVisibilityString = "automatic"
@@ -81,8 +78,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 case .all: newVisibilityString = "all"
                 default: newVisibilityString = "all"
                 }
-                newState["columnVisibility"] = newVisibilityString
-                state.wrappedValue[element.id] = newState
+                model.states["columnVisibility"] = newVisibilityString
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in
                     	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
@@ -92,11 +88,11 @@ struct NavigationSplitView: ActionUIViewConstruction {
         )
         
         return SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-            ActionUIView(element: sidebar, state: state, windowUUID: windowUUID)
+            ActionUIView(element: sidebar, model: model, windowUUID: windowUUID)
         } content: {
-            ActionUIView(element: content, state: state, windowUUID: windowUUID)
+            ActionUIView(element: content, model: model, windowUUID: windowUUID)
         } detail: {
-            ActionUIView(element: detail, state: state, windowUUID: windowUUID)
+            ActionUIView(element: detail, model: model, windowUUID: windowUUID)
         }
     }
     

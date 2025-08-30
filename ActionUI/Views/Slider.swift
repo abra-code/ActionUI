@@ -50,22 +50,20 @@ struct Slider: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = (properties.double(forKey: "value")) ?? 0.0
-        let value = (state.wrappedValue[element.id] as? [String: Any])?.double(forKey: "value") ?? initialValue
+        let value = model.value as? Double ?? initialValue
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
         let min = range["min"] ?? 0.0
         let max = range["max"] ?? 1.0
         let step = properties.double(forKey: "step")
         
         let valueBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?.double(forKey: "value") ?? initialValue },
+            get: { model.value as? Double ?? initialValue },
             set: { newValue in
                 if (min...max).contains(newValue) {
-                    state.wrappedValue[element.id] = (state.wrappedValue[element.id] as? [String: Any] ?? [:]).merging(
-                        ["value": newValue, "validatedProperties": properties],
-                        uniquingKeysWith: { _, new in new }
-                    )
+                    model.value = newValue
+                    
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                         Task { @MainActor in
                         	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)

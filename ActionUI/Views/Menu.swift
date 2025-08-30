@@ -23,12 +23,12 @@ struct Menu: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.Menu {
             ForEach(children, id: \.id) { child in
-                ActionUIView(element: child, state: state, windowUUID: windowUUID)
+                ActionUIView(element: child, model: model, windowUUID: windowUUID)
             }
         } label: {
             SwiftUI.EmptyView()

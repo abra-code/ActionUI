@@ -35,7 +35,7 @@ struct Link: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         guard let urlString = properties["url"] as? String, let url = URL(string: urlString) else {
             logger.log("Link missing valid URL, returning EmptyView", .warning)
             return SwiftUI.EmptyView()

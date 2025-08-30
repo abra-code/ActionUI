@@ -57,7 +57,7 @@ struct Button: ActionUIViewConstruction {
     
     // Builds the Button view, relying on ActionUIRegistry.build for state initialization
     // Design decision: No value state is initialized, as Button has no stateful value (valueType is Void)
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let title = properties["title"] as? String ?? "Button"
         let role = properties["role"] as? String
         let actionID = properties["actionID"] as? String

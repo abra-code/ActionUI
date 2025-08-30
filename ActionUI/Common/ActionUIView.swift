@@ -1,36 +1,52 @@
 // Sources/ActionUIView.swift
 import SwiftUI
 
+/*
+ ActionUIView is the entry point for rendering an ActionUI element in SwiftUI.
+ It uses ActionUIRegistry to build and modify the view based on the element's type and properties.
+ Equatable conformance ensures efficient view updates by comparing element and model state.
+*/
+
 struct ActionUIView: SwiftUI.View, Equatable {
     let element: any ActionUIElement
-    let state: Binding<[Int: Any]>
+    @ObservedObject var model: ViewModel
     let windowUUID: String
     
     var body: some SwiftUI.View {
+        // Fetch validated properties and build the base view
         let registry = ActionUIRegistry.shared
-        let validatedProperties = registry.getValidatedProperties(element: element, state: state)
-        let baseView = registry.buildView(for: element, state: state, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        return registry.applyModifiers(to: baseView, properties: validatedProperties, element: element, state: state)
+        let validatedProperties = registry.getValidatedProperties(element: element, model: model)
+        let baseView = registry.buildView(
+            for: element,
+            model: model,
+            windowUUID: windowUUID,
+            validatedProperties: validatedProperties
+        )
+        // Apply modifiers and return the final view
+        return registry.applyModifiers(
+            to: baseView,
+            properties: validatedProperties,
+            element: element,
+            model: model
+        )
     }
     
-    // Equatable conformance: Compare element, relevant state, and windowUUID
+    // Equatable conformance to optimize view updates
     static func == (lhs: ActionUIView, rhs: ActionUIView) -> Bool {
-        // Compare element.id, element.type, windowUUID, and element.properties
+        // Compare element id, type, windowUUID, and properties
         guard lhs.element.id == rhs.element.id,
               lhs.element.type == rhs.element.type,
               lhs.windowUUID == rhs.windowUUID,
-              PropertyComparison.arePropertiesEqual(lhs.element.properties, rhs.element.properties) else {
+              PropertyComparison.areValuesEqual(lhs.model.value, rhs.model.value),
+              PropertyComparison.arePropertiesEqual(lhs.element.properties, rhs.element.properties),
+              PropertyComparison.arePropertiesEqual(lhs.model.properties, rhs.model.properties),
+              PropertyComparison.arePropertiesEqual(lhs.model.validatedProperties, rhs.model.validatedProperties),
+              PropertyComparison.arePropertiesEqual(lhs.model.states, rhs.model.states)
+               else {
             return false
         }
         
-        // Compare relevant state for the element
-        let lhsState = (lhs.state.wrappedValue[lhs.element.id] as? [String: Any]) ?? [:]
-        let rhsState = (rhs.state.wrappedValue[rhs.element.id] as? [String: Any]) ?? [:]
-        guard PropertyComparison.arePropertiesEqual(lhsState, rhsState) else {
-            return false
-        }
-        
-        // Compare subviews
+        // Compare subviews for equality
         let lhsSubviews = lhs.element.subviews ?? [:]
         let rhsSubviews = rhs.element.subviews ?? [:]
         guard lhsSubviews.keys.sorted() == rhsSubviews.keys.sorted() else {

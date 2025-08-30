@@ -41,7 +41,7 @@ struct NavigationLink: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         guard let link = properties["link"] as? String, !link.isEmpty else {
             logger.log("NavigationLink missing valid link, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
@@ -50,10 +50,8 @@ struct NavigationLink: ActionUIViewConstruction {
         let label = properties["label"] as? String ?? "Link"
         
         // Initialize NavigationLink-specific state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["link"] == nil {
-            newState["link"] = link
-            state.wrappedValue[element.id] = newState
+        if model.states["link"] == nil {
+            model.states["link"] = link
         }
         
         return SwiftUI.NavigationLink(value: link) {
@@ -61,7 +59,7 @@ struct NavigationLink: ActionUIViewConstruction {
         }
         .navigationDestination(for: String.self) { value in
             if value == link {
-                ActionUIView(element: destination, state: state, windowUUID: windowUUID)
+                ActionUIView(element: destination, model: model, windowUUID: windowUUID)
             } else {
                 SwiftUI.EmptyView()
             }

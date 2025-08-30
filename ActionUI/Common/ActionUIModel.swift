@@ -4,33 +4,27 @@ import MapKit
 internal import Combine
 
 /*
- ActionUIModel manages the state of UI elements across windows and provides methods to get/set properties and values.
- State is stored in a nested dictionary: states[windowUUID][viewID][key], where keys include "value", "validatedProperties", and view-specific data (e.g., "content", "selectedRowID").
- The logger is client-configurable, defaulting to ConsoleLogger with verbose level.
+ ActionUIModel manages the global state for ActionUI, including view descriptions and state.
+ It provides methods to load view descriptions, handle actions, and manage element state.
+ The singleton pattern ensures a single source of truth for the UI state.
 */
 
 @MainActor
 class ActionUIModel: ObservableObject {
-    // Singleton instance for centralized state management
-    // Design decision: Singleton ensures a single source of truth for descriptions and states, used by all views and action handlers
+    // Singleton instance for global access
     static let shared = ActionUIModel()
     
-    // Stores view hierarchies by windowUUID, loaded from JSON or plist
-    // Design decision: @Published ensures SwiftUI refreshes when descriptions change
-    @Published var descriptions: [String: any ActionUIElement] = [:]
+    // Dictionary of windowUUID to WindowModel containing descriptions and viewModels
+    @Published var windowModels: [String: WindowModel] = [:]
     
-    // Stores view state (value, content, validatedProperties) by windowUUID and viewID
-    // Design decision: @Published enables automatic SwiftUI updates when state changes, with viewID ensuring isolated refreshes
-    @Published var states: [String: [Int: Any]] = [:]
-    
-    // Registry for action handlers, mapping actionID to closures that handle user interactions
+    // Registered action handlers for specific actionIDs
     internal var actionHandlers: [String: (String, String, Int, Int, Any?) -> Void] = [:]
     
     // Default handler for actions with no specific handler registered, used for all unmatched actionIDs
     private var defaultActionHandler: ((String, String, Int, Int, Any?) -> Void)?
     
-    // Logger for state management and action handling
     // Design decision: Client-configurable via setLogger, defaults to ConsoleLogger for consistency
+    // Logger for debugging and error reporting
     private var logger: any ActionUILogger
     
     private init() {
@@ -39,7 +33,6 @@ class ActionUIModel: ObservableObject {
     }
     
     // Allows clients to set a custom logger (e.g., XCTestLogger)
-    // Design decision: Mirrors registerActionHandler for client customization
     func setLogger(_ logger: any ActionUILogger) {
         self.logger = logger
     }
@@ -53,26 +46,25 @@ class ActionUIModel: ObservableObject {
         logger.log("Registered handler for actionID: \(actionID)", .verbose)
     }
     
-    // Unregister a handler for a specific actionID
+    // Unregister an action handler for a specific actionID
     func unregisterActionHandler(for actionID: String) {
         actionHandlers.removeValue(forKey: actionID)
         logger.log("Unregistered handler for actionID: \(actionID)", .verbose)
     }
     
-    // Set the default handler for unmatched actionIDs
+    // Set a default action handler for unregistered actionIDs
     func setDefaultActionHandler(_ handler: @escaping (String, String, Int, Int, Any?) -> Void) {
         defaultActionHandler = handler
         logger.log("Set default action handler", .verbose)
     }
     
-    // Remove the default handler
+    // Remove the default action handler
     func removeDefaultActionHandler() {
         defaultActionHandler = nil
         logger.log("Removed default action handler", .verbose)
     }
     
     // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
-    // Uses ActionUIModel.shared for state access
     func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
         if let handler = actionHandlers[actionID] {
             logger.log("Executing handler for actionID: \(actionID), viewID: \(viewID)", .debug)
@@ -85,53 +77,43 @@ class ActionUIModel: ObservableObject {
         }
     }
     
+    // Load a view description from JSON or plist data for a specific windowUUID
     func loadDescription(from data: Data, format: String, windowUUID: String) throws {
-        if format == "json" {
-            let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: data)
-            descriptions[windowUUID] = element
-            logger.log("Loaded JSON description for windowUUID: \(windowUUID)", .verbose)
-        } else if format == "plist" {
-            let element = try PropertyListDecoder(logger: logger).decode(ViewElement.self, from: data)
-            descriptions[windowUUID] = element
-            logger.log("Loaded plist description for windowUUID: \(windowUUID)", .verbose)
-        } else {
-            logger.log("Unsupported format: \(format)", .error)
-            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
-        }
+        let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+        try windowModel.loadDescription(from: data, format: format)
+        windowModels[windowUUID] = windowModel
     }
     
-    func loadDescription(from dict: [String:Any], windowUUID: String) throws {
-        let element = try ViewElement(from: dict, logger: logger)
-        descriptions[windowUUID] = element
+    // Load a view description from a dictionary for a specific windowUUID
+    func loadDescription(from dict: [String: Any], windowUUID: String) throws {
+        let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+        try windowModel.loadDescription(from: dict)
+        windowModels[windowUUID] = windowModel
     }
     
+    // Cache a view description as a binary plist to a specified URL
     func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
-        try loadDescription(from: data, format: format, windowUUID: windowUUID)
-        let plistData = try PropertyListEncoder().encode(descriptions[windowUUID]!)
+        let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+        try windowModel.loadDescription(from: data, format: format)
+        guard let description = windowModel.description else {
+            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No description loaded"])
+        }
+        let plistData = try PropertyListEncoder().encode(description)
         try plistData.write(to: url)
         logger.log("Cached description as binary plist for windowUUID: \(windowUUID) at \(url)", .verbose)
+        windowModels[windowUUID] = windowModel
     }
-    
-    func state(for windowUUID: String) -> Binding<[Int: Any]> {
-        Binding(
-            get: { self.states[windowUUID] ?? [:] },
-            set: { self.states[windowUUID] = $0 }
-        )
-    }
-    
-    // Retrieves the value of a view based on viewID and viewPartID
-    // For Table/List with [[String]] content, viewPartID == 0 returns tab-separated values, viewPartID >= 1 returns the indexed column (or "" if out of bounds)
-    // For List with [String] content or other views, returns the "value" from state
+        
+    // Get the value of a view element
     func getElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
-        guard let state = states[windowUUID]?[viewID] as? [String: Any] else {
-            logger.log("No state found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
         }
         
         // Handle Table or List with multi-column content
         // Design decision: Preserve extra columns in "content" beyond displayed columns to support runtime data (e.g., database IDs)
-        if let _ = state["content"] as? [[String]],
-           let selectedRow = state["value"] as? [String] {
+        if let _ = viewModel.states["content"] as? [[String]], let selectedRow = viewModel.value as? [String] {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
             } else if viewPartID > 0 {
@@ -139,13 +121,12 @@ class ActionUIModel: ObservableObject {
             }
             logger.log("Invalid viewPartID \(viewPartID) for multi-column content", .warning)
             return nil
-        } else if let selectedItem = state["value"] as? String {
             // Handle List with single-column content
+        } else if let selectedItem = viewModel.value as? String {
             return selectedItem
         }
-        
         // Fallback for other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker)
-        return state["value"]
+        return viewModel.value
     }
     
     // Sets the value of a view, updating its state and validatedProperties
@@ -153,176 +134,169 @@ class ActionUIModel: ObservableObject {
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
     func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
-        guard descriptions[windowUUID]?.findElement(by: viewID) != nil else {
-            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID); skipping value set", .warning)
+        guard let windowModel = windowModels[windowUUID],
+              let element = windowModel.description?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        
-        var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? [:]
-        
-        if let newRows = value as? [[String]],
-           let validatedProperties = controlState["validatedProperties"] as? [String: Any],
-           let columns = validatedProperties["columns"] as? [String] {
-            // Table: Pad rows for display, preserve all columns in content
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
+        if let newRows = value as? [[String]], let columns = viewModel.validatedProperties["columns"] as? [String] {
             let validatedRows = newRows.map { row in
                 (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
             }
-            controlState["content"] = newRows
-            if let selectedRow = controlState["value"] as? [String],
-               !newRows.contains(where: { $0.first == selectedRow.first }) {
-                controlState["selectedRowID"] = nil
-                controlState["value"] = [] as [String]
+            viewModel.states["content"] = newRows
+            if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
+                viewModel.states["selectedRowID"] = nil
+                viewModel.value = [] as [String]
             }
-            if var validatedProperties = controlState["validatedProperties"] as? [String: Any] {
-                validatedProperties["rows"] = validatedRows
-                controlState["validatedProperties"] = validatedProperties
-            }
+            viewModel.validatedProperties["rows"] = validatedRows
             logger.log("Updated Table content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else if let newItems = value as? [String] {
             // List: Convert [String] to [[String]] for consistency
             let newContent = newItems.map { [$0] }
-            controlState["content"] = newContent
-            if let selectedRow = controlState["value"] as? [String],
-               !newContent.contains(where: { $0.first == selectedRow.first }) {
-                controlState["value"] = [] as [String]
-            } else if let selectedItem = controlState["value"] as? String,
-                      !newItems.contains(selectedItem) {
-                controlState["value"] = []
+            viewModel.states["content"] = newContent
+            if let selectedRow = viewModel.value as? [String], !newContent.contains(where: { $0.first == selectedRow.first }) {
+                viewModel.value = [] as [String]
+            } else if let selectedItem = viewModel.value as? String, !newItems.contains(selectedItem) {
+                viewModel.value = []
             }
-            if var validatedProperties = controlState["validatedProperties"] as? [String: Any] {
-                validatedProperties["items"] = newContent
-                controlState["validatedProperties"] = validatedProperties
-            }
+            viewModel.validatedProperties["items"] = newContent
             logger.log("Updated List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else {
             // Other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker)
-            controlState["value"] = value
+            viewModel.value = value
             logger.log("Set value for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         }
-        
-        states[windowUUID, default: [:]][viewID] = controlState
+        windowModel.viewModels[viewID] = viewModel
     }
     
     // Converts control value to a string representation for scripting
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
-    func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String {
-        guard let value = getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID) else {
-            logger.log("No value found for windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID)", .warning)
-            return ""
+    func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
+        guard let windowModel = windowModels[windowUUID],
+              let element = windowModel.description?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
         }
+        let viewModel = windowModel.viewModels[viewID]
+        let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
         
-        switch value {
-        case let array as [String]:
-            return array.joined(separator: "\t")
-        case let arrayArray as [[String]]:
-            return arrayArray.map { $0.joined(separator: "\t") }.joined(separator: "\n")
-        case let color as Color:
-            if let hex = ColorHelper.colorToHex(color) {
-                return hex
+        if let content = viewModel?.states["content"] as? [[String]], let selectedRow = viewModel?.value as? [String] {
+            if viewPartID == 0 {
+                return selectedRow.joined(separator: "\t")
+            } else if viewPartID > 0 {
+                return selectedRow.count > viewPartID - 1 ? selectedRow[viewPartID - 1] : ""
             }
-            logger.log("Failed to convert Color to hex for viewID: \(viewID)", .warning)
-            return ""
-        case let bool as Bool:
-            return bool ? "true" : "false"
-        case let number as Int:
-            return String(number)
-        case let number as Double:
-            return String(number)
-        case let number as Float:
-            return String(number)
-        case let string as String:
-            return string
-        case let date as Date:
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withFullDate]
-            return formatter.string(from: date)
-        case let coordinate as CLLocationCoordinate2D:
-            // Design decision: Serializes CLLocationCoordinate2D as JSON string matching Map's coordinate property format
-            return "{\"latitude\":\(coordinate.latitude),\"longitude\":\(coordinate.longitude)}"
-        default:
-            logger.log("Unsupported value type for getElementValueAsString: \(type(of: value)) for viewID: \(viewID)", .warning)
-            return ""
+            logger.log("Invalid viewPartID \(viewPartID) for multi-column content", .warning)
+            return nil
+        } else if let selectedItem = viewModel?.value as? String {
+            return selectedItem
+        } else if let value = viewModel?.value {
+            if valueType == Bool.self, let boolValue = value as? Bool {
+                return boolValue.description
+            } else if valueType == Color.self, let color = value as? Color {
+                return ColorHelper.colorToHex(color) ?? ""
+            } else if valueType == Double.self, let doubleValue = value as? Double {
+                return String(doubleValue)
+            } else if valueType == Float.self, let floatValue = value as? Float {
+                return String(floatValue)
+            } else if valueType == Int.self, let intValue = value as? Int {
+                return String(intValue)
+            } else if valueType == Date.self, let date = value as? Date {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withFullDate]
+                return formatter.string(from: date)
+            } else if valueType == CLLocationCoordinate2D.self, let coordinate = value as? CLLocationCoordinate2D {
+                return "{\"latitude\":\(coordinate.latitude),\"longitude\":\(coordinate.longitude)}"
+            } else if valueType == [String].self, let stringArray = value as? [String] {
+                return stringArray.joined(separator: "\t")
+            } else if valueType == [[String]].self, let stringTable = value as? [[String]] {
+                return stringTable.map { $0.joined(separator: "\t") }.joined(separator: "\n")
+            }
+            return String(describing: value)
         }
+        return nil
     }
     
     // Converts a string to the view's value type and delegates to setElementValue
     // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
-    func setElementValueFromString(windowUUID: String, viewID: Int, viewPartID: Int = 0, stringValue: String) {
-        guard let element = descriptions[windowUUID]?.findElement(by: viewID) else {
+    func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
+        guard let windowModel = windowModels[windowUUID],
+              let element = windowModel.description?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        
-        var value: Any?
-        
+        let _ = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
         let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
+        var convertedValue: Any?
+        
         if valueType == [String].self {
-            value = stringValue.split(separator: "\t").map { String($0) }
+            convertedValue = value.split(separator: "\t").map { String($0) }
         } else if valueType == [[String]].self {
-            value = stringValue.split(separator: "\n").map { row in
+            convertedValue = value.split(separator: "\n").map { row in
                 row.split(separator: "\t").map { String($0) }
             }
         } else if valueType == Bool.self {
-            if stringValue.lowercased() == "true" {
-                value = true
-            } else if stringValue.lowercased() == "false" {
-                value = false
+            if value.lowercased() == "true" {
+                convertedValue = true
+            } else if value.lowercased() == "false" {
+                convertedValue = false
             } else {
-                logger.log("Invalid string for Bool value: \(stringValue) for viewID: \(viewID)", .warning)
+                logger.log("Invalid string for Bool value: \(value) for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == Color.self {
-            if let color = ColorHelper.resolveColor(stringValue) {
-                value = color
+            if let color = ColorHelper.resolveColor(value) {
+                convertedValue = color
             } else {
-                logger.log("Invalid color string: \(stringValue) for viewID: \(viewID)", .warning)
+                logger.log("Invalid color string: \(value) for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == Double.self {
-            if let doubleValue = Double(stringValue) {
-                value = doubleValue
+            if let doubleValue = Double(value) {
+                convertedValue = doubleValue
             } else {
-                logger.log("Invalid string for Double value: \(stringValue) for viewID: \(viewID)", .warning)
+                logger.log("Invalid string for Double value: \(value) for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == Float.self {
-            if let floatValue = Float(stringValue) {
-                value = floatValue
+            if let floatValue = Float(value) {
+                convertedValue = floatValue
             } else {
-                logger.log("Invalid string for Float value: \(stringValue) for viewID: \(viewID)", .warning)
+                logger.log("Invalid string for Float value: \(value) for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == Int.self {
-            if let intValue = Int(stringValue) {
-                value = intValue
+            if let intValue = Int(value) {
+                convertedValue = intValue
             } else {
-                logger.log("Invalid string for Int value: \(stringValue) for viewID: \(viewID)", .warning)
+                logger.log("Invalid string for Int value: \(value) for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == String.self {
-            value = stringValue
+            convertedValue = value
         } else if valueType == Date.self {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withFullDate]
-            if let date = formatter.date(from: stringValue) {
-                value = date
+            if let date = formatter.date(from: value) {
+                convertedValue = date
             } else {
-                logger.log("Invalid ISO 8601 date string: \(stringValue) for viewID: \(viewID)", .warning)
+                logger.log("Invalid ISO 8601 date string: \(value) for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == CLLocationCoordinate2D.self {
             // Design decision: Parses JSON string into CLLocationCoordinate2D, matching Map's coordinate property format
             do {
-                let data = stringValue.data(using: .utf8)!
+                let data = value.data(using: .utf8)!
                 let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Double]
                 if let latitude = json?["latitude"], let longitude = json?["longitude"] {
-                    value = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                    convertedValue = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
                 } else {
-                    logger.log("Invalid coordinate format '\(stringValue)' for viewID: \(viewID)", .warning)
+                    logger.log("Invalid coordinate format '\(value)' for viewID: \(viewID)", .warning)
                     return
                 }
             } catch {
-                logger.log("Failed to parse coordinate '\(stringValue)' for viewID: \(viewID)", .warning)
+                logger.log("Failed to parse coordinate '\(value)' for viewID: \(viewID)", .warning)
                 return
             }
         } else if valueType == Void.self {
@@ -333,8 +307,8 @@ class ActionUIModel: ObservableObject {
             return
         }
         
-        if let value = value {
-            setElementValue(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
+        if let convertedValue {
+            setElementValue(windowUUID: windowUUID, viewID: viewID, value: convertedValue, viewPartID: viewPartID)
         }
     }
     
@@ -342,51 +316,42 @@ class ActionUIModel: ObservableObject {
     // For Table: Appends [[String]], preserves all columns, pads rows for display
     // For List: Appends [String] or [[String]], converts [String] to [[String]]
     func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
-        var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? [:]
-        
-        if let newRows = items as? [[String]],
-           let validatedProperties = controlState["validatedProperties"] as? [String: Any],
-           let columns = validatedProperties["columns"] as? [String],
-           var currentContent = controlState["content"] as? [[String]] {
-            // Table: Append full rows, validate for display
+        guard let windowModel = windowModels[windowUUID],
+              let element = windowModel.description?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
+        if let newRows = items as? [[String]], let columns = viewModel.validatedProperties["columns"] as? [String],
+           var currentContent = viewModel.states["content"] as? [[String]] {
             currentContent.append(contentsOf: newRows)
-            controlState["content"] = currentContent
-            if var validatedProperties = controlState["validatedProperties"] as? [String: Any] {
-                // Table: Pad rows with missing values for display
-                validatedProperties["rows"] = currentContent.map { row in
-                    (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
-                }
-                controlState["validatedProperties"] = validatedProperties
+            viewModel.states["content"] = currentContent
+            viewModel.validatedProperties["rows"] = currentContent.map { row in
+                (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
             }
             logger.log("Appended rows to Table content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
-        } else if let newItems = items as? [String],
-                  var currentContent = controlState["content"] as? [[String]] {
             // List: Convert [String] to [[String]] and append
+        } else if let newItems = items as? [String], var currentContent = viewModel.states["content"] as? [[String]] {
             let newContent = newItems.map { [$0] }
             currentContent.append(contentsOf: newContent)
-            controlState["content"] = currentContent
-            if var validatedProperties = controlState["validatedProperties"] as? [String: Any] {
-                validatedProperties["items"] = currentContent
-                controlState["validatedProperties"] = validatedProperties
-            }
+            viewModel.states["content"] = currentContent
+            viewModel.validatedProperties["items"] = currentContent
             logger.log("Appended items to List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else {
             logger.log("Invalid items type for appendElementItems, viewID: \(viewID)", .warning)
         }
-        
-        states[windowUUID, default: [:]][viewID] = controlState
+        windowModel.viewModels[viewID] = viewModel
     }
     
     // Retrieves a property value for a view by its name
     // Design decision: Accesses validatedProperties to ensure consistency with rendered views, as these are validated by ActionUIRegistry
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging
     func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
-        guard let controlState = states[windowUUID]?[viewID] as? [String: Any],
-              let validatedProperties = controlState["validatedProperties"] as? [String: Any] else {
-            logger.log("No state found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
         }
-        if let value = validatedProperties[propertyName] {
+        if let value = viewModel.validatedProperties[propertyName] {
             return value
         }
         logger.log("Property '\(propertyName)' not found for viewID: \(viewID)", .warning)
@@ -398,27 +363,19 @@ class ActionUIModel: ObservableObject {
     // Updates states[windowUUID][viewID] to trigger SwiftUI refresh, relying on viewID and @Published for isolated view updates
     // Uses findElement(by:) to get the view's type for validation
     func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
-        guard let element = descriptions[windowUUID]?.findElement(by: viewID) else {
+        guard let windowModel = windowModels[windowUUID],
+              let element = windowModel.description?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        
-        // Initialize controlState with element.properties if not set
-        // Design decision: Fallback to element.properties ensures state is initialized even if not previously set by buildView
-        var controlState = states[windowUUID]?[viewID] as? [String: Any] ?? ["validatedProperties": element.properties]
-        var validatedProperties = controlState["validatedProperties"] as? [String: Any] ?? element.properties
-        
-        // Update the property
-        validatedProperties[propertyName] = value
-        logger.log("Setting property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
-        
-        // Re-validate to ensure compliance with view-specific rules
-        // Design decision: Validation ensures properties like 'disabled' are correctly typed and defaults are applied (e.g., false for invalid 'disabled')
-        let reValidatedProperties = ActionUIRegistry.shared.validateProperties(forElementType: element.type, properties: View.validateProperties(validatedProperties, logger))
-        
-        // Update state to trigger refresh
-        // Design decision: Storing in states[windowUUID][viewID] leverages @Published to notify SwiftUI, with viewID ensuring only the target view redraws
-        controlState["validatedProperties"] = reValidatedProperties
-        states[windowUUID, default: [:]][viewID] = controlState
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
+        viewModel.properties[propertyName] = value
+        let reValidatedProperties = ActionUIRegistry.shared.validateProperties(
+            forElementType: element.type,
+            properties: View.validateProperties(viewModel.properties, logger)
+        )
+        viewModel.validatedProperties = reValidatedProperties
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }
 }

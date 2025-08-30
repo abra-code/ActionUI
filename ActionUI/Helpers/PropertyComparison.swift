@@ -54,4 +54,19 @@ enum PropertyComparison {
         }
         return true
     }
+    
+    static func areValuesEqual(_ first: Any, _ second: Any) -> Bool {
+        guard let equatableOne = first as? any Equatable,
+              let equatableTwo = second as? any Equatable else { return false }
+        return equatableOne.isEqual(equatableTwo)
+    }
+}
+
+extension Equatable {
+    func isEqual(_ other: any Equatable) -> Bool {
+        guard let other = other as? Self else {
+            return false
+        }
+        return self == other
+    }
 }

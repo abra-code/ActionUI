@@ -66,7 +66,7 @@ struct LazyVGrid: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let spacing = properties.cgFloat(forKey: "spacing") ?? 0.0
         let alignmentString = properties["alignment"] as? String
         let alignment: HorizontalAlignment = {
@@ -90,7 +90,7 @@ struct LazyVGrid: ActionUIViewConstruction {
         
         return SwiftUI.LazyVGrid(columns: columns, alignment: alignment, spacing: spacing) {
             ForEach(children, id: \.id) { child in
-                ActionUIView(element: child, state: state, windowUUID: windowUUID)
+                ActionUIView(element: child, model: model, windowUUID: windowUUID)
             }
         }
     }

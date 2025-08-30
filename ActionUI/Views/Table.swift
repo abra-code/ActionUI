@@ -96,7 +96,7 @@ struct Table: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AppKit)
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
@@ -114,32 +114,28 @@ struct Table: ActionUIViewConstruction {
         }
         
         // Append Table-specific state only if not already set
-        var newState: [String: Any] = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
         var mutated = false
-        if newState["content"] == nil {
-            newState["content"] = rows
+        if model.states["content"] == nil {
+            model.states["content"] = rows
             mutated = true
         }
-        if newState["selectedRowID"] == nil {
-            newState["value"] = [] as [String]
+        if model.states["selectedRowID"] == nil {
+            model.value = [] as [String]
             mutated = true
         }
         if mutated {
-            state.wrappedValue[element.id] = newState
         }
         
         let selectionBinding = Binding<String?>(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["selectedRowID"] as? String },
+            get: { model.states["selectedRowID"] as? String },
             set: { newValue in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["selectedRowID"] = newValue
+                model.states["selectedRowID"] = newValue
                 if let selectedRowID = newValue,
                    let selectedRow = rowData.first(where: { $0.id == selectedRowID }) {
-                    newState["value"] = selectedRow.values
+                    model.value = selectedRow.values
                 } else {
-                    newState["value"] = [] as [String]
+                    model.value = [] as [String]
                 }
-                state.wrappedValue[element.id] = newState
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in
                     	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
@@ -189,23 +185,18 @@ struct Table: ActionUIViewConstruction {
             }
         }
         .onChange(of: properties["rows"] as? [[String]], initial: false) { oldRows, newRows in
-            var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
             let newContent = newRows ?? []
-            newState["content"] = newContent
-            if let selectedRowID = newState["selectedRowID"] as? String,
+            model.states["content"] = newContent
+            if let selectedRowID = model.states["selectedRowID"] as? String,
                !rowData.contains(where: { $0.id == selectedRowID }) {
-                newState["selectedRowID"] = nil
-                newState["value"] = [] as [String]
+                model.states["selectedRowID"] = nil
+                model.value = [] as [String]
             }
-            if var validatedProperties = newState["validatedProperties"] as? [String: Any] {
-                validatedProperties["rows"] = newContent
-                newState["validatedProperties"] = validatedProperties
-            }
-            state.wrappedValue[element.id] = newState
+            model.validatedProperties["rows"] = newContent
         }
         .onTapGesture(count: 2) {
             if let doubleClickActionID = properties["doubleClickActionID"] as? String,
-               let selectedRow = (state.wrappedValue[element.id] as? [String: Any])?["value"] as? [String],
+               let selectedRow = model.value as? [String],
                !selectedRow.isEmpty,
                let index = rowData.firstIndex(where: { $0.values == selectedRow }) {
                 let context: Any = actionContext == "rowIndex" ? index : selectedRow.first ?? ""

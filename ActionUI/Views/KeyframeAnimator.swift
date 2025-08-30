@@ -41,7 +41,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         return properties
     }
     
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let initialValue = (properties["initialValue"] as? [String: Any]).map {
             AnimationValues(
@@ -78,15 +78,13 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         }
         
         // Initialize state
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        newState["currentRepeatCount"] = currentRepeatCount
-        state.wrappedValue[element.id] = newState
+        model.states["currentRepeatCount"] = currentRepeatCount
         
         return SwiftUI.KeyframeAnimator(
             initialValue: initialValue,
             trigger: animationTrigger
         ) { contentValue in
-            ActionUIView(element: content, state: state, windowUUID: windowUUID)
+            ActionUIView(element: content, model: model, windowUUID: windowUUID)
                 .opacity(contentValue.opacity)
                 .scaleEffect(contentValue.scale)
                 .rotationEffect(.degrees(contentValue.rotation))
@@ -165,9 +163,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 currentRepeatCount += 1
                 startAnimation()
             }
-            var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-            newState["currentRepeatCount"] = currentRepeatCount
-            state.wrappedValue[element.id] = newState
+            model.states["currentRepeatCount"] = currentRepeatCount
         }
         .onAppear {
             if trigger == "onAppear" {
@@ -184,12 +180,10 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 startAnimation()
             }
         }
-        .onChange(of: (state.wrappedValue[0] as? [String: Any])?[stateKey] as? Int, initial: false) { _, newValue in
+        .onChange(of: model.states[stateKey] as? Int, initial: false) { _, newValue in
             if trigger == "onStateChange", let newValue = newValue {
                 animationTrigger = newValue
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["value"] = newValue
-                state.wrappedValue[element.id] = newState
+                model.value = newValue
             }
         }
     }

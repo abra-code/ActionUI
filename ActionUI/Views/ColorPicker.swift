@@ -44,24 +44,20 @@ struct ColorPicker: ActionUIViewConstruction {
     
     // Builds the ColorPicker view, binding selection to state
     // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
-    static var buildView: (any ActionUIElement, Binding<[Int: Any]>, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, state, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialColor = ColorHelper.resolveColor((properties["selectedColor"] as? String) ?? "clear") ?? Color.clear
         // Initialize ColorPicker-specific state only if not already set
         // Design decision: Merges value (Color) and validatedProperties conditionally to avoid overwriting existing properties
-        var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-        if newState["value"] == nil {
-            newState["value"] = initialColor
-            state.wrappedValue[element.id] = newState
+        if model.value == nil {
+            model.value = initialColor
         }
         
         let title = properties["title"] as? String ?? "Color"
         
         let colorBinding = Binding(
-            get: { (state.wrappedValue[element.id] as? [String: Any])?["value"] as? Color ?? initialColor },
+            get: { model.value as? Color ?? initialColor },
             set: { newValue in
-                var newState = (state.wrappedValue[element.id] as? [String: Any]) ?? [:]
-                newState["value"] = newValue
-                state.wrappedValue[element.id] = newState
+                model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     Task { @MainActor in
                     	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
