@@ -4,7 +4,7 @@ internal import Combine
 
 @MainActor
 class WindowModel: ObservableObject {
-    @Published var description: (any ActionUIElement)?
+    @Published var element: (any ActionUIElement)?
     @Published var viewModels: [Int: ViewModel] = [:]
     let windowUUID: String
     private let logger: any ActionUILogger
@@ -15,17 +15,19 @@ class WindowModel: ObservableObject {
     }
 
     // Load description from JSON or plist data, populating viewModels
-    func loadDescription(from data: Data, format: String) throws {
+    func loadDescription(from data: Data, format: String) throws -> ViewElement {
         if format == "json" {
             let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: data)
-            description = element
+            self.element = element
             populateViewModels(from: element)
             logger.log("Loaded JSON description for windowUUID: \(windowUUID)", .verbose)
+            return element
         } else if format == "plist" {
             let element = try PropertyListDecoder(logger: logger).decode(ViewElement.self, from: data)
-            description = element
+            self.element = element
             populateViewModels(from: element)
             logger.log("Loaded plist description for windowUUID: \(windowUUID)", .verbose)
+            return element
         } else {
             logger.log("Unsupported format: \(format)", .error)
             throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
@@ -33,14 +35,15 @@ class WindowModel: ObservableObject {
     }
 
     // Load description from dictionary, populating viewModels
-    func loadDescription(from dict: [String: Any]) throws {
+    func loadDescription(from dict: [String: Any]) throws -> ViewElement {
         let element = try ViewElement(from: dict, logger: logger)
-        description = element
+        self.element = element
         populateViewModels(from: element)
+        return element
     }
 
     // Recursively populate viewModels for the element and its subviews
-    private func populateViewModels(from element: any ActionUIElement) {
+    internal func populateViewModels(from element: any ActionUIElement) {
         viewModels[element.id] = ViewModel(properties: element.properties)
         if let subviews = element.subviews {
             if let children = subviews["children"] as? [any ActionUIElement] {

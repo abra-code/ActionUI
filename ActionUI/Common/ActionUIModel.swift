@@ -78,27 +78,26 @@ class ActionUIModel: ObservableObject {
     }
     
     // Load a view description from JSON or plist data for a specific windowUUID
-    func loadDescription(from data: Data, format: String, windowUUID: String) throws {
+    func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ViewElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
-        try windowModel.loadDescription(from: data, format: format)
+        let element = try windowModel.loadDescription(from: data, format: format)
         windowModels[windowUUID] = windowModel
+        return element
     }
     
     // Load a view description from a dictionary for a specific windowUUID
-    func loadDescription(from dict: [String: Any], windowUUID: String) throws {
+    func loadDescription(from dict: [String: Any], windowUUID: String) throws -> ViewElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
-        try windowModel.loadDescription(from: dict)
+        let element = try windowModel.loadDescription(from: dict)
         windowModels[windowUUID] = windowModel
+        return element
     }
     
     // Cache a view description as a binary plist to a specified URL
     func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
-        try windowModel.loadDescription(from: data, format: format)
-        guard let description = windowModel.description else {
-            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No description loaded"])
-        }
-        let plistData = try PropertyListEncoder().encode(description)
+        let element = try windowModel.loadDescription(from: data, format: format)
+        let plistData = try PropertyListEncoder().encode(element)
         try plistData.write(to: url)
         logger.log("Cached description as binary plist for windowUUID: \(windowUUID) at \(url)", .verbose)
         windowModels[windowUUID] = windowModel
@@ -135,7 +134,7 @@ class ActionUIModel: ObservableObject {
     // For other views: Sets "value" directly
     func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.description?.findElement(by: viewID) else {
+              let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
@@ -174,7 +173,7 @@ class ActionUIModel: ObservableObject {
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
     func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.description?.findElement(by: viewID) else {
+              let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
         }
@@ -222,7 +221,7 @@ class ActionUIModel: ObservableObject {
     // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
     func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.description?.findElement(by: viewID) else {
+              let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
@@ -317,7 +316,7 @@ class ActionUIModel: ObservableObject {
     // For List: Appends [String] or [[String]], converts [String] to [[String]]
     func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.description?.findElement(by: viewID) else {
+              let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
@@ -364,7 +363,7 @@ class ActionUIModel: ObservableObject {
     // Uses findElement(by:) to get the view's type for validation
     func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.description?.findElement(by: viewID) else {
+              let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
