@@ -143,7 +143,8 @@ class ActionUIRegistry {
         if let constructionType = registrations[element.type] {
             return constructionType.buildView(element, model, windowUUID, validatedProperties, logger)
         }
-        logger.log("No construction type found for \(element.type), returning EmptyView", .warning)
+        logger.log("No construction type found for element ID \(element.id) of type '\(element.type)' in window \(windowUUID), returning EmptyView", .warning)
+        
         return SwiftUI.EmptyView()
     }
     
@@ -158,7 +159,10 @@ class ActionUIRegistry {
         // Apply specialized view modifications if available
         if let constructionType = registrations[element.type] {
             modifiedView = constructionType.applyModifiers(modifiedView, properties, logger)
+        } else {
+            logger.log("No modifier registration found for element ID \(element.id) of type '\(element.type)', applying base modifiers only", .warning)
         }
+        
         return AnyView(modifiedView)
     }
 }
