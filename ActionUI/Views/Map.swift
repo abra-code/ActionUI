@@ -171,9 +171,7 @@ struct Map: ActionUIViewConstruction {
                     let coord = region.center
                     model.value = coord
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        Task { @MainActor in
-                            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                        }
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 }
             }
@@ -201,10 +199,8 @@ struct Map: ActionUIViewConstruction {
         }
         .onMapCameraChange(frequency: .onEnd) { context in
             if let actionID = actionID {
-                Task { @MainActor in
-                    logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                }
+                logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
             }
         }
         #else

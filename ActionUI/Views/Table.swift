@@ -137,9 +137,7 @@ struct Table: ActionUIViewConstruction {
                     model.value = [] as [String]
                 }
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    Task { @MainActor in
-                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )
@@ -163,9 +161,7 @@ struct Table: ActionUIViewConstruction {
                                         default: return value
                                         }
                                     }()
-                                    Task { @MainActor in
-                                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
-                                    }
+                                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
                                 }
                             }
                         case "Image":
@@ -200,9 +196,7 @@ struct Table: ActionUIViewConstruction {
                !selectedRow.isEmpty,
                let index = rowData.firstIndex(where: { $0.values == selectedRow }) {
                 let context: Any = actionContext == "rowIndex" ? index : selectedRow.first ?? ""
-                Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
-                }
+                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
             }
         }
         #else

@@ -67,12 +67,9 @@ struct Picker: ActionUIViewConstruction {
                 }
                 logger.log("Updating value for viewID: \(element.id) to \(newValue)", .debug)
                 model.value = newValue
-                
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
                     logger.log("Dispatching valueChangeActionID: \(valueChangeActionID) for viewID: \(element.id)", .debug)
-                    Task { @MainActor in
-                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )
@@ -87,11 +84,8 @@ struct Picker: ActionUIViewConstruction {
         }
         .onChange(of: valueBinding.wrappedValue) { _, newValue in
             if let actionID = actionID {
-                logger.log("Triggering actionID: \(actionID) for viewID: \(element.id)", .debug)
-                Task { @MainActor in
-                    logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                }
+                logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
             }
         }
     }

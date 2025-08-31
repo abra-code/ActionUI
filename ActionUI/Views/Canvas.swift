@@ -58,9 +58,7 @@ struct Canvas: ActionUIViewConstruction {
                 )
             }
         }.onTapGesture(perform: actionID != nil ? {
-            Task { @MainActor in
-                ActionUIModel.shared.actionHandler(actionID!, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-            }
+            ActionUIModel.shared.actionHandler(actionID!, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
         } : {})
     }
 }

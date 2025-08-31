@@ -102,9 +102,7 @@ struct DatePicker: ActionUIViewConstruction {
             set: { newValue in
                 model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    Task { @MainActor in
-                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )

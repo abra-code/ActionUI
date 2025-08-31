@@ -61,9 +61,7 @@ struct NavigationStack: ActionUIViewConstruction {
                 let newPathArray = newPath.codable.map { String(describing: $0) }
                 model.states["path"] = newPathArray
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    Task { @MainActor in
-                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )

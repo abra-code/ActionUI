@@ -56,11 +56,8 @@ struct SecureField: ActionUIViewConstruction {
             get: { model.value as? String ?? "" },
             set: { newValue in
                 model.value = newValue
-                
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    Task { @MainActor in
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )
@@ -69,9 +66,7 @@ struct SecureField: ActionUIViewConstruction {
             .onSubmit {
                 // Trigger actionID only on submit (e.g., Return key or "Done" on iOS)
                 if let actionID = actionID {
-                    Task { @MainActor in
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
     }

@@ -100,9 +100,7 @@ struct List: ActionUIViewConstruction {
                     model.value = [] as [String]
                 }
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    Task { @MainActor in
-                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )
@@ -118,9 +116,7 @@ struct List: ActionUIViewConstruction {
                         SwiftUI.Button(item) {
                             if let actionID = actionID {
                                 let context: Any = actionContext == "rowIndex" ? index : item
-                                Task { @MainActor in
-                                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
-                                }
+                                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
                             }
                         }
                     case "Image":
@@ -153,9 +149,7 @@ struct List: ActionUIViewConstruction {
                !selectedRow.isEmpty,
                let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
                 let context: Any = actionContext == "rowIndex" ? index : selectedRow[0]
-                Task { @MainActor in
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
-                }
+                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
             }
         }
         #endif

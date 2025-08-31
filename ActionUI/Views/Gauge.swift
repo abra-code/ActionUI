@@ -84,9 +84,7 @@ struct Gauge: ActionUIViewConstruction {
                 if (min...max).contains(newValue) {
                     model.value = newValue
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        Task { @MainActor in
-                        	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    	}
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 } else {
                     logger.log("Gauge value \(newValue) out of range \(min)...\(max); ignoring", .warning)

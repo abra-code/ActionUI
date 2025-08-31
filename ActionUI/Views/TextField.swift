@@ -56,11 +56,8 @@ struct TextField: ActionUIViewConstruction {
             get: { model.value as? String ?? "" },
             set: { newValue in
                 model.value = newValue
-                
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    Task { @MainActor in
-                    	ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
         )
@@ -71,10 +68,8 @@ struct TextField: ActionUIViewConstruction {
             .onSubmit {
                 // Trigger actionID only on submit (e.g., Return key)
                 if let actionID = actionID {
-                    Task { @MainActor in
-                        logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
+                    logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
     }
