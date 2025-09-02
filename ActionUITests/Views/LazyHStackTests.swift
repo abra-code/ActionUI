@@ -48,15 +48,10 @@ final class LazyHStackTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        guard let windowModel = actionUIModel.windowModels[windowUUID],
-              let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
-            return
-        }
-
-        let validatedProperties = LazyHStack.validateProperties(element.properties, logger)
         
+        let element = try! ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = LazyHStack.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
@@ -177,15 +172,10 @@ final class LazyHStackTests: XCTestCase {
                 ["type": "Text", "id": 3, "properties": ["text": "Item 2"]]
             ]
         ]
-        let element = try! ViewElement(from: elementDict, logger: logger)
-        guard let windowModel = actionUIModel.windowModels[windowUUID],
-              let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
-            return
-        }
-
-        let validatedProperties = LazyHStack.validateProperties(element.properties, logger)
         
+        let element = try! ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = LazyHStack.validateProperties(element.properties, logger)
+        let viewModel = ViewModel(properties: element.properties)
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
