@@ -7,9 +7,9 @@
    "properties": {
      "padding": 10.0,      // Optional: Double for padding around the view or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
      "hidden": false,      // Optional: Boolean to hide the view
-     "foregroundColor": "blue", // Optional: SwiftUI color (e.g., "red", "blue") for text or content tint
+     "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
      "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
-     "background": "white", // Optional: SwiftUI color (e.g., "red", "blue") or hex (e.g., "#FF0000") for background
+     "background": "white", // Optional: SwiftUI color (e.g., "red", "blue"), hex (e.g., "#FF0000"), or semantic style for background, resolved via background
      "frame": {            // Optional: Dictionary defining view size
        "width": 100.0,     // Required: Double for width
        "height": 100.0,    // Required: Double for height
@@ -36,6 +36,13 @@
      }
    }
  }
+
+ NOTE:
+ Supported semantic styles for foregroundStyle/background:
+   - "background", "foreground", "primary", "secondary", "tertiary", "quaternary", "separator", "placeholder"
+ Supported named colors:
+   - "red", "blue", "green", "yellow", "orange", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "clear", "accentcolor"
+ You can also use hex color strings (e.g., "#FF0000", "#FF000080")
 */
 
 import SwiftUI
@@ -58,10 +65,10 @@ struct View: ActionUIViewConstruction {
             validatedProperties["hidden"] = nil
         }
         
-        // Validate foregroundColor
-        if !(properties["foregroundColor"] is String?), properties["foregroundColor"] != nil {
-            logger.log("Invalid type for foregroundColor: expected String, got \(type(of: properties["foregroundColor"]!)), ignoring", .warning)
-            validatedProperties["foregroundColor"] = nil
+        // Validate foregroundStyle
+        if !(properties["foregroundStyle"] is String?), properties["foregroundStyle"] != nil {
+            logger.log("Invalid type for foregroundStyle: expected String, \(type(of: properties["foregroundStyle"]!)), ignoring", .warning)
+            validatedProperties["foregroundStyle"] = nil
         }
         
         // Validate font
@@ -281,8 +288,9 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.font(FontHelper.resolveFont(font, logger))
         }
         
-        if let foregroundColor = properties["foregroundColor"] as? String, let resolvedColor = ColorHelper.resolveColor(foregroundColor) {
-            modifiedView = modifiedView.foregroundColor(resolvedColor)
+        // Use foregroundStyle with resolveShapeStyle
+        if let foregroundStyle = properties["foregroundStyle"] as? String, let style = ColorHelper.resolveShapeStyle(foregroundStyle) {
+            modifiedView = modifiedView.foregroundStyle(style)
         }
         
         if let disabled = properties["disabled"] as? Bool {
@@ -293,8 +301,9 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.hidden()
         }
         
-        if let background = properties["background"] as? String, let color = ColorHelper.resolveColor(background) {
-            modifiedView = modifiedView.background(color)
+        // Use background with resolveShapeStyle
+        if let background = properties["background"] as? String, let style = ColorHelper.resolveShapeStyle(background) {
+            modifiedView = modifiedView.background(style)
         }
         
         if let frame = properties["frame"] as? [String: Any],

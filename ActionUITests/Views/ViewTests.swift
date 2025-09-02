@@ -30,7 +30,7 @@ final class ViewTests: XCTestCase {
         let properties: [String: Any] = [
             "padding": 10.0,
             "hidden": false,
-            "foregroundColor": "blue",
+            "foregroundStyle": "blue",
             "font": "body",
             "background": "#FFFFFF",
             "frame": ["width": 100.0, "height": 100.0, "alignment": "center"],
@@ -50,7 +50,7 @@ final class ViewTests: XCTestCase {
         
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be valid CGFloat")
         XCTAssertEqual(validated["hidden"] as? Bool, false, "hidden should be valid Bool")
-        XCTAssertEqual(validated["foregroundColor"] as? String, "blue", "foregroundColor should be valid string")
+        XCTAssertEqual(validated["foregroundStyle"] as? String, "blue", "foregroundStyle should be valid string")
         XCTAssertEqual(validated["font"] as? String, "body", "font should be valid string")
         XCTAssertEqual(validated["background"] as? String, "#FFFFFF", "background should be valid string")
         if let frame = validated["frame"] as? [String: Any] {
@@ -88,7 +88,7 @@ final class ViewTests: XCTestCase {
         let properties: [String: Any] = [
             "padding": "10",
             "hidden": "true",
-            "foregroundColor": 123,
+            "foregroundStyle": 123,
             "font": 456,
             "background": 789,
             "frame": ["width": "100", "height": true],
@@ -108,7 +108,7 @@ final class ViewTests: XCTestCase {
         
         XCTAssertNil(validated["padding"], "padding should be nil for invalid type")
         XCTAssertNil(validated["hidden"], "hidden should be nil for invalid type")
-        XCTAssertNil(validated["foregroundColor"], "foregroundColor should be nil for invalid type")
+        XCTAssertNil(validated["foregroundStyle"], "foregroundStyle should be nil for invalid type")
         XCTAssertNil(validated["font"], "font should be nil for invalid type")
         XCTAssertNil(validated["background"], "background should be nil for invalid type")
         XCTAssertNil(validated["frame"], "frame should be nil for invalid types")
@@ -135,7 +135,7 @@ final class ViewTests: XCTestCase {
     func testValidatePropertiesPartial() throws {
         let properties: [String: Any] = [
             "padding": 20.0,
-            "foregroundColor": "red",
+            "foregroundStyle": "red",
             "offset": ["x": 15.0, "y": 25.0],
             "disabled": false,
             "accessibilityLabel": "Test View",
@@ -145,7 +145,7 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(properties, logger)
         
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "padding should be valid CGFloat")
-        XCTAssertEqual(validated["foregroundColor"] as? String, "red", "foregroundColor should be valid string")
+        XCTAssertEqual(validated["foregroundStyle"] as? String, "red", "foregroundStyle should be valid string")
         if let offset = validated["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid CGFloat")
             XCTAssertEqual(offset.cgFloat(forKey: "y"), 25.0, "offset.y should be valid CGFloat")
@@ -230,7 +230,7 @@ final class ViewTests: XCTestCase {
             "offset": ["x": "10", "y": true],
             "shadow": ["color": 123, "radius": "5"],
             "padding": 20.0,
-            "foregroundColor": "red",
+            "foregroundStyle": "red",
             "opacity": 0.5,
             "disabled": false,
             "accessibilityLabel": "Test View",
@@ -243,7 +243,7 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["offset"], "offset should be nil for invalid types")
         XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "padding should be valid CGFloat")
-        XCTAssertEqual(validated["foregroundColor"] as? String, "red", "foregroundColor should be valid string")
+        XCTAssertEqual(validated["foregroundStyle"] as? String, "red", "foregroundStyle should be valid string")
         XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.5, "opacity should be valid CGFloat")
         XCTAssertEqual(validated["disabled"] as? Bool, false, "disabled should be valid Bool")
         XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be valid string")
@@ -257,7 +257,7 @@ final class ViewTests: XCTestCase {
             "type": "View",
             "properties": {
                 "padding": 10.0,
-                "foregroundColor": "blue",
+                "foregroundStyle": "blue",
                 "frame": {"width": 100.0, "height": 100.0, "alignment": "center"},
                 "offset": {"x": 10.0, "y": -5.0},
                 "accessibilityLabel": "Test View",
@@ -313,7 +313,7 @@ final class ViewTests: XCTestCase {
             XCTFail("shadow should be a dictionary")
         }
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
-        XCTAssertEqual(element.properties["foregroundColor"] as? String, "blue", "foregroundColor should be blue")
+        XCTAssertEqual(element.properties["foregroundStyle"] as? String, "blue", "foregroundStyle should be blue")
         XCTAssertEqual(element.properties["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be Test View")
         XCTAssertEqual(element.properties["accessibilityHint"] as? String, "Base view", "accessibilityHint should be Base view")
         XCTAssertEqual(element.properties["accessibilityHidden"] as? Bool, false, "accessibilityHidden should be false")

@@ -36,12 +36,6 @@ class ColorHelper {
             "primary": .primary,
             "secondary": .secondary,
             "accentcolor": .accentColor,
-//            "label": Color(uiColor: .label),
-//            "label": Color.secondaryLabel,
-//            "separator": Color.separator,
-//            "systemBackground": Color.systemBackground,
-//            "background": Color.background,
-//            "foreground": Color.foreground,
         ]
         
         if let namedColor = namedColors[normalized] {
@@ -108,6 +102,37 @@ class ColorHelper {
         } else {
             let aInt = Int(a * 255.0)
             return String(format: "#%02X%02X%02X%02X", r, g, b, aInt)
+        }
+    }
+    
+    // Resolves a string to a SwiftUI ShapeStyle (semantic or color)
+    // Checks for semantic named styles, falls back to resolveColor()
+    // Supported semantic styles: background, foreground, primary, secondary, tertiary, quaternary, separator, placeholder
+    static func resolveShapeStyle(_ string: String) -> (any ShapeStyle)? {
+        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch normalized {
+        case "background":
+            return .background
+        case "foreground":
+            return .foreground
+        case "primary":
+            return .primary
+        case "secondary":
+            return .secondary
+        case "tertiary":
+            return .tertiary
+        case "quaternary":
+            return .quaternary
+        case "separator":
+            return .separator
+        case "placeholder":
+            return .placeholder
+        default:
+            if let color = resolveColor(string) {
+                return color
+            } else {
+                return nil
+            }
         }
     }
 }
