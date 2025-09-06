@@ -11,3 +11,10 @@ extension JSONEncoder {
         }
     }
 }
+
+extension Encoder {
+    public var logger: ActionUILogger? {
+        let key = CodingUserInfoKey(rawValue: "logger")
+        return key.flatMap { self.userInfo[$0] as? ActionUILogger }
+    }
+}

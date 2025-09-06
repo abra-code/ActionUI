@@ -3,7 +3,7 @@ import Foundation
 
 /// Protocol for logging messages in the ActionUI library with specified severity levels.
 /// Used for debugging, error reporting, and informational logging during view rendering and validation.
-protocol ActionUILogger {
+public protocol ActionUILogger {
     /// Logs a message with the specified severity level.
     /// - Parameters:
     ///   - message: The message to log.
@@ -14,7 +14,7 @@ protocol ActionUILogger {
 /// Enum defining the severity levels for logging in the ActionUI library.
 /// Uses Int raw values to enable filtering logs below a certain level (e.g., log only if level.rawValue <= maxLevel).
 /// Lower values indicate higher severity.
-enum Level: Int {
+public enum Level: Int, Sendable {
     /// Indicates a critical issue that may prevent normal operation (e.g., invalid JSON causing view rendering failure).
     case error = 1
     /// Indicates a non-critical issue that may affect functionality (e.g., missing optional property with a fallback).

@@ -88,11 +88,7 @@ struct ViewElement: ActionUIElement {
     }
     
     init(from decoder: Decoder) throws {
-        let key = CodingUserInfoKey(rawValue: "logger")
-        var logger: (any ActionUILogger)?
-        if let key {
-            logger = decoder.userInfo[key] as? any ActionUILogger
-        }
+        let logger = decoder.logger
         let container = try decoder.container(keyedBy: ElementCodingKeys.self)
         id = try container.decode(Int.self, forKey: .id)
         type = try container.decode(String.self, forKey: .type)
@@ -128,11 +124,7 @@ struct ViewElement: ActionUIElement {
     }
     
     func encode(to encoder: Encoder) throws {
-        let key = CodingUserInfoKey(rawValue: "logger")
-        var logger: (any ActionUILogger)?
-        if let key {
-            logger = encoder.userInfo[key] as? any ActionUILogger
-        }
+        let logger = encoder.logger
         var container = encoder.container(keyedBy: ElementCodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(type, forKey: .type)
