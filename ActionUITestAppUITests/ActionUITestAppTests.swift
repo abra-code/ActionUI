@@ -11,6 +11,10 @@ import ActionUI
 final class ActionUITestAppUITests: XCTestCase {
     var app: XCUIApplication!
 
+    override class var runsForEachTargetApplicationUIConfiguration: Bool {
+        true
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
