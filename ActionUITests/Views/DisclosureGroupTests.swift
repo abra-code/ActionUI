@@ -42,7 +42,7 @@ final class DisclosureGroupTests: XCTestCase {
         let element = try ViewElement(from: elementDict, logger: logger)
 
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         _ = view // Ensure view is used
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)        
@@ -90,7 +90,7 @@ final class DisclosureGroupTests: XCTestCase {
         let element = try ViewElement(from: elementDict, logger: logger)
 
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         _ = DisclosureGroup.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DisclosureGroup) due to SwiftUI's opaque type system
@@ -145,7 +145,7 @@ final class DisclosureGroupTests: XCTestCase {
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         
         logger.log("Creating view for element \(element.id) with children", .debug)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         _ = DisclosureGroup.applyModifiers(view, validatedProperties, logger)
         logger.log("After build: state[\(element.id)] = \(String(describing: viewModel))", .debug)

@@ -47,7 +47,7 @@ final class ListTests: XCTestCase {
 
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = List.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)

@@ -139,7 +139,7 @@ final class AsyncImageTests: XCTestCase {
 
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
@@ -160,7 +160,7 @@ final class AsyncImageTests: XCTestCase {
 
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system

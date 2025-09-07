@@ -46,7 +46,7 @@ final class LinkTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Link.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element,  model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
@@ -66,7 +66,7 @@ final class LinkTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Link.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)

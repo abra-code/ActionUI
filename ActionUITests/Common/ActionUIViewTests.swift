@@ -51,7 +51,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
 
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -82,7 +82,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
 
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -125,7 +125,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
         
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -160,7 +160,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
         
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -187,7 +187,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
         
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -214,7 +214,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
         
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -247,7 +247,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
         
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -280,7 +280,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
         
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -296,9 +296,9 @@ final class ActionUIViewTests: XCTestCase {
             properties: ["padding": 8.0],
             subviews: nil
         )
-        let viewModel1 = ViewModel(properties: element.properties)
+        let viewModel1 = ViewModel()
         viewModel1.states = ["key": "value1"]
-        let viewModel2 = ViewModel(properties: element.properties)
+        let viewModel2 = ViewModel()
         viewModel2.states = ["key": "value2"]
         let view1 = ActionUIView(element: element, model: viewModel1, windowUUID: "uuid")
         let view2 = ActionUIView(element: element, model: viewModel2, windowUUID: "uuid")
@@ -316,7 +316,7 @@ final class ActionUIViewTests: XCTestCase {
             subviews: nil
         )
 
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element, model: viewModel, windowUUID: "uuid1")
         let view2 = ActionUIView(element: element, model: viewModel, windowUUID: "uuid2")
         
@@ -339,7 +339,7 @@ final class ActionUIViewTests: XCTestCase {
             subviews: [:]
         )
 
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -368,7 +368,7 @@ final class ActionUIViewTests: XCTestCase {
             ]
         )
 
-        let viewModel = ViewModel(properties: element1.properties)
+        let viewModel = ViewModel()
         let view1 = ActionUIView(element: element1, model: viewModel, windowUUID: "uuid")
         let view2 = ActionUIView(element: element2, model: viewModel, windowUUID: "uuid")
         
@@ -385,7 +385,7 @@ final class ActionUIViewTests: XCTestCase {
             subviews: nil
         )
 
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ActionUIView(element: element, model: viewModel, windowUUID: "uuid")
         
         // Act

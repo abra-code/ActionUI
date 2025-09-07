@@ -85,7 +85,7 @@ final class ActionUIRegistryTests: XCTestCase {
         ]
         
         let element = try ViewElement(from: elementDict, logger: logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let registry = ActionUIRegistry.shared
         let validatedProperties = registry.getValidatedProperties(element: element, model: viewModel)
         let view = registry.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
@@ -102,7 +102,7 @@ final class ActionUIRegistryTests: XCTestCase {
         ]
 
         let element = try ViewElement(from: elementDict, logger: logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         
         await MainActor.run {
             let registry = ActionUIRegistry.shared

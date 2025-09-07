@@ -49,24 +49,37 @@ final class LazyVStackTests: XCTestCase {
             ]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let validatedProperties = LazyVStack.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
-        
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
             return
         }
-        
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+
+        // Act: Create ActionUIView
+        let validatedProperties = viewModel.validatedProperties
+        let view = ActionUIRegistry.shared.buildView(
+                        for: element,
+                        model: viewModel,
+                        windowUUID: windowUUID,
+                        validatedProperties: validatedProperties
+                    )
+
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+                
         XCTAssertEqual(children.count, 2, "LazyVStack should have 2 children")
         XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
         XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
         XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
         XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
-        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView>>, "View should be LazyVStack")
+        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView?>>, "View should be LazyVStack")
     }
     
     func testLazyVStackJSONDecoding() throws {
@@ -173,21 +186,34 @@ final class LazyVStackTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
-        let validatedProperties = LazyVStack.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
-        
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+
         guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
             XCTFail("Children should not be nil")
             return
         }
-        
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+
+        // Act: Create ActionUIView
+        let validatedProperties = viewModel.validatedProperties
+        let view = ActionUIRegistry.shared.buildView(
+                        for: element,
+                        model: viewModel,
+                        windowUUID: windowUUID,
+                        validatedProperties: validatedProperties
+                    )
+
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+                
         XCTAssertEqual(children.count, 2, "LazyVStack should have 2 children")
         XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
         XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
-        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView>>, "View should be LazyVStack")
+        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView?>>, "View should be LazyVStack")
     }
 }

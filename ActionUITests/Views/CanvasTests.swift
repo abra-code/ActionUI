@@ -88,7 +88,7 @@ final class CanvasTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = Canvas.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Canvas) due to SwiftUI's opaque type system
@@ -105,7 +105,7 @@ final class CanvasTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         let _ = Canvas.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Canvas) due to SwiftUI's opaque type system

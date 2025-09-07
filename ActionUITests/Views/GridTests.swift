@@ -75,7 +75,7 @@ final class GridTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
@@ -209,7 +209,7 @@ final class GridTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)

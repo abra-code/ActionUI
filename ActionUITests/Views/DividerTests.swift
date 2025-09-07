@@ -87,7 +87,7 @@ final class DividerTests: XCTestCase {
 
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = Divider.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
@@ -104,7 +104,7 @@ final class DividerTests: XCTestCase {
 
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = Divider.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system

@@ -42,7 +42,7 @@ final class EmptyViewTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = EmptyView.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)

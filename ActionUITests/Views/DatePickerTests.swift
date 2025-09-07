@@ -112,7 +112,7 @@ final class DatePickerTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = DatePicker.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = DatePicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = DatePicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DatePicker) due to SwiftUI's opaque type system
@@ -129,7 +129,7 @@ final class DatePickerTests: XCTestCase {
 
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = DatePicker.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = DatePicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = DatePicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DatePicker) due to SwiftUI's opaque type system

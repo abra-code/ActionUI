@@ -81,7 +81,7 @@ final class ColorPickerTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = ColorPicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
@@ -98,7 +98,7 @@ final class ColorPickerTests: XCTestCase {
         
         let element = try ViewElement(from: elementDict, logger: logger)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
-        let viewModel = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
         let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
         _ = ColorPicker.applyModifiers(view, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
