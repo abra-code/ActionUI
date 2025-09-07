@@ -37,12 +37,16 @@ struct Grid: ActionUIViewConstruction {
         #else
         
         // Validate alignment
-        if let alignment = validatedProperties["alignment"] as? String,
-           !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
-            logger.log("Grid alignment '\(alignment)' invalid; defaulting to nil", .warning)
+        if let alignment = validatedProperties["alignment"] as? String {
+            if !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
+                logger.log("Grid alignment '\(alignment)' invalid; defaulting to nil", .warning)
+                validatedProperties["alignment"] = nil
+            }
+        } else if validatedProperties["alignment"] != nil {
+            logger.log("LazyHGrid alignment must be 'top', 'center', or 'bottom'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
-        
+
         // Validate spacing
         if validatedProperties["horizontalSpacing"] != nil, !(validatedProperties["horizontalSpacing"] is Double) {
             logger.log("Grid horizontalSpacing must be a number; ignoring", .warning)

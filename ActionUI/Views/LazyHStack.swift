@@ -27,9 +27,11 @@ struct LazyHStack: ActionUIViewConstruction {
             validatedProperties["spacing"] = nil
         }
         
-        if let alignment = validatedProperties["alignment"] as? String,
-           ["top", "center", "bottom"].contains(alignment) {
-            validatedProperties["alignment"] = alignment
+        if let alignment = validatedProperties["alignment"] as? String {
+            if !["top", "center", "bottom"].contains(alignment) {
+                logger.log("LazyHStack alignment '\(alignment)' invalid; defaulting to nil", .warning)
+                validatedProperties["alignment"] = nil
+            }
         } else if validatedProperties["alignment"] != nil {
             logger.log("LazyHStack alignment must be 'top', 'center', or 'bottom'; ignoring", .warning)
             validatedProperties["alignment"] = nil

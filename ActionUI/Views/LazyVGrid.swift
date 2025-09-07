@@ -55,9 +55,11 @@ struct LazyVGrid: ActionUIViewConstruction {
             validatedProperties["spacing"] = nil
         }
         
-        if let alignment = validatedProperties["alignment"] as? String,
-           ["leading", "center", "trailing"].contains(alignment) {
-            validatedProperties["alignment"] = alignment
+        if let alignment = validatedProperties["alignment"] as? String {
+            if !["leading", "center", "trailing"].contains(alignment) {
+                logger.log("LazyVGrid alignment '\(alignment)' invalid; defaulting to nil", .warning)
+                validatedProperties["alignment"] = nil
+            }
         } else if validatedProperties["alignment"] != nil {
             logger.log("LazyVGrid alignment must be 'leading', 'center', or 'trailing'; ignoring", .warning)
             validatedProperties["alignment"] = nil
