@@ -8,10 +8,11 @@
      "systemName": "star.fill",  // Optional: String for SF Symbol
      "name": "customImage",      // Optional: String for asset catalog image name
      "filePath": "/path/to/image.jpg", // Optional: String for local file path
-     "resizable": true,          // Optional: Boolean to make image resizable, defaults to true
+     "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if scaleMode is specified
      "scaleMode": "fit",         // Optional: String ("fit" or "fill") for scaling mode, defaults to "fit"
+     "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
    }
-   // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
    // Note: To enable scrolling, wrap Image in a ScrollView manually, e.g.:
    // {
    //   "type": "ScrollView",
@@ -76,6 +77,17 @@ struct Image: ActionUIViewConstruction {
             validatedProperties["scaleMode"] = nil
         }
         
+        // Validate imageScale
+        if let imageScale = properties["imageScale"] as? String {
+            if !["small", "medium", "large"].contains(imageScale) {
+                logger.log("Image imageScale '\(imageScale)' invalid; ignoring", .warning)
+                validatedProperties["imageScale"] = nil
+            }
+        } else if properties["imageScale"] != nil {
+            logger.log("Image imageScale must be a String; ignoring", .warning)
+            validatedProperties["imageScale"] = nil
+        }
+        
         // Check if all image source properties are nil
         if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
             logger.log("Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image", .warning)
@@ -100,13 +112,32 @@ struct Image: ActionUIViewConstruction {
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
-        let resizable = properties["resizable"] as? Bool ?? true
-        if resizable {
-            let scaleMode = (properties["scaleMode"] as? String) ?? "fit"
-            if let imageView = view as? SwiftUI.Image {
-                return imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
+        
+        var modifiedView = view
+        
+        // Apply imageScale modifier
+        if let imageScaleStr = properties["imageScale"] as? String {
+            let imageScale: SwiftUI.Image.Scale
+            switch imageScaleStr {
+            case "small": imageScale = .small
+            case "medium": imageScale = .medium
+            case "large": imageScale = .large
+            default: imageScale = .medium // Fallback, though validation should prevent this
             }
+            modifiedView = view.imageScale(imageScale)
         }
-        return view
+        
+        let scaleMode = (properties["scaleMode"] as? String)
+        
+        // Apply resizable and scaleMode modifiers
+        // "scaleMode" implies "resizable" even if not explicitly declared
+        let resizable = properties["resizable"] as? Bool ?? (scaleMode != nil)
+        if resizable,
+           let scaleMode,
+           let imageView = modifiedView as? SwiftUI.Image {
+            return imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
+        }
+        
+        return modifiedView
     }
 }

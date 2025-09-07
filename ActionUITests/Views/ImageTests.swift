@@ -97,6 +97,7 @@ final class ImageTests: XCTestCase {
             "systemName": "star.fill",
             "resizable": true,
             "scaleMode": "fit",
+            "imageScale": "large",
             "padding": 10.0
         ]
         
@@ -105,6 +106,7 @@ final class ImageTests: XCTestCase {
         XCTAssertEqual(validated["systemName"] as? String, "star.fill", "systemName should be preserved")
         XCTAssertEqual(validated["resizable"] as? Bool, true, "resizable should be preserved")
         XCTAssertEqual(validated["scaleMode"] as? String, "fit", "scaleMode should be preserved")
+        XCTAssertEqual(validated["imageScale"] as? String, "large", "imageScale should be preserved")
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
     }
     
@@ -113,6 +115,7 @@ final class ImageTests: XCTestCase {
             "systemName": 123,
             "resizable": "true",
             "scaleMode": "invalid",
+            "imageScale": "huge",
             "filePath": "/path/to/doc.txt"
         ]
         
@@ -121,6 +124,7 @@ final class ImageTests: XCTestCase {
         XCTAssertNil(validated["systemName"], "Invalid systemName should be nil")
         XCTAssertNil(validated["resizable"], "Invalid resizable should be nil")
         XCTAssertNil(validated["scaleMode"], "Invalid scaleMode should be nil")
+        XCTAssertNil(validated["imageScale"], "Invalid imageScale should be nil")
         XCTAssertNil(validated["filePath"], "Invalid filePath should be nil")
     }
     
@@ -135,13 +139,15 @@ final class ImageTests: XCTestCase {
         XCTAssertNil(validated["filePath"], "Missing filePath should be nil")
         XCTAssertNil(validated["resizable"], "Missing resizable should be nil")
         XCTAssertNil(validated["scaleMode"], "Missing scaleMode should be nil")
+        XCTAssertNil(validated["imageScale"], "Missing imageScale should be nil")
     }
     
     func testImageValidatePropertiesFilePathValid() {
         let properties: [String: Any] = [
             "filePath": "/path/to/image.jpg",
             "resizable": false,
-            "scaleMode": "fill"
+            "scaleMode": "fill",
+            "imageScale": "small"
         ]
         
         let validated = Image.validateProperties(properties, logger)
@@ -149,5 +155,37 @@ final class ImageTests: XCTestCase {
         XCTAssertEqual(validated["filePath"] as? String, "/path/to/image.jpg", "Valid filePath should be preserved")
         XCTAssertEqual(validated["resizable"] as? Bool, false, "resizable should be preserved")
         XCTAssertEqual(validated["scaleMode"] as? String, "fill", "scaleMode should be preserved")
+        XCTAssertEqual(validated["imageScale"] as? String, "small", "imageScale should be preserved")
+    }
+    
+    func testImageJSONDecodingWithImageScale() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Image",
+            "properties": {
+                "systemName": "heart.fill",
+                "resizable": false,
+                "imageScale": "small",
+                "padding": 5.0
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "Image", "Element type should be Image")
+        XCTAssertEqual(element.properties["systemName"] as? String, "heart.fill", "systemName should be heart.fill")
+        XCTAssertEqual(element.properties["resizable"] as? Bool, false, "resizable should be false")
+        XCTAssertEqual(element.properties["imageScale"] as? String, "small", "imageScale should be small")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 5.0, "padding should be 5.0")
     }
 }
