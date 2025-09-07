@@ -1,0 +1,27 @@
+{
+  "id": 1,
+  "type": "VStack",
+  "properties": {
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "id": 2,
+      "type": "Image",
+      "properties": {
+        "systemName": "globe",
+        "imageScale": "large",
+        "foregroundStyle": "tint",
+        "accessibilityIdentifier": "globe_image"
+      }
+    },
+    {
+      "id": 3,
+      "type": "Text",
+      "properties": {
+        "text": "Hello, world!",
+        "accessibilityIdentifier": "hello_text"
+      }
+    }
+  ]
+}
