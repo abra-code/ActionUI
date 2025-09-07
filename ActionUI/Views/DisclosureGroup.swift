@@ -60,8 +60,11 @@ struct DisclosureGroup: ActionUIViewConstruction {
         let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
+            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(children, id: \.id) { child in
-                ActionUIView(element: child, model: model, windowUUID: windowUUID)
+                if let childModel = windowModel?.viewModels[child.id] {
+                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                }
             }
         } label: {
             SwiftUI.Text(label)

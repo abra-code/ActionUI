@@ -84,10 +84,13 @@ struct KeyframeAnimator: ActionUIViewConstruction {
             initialValue: initialValue,
             trigger: animationTrigger
         ) { contentValue in
-            ActionUIView(element: content, model: model, windowUUID: windowUUID)
-                .opacity(contentValue.opacity)
-                .scaleEffect(contentValue.scale)
-                .rotationEffect(.degrees(contentValue.rotation))
+            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+            if let childModel = windowModel?.viewModels[content.id] {
+                ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+                    .opacity(contentValue.opacity)
+                    .scaleEffect(contentValue.scale)
+                    .rotationEffect(.degrees(contentValue.rotation))
+            }
         } keyframes: { _ in
             KeyframeTrack(\AnimationValues.opacity) {
                 for (percent, keyframe) in keyframes.sorted(by: { Self.parsePercent($0.key) < Self.parsePercent($1.key) }) {

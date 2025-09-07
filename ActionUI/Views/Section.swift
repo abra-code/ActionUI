@@ -26,8 +26,11 @@ struct Section: ActionUIViewConstruction {
         let header = properties["header"] as? String
         
         return SwiftUI.Section() {
+            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(children, id: \.id) { child in
-                ActionUIView(element: child, model: model, windowUUID: windowUUID)
+                if let childModel = windowModel?.viewModels[child.id] {
+                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                }
             }
         } header: {
             if let header = header {

@@ -80,8 +80,13 @@ struct PhaseAnimator: ActionUIViewConstruction {
             values,
             trigger: animationTrigger,
             content: { value in
-                ActionUIView(element: content, model: model, windowUUID: windowUUID)
-                    .opacity(value)
+                if let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+                   let childModel = windowModel.viewModels[content.id] {
+                    ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+                        .opacity(value)
+                } else {
+                    SwiftUI.EmptyView()
+                }
             },
             animation: { _ in animation }
         )

@@ -15,7 +15,7 @@ class ActionUIModel: ObservableObject {
     static let shared = ActionUIModel()
     
     // Dictionary of windowUUID to WindowModel containing descriptions and viewModels
-    @Published var windowModels: [String: WindowModel] = [:]
+    var windowModels: [String: WindowModel] = [:]
     
     // Registered action handlers for specific actionIDs
     internal var actionHandlers: [String: (String, String, Int, Int, Any?) -> Void] = [:]
@@ -134,11 +134,11 @@ class ActionUIModel: ObservableObject {
     // For other views: Sets "value" directly
     func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.element?.findElement(by: viewID) else {
+              let _ = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         if let newRows = value as? [[String]], let columns = viewModel.validatedProperties["columns"] as? [String] {
             let validatedRows = newRows.map { row in
                 (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
@@ -225,7 +225,7 @@ class ActionUIModel: ObservableObject {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let _ = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
+        let _ = windowModel.viewModels[viewID] ?? ViewModel()
         let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
         var convertedValue: Any?
         
@@ -316,11 +316,11 @@ class ActionUIModel: ObservableObject {
     // For List: Appends [String] or [[String]], converts [String] to [[String]]
     func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
         guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.element?.findElement(by: viewID) else {
+              let _ = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         if let newRows = items as? [[String]], let columns = viewModel.validatedProperties["columns"] as? [String],
            var currentContent = viewModel.states["content"] as? [[String]] {
             currentContent.append(contentsOf: newRows)
@@ -359,22 +359,19 @@ class ActionUIModel: ObservableObject {
     
     // Sets a property value for a view and re-validates it
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
-    // Updates states[windowUUID][viewID] to trigger SwiftUI refresh, relying on viewID and @Published for isolated view updates
-    // Uses findElement(by:) to get the view's type for validation
+    // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
     func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let windowModel = windowModels[windowUUID],
               let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel(properties: element.properties)
-        viewModel.properties[propertyName] = value
-        let reValidatedProperties = ActionUIRegistry.shared.validateProperties(
-            forElementType: element.type,
-            properties: View.validateProperties(viewModel.properties, logger)
-        )
-        viewModel.validatedProperties = reValidatedProperties
-        windowModel.viewModels[viewID] = viewModel
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        // Update validatedProperties directly
+        viewModel.validatedProperties[propertyName] = value
+        // Re-validate to ensure type safety and HIG compliance
+        viewModel.validateProperties(viewModel.validatedProperties, elementType: element.type, logger: logger)
+        windowModel.viewModels[viewID] = viewModel // Trigger SwiftUI refresh
         logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }
 }

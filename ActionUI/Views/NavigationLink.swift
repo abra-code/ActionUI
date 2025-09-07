@@ -58,8 +58,10 @@ struct NavigationLink: ActionUIViewConstruction {
             SwiftUI.Text(label)
         }
         .navigationDestination(for: String.self) { value in
-            if value == link {
-                ActionUIView(element: destination, model: model, windowUUID: windowUUID)
+            if value == link,
+               let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+               let childModel = windowModel.viewModels[destination.id] {
+                ActionUIView(element: destination, model: childModel, windowUUID: windowUUID)
             } else {
                 SwiftUI.EmptyView()
             }

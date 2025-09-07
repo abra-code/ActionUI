@@ -43,7 +43,10 @@ struct ScrollViewReader: ActionUIViewConstruction {
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         return SwiftUI.ScrollViewReader { proxy in
-            ActionUIView(element: content, model: model, windowUUID: windowUUID)
+            if let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+               let childModel = windowModel.viewModels[content.id] {
+                ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+            }
         }
     }
     

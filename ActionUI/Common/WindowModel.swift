@@ -2,6 +2,10 @@
 import SwiftUI
 internal import Combine
 
+/*
+ WindowModel manages the state for a single window, including its root element and associated view models.
+*/
+
 @MainActor
 class WindowModel: ObservableObject {
     @Published var element: (any ActionUIElement)?
@@ -44,7 +48,10 @@ class WindowModel: ObservableObject {
 
     // Recursively populate viewModels for the element and its subviews
     internal func populateViewModels(from element: any ActionUIElement) {
-        viewModels[element.id] = ViewModel(properties: element.properties)
+        let viewModel = ViewModel()
+        // Validate properties and set in ViewModel
+        viewModel.validateProperties(for: element)
+        viewModels[element.id] = viewModel
         if let subviews = element.subviews {
             if let children = subviews["children"] as? [any ActionUIElement] {
                 children.forEach { populateViewModels(from: $0) }

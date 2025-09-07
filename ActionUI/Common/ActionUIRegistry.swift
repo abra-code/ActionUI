@@ -103,27 +103,13 @@ class ActionUIRegistry {
         return properties
     }
     
-    // Retrieves validated properties for an element, updating model if properties have changed
+    // Retrieves validated properties for an element, using cached validatedProperties if available
     func getValidatedProperties(element: any ActionUIElement, model: ViewModel) -> [String: Any] {
-        // Initialize view element state if not done before
-        if model.properties.isEmpty || model.validatedProperties.isEmpty {
-            let baseValidated = View.validateProperties(element.properties, logger)
-            let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
-            model.properties = element.properties
-            model.validatedProperties = validatedProperties
-            return validatedProperties
+        if !model.validatedProperties.isEmpty {
+            return model.validatedProperties
         }
-        
-        // If properties have changed, update raw and validated properties
-        if !PropertyComparison.arePropertiesEqual(model.properties, element.properties) {
-            let baseValidated = View.validateProperties(element.properties, logger)
-            let validatedProperties = validateProperties(forElementType: element.type, properties: baseValidated)
-            model.properties = element.properties
-            model.validatedProperties = validatedProperties
-            return validatedProperties
-        }
-        
-        return model.validatedProperties
+        let baseValidated = View.validateProperties(element.properties, logger)
+        return validateProperties(forElementType: element.type, properties: baseValidated)
     }
     
     // Retrieves the value type for a given view element type

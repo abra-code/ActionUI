@@ -24,8 +24,11 @@ struct Group: ActionUIViewConstruction {
         let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
         
         return SwiftUI.Group {
+            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(children, id: \.id) { child in
-                ActionUIView(element: child, model: model, windowUUID: windowUUID)
+                if let childModel = windowModel?.viewModels[child.id] {
+                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                }
             }
         }
     }

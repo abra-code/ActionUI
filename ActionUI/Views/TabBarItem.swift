@@ -42,7 +42,12 @@ struct TabBarItem: ActionUIViewConstruction {
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         return SwiftUI.TabView {
-            ActionUIView(element: content, model: model, windowUUID: windowUUID)
+            if let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+               let childModel = windowModel.viewModels[content.id] {
+                ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+            } else {
+                SwiftUI.EmptyView()
+            }
         }
     }
     

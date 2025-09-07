@@ -85,12 +85,26 @@ struct NavigationSplitView: ActionUIViewConstruction {
             }
         )
         
+        let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+        
         return SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-            ActionUIView(element: sidebar, model: model, windowUUID: windowUUID)
+            if let childModel = windowModel?.viewModels[sidebar.id] {
+                ActionUIView(element: sidebar, model: childModel, windowUUID: windowUUID)
+            } else {
+                SwiftUI.EmptyView()
+            }
         } content: {
-            ActionUIView(element: content, model: model, windowUUID: windowUUID)
+            if let childModel = windowModel?.viewModels[content.id] {
+                ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+            } else {
+                SwiftUI.EmptyView()
+            }
         } detail: {
-            ActionUIView(element: detail, model: model, windowUUID: windowUUID)
+            if let childModel = windowModel?.viewModels[detail.id] {
+                ActionUIView(element: detail, model: childModel, windowUUID: windowUUID)
+            } else {
+                SwiftUI.EmptyView()
+            }
         }
     }
     

@@ -84,10 +84,13 @@ struct Grid: ActionUIViewConstruction {
         }()
         
         return SwiftUI.Grid(alignment: alignment, horizontalSpacing: horizontalSpacing, verticalSpacing: verticalSpacing) {
+            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(rows.indices, id: \.self) { rowIndex in
                 SwiftUI.GridRow {
                     ForEach(rows[rowIndex], id: \.id) { child in
-                        ActionUIView(element: child, model: model, windowUUID: windowUUID)
+                        if let childModel = windowModel?.viewModels[child.id] {
+                            ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                        }
                     }
                 }
             }
