@@ -123,10 +123,22 @@ class ColorHelper {
             return .tertiary
         case "quaternary":
             return .quaternary
+        case "quinary":
+        	return .quinary
         case "separator":
             return .separator
+        case "tint":
+            return .tint
+        case "fill":
+        	return .fill
         case "placeholder":
             return .placeholder
+        case "link":
+            return .link
+        case "selection":
+        	return .selection
+        case "windowBackground":
+        	return .windowBackground
         default:
             if let color = resolveColor(string) {
                 return color
