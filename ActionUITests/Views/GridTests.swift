@@ -160,7 +160,7 @@ final class GridTests: XCTestCase {
         ]
         
         let validatedProperties = Grid.validateProperties(properties, logger)
-        XCTAssertEqual(validatedProperties["alignment"] as? String, "center", "Alignment should be valid")
+        XCTAssertEqual(validatedProperties["alignment"] as? String, "center", "Alignment should be center")
         XCTAssertEqual(validatedProperties.cgFloat(forKey: "horizontalSpacing"), 8.0, "Horizontal spacing should be valid")
         XCTAssertEqual(validatedProperties.cgFloat(forKey: "verticalSpacing"), 8.0, "Vertical spacing should be valid")
     }
