@@ -1,12 +1,10 @@
 {
-  "id": 1,
   "type": "VStack",
   "properties": {
     "alignment": "center"
   },
   "children": [
     {
-      "id": 2,
       "type": "Image",
       "properties": {
         "systemName": "globe",
@@ -16,7 +14,6 @@
       }
     },
     {
-      "id": 3,
       "type": "Text",
       "properties": {
         "text": "Hello, world!",

@@ -90,7 +90,7 @@ struct ViewElement: ActionUIElement {
     init(from decoder: Decoder) throws {
         let logger = decoder.logger
         let container = try decoder.container(keyedBy: ElementCodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decodeIfPresent(Int.self, forKey: .id) ?? ViewElement.generateNegativeID()
         type = try container.decode(String.self, forKey: .type)
         let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
         var convertedProperties: [String: Any] = [:]
