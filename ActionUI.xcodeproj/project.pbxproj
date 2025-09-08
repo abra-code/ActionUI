@@ -9,7 +9,8 @@
 /* Begin PBXBuildFile section */
 		1D03F8F22E49EEC3004A42BB /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
 		1D03F97E2E49F69A004A42BB /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F97D2E49F69A004A42BB /* SwiftUI.framework */; };
-		1DB2561B2E6C236D00544C2F /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
+		1D6DF6A42E6DB5F5002563AE /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
+		1D6DF6A52E6DB5F5002563AE /* ActionUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,6 +36,20 @@
 			remoteInfo = ActionUI;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1D6DF6A62E6DB5F5002563AE /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				1D6DF6A52E6DB5F5002563AE /* ActionUI.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		1D03F8E62E49EEC3004A42BB /* ActionUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -88,7 +103,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1DB2561B2E6C236D00544C2F /* ActionUI.framework in Frameworks */,
+				1D6DF6A42E6DB5F5002563AE /* ActionUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -199,6 +214,7 @@
 				1DB255E92E6BADCE00544C2F /* Sources */,
 				1DB255EA2E6BADCE00544C2F /* Frameworks */,
 				1DB255EB2E6BADCE00544C2F /* Resources */,
+				1D6DF6A62E6DB5F5002563AE /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
