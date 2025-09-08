@@ -10,6 +10,7 @@ internal import Combine
 class WindowModel: ObservableObject {
     @Published var element: (any ActionUIElement)?
     @Published var viewModels: [Int: ViewModel] = [:]
+    @Published var isNetworkLoading: Bool = false // Added for network loading state
     let windowUUID: String
     private let logger: any ActionUILogger
 

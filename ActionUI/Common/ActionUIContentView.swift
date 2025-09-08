@@ -2,7 +2,7 @@
 /*
  ActionUIContentView.swift
 
- Default root view for an ActionUI window, responsible for loading a JSON description from the bundle or network
+ Default root view for an ActionUI window, responsible for loading a JSON description from the bundle or a URL
  and constructing an ActionUIView. Uses WindowModel from ActionUIModel for state management.
 */
 
@@ -10,98 +10,104 @@ import SwiftUI
 
 @MainActor
 public struct ActionUIContentView: SwiftUI.View {
-    @StateObject private var windowModel: WindowModel
+    @StateObject internal var windowModel: WindowModel
     private let windowUUID: String
     private let resourceName: String
     private let resourceExtension: String
-    private let networkURL: URL?
+    private let url: URL?
     private let logger: any ActionUILogger
-    @State private var isNetworkLoading = false
 
-    // Init for bundle resource
-    public init(resourceName: String, resourceExtension: String = "json", windowUUID: String = UUID().uuidString, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
+    // Designated initializer
+    private init(windowModel: WindowModel, windowUUID: String, resourceName: String, resourceExtension: String, url: URL?, logger: any ActionUILogger) {
+        self._windowModel = StateObject(wrappedValue: windowModel)
+        self.windowUUID = windowUUID
         self.resourceName = resourceName
         self.resourceExtension = resourceExtension
-        self.networkURL = nil
-        self.windowUUID = windowUUID
+        self.url = url
         self.logger = logger
-        self._isNetworkLoading = State(wrappedValue: false)
-
-        // Initialize ActionUIModel and set logger
-        let actionUIModel = ActionUIModel.shared
-        actionUIModel.setLogger(logger)
-
-        // Load element from bundle (creates WindowModel if needed)
-        if actionUIModel.windowModels[windowUUID] == nil {
-            if let url = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
-               let data = try? Data(contentsOf: url) {
-                do {
-                    _ = try actionUIModel.loadDescription(from: data, format: resourceExtension, windowUUID: windowUUID)
-                } catch {
-                    logger.log("Failed to parse \(resourceName).\(resourceExtension) from bundle: \(error)", .error)
-                }
-            } else {
-                logger.log("Failed to load \(resourceName).\(resourceExtension) from bundle", .error)
-            }
-        }
-
-        // Retrieve WindowModel after loading
-        let loadedModel = actionUIModel.windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
-        self._windowModel = StateObject(wrappedValue: loadedModel)
     }
 
-    // Init for network URL
-    public init(networkURL: URL, windowUUID: String = UUID().uuidString, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
-        self.resourceName = networkURL.lastPathComponent
-        self.resourceExtension = networkURL.pathExtension
-        self.networkURL = networkURL
-        self.windowUUID = windowUUID
-        self.logger = logger
-        self._isNetworkLoading = State(wrappedValue: true)
+    // Init for bundle resource
+    public init(resourceName: String, resourceExtension: String = "json", bundle: Bundle = .main, windowUUID: String = UUID().uuidString, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
+        if let bundleURL = bundle.url(forResource: resourceName, withExtension: resourceExtension) {
+            // Reuse URL-based init for bundle resource
+            self.init(url: bundleURL, windowUUID: windowUUID, logger: logger)
+        } else {
+            // Fallback if bundle resource is missing
+            let windowModel = WindowModel(windowUUID: windowUUID, logger: logger)
+            self.init(windowModel: windowModel, windowUUID: windowUUID, resourceName: resourceName, resourceExtension: resourceExtension, url: nil, logger: logger)
+            logger.log("Failed to load \(resourceName).\(resourceExtension) from bundle", .error)
+        }
+    }
 
-        // Initialize ActionUIModel and set logger
+    // Init for file or network URL
+    public init(url: URL, windowUUID: String = UUID().uuidString, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
         let actionUIModel = ActionUIModel.shared
         actionUIModel.setLogger(logger)
 
-        // Initialize with empty WindowModel (network load in .task)
-        self._windowModel = StateObject(wrappedValue: WindowModel(windowUUID: windowUUID, logger: logger))
+        // Handle file URL directly
+        if url.isFileURL, let data = try? Data(contentsOf: url) {
+            Self.loadDescriptionAndInitializeModel(data: data, format: url.pathExtension, windowUUID: windowUUID, logger: logger)
+            let windowModel = actionUIModel.windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+            self.init(windowModel: windowModel, windowUUID: windowUUID, resourceName: url.deletingPathExtension().lastPathComponent, resourceExtension: url.pathExtension, url: url, logger: logger)
+        } else {
+            // Initialize empty WindowModel for network loading
+            let windowModel = WindowModel(windowUUID: windowUUID, logger: logger)
+            windowModel.isNetworkLoading = true // Set loading state for network URLs
+            let resourceName = url.deletingPathExtension().lastPathComponent // Strip extension for network URLs
+            let resourceExtension = url.pathExtension
+            let cacheURL = DirectoryHelper.cacheURL(for: windowUUID, resourceName: resourceName, resourceExtension: "plist", logger: logger) ?? URL(fileURLWithPath: "")
+            self.init(windowModel: windowModel, windowUUID: windowUUID, resourceName: resourceName, resourceExtension: resourceExtension, url: url, logger: logger)
+            // Trigger network loading without capturing self
+            Task {
+                await Self.loadNetworkData(url: url, cacheURL: cacheURL, windowUUID: windowUUID, resourceExtension: resourceExtension, logger: logger)
+                actionUIModel.windowModels[windowUUID]?.isNetworkLoading = false
+            }
+        }
+    }
+
+    // Shared helper to load description and update ActionUIModel
+    private static func loadDescriptionAndInitializeModel(data: Data, format: String, windowUUID: String, logger: any ActionUILogger) {
+        let actionUIModel = ActionUIModel.shared
+        if actionUIModel.windowModels[windowUUID] == nil {
+            do {
+                _ = try actionUIModel.loadDescription(from: data, format: format, windowUUID: windowUUID)
+            } catch {
+                logger.log("Failed to parse data for windowUUID: \(windowUUID): \(error)", .error)
+            }
+        }
+    }
+
+    // Static helper to load network data and cache it
+    private static func loadNetworkData(url: URL, cacheURL: URL, windowUUID: String, resourceExtension: String, logger: any ActionUILogger) async {
+        let actionUIModel = ActionUIModel.shared
+        // Try cached plist first
+        if let data = try? Data(contentsOf: cacheURL) {
+            loadDescriptionAndInitializeModel(data: data, format: "plist", windowUUID: windowUUID, logger: logger)
+            actionUIModel.windowModels[windowUUID]?.isNetworkLoading = false
+            return
+        }
+        // Fetch from network and cache as plist
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            try actionUIModel.cacheAsBinaryPlist(data, format: resourceExtension, to: cacheURL, windowUUID: windowUUID)
+            loadDescriptionAndInitializeModel(data: data, format: resourceExtension, windowUUID: windowUUID, logger: logger)
+            actionUIModel.windowModels[windowUUID]?.isNetworkLoading = false
+        } catch {
+            logger.log("Failed to fetch or cache \(url): \(error)", .error)
+            actionUIModel.windowModels[windowUUID]?.isNetworkLoading = false
+        }
     }
 
     public var body: some SwiftUI.View {
         SwiftUI.Group {
             if let element = windowModel.element,
-               let viewModel = windowModel.viewModels[element.id] {
-                ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
-            } else if isNetworkLoading {
+               let model = windowModel.viewModels[element.id] {
+                ActionUIView(element: element, model: model, windowUUID: windowUUID)
+            } else if windowModel.isNetworkLoading {
                 SwiftUI.ProgressView()
             } else {
                 SwiftUI.Text("Failed to load \(resourceName)")
-            }
-        }
-        .task {
-            guard let networkURL else { return }
-            isNetworkLoading = true
-            // Get cache path
-            let cacheURL = DirectoryHelper.cacheURL(for: windowUUID, resourceName: resourceName, resourceExtension: "plist", logger: logger) ?? URL(fileURLWithPath: "")
-            // Try cached plist first
-            if let data = try? Data(contentsOf: cacheURL) {
-                do {
-                    _ = try ActionUIModel.shared.loadDescription(from: data, format: "plist", windowUUID: windowUUID)
-                    isNetworkLoading = false
-                    return
-                } catch {
-                    logger.log("Failed to parse cached plist at \(cacheURL): \(error)", .error)
-                }
-            }
-            // Fetch from network and cache as plist
-            do {
-                let (data, _) = try await URLSession.shared.data(from: networkURL)
-                try ActionUIModel.shared.cacheAsBinaryPlist(data, format: resourceExtension, to: cacheURL, windowUUID: windowUUID)
-                _ = try ActionUIModel.shared.loadDescription(from: data, format: resourceExtension, windowUUID: windowUUID)
-                isNetworkLoading = false
-            } catch {
-                logger.log("Failed to fetch or cache \(networkURL): \(error)", .error)
-                isNetworkLoading = false
             }
         }
     }
