@@ -115,7 +115,7 @@ struct JSONSelectorView: View {
         let files = Bundle.main.paths(forResourcesOfType: "json", inDirectory: nil)
             .map { URL(filePath: $0).deletingPathExtension().lastPathComponent }
             .sorted()
-        print("JSON files found: \(files)")
+//        print("JSON files found: \(files)")
         return files
     }
     

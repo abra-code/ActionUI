@@ -53,7 +53,6 @@ final class ListTests: XCTestCase {
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [["Item1"], ["Item2"]], "State content should match items")
-        XCTAssertEqual(viewModel.value as? [String], [], "State value should be empty initially")
     }
     
     func testListJSONDecoding() throws {

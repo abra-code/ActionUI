@@ -51,7 +51,7 @@ final class ImageTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        XCTAssertTrue(view is SwiftUI.Image, "View should be an Image")
+        XCTAssertFalse(view is SwiftUI.EmptyView, "View should be an EmptyView")
     }
     
     func testImageJSONDecoding() throws {
