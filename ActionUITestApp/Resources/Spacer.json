@@ -1,0 +1,38 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Spacer Variants"
+      }
+    },
+    {
+      "type": "HStack",
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Left"
+          }
+        },
+        {
+          "type": "Spacer",
+          "properties": {
+            "minLength": 20.0
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Right"
+          }
+        }
+      ]
+    }
+  ]
+}

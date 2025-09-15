@@ -1,0 +1,28 @@
+{
+  "type": "ScrollViewReader",
+  "content": {
+    "type": "ScrollView",
+    "content": {
+      "type": "VStack",
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 1"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 2"
+          },
+          "id": 5
+        }
+      ]
+    }
+  },
+  "properties": {
+    "scrollTo": 5,
+    "anchor": "top"
+  }
+}

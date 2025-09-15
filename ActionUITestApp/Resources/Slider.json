@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Slider Variants"
+      }
+    },
+    {
+      "type": "Slider",
+      "properties": {
+        "value": 50.0,
+        "range": {
+          "min": 0.0,
+          "max": 100.0
+        },
+        "step": 1.0
+      }
+    },
+    {
+      "type": "Slider",
+      "properties": {
+        "value": 0.5,
+        "range": {
+          "min": 0.0,
+          "max": 1.0
+        }
+      }
+    }
+  ]
+}

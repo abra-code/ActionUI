@@ -1,0 +1,13 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "Text",
+    "properties": {
+      "text": "Scrollable content"
+    }
+  },
+  "properties": {
+    "axis": "vertical",
+    "showsIndicators": true
+  }
+}

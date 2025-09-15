@@ -1,0 +1,28 @@
+{
+  "type": "Table",
+  "properties": {
+    "itemType": {
+      "viewType": "Button",
+      "actionContext": "rowColumnIndex"
+    },
+    "columns": [
+      "Name",
+      "Action"
+    ],
+    "rows": [
+      [
+        "Alice",
+        "Click"
+      ],
+      [
+        "Bob",
+        "Edit"
+      ]
+    ],
+    "widths": [
+      100,
+      80
+    ],
+    "actionID": "table.action"
+  }
+}

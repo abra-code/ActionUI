@@ -1,0 +1,15 @@
+{
+  "type": "NavigationStack",
+  "content": {
+    "type": "Text",
+    "properties": {
+      "text": "Home"
+    }
+  },
+  "properties": {
+    "navigationTitle": "App",
+    "path": [
+      "detail"
+    ]
+  }
+}

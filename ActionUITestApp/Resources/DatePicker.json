@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "DatePicker Variants"
+      }
+    },
+    {
+      "type": "DatePicker",
+      "properties": {
+        "label": "Select Date",
+        "displayStyle": "automatic",
+        "range": {
+          "start": "2023-01-01",
+          "end": "2025-12-31"
+        },
+        "selectedDate": "2024-07-16"
+      }
+    },
+    {
+      "type": "DatePicker",
+      "properties": {
+        "label": "Birthday",
+        "displayStyle": "graphical",
+        "selectedDate": "2000-01-01"
+      }
+    }
+  ]
+}

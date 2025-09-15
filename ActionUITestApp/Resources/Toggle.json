@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Toggle Variants"
+      }
+    },
+    {
+      "type": "Toggle",
+      "properties": {
+        "title": "Enable Feature",
+        "style": "switch"
+      }
+    },
+    {
+      "type": "Toggle",
+      "properties": {
+        "title": "Checkbox",
+        "style": "checkbox"
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ColorPicker Variants"
+      }
+    },
+    {
+      "type": "ColorPicker",
+      "properties": {
+        "title": "Pick a Color",
+        "selectedColor": "#FF0000",
+        "actionID": "colorpicker.action"
+      }
+    },
+    {
+      "type": "ColorPicker",
+      "properties": {
+        "title": "Another Picker",
+        "selectedColor": "#00FF00"
+      }
+    }
+  ]
+}

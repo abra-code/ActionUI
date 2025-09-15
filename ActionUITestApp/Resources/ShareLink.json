@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ShareLink Variants"
+      }
+    },
+    {
+      "type": "ShareLink",
+      "properties": {
+        "item": "https://example.com",
+        "subject": "Check this out",
+        "message": "Look at this link!"
+      }
+    },
+    {
+      "type": "ShareLink",
+      "properties": {
+        "item": "https://example.org"
+      }
+    }
+  ]
+}

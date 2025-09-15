@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "VideoPlayer Variants"
+      }
+    },
+    {
+      "type": "VideoPlayer",
+      "properties": {
+        "url": "https://example.com/video.mp4",
+        "autoplay": true
+      }
+    },
+    {
+      "type": "VideoPlayer",
+      "properties": {
+        "url": "https://example.com/another-video.mp4",
+        "autoplay": false
+      }
+    }
+  ]
+}

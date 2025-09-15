@@ -1,0 +1,42 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "AsyncImage Variants",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "AsyncImage",
+      "properties": {
+        "url": "https://abracode.com/abracode.png",
+        "placeholder": "photo",
+        "resizable": true,
+        "contentMode": "fit"
+      }
+    },
+    {
+      "type": "AsyncImage",
+      "properties": {
+        "url": "https://abracode.com/abracode.png",
+        "placeholder": "photo.circle",
+        "resizable": false,
+        "contentMode": "fill"
+      }
+    },
+    {
+      "type": "AsyncImage",
+      "properties": {
+        "url": "invalid-url",
+        "placeholder": "exclamationmark.triangle",
+        "padding": "default"
+      }
+    }
+  ]
+}

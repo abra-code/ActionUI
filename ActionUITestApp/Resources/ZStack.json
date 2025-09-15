@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ZStack Variants"
+      }
+    },
+    {
+      "type": "ZStack",
+      "properties": {
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Background"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Foreground"
+          }
+        }
+      ]
+    }
+  ]
+}

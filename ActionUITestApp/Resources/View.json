@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "View Base Variants",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "View",
+      "properties": {
+        "padding": 10.0,
+        "foregroundStyle": "blue",
+        "background": "white",
+        "frame": {
+          "width": 100.0,
+          "height": 100.0,
+          "alignment": "center"
+        },
+        "opacity": 0.8,
+        "cornerRadius": 5.0,
+        "shadow": {
+          "radius": 5.0,
+          "x": 0.0,
+          "y": 2.0
+        }
+      }
+    }
+  ]
+}

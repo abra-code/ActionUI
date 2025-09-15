@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Link Variants"
+      }
+    },
+    {
+      "type": "Link",
+      "properties": {
+        "title": "Visit Site",
+        "url": "https://example.com"
+      }
+    },
+    {
+      "type": "Link",
+      "properties": {
+        "title": "Another Link",
+        "url": "https://example.org"
+      }
+    }
+  ]
+}

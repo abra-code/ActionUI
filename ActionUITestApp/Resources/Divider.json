@@ -1,0 +1,37 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Divider Variants",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "Divider",
+      "properties": {
+        "frameHeight": 2.0,
+      }
+    },
+    {
+      "type": "Divider",
+      "properties": {
+        "background": "#FF0000",
+        "frameHeight": 2.0,
+      }
+    },
+    {
+      "type": "Divider",
+      "properties": {
+        "background": "#0000FF",
+        "frameWidth": 2.0,
+      }
+    }
+  ]
+}

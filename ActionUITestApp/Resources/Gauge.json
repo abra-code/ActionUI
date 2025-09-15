@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Gauge Variants"
+      }
+    },
+    {
+      "type": "Gauge",
+      "properties": {
+        "value": 0.75,
+        "label": "Progress",
+        "style": "accessoryCircular",
+        "range": {
+          "min": 0.0,
+          "max": 100.0
+        }
+      }
+    },
+    {
+      "type": "Gauge",
+      "properties": {
+        "value": 0.5,
+        "label": "Level",
+        "style": "accessoryLinear"
+      }
+    }
+  ]
+}

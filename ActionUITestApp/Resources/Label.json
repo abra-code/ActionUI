@@ -1,0 +1,39 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Label Variants",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "Label",
+      "properties": {
+        "title": "Star",
+        "systemImage": "star.fill",
+        "padding": "default"
+      }
+    },
+    {
+        "type": "Label",
+        "properties": {
+            "title": "Orb",
+            "imageName": "Orb",
+            "padding": "default"
+        },
+    },
+    {
+        "type": "Label",
+        "properties": {
+            "title": "Text Only",
+            "padding": "default"
+        }
+     }
+  ]
+}

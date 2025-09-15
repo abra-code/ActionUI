@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Section Variant"
+      }
+    },
+    {
+      "type": "Section",
+      "properties": {
+        "header": "Details"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 1"
+          }
+        }
+      ]
+    }
+  ]
+}

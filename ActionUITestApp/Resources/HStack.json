@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "HStack Variants"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 10.0
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 1"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 2"
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 5.0
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Left"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Right"
+          }
+        }
+      ]
+    }
+  ]
+}

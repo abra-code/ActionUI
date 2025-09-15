@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Menu Variants"
+      }
+    },
+    {
+      "type": "Menu",
+      "properties": {
+        "label": "Options"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Option 1"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Option 2"
+          }
+        }
+      ]
+    }
+  ]
+}

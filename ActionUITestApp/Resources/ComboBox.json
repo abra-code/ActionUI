@@ -1,0 +1,30 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ComboBox Variants"
+      }
+    },
+    {
+      "type": "ComboBox",
+      "properties": {
+        "placeholder": "Select an option",
+        "options": ["Option1", "Option2"]
+      }
+    },
+    {
+      "type": "ComboBox",
+      "properties": {
+        "placeholder": "Choose",
+        "options": ["A", "B", "C"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "TabBarItem Variant"
+      }
+    },
+    {
+      "type": "TabBarItem",
+      "content": {
+        "type": "Text",
+        "properties": {
+          "text": "Home"
+        }
+      },
+      "properties": {
+        "title": "Home",
+        "systemImage": "house"
+      }
+    }
+  ]
+}

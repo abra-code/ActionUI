@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ProgressView Variants"
+      }
+    },
+    {
+      "type": "ProgressView",
+      "properties": {
+        "value": 0.5,
+        "total": 1.0,
+        "label": "Loading"
+      }
+    },
+    {
+      "type": "ProgressView",
+      "properties": {
+        "label": "Indeterminate"
+      }
+    }
+  ]
+}

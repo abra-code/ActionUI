@@ -1,0 +1,38 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Picker Variants"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Select Option",
+        "options": [
+          "Option1",
+          "Option2"
+        ],
+        "pickerStyle": "menu",
+        "actionID": "picker.selection"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Choose",
+        "options": [
+          "A",
+          "B"
+        ],
+        "pickerStyle": "segmented"
+      }
+    }
+  ]
+}

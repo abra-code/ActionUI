@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Text Variants"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Hello, World!"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Styled Text",
+        "font": "title",
+        "foregroundStyle": "red"
+      }
+    }
+  ]
+}

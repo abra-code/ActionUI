@@ -1,0 +1,32 @@
+{
+  "type": "TabView",
+  "properties": {
+    "selection": 0
+  },
+  "children": [
+    {
+      "type": "TabBarItem",
+      "properties": {
+        "title": "Home"
+      },
+      "content": {
+        "type": "Text",
+        "properties": {
+          "text": "Home"
+        }
+      }
+    },
+    {
+      "type": "TabBarItem",
+      "properties": {
+        "title": "Settings"
+      },
+      "content": {
+        "type": "Text",
+        "properties": {
+          "text": "Settings"
+        }
+      }
+    }
+  ]
+}

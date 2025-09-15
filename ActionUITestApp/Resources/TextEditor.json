@@ -1,0 +1,23 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "TextEditor Variants",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "TextEditor",
+      "properties": {
+        "placeholder": "Enter text here"
+      }
+    }
+  ]
+}

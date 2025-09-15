@@ -1,0 +1,28 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "NavigationLink Variant"
+      }
+    },
+    {
+      "type": "NavigationLink",
+      "destination": {
+        "type": "Text",
+        "properties": {
+          "text": "Detail"
+        }
+      },
+      "properties": {
+        "label": "Go to Detail",
+        "link": "detail"
+      }
+    }
+  ]
+}

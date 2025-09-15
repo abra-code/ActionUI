@@ -1,0 +1,45 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "DisclosureGroup Variants"
+      }
+    },
+    {
+      "type": "DisclosureGroup",
+      "properties": {
+        "label": "Details",
+        "isExpanded": true
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Content"
+          }
+        }
+      ]
+    },
+    {
+      "type": "DisclosureGroup",
+      "properties": {
+        "label": "More Info",
+        "isExpanded": false
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Hidden Content"
+          }
+        }
+      ]
+    }
+  ]
+}

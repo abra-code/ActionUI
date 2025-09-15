@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "LazyHStack Variant"
+      }
+    },
+    {
+      "type": "LazyHStack",
+      "properties": {
+        "spacing": 10.0,
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 1"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 2"
+          }
+        }
+      ]
+    }
+  ]
+}

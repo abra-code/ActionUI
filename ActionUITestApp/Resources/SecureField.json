@@ -1,0 +1,30 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "SecureField Variants"
+      }
+    },
+    {
+      "type": "SecureField",
+      "properties": {
+        "placeholder": "Enter password",
+        "textContentType": "password",
+        "actionID": "secure.submit"
+      }
+    },
+    {
+      "type": "SecureField",
+      "properties": {
+        "placeholder": "New Password",
+        "textContentType": "newPassword"
+      }
+    }
+  ]
+}

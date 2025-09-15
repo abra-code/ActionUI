@@ -1,0 +1,30 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Canvas Variants"
+      }
+    },
+    {
+      "type": "Canvas",
+      "properties": {
+        "render": "fillCircle",
+        "color": "#FF0000"
+      }
+    },
+    {
+      "type": "Canvas",
+      "properties": {
+        "render": "none",
+        "color": "#00FF00"
+      }
+    }
+  ]
+}
+

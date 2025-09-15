@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "TextField Variants"
+      }
+    },
+    {
+      "type": "TextField",
+      "properties": {
+        "placeholder": "Enter text",
+        "textContentType": "username",
+        "actionID": "text.submit"
+      }
+    },
+    {
+      "type": "TextField",
+      "properties": {
+        "placeholder": "Email",
+        "textContentType": "emailAddress"
+      }
+    }
+  ]
+}

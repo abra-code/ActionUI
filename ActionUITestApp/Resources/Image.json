@@ -1,0 +1,129 @@
+{
+  "type": "Grid",
+  "id": 1,
+  "properties": {
+    "alignment": "center",
+    "horizontalSpacing": 10.0,
+    "verticalSpacing": 10.0,
+    "padding": 16.0,
+    "accessibilityIdentifier": "images_grid"
+  },
+  "rows": [
+    [
+      {
+        "type": "Image",
+        "id": 2,
+        "properties": {
+          "name": "abracode",
+          "resizable": true,
+          "scaleMode": "fit",
+          "frame": {
+            "width": 100.0,
+            "height": 100.0,
+            "alignment": "center"
+          },
+          "padding": 8.0,
+          "accessibilityIdentifier": "abracode_image"
+        }
+      },
+      {
+        "type": "Image",
+        "id": 3,
+        "properties": {
+          "systemName": "star.fill",
+          "imageScale": "large",
+          "foregroundStyle": "yellow",
+          "frame": {
+            "width": 80.0,
+            "height": 80.0,
+            "alignment": "center"
+          },
+          "padding": 8.0,
+          "accessibilityIdentifier": "star_image"
+        }
+      }
+    ],
+    [
+      {
+        "type": "Image",
+        "id": 4,
+        "properties": {
+          "systemName": "heart.fill",
+          "imageScale": "medium",
+          "foregroundStyle": "red",
+          "resizable": true,
+          "scaleMode": "fill",
+          "frame": {
+            "width": 90.0,
+            "height": 90.0,
+            "alignment": "center"
+          },
+          "padding": 8.0,
+          "cornerRadius": 10.0,
+          "accessibilityIdentifier": "heart_image"
+        }
+      },
+      {
+        "type": "Image",
+        "id": 5,
+        "properties": {
+          "systemName": "cloud",
+          "imageScale": "small",
+          "foregroundStyle": "blue",
+          "resizable": true,
+          "scaleMode": "fit",
+          "opacity": 0.7,
+          "frame": {
+            "width": 80.0,
+            "height": 80.0,
+            "alignment": "center"
+          },
+          "padding": {
+            "top": 5.0,
+            "bottom": 5.0,
+            "leading": 10.0,
+            "trailing": 10.0
+          },
+          "accessibilityIdentifier": "cloud_image"
+        }
+      }
+    ],
+    [
+      {
+        "type": "Image",
+        "id": 6,
+        "properties": {
+          "systemName": "photo",
+          "imageScale": "large",
+          "foregroundStyle": "purple",
+          "resizable": true,
+          "scaleMode": "fit",
+          "background": "gray",
+          "frame": {
+            "width": 180.0,
+            "height": 100.0,
+            "alignment": "center"
+          },
+          "padding": 12.0,
+          "cornerRadius": 8.0,
+          "accessibilityIdentifier": "photo_image"
+        }
+      },
+      {
+        "type": "Image",
+        "properties": {
+          "name": "Swift",
+          "resizable": true,
+          "scaleMode": "fit",
+          "frame": {
+            "width": 100.0,
+            "height": 100.0,
+            "alignment": "center"
+          },
+          "padding": 8.0,
+          "accessibilityIdentifier": "swift_image"
+        }
+      }
+    ]
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "LazyVGrid Variant"
+      }
+    },
+    {
+      "type": "LazyVGrid",
+      "properties": {
+        "columns": [
+          {
+            "minimum": 100.0
+          },
+          {
+            "flexible": true
+          }
+        ],
+        "spacing": 10.0,
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 1"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 2"
+          }
+        }
+      ]
+    }
+  ]
+}
