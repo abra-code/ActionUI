@@ -28,11 +28,11 @@ struct Picker: ActionUIViewConstruction {
         }
         
         // Validate pickerStyle
-        #if os(macOS)
+#if os(macOS)
         let validStyles = ["menu", "segmented"]
-        #else
+#else
         let validStyles = ["menu", "segmented", "wheel"]
-        #endif
+#endif
         if let style = properties["pickerStyle"] as? String, !validStyles.contains(style) {
             logger.log("Picker style '\(style)' invalid on \(String(describing: ProcessInfo.processInfo.operatingSystemVersionString)); setting to nil", .warning)
             validatedProperties["pickerStyle"] = nil
@@ -48,14 +48,9 @@ struct Picker: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let items = (properties["options"] as? [String]) ?? []
-        let initialValue = items.first ?? ""
         
-        // Initialize Picker-specific state
-        if model.value == nil {
-            model.value = initialValue
-            logger.log("Initialized state for viewID: \(element.id) with value: \(initialValue)", .debug)
-        }
+        let items = (properties["options"] as? [String]) ?? []
+        let initialValue = Self.initialValue(model) as? String ?? ""
         
         // Create a specific binding for the value to ensure reactivity
         let valueBinding = Binding<String>(
@@ -95,11 +90,11 @@ struct Picker: ActionUIViewConstruction {
         if let style = properties["pickerStyle"] as? String {
             switch style {
             case "wheel":
-                #if os(macOS)
+#if os(macOS)
                 logger.log("wheel PickerStyle unavailable on macOS; ignoring", .warning)
-                #else
+#else
                 modifiedView = modifiedView.pickerStyle(.wheel)
-                #endif
+#endif
             case "menu":
                 modifiedView = modifiedView.pickerStyle(.menu)
             case "segmented":
@@ -109,5 +104,14 @@ struct Picker: ActionUIViewConstruction {
             }
         }
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        let items = model.validatedProperties["options"] as? [String] ?? []
+        let initialValue = items.first ?? ""
+        return initialValue
     }
 }

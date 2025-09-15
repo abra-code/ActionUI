@@ -25,7 +25,7 @@ import SwiftUI
 
 struct NavigationSplitView: ActionUIViewConstruction {
     // Design decision: Defines valueType as NavigationSplitViewVisibility to reflect column visibility state
-    static var valueType: Any.Type { SwiftUI.NavigationSplitViewVisibility.self }
+    static var valueType: Any.Type { Void.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -52,11 +52,6 @@ struct NavigationSplitView: ActionUIViewConstruction {
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let detail = element.subviews?["detail"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
-        // Initialize NavigationSplitView-specific state
-        if model.states["columnVisibility"] == nil {
-            model.states["columnVisibility"] = (properties["columnVisibility"] as? String) ?? "all"
-        }
-
         let visibilityBinding = Binding<NavigationSplitViewVisibility>(
             get: {
                 if let visibility = model.states["columnVisibility"] as? String {

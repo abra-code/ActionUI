@@ -43,28 +43,21 @@ struct Label: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, _ in
-        return SwiftUI.Label(title: { SwiftUI.EmptyView() }, icon: { SwiftUI.EmptyView() })
+        
+        let title = properties["title"] as? String ?? ""
+        if let systemImage = properties["systemImage"] as? String {
+            return SwiftUI.Label(title, systemImage: systemImage)
+        } else if let imageName = properties["imageName"] as? String {
+            return SwiftUI.Label(title, image: imageName)
+        }
+        
+        return SwiftUI.Label(title, systemImage: "").labelStyle(.titleOnly)
+
+//        return SwiftUI.Label(title: { SwiftUI.EmptyView() }, icon: { SwiftUI.EmptyView() })
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
-        let title = properties["title"] as? String ?? ""
-        if let systemImage = properties["systemImage"] as? String {
-            modifiedView = modifiedView.labelStyle(DefaultLabelStyle()).overlay(
-                SwiftUI.Label(title, systemImage: systemImage),
-                alignment: .center
-            )
-        } else if let imageName = properties["imageName"] as? String {
-            modifiedView = modifiedView.labelStyle(DefaultLabelStyle()).overlay(
-                SwiftUI.Label(title, image: imageName),
-                alignment: .center
-            )
-        } else {
-            modifiedView = modifiedView.labelStyle(DefaultLabelStyle()).overlay(
-                SwiftUI.Text(title),
-                alignment: .center
-            )
-        }
         return modifiedView
     }
 }

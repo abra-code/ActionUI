@@ -9,7 +9,7 @@
    },
    "properties": {
      "label": "Go to Detail", // Optional: String for label, defaults to "Link" in buildView
-     "link": "detail" // Optional: String identifier for navigation, returns EmptyView if nil or invalid
+     "link": "detail" // String identifier for navigation, returns EmptyView if nil or invalid. this property is gettable and settable value for this view
    }
    // Note: These properties are specific to NavigationLink. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
@@ -42,23 +42,19 @@ struct NavigationLink: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        guard let link = properties["link"] as? String, !link.isEmpty else {
+        let initialLink = Self.initialValue(model) as? String ?? ""
+        guard !initialLink.isEmpty else {
             logger.log("NavigationLink missing valid link, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
         let destination = element.subviews?["destination"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let label = properties["label"] as? String ?? "Link"
         
-        // Initialize NavigationLink-specific state
-        if model.states["link"] == nil {
-            model.states["link"] = link
-        }
-        
-        return SwiftUI.NavigationLink(value: link) {
+        return SwiftUI.NavigationLink(value: initialLink) {
             SwiftUI.Text(label)
         }
         .navigationDestination(for: String.self) { value in
-            if value == link,
+            if value == initialLink,
                let windowModel = ActionUIModel.shared.windowModels[windowUUID],
                let childModel = windowModel.viewModels[destination.id] {
                 ActionUIView(element: destination, model: childModel, windowUUID: windowUUID)
@@ -66,5 +62,13 @@ struct NavigationLink: ActionUIViewConstruction {
                 SwiftUI.EmptyView()
             }
         }
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        let initialValue = model.validatedProperties["link"] as? String ?? ""
+        return initialValue
     }
 }

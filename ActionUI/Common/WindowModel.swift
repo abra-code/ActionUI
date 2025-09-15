@@ -52,7 +52,10 @@ class WindowModel: ObservableObject {
         let viewModel = ViewModel()
         // Validate properties and set in ViewModel
         viewModel.validateProperties(for: element)
+        // fetch initial value from properties early if the element supports it
+        viewModel.value = ActionUIRegistry.shared.getInitialValue(forElementType: element.type, model: viewModel)
         viewModels[element.id] = viewModel
+        
         if let subviews = element.subviews {
             if let children = subviews["children"] as? [any ActionUIElement] {
                 children.forEach { populateViewModels(from: $0) }

@@ -127,7 +127,7 @@ struct Map: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(MapKit)
-        let initialCoordinate = properties.coordinate(forKey: "coordinate") ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
+        let initialCoordinate = Self.initialValue(model) as? CLLocationCoordinate2D ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
         let showsUserLocation = properties["showsUserLocation"] as? Bool ?? false
         let interactionModes = (properties["interactionModes"] as? [String])?.reduce(MapInteractionModes()) { modes, mode in
             switch mode {
@@ -146,10 +146,6 @@ struct Map: ActionUIViewConstruction {
                 subtitle: dict["subtitle"] as? String
             )
         } ?? []
-
-        if model.value == nil {
-            model.value = initialCoordinate
-        }
         
         func extractRegion(from pos: MapKit.MapCameraPosition) -> MKCoordinateRegion? {
             let children = Mirror(reflecting: pos).children
@@ -207,5 +203,13 @@ struct Map: ActionUIViewConstruction {
         logger.log("Map requires MapKit", .warning)
         return SwiftUI.EmptyView()
         #endif
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initalValue = model.value as? CLLocationCoordinate2D {
+            return initalValue
+        }
+        let initalValue = model.validatedProperties.coordinate(forKey: "coordinate") ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
+        return initalValue
     }
 }

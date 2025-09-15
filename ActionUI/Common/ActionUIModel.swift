@@ -145,7 +145,6 @@ class ActionUIModel: ObservableObject {
             }
             viewModel.states["content"] = newRows
             if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
-                viewModel.states["selectedRowID"] = nil
                 viewModel.value = [] as [String]
             }
             viewModel.validatedProperties["rows"] = validatedRows

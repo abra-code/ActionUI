@@ -68,15 +68,10 @@ struct Gauge: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let initialValue = (properties.double(forKey: "value")) ?? 0.0
+        let initialValue = Self.initialValue(model) as? Double ?? 0.0
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
         let min = range["min"] ?? 0.0
         let max = range["max"] ?? 1.0
-        
-        // Initialize Gauge-specific state
-        if model.value == nil {
-            model.value = initialValue
-        }
         
         let valueBinding = Binding(
             get: { model.value as? Double ?? initialValue },
@@ -116,5 +111,13 @@ struct Gauge: ActionUIViewConstruction {
             }
         }
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? Double {
+            return initialValue
+        }
+        let initialValue = (model.validatedProperties.double(forKey: "value")) ?? 0.0
+        return initialValue
     }
 }

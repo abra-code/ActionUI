@@ -93,6 +93,8 @@ struct Button: ActionUIViewConstruction {
             default:
                 return buttonView.buttonStyle(.plain)
             }
+        } else {
+            logger.log("Invalid view type.Expected SwiftUI.Button<SwiftUI.Text>", .error)
         }
         return view
     }

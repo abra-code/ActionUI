@@ -39,10 +39,8 @@ struct TabView: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
-        let initialSelection = (properties["selection"] as? Int) ?? 0
-        if model.value == nil {
-            model.value = initialSelection
-        }
+        let initialSelection = Self.initialValue(model) as? Int ?? 0
+        
         let selectionBinding = Binding(
             get: { model.value as? Int ?? initialSelection },
             set: { newValue in
@@ -62,4 +60,10 @@ struct TabView: ActionUIViewConstruction {
             }
         }
     }    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? Int {
+            return initialValue
+        }
+        return model.validatedProperties["selection"] as? Int ?? 0
+    }
 }

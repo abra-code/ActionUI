@@ -40,13 +40,10 @@ struct Toggle: ActionUIViewConstruction {
     // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         
-        // Initialize Toggle-specific state only if not set
-        if model.value == nil {
-            model.value = false
-        }
+        let initialValue = Self.initialValue(model) as? Bool ?? false
         
         let toggleBinding = Binding(
-            get: { model.value as? Bool ?? false },
+            get: { model.value as? Bool ?? initialValue },
             set: { newValue in
                 model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
@@ -78,5 +75,12 @@ struct Toggle: ActionUIViewConstruction {
             }
         }
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? Bool {
+            return initialValue
+        }
+        return false
     }
 }

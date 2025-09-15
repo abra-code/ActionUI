@@ -49,14 +49,10 @@ struct ComboBox: ActionUIViewConstruction {
         #if os(macOS) || os(iOS)
         let items = (properties["options"] as? [String]) ?? []
         let placeholder = properties["placeholder"] as? String ?? ""
-        
-        // Initialize ComboBox-specific state
-        if model.value == nil {
-            model.value = ""
-        }
+        let initialValue = Self.initialValue(model) as? String ?? ""
         
         let binding = Binding(
-            get: { model.value as? String ?? "" },
+            get: { model.value as? String ?? initialValue },
             set: { newValue in
                 model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
@@ -78,5 +74,12 @@ struct ComboBox: ActionUIViewConstruction {
         logger.log("ComboBox is not supported on this platform", .warning)
         return SwiftUI.EmptyView()
         #endif
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        return ""
     }
 }

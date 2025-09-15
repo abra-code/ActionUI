@@ -18,7 +18,7 @@
 import SwiftUI
 
 struct DisclosureGroup: ActionUIViewConstruction {
-    static var valueType: Any.Type { Bool.self }
+    static var valueType: Any.Type { Void.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -44,6 +44,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         let initialExpanded = properties["isExpanded"] as? Bool ?? false
         
         // Initialize DisclosureGroup-specific state
+        // TODO: must not mutate model in buildView
         model.states["isExpanded"] = initialExpanded
         
         let expandedBinding = Binding(

@@ -78,6 +78,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         }
         
         // Initialize state
+        // TODO: must not mutate model in buildView
         model.states["currentRepeatCount"] = currentRepeatCount
         
         return SwiftUI.KeyframeAnimator(

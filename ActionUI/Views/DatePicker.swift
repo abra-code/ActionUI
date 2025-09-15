@@ -45,26 +45,18 @@ struct DatePicker: ActionUIViewConstruction {
             validatedProperties["displayStyle"] = nil
         }
         
-        // Validate range
+        // Validate range (lightweight)
         if let range = validatedProperties["range"] as? [String: String] {
-            var validatedRange: [String: Date] = [:]
-            let dateFormatter = ISO8601DateFormatter()
             var isValid = true
-            if let start = range["start"], let date = dateFormatter.date(from: start) {
-                validatedRange["start"] = date
-            } else if range["start"] != nil {
-                logger.log("DatePicker range.start '\(String(describing: range["start"]))' invalid ISO 8601 string; ignoring range", .warning)
+            if range["start"] == nil {
+                logger.log("DatePicker range.start is not specified; ignoring range", .warning)
                 isValid = false
             }
-            if let end = range["end"], let date = dateFormatter.date(from: end) {
-                validatedRange["end"] = date
-            } else if range["end"] != nil {
-                logger.log("DatePicker range.end '\(String(describing: range["end"]))' invalid ISO 8601 string; ignoring range", .warning)
+            if range["end"] == nil {
+                logger.log("DatePicker range.end is not not specified; ignoring range", .warning)
                 isValid = false
             }
-            if isValid && !validatedRange.isEmpty {
-                validatedProperties["range"] = validatedRange
-            } else {
+            if !isValid  {
                 validatedProperties["range"] = nil
             }
         } else if validatedProperties["range"] != nil {
@@ -73,16 +65,8 @@ struct DatePicker: ActionUIViewConstruction {
         }
         
         // Validate selectedDate
-        if let selectedDate = validatedProperties["selectedDate"] as? String {
-            let dateFormatter = ISO8601DateFormatter()
-            if dateFormatter.date(from: selectedDate) == nil {
-                logger.log("DatePicker selectedDate '\(selectedDate)' invalid ISO 8601 string; ignoring", .warning)
-                validatedProperties["selectedDate"] = nil
-            } else {
-                validatedProperties["selectedDate"] = dateFormatter.date(from: selectedDate)
-            }
-        } else if validatedProperties["selectedDate"] != nil {
-            logger.log("DatePicker requires 'selectedDate' as String; ignoring", .warning)
+        if !(validatedProperties["selectedDate"] is String?), validatedProperties["selectedDate"] != nil {
+            logger.log("DatePicker selectedDate is not a string; ignoring", .warning)
             validatedProperties["selectedDate"] = nil
         }
         
@@ -90,12 +74,7 @@ struct DatePicker: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let dateFormatter = ISO8601DateFormatter()
-        let initialDate = (properties["selectedDate"] as? Date) ?? Date()
-                
-        if model.value == nil {
-            model.value = initialDate
-        }
+        let initialDate = Self.initialValue(model) as? Date ?? Date()
         
         let dateBinding = Binding(
             get: { model.value as? Date ?? initialDate },
@@ -108,9 +87,21 @@ struct DatePicker: ActionUIViewConstruction {
         )
         
         let label = properties["label"] as? String ?? "Date"
-        let rangeDict = properties["range"] as? [String: Date]
+
+        var startDate: Date?
+        var endDate: Date?
+        if let range = properties["range"] as? [String: String] {
+            let dateFormatter = ISO8601DateFormatter()
+            if let start = range["start"], let date = dateFormatter.date(from: start) {
+                startDate = date
+            }
+            if let end = range["end"], let date = dateFormatter.date(from: end) {
+                endDate = date
+            }
+        }
+        
         let dateRange: ClosedRange<Date>? = {
-            if let start = rangeDict?["start"], let end = rangeDict?["end"], start <= end {
+            if let start = startDate, let end = endDate, start <= end {
                 return start...end
             }
             return nil
@@ -152,5 +143,15 @@ struct DatePicker: ActionUIViewConstruction {
             modifiedView = modifiedView.datePickerStyle(.automatic)
         }
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initalValue = model.value as? Date {
+            return initalValue
+        }
+        let dateFormatter = ISO8601DateFormatter()
+        let dateString = model.validatedProperties["selectedDate"] as? String ?? ""
+        let initialDate = dateFormatter.date(from: dateString) ?? Date()
+        return initialDate
     }
 }

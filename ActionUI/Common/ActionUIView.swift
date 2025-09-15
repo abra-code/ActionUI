@@ -12,7 +12,7 @@ public struct ActionUIView: SwiftUI.View, Equatable {
     let element: any ActionUIElement
     @ObservedObject var model: ViewModel
     let windowUUID: String
-
+ 
     init(element: any ActionUIElement, model: ViewModel, windowUUID: String) {
         self.element = element
         self.model = model

@@ -45,6 +45,7 @@ protocol ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
     static var buildView: ((any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
+    static var initialValue: (ViewModel) -> Any? { get }
 }
 
 // Default implementations for ActionUIViewConstruction
@@ -55,6 +56,11 @@ extension ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View {
         return { view, _, _ in view }
+    }
+    
+    static var initialValue: (ViewModel) -> Any?
+    {
+        return { model in return model.value }
     }
 }
 

@@ -1,6 +1,6 @@
 // Sources/Views/Grid.swift
 /*
- Sample JSON for Grid (macOS, iOS, iPadOS only):
+ Sample JSON for Grid:
  {
    "type": "Grid",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
@@ -29,13 +29,6 @@ struct Grid: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        #if os(watchOS) || os(tvOS)
-
-        logger.log("Grid is not supported on watchOS/tvOS; defaulting to empty properties", .warning)
-        validatedProperties = [:]
-        
-        #else
-        
         // Validate alignment
         if let alignment = validatedProperties["alignment"] as? String {
             if !["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"].contains(alignment) {
@@ -48,23 +41,21 @@ struct Grid: ActionUIViewConstruction {
         }
 
         // Validate spacing
-        if validatedProperties["horizontalSpacing"] != nil, !(validatedProperties["horizontalSpacing"] is Double) {
+        if validatedProperties["horizontalSpacing"] != nil,
+           validatedProperties.cgFloat(forKey: "horizontalSpacing") == nil {
             logger.log("Grid horizontalSpacing must be a number; ignoring", .warning)
             validatedProperties["horizontalSpacing"] = nil
         }
-        if validatedProperties["verticalSpacing"] != nil, !(validatedProperties["verticalSpacing"] is Double) {
+        if validatedProperties["verticalSpacing"] != nil,
+           validatedProperties.cgFloat(forKey: "verticalSpacing") == nil {
             logger.log("Grid verticalSpacing must be a number; ignoring", .warning)
             validatedProperties["verticalSpacing"] = nil
         }
-        #endif
         
         return validatedProperties
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        #if os(watchOS) || os(tvOS)
-        return EmptyView()
-        #else
         let rows = (element.subviews?["rows"] as? [[any ActionUIElement]]) ?? []
         let horizontalSpacing = properties.cgFloat(forKey: "horizontalSpacing")
         let verticalSpacing = properties.cgFloat(forKey: "verticalSpacing")
@@ -95,6 +86,5 @@ struct Grid: ActionUIViewConstruction {
                 }
             }
         }
-        #endif
     }
 }

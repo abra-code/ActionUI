@@ -117,7 +117,20 @@ class ActionUIRegistry {
     func getElementValueType(forElementType type: String) -> Any.Type {
         return registrations[type]?.valueType ?? Void.self
     }
-        
+    
+    func getInitialValue(forElementType type: String, model: ViewModel) -> Any? {
+        if let constructionType = registrations[type],
+           constructionType.valueType != Void.self {
+            let initialValue = constructionType.initialValue(model)
+            if initialValue == nil,
+               constructionType.valueType != Double?.self { //any optional value type mat be nil
+                logger.log("Inital value not provided for element of type \(type), which declares non-void valueType", .error)
+            }
+            return initialValue
+        }
+        return nil
+    }
+    
     // Builds a SwiftUI view for an element, only passing validatedProperties, leaving value and view-specific state to buildView
     func buildView(for element: any ActionUIElement, model: ViewModel, windowUUID: String, validatedProperties: [String: Any]) -> any SwiftUI.View {
         // Initialize shared state if not present
@@ -138,17 +151,19 @@ class ActionUIRegistry {
     // Design decision: Uses validatedProperties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
     // Applies baseline View modifiers first, then view-specific modifiers, per the guide's modifier separation principle
     func applyModifiers(to view: any SwiftUI.View, properties: [String: Any], element: any ActionUIElement, model: ViewModel) -> AnyView {
-        // Apply base View modifications dynamically
-        // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
-        var modifiedView = View.applyModifiers(view, properties, logger)
         
-        // Apply specialized view modifications if available
+        var modifiedView = view
+        // First apply specialized view modifications if available (View.applyModifiers can erase specific view type)
         if let constructionType = registrations[element.type] {
             modifiedView = constructionType.applyModifiers(modifiedView, properties, logger)
         } else {
             logger.log("No modifier registration found for element ID \(element.id) of type '\(element.type)', applying base modifiers only", .warning)
         }
         
+        // Apply base View modifications dynamically
+        // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
+        modifiedView = View.applyModifiers(view, properties, logger)
+
         return AnyView(modifiedView)
     }
 }

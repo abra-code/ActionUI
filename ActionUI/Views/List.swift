@@ -73,23 +73,17 @@ struct List: ActionUIViewConstruction {
         let actionID = properties["actionID"] as? String
         let doubleClickActionID = properties["doubleClickActionID"] as? String
         
-        // Append List-specific state only if not already set
-        var mutated = false
-        if model.value == nil {
-            model.value = [] as [String]
-            mutated = true
-        }
+        let initialSelection = Self.initialValue(model) as? [String] ?? []
+
+        // TODO: must not mutate model in buildView
         if model.states["content"] == nil {
             model.states["content"] = items
-            mutated = true
-        }
-        if mutated {
         }
         
         let selectionBinding = Binding<String?>(
             get: {
-                let value = model.value as? [String]
-                return value?.first
+                let value = model.value as? [String] ?? initialSelection
+                return value.first
             },
             set: { newValue in
                 if let newValue = newValue,
@@ -153,5 +147,12 @@ struct List: ActionUIViewConstruction {
             }
         }
         #endif
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? [String] {
+            return initialValue
+        }
+        return [] as [String]
     }
 }

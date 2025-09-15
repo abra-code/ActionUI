@@ -31,13 +31,10 @@ struct TextEditor: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        // Initialize TextEditor-specific state
-        if model.value == nil {
-            model.value = ""
-        }
+        let initialValue = Self.initialValue(model) as? String ?? ""
         
         let textBinding = Binding(
-            get: { model.value as? String ?? "" },
+            get: { model.value as? String ?? initialValue },
             set: { newValue in
                 model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
@@ -63,5 +60,12 @@ struct TextEditor: ActionUIViewConstruction {
         } else {
             return SwiftUI.TextEditor(text: textBinding)
         }
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        return ""
     }
 }

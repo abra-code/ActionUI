@@ -113,17 +113,12 @@ struct Table: ActionUIViewConstruction {
             TableRowData(id: "row-\(index)", values: row)
         }
         
+        let initialSelection = Self.initialValue(model) as? [String] ?? [] as [String]
+
         // Append Table-specific state only if not already set
-        var mutated = false
+        // TODO: must not mutate model in buildView
         if model.states["content"] == nil {
             model.states["content"] = rows
-            mutated = true
-        }
-        if model.states["selectedRowID"] == nil {
-            model.value = [] as [String]
-            mutated = true
-        }
-        if mutated {
         }
         
         let selectionBinding = Binding<String?>(
@@ -202,5 +197,12 @@ struct Table: ActionUIViewConstruction {
         #else
         return SwiftUI.EmptyView()
         #endif
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? [String] {
+            return initialValue
+        }
+        return [] as [String]
     }
 }

@@ -51,7 +51,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         let dampingFraction = animationDict.double(forKey: "dampingFraction") ?? 0.7
         let blendDuration = animationDict.double(forKey: "blendDuration") ?? 0.0
         let extraBounce = animationDict.double(forKey: "extraBounce") ?? 0.0
-        let controlPoints = animationDict["controlPoints"] as? [Double] ?? [0.0, 0.0, 1.0, 1.0] // TODO: array of doubles
+        let controlPoints = animationDict["controlPoints"] as? [Double] ?? [0.0, 0.0, 1.0, 1.0] // TODO: array of doubles might be decoded differently from JSON
         
         switch type {
         case "linear":

@@ -24,17 +24,15 @@ struct ProgressView: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let value = validatedProperties.double(forKey: "value"), value >= 0 {
-           //
+        if let value = validatedProperties.double(forKey: "value"), value >= 0.0 {
+            //
         } else if validatedProperties["value"] != nil {
             logger.log("ProgressView value must be a non-negative Double; defaulting to nil", .warning)
             validatedProperties["value"] = nil
         }
         
-        if let total = validatedProperties.double(forKey: "total"), total > 0 {
+        if let total = validatedProperties.double(forKey: "total"), total > 0.0 {
             //
-        } else if validatedProperties["value"] != nil {
-            validatedProperties["total"] = 1.0
         } else if validatedProperties["total"] != nil {
             logger.log("ProgressView total must be a positive Double; defaulting to nil", .warning)
             validatedProperties["total"] = nil
@@ -49,26 +47,23 @@ struct ProgressView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let value: Double? = properties.double(forKey: "value")
+        // TODO: that logic is somewhat faulty in case of indeterminate progress where value is expected to be nil
+        let initialValue = Self.initialValue(model) as? Double
         let total: Double? = properties.double(forKey: "total")
         let label: String? = properties["label"] as? String
         let actionID: String? = properties["actionID"] as? String
         
-        if model.value == nil, let value = value {
-            model.value = value
-        }
-        
-        let currentValue: Double? = model.states.double(forKey: "value") ?? value
+        let currentValue: Double? = model.states.double(forKey: "value") ?? initialValue
         
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {
             progressView = label != nil ?
-                SwiftUI.ProgressView(label!, value: value, total: total) :
-                SwiftUI.ProgressView(value: value, total: total)
+            SwiftUI.ProgressView(label!, value: value, total: total) :
+            SwiftUI.ProgressView(value: value, total: total)
         } else {
             progressView = label != nil ?
-                SwiftUI.ProgressView(label!) :
-                SwiftUI.ProgressView()
+            SwiftUI.ProgressView(label!) :
+            SwiftUI.ProgressView()
         }
         
         return progressView
@@ -81,11 +76,18 @@ struct ProgressView: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
         var modifiedView = view
-        #if canImport(UIKit)
+#if canImport(UIKit)
         if properties["value"] == nil || properties["total"] == nil {
             modifiedView = modifiedView.progressViewStyle(.circular)
         }
-        #endif
+#endif
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? Double {
+            return initialValue
+        }
+        return model.validatedProperties.double(forKey: "value")
     }
 }

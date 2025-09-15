@@ -46,14 +46,10 @@ struct SecureField: ActionUIViewConstruction {
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         let actionID = properties["actionID"] as? String
-        
-        // Initialize value if not set
-        if model.value == nil {
-            model.value = ""
-        }
+        let initialValue = Self.initialValue(model) as? String ?? ""
         
         let textBinding = Binding(
-            get: { model.value as? String ?? "" },
+            get: { model.value as? String ?? initialValue },
             set: { newValue in
                 model.value = newValue
                 if let valueChangeActionID = properties["valueChangeActionID"] as? String {
@@ -90,5 +86,12 @@ struct SecureField: ActionUIViewConstruction {
         }
         #endif
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        return ""
     }
 }

@@ -5,7 +5,7 @@
    "type": "View",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "padding": 10.0,      // Optional: Double for padding around the view or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
+     "padding": 10.0,      // Optional: Double for padding around the view, string "default" or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
      "hidden": false,      // Optional: Boolean to hide the view
      "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
      "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
@@ -54,8 +54,9 @@ struct View: ActionUIViewConstruction {
         var validatedProperties = properties
         
         // Validate padding
-        if (properties.cgFloat(forKey: "padding") == nil) && !(properties["padding"] is [String: Any]?), properties["padding"] != nil {
-            logger.log("Invalid type for padding: expected Double or [String: Any], got \(type(of: properties["padding"]!)), ignoring", .warning)
+        if (properties.cgFloat(forKey: "padding") == nil) && !(properties["padding"] is [String: Any]?) && !(properties["padding"] is String),
+           properties["padding"] != nil {
+            logger.log("Invalid type for padding: expected Double, String or [String: Any], got \(type(of: properties["padding"]!)), ignoring", .warning)
             validatedProperties["padding"] = nil
         }
         
@@ -282,6 +283,9 @@ struct View: ActionUIViewConstruction {
             ))
         } else if let padding = properties.cgFloat(forKey: "padding") {
             modifiedView = modifiedView.padding(padding)
+        } else if let padding = properties["padding"] as? String,
+                  padding.lowercased() == "default" {
+            modifiedView = modifiedView.padding()
         }
         
         if let font = properties["font"] as? String {

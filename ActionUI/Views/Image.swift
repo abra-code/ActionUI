@@ -108,6 +108,16 @@ struct Image: ActionUIViewConstruction {
             image = SwiftUI.Image(systemName: "photo")
         }
         
+        let scaleMode = (properties["scaleMode"] as? String)
+        
+        // Apply resizable and scaleMode modifiers
+        // "scaleMode" implies "resizable" even if not explicitly declared
+        let resizable = properties["resizable"] as? Bool ?? (scaleMode != nil)
+        if resizable,
+           let scaleMode {
+            return image.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
+        }
+
         return image
     }
     
@@ -126,18 +136,7 @@ struct Image: ActionUIViewConstruction {
             }
             modifiedView = view.imageScale(imageScale)
         }
-        
-        let scaleMode = (properties["scaleMode"] as? String)
-        
-        // Apply resizable and scaleMode modifiers
-        // "scaleMode" implies "resizable" even if not explicitly declared
-        let resizable = properties["resizable"] as? Bool ?? (scaleMode != nil)
-        if resizable,
-           let scaleMode,
-           let imageView = modifiedView as? SwiftUI.Image {
-            return imageView.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
-        }
-        
+                
         return modifiedView
     }
 }

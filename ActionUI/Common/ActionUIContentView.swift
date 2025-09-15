@@ -28,7 +28,7 @@ public struct ActionUIContentView: SwiftUI.View {
     }
 
     // Init for bundle resource
-    public init(resourceName: String, resourceExtension: String = "json", bundle: Bundle = .main, windowUUID: String = UUID().uuidString, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
+    public init(resourceName: String, resourceExtension: String = "json", bundle: Bundle = .main, windowUUID: String, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
         if let bundleURL = bundle.url(forResource: resourceName, withExtension: resourceExtension) {
             // Reuse URL-based init for bundle resource
             self.init(url: bundleURL, windowUUID: windowUUID, logger: logger)
@@ -41,7 +41,7 @@ public struct ActionUIContentView: SwiftUI.View {
     }
 
     // Init for file or network URL
-    public init(url: URL, windowUUID: String = UUID().uuidString, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
+    public init(url: URL, windowUUID: String, logger: any ActionUILogger = ConsoleLogger(maxLevel: .verbose)) {
         let actionUIModel = ActionUIModel.shared
         actionUIModel.setLogger(logger)
 
