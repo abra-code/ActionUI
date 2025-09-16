@@ -8,7 +8,8 @@
     {
       "type": "Text",
       "properties": {
-        "text": "ShareLink Variants"
+        "text": "ShareLink Variants",
+        "padding": "default"
       }
     },
     {
@@ -16,13 +17,15 @@
       "properties": {
         "item": "https://example.com",
         "subject": "Check this out",
-        "message": "Look at this link!"
+        "message": "Look at this link!",
+        "padding": "default"
       }
     },
     {
       "type": "ShareLink",
       "properties": {
-        "item": "https://example.org"
+        "item": "https://example.org",
+        "padding": "default"
       }
     }
   ]

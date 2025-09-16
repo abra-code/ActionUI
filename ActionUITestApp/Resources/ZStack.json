@@ -18,15 +18,36 @@
       },
       "children": [
         {
-          "type": "Text",
+          "type": "Canvas",
           "properties": {
-            "text": "Background"
+              "background": "blue",
+              "frame": {
+                "width": 120.0,
+                "height": 120.0,
+                "alignment": "center"
+              }
           }
         },
         {
-          "type": "Text",
+          "type": "Canvas",
           "properties": {
-            "text": "Foreground"
+              "background": "white",
+              "frame": {
+                "width": 100.0,
+                "height": 100.0,
+                "alignment": "center"
+              }
+          }
+        },
+        {
+          "type": "Canvas",
+          "properties": {
+              "background": "red",
+              "frame": {
+                "width": 80.0,
+                "height": 80.0,
+                "alignment": "center"
+              }
           }
         }
       ]
