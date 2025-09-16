@@ -61,4 +61,9 @@ extension [String: Any] {
             return nil
         }
     }
+    
+    func doubleArray(forKey key: String) -> [Double]? {
+        guard let array = self[key] as? [Any] else { return nil }
+        return array.map { ($0 as? NSNumber)?.doubleValue ?? 0.0 }
+    }
 }

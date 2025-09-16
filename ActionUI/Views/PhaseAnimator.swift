@@ -35,7 +35,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let values = (properties["values"] as? [Double]) ?? [0.0, 1.0]
+        let values = properties.doubleArray(forKey: "values") ?? [0.0, 1.0]
         let trigger = (properties["trigger"] as? String) ?? "onAppear"
         let timerInterval = (properties.double(forKey: "timerInterval")) ?? 1.0
         let stateKey = (properties["stateKey"] as? String) ?? "counter"
@@ -51,7 +51,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         let dampingFraction = animationDict.double(forKey: "dampingFraction") ?? 0.7
         let blendDuration = animationDict.double(forKey: "blendDuration") ?? 0.0
         let extraBounce = animationDict.double(forKey: "extraBounce") ?? 0.0
-        let controlPoints = animationDict["controlPoints"] as? [Double] ?? [0.0, 0.0, 1.0, 1.0] // TODO: array of doubles might be decoded differently from JSON
+        let controlPoints = animationDict.doubleArray(forKey: "controlPoints") ?? [0.0, 0.0, 1.0, 1.0]
         
         switch type {
         case "linear":
