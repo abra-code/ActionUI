@@ -24,11 +24,13 @@ struct SecureField: ActionUIViewConstruction {
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
-        // Default to empty string if placeholder is not provided
-        if validatedProperties["placeholder"] == nil {
-            validatedProperties["placeholder"] = ""
+
+        // Validate placeholder
+        if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
+            logger.log("SecureField placeholder must be a String; defaulting to nil", .warning)
+            validatedProperties["placeholder"] = nil
         }
+
         // Validate textContentType, allow only secure types
         if let textContentType = validatedProperties["textContentType"] as? String,
            ["password", "newPassword", "oneTimeCode"].contains(textContentType) {

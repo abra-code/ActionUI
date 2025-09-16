@@ -26,11 +26,8 @@ struct Toggle: ActionUIViewConstruction {
         let validStyles = ["switch", "button"]
         #endif
         if let style = validatedProperties["style"] as? String, !validStyles.contains(style) {
-            logger.log("Toggle style '\(style)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); defaulting to 'switch'", .warning)
-            validatedProperties["style"] = "switch"
-        }
-        if validatedProperties["style"] == nil {
-            validatedProperties["style"] = "switch"
+            logger.log("Toggle style '\(style)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); falling back to default", .warning)
+            validatedProperties["style"] = nil
         }
         
         return validatedProperties

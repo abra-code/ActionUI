@@ -20,10 +20,8 @@ struct TextEditor: ActionUIViewConstruction {
         var validatedProperties = properties
         
         // Validate placeholder
-        if let placeholder = validatedProperties["placeholder"] as? String {
-            validatedProperties["placeholder"] = placeholder
-        } else if validatedProperties["placeholder"] != nil {
-            logger.log("TextEditor placeholder must be a string; ignoring", .warning)
+        if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
+            logger.log("TextEditor placeholder must be a String; defaulting to nil", .warning)
             validatedProperties["placeholder"] = nil
         }
         
