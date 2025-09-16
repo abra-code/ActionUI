@@ -58,6 +58,10 @@ struct View: ActionUIViewConstruction {
            properties["padding"] != nil {
             logger.log("Invalid type for padding: expected Double, String or [String: Any], got \(type(of: properties["padding"]!)), ignoring", .warning)
             validatedProperties["padding"] = nil
+        } else if let padding = properties["padding"] as? String,
+                  padding.lowercased() != "default" {
+            logger.log("padding String must be 'default', got \(padding), ignoring", .warning)
+            validatedProperties["padding"] = nil
         }
         
         // Validate hidden
