@@ -1,8 +1,8 @@
-// Tests/Views/TextEditorTests.swift
+// Tests/Views/ProgressViewTests.swift
 /*
- TextEditorTests.swift
+ ProgressViewTests.swift
 
- Tests for the TextEditor component in the ActionUI component library.
+ Tests for the ProgressView component in the ActionUI component library.
  Verifies JSON decoding, property validation, view construction, and state binding.
 */
 
@@ -11,7 +11,7 @@ import SwiftUI
 @testable import ActionUI
 
 @MainActor
-final class TextEditorTests: XCTestCase {
+final class ProgressViewTests: XCTestCase {
     private var logger: XCTestLogger!
     private var windowUUID: String!
     
@@ -33,64 +33,78 @@ final class TextEditorTests: XCTestCase {
         super.tearDown()
     }
     
-    func testTextEditorValidatePropertiesValid() {
+    func testProgressViewValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "placeholder": "Enter text here",
-            "actionID": "texteditor.submit"
+            "value": 0.5,
+            "total": 1.0,
+            "label": "Loading",
+            "actionID": "progress.tap"
         ]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let validated = ProgressView.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["placeholder"] as? String, "Enter text here", "Placeholder should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "texteditor.submit", "actionID should be valid")
+        XCTAssertEqual(validated["value"] as? Double, 0.5, "value should be valid")
+        XCTAssertEqual(validated["total"] as? Double, 1.0, "total should be valid")
+        XCTAssertEqual(validated["label"] as? String, "Loading", "label should be valid")
+        XCTAssertEqual(validated["actionID"] as? String, "progress.tap", "actionID should be valid")
     }
     
-    func testTextEditorValidatePropertiesInvalid() {
+    func testProgressViewValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "placeholder": 123
+            "value": -0.5,
+            "total": 0.0,
+            "label": 123
         ]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let validated = ProgressView.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Invalid placeholder should be nil")
+        XCTAssertNil(validated["value"], "Invalid value should be nil")
+        XCTAssertNil(validated["total"], "Invalid total should be nil")
+        XCTAssertNil(validated["label"], "Invalid label should be nil")
     }
     
-    func testTextEditorValidatePropertiesMissing() {
+    func testProgressViewValidatePropertiesMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let validated = ProgressView.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Missing placeholder should be nil")
+        XCTAssertNil(validated["value"], "Missing value should be nil")
+        XCTAssertNil(validated["total"], "Missing total should be nil")
+        XCTAssertNil(validated["label"], "Missing label should be nil")
         XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
     }
     
-    func testTextEditorConstruction() throws {
+    func testProgressViewConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
-            "type": "TextEditor",
+            "type": "ProgressView",
             "properties": [
-                "placeholder": "Enter text here",
-                "actionID": "texteditor.submit",
+                "value": 0.5,
+                "total": 1.0,
+                "label": "Loading",
+                "actionID": "progress.tap",
                 "padding": 10.0
             ]
         ]
         
         let element = try ViewElement(from: elementDict, logger: logger)
-        let validatedProperties = TextEditor.validateProperties(element.properties, logger)
+        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
     
-    func testTextEditorJSONDecoding() throws {
+    func testProgressViewJSONDecoding() throws {
         let jsonString = """
         {
             "id": 1,
-            "type": "TextEditor",
+            "type": "ProgressView",
             "properties": {
-                "placeholder": "Enter text here",
-                "actionID": "texteditor.submit",
+                "value": 0.5,
+                "total": 1.0,
+                "label": "Loading",
+                "actionID": "progress.tap",
                 "padding": 10.0,
                 "offset": {"x": 5.0, "y": -5.0}
             }
@@ -107,9 +121,11 @@ final class TextEditorTests: XCTestCase {
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
-        XCTAssertEqual(element.type, "TextEditor", "Element type should be TextEditor")
-        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter text here", "placeholder should be Enter text here")
-        XCTAssertEqual(element.properties["actionID"] as? String, "texteditor.submit", "actionID should be texteditor.submit")
+        XCTAssertEqual(element.type, "ProgressView", "Element type should be ProgressView")
+        XCTAssertEqual(element.properties.double(forKey: "value"), 0.5, "value should be 0.5")
+        XCTAssertEqual(element.properties.double(forKey: "total"), 1.0, "total should be 1.0")
+        XCTAssertEqual(element.properties["label"] as? String, "Loading", "label should be Loading")
+        XCTAssertEqual(element.properties["actionID"] as? String, "progress.tap", "actionID should be progress.tap")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
@@ -120,9 +136,9 @@ final class TextEditorTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
+        XCTAssertEqual(viewModel.value as? Double, 0.5, "Initial viewModel value should be 0.5")
     }
 }

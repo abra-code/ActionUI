@@ -9,7 +9,6 @@
    "children": [
      { "type": "Button", "properties": { "title": "Option 1" } }
    ] // Required: Array of child views (typically Buttons)
-
    // Note: These properties are specific to Menu. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
 */
@@ -20,11 +19,18 @@ struct Menu: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
+        // Validate label
+        if properties["label"] != nil && !(properties["label"] is String) {
+            logger.log("Menu label must be a String; ignoring", .warning)
+            validatedProperties["label"] = nil
+        }
+        
         return validatedProperties
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
+        let label = properties["label"] as? String ?? "Menu" // Default to "Menu" if label is nil
         
         return SwiftUI.Menu {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
@@ -34,14 +40,11 @@ struct Menu: ActionUIViewConstruction {
                 }
             }
         } label: {
-            SwiftUI.EmptyView()
+            SwiftUI.Text(label)
         }
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
-        if let label = properties["label"] as? String {
-            return view.overlay(SwiftUI.Text(label), alignment: .center)
-        }
         return view
     }
 }

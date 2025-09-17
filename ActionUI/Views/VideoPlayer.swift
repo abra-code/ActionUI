@@ -5,7 +5,7 @@
    "type": "VideoPlayer",
    "id": 1,
    "properties": {
-     "url": "https://example.com/video.mp4", // Optional: URL string, returns EmptyView if nil or invalid
+     "url": "https://example.com/video.mp4", // Required: URL string, displays Label with error message if invalid or missing
      "autoplay": true    // Optional: Boolean for autoplay, ignored if nil
    }
    // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
@@ -16,21 +16,18 @@ import SwiftUI
 import AVKit
 
 struct VideoPlayer: ActionUIViewConstruction {
-    static var valueType: Any.Type { Void.self }
+    static var valueType: Any.Type { String.self } // Non-optional String for URL
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let urlString = validatedProperties["url"] as? String {
-            if URL(string: urlString) == nil {
-                logger.log("Invalid VideoPlayer url '\(urlString)', ignoring", .warning)
-                validatedProperties["url"] = nil
-            }
-        } else if validatedProperties["url"] != nil {
-            logger.log("Invalid type for VideoPlayer url: expected String, got \(type(of: properties["url"]!)), ignoring", .warning)
+        // Validate url
+        if properties["url"] != nil && !(properties["url"] is String) {
+            logger.log("VideoPlayer url must be a String; ignoring", .error)
             validatedProperties["url"] = nil
         }
         
+        // Validate autoplay
         if let autoplay = validatedProperties["autoplay"], !(autoplay is Bool) {
             logger.log("Invalid type for VideoPlayer autoplay: expected Bool, got \(type(of: autoplay)), ignoring", .warning)
             validatedProperties["autoplay"] = nil
@@ -41,36 +38,45 @@ struct VideoPlayer: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AVKit)
-        guard let url = properties["url"] as? URL else {
-            logger.log("VideoPlayer missing valid URL, returning EmptyView", .warning)
-            return SwiftUI.EmptyView()
+        // Use viewModel.value if set, otherwise use initialValue
+        let urlString = Self.initialValue(model) as? String ?? ""
+        if let url = URL(string: urlString) {
+            let player = AVPlayer(url: url)
+            let videoPlayer = AVKit.VideoPlayer(player: player)
+            
+            // Handle autoplay with a delayed MainActor task
+            if let autoplay = properties["autoplay"] as? Bool {
+                Task { @MainActor in
+                    // Delay to allow view to settle
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                    if autoplay {
+                        player.play()
+                    } else {
+                        player.pause()
+                    }
+                }
+            }
+            
+            return videoPlayer
+        } else {
+            logger.log("VideoPlayer missing or invalid URL, displaying error Label", .warning)
+            return SwiftUI.Label("Missing or invalid URL", systemImage: "exclamationmark.triangle")
         }
-        let player = AVPlayer(url: url)
-        return AVKit.VideoPlayer(player: player)
         #else
-        logger.log("VideoPlayer requires AVKit, returning EmptyView", .warning)
-        return SwiftUI.EmptyView()
+        logger.log("VideoPlayer requires AVKit, displaying error Label", .warning)
+        return SwiftUI.Label("VideoPlayer not supported on this platform", systemImage: "exclamationmark.triangle")
         #endif
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
-        #if canImport(AVKit)
-        var modifiedView = view
-        if let autoplay = properties["autoplay"] as? Bool, let player = (modifiedView as? any VideoPlayerRepresentable)?.player {
-            if autoplay {
-                player.play()
-            } else {
-                player.pause()
-            }
-        }
-        return modifiedView
-        #else
-        return view
-        #endif
+        return view // No modifications needed, as autoplay is handled in buildView
     }
-}
-
-// Placeholder protocol for VideoPlayerRepresentable (to be refined with actual player access)
-protocol VideoPlayerRepresentable: SwiftUI.View {
-    var player: AVPlayer? { get }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        let initialValue = model.validatedProperties["url"] as? String ?? ""
+        return initialValue
+    }
 }

@@ -1,9 +1,9 @@
-// Tests/Views/TextEditorTests.swift
+// Tests/Views/MenuTests.swift
 /*
- TextEditorTests.swift
+ MenuTests.swift
 
- Tests for the TextEditor component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding.
+ Tests for the Menu component in the ActionUI component library.
+ Verifies JSON decoding, property validation, and view construction.
 */
 
 import XCTest
@@ -11,7 +11,7 @@ import SwiftUI
 @testable import ActionUI
 
 @MainActor
-final class TextEditorTests: XCTestCase {
+final class MenuTests: XCTestCase {
     private var logger: XCTestLogger!
     private var windowUUID: String!
     
@@ -33,67 +33,70 @@ final class TextEditorTests: XCTestCase {
         super.tearDown()
     }
     
-    func testTextEditorValidatePropertiesValid() {
+    func testMenuValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "placeholder": "Enter text here",
-            "actionID": "texteditor.submit"
+            "label": "Options",
+            "padding": 10.0
         ]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let validated = Menu.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["placeholder"] as? String, "Enter text here", "Placeholder should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "texteditor.submit", "actionID should be valid")
+        XCTAssertEqual(validated["label"] as? String, "Options", "label should be valid")
+        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
     }
     
-    func testTextEditorValidatePropertiesInvalid() {
+    func testMenuValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "placeholder": 123
+            "label": 123
         ]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let validated = Menu.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Invalid placeholder should be nil")
+        XCTAssertNil(validated["label"], "Invalid label should be nil")
     }
     
-    func testTextEditorValidatePropertiesMissing() {
+    func testMenuValidatePropertiesMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let validated = Menu.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Missing placeholder should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertNil(validated["label"], "Missing label should be nil")
     }
     
-    func testTextEditorConstruction() throws {
+    func testMenuConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
-            "type": "TextEditor",
+            "type": "Menu",
             "properties": [
-                "placeholder": "Enter text here",
-                "actionID": "texteditor.submit",
+                "label": "Options",
                 "padding": 10.0
+            ],
+            "children": [
+                ["type": "Button", "id": 2, "properties": ["title": "Option 1"]]
             ]
         ]
         
         let element = try ViewElement(from: elementDict, logger: logger)
-        let validatedProperties = TextEditor.validateProperties(element.properties, logger)
+        let validatedProperties = Menu.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
     
-    func testTextEditorJSONDecoding() throws {
+    func testMenuJSONDecoding() throws {
         let jsonString = """
         {
             "id": 1,
-            "type": "TextEditor",
+            "type": "Menu",
             "properties": {
-                "placeholder": "Enter text here",
-                "actionID": "texteditor.submit",
+                "label": "Options",
                 "padding": 10.0,
                 "offset": {"x": 5.0, "y": -5.0}
-            }
+            },
+            "children": [
+                {"type": "Button", "id": 2, "properties": {"title": "Option 1"}}
+            ]
         }
         """
         guard let jsonData = jsonString.data(using: .utf8) else {
@@ -107,9 +110,8 @@ final class TextEditorTests: XCTestCase {
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
-        XCTAssertEqual(element.type, "TextEditor", "Element type should be TextEditor")
-        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter text here", "placeholder should be Enter text here")
-        XCTAssertEqual(element.properties["actionID"] as? String, "texteditor.submit", "actionID should be texteditor.submit")
+        XCTAssertEqual(element.type, "Menu", "Element type should be Menu")
+        XCTAssertEqual(element.properties["label"] as? String, "Options", "label should be Options")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
@@ -118,11 +120,20 @@ final class TextEditorTests: XCTestCase {
             XCTFail("offset should be valid dictionary")
         }
         
+        if let children = element.subviews?["children"] as? [any ActionUIElement] {
+            XCTAssertEqual(children.count, 1, "Should have one child")
+            XCTAssertEqual(children[0].type, "Button", "Child type should be Button")
+            XCTAssertEqual(children[0].id, 2, "Child ID should be 2")
+            XCTAssertEqual(children[0].properties["title"] as? String, "Option 1", "Child title should be Option 1")
+        } else {
+            XCTFail("Children should be valid array")
+        }
+        
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
+        XCTAssertNil(viewModel.value, "Initial viewModel value should be nil for Menu")
     }
 }

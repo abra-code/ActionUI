@@ -1,9 +1,9 @@
-// Tests/Views/TextFieldTests.swift
+// Tests/Views/SpacerTests.swift
 /*
- TextFieldTests.swift
+ SpacerTests.swift
 
- Tests for the TextField component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, state binding, and textContentType application.
+ Tests for the Spacer component in the ActionUI component library.
+ Verifies JSON decoding, property validation, and view construction.
 */
 
 import XCTest
@@ -11,7 +11,7 @@ import SwiftUI
 @testable import ActionUI
 
 @MainActor
-final class TextFieldTests: XCTestCase {
+final class SpacerTests: XCTestCase {
     private var logger: XCTestLogger!
     private var windowUUID: String!
     
@@ -32,72 +32,62 @@ final class TextFieldTests: XCTestCase {
         windowUUID = nil
         super.tearDown()
     }
-        
-    func testTextFieldValidatePropertiesValid() {
+    
+    func testSpacerValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "placeholder": "Enter text",
-            "textContentType": "username",
-            "actionID": "text.submit"
+            "minLength": 20.0,
+            "padding": 10.0
         ]
         
-        let validated = TextField.validateProperties(properties, logger)
+        let validated = Spacer.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["placeholder"] as? String, "Enter text", "Placeholder should be valid")
-        XCTAssertEqual(validated["textContentType"] as? String, "username", "textContentType should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "text.submit", "actionID should be valid")
+        XCTAssertEqual(validated.cgFloat(forKey: "minLength"), 20.0, "minLength should be valid")
+        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
     }
     
-    func testTextFieldValidatePropertiesInvalid() {
+    func testSpacerValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "placeholder": 123,
-            "textContentType": 456
+            "minLength": "invalid"
         ]
         
-        let validated = TextField.validateProperties(properties, logger)
+        let validated = Spacer.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Invalid placeholder should be nil")
-        XCTAssertNil(validated["textContentType"], "Invalid textContentType should be nil")
+        XCTAssertNil(validated["minLength"], "Invalid minLength should be nil")
     }
     
-    func testTextFieldValidatePropertiesMissing() {
+    func testSpacerValidatePropertiesMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = TextField.validateProperties(properties, logger)
+        let validated = Spacer.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Missing placeholder should be nil")
-        XCTAssertNil(validated["textContentType"], "Missing textContentType should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertNil(validated["minLength"], "Missing minLength should be nil")
     }
     
-    func testTextFieldConstruction() throws {
+    func testSpacerConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,
-            "type": "TextField",
+            "type": "Spacer",
             "properties": [
-                "placeholder": "Enter text",
-                "textContentType": "username",
-                "actionID": "text.submit",
+                "minLength": 20.0,
                 "padding": 10.0
             ]
         ]
         
         let element = try ViewElement(from: elementDict, logger: logger)
-        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let validatedProperties = Spacer.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
     
-    func testTextFieldJSONDecoding() throws {
+    func testSpacerJSONDecoding() throws {
         let jsonString = """
         {
             "id": 1,
-            "type": "TextField",
+            "type": "Spacer",
             "properties": {
-                "placeholder": "Enter text",
-                "textContentType": "username",
-                "actionID": "text.submit",
+                "minLength": 20.0,
                 "padding": 10.0,
                 "offset": {"x": 5.0, "y": -5.0}
             }
@@ -114,10 +104,8 @@ final class TextFieldTests: XCTestCase {
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
-        XCTAssertEqual(element.type, "TextField", "Element type should be TextField")
-        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter text", "placeholder should be Enter text")
-        XCTAssertEqual(element.properties["textContentType"] as? String, "username", "textContentType should be username")
-        XCTAssertEqual(element.properties["actionID"] as? String, "text.submit", "actionID should be text.submit")
+        XCTAssertEqual(element.type, "Spacer", "Element type should be Spacer")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "minLength"), 20.0, "minLength should be 20.0")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
@@ -128,9 +116,9 @@ final class TextFieldTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
-        XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
+        XCTAssertNil(viewModel.value, "Initial viewModel value should be nil for Spacer")
     }
 }

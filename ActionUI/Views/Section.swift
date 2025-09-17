@@ -17,7 +17,15 @@ import SwiftUI
 
 struct Section: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        return properties                
+        var validatedProperties = properties
+        
+        // Validate header
+        if properties["header"] != nil && !(properties["header"] is String) {
+            logger.log("Section header must be a String; ignoring", .warning)
+            validatedProperties["header"] = nil
+        }
+        
+        return validatedProperties
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in

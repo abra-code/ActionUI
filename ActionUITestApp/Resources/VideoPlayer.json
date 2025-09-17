@@ -2,7 +2,8 @@
   "type": "VStack",
   "properties": {
     "spacing": 10.0,
-    "alignment": "center"
+    "alignment": "center",
+    "padding": "default"
   },
   "children": [
     {
@@ -14,15 +15,17 @@
     {
       "type": "VideoPlayer",
       "properties": {
-        "url": "https://example.com/video.mp4",
-        "autoplay": true
+        "url": "https://abracode.com/ActionUI/Nectarine.mp4",
+        "autoplay": true,
+        "padding": "default"
       }
     },
     {
       "type": "VideoPlayer",
       "properties": {
-        "url": "https://example.com/another-video.mp4",
-        "autoplay": false
+        "url": "https://abracode.com/ActionUI/Nectarine.mp4",
+        "autoplay": false,
+        "padding": "default"
       }
     }
   ]

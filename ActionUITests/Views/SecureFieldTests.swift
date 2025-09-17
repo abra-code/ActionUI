@@ -3,7 +3,7 @@
  SecureFieldTests.swift
 
  Tests for the SecureField component in the ActionUI component library.
- Verifies property validation, including placeholder defaults and restricted textContentType values.
+ Verifies JSON decoding, property validation, view construction, and state binding, including placeholder defaults and restricted textContentType values.
 */
 
 import XCTest
@@ -55,7 +55,7 @@ final class SecureFieldTests: XCTestCase {
         
         let validated = SecureField.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Invalid placeholder should be nil")
+        XCTAssertEqual(validated["placeholder"] as? String, nil, "Invalid placeholder should be nil")
         XCTAssertNil(validated["textContentType"], "Invalid textContentType should be nil")
     }
     
@@ -64,8 +64,73 @@ final class SecureFieldTests: XCTestCase {
         
         let validated = SecureField.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Missing placeholder should be nil")
+        XCTAssertEqual(validated["placeholder"] as? String, nil, "Missing placeholder should be nil")
         XCTAssertNil(validated["textContentType"], "Missing textContentType should be nil")
         XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+    }
+    
+    func testSecureFieldConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "SecureField",
+            "properties": [
+                "placeholder": "Enter password",
+                "textContentType": "password",
+                "actionID": "secure.submit",
+                "padding": 10.0
+            ]
+        ]
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = SecureField.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+    }
+    
+    func testSecureFieldJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "SecureField",
+            "properties": {
+                "placeholder": "Enter password",
+                "textContentType": "password",
+                "actionID": "secure.submit",
+                "padding": 10.0,
+                "offset": {"x": 5.0, "y": -5.0}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "SecureField", "Element type should be SecureField")
+        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter password", "placeholder should be Enter password")
+        XCTAssertEqual(element.properties["textContentType"] as? String, "password", "textContentType should be password")
+        XCTAssertEqual(element.properties["actionID"] as? String, "secure.submit", "actionID should be secure.submit")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+        if let offset = element.properties["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
+        } else {
+            XCTFail("offset should be valid dictionary")
+        }
+        
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+        XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be empty string")
     }
 }

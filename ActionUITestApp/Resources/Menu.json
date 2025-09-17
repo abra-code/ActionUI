@@ -2,7 +2,8 @@
   "type": "VStack",
   "properties": {
     "spacing": 10.0,
-    "alignment": "center"
+    "alignment": "center",
+    "padding": "default"
   },
   "children": [
     {

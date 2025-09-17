@@ -27,11 +27,10 @@ struct TabView: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        if let selection = validatedProperties["selection"] as? Int {
-            validatedProperties["selection"] = selection
-        } else if validatedProperties["selection"] != nil {
-            logger.log("TabView selection must be an Integer; defaulting to 0", .warning)
-            validatedProperties["selection"] = 0
+        // Validate placeholder
+        if !(properties["selection"] is Int?), properties["selection"] != nil {
+            logger.log("TabView selection must be an Integer; skipping", .warning)
+            validatedProperties["selection"] = nil
         }
         
         return validatedProperties

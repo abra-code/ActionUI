@@ -92,4 +92,69 @@ final class ToggleTests: XCTestCase {
         XCTAssertNil(validated["style"], "Checkbox style should be invalid on non-macOS platforms")
     }
     #endif
+    
+    func testToggleConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Toggle",
+            "properties": [
+                "title": "Enable Feature",
+                "style": "switch",
+                "actionID": "toggle.submit",
+                "padding": 10.0
+            ]
+        ]
+        
+        let element = try ViewElement(from: elementDict, logger: logger)
+        let validatedProperties = Toggle.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+    }
+    
+    func testToggleJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Toggle",
+            "properties": {
+                "title": "Enable Feature",
+                "style": "switch",
+                "actionID": "toggle.submit",
+                "padding": 10.0,
+                "offset": {"x": 5.0, "y": -5.0}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        
+        // Parse JSON into ViewElement
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+                
+        XCTAssertEqual(element.id, 1, "Element ID should be 1")
+        XCTAssertEqual(element.type, "Toggle", "Element type should be Toggle")
+        XCTAssertEqual(element.properties["title"] as? String, "Enable Feature", "title should be Enable Feature")
+        XCTAssertEqual(element.properties["style"] as? String, "switch", "style should be switch")
+        XCTAssertEqual(element.properties["actionID"] as? String, "toggle.submit", "actionID should be toggle.submit")
+        XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+        if let offset = element.properties["offset"] as? [String: Any] {
+            XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
+            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
+        } else {
+            XCTFail("offset should be valid dictionary")
+        }
+        
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrive viewModel")
+            return
+        }
+        XCTAssertEqual(viewModel.value as? Bool, false, "Initial viewModel value should be false")
+    }
 }

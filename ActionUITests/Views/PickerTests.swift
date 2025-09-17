@@ -55,13 +55,13 @@ final class PickerTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
-        // Trigger state initialization by creating ActionUIView
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
             XCTFail("Failed to retrive viewModel")
             return
         }
 
+        // Trigger state initialization by creating ActionUIView
         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         _ = actionUIView.body // Force body creation
         
