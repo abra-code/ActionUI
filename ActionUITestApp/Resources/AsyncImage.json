@@ -18,7 +18,12 @@
         "url": "https://abracode.com/abracode.png",
         "placeholder": "photo",
         "resizable": true,
-        "contentMode": "fit"
+        "contentMode": "fit",
+        "frame": {
+          "width": 50.0,
+          "height": 50.0,
+          "alignment": "center"
+        }
       }
     },
     {
