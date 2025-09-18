@@ -102,7 +102,12 @@ class ActionUIModel: ObservableObject {
         logger.log("Cached description as binary plist for windowUUID: \(windowUUID) at \(url)", .verbose)
         windowModels[windowUUID] = windowModel
     }
-        
+
+    func cacheData(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
+        try data.write(to: url)
+        logger.log("Cached description in original format for windowUUID: \(windowUUID) at \(url)", .verbose)
+    }
+
     // Get the value of a view element
     func getElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
