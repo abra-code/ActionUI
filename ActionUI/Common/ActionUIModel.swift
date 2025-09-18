@@ -92,7 +92,16 @@ class ActionUIModel: ObservableObject {
         windowModels[windowUUID] = windowModel
         return element
     }
-    
+
+    // Load a sub-view from JSON or plist data without overwriting the root element
+    func loadSubViewDescription(from data: Data, format: String, windowUUID: String) throws -> ViewElement {
+        guard let windowModel = windowModels[windowUUID] else {
+            logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
+            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No WindowModel for windowUUID"])
+        }
+        return try windowModel.loadSubViewDescription(from: data, format: format)
+    }
+
     // Cache a view description as a binary plist to a specified URL
     func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)

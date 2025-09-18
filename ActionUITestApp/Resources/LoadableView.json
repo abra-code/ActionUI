@@ -9,8 +9,7 @@
     {
       "type": "Text",
       "properties": {
-        "text": "LoadableView Demo",
-        "padding": "default"
+        "text": "LoadableView from remote HelloWorld.json",
       }
     },
     {
@@ -18,6 +17,12 @@
       "properties": {
         "url": "https://abracode.com/ActionUI/HelloWorld.json",
         "padding": "default"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "LoadableView from DatePicker.json in app bundle",
       }
     },
     {

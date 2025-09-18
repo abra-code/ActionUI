@@ -57,39 +57,22 @@ struct LoadableView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        
+        let isContentView = false
         // Use model.value if set (heuristics to interpret), else fallback to validated properties
-        if let value = Self.initialValue(model) as? String, !value.isEmpty {
-            return buildContentView(from: value, windowUUID: windowUUID, logger: logger)
-        } else {
+        guard let value = Self.initialValue(model) as? String, !value.isEmpty else {
             logger.log("No valid source for LoadableView, displaying error SwiftUI.Text", .warning)
             return SwiftUI.Text("No valid source provided")
         }
-    }
-    
-    static var initialValue: (ViewModel) -> Any? = { model in
-        if let initialValue = model.value as? String {
-            return initialValue
-        }
-        // Fallback to properties (prioritize url > filePath > name)
-        if let url = model.validatedProperties["url"] as? String {
-            return url
-        } else if let filePath = model.validatedProperties["filePath"] as? String {
-            return filePath
-        } else if let name = model.validatedProperties["name"] as? String {
-            return name
-        }
-        return ""
-    }
-    
-    // Heuristics to build the appropriate content view from a string value
-    private static func buildContentView(from value: String, windowUUID: String, logger: any ActionUILogger) -> any SwiftUI.View {
+
+        // Heuristics to build the appropriate content view from a string value
         if value.lowercased().hasPrefix("http://") || value.lowercased().hasPrefix("https://") {
             guard let url = URL(string: value) else {
                 logger.log("Invalid URL: \(value)", .warning)
                 return SwiftUI.Text("Invalid URL: \(value)")
             }
             logger.log("Interpreting value as remote URL: \(value)", .debug)
-            return RemoteLoadableView(url: url, windowUUID: windowUUID, logger: logger)
+            return RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
         } else {
             var fileURL: URL
             if value.lowercased().hasPrefix("file://") {
@@ -114,14 +97,30 @@ struct LoadableView: ActionUIViewConstruction {
                 fileURL = url
                 logger.log("Interpreting value as bundle name: \(value)", .debug)
             }
-            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, logger: logger)
+            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
         }
     }
     
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let initialValue = model.value as? String {
+            return initialValue
+        }
+        // Fallback to properties (prioritize url > filePath > name)
+        if let url = model.validatedProperties["url"] as? String {
+            return url
+        } else if let filePath = model.validatedProperties["filePath"] as? String {
+            return filePath
+        } else if let name = model.validatedProperties["name"] as? String {
+            return name
+        }
+        return ""
+    }
+        
     // Inner view for remote asynchronous loading
     private struct RemoteLoadableView: SwiftUI.View {
         let url: URL
         let windowUUID: String
+        let isContentView: Bool
         let logger: any ActionUILogger
         
         @State private var element: ViewElement?
@@ -147,9 +146,12 @@ struct LoadableView: ActionUIViewConstruction {
                                 // Determine format based on URL extension
                                 let format = url.pathExtension.lowercased() == "plist" ? "plist" : "json"
                                 logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
-                                
-                                let loadedElement = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
-                                element = loadedElement
+                                if isContentView {
+                                    element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
+                                }
+                                else { //subview loading
+                                    element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID)
+                                }
                                 logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
                             } catch {
                                 self.error = error
@@ -165,14 +167,16 @@ struct LoadableView: ActionUIViewConstruction {
     private struct FileLoadableView: SwiftUI.View {
         let fileURL: URL
         let windowUUID: String
+        let isContentView: Bool
         let logger: any ActionUILogger
         
         private let element: ViewElement?
         private let error: Error?
         
-        init(fileURL: URL, windowUUID: String, logger: any ActionUILogger) {
+        init(fileURL: URL, windowUUID: String, isContentView: Bool, logger: any ActionUILogger) {
             self.fileURL = fileURL
             self.windowUUID = windowUUID
+            self.isContentView = isContentView
             self.logger = logger
             
             // Perform synchronous loading in init
@@ -180,7 +184,11 @@ struct LoadableView: ActionUIViewConstruction {
                 let data = try Data(contentsOf: fileURL)
                 let format = fileURL.pathExtension.lowercased() == "plist" ? "plist" : "json"
                 logger.log("Determined format '\(format)' for file URL \(fileURL)", .debug)
-                self.element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
+                if isContentView {
+                    self.element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
+                } else {
+                    self.element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID)
+                }
                 logger.log("Successfully loaded \(format) for LoadableView from file \(fileURL)", .debug)
                 self.error = nil
             } catch {
