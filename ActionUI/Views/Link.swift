@@ -48,9 +48,6 @@ struct Link: ActionUIViewConstruction {
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
-        if let title = properties["title"] as? String {
-            return view.overlay(SwiftUI.Text(title), alignment: .center)
-        }
         return view
     }
 }
