@@ -9,13 +9,21 @@
     {
       "type": "Text",
       "properties": {
-        "text": "LoadableView Demo"
+        "text": "LoadableView Demo",
+        "padding": "default"
       }
     },
     {
       "type": "LoadableView",
       "properties": {
         "url": "https://abracode.com/ActionUI/HelloWorld.json",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "LoadableView",
+      "properties": {
+        "name": "DatePicker.json",
         "padding": "default"
       }
     }
