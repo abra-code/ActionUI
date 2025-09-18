@@ -2,7 +2,7 @@
   "type": "Form",
   "id": 1,
   "properties": {
-    "padding": 10.0,
+    "padding": "default",
   },
   "children": [
     {
@@ -71,28 +71,34 @@
       ]
     },
     {
-      "type": "Section",
+      "type": "HStack",
       "properties": {
-        "header": "Account Actions"
+        "spacing": 10.0,
+        "padding": "default",
       },
       "children": [
-        {
-          "type": "Button",
-          "id": 7,
-          "properties": {
-            "title": "Save",
-            "buttonStyle": "borderedProminent"
+          {
+            "type": "Spacer",
+            "properties": {
+            }
+          },
+          {
+            "type": "Button",
+            "id": 8,
+            "properties": {
+              "title": "Cancel",
+              "buttonStyle": "plain",
+              "role": "cancel"
+            }
+          },
+          {
+            "type": "Button",
+            "id": 7,
+            "properties": {
+              "title": "Save",
+              "buttonStyle": "borderedProminent"
+            }
           }
-        },
-        {
-          "type": "Button",
-          "id": 8,
-          "properties": {
-            "title": "Cancel",
-            "buttonStyle": "plain",
-            "role": "cancel"
-          }
-        }
       ]
     }
   ]
