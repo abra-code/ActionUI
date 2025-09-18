@@ -56,6 +56,7 @@ class ActionUIRegistry {
         register(LazyVStack.self)
         register(Link.self)
         register(List.self)
+        register(LoadableView.self)
         register(Map.self)
         register(Menu.self)
         register(NavigationLink.self)
@@ -99,7 +100,7 @@ class ActionUIRegistry {
         if let constructionType = registrations[type] {
             return constructionType.validateProperties(properties, logger)
         }
-        logger.log("No registration found for type \(type), returning unchanged properties", .warning)
+        logger.log("No registration found for type \(type), returning unchanged properties", .error)
         return properties
     }
     
