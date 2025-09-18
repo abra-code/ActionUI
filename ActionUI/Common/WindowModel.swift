@@ -25,13 +25,13 @@ class WindowModel: ObservableObject {
             let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: data)
             self.element = element
             populateViewModels(from: element)
-            logger.log("Loaded JSON description for windowUUID: \(windowUUID)", .verbose)
+            logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
             let element = try PropertyListDecoder(logger: logger).decode(ViewElement.self, from: data)
             self.element = element
             populateViewModels(from: element)
-            logger.log("Loaded plist description for windowUUID: \(windowUUID)", .verbose)
+            logger.log("Loaded plist description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else {
             logger.log("Unsupported format: \(format)", .error)
