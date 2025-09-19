@@ -69,7 +69,7 @@ struct Button: ActionUIViewConstruction {
             buttonRole = .cancel
         }
         
-        var buttonView = SwiftUI.Button(
+        return SwiftUI.Button(
             role: buttonRole,
             action: {
                 if let actionID = actionID {
@@ -80,19 +80,22 @@ struct Button: ActionUIViewConstruction {
                 SwiftUI.Text(title)
             }
         )
-
-        let buttonStyle = properties["buttonStyle"] as? String ?? "plain"
-        switch buttonStyle {
-        case "bordered":
-            return buttonView.buttonStyle(.bordered)
-        case "borderedProminent":
-            return buttonView.buttonStyle(.borderedProminent)
-        default:
-            return buttonView.buttonStyle(.plain)
-        }
     }
     
     static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+        if var buttonView = view as? SwiftUI.Button<SwiftUI.Text> {
+            let buttonStyle = properties["buttonStyle"] as? String ?? "plain"
+            switch buttonStyle {
+            case "bordered":
+                return buttonView.buttonStyle(.bordered)
+            case "borderedProminent":
+                return buttonView.buttonStyle(.borderedProminent)
+            default:
+                return buttonView.buttonStyle(.plain)
+            }
+        } else {
+            logger.log("Invalid view type.Expected SwiftUI.Button<SwiftUI.Text>", .error)
+        }
         return view
     }
 }
