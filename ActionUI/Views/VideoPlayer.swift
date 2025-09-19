@@ -59,11 +59,11 @@ struct VideoPlayer: ActionUIViewConstruction {
             
             return videoPlayer
         } else {
-            logger.log("VideoPlayer missing or invalid URL, displaying error Label", .warning)
+            logger.log("VideoPlayer missing or invalid URL, displaying error Label", .error)
             return SwiftUI.Label("Missing or invalid URL", systemImage: "exclamationmark.triangle")
         }
         #else
-        logger.log("VideoPlayer requires AVKit, displaying error Label", .warning)
+        logger.log("VideoPlayer requires AVKit, displaying error Label", .error)
         return SwiftUI.Label("VideoPlayer not supported on this platform", systemImage: "exclamationmark.triangle")
         #endif
     }

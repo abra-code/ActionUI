@@ -14,11 +14,13 @@ import AVKit
 @MainActor
 final class VideoPlayerTests: XCTestCase {
     private var logger: XCTestLogger!
+    private var consoleLogger: ConsoleLogger!
     private var windowUUID: String!
     
     override func setUp() {
         super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
+        consoleLogger = ConsoleLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.setLogger(logger)
         ActionUIRegistry.shared.resetForTesting()
@@ -30,6 +32,7 @@ final class VideoPlayerTests: XCTestCase {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
+        consoleLogger = nil
         windowUUID = nil
         super.tearDown()
     }
@@ -183,6 +186,10 @@ final class VideoPlayerTests: XCTestCase {
     }
     
     func testVideoPlayerMissingURL() throws {
+        // Use ConsoleLogger to avoid test failure from expected error
+        ActionUIRegistry.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.setLogger(consoleLogger)
+
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "VideoPlayer",
@@ -199,5 +206,8 @@ final class VideoPlayerTests: XCTestCase {
         
         // Verify validated properties
         XCTAssertNil(validatedProperties["url"], "Missing url should be nil")
+
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
     }
 }
