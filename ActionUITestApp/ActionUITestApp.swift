@@ -46,7 +46,7 @@ struct ActionUITestApp: App {
                             openWindow(id: "JSON Selector")
                             // Log open windows/sessions for debugging
                             #if canImport(UIKit)
-                            print("Open sessions: \(UIApplication.shared.openSessions.map { $0.scene?.persistentIdentifier ?? "unknown" })")
+                            print("Open sessions: \(UIApplication.shared.openSessions.map { $0.persistentIdentifier })")
                             #endif
                             #if canImport(AppKit)
                             print("Open windows: \(NSApplication.shared.windows.map { $0.title })")
