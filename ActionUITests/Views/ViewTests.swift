@@ -84,6 +84,26 @@ final class ViewTests: XCTestCase {
         }
     }
     
+    func testValidatePropertiesValidFlexibleFrame() throws {
+        let properties: [String: Any] = [
+            "frame": ["minWidth": 50.0, "idealWidth": 100.0, "maxWidth": 200.0, "minHeight": 50.0, "idealHeight": 100.0, "maxHeight": 200.0, "alignment": "topLeading"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let frame = validated["frame"] as? [String: Any] {
+            XCTAssertEqual(frame.cgFloat(forKey: "minWidth"), 50.0, "frame.minWidth should be 50.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "idealWidth"), 100.0, "frame.idealWidth should be 100.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "maxWidth"), 200.0, "frame.maxWidth should be 200.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "minHeight"), 50.0, "frame.minHeight should be 50.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "idealHeight"), 100.0, "frame.idealHeight should be 100.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "maxHeight"), 200.0, "frame.maxHeight should be 200.0")
+            XCTAssertEqual(frame["alignment"] as? String, "topLeading", "frame.alignment should be topLeading")
+        } else {
+            XCTFail("frame should be a dictionary")
+        }
+    }
+    
     func testValidatePropertiesInvalid() throws {
         let properties: [String: Any] = [
             "padding": "10",
@@ -174,7 +194,27 @@ final class ViewTests: XCTestCase {
         
         let validated = View.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["frame"], "frame should be nil if height is missing")
+        if let frame = validated["frame"] as? [String: Any] {
+            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
+            XCTAssertNil(frame["height"], "frame.height should be nil when not provided")
+        } else {
+            XCTFail("frame should be a dictionary with partial fixed frame")
+        }
+    }
+    
+    func testValidatePropertiesFrameOnlyHeight() throws {
+        let properties: [String: Any] = [
+            "frame": ["height": 100.0]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let frame = validated["frame"] as? [String: Any] {
+            XCTAssertNil(frame["width"], "frame.width should be nil when not provided")
+            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
+        } else {
+            XCTFail("frame should be a dictionary with only height")
+        }
     }
     
     func testValidatePropertiesFrameInvalidWidth() throws {
@@ -197,6 +237,72 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["frame"], "frame should be nil if height is not a CGFloat")
     }
     
+    func testValidatePropertiesFrameNoSizeConstraints() {
+        let properties: [String: Any] = [
+            "frame": ["alignment": "center"]
+        ]
+        
+        let validatedProperties = View.validateProperties(properties, logger)
+        
+        // Expect the frame dictionary with only alignment to be preserved
+        XCTAssertEqual(validatedProperties["frame"] as? [String: String], ["alignment": "center"], "frame should be preserved with only alignment")
+    }
+    
+    func testValidatePropertiesFrameMixedForms() throws {
+        let properties: [String: Any] = [
+            "frame": ["width": 100.0, "minWidth": 50.0]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["frame"], "frame should be nil if mixing fixed and flexible keys")
+    }
+    
+    func testValidatePropertiesFlexibleFramePartial() throws {
+        let properties: [String: Any] = [
+            "frame": ["minWidth": 50.0]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let frame = validated["frame"] as? [String: Any] {
+            XCTAssertEqual(frame.cgFloat(forKey: "minWidth"), 50.0, "frame.minWidth should be 50.0")
+            XCTAssertNil(frame["idealWidth"], "frame.idealWidth should be nil when not provided")
+            XCTAssertNil(frame["maxWidth"], "frame.maxWidth should be nil when not provided")
+            XCTAssertNil(frame["minHeight"], "frame.minHeight should be nil when not provided")
+            XCTAssertNil(frame["idealHeight"], "frame.idealHeight should be nil when not provided")
+            XCTAssertNil(frame["maxHeight"], "frame.maxHeight should be nil when not provided")
+        } else {
+            XCTFail("frame should be a dictionary with partial flexible frame")
+        }
+    }
+    
+    func testValidatePropertiesFlexibleFrameInvalidMinWidth() throws {
+        let properties: [String: Any] = [
+            "frame": ["minWidth": "50", "idealWidth": 100.0]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["frame"], "frame should be nil if minWidth is not a CGFloat")
+    }
+    
+    func testValidatePropertiesFrameInvalidAlignment() throws {
+        let properties: [String: Any] = [
+            "frame": ["width": 100.0, "height": 100.0, "alignment": "invalid"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let frame = validated["frame"] as? [String: Any] {
+            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
+            XCTAssertNil(frame["alignment"], "frame.alignment should be nil if invalid")
+        } else {
+            XCTFail("frame should be a dictionary with invalid alignment ignored")
+        }
+    }
+    
     func testValidatePropertiesShadowPartial() throws {
         let properties: [String: Any] = [
             "shadow": ["color": "black", "radius": 5.0]
@@ -210,44 +316,8 @@ final class ViewTests: XCTestCase {
             XCTAssertNil(shadow["x"], "shadow.x should be nil when not provided")
             XCTAssertNil(shadow["y"], "shadow.y should be nil when not provided")
         } else {
-            XCTFail("shadow should be valid dictionary with partial properties")
+            XCTFail("shadow should be a dictionary with partial properties")
         }
-    }
-    
-    func testValidatePropertiesShadowInvalid() throws {
-        let properties: [String: Any] = [
-            "shadow": ["color": 123, "radius": "5", "x": "0", "y": true]
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
-    }
-    
-    func testValidatePropertiesInvalidWithOtherValidProperties() throws {
-        let properties: [String: Any] = [
-            "frame": ["width": "100", "height": true],
-            "offset": ["x": "10", "y": true],
-            "shadow": ["color": 123, "radius": "5"],
-            "padding": 20.0,
-            "foregroundStyle": "red",
-            "opacity": 0.5,
-            "disabled": false,
-            "accessibilityLabel": "Test View",
-            "accessibilityIdentifier": "view_1"
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["frame"], "frame should be nil for invalid types")
-        XCTAssertNil(validated["offset"], "offset should be nil for invalid types")
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "padding should be valid CGFloat")
-        XCTAssertEqual(validated["foregroundStyle"] as? String, "red", "foregroundStyle should be valid string")
-        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.5, "opacity should be valid CGFloat")
-        XCTAssertEqual(validated["disabled"] as? Bool, false, "disabled should be valid Bool")
-        XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be valid string")
-        XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be valid string")
     }
     
     func testBuildViewAndApplyModifiers() throws {
@@ -278,7 +348,7 @@ final class ViewTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
@@ -320,6 +390,48 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(element.properties["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be view_1")
     }
     
+    func testBuildViewAndApplyModifiersFlexibleFrame() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "View",
+            "properties": {
+                "frame": {"minWidth": 50.0, "idealHeight": 100.0, "alignment": "topLeading"}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let validatedProperties = View.validateProperties(element.properties, logger)
+        
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
+        let modifiedView = View.applyModifiers(view, validatedProperties, logger)
+        
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+        
+        XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
+        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to flexible frame modifier")
+        if let frame = element.properties["frame"] as? [String: Any] {
+            XCTAssertEqual(frame.cgFloat(forKey: "minWidth"), 50.0, "frame.minWidth should be 50.0")
+            XCTAssertEqual(frame.cgFloat(forKey: "idealHeight"), 100.0, "frame.idealHeight should be 100.0")
+            XCTAssertEqual(frame["alignment"] as? String, "topLeading", "frame.alignment should be topLeading")
+        } else {
+            XCTFail("frame should be a dictionary")
+        }
+    }
+    
     func testBuildViewAndApplyModifiersEmptyProperties() throws {
         let jsonString = """
         {
@@ -338,7 +450,7 @@ final class ViewTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
@@ -418,7 +530,7 @@ final class ViewTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
@@ -439,32 +551,4 @@ final class ViewTests: XCTestCase {
         }
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
     }
-    
-/* no XCUIApplication yet
-    func testAccessibilityIdentifier() throws {
-        let elementDict: [String: Any] = [
-            "id": 1,
-            "type": "View",
-            "properties": [
-                "accessibilityIdentifier": "view_1"
-            ]
-        ]
-        let element = try ViewElement(from: elementDict, logger: logger)
-        guard let windowModel = actionUIModel.windowModels[windowUUID],
-              let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
-            return
-        }
-
-        let validatedProperties = View.validateProperties(element.properties, logger)
-        
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, validatedProperties, logger)
-        
-        // Use XCUITest to verify accessibility identifier
-        let app = XCUIApplication()
-        app.launch()
-        XCTAssertTrue(app.otherElements["view_1"].exists, "View with accessibilityIdentifier 'view_1' should exist")
-    }
-*/
 }

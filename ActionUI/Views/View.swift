@@ -58,6 +58,7 @@
  - Fixed Frame: Uses "width" and/or "height" (both optional) with an optional "alignment". At least one of width or height should be specified for the frame to take effect.
  - Flexible Frame: Uses "minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight" (at least one required) with an optional "alignment".
  Mixing keys from both forms (e.g., "width" with "minWidth") is invalid and will result in the frame being ignored with a warning.
+ Invalid types for any frame dimension will result in the entire frame being ignored.
 */
 
 import SwiftUI
@@ -69,284 +70,306 @@ struct View: ActionUIViewConstruction {
         var validatedProperties = properties
         
         // Validate padding
-        if (properties.cgFloat(forKey: "padding") == nil) && !(properties["padding"] is [String: Any]?) && !(properties["padding"] is String),
-           properties["padding"] != nil {
-            logger.log("Invalid type for padding: expected Double, String or [String: Any], got \(type(of: properties["padding"]!)), ignoring", .warning)
-            validatedProperties["padding"] = nil
-        } else if let padding = properties["padding"] as? String,
-                  padding.lowercased() != "default" {
-            logger.log("padding String must be 'default', got \(padding), ignoring", .warning)
-            validatedProperties["padding"] = nil
+        if let padding = properties["padding"] {
+            if properties.cgFloat(forKey: "padding") != nil {
+                // Valid numeric value, keep as is
+            } else if let paddingDict = padding as? [String: Any] {
+                let top = paddingDict.cgFloat(forKey: "top")
+                let leading = paddingDict.cgFloat(forKey: "leading")
+                let bottom = paddingDict.cgFloat(forKey: "bottom")
+                let trailing = paddingDict.cgFloat(forKey: "trailing")
+                if top != nil || leading != nil || bottom != nil || trailing != nil {
+                    var validPadding: [String: Any] = [:]
+                    if let top = top { validPadding["top"] = top }
+                    if let leading = leading { validPadding["leading"] = leading }
+                    if let bottom = bottom { validPadding["bottom"] = bottom }
+                    if let trailing = trailing { validPadding["trailing"] = trailing }
+                    validatedProperties["padding"] = validPadding
+                } else {
+                    logger.log("Invalid padding dictionary: all values must be numeric, ignoring", .warning)
+                    validatedProperties["padding"] = nil
+                }
+            } else if let paddingStr = padding as? String, paddingStr.lowercased() == "default" {
+                // Valid string value, keep as is
+            } else {
+                logger.log("Invalid type for padding: expected numeric, String ('default'), or [String: Any], got \(type(of: padding)), ignoring", .warning)
+                validatedProperties["padding"] = nil
+            }
         }
         
         // Validate hidden
-        if !(properties["hidden"] is Bool?), properties["hidden"] != nil {
-            logger.log("Invalid type for hidden: expected Bool, got \(type(of: properties["hidden"]!)), ignoring", .warning)
+        if let hidden = properties["hidden"], !(hidden is Bool) {
+            logger.log("Invalid type for hidden: expected Bool, got \(type(of: hidden)), ignoring", .warning)
             validatedProperties["hidden"] = nil
         }
         
         // Validate foregroundStyle
-        if !(properties["foregroundStyle"] is String?), properties["foregroundStyle"] != nil {
-            logger.log("Invalid type for foregroundStyle: expected String, got \(type(of: properties["foregroundStyle"]!)), ignoring", .warning)
+        if let foregroundStyle = properties["foregroundStyle"], !(foregroundStyle is String) {
+            logger.log("Invalid type for foregroundStyle: expected String, got \(type(of: foregroundStyle)), ignoring", .warning)
             validatedProperties["foregroundStyle"] = nil
         }
         
         // Validate font
-        if !(properties["font"] is String?), properties["font"] != nil {
-            logger.log("Invalid type for font: expected String, got \(type(of: properties["font"]!)), ignoring", .warning)
+        if let font = properties["font"], !(font is String) {
+            logger.log("Invalid type for font: expected String, got \(type(of: font)), ignoring", .warning)
             validatedProperties["font"] = nil
         }
         
         // Validate background
-        if !(properties["background"] is String?), properties["background"] != nil {
-            logger.log("Invalid type for background: expected String, got \(type(of: properties["background"]!)), ignoring", .warning)
+        if let background = properties["background"], !(background is String) {
+            logger.log("Invalid type for background: expected String, got \(type(of: background)), ignoring", .warning)
             validatedProperties["background"] = nil
         }
         
         // Validate frame
-        if let frame = validatedProperties["frame"] as? [String: Any] {
-            var validFrame: [String: Any] = [:]
-            var isFixedFrame = false
-            var isFlexibleFrame = false
-            
-            // Check for fixed frame keys
-            let fixedFrameKeys = ["width", "height"]
-            let hasFixedFrameKeys = fixedFrameKeys.contains { frame[$0] != nil }
-            
-            // Check for flexible frame keys
-            let flexibleFrameKeys = ["minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight"]
-            let hasFlexibleFrameKeys = flexibleFrameKeys.contains { frame[$0] != nil }
-            
-            // Validate mutual exclusivity
-            if hasFixedFrameKeys && hasFlexibleFrameKeys {
-                logger.log("Frame dictionary mixes fixed frame keys (\(fixedFrameKeys)) with flexible frame keys (\(flexibleFrameKeys)), ignoring", .warning)
-                validatedProperties["frame"] = nil
-                return validatedProperties
-            }
-            
-            // Validate fixed frame
-            if hasFixedFrameKeys {
-                isFixedFrame = true
-                if let width = frame.cgFloat(forKey: "width") {
-                    validFrame["width"] = width
-                } else if frame["width"] != nil {
-                    logger.log("Invalid type for frame.width: expected Double, got \(type(of: frame["width"]!)), ignoring", .warning)
-                }
+        if let frame = properties["frame"] {
+            if let frameDict = frame as? [String: Any] {
+                var validFrame: [String: Any] = [:]
+                var isFixedFrame = false
+                var isFlexibleFrame = false
                 
-                if let height = frame.cgFloat(forKey: "height") {
-                    validFrame["height"] = height
-                } else if frame["height"] != nil {
-                    logger.log("Invalid type for frame.height: expected Double, got \(type(of: frame["height"]!)), ignoring", .warning)
-                }
+                // Check for fixed frame keys
+                let fixedFrameKeys = ["width", "height"]
+                let hasFixedFrameKeys = fixedFrameKeys.contains { frameDict[$0] != nil }
                 
-                // Ensure at least one of width or height is valid
-                if validFrame["width"] == nil && validFrame["height"] == nil {
-                    logger.log("Fixed frame dictionary lacks valid width or height, ignoring", .warning)
+                // Check for flexible frame keys
+                let flexibleFrameKeys = ["minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight"]
+                let hasFlexibleFrameKeys = flexibleFrameKeys.contains { frameDict[$0] != nil }
+                
+                // Validate mutual exclusivity
+                if hasFixedFrameKeys && hasFlexibleFrameKeys {
+                    logger.log("Frame dictionary mixes fixed frame keys (\(fixedFrameKeys)) with flexible frame keys (\(flexibleFrameKeys)), ignoring", .warning)
                     validatedProperties["frame"] = nil
-                    return validatedProperties
-                }
-            }
-            
-            // Validate flexible frame
-            if hasFlexibleFrameKeys {
-                isFlexibleFrame = true
-                if let minWidth = frame.cgFloat(forKey: "minWidth") {
-                    validFrame["minWidth"] = minWidth
-                } else if frame["minWidth"] != nil {
-                    logger.log("Invalid type for frame.minWidth: expected Double, got \(type(of: frame["minWidth"]!)), ignoring", .warning)
+                } else if hasFixedFrameKeys {
+                    isFixedFrame = true
+                    var isValid = true
+                    if let width = frameDict.cgFloat(forKey: "width") {
+                        validFrame["width"] = width
+                    } else if frameDict["width"] != nil {
+                        logger.log("Invalid type for frame.width: expected numeric, got \(type(of: frameDict["width"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if let height = frameDict.cgFloat(forKey: "height") {
+                        validFrame["height"] = height
+                    } else if frameDict["height"] != nil {
+                        logger.log("Invalid type for frame.height: expected numeric, got \(type(of: frameDict["height"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if !isValid {
+                        validatedProperties["frame"] = nil
+                    }
+                } else if hasFlexibleFrameKeys {
+                    isFlexibleFrame = true
+                    var isValid = true
+                    if let minWidth = frameDict.cgFloat(forKey: "minWidth") {
+                        validFrame["minWidth"] = minWidth
+                    } else if frameDict["minWidth"] != nil {
+                        logger.log("Invalid type for frame.minWidth: expected numeric, got \(type(of: frameDict["minWidth"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if let idealWidth = frameDict.cgFloat(forKey: "idealWidth") {
+                        validFrame["idealWidth"] = idealWidth
+                    } else if frameDict["idealWidth"] != nil {
+                        logger.log("Invalid type for frame.idealWidth: expected numeric, got \(type(of: frameDict["idealWidth"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if let maxWidth = frameDict.cgFloat(forKey: "maxWidth") {
+                        validFrame["maxWidth"] = maxWidth
+                    } else if frameDict["maxWidth"] != nil {
+                        logger.log("Invalid type for frame.maxWidth: expected numeric, got \(type(of: frameDict["maxWidth"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if let minHeight = frameDict.cgFloat(forKey: "minHeight") {
+                        validFrame["minHeight"] = minHeight
+                    } else if frameDict["minHeight"] != nil {
+                        logger.log("Invalid type for frame.minHeight: expected numeric, got \(type(of: frameDict["minHeight"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if let idealHeight = frameDict.cgFloat(forKey: "idealHeight") {
+                        validFrame["idealHeight"] = idealHeight
+                    } else if frameDict["idealHeight"] != nil {
+                        logger.log("Invalid type for frame.idealHeight: expected numeric, got \(type(of: frameDict["idealHeight"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if let maxHeight = frameDict.cgFloat(forKey: "maxHeight") {
+                        validFrame["maxHeight"] = maxHeight
+                    } else if frameDict["maxHeight"] != nil {
+                        logger.log("Invalid type for frame.maxHeight: expected numeric, got \(type(of: frameDict["maxHeight"]!)), ignoring frame", .warning)
+                        isValid = false
+                    }
+                    
+                    if !isValid {
+                        validatedProperties["frame"] = nil
+                    }
                 }
                 
-                if let idealWidth = frame.cgFloat(forKey: "idealWidth") {
-                    validFrame["idealWidth"] = idealWidth
-                } else if frame["idealWidth"] != nil {
-                    logger.log("Invalid type for frame.idealWidth: expected Double, got \(type(of: frame["idealWidth"]!)), ignoring", .warning)
+                // Validate alignment for either frame type or standalone alignment
+                if (isFixedFrame || isFlexibleFrame || frameDict["alignment"] != nil) && validatedProperties["frame"] != nil {
+                    if let alignment = frameDict["alignment"] as? String {
+                        let validAlignments = ["leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
+                        if validAlignments.contains(alignment) {
+                            validFrame["alignment"] = alignment
+                        } else {
+                            logger.log("Invalid value for frame.alignment: expected one of \(validAlignments), got \(alignment), ignoring alignment", .warning)
+                        }
+                    } else if frameDict["alignment"] != nil {
+                        logger.log("Invalid type for frame.alignment: expected String, got \(type(of: frameDict["alignment"]!)), ignoring alignment", .warning)
+                    }
+                    if !validFrame.isEmpty {
+                        validatedProperties["frame"] = validFrame
+                    } else if frameDict["alignment"] != nil {
+                        // Allow frame with only alignment
+                        validatedProperties["frame"] = ["alignment": frameDict["alignment"]]
+                    } else {
+                        validatedProperties["frame"] = nil
+                    }
                 }
-                
-                if let maxWidth = frame.cgFloat(forKey: "maxWidth") {
-                    validFrame["maxWidth"] = maxWidth
-                } else if frame["maxWidth"] != nil {
-                    logger.log("Invalid type for frame.maxWidth: expected Double, got \(type(of: frame["maxWidth"]!)), ignoring", .warning)
-                }
-                
-                if let minHeight = frame.cgFloat(forKey: "minHeight") {
-                    validFrame["minHeight"] = minHeight
-                } else if frame["minHeight"] != nil {
-                    logger.log("Invalid type for frame.minHeight: expected Double, got \(type(of: frame["minHeight"]!)), ignoring", .warning)
-                }
-                
-                if let idealHeight = frame.cgFloat(forKey: "idealHeight") {
-                    validFrame["idealHeight"] = idealHeight
-                } else if frame["idealHeight"] != nil {
-                    logger.log("Invalid type for frame.idealHeight: expected Double, got \(type(of: frame["idealHeight"]!)), ignoring", .warning)
-                }
-                
-                if let maxHeight = frame.cgFloat(forKey: "maxHeight") {
-                    validFrame["maxHeight"] = maxHeight
-                } else if frame["maxHeight"] != nil {
-                    logger.log("Invalid type for frame.maxHeight: expected Double, got \(type(of: frame["maxHeight"]!)), ignoring", .warning)
-                }
-                
-                // Ensure at least one size constraint is valid
-                if validFrame["minWidth"] == nil && validFrame["idealWidth"] == nil && validFrame["maxWidth"] == nil &&
-                   validFrame["minHeight"] == nil && validFrame["idealHeight"] == nil && validFrame["maxHeight"] == nil {
-                    logger.log("Flexible frame dictionary lacks valid size constraints (min/ideal/max for width/height), ignoring", .warning)
-                    validatedProperties["frame"] = nil
-                    return validatedProperties
-                }
-            }
-            
-            // Validate alignment for either frame type
-            if let alignment = frame["alignment"] as? String {
-                let validAlignments = ["leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
-                if validAlignments.contains(alignment) {
-                    validFrame["alignment"] = alignment
-                } else {
-                    logger.log("Invalid value for frame.alignment: expected one of \(validAlignments), got \(alignment), ignoring", .warning)
-                }
-            }
-            
-            // Only set validFrame if it contains valid data
-            if (isFixedFrame || isFlexibleFrame) && !validFrame.isEmpty {
-                validatedProperties["frame"] = validFrame
             } else {
-                logger.log("Frame dictionary is invalid or empty, ignoring", .warning)
+                logger.log("Invalid type for frame: expected [String: Any], got \(type(of: frame)), ignoring", .warning)
                 validatedProperties["frame"] = nil
             }
-        } else if validatedProperties["frame"] != nil {
-            logger.log("Invalid type for frame: expected [String: Any], got \(type(of: validatedProperties["frame"]!)), ignoring", .warning)
-            validatedProperties["frame"] = nil
         }
         
         // Validate offset
-        if let offset = validatedProperties["offset"] as? [String: Any] {
-            var validOffset: [String: Any] = [:]
-            var isValid = true
-            
-            if let x = offset.cgFloat(forKey: "x") {
-                validOffset["x"] = x
-            } else if offset["x"] != nil {
-                logger.log("Invalid type for offset.x: expected Double, got \(type(of: offset["x"]!)), ignoring", .warning)
-                isValid = false
-            }
-            
-            if let y = offset.cgFloat(forKey: "y") {
-                validOffset["y"] = y
-            } else if offset["y"] != nil {
-                logger.log("Invalid type for offset.y: expected Double, got \(type(of: offset["y"]!)), ignoring", .warning)
-                isValid = false
-            }
-            
-            if isValid, !validOffset.isEmpty {
-                validatedProperties["offset"] = validOffset
+        if let offset = properties["offset"] {
+            if let offsetDict = offset as? [String: Any] {
+                var validOffset: [String: Any] = [:]
+                var isValid = true
+                
+                if let x = offsetDict.cgFloat(forKey: "x") {
+                    validOffset["x"] = x
+                } else if offsetDict["x"] != nil {
+                    logger.log("Invalid type for offset.x: expected numeric, got \(type(of: offsetDict["x"]!)), ignoring offset", .warning)
+                    isValid = false
+                }
+                
+                if let y = offsetDict.cgFloat(forKey: "y") {
+                    validOffset["y"] = y
+                } else if offsetDict["y"] != nil {
+                    logger.log("Invalid type for offset.y: expected numeric, got \(type(of: offsetDict["y"]!)), ignoring offset", .warning)
+                    isValid = false
+                }
+                
+                if isValid && !validOffset.isEmpty {
+                    validatedProperties["offset"] = validOffset
+                } else {
+                    logger.log("Invalid offset dictionary, ignoring", .warning)
+                    validatedProperties["offset"] = nil
+                }
             } else {
-                logger.log("Invalid offset dictionary, ignoring", .warning)
+                logger.log("Invalid type for offset: expected [String: Any], got \(type(of: offset)), ignoring", .warning)
                 validatedProperties["offset"] = nil
             }
-        } else if validatedProperties["offset"] != nil {
-            logger.log("Invalid type for offset: expected [String: Any], got \(type(of: validatedProperties["offset"]!)), ignoring", .warning)
-            validatedProperties["offset"] = nil
         }
         
         // Validate opacity
-        if let opacity = properties.double(forKey: "opacity") {
-            if (0.0...1.0).contains(opacity) {
-                // No reassignment needed; opacity is already valid in properties
+        if let opacity = properties["opacity"] {
+            if let value = properties.double(forKey: "opacity"), (0.0...1.0).contains(value) {
+                // Valid numeric value in range, keep as is
             } else {
-                logger.log("Invalid value for opacity: expected Double between 0.0 and 1.0, got \(opacity), ignoring", .warning)
+                logger.log("Invalid type or value for opacity: expected numeric between 0.0 and 1.0, got \(type(of: opacity)), ignoring", .warning)
                 validatedProperties["opacity"] = nil
             }
-        } else if properties["opacity"] != nil {
-            logger.log("Invalid type for opacity: expected Double, got \(type(of: properties["opacity"]!)), ignoring", .warning)
-            validatedProperties["opacity"] = nil
         }
         
         // Validate cornerRadius
-        if properties.cgFloat(forKey: "cornerRadius") == nil, properties["cornerRadius"] != nil {
-            logger.log("Invalid type for cornerRadius: expected Double, got \(type(of: properties["cornerRadius"]!)), ignoring", .warning)
-            validatedProperties["cornerRadius"] = nil
+        if let cornerRadius = properties["cornerRadius"] {
+            if properties.cgFloat(forKey: "cornerRadius") == nil {
+                logger.log("Invalid type for cornerRadius: expected numeric, got \(type(of: cornerRadius)), ignoring", .warning)
+                validatedProperties["cornerRadius"] = nil
+            }
         }
         
         // Validate actionID
-        if !(properties["actionID"] is String?), properties["actionID"] != nil {
-            logger.log("Invalid type for actionID: expected String, got \(type(of: properties["actionID"]!)), ignoring", .warning)
+        if let actionID = properties["actionID"], !(actionID is String) {
+            logger.log("Invalid type for actionID: expected String, got \(type(of: actionID)), ignoring", .warning)
             validatedProperties["actionID"] = nil
         }
         
         // Validate valueChangeActionID
-        if !(properties["valueChangeActionID"] is String?), properties["valueChangeActionID"] != nil {
-            logger.log("Invalid type for valueChangeActionID: expected String, got \(type(of: properties["valueChangeActionID"]!)), ignoring", .warning)
+        if let valueChangeActionID = properties["valueChangeActionID"], !(valueChangeActionID is String) {
+            logger.log("Invalid type for valueChangeActionID: expected String, got \(type(of: valueChangeActionID)), ignoring", .warning)
             validatedProperties["valueChangeActionID"] = nil
         }
         
         // Validate disabled
-        if !(properties["disabled"] is Bool?), properties["disabled"] != nil {
-            logger.log("Invalid type for disabled: expected Bool, got \(type(of: properties["disabled"]!)), ignoring", .warning)
+        if let disabled = properties["disabled"], !(disabled is Bool) {
+            logger.log("Invalid type for disabled: expected Bool, got \(type(of: disabled)), ignoring", .warning)
             validatedProperties["disabled"] = nil
         }
         
         // Validate accessibility properties
-        if !(properties["accessibilityLabel"] is String?), properties["accessibilityLabel"] != nil {
-            logger.log("Invalid type for accessibilityLabel: expected String, got \(type(of: properties["accessibilityLabel"]!)), ignoring", .warning)
+        if let accessibilityLabel = properties["accessibilityLabel"], !(accessibilityLabel is String) {
+            logger.log("Invalid type for accessibilityLabel: expected String, got \(type(of: accessibilityLabel)), ignoring", .warning)
             validatedProperties["accessibilityLabel"] = nil
         }
         
-        if !(properties["accessibilityHint"] is String?), properties["accessibilityHint"] != nil {
-            logger.log("Invalid type for accessibilityHint: expected String, got \(type(of: properties["accessibilityHint"]!)), ignoring", .warning)
+        if let accessibilityHint = properties["accessibilityHint"], !(accessibilityHint is String) {
+            logger.log("Invalid type for accessibilityHint: expected String, got \(type(of: accessibilityHint)), ignoring", .warning)
             validatedProperties["accessibilityHint"] = nil
         }
         
-        if !(properties["accessibilityHidden"] is Bool?), properties["accessibilityHidden"] != nil {
-            logger.log("Invalid type for accessibilityHidden: expected Bool, got \(type(of: properties["accessibilityHidden"]!)), ignoring", .warning)
+        if let accessibilityHidden = properties["accessibilityHidden"], !(accessibilityHidden is Bool) {
+            logger.log("Invalid type for accessibilityHidden: expected Bool, got \(type(of: accessibilityHidden)), ignoring", .warning)
             validatedProperties["accessibilityHidden"] = nil
         }
         
-        if !(properties["accessibilityIdentifier"] is String?), properties["accessibilityIdentifier"] != nil {
-            logger.log("Invalid type for accessibilityIdentifier: expected String, got \(type(of: properties["accessibilityIdentifier"]!)), ignoring", .warning)
+        if let accessibilityIdentifier = properties["accessibilityIdentifier"], !(accessibilityIdentifier is String) {
+            logger.log("Invalid type for accessibilityIdentifier: expected String, got \(type(of: accessibilityIdentifier)), ignoring", .warning)
             validatedProperties["accessibilityIdentifier"] = nil
         }
         
         // Validate shadow
-        if let shadow = properties["shadow"] as? [String: Any] {
-            var validShadow: [String: Any] = [:]
-            var isValid = true
-            
-            if let color = shadow["color"] as? String {
-                validShadow["color"] = color
-            } else if shadow["color"] != nil {
-                logger.log("Invalid type for shadow.color: expected String, got \(type(of: shadow["color"]!)), using default black", .warning)
-                validShadow["color"] = "black"
-            }
-            
-            if let radius = shadow.cgFloat(forKey: "radius") {
-                validShadow["radius"] = radius
-            } else if shadow["radius"] != nil {
-                logger.log("Invalid type for shadow.radius: expected Double, got \(type(of: shadow["radius"]!)), ignoring", .warning)
-                isValid = false
-            }
-            
-            if let x = shadow.cgFloat(forKey: "x") {
-                validShadow["x"] = x
-            } else if shadow["x"] != nil {
-                logger.log("Invalid type for shadow.x: expected Double, got \(type(of: shadow["x"]!)), ignoring", .warning)
-                isValid = false
-            }
-            
-            if let y = shadow.cgFloat(forKey: "y") {
-                validShadow["y"] = y
-            } else if shadow["y"] != nil {
-                logger.log("Invalid type for shadow.y: expected Double, got \(type(of: shadow["y"]!)), ignoring", .warning)
-                isValid = false
-            }
-            
-            if isValid, !validShadow.isEmpty {
-                validatedProperties["shadow"] = validShadow
+        if let shadow = properties["shadow"] {
+            if let shadowDict = shadow as? [String: Any] {
+                var validShadow: [String: Any] = [:]
+                var isValid = true
+                
+                if let color = shadowDict["color"] as? String {
+                    validShadow["color"] = color
+                } else if shadowDict["color"] != nil {
+                    logger.log("Invalid type for shadow.color: expected String, got \(type(of: shadowDict["color"]!)), ignoring shadow", .warning)
+                    isValid = false
+                }
+                
+                if let radius = shadowDict.cgFloat(forKey: "radius") {
+                    validShadow["radius"] = radius
+                } else if shadowDict["radius"] != nil {
+                    logger.log("Invalid type for shadow.radius: expected numeric, got \(type(of: shadowDict["radius"]!)), ignoring shadow", .warning)
+                    isValid = false
+                }
+                
+                if let x = shadowDict.cgFloat(forKey: "x") {
+                    validShadow["x"] = x
+                } else if shadowDict["x"] != nil {
+                    logger.log("Invalid type for shadow.x: expected numeric, got \(type(of: shadowDict["x"]!)), ignoring shadow", .warning)
+                    isValid = false
+                }
+                
+                if let y = shadowDict.cgFloat(forKey: "y") {
+                    validShadow["y"] = y
+                } else if shadowDict["y"] != nil {
+                    logger.log("Invalid type for shadow.y: expected numeric, got \(type(of: shadowDict["y"]!)), ignoring shadow", .warning)
+                    isValid = false
+                }
+                
+                if isValid && !validShadow.isEmpty {
+                    validatedProperties["shadow"] = validShadow
+                } else {
+                    logger.log("Invalid shadow dictionary, ignoring", .warning)
+                    validatedProperties["shadow"] = nil
+                }
             } else {
-                logger.log("Invalid shadow dictionary, ignoring", .warning)
+                logger.log("Invalid type for shadow: expected [String: Any], got \(type(of: shadow)), ignoring", .warning)
                 validatedProperties["shadow"] = nil
             }
-        } else if properties["shadow"] != nil {
-            logger.log("Invalid type for shadow: expected [String: Any], got \(type(of: properties["shadow"]!)), ignoring", .warning)
-            validatedProperties["shadow"] = nil
         }
         
         return validatedProperties
@@ -370,8 +393,7 @@ struct View: ActionUIViewConstruction {
             ))
         } else if let padding = properties.cgFloat(forKey: "padding") {
             modifiedView = modifiedView.padding(padding)
-        } else if let padding = properties["padding"] as? String,
-                  padding.lowercased() == "default" {
+        } else if let padding = properties["padding"] as? String, padding.lowercased() == "default" {
             modifiedView = modifiedView.padding()
         }
         
@@ -420,10 +442,7 @@ struct View: ActionUIViewConstruction {
             if hasFixedFrameKeys {
                 let width = frame.cgFloat(forKey: "width")
                 let height = frame.cgFloat(forKey: "height")
-                // Apply fixed frame if at least one dimension is specified
-                if width != nil || height != nil {
-                    modifiedView = modifiedView.frame(width: width, height: height, alignment: alignment)
-                }
+                modifiedView = modifiedView.frame(width: width, height: height, alignment: alignment)
             } else if hasFlexibleFrameKeys {
                 let minWidth = frame.cgFloat(forKey: "minWidth")
                 let idealWidth = frame.cgFloat(forKey: "idealWidth")
@@ -431,18 +450,18 @@ struct View: ActionUIViewConstruction {
                 let minHeight = frame.cgFloat(forKey: "minHeight")
                 let idealHeight = frame.cgFloat(forKey: "idealHeight")
                 let maxHeight = frame.cgFloat(forKey: "maxHeight")
-                // Apply flexible frame if at least one constraint is specified
-                if minWidth != nil || idealWidth != nil || maxWidth != nil || minHeight != nil || idealHeight != nil || maxHeight != nil {
-                    modifiedView = modifiedView.frame(
-                        minWidth: minWidth,
-                        idealWidth: idealWidth,
-                        maxWidth: maxWidth,
-                        minHeight: minHeight,
-                        idealHeight: idealHeight,
-                        maxHeight: maxHeight,
-                        alignment: alignment
-                    )
-                }
+                modifiedView = modifiedView.frame(
+                    minWidth: minWidth,
+                    idealWidth: idealWidth,
+                    maxWidth: maxWidth,
+                    minHeight: minHeight,
+                    idealHeight: idealHeight,
+                    maxHeight: maxHeight,
+                    alignment: alignment
+                )
+            } else {
+                // Apply frame with only alignment
+                modifiedView = modifiedView.frame(alignment: alignment)
             }
         }
         
