@@ -133,7 +133,7 @@ final class GroupTests: XCTestCase {
 
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
@@ -159,7 +159,7 @@ final class GroupTests: XCTestCase {
         let reorderedElement = try actionUIModel.loadDescription(from: reorderedDict, windowUUID: windowUUID)
         guard let reorderedWindowModel = actionUIModel.windowModels[windowUUID],
               let reorderedViewModel = reorderedWindowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 

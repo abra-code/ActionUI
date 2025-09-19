@@ -128,7 +128,7 @@ final class SecureFieldTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be empty string")

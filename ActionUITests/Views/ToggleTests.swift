@@ -152,7 +152,7 @@ final class ToggleTests: XCTestCase {
         
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
         XCTAssertEqual(viewModel.value as? Bool, false, "Initial viewModel value should be false")

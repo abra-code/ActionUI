@@ -49,7 +49,7 @@ final class ActionUIModelTests: XCTestCase {
 
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[1] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
@@ -76,7 +76,7 @@ final class ActionUIModelTests: XCTestCase {
 
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[1] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 

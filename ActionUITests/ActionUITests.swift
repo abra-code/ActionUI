@@ -61,7 +61,7 @@ final class ActionUITests: XCTestCase {
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         guard let windowModel = actionUIModel.windowModels[windowUUID] else {
-            XCTFail("Failed to retrive windowModel from actionUIModel for windowUUID: \(String(describing: windowUUID))")
+            XCTFail("Failed to retrieve windowModel from actionUIModel for windowUUID: \(String(describing: windowUUID))")
             return
         }
                 
@@ -76,7 +76,7 @@ final class ActionUITests: XCTestCase {
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
 
         guard let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel from windowModel for element id: \(String(describing: element.id))")
+            XCTFail("Failed to retrieve viewModel from windowModel for element id: \(String(describing: element.id))")
             return
         }
         

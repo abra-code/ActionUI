@@ -176,7 +176,7 @@ final class MapTests: XCTestCase {
         // Trigger complete construction of DatePicker
          guard let windowModel = actionUIModel.windowModels[windowUUID],
                let viewModel = windowModel.viewModels[element.id] else {
-             XCTFail("Failed to retrive viewModel")
+             XCTFail("Failed to retrieve viewModel")
              return
          }
 

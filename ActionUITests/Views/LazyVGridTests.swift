@@ -63,7 +63,7 @@ final class LazyVGridTests: XCTestCase {
 
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
@@ -170,7 +170,7 @@ final class LazyVGridTests: XCTestCase {
 
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
-            XCTFail("Failed to retrive viewModel")
+            XCTFail("Failed to retrieve viewModel")
             return
         }
 
