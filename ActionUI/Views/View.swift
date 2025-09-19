@@ -10,10 +10,19 @@
      "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
      "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
      "background": "white", // Optional: SwiftUI color (e.g., "red", "blue"), hex (e.g., "#FF0000"), or semantic style for background, resolved via background
-     "frame": {            // Optional: Dictionary defining view size
-       "width": 100.0,     // Required: Double for width
-       "height": 100.0,    // Required: Double for height
-       "alignment": "center" // Optional: String ("leading", "center", "trailing", etc.), defaults to "center"
+     "frame": {            // Optional: Dictionary defining view size, supports two mutually exclusive forms
+       // Fixed Frame Form:
+       "width": 100.0,     // Optional: Double for fixed width
+       "height": 100.0,    // Optional: Double for fixed height
+       "alignment": "center" // Optional: String ("leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"), defaults to "center"
+       // OR Flexible Frame Form:
+       "minWidth": 50.0,   // Optional: Double for minimum width
+       "idealWidth": 100.0, // Optional: Double for ideal width
+       "maxWidth": 200.0,  // Optional: Double for maximum width
+       "minHeight": 50.0,  // Optional: Double for minimum height
+       "idealHeight": 100.0, // Optional: Double for ideal height
+       "maxHeight": 200.0, // Optional: Double for maximum height
+       "alignment": "center" // Optional: String ("leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"), defaults to "center"
      },
      "offset": {           // Optional: Dictionary for relative positioning
        "x": 10.0,          // Optional: Double for horizontal offset
@@ -43,6 +52,12 @@
  Supported named colors:
    - "red", "blue", "green", "yellow", "orange", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "clear", "accentcolor"
  You can also use hex color strings (e.g., "#FF0000", "#FF000080")
+
+ Frame Specification Note:
+ The frame dictionary supports two mutually exclusive forms:
+ - Fixed Frame: Uses "width" and/or "height" (both optional) with an optional "alignment". At least one of width or height should be specified for the frame to take effect.
+ - Flexible Frame: Uses "minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight" (at least one required) with an optional "alignment".
+ Mixing keys from both forms (e.g., "width" with "minWidth") is invalid and will result in the frame being ignored with a warning.
 */
 
 import SwiftUI
@@ -72,7 +87,7 @@ struct View: ActionUIViewConstruction {
         
         // Validate foregroundStyle
         if !(properties["foregroundStyle"] is String?), properties["foregroundStyle"] != nil {
-            logger.log("Invalid type for foregroundStyle: expected String, \(type(of: properties["foregroundStyle"]!)), ignoring", .warning)
+            logger.log("Invalid type for foregroundStyle: expected String, got \(type(of: properties["foregroundStyle"]!)), ignoring", .warning)
             validatedProperties["foregroundStyle"] = nil
         }
         
@@ -91,42 +106,110 @@ struct View: ActionUIViewConstruction {
         // Validate frame
         if let frame = validatedProperties["frame"] as? [String: Any] {
             var validFrame: [String: Any] = [:]
-            var isValid = true
+            var isFixedFrame = false
+            var isFlexibleFrame = false
             
-            if let width = frame.cgFloat(forKey: "width") {
-                validFrame["width"] = width
-            } else {
-                if frame["width"] != nil {
+            // Check for fixed frame keys
+            let fixedFrameKeys = ["width", "height"]
+            let hasFixedFrameKeys = fixedFrameKeys.contains { frame[$0] != nil }
+            
+            // Check for flexible frame keys
+            let flexibleFrameKeys = ["minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight"]
+            let hasFlexibleFrameKeys = flexibleFrameKeys.contains { frame[$0] != nil }
+            
+            // Validate mutual exclusivity
+            if hasFixedFrameKeys && hasFlexibleFrameKeys {
+                logger.log("Frame dictionary mixes fixed frame keys (\(fixedFrameKeys)) with flexible frame keys (\(flexibleFrameKeys)), ignoring", .warning)
+                validatedProperties["frame"] = nil
+                return validatedProperties
+            }
+            
+            // Validate fixed frame
+            if hasFixedFrameKeys {
+                isFixedFrame = true
+                if let width = frame.cgFloat(forKey: "width") {
+                    validFrame["width"] = width
+                } else if frame["width"] != nil {
                     logger.log("Invalid type for frame.width: expected Double, got \(type(of: frame["width"]!)), ignoring", .warning)
                 }
-                isValid = false
-            }
-            
-            if let height = frame.cgFloat(forKey: "height") {
-                validFrame["height"] = height
-            } else {
-                if frame["height"] != nil {
+                
+                if let height = frame.cgFloat(forKey: "height") {
+                    validFrame["height"] = height
+                } else if frame["height"] != nil {
                     logger.log("Invalid type for frame.height: expected Double, got \(type(of: frame["height"]!)), ignoring", .warning)
                 }
-                isValid = false
+                
+                // Ensure at least one of width or height is valid
+                if validFrame["width"] == nil && validFrame["height"] == nil {
+                    logger.log("Fixed frame dictionary lacks valid width or height, ignoring", .warning)
+                    validatedProperties["frame"] = nil
+                    return validatedProperties
+                }
             }
             
+            // Validate flexible frame
+            if hasFlexibleFrameKeys {
+                isFlexibleFrame = true
+                if let minWidth = frame.cgFloat(forKey: "minWidth") {
+                    validFrame["minWidth"] = minWidth
+                } else if frame["minWidth"] != nil {
+                    logger.log("Invalid type for frame.minWidth: expected Double, got \(type(of: frame["minWidth"]!)), ignoring", .warning)
+                }
+                
+                if let idealWidth = frame.cgFloat(forKey: "idealWidth") {
+                    validFrame["idealWidth"] = idealWidth
+                } else if frame["idealWidth"] != nil {
+                    logger.log("Invalid type for frame.idealWidth: expected Double, got \(type(of: frame["idealWidth"]!)), ignoring", .warning)
+                }
+                
+                if let maxWidth = frame.cgFloat(forKey: "maxWidth") {
+                    validFrame["maxWidth"] = maxWidth
+                } else if frame["maxWidth"] != nil {
+                    logger.log("Invalid type for frame.maxWidth: expected Double, got \(type(of: frame["maxWidth"]!)), ignoring", .warning)
+                }
+                
+                if let minHeight = frame.cgFloat(forKey: "minHeight") {
+                    validFrame["minHeight"] = minHeight
+                } else if frame["minHeight"] != nil {
+                    logger.log("Invalid type for frame.minHeight: expected Double, got \(type(of: frame["minHeight"]!)), ignoring", .warning)
+                }
+                
+                if let idealHeight = frame.cgFloat(forKey: "idealHeight") {
+                    validFrame["idealHeight"] = idealHeight
+                } else if frame["idealHeight"] != nil {
+                    logger.log("Invalid type for frame.idealHeight: expected Double, got \(type(of: frame["idealHeight"]!)), ignoring", .warning)
+                }
+                
+                if let maxHeight = frame.cgFloat(forKey: "maxHeight") {
+                    validFrame["maxHeight"] = maxHeight
+                } else if frame["maxHeight"] != nil {
+                    logger.log("Invalid type for frame.maxHeight: expected Double, got \(type(of: frame["maxHeight"]!)), ignoring", .warning)
+                }
+                
+                // Ensure at least one size constraint is valid
+                if validFrame["minWidth"] == nil && validFrame["idealWidth"] == nil && validFrame["maxWidth"] == nil &&
+                   validFrame["minHeight"] == nil && validFrame["idealHeight"] == nil && validFrame["maxHeight"] == nil {
+                    logger.log("Flexible frame dictionary lacks valid size constraints (min/ideal/max for width/height), ignoring", .warning)
+                    validatedProperties["frame"] = nil
+                    return validatedProperties
+                }
+            }
+            
+            // Validate alignment for either frame type
             if let alignment = frame["alignment"] as? String {
                 let validAlignments = ["leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
                 if validAlignments.contains(alignment) {
                     validFrame["alignment"] = alignment
                 } else {
-                    if frame["alignment"] != nil {
-                        logger.log("Invalid value for frame.alignment: expected one of \(validAlignments), got \(alignment), ignoring", .warning)
-                    }
-                    isValid = false
+                    logger.log("Invalid value for frame.alignment: expected one of \(validAlignments), got \(alignment), ignoring", .warning)
                 }
             }
             
-            if isValid {
+            // Only set validFrame if it contains valid data
+            if (isFixedFrame || isFlexibleFrame) && !validFrame.isEmpty {
                 validatedProperties["frame"] = validFrame
             } else {
-                logger.log("Invalid frame dictionary, ignoring", .warning)
+                logger.log("Frame dictionary is invalid or empty, ignoring", .warning)
                 validatedProperties["frame"] = nil
             }
         } else if validatedProperties["frame"] != nil {
@@ -314,9 +397,7 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.background(style)
         }
         
-        if let frame = properties["frame"] as? [String: Any],
-           let width = frame.cgFloat(forKey: "width"),
-           let height = frame.cgFloat(forKey: "height") {
+        if let frame = properties["frame"] as? [String: Any] {
             let alignment = (frame["alignment"] as? String).flatMap { alignmentString -> Alignment? in
                 switch alignmentString {
                 case "leading": return .leading
@@ -331,7 +412,38 @@ struct View: ActionUIViewConstruction {
                 default: return nil
                 }
             } ?? .center
-            modifiedView = modifiedView.frame(width: width, height: height, alignment: alignment)
+            
+            // Check for fixed frame keys
+            let hasFixedFrameKeys = frame["width"] != nil || frame["height"] != nil
+            let hasFlexibleFrameKeys = ["minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight"].contains { frame[$0] != nil }
+            
+            if hasFixedFrameKeys {
+                let width = frame.cgFloat(forKey: "width")
+                let height = frame.cgFloat(forKey: "height")
+                // Apply fixed frame if at least one dimension is specified
+                if width != nil || height != nil {
+                    modifiedView = modifiedView.frame(width: width, height: height, alignment: alignment)
+                }
+            } else if hasFlexibleFrameKeys {
+                let minWidth = frame.cgFloat(forKey: "minWidth")
+                let idealWidth = frame.cgFloat(forKey: "idealWidth")
+                let maxWidth = frame.cgFloat(forKey: "maxWidth")
+                let minHeight = frame.cgFloat(forKey: "minHeight")
+                let idealHeight = frame.cgFloat(forKey: "idealHeight")
+                let maxHeight = frame.cgFloat(forKey: "maxHeight")
+                // Apply flexible frame if at least one constraint is specified
+                if minWidth != nil || idealWidth != nil || maxWidth != nil || minHeight != nil || idealHeight != nil || maxHeight != nil {
+                    modifiedView = modifiedView.frame(
+                        minWidth: minWidth,
+                        idealWidth: idealWidth,
+                        maxWidth: maxWidth,
+                        minHeight: minHeight,
+                        idealHeight: idealHeight,
+                        maxHeight: maxHeight,
+                        alignment: alignment
+                    )
+                }
+            }
         }
         
         if let offset = properties["offset"] as? [String: Any] {
