@@ -10,6 +10,8 @@ import AppKit
 
 @main
 struct ActionUITestApp: App {
+    let logger = ConsoleLogger(maxLevel: .verbose)
+
     // Runtime check for multi-window support
     private var supportsMultipleWindows: Bool {
         #if canImport(UIKit)
@@ -37,7 +39,7 @@ struct ActionUITestApp: App {
     var body: some Scene {
         WindowGroup("JSON Selector") {
             NavigationStack {
-                JSONSelectorView()
+                JSONSelectorView(logger: logger)
                     .onAppear {
                         if shouldResetState && supportsMultipleWindows {
                             // Ensure JSON Selector window is open
@@ -57,11 +59,13 @@ struct ActionUITestApp: App {
         
         WindowGroup(for: WindowIdentifier.self) { $windowIdentifier in
             if supportsMultipleWindows, let identifier = windowIdentifier, !shouldResetState {
-                ActionUIContentView(
-                    resourceName: identifier.resourceName,
-                    resourceExtension: "json",
-                    windowUUID: identifier.windowUUID
-                )
+                if let url = Bundle.main.url(forResource: identifier.resourceName, withExtension: ".json") {
+                    ActionUI.FileLoadableView(
+                        fileURL: url,
+                        windowUUID: identifier.windowUUID,
+                        isContentView: true,
+                        logger: logger)
+                }
             } else {
                 EmptyView()
             }
@@ -101,6 +105,7 @@ struct JSONSelectorView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @State private var navigationPath = NavigationPath()
+    let logger: any ActionUILogger
     
     private var supportsMultipleWindows: Bool {
         #if canImport(UIKit)
@@ -137,11 +142,13 @@ struct JSONSelectorView: View {
                             Text(name)
                         }
                         .navigationDestination(for: String.self) { resourceName in
-                            ActionUIContentView(
-                                resourceName: resourceName,
-                                resourceExtension: "json",
-                                windowUUID: resourceName
-                            )
+                            if let url = Bundle.main.url(forResource: resourceName, withExtension: ".json") {
+                                ActionUI.FileLoadableView(
+                                    fileURL: url,
+                                    windowUUID: resourceName,
+                                    isContentView: true,
+                                    logger: logger)
+                            }
                         }
                     }
                 }
@@ -155,6 +162,6 @@ struct JSONSelectorView: View {
 
 #Preview {
     NavigationStack {
-        JSONSelectorView()
+        JSONSelectorView(logger: ConsoleLogger(maxLevel: .verbose))
     }
 }

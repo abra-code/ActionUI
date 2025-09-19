@@ -22,13 +22,13 @@
     {
       "type": "Text",
       "properties": {
-        "text": "LoadableView from DatePicker.json in app bundle",
+        "text": "LoadableView from ZStack.json in app bundle",
       }
     },
     {
       "type": "LoadableView",
       "properties": {
-        "name": "DatePicker.json",
+        "name": "ZStack.json",
         "padding": "default"
       }
     }
