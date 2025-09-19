@@ -163,7 +163,7 @@ class ActionUIRegistry {
         
         // Apply base View modifications dynamically
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
-        modifiedView = View.applyModifiers(view, properties, logger)
+        modifiedView = View.applyModifiers(modifiedView, properties, logger)
 
         return AnyView(modifiedView)
     }
