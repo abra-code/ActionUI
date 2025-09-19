@@ -22,7 +22,7 @@
      "opacity": 1.0,       // Optional: Double (0.0 to 1.0) for view transparency
      "cornerRadius": 5.0,  // Optional: Double for rounded corners
      "actionID": "view.action", // Optional: String for action identifier
-     "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change (user or programmatic)
+     "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver

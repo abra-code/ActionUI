@@ -8,8 +8,28 @@
     {
       "type": "Text",
       "properties": {
-        "text": "View Base Variants",
+        "text": "View Base Variants (Drawn with Canvas)",
         "padding": "default"
+      }
+    },
+    {
+      "type": "Canvas",
+      "properties": {
+        "padding": 10.0,
+        "foregroundStyle": "blue",
+        "background": "white",
+        "frame": {
+          "width": 200.0,
+          "height": 200.0,
+          "alignment": "center"
+        },
+        "opacity": 0.8,
+        "cornerRadius": 5.0,
+        "shadow": {
+          "radius": 5.0,
+          "x": 0.0,
+          "y": 2.0
+        }
       }
     },
     {
