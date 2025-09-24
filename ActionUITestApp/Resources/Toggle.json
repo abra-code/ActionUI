@@ -2,7 +2,8 @@
   "type": "VStack",
   "properties": {
     "spacing": 10.0,
-    "alignment": "center"
+    "alignment": "center",
+    "padding": "default"
   },
   "children": [
     {
@@ -15,14 +16,16 @@
       "type": "Toggle",
       "properties": {
         "title": "Enable Feature",
-        "style": "switch"
+        "style": "switch",
+        "padding": "default"
       }
     },
     {
       "type": "Toggle",
       "properties": {
         "title": "Checkbox",
-        "style": "checkbox"
+        "style": "checkbox",
+        "padding": "default"
       }
     }
   ]
