@@ -83,7 +83,7 @@ final class ColorPickerTests: XCTestCase {
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = ColorPicker.applyModifiers(view, validatedProperties, logger)
+        _ = ColorPicker.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
         // Note: Cannot inspect ColorPicker state or modifiers due to SwiftUI's opaque hierarchy
@@ -100,7 +100,7 @@ final class ColorPickerTests: XCTestCase {
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = ColorPicker.applyModifiers(view, validatedProperties, logger)
+        _ = ColorPicker.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

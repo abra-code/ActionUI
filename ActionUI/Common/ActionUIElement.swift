@@ -44,7 +44,7 @@ protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
     static var buildView: ((any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
     static var initialValue: (ViewModel) -> Any? { get }
 }
 
@@ -54,8 +54,8 @@ extension ActionUIViewConstruction {
         return Void.self
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View {
-        return { view, _, _ in view }
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View {
+        return { view, _, _, _, _ in view }
     }
     
     static var initialValue: (ViewModel) -> Any?

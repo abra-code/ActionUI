@@ -89,7 +89,7 @@ final class DividerTests: XCTestCase {
         let validatedProperties = Divider.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = Divider.applyModifiers(view, validatedProperties, logger)
+        _ = Divider.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect Divider modifiers due to SwiftUI's opaque hierarchy
@@ -106,7 +106,7 @@ final class DividerTests: XCTestCase {
         let validatedProperties = Divider.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = Divider.applyModifiers(view, validatedProperties, logger)
+        _ = Divider.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

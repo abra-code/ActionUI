@@ -130,7 +130,7 @@ final class ComboBoxTests: XCTestCase {
         let view = ComboBox.buildView(element, viewModel, windowUUID, validatedProperties, logger)
 
         #if os(macOS) || os(iOS)
-        _ = ComboBox.applyModifiers(view, validatedProperties, logger)
+        _ = ComboBox.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.HStack) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

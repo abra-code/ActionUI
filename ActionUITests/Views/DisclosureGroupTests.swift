@@ -92,7 +92,7 @@ final class DisclosureGroupTests: XCTestCase {
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        _ = DisclosureGroup.applyModifiers(view, validatedProperties, logger)
+        _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DisclosureGroup) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
@@ -147,7 +147,7 @@ final class DisclosureGroupTests: XCTestCase {
         logger.log("Creating view for element \(element.id) with children", .debug)
         let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        _ = DisclosureGroup.applyModifiers(view, validatedProperties, logger)
+        _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         logger.log("After build: state[\(element.id)] = \(String(describing: viewModel))", .debug)
         
         // Verify state initialization

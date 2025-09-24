@@ -50,7 +50,7 @@ struct ScrollViewReader: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         if let scrollTo = properties["scrollTo"] as? Int {
             let anchor = (properties["anchor"] as? String).flatMap {

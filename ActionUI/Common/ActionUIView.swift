@@ -34,7 +34,8 @@ public struct ActionUIView: SwiftUI.View, Equatable {
             to: baseView,
             properties: validatedProperties,
             element: element,
-            model: model
+            model: model,
+            windowUUID: windowUUID
         )
     }
 

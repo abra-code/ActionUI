@@ -103,7 +103,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         if let style = properties["style"] as? String {
             switch style {

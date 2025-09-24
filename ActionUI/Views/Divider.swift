@@ -54,7 +54,7 @@ struct Divider: ActionUIViewConstruction {
         return SwiftUI.Divider()
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         let background = (properties["background"] as? String).flatMap { ColorHelper.resolveColor($0) } ?? .gray
         modifiedView = modifiedView.background(background)

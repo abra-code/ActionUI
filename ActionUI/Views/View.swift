@@ -32,6 +32,7 @@
      "cornerRadius": 5.0,  // Optional: Double for rounded corners
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
+     "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
@@ -226,7 +227,7 @@ struct View: ActionUIViewConstruction {
                         validatedProperties["frame"] = validFrame
                     } else if frameDict["alignment"] != nil {
                         // Allow frame with only alignment
-                        validatedProperties["frame"] = ["alignment": frameDict["alignment"]]
+                        validatedProperties["frame"] = ["alignment": frameDict["alignment"]!]
                     } else {
                         validatedProperties["frame"] = nil
                     }
@@ -297,6 +298,12 @@ struct View: ActionUIViewConstruction {
         if let valueChangeActionID = properties["valueChangeActionID"], !(valueChangeActionID is String) {
             logger.log("Invalid type for valueChangeActionID: expected String, got \(type(of: valueChangeActionID)), ignoring", .warning)
             validatedProperties["valueChangeActionID"] = nil
+        }
+        
+        // Validate openURLActionID
+        if let openURLActionID = properties["openURLActionID"], !(openURLActionID is String) {
+            logger.log("Invalid type for openURLActionID: expected String, got \(type(of: openURLActionID)), ignoring", .warning)
+            validatedProperties["openURLActionID"] = nil
         }
         
         // Validate disabled
@@ -379,7 +386,7 @@ struct View: ActionUIViewConstruction {
         SwiftUI.EmptyView()
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
         
         // Do not handle actionID here; concrete views (e.g., ComboBox, DatePicker) should handle actionID in buildView with specific context (e.g., windowUUID, viewID, viewPartID)
@@ -486,6 +493,15 @@ struct View: ActionUIViewConstruction {
             let x = shadow.cgFloat(forKey: "x") ?? 0.0
             let y = shadow.cgFloat(forKey: "y") ?? 0.0
             modifiedView = modifiedView.shadow(color: color, radius: radius, x: x, y: y)
+        }
+        
+        // Handle openURLActionID with .onOpenURL modifier
+        if let openURLActionID = properties["openURLActionID"] as? String {
+            modifiedView = modifiedView.onOpenURL { url in
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(openURLActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: url)
+                }
+            }
         }
         
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {

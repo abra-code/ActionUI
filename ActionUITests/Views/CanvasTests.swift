@@ -90,7 +90,7 @@ final class CanvasTests: XCTestCase {
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = Canvas.applyModifiers(view, validatedProperties, logger)
+        let _ = Canvas.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Canvas) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
         // Note: Cannot inspect Canvas rendering or modifiers due to SwiftUI's opaque hierarchy
@@ -107,7 +107,7 @@ final class CanvasTests: XCTestCase {
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = Canvas.applyModifiers(view, validatedProperties, logger)
+        let _ = Canvas.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Canvas) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

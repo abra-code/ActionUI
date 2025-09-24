@@ -141,7 +141,7 @@ final class AsyncImageTests: XCTestCase {
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
+        _ = AsyncImage.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
@@ -162,7 +162,7 @@ final class AsyncImageTests: XCTestCase {
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = AsyncImage.applyModifiers(view, validatedProperties, logger)
+        _ = AsyncImage.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

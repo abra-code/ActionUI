@@ -30,7 +30,7 @@ struct Spacer: ActionUIViewConstruction {
         return SwiftUI.Spacer()
     }
     
-    static var applyModifiers: (any SwiftUI.View, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         if let minLength = properties.cgFloat(forKey: "minLength") {
             return view.frame(minWidth: minLength)
         }
