@@ -146,7 +146,7 @@ struct JSONSelectorView: View {
                                 ActionUI.FileLoadableView(
                                     fileURL: url,
                                     windowUUID: resourceName,
-                                    isContentView: true,
+                                    isContentView: false,
                                     logger: logger)
                             }
                         }
