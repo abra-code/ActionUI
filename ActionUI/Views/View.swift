@@ -35,6 +35,10 @@
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
      "onAppearActionID": "view.onAppear", // Optional: String for action identifier triggered on view appear (via .onAppear modifier)
      "onDisappearActionID": "view.onDisappear", // Optional: String for action identifier triggered on view disappear (via .onDisappear modifier)
+     "keyboardShortcut": { // Optional: Dictionary for keyboard shortcut, supports key with array of modifiers
+       "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
+       "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
+     },
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
@@ -55,6 +59,14 @@
  Supported named colors:
    - "red", "blue", "green", "yellow", "orange", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "clear", "accentcolor"
  You can also use hex color strings (e.g., "#FF0000", "#FF000080")
+
+ Supported modifiers for keyboardShortcut:
+   - "command", "shift", "option", "control", "capsLock"
+   - Must be unique within the array; duplicates are ignored with a warning
+
+ Supported keys for keyboardShortcut:
+   - Single character (e.g., "a", "1")
+   - Special keys: "upArrow", "downArrow", "leftArrow", "rightArrow", "escape", "delete", "deleteForward", "home", "end", "pageUp", "pageDown", "clear", "tab", "space", "return"
 
  Frame Specification Note:
  The frame dictionary supports two mutually exclusive forms:
@@ -320,6 +332,58 @@ struct View: ActionUIViewConstruction {
             validatedProperties["onDisappearActionID"] = nil
         }
         
+        // Validate keyboardShortcut
+        if let keyboardShortcut = properties["keyboardShortcut"] {
+            if let shortcutDict = keyboardShortcut as? [String: Any] {
+                var validShortcut: [String: Any] = [:]
+                var isValid = false
+                
+                if let key = shortcutDict["key"] as? String, !key.isEmpty {
+                    // Validate key using KeyEquivalentHelper
+                    if KeyEquivalentHelper.resolveKeyEquivalent(key, logger: logger) != nil {
+                        validShortcut["key"] = key
+                        isValid = true
+                    } else {
+                        logger.log("Invalid key '\(key)' in keyboardShortcut, ignoring keyboardShortcut", .warning)
+                    }
+                } else {
+                    logger.log("Invalid or missing key in keyboardShortcut: expected non-empty String, ignoring keyboardShortcut", .warning)
+                }
+                
+                if let modifiers = shortcutDict["modifiers"] as? [String] {
+                    let validModifiers = ["command", "shift", "option", "control", "capsLock"]
+                    // Check for uniqueness
+                    let uniqueModifiers = Array(Set(modifiers.map { $0.lowercased() }))
+                    if uniqueModifiers.count < modifiers.count {
+                        logger.log("Duplicate modifiers found in keyboardShortcut.modifiers: \(modifiers), using unique values: \(uniqueModifiers)", .warning)
+                    }
+                    // Validate each modifier
+                    let validModifiersArray = uniqueModifiers.filter { validModifiers.contains($0) }
+                    if !validModifiersArray.isEmpty {
+                        validShortcut["modifiers"] = validModifiersArray
+                    } else {
+                        logger.log("Invalid modifiers in keyboardShortcut: expected array of \(validModifiers), got \(modifiers), defaulting to ['command']", .warning)
+                        validShortcut["modifiers"] = ["command"]
+                    }
+                } else if shortcutDict["modifiers"] == nil {
+                    // Default to ["command"] if not provided
+                    validShortcut["modifiers"] = ["command"]
+                } else {
+                    logger.log("Invalid type for keyboardShortcut.modifiers: expected [String], got \(type(of: shortcutDict["modifiers"]!)), defaulting to ['command']", .warning)
+                    validShortcut["modifiers"] = ["command"]
+                }
+                
+                if isValid {
+                    validatedProperties["keyboardShortcut"] = validShortcut
+                } else {
+                    validatedProperties["keyboardShortcut"] = nil
+                }
+            } else {
+                logger.log("Invalid type for keyboardShortcut: expected [String: Any], got \(type(of: keyboardShortcut)), ignoring", .warning)
+                validatedProperties["keyboardShortcut"] = nil
+            }
+        }
+        
         // Validate disabled
         if let disabled = properties["disabled"], !(disabled is Bool) {
             logger.log("Invalid type for disabled: expected Bool, got \(type(of: disabled)), ignoring", .warning)
@@ -532,6 +596,40 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.onDisappear {
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(onDisappearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
+                }
+            }
+        }
+        
+        // Handle keyboardShortcut
+        if let keyboardShortcut = properties["keyboardShortcut"] as? [String: Any] {
+            if let keyStr = keyboardShortcut["key"] as? String, !keyStr.isEmpty {
+                if let keyEquivalent = KeyEquivalentHelper.resolveKeyEquivalent(keyStr, logger: logger) {
+                    let modifiersArray = (keyboardShortcut["modifiers"] as? [String])?.map { $0.lowercased() } ?? ["command"]
+                    // Ensure unique modifiers
+                    let uniqueModifiers = Array(Set(modifiersArray))
+                    if uniqueModifiers.count < modifiersArray.count {
+                        logger.log("Duplicate modifiers found in keyboardShortcut.modifiers: \(modifiersArray), using unique values: \(uniqueModifiers)", .warning)
+                    }
+                    var eventModifiers: EventModifiers = []
+                    let validModifiers = ["command", "shift", "option", "control", "capsLock"]
+                    for modifier in uniqueModifiers {
+                        switch modifier {
+                        case "command":
+                            eventModifiers.insert(.command)
+                        case "shift":
+                            eventModifiers.insert(.shift)
+                        case "option":
+                            eventModifiers.insert(.option)
+                        case "control":
+                            eventModifiers.insert(.control)
+                        case "capsLock":
+                            eventModifiers.insert(.capsLock)
+                        default:
+                            logger.log("Unknown modifier '\(modifier)' in keyboardShortcut.modifiers, ignoring", .warning)
+                        }
+                    }
+                    // Apply keyboard shortcut with computed modifiers
+                    modifiedView = modifiedView.keyboardShortcut(keyEquivalent, modifiers: eventModifiers)
                 }
             }
         }

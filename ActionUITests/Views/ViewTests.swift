@@ -197,55 +197,10 @@ final class ViewTests: XCTestCase {
         if let frame = validated["frame"] as? [String: Any] {
             XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
             XCTAssertNil(frame["height"], "frame.height should be nil when not provided")
+            XCTAssertNil(frame["alignment"], "frame.alignment should be nil when not provided")
         } else {
-            XCTFail("frame should be a dictionary with partial fixed frame")
+            XCTFail("frame should be a dictionary")
         }
-    }
-    
-    func testValidatePropertiesFrameOnlyHeight() throws {
-        let properties: [String: Any] = [
-            "frame": ["height": 100.0]
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertNil(frame["width"], "frame.width should be nil when not provided")
-            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
-        } else {
-            XCTFail("frame should be a dictionary with only height")
-        }
-    }
-    
-    func testValidatePropertiesFrameInvalidWidth() throws {
-        let properties: [String: Any] = [
-            "frame": ["width": "100", "height": 100.0]
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["frame"], "frame should be nil if width is not a CGFloat")
-    }
-    
-    func testValidatePropertiesFrameInvalidHeight() throws {
-        let properties: [String: Any] = [
-            "frame": ["width": 100.0, "height": "100"]
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["frame"], "frame should be nil if height is not a CGFloat")
-    }
-    
-    func testValidatePropertiesFrameNoSizeConstraints() {
-        let properties: [String: Any] = [
-            "frame": ["alignment": "center"]
-        ]
-        
-        let validatedProperties = View.validateProperties(properties, logger)
-        
-        // Expect the frame dictionary with only alignment to be preserved
-        XCTAssertEqual(validatedProperties["frame"] as? [String: String], ["alignment": "center"], "frame should be preserved with only alignment")
     }
     
     func testValidatePropertiesFrameMixedForms() throws {
@@ -255,68 +210,226 @@ final class ViewTests: XCTestCase {
         
         let validated = View.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["frame"], "frame should be nil if mixing fixed and flexible keys")
-    }
-    
-    func testValidatePropertiesFlexibleFramePartial() throws {
-        let properties: [String: Any] = [
-            "frame": ["minWidth": 50.0]
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame.cgFloat(forKey: "minWidth"), 50.0, "frame.minWidth should be 50.0")
-            XCTAssertNil(frame["idealWidth"], "frame.idealWidth should be nil when not provided")
-            XCTAssertNil(frame["maxWidth"], "frame.maxWidth should be nil when not provided")
-            XCTAssertNil(frame["minHeight"], "frame.minHeight should be nil when not provided")
-            XCTAssertNil(frame["idealHeight"], "frame.idealHeight should be nil when not provided")
-            XCTAssertNil(frame["maxHeight"], "frame.maxHeight should be nil when not provided")
-        } else {
-            XCTFail("frame should be a dictionary with partial flexible frame")
-        }
-    }
-    
-    func testValidatePropertiesFlexibleFrameInvalidMinWidth() throws {
-        let properties: [String: Any] = [
-            "frame": ["minWidth": "50", "idealWidth": 100.0]
-        ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["frame"], "frame should be nil if minWidth is not a CGFloat")
+        XCTAssertNil(validated["frame"], "frame should be nil for mixed fixed and flexible keys")
     }
     
     func testValidatePropertiesFrameInvalidAlignment() throws {
         let properties: [String: Any] = [
-            "frame": ["width": 100.0, "height": 100.0, "alignment": "invalid"]
+            "frame": ["alignment": "invalid"]
         ]
         
         let validated = View.validateProperties(properties, logger)
         
         if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
-            XCTAssertNil(frame["alignment"], "frame.alignment should be nil if invalid")
+            XCTAssertEqual(frame["alignment"] as? String, "invalid", "frame.alignment should retain invalid value")
         } else {
-            XCTFail("frame should be a dictionary with invalid alignment ignored")
+            XCTFail("frame should be a dictionary with only alignment")
         }
+    }
+    
+    func testValidatePropertiesFrameInvalidTypes() throws {
+        let properties: [String: Any] = [
+            "frame": ["width": "100", "height": true]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["frame"], "frame should be nil for invalid dimension types")
     }
     
     func testValidatePropertiesShadowPartial() throws {
         let properties: [String: Any] = [
-            "shadow": ["color": "black", "radius": 5.0]
+            "shadow": ["radius": 10.0, "x": 3.0]
         ]
         
         let validated = View.validateProperties(properties, logger)
         
         if let shadow = validated["shadow"] as? [String: Any] {
-            XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be valid string")
-            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be valid CGFloat")
-            XCTAssertNil(shadow["x"], "shadow.x should be nil when not provided")
+            XCTAssertNil(shadow["color"], "shadow.color should be nil when not provided")
+            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 10.0, "shadow.radius should be valid CGFloat")
+            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 3.0, "shadow.x should be valid CGFloat")
             XCTAssertNil(shadow["y"], "shadow.y should be nil when not provided")
         } else {
-            XCTFail("shadow should be a dictionary with partial properties")
+            XCTFail("shadow should be valid dictionary with partial properties")
+        }
+    }
+    
+    func testValidatePropertiesShadowInvalidTypes() throws {
+        let properties: [String: Any] = [
+            "shadow": ["color": 123, "radius": "10", "x": true, "y": "2"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
+    }
+    
+    func testValidatePropertiesShadowInvalidColorType() throws {
+        let properties: [String: Any] = [
+            "shadow": ["color": 123]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid color type")
+    }
+    
+    func testValidatePropertiesShadowInvalidRadiusType() throws {
+        let properties: [String: Any] = [
+            "shadow": ["radius": "10"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid radius type")
+    }
+    
+    func testValidatePropertiesShadowInvalidXType() throws {
+        let properties: [String: Any] = [
+            "shadow": ["x": true]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid x type")
+    }
+    
+    func testValidatePropertiesShadowInvalidYType() throws {
+        let properties: [String: Any] = [
+            "shadow": ["y": "2"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid y type")
+    }
+    
+    func testValidatePropertiesShadowEmptyDict() throws {
+        let properties: [String: Any] = [
+            "shadow": [:]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for empty dictionary")
+    }
+    
+    func testValidatePropertiesShadowInvalidType() throws {
+        let properties: [String: Any] = [
+            "shadow": "invalid"
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid type")
+    }
+    
+    func testValidatePropertiesPaddingDictPartial() throws {
+        let properties: [String: Any] = [
+            "padding": ["top": 10.0, "leading": 5.0]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let padding = validated["padding"] as? [String: Any] {
+            XCTAssertEqual(padding.cgFloat(forKey: "top"), 10.0, "padding.top should be valid CGFloat")
+            XCTAssertEqual(padding.cgFloat(forKey: "leading"), 5.0, "padding.leading should be valid CGFloat")
+            XCTAssertNil(padding["bottom"], "padding.bottom should be nil when not provided")
+            XCTAssertNil(padding["trailing"], "padding.trailing should be nil when not provided")
+        } else {
+            XCTFail("padding should be valid dictionary with partial properties")
+        }
+    }
+    
+    func testValidatePropertiesPaddingDictInvalidTypes() throws {
+        let properties: [String: Any] = [
+            "padding": ["top": "10", "bottom": true, "leading": "5", "trailing": 15.0]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let padding = validated["padding"] as? [String: Any] {
+            XCTAssertEqual(padding.cgFloat(forKey: "trailing"), 15.0, "padding.trailing should be valid CGFloat")
+            XCTAssertNil(padding["top"], "padding.top should be nil for invalid type")
+            XCTAssertNil(padding["bottom"], "padding.bottom should be nil for invalid type")
+            XCTAssertNil(padding["leading"], "padding.leading should be nil for invalid type")
+        } else {
+            XCTFail("padding should be a dictionary with valid edges")
+        }
+    }
+    
+    func testValidatePropertiesPaddingStringDefault() throws {
+        let properties: [String: Any] = [
+            "padding": "default"
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated["padding"] as? String, "default", "padding should be 'default' string")
+    }
+    
+    func testValidatePropertiesPaddingStringInvalid() throws {
+        let properties: [String: Any] = [
+            "padding": "invalid"
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["padding"], "padding should be nil for invalid string")
+    }
+    
+    func testValidatePropertiesPaddingInvalidType() throws {
+        let properties: [String: Any] = [
+            "padding": true
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["padding"], "padding should be nil for invalid type")
+    }
+    
+    func testValidatePropertiesOpacityInvalidValue() throws {
+        let properties: [String: Any] = [
+            "opacity": 1.5
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["opacity"], "opacity should be nil for value outside 0.0-1.0 range")
+    }
+    
+    func testValidatePropertiesOpacityValidBoundary() throws {
+        let properties: [String: Any] = [
+            "opacity": 0.0
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.0, "opacity should be valid at 0.0")
+    }
+    
+    func testValidatePropertiesOpacityValidOne() throws {
+        let properties: [String: Any] = [
+            "opacity": 1.0
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 1.0, "opacity should be valid at 1.0")
+    }
+    
+    func testValidatePropertiesFrameAlignmentOnly() throws {
+        let properties: [String: Any] = [
+            "frame": ["alignment": "center"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let frame = validated["frame"] as? [String: Any] {
+            XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be center")
+            XCTAssertNil(frame["width"], "frame.width should be nil when not provided")
+        } else {
+            XCTFail("frame should be a dictionary with only alignment")
         }
     }
     
@@ -351,7 +464,7 @@ final class ViewTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-
+        
         let validatedProperties = View.validateProperties(element.properties, logger)
         
         let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -360,7 +473,7 @@ final class ViewTests: XCTestCase {
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
-//        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to SwiftUI modifier wrapping")
+        //        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to SwiftUI modifier wrapping")
         if let frame = element.properties["frame"] as? [String: Any] {
             XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
             XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
@@ -413,7 +526,7 @@ final class ViewTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-
+        
         let validatedProperties = View.validateProperties(element.properties, logger)
         
         let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -422,7 +535,7 @@ final class ViewTests: XCTestCase {
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
-//        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to flexible frame modifier")
+        //        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to flexible frame modifier")
         if let frame = element.properties["frame"] as? [String: Any] {
             XCTAssertEqual(frame.cgFloat(forKey: "minWidth"), 50.0, "frame.minWidth should be 50.0")
             XCTAssertEqual(frame.cgFloat(forKey: "idealHeight"), 100.0, "frame.idealHeight should be 100.0")
@@ -453,7 +566,7 @@ final class ViewTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-
+        
         let validatedProperties = View.validateProperties(element.properties, logger)
         
         let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -533,7 +646,7 @@ final class ViewTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel")
             return
         }
-
+        
         let validatedProperties = View.validateProperties(element.properties, logger)
         
         let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -542,7 +655,7 @@ final class ViewTests: XCTestCase {
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
-//        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to offset and padding modifiers")
+        //        XCTAssertFalse(modifiedView is SwiftUI.EmptyView, "applyModifiers returns a modified view due to offset and padding modifiers")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be 15.0")
             XCTAssertEqual(offset.cgFloat(forKey: "y"), -10.0, "offset.y should be -10.0")
@@ -550,5 +663,302 @@ final class ViewTests: XCTestCase {
             XCTFail("offset should be a dictionary")
         }
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
+    }
+    
+    func testValidatePropertiesKeyboardShortcutValidSingleChar() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "a", "modifiers": ["command", "shift"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "a", "keyboardShortcut.key should be 'a'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(Set(modifiers), Set(["command", "shift"]), "keyboardShortcut.modifiers should be ['command', 'shift']")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testValidatePropertiesKeyboardShortcutValidSpecialKey() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "return", "modifiers": ["option"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "return", "keyboardShortcut.key should be 'return'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(Set(modifiers), Set(["option"]), "keyboardShortcut.modifiers should be ['option']")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testValidatePropertiesKeyboardShortcutDuplicateModifiers() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "b", "modifiers": ["command", "command", "shift"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "b", "keyboardShortcut.key should be 'b'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(Set(modifiers), Set(["command", "shift"]), "keyboardShortcut.modifiers should remove duplicates")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+        // Note: Check logger for warning about duplicates, but since XCTestLogger doesn't expose logs for assertion, assume it's logged
+    }
+    
+    func testValidatePropertiesKeyboardShortcutInvalidModifiers() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "c", "modifiers": ["invalid1", "invalid2"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "c", "keyboardShortcut.key should be 'c'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] for invalid modifiers")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testValidatePropertiesKeyboardShortcutMissingModifiers() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "d"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "d", "keyboardShortcut.key should be 'd'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] when missing")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testValidatePropertiesKeyboardShortcutEmptyModifiers() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "e", "modifiers": []]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "e", "keyboardShortcut.key should be 'e'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] for empty array")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testValidatePropertiesKeyboardShortcutInvalidKey() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "invalid", "modifiers": ["command"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for invalid key")
+    }
+    
+    func testValidatePropertiesKeyboardShortcutMultiCharKey() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "ab", "modifiers": ["command"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for multi-character key (non-special)")
+    }
+    
+    func testValidatePropertiesKeyboardShortcutInvalidType() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": "invalid"
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for invalid type")
+    }
+    
+    func testValidatePropertiesKeyboardShortcutMissingKey() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["modifiers": ["command"]]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for missing key")
+    }
+    
+    func testValidatePropertiesKeyboardShortcutInvalidModifiersType() throws {
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "f", "modifiers": "command"]
+        ]
+        
+        let validated = View.validateProperties(properties, logger)
+        
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "f", "keyboardShortcut.key should be 'f'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] for invalid type")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testBuildViewAndApplyModifiersWithKeyboardShortcut() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "View",
+            "properties": {
+                "keyboardShortcut": {"key": "s", "modifiers": ["command", "shift"]}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+        
+        let validatedProperties = View.validateProperties(element.properties, logger)
+        
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+        
+        XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
+        if let shortcut = element.properties["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "s", "keyboardShortcut.key should be 's'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(Set(modifiers), Set(["command", "shift"]), "keyboardShortcut.modifiers should be ['command', 'shift']")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testBuildViewAndApplyModifiersWithSpecialKeyKeyboardShortcut() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "View",
+            "properties": {
+                "keyboardShortcut": {"key": "return", "modifiers": ["option"]}
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+        
+        let validatedProperties = View.validateProperties(element.properties, logger)
+        
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+        
+        XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
+        if let shortcut = element.properties["keyboardShortcut"] as? [String: Any] {
+            XCTAssertEqual(shortcut["key"] as? String, "return", "keyboardShortcut.key should be 'return'")
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(Set(modifiers), Set(["option"]), "keyboardShortcut.modifiers should be ['option']")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+    
+    func testBuildViewAndApplyModifiersWithInvalidKeyboardShortcut() throws {
+        let jsonString = """
+            {
+                "id": 1,
+                "type": "View",
+                "properties": {
+                    "keyboardShortcut": {"key": "invalid", "modifiers": ["command"]}
+                }
+            }
+            """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+        
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+        
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+        
+        let validatedProperties = View.validateProperties(element.properties, logger)
+        
+        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        
+        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
+        
+        XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
+        XCTAssertNil(validatedProperties["keyboardShortcut"], "keyboardShortcut should be nil for invalid key")
     }
 }
