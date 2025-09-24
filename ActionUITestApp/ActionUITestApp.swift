@@ -131,30 +131,35 @@ struct JSONSelectorView: View {
                     .padding()
                     .accessibilityIdentifier("no_json_files_text")
             } else {
-                List(jsonFiles, id: \.self) { name in
-                    if supportsMultipleWindows {
+                if supportsMultipleWindows {
+                    List(jsonFiles, id: \.self) { name in
                         Button(name) {
                             let windowUUID = UUID().uuidString
                             openWindow(value: WindowIdentifier(resourceName: name, windowUUID: windowUUID))
                         }
-                    } else {
+                    }
+                    .navigationTitle("JSON Selector")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("json_selector_list")
+                } else {
+                    List(jsonFiles, id: \.self) { name in
                         NavigationLink(value: name) {
                             Text(name)
                         }
-                        .navigationDestination(for: String.self) { resourceName in
-                            if let url = Bundle.main.url(forResource: resourceName, withExtension: ".json") {
-                                ActionUI.FileLoadableView(
-                                    fileURL: url,
-                                    windowUUID: resourceName,
-                                    isContentView: false,
-                                    logger: logger)
-                            }
+                    }
+                    .navigationDestination(for: String.self) { resourceName in
+                        if let url = Bundle.main.url(forResource: resourceName, withExtension: ".json") {
+                            ActionUI.FileLoadableView(
+                                fileURL: url,
+                                windowUUID: resourceName,
+                                isContentView: true,
+                                logger: logger)
                         }
                     }
+                    .navigationTitle("JSON Selector")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("json_selector_list")
                 }
-                .navigationTitle("JSON Selector")
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("json_selector_list")
             }
         }
     }
