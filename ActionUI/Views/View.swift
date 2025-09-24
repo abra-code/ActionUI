@@ -33,6 +33,8 @@
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
+     "onAppearActionID": "view.onAppear", // Optional: String for action identifier triggered on view appear (via .onAppear modifier)
+     "onDisappearActionID": "view.onDisappear", // Optional: String for action identifier triggered on view disappear (via .onDisappear modifier)
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
@@ -306,6 +308,18 @@ struct View: ActionUIViewConstruction {
             validatedProperties["openURLActionID"] = nil
         }
         
+        // Validate onAppearActionID
+        if let onAppearActionID = properties["onAppearActionID"], !(onAppearActionID is String) {
+            logger.log("Invalid type for onAppearActionID: expected String, got \(type(of: onAppearActionID)), ignoring", .warning)
+            validatedProperties["onAppearActionID"] = nil
+        }
+        
+        // Validate onDisappearActionID
+        if let onDisappearActionID = properties["onDisappearActionID"], !(onDisappearActionID is String) {
+            logger.log("Invalid type for onDisappearActionID: expected String, got \(type(of: onDisappearActionID)), ignoring", .warning)
+            validatedProperties["onDisappearActionID"] = nil
+        }
+        
         // Validate disabled
         if let disabled = properties["disabled"], !(disabled is Bool) {
             logger.log("Invalid type for disabled: expected Bool, got \(type(of: disabled)), ignoring", .warning)
@@ -500,6 +514,24 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.onOpenURL { url in
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(openURLActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: url)
+                }
+            }
+        }
+        
+        // Handle onAppearActionID with .onAppear modifier
+        if let onAppearActionID = properties["onAppearActionID"] as? String {
+            modifiedView = modifiedView.onAppear {
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(onAppearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
+                }
+            }
+        }
+        
+        // Handle onDisappearActionID with .onDisappear modifier
+        if let onDisappearActionID = properties["onDisappearActionID"] as? String {
+            modifiedView = modifiedView.onDisappear {
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(onDisappearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
                 }
             }
         }
