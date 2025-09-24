@@ -25,35 +25,7 @@ final class DividerTests: XCTestCase {
         windowUUID = nil
         super.tearDown()
     }
-    
-    func testValidatePropertiesValid() throws {
-        let properties: [String: Any] = [
-            "background": "#FF0000",
-            "frameHeight": 2.0,
-            "frameWidth": 3.0
-        ]
-        
-        let validated = Divider.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated["background"] as? String, "#FF0000", "background should be valid String")
-        XCTAssertEqual(validated.double(forKey: "frameHeight"), 2.0, "frameHeight should be valid Double")
-        XCTAssertEqual(validated.double(forKey: "frameWidth"), 3.0, "frameWidth should be valid Double")
-    }
-    
-    func testValidatePropertiesInvalid() throws {
-        let properties: [String: Any] = [
-            "background": 123,
-            "frameHeight": -1.0,
-            "frameWidth": "3.0"
-        ]
-        
-        let validated = Divider.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["background"], "background should be nil for invalid type")
-        XCTAssertNil(validated["frameHeight"], "frameHeight should be nil for negative value")
-        XCTAssertNil(validated["frameWidth"], "frameWidth should be nil for invalid type")
-    }
-    
+            
     func testValidatePropertiesMissing() throws {
         let properties: [String: Any] = [:]
         
@@ -61,27 +33,13 @@ final class DividerTests: XCTestCase {
         
         XCTAssertTrue(validated.isEmpty, "Validated properties should be empty when no properties provided")
     }
-    
-    func testValidatePropertiesPartial() throws {
-        let properties: [String: Any] = [
-            "background": "#FF0000"
-        ]
         
-        let validated = Divider.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated["background"] as? String, "#FF0000", "background should be valid String")
-        XCTAssertNil(validated["frameHeight"], "frameHeight should be nil when not provided")
-        XCTAssertNil(validated["frameWidth"], "frameWidth should be nil when not provided")
-    }
-    
     func testBuildViewAndApplyModifiersValidProperties() throws {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Divider",
             "properties": [
-                "background": "#FF0000",
-                "frameHeight": 2.0,
-                "frameWidth": 3.0
+                "background": "#FF0000"
             ]
         ]
 

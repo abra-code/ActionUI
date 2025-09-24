@@ -16,21 +16,18 @@
     {
       "type": "Divider",
       "properties": {
-        "frameHeight": 2.0,
       }
     },
     {
       "type": "Divider",
       "properties": {
         "background": "#FF0000",
-        "frameHeight": 2.0,
       }
     },
     {
       "type": "Divider",
       "properties": {
         "background": "#0000FF",
-        "frameWidth": 2.0,
       }
     }
   ]
