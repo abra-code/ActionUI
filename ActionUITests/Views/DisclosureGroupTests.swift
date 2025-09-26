@@ -131,7 +131,7 @@ final class DisclosureGroupTests: XCTestCase {
         XCTAssertEqual(element.properties["isExpanded"] as? Bool, true, "isExpanded should be true")
         
         // Verify children are ViewElement instances
-        let children = element.subviews?["children"] as? [any ActionUIElement]
+        let children = element.subviews?["children"] as? [any ActionUIElementBase]
         XCTAssertNotNil(children, "Children should not be nil")
         if let children {
             XCTAssertEqual(children.count, 2, "Should have 2 children")

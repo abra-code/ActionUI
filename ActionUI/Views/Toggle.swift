@@ -35,7 +35,7 @@ struct Toggle: ActionUIViewConstruction {
     
     // Builds the Toggle view, binding isOn to state
     // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         
         let initialValue = Self.initialValue(model) as? Bool ?? false
         
@@ -54,7 +54,7 @@ struct Toggle: ActionUIViewConstruction {
         return SwiftUI.Toggle(title, isOn: toggleBinding)
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         if let style = properties["style"] as? String {
             switch style {

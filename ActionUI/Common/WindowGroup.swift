@@ -4,7 +4,7 @@ import SwiftUI
 /*
  WindowGroup.swift
 
- Constructs a SwiftUI.WindowGroup from an ActionUIElement.
+ Constructs a SwiftUI.WindowGroup from an ActionUIElementBase.
 
  Expected JSON properties:
  {
@@ -169,19 +169,19 @@ import SwiftUI
 
 @MainActor
 struct WindowGroup: SwiftUI.Scene {
-    let element: any ActionUIElement
+    let element: any ActionUIElementBase
     let windowUUID: String
     private let logger: any ActionUILogger
     
-    init(element: any ActionUIElement, windowUUID: String, logger: any ActionUILogger) {
+    init(element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
     }
     
     var body: some Scene {
-        let contentElement = element.subviews?["content"] as? any ActionUIElement
-        let commands = element.subviews?["commands"] as? [any ActionUIElement] ?? []
+        let contentElement = element.subviews?["content"] as? any ActionUIElementBase
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
         ActionUIModel.shared.windowModels[windowUUID] = windowModel
         

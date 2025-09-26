@@ -120,7 +120,7 @@ final class MenuTests: XCTestCase {
             XCTFail("offset should be valid dictionary")
         }
         
-        if let children = element.subviews?["children"] as? [any ActionUIElement] {
+        if let children = element.subviews?["children"] as? [any ActionUIElementBase] {
             XCTAssertEqual(children.count, 1, "Should have one child")
             XCTAssertEqual(children[0].type, "Button", "Child type should be Button")
             XCTAssertEqual(children[0].id, 2, "Child ID should be 2")

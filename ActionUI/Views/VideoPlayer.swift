@@ -36,7 +36,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AVKit)
         // Use viewModel.value if set, otherwise use initialValue
         let urlString = Self.initialValue(model) as? String ?? ""
@@ -68,7 +68,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         #endif
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         return view // No modifications needed, as autoplay is handled in buildView
     }
     

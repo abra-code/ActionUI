@@ -79,7 +79,7 @@ final class NavigationLinkTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        let destination = element.subviews?["destination"] as? any ActionUIElement
+        let destination = element.subviews?["destination"] as? any ActionUIElementBase
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "NavigationLink", "Element type should be NavigationLink")
@@ -106,7 +106,7 @@ final class NavigationLinkTests: XCTestCase {
             let consoleLogger = ConsoleLogger()
             let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationLink.validateProperties(element.properties, logger)
-            let destination = element.subviews?["destination"] as? any ActionUIElement
+            let destination = element.subviews?["destination"] as? any ActionUIElementBase
             XCTAssertNil(destination, "Malformed destination should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")

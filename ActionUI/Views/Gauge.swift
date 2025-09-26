@@ -67,7 +67,7 @@ struct Gauge: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double ?? 0.0
         let range = properties["range"] as? [String: Double] ?? ["min": 0.0, "max": 1.0]
         let min = range["min"] ?? 0.0
@@ -96,7 +96,7 @@ struct Gauge: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         if let style = properties["style"] as? String {
             switch style {

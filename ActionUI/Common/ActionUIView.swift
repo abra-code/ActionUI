@@ -2,18 +2,18 @@
 /*
  ActionUIView.swift
 
- Constructs a SwiftUI view from an ActionUIElement, using ViewModel for state and ActionUIRegistry for view building and modifiers.
+ Constructs a SwiftUI view from an ActionUIElementBase, using ViewModel for state and ActionUIRegistry for view building and modifiers.
 */
 
 import SwiftUI
 
 @MainActor
 public struct ActionUIView: SwiftUI.View, Equatable {
-    let element: any ActionUIElement
+    let element: any ActionUIElementBase
     @ObservedObject var model: ViewModel
     let windowUUID: String
  
-    init(element: any ActionUIElement, model: ViewModel, windowUUID: String) {
+    init(element: any ActionUIElementBase, model: ViewModel, windowUUID: String) {
         self.element = element
         self.model = model
         self.windowUUID = windowUUID

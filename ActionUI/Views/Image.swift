@@ -96,7 +96,7 @@ struct Image: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         var image: SwiftUI.Image
         if let systemName = properties["systemName"] as? String {
             image = SwiftUI.Image(systemName: systemName)
@@ -121,7 +121,7 @@ struct Image: ActionUIViewConstruction {
         return image
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         
         var modifiedView = view
         

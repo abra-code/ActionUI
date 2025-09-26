@@ -123,7 +123,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
         // Verify content element
-        guard let contentElement = element.subviews?["content"] as? any ActionUIElement else {
+        guard let contentElement = element.subviews?["content"] as? any ActionUIElementBase else {
             XCTFail("Failed to retrieve content element from WindowGroup")
             return
         }
@@ -132,7 +132,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(contentElement.properties["text"] as? String, "Welcome", "Content text should match")
         
         // Verify commands
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }
@@ -143,7 +143,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(commandMenu.id, 3, "CommandMenu ID should be 3")
         XCTAssertEqual(commandMenu.type, "CommandMenu", "Command type should be CommandMenu")
         XCTAssertEqual(commandMenu.properties["name"] as? String, "File", "CommandMenu name should match")
-        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElement] else {
+        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve CommandMenu children")
             return
         }
@@ -162,7 +162,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(commandGroup.type, "CommandGroup", "Command type should be CommandGroup")
         XCTAssertEqual(commandGroup.properties["placement"] as? String, "replacing", "CommandGroup placement should match")
         XCTAssertEqual(commandGroup.properties["placementTarget"] as? String, "newItem", "CommandGroup placementTarget should match")
-        guard let groupChildren = commandGroup.subviews?["children"] as? [any ActionUIElement] else {
+        guard let groupChildren = commandGroup.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve CommandGroup children")
             return
         }
@@ -241,7 +241,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
         // Verify content element
-        guard let contentElement = element.subviews?["content"] as? any ActionUIElement else {
+        guard let contentElement = element.subviews?["content"] as? any ActionUIElementBase else {
             XCTFail("Failed to retrieve content element from WindowGroup")
             return
         }
@@ -250,7 +250,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(contentElement.properties["text"] as? String, "Welcome", "Content text should match")
         
         // Verify commands
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }
@@ -261,7 +261,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(commandMenu.id, 3, "CommandMenu ID should be 3")
         XCTAssertEqual(commandMenu.type, "CommandMenu", "Command type should be CommandMenu")
         XCTAssertEqual(commandMenu.properties["name"] as? String, "File", "CommandMenu name should match")
-        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElement] else {
+        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve CommandMenu children")
             return
         }
@@ -341,7 +341,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }
@@ -357,7 +357,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(commandMenu.id, 4, "CommandMenu ID should be 4")
         XCTAssertEqual(commandMenu.type, "CommandMenu", "Command type should be CommandMenu")
         XCTAssertEqual(commandMenu.properties["name"] as? String, "File", "CommandMenu name should match")
-        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElement] else {
+        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve CommandMenu children")
             return
         }
@@ -435,7 +435,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }
@@ -536,7 +536,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }
@@ -615,7 +615,7 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }

@@ -42,7 +42,7 @@ struct Label: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, _ in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, _ in
         
         let title = properties["title"] as? String ?? ""
         if let systemImage = properties["systemImage"] as? String {
@@ -56,7 +56,7 @@ struct Label: ActionUIViewConstruction {
 //        return SwiftUI.Label(title: { SwiftUI.EmptyView() }, icon: { SwiftUI.EmptyView() })
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         return modifiedView
     }

@@ -44,7 +44,7 @@ struct ColorPicker: ActionUIViewConstruction {
     
     // Builds the ColorPicker view, binding selection to state
     // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialColor = Self.initialValue(model) as? Color ?? Color.clear
         let title = properties["title"] as? String ?? "Color"
         

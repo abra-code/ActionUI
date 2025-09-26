@@ -53,7 +53,7 @@ final class FormTests: XCTestCase {
         XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.validatedProperties, validatedProperties), "View model should include validated properties")
         
         // Verify children
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -92,7 +92,7 @@ final class FormTests: XCTestCase {
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -118,7 +118,7 @@ final class FormTests: XCTestCase {
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }

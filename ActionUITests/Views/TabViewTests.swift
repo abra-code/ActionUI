@@ -130,12 +130,12 @@ final class TabViewTests: XCTestCase {
             XCTFail("offset should be valid dictionary")
         }
         
-        if let children = element.subviews?["children"] as? [any ActionUIElement] {
+        if let children = element.subviews?["children"] as? [any ActionUIElementBase] {
             XCTAssertEqual(children.count, 1, "Should have one child")
             XCTAssertEqual(children[0].type, "TabBarItem", "Child type should be TabBarItem")
             XCTAssertEqual(children[0].id, 2, "Child ID should be 2")
             XCTAssertEqual(children[0].properties["title"] as? String, "Home", "Child title should be Home")
-            if let content = children[0].subviews?["content"] as? any ActionUIElement {
+            if let content = children[0].subviews?["content"] as? any ActionUIElementBase {
                 XCTAssertEqual(content.type, "Text", "Content type should be Text")
                 XCTAssertEqual(content.id, 3, "Content ID should be 3")
                 XCTAssertEqual(content.properties["text"] as? String, "Home", "Content text should be Home")

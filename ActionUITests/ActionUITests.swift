@@ -212,7 +212,7 @@ final class ActionUITests: XCTestCase {
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
         // Verify content element
-        guard let contentElement = element.subviews?["content"] as? any ActionUIElement else {
+        guard let contentElement = element.subviews?["content"] as? any ActionUIElementBase else {
             XCTFail("Failed to retrieve content element from WindowGroup")
             return
         }
@@ -222,7 +222,7 @@ final class ActionUITests: XCTestCase {
         XCTAssertNil(contentElement.subviews?["children"], "Content children should be nil")
         
         // Verify commands
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElement] else {
+        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve commands from WindowGroup")
             return
         }
@@ -233,7 +233,7 @@ final class ActionUITests: XCTestCase {
         XCTAssertEqual(commandMenu.id, 3, "CommandMenu ID should be 3")
         XCTAssertEqual(commandMenu.type, "CommandMenu", "Command type should be CommandMenu")
         XCTAssertEqual(commandMenu.properties["name"] as? String, "File", "CommandMenu name should match")
-        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElement] else {
+        guard let menuChildren = commandMenu.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve CommandMenu children")
             return
         }
@@ -267,7 +267,7 @@ final class ActionUITests: XCTestCase {
         XCTAssertEqual(commandGroup.type, "CommandGroup", "Command type should be CommandGroup")
         XCTAssertEqual(commandGroup.properties["placement"] as? String, "replacing", "CommandGroup placement should match")
         XCTAssertEqual(commandGroup.properties["placementTarget"] as? String, "newItem", "CommandGroup placementTarget should match")
-        guard let groupChildren = commandGroup.subviews?["children"] as? [any ActionUIElement] else {
+        guard let groupChildren = commandGroup.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Failed to retrieve CommandGroup children")
             return
         }

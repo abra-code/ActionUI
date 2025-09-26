@@ -41,8 +41,8 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         return properties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let content = element.subviews?["content"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let content = element.subviews?["content"] as? any ActionUIElementBase ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let initialValue = (properties["initialValue"] as? [String: Any]).map {
             AnimationValues(
                 opacity: $0.double(forKey: "opacity") ?? 1.0,

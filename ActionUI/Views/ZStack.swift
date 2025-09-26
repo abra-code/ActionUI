@@ -35,7 +35,7 @@ struct ZStack: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let alignmentString = properties["alignment"] as? String ?? "center"
         let alignment: Alignment = {
             switch alignmentString {
@@ -51,7 +51,7 @@ struct ZStack: ActionUIViewConstruction {
             }
         }()
         
-        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         
         return SwiftUI.ZStack(alignment: alignment) {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]

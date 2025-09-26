@@ -46,7 +46,7 @@ struct ProgressView: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // TODO: that logic is somewhat faulty in case of indeterminate progress where value is expected to be nil
         let initialValue = Self.initialValue(model) as? Double
         let total: Double? = properties.double(forKey: "total")
@@ -74,7 +74,7 @@ struct ProgressView: ActionUIViewConstruction {
             }
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
 #if canImport(UIKit)
         if properties["value"] == nil || properties["total"] == nil {

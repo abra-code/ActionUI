@@ -41,13 +41,13 @@ struct NavigationLink: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialLink = Self.initialValue(model) as? String ?? ""
         guard !initialLink.isEmpty else {
             logger.log("NavigationLink missing valid link, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
-        let destination = element.subviews?["destination"] as? any ActionUIElement ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let destination = element.subviews?["destination"] as? any ActionUIElementBase ?? ViewElement(id: ViewElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let label = properties["label"] as? String ?? "Link"
         
         return SwiftUI.NavigationLink(value: initialLink) {

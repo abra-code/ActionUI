@@ -4,7 +4,7 @@ import SwiftUI
 /*
  CommandGroup.swift
 
- Constructs a SwiftUI.CommandGroup from an ActionUIElement.
+ Constructs a SwiftUI.CommandGroup from an ActionUIElementBase.
 
  Expected JSON properties:
  {
@@ -82,7 +82,7 @@ struct CommandGroup {
     }
     
     @MainActor
-    static func build(_ element: any ActionUIElement, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> SwiftUI.CommandGroup<AnyView> {
+    static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> SwiftUI.CommandGroup<AnyView> {
         guard element.type == "CommandGroup" else {
             logger.log("Element type must be CommandGroup, got \(element.type)", .error)
             return SwiftUI.CommandGroup(replacing: .help) { AnyView(SwiftUI.EmptyView()) }
@@ -95,7 +95,7 @@ struct CommandGroup {
             return SwiftUI.CommandGroup(replacing: .help) { AnyView(SwiftUI.EmptyView()) }
         }
         
-        let children = (element.subviews?["children"] as? [any ActionUIElement]) ?? []
+        let children = (element.subviews?["children"] as? [any ActionUIElementBase]) ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
         
         switch placement {

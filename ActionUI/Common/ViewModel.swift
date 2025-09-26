@@ -19,7 +19,7 @@ class ViewModel: ObservableObject {
     }
 
     // Validate properties for the given element, updating validatedProperties
-    func validateProperties(for element: any ActionUIElement) {
+    func validateProperties(for element: any ActionUIElementBase) {
         let registry = ActionUIRegistry.shared
         self.validatedProperties = registry.getValidatedProperties(element: element, model: self)
     }

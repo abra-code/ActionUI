@@ -42,7 +42,7 @@ struct ActionUIVerifier {
         return isValid
     }
     
-    private func validateElement(_ element: any ActionUIElement, path: String) -> Bool {
+    private func validateElement(_ element: any ActionUIElementBase, path: String) -> Bool {
         var isValid = true
         
         // Validate element type

@@ -80,7 +80,7 @@ final class GridTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let rows = element.subviews?["rows"] as? [[any ActionUIElement]] else {
+        guard let rows = element.subviews?["rows"] as? [[any ActionUIElementBase]] else {
             XCTFail("Rows key not found in element.subviews dictionary")
             return
         }
@@ -129,7 +129,7 @@ final class GridTests: XCTestCase {
                 
         logger.log("Raw rows: \(String(describing: element.subviews?["rows"]))", .debug)
         let _ = Grid.validateProperties(element.properties, logger)
-        guard let rows = element.subviews?["rows"] as? [[any ActionUIElement]] else {
+        guard let rows = element.subviews?["rows"] as? [[any ActionUIElementBase]] else {
             XCTFail("Rows key not found in element.subviews dictionary")
             return
         }
@@ -217,7 +217,7 @@ final class GridTests: XCTestCase {
         XCTAssertNil(validatedProperties["horizontalSpacing"], "Horizontal spacing should be nil")
         XCTAssertNil(validatedProperties["verticalSpacing"], "Missing verticalSpacing should be nil")
 
-        guard let rows = element.subviews?["rows"] as? [[any ActionUIElement]] else {
+        guard let rows = element.subviews?["rows"] as? [[any ActionUIElementBase]] else {
             XCTFail("Rows key not found in element.subviews dictionary")
             return
         }

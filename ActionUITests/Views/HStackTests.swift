@@ -51,7 +51,7 @@ final class HStackTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -89,7 +89,7 @@ final class HStackTests: XCTestCase {
         XCTAssertEqual(element.type, "HStack", "Element type should be HStack")
         XCTAssertEqual(element.properties.cgFloat(forKey: "spacing"), 10.0, "Spacing should be 10.0")
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -143,7 +143,7 @@ final class HStackTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        let children = element.subviews?["children"] as? [any ActionUIElement]
+        let children = element.subviews?["children"] as? [any ActionUIElementBase]
         XCTAssertEqual(children?.count, 2, "HStack should have 2 children")
         XCTAssertNil(validatedProperties.cgFloat(forKey: "spacing"), "Spacing should be nil")
     }

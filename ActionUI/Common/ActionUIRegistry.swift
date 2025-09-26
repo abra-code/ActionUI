@@ -105,7 +105,7 @@ class ActionUIRegistry {
     }
     
     // Retrieves validated properties for an element, using cached validatedProperties if available
-    func getValidatedProperties(element: any ActionUIElement, model: ViewModel) -> [String: Any] {
+    func getValidatedProperties(element: any ActionUIElementBase, model: ViewModel) -> [String: Any] {
         if !model.validatedProperties.isEmpty {
             return model.validatedProperties
         }
@@ -139,7 +139,7 @@ class ActionUIRegistry {
     }
     
     // Builds a SwiftUI view for an element, only passing validatedProperties, leaving value and view-specific state to buildView
-    func buildView(for element: any ActionUIElement, model: ViewModel, windowUUID: String, validatedProperties: [String: Any]) -> any SwiftUI.View {
+    func buildView(for element: any ActionUIElementBase, model: ViewModel, windowUUID: String, validatedProperties: [String: Any]) -> any SwiftUI.View {
         // Initialize shared state if not present
         // Design decision: Ensures all views have validatedProperties, with value and view-specific state handled by buildView
         if model.validatedProperties.isEmpty {
@@ -157,7 +157,7 @@ class ActionUIRegistry {
     // Applies modifiers to a view, using a ViewModel for dynamic updates
     // Design decision: Uses validatedProperties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
     // Applies baseline View modifiers first, then view-specific modifiers, per the guide's modifier separation principle
-    func applyModifiers(to view: any SwiftUI.View, properties: [String: Any], element: any ActionUIElement, model: ViewModel, windowUUID: String) -> AnyView {
+    func applyModifiers(to view: any SwiftUI.View, properties: [String: Any], element: any ActionUIElementBase, model: ViewModel, windowUUID: String) -> AnyView {
         
         var modifiedView = view
         // First apply specialized view modifications if available (View.applyModifiers can erase specific view type)

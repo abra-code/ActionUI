@@ -79,7 +79,7 @@ final class ScrollViewTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        let content = element.subviews?["content"] as? any ActionUIElement
+        let content = element.subviews?["content"] as? any ActionUIElementBase
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "ScrollView", "Element type should be ScrollView")
@@ -105,7 +105,7 @@ final class ScrollViewTests: XCTestCase {
             let consoleLogger = ConsoleLogger()
             let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = ScrollView.validateProperties(element.properties, logger)
-            let content = element.subviews?["content"] as? any ActionUIElement
+            let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")

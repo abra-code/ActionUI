@@ -45,7 +45,7 @@ struct SecureField: ActionUIViewConstruction {
     
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let placeholder = properties["placeholder"] as? String ?? ""
         let actionID = properties["actionID"] as? String
         let initialValue = Self.initialValue(model) as? String ?? ""
@@ -71,7 +71,7 @@ struct SecureField: ActionUIViewConstruction {
     
     // Applies modifiers specific to SecureField, such as textContentType
     // Design decision: Relies on default macOS text field style (likely rounded) for HIG compliance; textContentType is iOS-only
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)
         if let textContentType = properties["textContentType"] as? String {

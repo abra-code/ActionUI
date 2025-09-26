@@ -63,7 +63,7 @@ struct List: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"

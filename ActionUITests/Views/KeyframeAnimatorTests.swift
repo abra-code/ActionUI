@@ -75,7 +75,7 @@ final class KeyframeAnimatorTests: XCTestCase {
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         let _ = KeyframeAnimator.validateProperties(element.properties, logger)
-        let content = element.subviews?["content"] as? any ActionUIElement
+        let content = element.subviews?["content"] as? any ActionUIElementBase
         logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -120,7 +120,7 @@ final class KeyframeAnimatorTests: XCTestCase {
             let consoleLogger = ConsoleLogger()
             let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
-            let content = element.subviews?["content"] as? any ActionUIElement
+            let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content as? ViewElement, "Malformed content should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")

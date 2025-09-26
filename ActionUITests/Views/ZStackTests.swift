@@ -69,7 +69,7 @@ final class ZStackTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -130,7 +130,7 @@ final class ZStackTests: XCTestCase {
             XCTFail("frame should be a dictionary")
         }
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -204,7 +204,7 @@ final class ZStackTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }

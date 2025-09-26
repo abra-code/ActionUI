@@ -70,7 +70,7 @@ struct Slider: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? Double ?? 0.0
         let range = properties["range"] as? [String: Any] ?? ["min": 0.0, "max": 1.0]
         let min = range.double(forKey: "min") ?? 0.0

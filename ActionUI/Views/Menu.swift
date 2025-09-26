@@ -28,8 +28,8 @@ struct Menu: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         let label = properties["label"] as? String ?? "Menu" // Default to "Menu" if label is nil
         
         return SwiftUI.Menu {
@@ -44,7 +44,7 @@ struct Menu: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         return view
     }
 }

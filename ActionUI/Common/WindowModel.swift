@@ -8,7 +8,7 @@ internal import Combine
 
 @MainActor
 class WindowModel: ObservableObject {
-    @Published var element: (any ActionUIElement)?
+    @Published var element: (any ActionUIElementBase)?
     @Published var viewModels: [Int: ViewModel] = [:]
     let windowUUID: String
     private let logger: any ActionUILogger
@@ -74,7 +74,7 @@ class WindowModel: ObservableObject {
     }
 
     // Recursively populate viewModels for the element and its subviews, returning the populated dictionary
-    internal func populateViewModels(from element: any ActionUIElement) -> [Int: ViewModel] {
+    internal func populateViewModels(from element: any ActionUIElementBase) -> [Int: ViewModel] {
         var targetViewModels: [Int: ViewModel] = [:]
         
         let viewModel = ViewModel()
@@ -85,7 +85,7 @@ class WindowModel: ObservableObject {
         targetViewModels[element.id] = viewModel
         
         if let subviews = element.subviews {
-            if let children = subviews["children"] as? [any ActionUIElement] {
+            if let children = subviews["children"] as? [any ActionUIElementBase] {
                 for child in children {
                     let childViewModels = populateViewModels(from: child)
                     for (id, viewModel) in childViewModels {
@@ -93,7 +93,7 @@ class WindowModel: ObservableObject {
                     }
                 }
             }
-            if let rows = subviews["rows"] as? [[any ActionUIElement]] {
+            if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
                 for row in rows.flatMap({ $0 }) {
                     let rowViewModels = populateViewModels(from: row)
                     for (id, viewModel) in rowViewModels {
@@ -102,14 +102,14 @@ class WindowModel: ObservableObject {
                 }
             }
             for key in ["content", "destination", "sidebar", "detail"] {
-                if let child = subviews[key] as? any ActionUIElement {
+                if let child = subviews[key] as? any ActionUIElementBase {
                     let childViewModels = populateViewModels(from: child)
                     for (id, viewModel) in childViewModels {
                         targetViewModels[id] = viewModel
                     }
                 }
             }
-            if let commands = subviews["commands"] as? [any ActionUIElement] {
+            if let commands = subviews["commands"] as? [any ActionUIElementBase] {
                 for child in commands {
                     let childViewModels = populateViewModels(from: child)
                     for (id, viewModel) in childViewModels {

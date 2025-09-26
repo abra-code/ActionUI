@@ -45,7 +45,7 @@ struct ComboBox: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if os(macOS) || os(iOS)
         let items = (properties["options"] as? [String]) ?? []
         let placeholder = properties["placeholder"] as? String ?? ""

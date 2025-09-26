@@ -51,7 +51,7 @@ final class GroupTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -88,7 +88,7 @@ final class GroupTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Group", "Element type should be Group")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }

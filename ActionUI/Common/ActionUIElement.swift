@@ -1,6 +1,6 @@
 // Sources/ActionUIElement.swift
 /*
- Sample JSON for ActionUIElement (base structure for all elements):
+ Sample JSON for ActionUIElementBase (base structure for all elements):
  {
    "type": "View",       // Matches the view class name (e.g., "NavigationStack", "NavigationLink", "NavigationSplitView")
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
@@ -30,8 +30,8 @@
 import SwiftUI
 import Foundation
 
-// Protocol defining the structure of an ActionUIElement, used for JSON-based UI construction
-protocol ActionUIElement: Identifiable, Codable {
+// Protocol defining the structure of an ActionUIElementBase, used for JSON-based UI construction
+protocol ActionUIElementBase: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
@@ -43,8 +43,8 @@ protocol ActionUIElement: Identifiable, Codable {
 protocol ActionUIViewConstruction {
     static var valueType: Any.Type { get }
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
-    static var buildView: ((any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
+    static var buildView: ((any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
     static var initialValue: (ViewModel) -> Any? { get }
 }
 
@@ -54,7 +54,7 @@ extension ActionUIViewConstruction {
         return Void.self
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElement, String, [String: Any], any ActionUILogger) -> any SwiftUI.View {
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View {
         return { view, _, _, _, _ in view }
     }
     
@@ -64,8 +64,8 @@ extension ActionUIViewConstruction {
     }
 }
 
-// Concrete implementation of ActionUIElement with data for constructing SwiftUI views
-struct ViewElement: ActionUIElement {
+// Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views
+struct ViewElement: ActionUIElementBase {
     let id: Int
     let type: String
     let properties: [String: Any]
@@ -304,8 +304,8 @@ extension ViewElement: Equatable {
 
 // Extension to find an element by ID in the element hierarchy
 // Design decision: Recursive search supports nested JSON structures, enabling validation of properties for views at any depth
-extension ActionUIElement {
-    func findElement(by viewID: Int) -> (any ActionUIElement)? {
+extension ActionUIElementBase {
+    func findElement(by viewID: Int) -> (any ActionUIElementBase)? {
         // Check if the current element matches the ID
         if self.id == viewID {
             return self
@@ -317,7 +317,7 @@ extension ActionUIElement {
         }
         
         // Search in "children" (array of elements)
-        if let children = subviews["children"] as? [any ActionUIElement] {
+        if let children = subviews["children"] as? [any ActionUIElementBase] {
             for child in children {
                 if let found = child.findElement(by: viewID) {
                     return found
@@ -326,7 +326,7 @@ extension ActionUIElement {
         }
         
         // Search in "rows" (array of arrays of elements)
-        if let rows = subviews["rows"] as? [[any ActionUIElement]] {
+        if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
             for row in rows {
                 for child in row {
                     if let found = child.findElement(by: viewID) {
@@ -337,7 +337,7 @@ extension ActionUIElement {
         }
         
         // Search in "commands" (array of elements)
-        if let commands = subviews["commands"] as? [any ActionUIElement] {
+        if let commands = subviews["commands"] as? [any ActionUIElementBase] {
             for command in commands {
                 if let found = command.findElement(by: viewID) {
                     return found
@@ -346,19 +346,19 @@ extension ActionUIElement {
         }
         
         // Search in single-child keys: "content", "destination", "sidebar", "detail"
-        if let content = subviews["content"] as? any ActionUIElement,
+        if let content = subviews["content"] as? any ActionUIElementBase,
            let found = content.findElement(by: viewID) {
             return found
         }
-        if let destination = subviews["destination"] as? any ActionUIElement,
+        if let destination = subviews["destination"] as? any ActionUIElementBase,
            let found = destination.findElement(by: viewID) {
             return found
         }
-        if let sidebar = subviews["sidebar"] as? any ActionUIElement,
+        if let sidebar = subviews["sidebar"] as? any ActionUIElementBase,
            let found = sidebar.findElement(by: viewID) {
             return found
         }
-        if let detail = subviews["detail"] as? any ActionUIElement,
+        if let detail = subviews["detail"] as? any ActionUIElementBase,
            let found = detail.findElement(by: viewID) {
             return found
         }

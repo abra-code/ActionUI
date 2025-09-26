@@ -2,7 +2,7 @@
  AnyCodable.swift
 
  A helper type to enable Codable conformance for existential types (any Codable)
- used in ActionUIElement, such as properties and children collections.
+ used in ActionUIElementBase, such as properties and children collections.
  This type wraps arbitrary Codable values and provides encoding/decoding logic
  to support JSON serialization in the ActionUI component library.
 */
@@ -48,7 +48,7 @@ struct AnyCodable: Codable {
             self.value = dictValue
             return
         }
-        // Try decoding ViewElement for nested ActionUIElement
+        // Try decoding ViewElement for nested ActionUIElementBase
         if let elementValue = try? container.decode(ViewElement.self) {
             self.value = elementValue
             return
@@ -105,16 +105,16 @@ struct AnyCodable: Codable {
         )
     }
     
-    // Converts the wrapped Codable value to an ActionUIElement, throwing if invalid
-    func asActionUIElement() throws -> any ActionUIElement {
+    // Converts the wrapped Codable value to an ActionUIElementBase, throwing if invalid
+    func asActionUIElement() throws -> any ActionUIElementBase {
         if let element = value as? ViewElement {
             return element
         }
         throw DecodingError.typeMismatch(
-            (any ActionUIElement).self,
+            (any ActionUIElementBase).self,
             DecodingError.Context(
                 codingPath: [],
-                debugDescription: "Expected ActionUIElement, got \(type(of: value))"
+                debugDescription: "Expected ActionUIElementBase, got \(type(of: value))"
             )
         )
     }

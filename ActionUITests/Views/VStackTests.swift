@@ -65,7 +65,7 @@ final class VStackTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -105,7 +105,7 @@ final class VStackTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "spacing"), 10.0, "spacing should be 10.0")
         XCTAssertEqual(element.properties["alignment"] as? String, "center", "alignment should be center")
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -176,7 +176,7 @@ final class VStackTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }

@@ -29,10 +29,10 @@ struct HStack: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let spacing = properties.cgFloat(forKey: "spacing")
         
-        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         
         return SwiftUI.HStack(spacing: spacing) {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]

@@ -52,7 +52,7 @@ final class LazyVStackTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
 
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -79,7 +79,7 @@ final class LazyVStackTests: XCTestCase {
         XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
         XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
         XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
-        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView?>>, "View should be LazyVStack")
+        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyVStack")
     }
     
     func testLazyVStackJSONDecoding() throws {
@@ -120,7 +120,7 @@ final class LazyVStackTests: XCTestCase {
             XCTFail("offset should be valid dictionary")
         }
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -189,7 +189,7 @@ final class LazyVStackTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
 
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -214,6 +214,6 @@ final class LazyVStackTests: XCTestCase {
         XCTAssertEqual(children.count, 2, "LazyVStack should have 2 children")
         XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
         XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
-        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElement], Int, ActionUIView?>>, "View should be LazyVStack")
+        XCTAssertTrue(view is SwiftUI.LazyVStack<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyVStack")
     }
 }

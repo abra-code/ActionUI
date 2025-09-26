@@ -4,7 +4,7 @@ import SwiftUI
 /*
  CommandMenu.swift
 
- Constructs a SwiftUI.CommandMenu from an ActionUIElement.
+ Constructs a SwiftUI.CommandMenu from an ActionUIElementBase.
 
  Expected JSON properties:
  {
@@ -76,7 +76,7 @@ struct CommandMenu {
     }
     
     @MainActor
-    static func build(_ element: any ActionUIElement, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> SwiftUI.CommandMenu<AnyView> {
+    static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> SwiftUI.CommandMenu<AnyView> {
         guard element.type == "CommandMenu" else {
             logger.log("Element type must be CommandMenu, got \(element.type)", .error)
             return SwiftUI.CommandMenu("Invalid") { AnyView(SwiftUI.EmptyView()) }
@@ -87,7 +87,7 @@ struct CommandMenu {
             return SwiftUI.CommandMenu("Invalid") { AnyView(SwiftUI.EmptyView()) }
         }
         
-        let children = (element.subviews?["children"] as? [any ActionUIElement]) ?? []
+        let children = (element.subviews?["children"] as? [any ActionUIElementBase]) ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
         
         return SwiftUI.CommandMenu(name) {

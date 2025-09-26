@@ -87,9 +87,9 @@ final class NavigationSplitViewTests: XCTestCase {
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
-        let sidebar = element.subviews?["sidebar"] as? any ActionUIElement
-        let content = element.subviews?["content"] as? any ActionUIElement
-        let detail = element.subviews?["detail"] as? any ActionUIElement
+        let sidebar = element.subviews?["sidebar"] as? any ActionUIElementBase
+        let content = element.subviews?["content"] as? any ActionUIElementBase
+        let detail = element.subviews?["detail"] as? any ActionUIElementBase
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "NavigationSplitView", "Element type should be NavigationSplitView")
@@ -121,7 +121,7 @@ final class NavigationSplitViewTests: XCTestCase {
             let consoleLogger = ConsoleLogger()
             let element = try ViewElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationSplitView.validateProperties(element.properties, logger)
-            let sidebar = element.subviews?["sidebar"] as? any ActionUIElement
+            let sidebar = element.subviews?["sidebar"] as? any ActionUIElementBase
             XCTAssertNil(sidebar, "Malformed sidebar should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")

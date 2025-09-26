@@ -56,7 +56,7 @@ final class LazyVGridTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
 
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -83,7 +83,7 @@ final class LazyVGridTests: XCTestCase {
         XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
         XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
         XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
-        XCTAssertTrue(view is SwiftUI.LazyVGrid<ForEach<[any ActionUIElement], Int, ActionUIView?>>, "View should be LazyVGrid")
+        XCTAssertTrue(view is SwiftUI.LazyVGrid<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyVGrid")
     }
     
     func testLazyVGridJSONDecoding() throws {
@@ -137,7 +137,7 @@ final class LazyVGridTests: XCTestCase {
             XCTFail("offset should be valid dictionary")
         }
         
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -163,7 +163,7 @@ final class LazyVGridTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
 
-        guard let children = element.subviews?["children"] as? [any ActionUIElement] else {
+        guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
             return
         }
@@ -189,7 +189,7 @@ final class LazyVGridTests: XCTestCase {
         XCTAssertNil(validatedProperties["columns"], "Columns should be nil")
         XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
         XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
-        XCTAssertTrue(view is SwiftUI.LazyVGrid<ForEach<[any ActionUIElement], Int, ActionUIView?>>, "View should be LazyVGrid with default columns")
+        XCTAssertTrue(view is SwiftUI.LazyVGrid<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyVGrid with default columns")
     }
     
     func testLazyVGridValidatePropertiesColumnsPartial() {

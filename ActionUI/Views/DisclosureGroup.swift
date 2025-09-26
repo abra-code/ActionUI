@@ -39,7 +39,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
         return validatedProperties
     }
     
-    static var buildView: (any ActionUIElement, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let label = properties["label"] as? String ?? ""
         let initialExpanded = properties["isExpanded"] as? Bool ?? false
         
@@ -58,7 +58,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
             }
         )
         
-        let children = element.subviews?["children"] as? [any ActionUIElement] ?? []
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         
         return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
