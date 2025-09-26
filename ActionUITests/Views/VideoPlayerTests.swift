@@ -52,17 +52,22 @@ final class VideoPlayerTests: XCTestCase {
     }
     
     func testVideoPlayerValidatePropertiesInvalid() {
+        // Use ConsoleLogger to avoid test failure from expected error
+        ActionUIRegistry.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.setLogger(consoleLogger)
+
         let properties: [String: Any] = [
             "url": 123,
             "autoplay": "invalid"
         ]
         
-        // Use ConsoleLogger to avoid XCTestLogger error failure
-        let consoleLogger = ConsoleLogger()
         let validated = VideoPlayer.validateProperties(properties, consoleLogger)
         
         XCTAssertNil(validated["url"], "Invalid url should be nil")
         XCTAssertNil(validated["autoplay"], "Invalid autoplay should be nil")
+
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
     }
     
     func testVideoPlayerValidatePropertiesMissing() {
@@ -165,6 +170,10 @@ final class VideoPlayerTests: XCTestCase {
     }
     
     func testVideoPlayerInvalidURL() throws {
+        // Use ConsoleLogger to avoid test failure from expected error
+        ActionUIRegistry.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.setLogger(consoleLogger)
+
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "VideoPlayer",
@@ -175,7 +184,6 @@ final class VideoPlayerTests: XCTestCase {
             ]
         ]
         
-        let consoleLogger = ConsoleLogger()
         let element = try ViewElement(from: elementDict, logger: consoleLogger)
         let validatedProperties = VideoPlayer.validateProperties(element.properties, consoleLogger)
         let viewModel = ViewModel()
@@ -183,6 +191,9 @@ final class VideoPlayerTests: XCTestCase {
         
         // Verify validated properties
         XCTAssertEqual(validatedProperties["url"] as? String, "invalid-url", "Validated url should be the invalid URL string")
+
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.setLogger(logger)
     }
     
     func testVideoPlayerMissingURL() throws {
