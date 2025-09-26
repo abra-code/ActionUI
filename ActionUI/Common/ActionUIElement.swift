@@ -90,7 +90,7 @@ struct ViewElement: ActionUIElement {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail
+        case id, type, properties, children, rows, content, destination, sidebar, detail, commands
     }
     
     init(from decoder: Decoder) throws {
@@ -125,6 +125,14 @@ struct ViewElement: ActionUIElement {
             if let child = try container.decodeIfPresent(ViewElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = child
+            }
+        }
+        
+        // Decode commands array for WindowGroup
+        if let commandsArray = try container.decodeIfPresent([ViewElement].self, forKey: .commands) {
+            if !commandsArray.isEmpty {
+                if subviews == nil { subviews = [:] }
+                subviews!["commands"] = commandsArray
             }
         }
     }
@@ -177,6 +185,13 @@ struct ViewElement: ActionUIElement {
                 try container.encodeNil(forKey: ElementCodingKeys(rawValue: key)!)
             }
         }
+        
+        // Encode commands array
+        if let commands = subviews["commands"] as? [ViewElement] {
+            try container.encode(commands, forKey: .commands)
+        } else {
+            try container.encodeNil(forKey: .commands)
+        }
     }
     
     // Initializes a ViewElement from a dictionary (e.g., parsed JSON)
@@ -225,6 +240,14 @@ struct ViewElement: ActionUIElement {
             }
         }
         
+        let commandsArray = dictionary["commands"] as? [[String: Any]]
+        // Note: JSON specifies "commands" as a top-level key, but we move it to subviews["commands"]
+        let commands = try commandsArray?.map { try ViewElement(from: $0, logger: logger) }
+        if commands != nil {
+            subviews = [:]
+            subviews!["commands"] = commands
+        }
+
         self.init(id: id, type: type, properties: properties, subviews: subviews)
     }
 }
@@ -247,7 +270,7 @@ extension ViewElement: Equatable {
         }
         
         // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "commands"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             
@@ -309,6 +332,15 @@ extension ActionUIElement {
                     if let found = child.findElement(by: viewID) {
                         return found
                     }
+                }
+            }
+        }
+        
+        // Search in "commands" (array of elements)
+        if let commands = subviews["commands"] as? [any ActionUIElement] {
+            for command in commands {
+                if let found = command.findElement(by: viewID) {
+                    return found
                 }
             }
         }

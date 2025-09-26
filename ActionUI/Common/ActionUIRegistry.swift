@@ -109,6 +109,12 @@ class ActionUIRegistry {
         if !model.validatedProperties.isEmpty {
             return model.validatedProperties
         }
+        
+        if element.type == "WindowGroup" || element.type == "CommandGroup" || element.type == "CommandMenu" {
+            // Special case: These types are not views and do not conform to ActionUIViewConstruction protocol
+            return element.properties
+        }
+        
         let baseValidated = View.validateProperties(element.properties, logger)
         return validateProperties(forElementType: element.type, properties: baseValidated)
     }

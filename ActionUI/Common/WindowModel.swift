@@ -109,6 +109,14 @@ class WindowModel: ObservableObject {
                     }
                 }
             }
+            if let commands = subviews["commands"] as? [any ActionUIElement] {
+                for child in commands {
+                    let childViewModels = populateViewModels(from: child)
+                    for (id, viewModel) in childViewModels {
+                        targetViewModels[id] = viewModel
+                    }
+                }
+            }
         }
         
         return targetViewModels
