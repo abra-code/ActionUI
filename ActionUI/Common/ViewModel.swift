@@ -27,7 +27,6 @@ class ViewModel: ObservableObject {
     // Validate properties from a dictionary, typically for runtime updates
     func validateProperties(_ properties: [String: Any], elementType: String, logger: any ActionUILogger) {
         let registry = ActionUIRegistry.shared
-        let baseValidated = View.validateProperties(properties, logger)
-        self.validatedProperties = registry.validateProperties(forElementType: elementType, properties: baseValidated)
+        self.validatedProperties = registry.validateProperties(forElementType: elementType, properties: properties)
     }
 }
