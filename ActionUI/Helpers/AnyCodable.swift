@@ -48,8 +48,8 @@ struct AnyCodable: Codable {
             self.value = dictValue
             return
         }
-        // Try decoding ViewElement for nested ActionUIElementBase
-        if let elementValue = try? container.decode(ViewElement.self) {
+        // Try decoding ActionUIElement for nested ActionUIElementBase
+        if let elementValue = try? container.decode(ActionUIElement.self) {
             self.value = elementValue
             return
         }
@@ -90,8 +90,8 @@ struct AnyCodable: Codable {
             try container.encode(dictValue)
             return
         }
-        // Handle ViewElement
-        if let elementValue = value as? ViewElement {
+        // Handle ActionUIElement
+        if let elementValue = value as? ActionUIElement {
             try container.encode(elementValue)
             return
         }
@@ -107,7 +107,7 @@ struct AnyCodable: Codable {
     
     // Converts the wrapped Codable value to an ActionUIElementBase, throwing if invalid
     func asActionUIElement() throws -> any ActionUIElementBase {
-        if let element = value as? ViewElement {
+        if let element = value as? ActionUIElement {
             return element
         }
         throw DecodingError.typeMismatch(
@@ -134,7 +134,7 @@ struct AnyCodable: Codable {
             return try dictValue.mapValues { try convertAnyCodableToAny($0) }
         case let arrayValue as [AnyCodable]:
             return try arrayValue.map { try convertAnyCodableToAny($0) }
-        case let elementValue as ViewElement:
+        case let elementValue as ActionUIElement:
             return elementValue
         default:
             throw DecodingError.typeMismatch(
@@ -162,7 +162,7 @@ struct AnyCodable: Codable {
             return AnyCodable(try dictValue.mapValues { try convertAnyToAnyCodable($0) })
         case let arrayValue as [Any]:
             return AnyCodable(try arrayValue.map { try convertAnyToAnyCodable($0) })
-        case let elementValue as ViewElement:
+        case let elementValue as ActionUIElement:
             return AnyCodable(elementValue)
         default:
             throw EncodingError.invalidValue(

@@ -88,7 +88,7 @@ class ActionUIRegistry {
     }
     
     // Registers a view construction type using its type name
-    // Design decision: Simplifies registration by using String(describing: type.self), replacing ViewElement.register
+    // Design decision: Simplifies registration by using String(describing: type.self), replacing ActionUIElement.register
     @inline(__always)
     func register(_ type: any ActionUIViewConstruction.Type) {
         registrations[String(describing: type.self)] = type

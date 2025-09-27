@@ -19,15 +19,15 @@ class WindowModel: ObservableObject {
     }
 
     // Load description from JSON or plist data, populating viewModels
-    func loadDescription(from data: Data, format: String) throws -> ViewElement {
+    func loadDescription(from data: Data, format: String) throws -> ActionUIElement {
         if format == "json" {
-            let element = try JSONDecoder(logger: logger).decode(ViewElement.self, from: data)
+            let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             self.element = element
             self.viewModels = populateViewModels(from: element) // Update self.viewModels
             logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
-            let element = try PropertyListDecoder(logger: logger).decode(ViewElement.self, from: data)
+            let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             self.element = element
             self.viewModels = populateViewModels(from: element) // Update self.viewModels
             logger.log("Loaded plist description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
@@ -39,20 +39,20 @@ class WindowModel: ObservableObject {
     }
 
     // Load description from dictionary, populating viewModels
-    func loadDescription(from dict: [String: Any]) throws -> ViewElement {
-        let element = try ViewElement(from: dict, logger: logger)
+    func loadDescription(from dict: [String: Any]) throws -> ActionUIElement {
+        let element = try ActionUIElement(from: dict, logger: logger)
         self.element = element
         self.viewModels = populateViewModels(from: element) // Update self.viewModels
         return element
     }
 
     // Load a sub-view from JSON or plist data without overwriting the root element
-    func loadSubViewDescription(from data: Data, format: String) throws -> ViewElement {
-        let subElement: ViewElement
+    func loadSubViewDescription(from data: Data, format: String) throws -> ActionUIElement {
+        let subElement: ActionUIElement
         if format == "json" {
-            subElement = try JSONDecoder(logger: logger).decode(ViewElement.self, from: data)
+            subElement = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
         } else if format == "plist" {
-            subElement = try PropertyListDecoder(logger: logger).decode(ViewElement.self, from: data)
+            subElement = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
         } else {
             logger.log("Unsupported format: \(format)", .error)
             throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])

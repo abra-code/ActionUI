@@ -44,7 +44,7 @@ final class FormTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Form.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
@@ -59,10 +59,10 @@ final class FormTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Should have 2 children")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Button", "Second child should be Button")
-        XCTAssertEqual((children[1] as? ViewElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Button", "Second child should be Button")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
     }
     
     func testFormJSONDecoding() throws {
@@ -85,7 +85,7 @@ final class FormTests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -98,8 +98,8 @@ final class FormTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 1, "Should have 1 child")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "Child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "Child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
     }
     
     func testFormElementCreation() {
@@ -112,7 +112,7 @@ final class FormTests: XCTestCase {
             ]
         ]
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let element = try! ActionUIElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Form", "Element type should be Form")
@@ -124,8 +124,8 @@ final class FormTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 1, "Should have 1 child")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "Child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "Child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.properties["text"] as? String, "Field 1", "Child text should be correct")
     }
     
     func testFormValidateProperties() {

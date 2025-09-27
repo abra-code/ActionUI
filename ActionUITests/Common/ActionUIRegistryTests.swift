@@ -98,7 +98,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "properties": ["test": "value"]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: consoleLogger)
+        let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
         let viewModel = ViewModel()
         let registry = ActionUIRegistry.shared
         let validatedProperties = registry.getValidatedProperties(element: element, model: viewModel)
@@ -118,7 +118,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "properties": [:]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let viewModel = ViewModel()
         
         await MainActor.run {

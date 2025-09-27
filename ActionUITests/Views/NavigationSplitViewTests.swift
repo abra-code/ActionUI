@@ -9,13 +9,13 @@
  {
    "type": "NavigationSplitView",
    "id": 1,
-   "sidebar": {          // Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by ViewElement.init(from:).
+   "sidebar": {          // Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Sidebar" }
    },
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Content" }
    },
-   "detail": {           // Note: Declared as a top-level key in JSON but stored in subviews["detail"] by ViewElement.init(from:).
+   "detail": {           // Note: Declared as a top-level key in JSON but stored in subviews["detail"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
@@ -93,12 +93,12 @@ final class NavigationSplitViewTests: XCTestCase {
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "NavigationSplitView", "Element type should be NavigationSplitView")
-        XCTAssertEqual((sidebar as? ViewElement)?.type, "Text", "Sidebar should be Text")
-        XCTAssertEqual((sidebar as? ViewElement)?.id, 2, "Sidebar ID should be 2")
-        XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
-        XCTAssertEqual((content as? ViewElement)?.id, 3, "Content ID should be 3")
-        XCTAssertEqual((detail as? ViewElement)?.type, "Text", "Detail should be Text")
-        XCTAssertEqual((detail as? ViewElement)?.id, 4, "Detail ID should be 4")
+        XCTAssertEqual((sidebar as? ActionUIElement)?.type, "Text", "Sidebar should be Text")
+        XCTAssertEqual((sidebar as? ActionUIElement)?.id, 2, "Sidebar ID should be 2")
+        XCTAssertEqual((content as? ActionUIElement)?.type, "Text", "Content should be Text")
+        XCTAssertEqual((content as? ActionUIElement)?.id, 3, "Content ID should be 3")
+        XCTAssertEqual((detail as? ActionUIElement)?.type, "Text", "Detail should be Text")
+        XCTAssertEqual((detail as? ActionUIElement)?.id, 4, "Detail ID should be 4")
         XCTAssertEqual(element.properties["columnVisibility"] as? String, "all", "Column visibility should be all")
         XCTAssertEqual(element.properties["style"] as? String, "balanced", "Style should be balanced")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -119,7 +119,7 @@ final class NavigationSplitViewTests: XCTestCase {
         do {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
-            let element = try ViewElement(from: elementDict, logger: consoleLogger)
+            let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationSplitView.validateProperties(element.properties, logger)
             let sidebar = element.subviews?["sidebar"] as? any ActionUIElementBase
             XCTAssertNil(sidebar, "Malformed sidebar should be nil")

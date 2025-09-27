@@ -40,7 +40,7 @@ final class EmptyViewTests: XCTestCase {
             "properties": [:]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = EmptyView.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
@@ -66,7 +66,7 @@ final class EmptyViewTests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -82,7 +82,7 @@ final class EmptyViewTests: XCTestCase {
             "properties": ["padding": 10]
         ]
         
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        let element = try! ActionUIElement(from: elementDict, logger: logger)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "EmptyView", "Element type should be EmptyView")

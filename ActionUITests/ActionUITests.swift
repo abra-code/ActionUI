@@ -59,7 +59,7 @@ final class ActionUITests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         guard let windowModel = actionUIModel.windowModels[windowUUID] else {
@@ -198,7 +198,7 @@ final class ActionUITests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Act: Parse JSON into ViewElement
+        // Act: Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         guard let windowModel = actionUIModel.windowModels[windowUUID] else {

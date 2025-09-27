@@ -85,7 +85,7 @@ final class ButtonTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Button.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Button.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -103,7 +103,7 @@ final class ButtonTests: XCTestCase {
             "properties": [:]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Button.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Button.buildView(element, viewModel, windowUUID, validatedProperties, logger)

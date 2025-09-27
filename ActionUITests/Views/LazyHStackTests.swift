@@ -73,10 +73,10 @@ final class LazyHStackTests: XCTestCase {
                     )
 
         XCTAssertEqual(children.count, 2, "LazyHStack should have 2 children")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
         XCTAssertTrue(view is SwiftUI.LazyHStack<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyHStack")
     }
     
@@ -124,10 +124,10 @@ final class LazyHStackTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Children should have 2 elements")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testLazyHStackValidatePropertiesValid() {

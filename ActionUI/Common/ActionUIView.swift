@@ -64,17 +64,17 @@ public struct ActionUIView: SwiftUI.View, Equatable {
             switch (lhsValue, rhsValue) {
             case (nil, nil):
                 continue
-            case (let lhsChildren as [ViewElement], let rhsChildren as [ViewElement]):
+            case (let lhsChildren as [ActionUIElement], let rhsChildren as [ActionUIElement]):
                 guard lhsChildren.count == rhsChildren.count,
                       zip(lhsChildren, rhsChildren).allSatisfy({ $0 == $1 }) else {
                     return false
                 }
-            case (let lhsRows as [[ViewElement]], let rhsRows as [[ViewElement]]):
+            case (let lhsRows as [[ActionUIElement]], let rhsRows as [[ActionUIElement]]):
                 guard lhsRows.count == rhsRows.count,
                       zip(lhsRows, rhsRows).allSatisfy({ zip($0, $1).allSatisfy({ $0 == $1 }) }) else {
                     return false
                 }
-            case (let lhsChild as ViewElement, let rhsChild as ViewElement):
+            case (let lhsChild as ActionUIElement, let rhsChild as ActionUIElement):
                 guard lhsChild == rhsChild else {
                     return false
                 }

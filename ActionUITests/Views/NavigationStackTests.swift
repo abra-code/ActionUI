@@ -9,7 +9,7 @@
  {
    "type": "NavigationStack",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Home" }
    },
    "properties": {
@@ -83,8 +83,8 @@ final class NavigationStackTests: XCTestCase {
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "NavigationStack", "Element type should be NavigationStack")
-        XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
-        XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
+        XCTAssertEqual((content as? ActionUIElement)?.type, "Text", "Content should be Text")
+        XCTAssertEqual((content as? ActionUIElement)?.id, 2, "Content ID should be 2")
         XCTAssertEqual(element.properties["navigationTitle"] as? String, "App", "Navigation title should be App")
         XCTAssertEqual((element.properties["path"] as? [String])?.count, 1, "Path should have 1 element")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -103,7 +103,7 @@ final class NavigationStackTests: XCTestCase {
         do {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
-            let element = try ViewElement(from: elementDict, logger: consoleLogger)
+            let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationStack.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")

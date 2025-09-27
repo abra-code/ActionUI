@@ -44,7 +44,7 @@ final class GroupTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Group.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
@@ -57,10 +57,10 @@ final class GroupTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Group should have 2 children")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testGroupJSONDecoding() throws {
@@ -82,7 +82,7 @@ final class GroupTests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -94,10 +94,10 @@ final class GroupTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Children should have 2 elements")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testGroupValidatePropertiesValid() {

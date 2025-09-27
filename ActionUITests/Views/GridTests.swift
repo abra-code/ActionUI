@@ -73,7 +73,7 @@ final class GridTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
@@ -88,12 +88,12 @@ final class GridTests: XCTestCase {
         XCTAssertEqual(rows.count, 2, "Grid should have 2 rows")
         XCTAssertEqual(rows[0].count, 2, "First row should have 2 elements")
         XCTAssertEqual(rows[1].count, 1, "Second row should have 1 element")
-        XCTAssertEqual((rows[0][0] as? ViewElement)?.type, "Text", "First cell should be Text")
-        XCTAssertEqual((rows[0][0] as? ViewElement)?.id, 2, "First cell ID should be 2")
-        XCTAssertEqual((rows[0][1] as? ViewElement)?.type, "Button", "Second cell should be Button")
-        XCTAssertEqual((rows[0][1] as? ViewElement)?.id, 3, "Second cell ID should be 3")
-        XCTAssertEqual((rows[1][0] as? ViewElement)?.type, "Image", "Third cell should be Image")
-        XCTAssertEqual((rows[1][0] as? ViewElement)?.id, 4, "Third cell ID should be 4")
+        XCTAssertEqual((rows[0][0] as? ActionUIElement)?.type, "Text", "First cell should be Text")
+        XCTAssertEqual((rows[0][0] as? ActionUIElement)?.id, 2, "First cell ID should be 2")
+        XCTAssertEqual((rows[0][1] as? ActionUIElement)?.type, "Button", "Second cell should be Button")
+        XCTAssertEqual((rows[0][1] as? ActionUIElement)?.id, 3, "Second cell ID should be 3")
+        XCTAssertEqual((rows[1][0] as? ActionUIElement)?.type, "Image", "Third cell should be Image")
+        XCTAssertEqual((rows[1][0] as? ActionUIElement)?.id, 4, "Third cell ID should be 4")
     }
     
     func testGridJSONDecoding() throws {
@@ -124,7 +124,7 @@ final class GridTests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         logger.log("Raw rows: \(String(describing: element.subviews?["rows"]))", .debug)
@@ -133,19 +133,19 @@ final class GridTests: XCTestCase {
             XCTFail("Rows key not found in element.subviews dictionary")
             return
         }
-        logger.log("Rows: \(String(describing: rows.map { $0.map { ($0 as? ViewElement)?.type ?? "nil" } }))", .debug)
+        logger.log("Rows: \(String(describing: rows.map { $0.map { ($0 as? ActionUIElement)?.type ?? "nil" } }))", .debug)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Grid", "Element type should be Grid")
         XCTAssertEqual(rows.count, 2, "Rows should have 2 elements")
         XCTAssertEqual(rows[0].count, 2, "First row should have 2 elements")
         XCTAssertEqual(rows[1].count, 1, "Second row should have 1 element")
-        XCTAssertEqual((rows[0][0] as? ViewElement)?.type, "Text", "First cell should be Text")
-        XCTAssertEqual((rows[0][0] as? ViewElement)?.id, 2, "First cell ID should be 2")
-        XCTAssertEqual((rows[0][1] as? ViewElement)?.type, "Image", "Second cell should be Image")
-        XCTAssertEqual((rows[0][1] as? ViewElement)?.id, 3, "Second cell ID should be 3")
-        XCTAssertEqual((rows[1][0] as? ViewElement)?.type, "Button", "Third cell should be Button")
-        XCTAssertEqual((rows[1][0] as? ViewElement)?.id, 4, "Third cell ID should be 4")
+        XCTAssertEqual((rows[0][0] as? ActionUIElement)?.type, "Text", "First cell should be Text")
+        XCTAssertEqual((rows[0][0] as? ActionUIElement)?.id, 2, "First cell ID should be 2")
+        XCTAssertEqual((rows[0][1] as? ActionUIElement)?.type, "Image", "Second cell should be Image")
+        XCTAssertEqual((rows[0][1] as? ActionUIElement)?.id, 3, "Second cell ID should be 3")
+        XCTAssertEqual((rows[1][0] as? ActionUIElement)?.type, "Button", "Third cell should be Button")
+        XCTAssertEqual((rows[1][0] as? ActionUIElement)?.id, 4, "Third cell ID should be 4")
         XCTAssertEqual(element.properties["alignment"] as? String, "topLeading", "Alignment should be topLeading")
         XCTAssertEqual(element.properties.cgFloat(forKey: "horizontalSpacing"), 10.0, "Horizontal spacing should be 10.0")
         XCTAssertEqual(element.properties.cgFloat(forKey: "verticalSpacing"), 5.0, "Vertical spacing should be 5.0")
@@ -207,7 +207,7 @@ final class GridTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Grid.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)

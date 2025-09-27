@@ -43,7 +43,7 @@ final class DividerTests: XCTestCase {
             ]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -60,7 +60,7 @@ final class DividerTests: XCTestCase {
             "properties": [:]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Divider.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)

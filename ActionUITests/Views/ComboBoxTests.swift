@@ -124,7 +124,7 @@ final class ComboBoxTests: XCTestCase {
             "properties": [:]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ComboBox.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = ComboBox.buildView(element, viewModel, windowUUID, validatedProperties, logger)

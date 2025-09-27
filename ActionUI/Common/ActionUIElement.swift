@@ -2,7 +2,7 @@
 /*
  Sample JSON for ActionUIElementBase (base structure for all elements):
  {
-   "type": "View",       // Matches the view class name (e.g., "NavigationStack", "NavigationLink", "NavigationSplitView")
+   "type": "View",       // Matches the SwiftUI view or other element class name (e.g., "NavigationStack", "NavigationLink", "NavigationSplitView")
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {},     // Optional: Dictionary of view-specific properties
    "children": [],       // Optional: Array of child elements. Note: Handled as a top-level key in JSON but stored in subviews["children"]
@@ -23,7 +23,8 @@
    },
    "detail": {           // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in subviews["detail"]
      "type": "Text", "properties": { "text": "Detail" }
-   }
+   },
+   "commands": [],       // Optional: Array of command elements. Note: Handled as a top-level key in JSON but stored in subviews["commands"]
  }
 */
 
@@ -64,8 +65,8 @@ extension ActionUIViewConstruction {
     }
 }
 
-// Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views
-struct ViewElement: ActionUIElementBase {
+// Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views and other elements
+struct ActionUIElement: ActionUIElementBase {
     let id: Int
     let type: String
     let properties: [String: Any]
@@ -80,7 +81,7 @@ struct ViewElement: ActionUIElementBase {
         return negativeIDCounter
     }
     
-    // Initializes a ViewElement with explicit values
+    // Initializes a ActionUIElement with explicit values
     init(id: Int, type: String, properties: [String: Any], subviews: [String: Any]?) {
         self.id = id
         self.type = type
@@ -96,7 +97,7 @@ struct ViewElement: ActionUIElementBase {
     init(from decoder: Decoder) throws {
         let logger = decoder.logger
         let container = try decoder.container(keyedBy: ElementCodingKeys.self)
-        id = try container.decodeIfPresent(Int.self, forKey: .id) ?? ViewElement.generateNegativeID()
+        id = try container.decodeIfPresent(Int.self, forKey: .id) ?? ActionUIElement.generateNegativeID()
         type = try container.decode(String.self, forKey: .type)
         let decodedProperties = try container.decodeIfPresent([String: AnyCodable].self, forKey: .properties) ?? [:]
         var convertedProperties: [String: Any] = [:]
@@ -111,25 +112,25 @@ struct ViewElement: ActionUIElementBase {
         
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
-        if let children = try container.decodeIfPresent([ViewElement].self, forKey: .children) {
+        if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: .children) {
             if subviews == nil { subviews = [:] }
             subviews!["children"] = children
         }
         
-        if let rows = try container.decodeIfPresent([[ViewElement]].self, forKey: .rows) {
+        if let rows = try container.decodeIfPresent([[ActionUIElement]].self, forKey: .rows) {
             if subviews == nil { subviews = [:] }
             subviews!["rows"] = rows
         }
         
         for key in ["content", "destination", "sidebar", "detail"] {
-            if let child = try container.decodeIfPresent(ViewElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
+            if let child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = child
             }
         }
         
         // Decode commands array for WindowGroup
-        if let commandsArray = try container.decodeIfPresent([ViewElement].self, forKey: .commands) {
+        if let commandsArray = try container.decodeIfPresent([ActionUIElement].self, forKey: .commands) {
             if !commandsArray.isEmpty {
                 if subviews == nil { subviews = [:] }
                 subviews!["commands"] = commandsArray
@@ -164,14 +165,14 @@ struct ViewElement: ActionUIElementBase {
         }
         
         // Encode children
-        if let children = subviews["children"] as? [ViewElement] {
+        if let children = subviews["children"] as? [ActionUIElement] {
             try container.encodeIfPresent(children, forKey: .children)
         } else {
             try container.encodeNil(forKey: .children)
         }
         
         // Encode rows
-        if let rows = subviews["rows"] as? [[ViewElement]] {
+        if let rows = subviews["rows"] as? [[ActionUIElement]] {
             try container.encodeIfPresent(rows, forKey: .rows)
         } else {
             try container.encodeNil(forKey: .rows)
@@ -179,7 +180,7 @@ struct ViewElement: ActionUIElementBase {
         
         // Encode single child views
         for key in ["content", "destination", "sidebar", "detail"] {
-            if let child = subviews[key] as? ViewElement {
+            if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
                 try container.encodeNil(forKey: ElementCodingKeys(rawValue: key)!)
@@ -187,23 +188,23 @@ struct ViewElement: ActionUIElementBase {
         }
         
         // Encode commands array
-        if let commands = subviews["commands"] as? [ViewElement] {
+        if let commands = subviews["commands"] as? [ActionUIElement] {
             try container.encode(commands, forKey: .commands)
         } else {
             try container.encodeNil(forKey: .commands)
         }
     }
     
-    // Initializes a ViewElement from a dictionary (e.g., parsed JSON)
+    // Initializes a ActionUIElement from a dictionary (e.g., parsed JSON)
     init(from dictionary: [String: Any], logger: any ActionUILogger) throws {
-        let id = dictionary["id"] as? Int ?? ViewElement.generateNegativeID()
+        let id = dictionary["id"] as? Int ?? ActionUIElement.generateNegativeID()
         guard let type = dictionary["type"] as? String else {
-            throw NSError(domain: "ViewElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
+            throw NSError(domain: "ActionUIElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
         }
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         let childrenArray = dictionary["children"] as? [[String: Any]]
         // Note: JSON specifies "children" as a top-level key, but we move it to subviews["children"]
-        let children = try childrenArray?.map { try ViewElement(from: $0, logger: logger) }
+        let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
         var subviews: [String: Any]?
         if children != nil {
             subviews = [:]
@@ -214,7 +215,7 @@ struct ViewElement: ActionUIElementBase {
         // Note: JSON specifies "rows" as a top-level key, but we move it to subviews["rows"]
         if let rowsArray = dictionary["rows"] as? [[[String: Any]]] {
             let rows = try rowsArray.map { row in
-                try row.map { try ViewElement(from: $0, logger: logger) }
+                try row.map { try ActionUIElement(from: $0, logger: logger) }
             }
             
             if subviews == nil {
@@ -228,7 +229,7 @@ struct ViewElement: ActionUIElementBase {
         for key in ["content", "destination", "sidebar", "detail"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
-                    let childElement = try ViewElement(from: childDict, logger: logger)
+                    let childElement = try ActionUIElement(from: childDict, logger: logger)
                     if subviews == nil {
                         subviews = [:]
                     }
@@ -242,7 +243,7 @@ struct ViewElement: ActionUIElementBase {
         
         let commandsArray = dictionary["commands"] as? [[String: Any]]
         // Note: JSON specifies "commands" as a top-level key, but we move it to subviews["commands"]
-        let commands = try commandsArray?.map { try ViewElement(from: $0, logger: logger) }
+        let commands = try commandsArray?.map { try ActionUIElement(from: $0, logger: logger) }
         if commands != nil {
             subviews = [:]
             subviews!["commands"] = commands
@@ -252,9 +253,9 @@ struct ViewElement: ActionUIElementBase {
     }
 }
 
-// Extension to make ViewElement Equatable
-extension ViewElement: Equatable {
-    static func == (lhs: ViewElement, rhs: ViewElement) -> Bool {
+// Extension to make ActionUIElement Equatable
+extension ActionUIElement: Equatable {
+    static func == (lhs: ActionUIElement, rhs: ActionUIElement) -> Bool {
         // Compare id, type, and properties
         guard lhs.id == rhs.id,
               lhs.type == rhs.type,
@@ -277,17 +278,17 @@ extension ViewElement: Equatable {
             switch (lhsValue, rhsValue) {
             case (nil, nil):
                 continue
-            case (let lhsChildren as [ViewElement], let rhsChildren as [ViewElement]):
+            case (let lhsChildren as [ActionUIElement], let rhsChildren as [ActionUIElement]):
                 guard lhsChildren.count == rhsChildren.count,
                       zip(lhsChildren, rhsChildren).allSatisfy({ $0 == $1 }) else {
                     return false
                 }
-            case (let lhsRows as [[ViewElement]], let rhsRows as [[ViewElement]]):
+            case (let lhsRows as [[ActionUIElement]], let rhsRows as [[ActionUIElement]]):
                 guard lhsRows.count == rhsRows.count,
                       zip(lhsRows, rhsRows).allSatisfy({ zip($0, $1).allSatisfy({ $0 == $1 }) }) else {
                     return false
                 }
-            case (let lhsChild as ViewElement, let rhsChild as ViewElement):
+            case (let lhsChild as ActionUIElement, let rhsChild as ActionUIElement):
                 guard lhsChild == rhsChild else {
                     return false
                 }

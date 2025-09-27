@@ -79,7 +79,7 @@ final class ColorPickerTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -96,7 +96,7 @@ final class ColorPickerTests: XCTestCase {
             "properties": [:]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)

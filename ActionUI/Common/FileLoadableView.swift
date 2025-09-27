@@ -13,7 +13,7 @@ public struct FileLoadableView: SwiftUI.View {
     let isContentView: Bool
     let logger: any ActionUILogger
     
-    private let element: ViewElement?
+    private let element: ActionUIElement?
     private let error: Error?
     
     public init(fileURL: URL, windowUUID: String, isContentView: Bool, logger: any ActionUILogger) {

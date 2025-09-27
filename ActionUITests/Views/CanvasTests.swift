@@ -86,7 +86,7 @@ final class CanvasTests: XCTestCase {
             ]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -103,7 +103,7 @@ final class CanvasTests: XCTestCase {
             "properties": [:]
         ]
         
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = Canvas.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = Canvas.buildView(element, viewModel, windowUUID, validatedProperties, logger)

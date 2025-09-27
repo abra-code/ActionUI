@@ -615,11 +615,8 @@ final class WindowGroupTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
-        guard let commands = element.subviews?["commands"] as? [any ActionUIElementBase] else {
-            XCTFail("Failed to retrieve commands from WindowGroup")
-            return
-        }
-        XCTAssertEqual(commands.count, 0, "WindowGroup should have 0 command elements")
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase]
+        XCTAssertEqual(commands?.count ?? 0, 0, "WindowGroup should be nil or have 0 command elements")
         
         // Assert: Verify content view model
         guard let contentViewModel = windowModel.viewModels[2] else {

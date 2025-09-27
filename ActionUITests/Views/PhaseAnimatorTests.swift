@@ -9,7 +9,7 @@
  {
    "type": "PhaseAnimator",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Animating" }
    },
    "properties": {
@@ -86,8 +86,8 @@ final class PhaseAnimatorTests: XCTestCase {
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "PhaseAnimator", "Element type should be PhaseAnimator")
-        XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
-        XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
+        XCTAssertEqual((content as? ActionUIElement)?.type, "Text", "Content should be Text")
+        XCTAssertEqual((content as? ActionUIElement)?.id, 2, "Content ID should be 2")
         XCTAssertEqual((element.properties["values"] as? [Any])?.count, 3, "Values should have 3 elements")
         XCTAssertEqual(element.properties["trigger"] as? String, "onAppear", "Trigger should be onAppear")
         if let animation = animation {
@@ -113,7 +113,7 @@ final class PhaseAnimatorTests: XCTestCase {
         do {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
-            let element = try ViewElement(from: elementDict, logger: consoleLogger)
+            let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
             let _ = PhaseAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")

@@ -75,10 +75,10 @@ final class ZStackTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "ZStack should have 2 children")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
         XCTAssertEqual(element.properties["alignment"] as? String, "center", "Alignment should be center")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 10.0, "offset.x should be 10.0")
@@ -136,10 +136,10 @@ final class ZStackTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "Children should have 2 elements")
-        XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-        XCTAssertEqual((children[0] as? ViewElement)?.id, 2, "First child ID should be 2")
-        XCTAssertEqual((children[1] as? ViewElement)?.type, "Text", "Second child should be Text")
-        XCTAssertEqual((children[1] as? ViewElement)?.id, 3, "Second child ID should be 3")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+        XCTAssertEqual((children[0] as? ActionUIElement)?.id, 2, "First child ID should be 2")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
     func testZStackValidatePropertiesValid() {

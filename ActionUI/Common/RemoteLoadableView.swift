@@ -13,7 +13,7 @@ public struct RemoteLoadableView: SwiftUI.View {
     let isContentView: Bool
     let logger: any ActionUILogger
     
-    @State private var element: ViewElement?
+    @State private var element: ActionUIElement?
     @State private var error: Error?
     
     public var body: some SwiftUI.View {

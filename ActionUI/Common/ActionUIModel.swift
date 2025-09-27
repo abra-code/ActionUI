@@ -78,7 +78,7 @@ class ActionUIModel: ObservableObject {
     }
     
     // Load a view description from JSON or plist data for a specific windowUUID
-    func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ViewElement {
+    func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
         let element = try windowModel.loadDescription(from: data, format: format)
         windowModels[windowUUID] = windowModel
@@ -86,7 +86,7 @@ class ActionUIModel: ObservableObject {
     }
     
     // Load a view description from a dictionary for a specific windowUUID
-    func loadDescription(from dict: [String: Any], windowUUID: String) throws -> ViewElement {
+    func loadDescription(from dict: [String: Any], windowUUID: String) throws -> ActionUIElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
         let element = try windowModel.loadDescription(from: dict)
         windowModels[windowUUID] = windowModel
@@ -94,7 +94,7 @@ class ActionUIModel: ObservableObject {
     }
 
     // Load a sub-view from JSON or plist data without overwriting the root element
-    func loadSubViewDescription(from data: Data, format: String, windowUUID: String) throws -> ViewElement {
+    func loadSubViewDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
             throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No WindowModel for windowUUID"])

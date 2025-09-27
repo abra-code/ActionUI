@@ -137,7 +137,7 @@ final class AsyncImageTests: XCTestCase {
             ]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
@@ -158,7 +158,7 @@ final class AsyncImageTests: XCTestCase {
             ]
         ]
 
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)

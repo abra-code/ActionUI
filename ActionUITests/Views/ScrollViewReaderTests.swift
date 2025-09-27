@@ -9,7 +9,7 @@
  {
    "type": "ScrollViewReader",
    "id": 1,
-   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ViewElement.init(from:).
+   "content": {          // Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
      "type": "ScrollView", "properties": { "content": { "type": "Text", "properties": { "text": "Item 1" } } }
    },
    "properties": {
@@ -83,8 +83,8 @@ final class ScrollViewReaderTests: XCTestCase {
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "ScrollViewReader", "Element type should be ScrollViewReader")
-        XCTAssertEqual((content as? ViewElement)?.type, "ScrollView", "Content should be ScrollView")
-        XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
+        XCTAssertEqual((content as? ActionUIElement)?.type, "ScrollView", "Content should be ScrollView")
+        XCTAssertEqual((content as? ActionUIElement)?.id, 2, "Content ID should be 2")
         XCTAssertEqual(element.properties.cgFloat(forKey: "scrollTo"), 5.0, "ScrollTo should be 5")
         XCTAssertEqual(element.properties["anchor"] as? String, "top", "Anchor should be top")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -103,7 +103,7 @@ final class ScrollViewReaderTests: XCTestCase {
         do {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
-            let element = try ViewElement(from: elementDict, logger: consoleLogger)
+            let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
             let _ = ScrollViewReader.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")

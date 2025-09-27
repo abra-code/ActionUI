@@ -71,17 +71,17 @@ final class KeyframeAnimatorTests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
         let _ = KeyframeAnimator.validateProperties(element.properties, logger)
         let content = element.subviews?["content"] as? any ActionUIElementBase
-        logger.log("Validated content: \((content as? ViewElement)?.type ?? "nil")", .debug)
+        logger.log("Validated content: \((content as? ActionUIElement)?.type ?? "nil")", .debug)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "KeyframeAnimator", "Element type should be KeyframeAnimator")
-        XCTAssertEqual((content as? ViewElement)?.type, "Text", "Content should be Text")
-        XCTAssertEqual((content as? ViewElement)?.id, 2, "Content ID should be 2")
+        XCTAssertEqual((content as? ActionUIElement)?.type, "Text", "Content should be Text")
+        XCTAssertEqual((content as? ActionUIElement)?.id, 2, "Content ID should be 2")
         if let initialValue = element.properties["initialValue"] as? [String: Any] {
             XCTAssertEqual(initialValue.double(forKey: "opacity"), 0.0, "Initial opacity should be 0.0")
             XCTAssertEqual(initialValue.double(forKey: "scale"), 1.0, "Initial scale should be 1.0")
@@ -118,10 +118,10 @@ final class KeyframeAnimatorTests: XCTestCase {
         do {
             // expecting failure, use ConsoleLogger instead of XCTestLogger
             let consoleLogger = ConsoleLogger()
-            let element = try ViewElement(from: elementDict, logger: consoleLogger)
+            let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
             let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
-            XCTAssertNil(content as? ViewElement, "Malformed content should be nil")
+            XCTAssertNil(content as? ActionUIElement, "Malformed content should be nil")
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }

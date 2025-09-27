@@ -53,7 +53,7 @@ final class GaugeTests: XCTestCase {
         
         let actionUIModel = ActionUIModel.shared
         
-        // Parse JSON into ViewElement
+        // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")

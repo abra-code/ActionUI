@@ -39,7 +39,7 @@ final class DisclosureGroupTests: XCTestCase {
             "type": "DisclosureGroup",
             "properties": ["label": "Test"]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
 
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
@@ -87,7 +87,7 @@ final class DisclosureGroupTests: XCTestCase {
             "type": "DisclosureGroup",
             "properties": [:]
         ]
-        let element = try ViewElement(from: elementDict, logger: logger)
+        let element = try ActionUIElement(from: elementDict, logger: logger)
 
         let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
@@ -121,8 +121,8 @@ final class DisclosureGroupTests: XCTestCase {
             ]
         ]
         
-        // Decode JSON to ViewElement
-        let element = try! ViewElement(from: elementDict, logger: logger)
+        // Decode JSON to ActionUIElement
+        let element = try! ActionUIElement(from: elementDict, logger: logger)
         
         // Verify decoded element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
@@ -130,15 +130,15 @@ final class DisclosureGroupTests: XCTestCase {
         XCTAssertEqual(element.properties["label"] as? String, "Details", "Label should be Details")
         XCTAssertEqual(element.properties["isExpanded"] as? Bool, true, "isExpanded should be true")
         
-        // Verify children are ViewElement instances
+        // Verify children are ActionUIElement instances
         let children = element.subviews?["children"] as? [any ActionUIElementBase]
         XCTAssertNotNil(children, "Children should not be nil")
         if let children {
             XCTAssertEqual(children.count, 2, "Should have 2 children")
-            XCTAssertEqual((children[0] as? ViewElement)?.type, "Text", "First child should be Text")
-            XCTAssertEqual((children[0] as? ViewElement)?.properties["text"] as? String, "Hello, World!", "First child text should be correct")
-            XCTAssertEqual((children[1] as? ViewElement)?.type, "Button", "Second child should be Button")
-            XCTAssertEqual((children[1] as? ViewElement)?.properties["label"] as? String, "Click Me", "Second child label should be correct")
+            XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
+            XCTAssertEqual((children[0] as? ActionUIElement)?.properties["text"] as? String, "Hello, World!", "First child text should be correct")
+            XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Button", "Second child should be Button")
+            XCTAssertEqual((children[1] as? ActionUIElement)?.properties["label"] as? String, "Click Me", "Second child label should be correct")
         }
         
         // Test corrected buildView via ActionUIRegistry

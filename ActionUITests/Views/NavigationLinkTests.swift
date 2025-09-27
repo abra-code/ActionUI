@@ -9,7 +9,7 @@
  {
    "type": "NavigationLink",
    "id": 1,
-   "destination": {      // Note: Declared as a top-level key in JSON but stored in subviews["destination"] by ViewElement.init(from:).
+   "destination": {      // Note: Declared as a top-level key in JSON but stored in subviews["destination"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
@@ -83,8 +83,8 @@ final class NavigationLinkTests: XCTestCase {
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "NavigationLink", "Element type should be NavigationLink")
-        XCTAssertEqual((destination as? ViewElement)?.type, "Text", "Destination should be Text")
-        XCTAssertEqual((destination as? ViewElement)?.id, 2, "Destination ID should be 2")
+        XCTAssertEqual((destination as? ActionUIElement)?.type, "Text", "Destination should be Text")
+        XCTAssertEqual((destination as? ActionUIElement)?.id, 2, "Destination ID should be 2")
         XCTAssertEqual(element.properties["label"] as? String, "Go to Detail", "Label should be Go to Detail")
         XCTAssertEqual(element.properties["link"] as? String, "detail", "Link should be detail")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -104,7 +104,7 @@ final class NavigationLinkTests: XCTestCase {
         do {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
-            let element = try ViewElement(from: elementDict, logger: consoleLogger)
+            let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
             let _ = NavigationLink.validateProperties(element.properties, logger)
             let destination = element.subviews?["destination"] as? any ActionUIElementBase
             XCTAssertNil(destination, "Malformed destination should be nil")
