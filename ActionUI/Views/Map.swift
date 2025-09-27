@@ -15,7 +15,7 @@
        }
      ]
    }
-   // Note: These properties are specific to Map. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Map. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
    // Design decision: Uses modern Map initializer with MapCameraPosition and MapContentBuilder (macOS 14.0+, iOS 17.0+). Annotations use Annotation for title/subtitle support.
  }
 */

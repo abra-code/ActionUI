@@ -9,7 +9,7 @@
      "render": "fillCircle", // Optional: String identifier for render action, defaults to "none" in buildView
      "color": "#FF0000",    // Optional: Color for drawing (hex or named color), defaults to black in buildView
    }
-   // Note: These properties are specific to Canvas. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: These properties are specific to Canvas. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 */
 
