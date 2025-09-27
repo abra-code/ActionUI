@@ -22,7 +22,7 @@ public struct ActionUIView: SwiftUI.View, Equatable {
     // Builds the SwiftUI view using validated properties from ViewModel
     public var body: some SwiftUI.View {
         let registry = ActionUIRegistry.shared
-        let validatedProperties = model.validatedProperties.isEmpty ? registry.getValidatedProperties(element: element, model: model) : model.validatedProperties
+        let validatedProperties = registry.getValidatedProperties(element: element, model: model)
         let baseView = registry.buildView(
             for: element,
             model: model,
@@ -30,7 +30,7 @@ public struct ActionUIView: SwiftUI.View, Equatable {
             validatedProperties: validatedProperties
         )
         // Apply modifiers and return the final view
-        return registry.applyModifiers(
+        return registry.applyViewModifiers(
             to: baseView,
             properties: validatedProperties,
             element: element,

@@ -62,8 +62,8 @@ import SwiftUI
  }
 */
 
-struct CommandMenu {
-    static func validateProperties(_ properties: [String: Any], logger: any ActionUILogger) -> [String: Any] {
+struct CommandMenu : ActionUIPropertyValidation {
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         let validatedProperties = properties
         
         // Validate name

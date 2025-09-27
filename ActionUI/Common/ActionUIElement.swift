@@ -39,11 +39,14 @@ protocol ActionUIElementBase: Identifiable, Codable {
     var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar" or "detail"
 }
 
+protocol ActionUIPropertyValidation {
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
+}
+
 // Protocol for constructing SwiftUI views from ActionUIElements
 @MainActor
-protocol ActionUIViewConstruction {
+protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     static var valueType: Any.Type { get }
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
     static var buildView: ((any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
     static var initialValue: (ViewModel) -> Any? { get }

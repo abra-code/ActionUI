@@ -60,8 +60,8 @@ import SwiftUI
  }
 */
 
-struct CommandGroup {
-    static func validateProperties(_ properties: [String: Any], logger: any ActionUILogger) -> [String: Any] {
+struct CommandGroup : ActionUIPropertyValidation {
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         let validatedProperties = properties
         
         // Validate placement
@@ -152,8 +152,18 @@ struct CommandGroup {
         case "toolbar": return .toolbar
         case "sidebar": return .sidebar
         case "windowSize": return .windowSize
-        case "windowList": return .windowList
-        case "singleWindowList": return .singleWindowList
+        case "windowList":
+            #if os(macOS)
+            return .windowList
+            #else
+            return .windowArrangement
+            #endif
+        case "singleWindowList":
+            #if os(macOS)
+            return .singleWindowList
+            #else
+            return .windowArrangement
+            #endif
         case "windowArrangement": return .windowArrangement
         case "help": return .help
         default:
