@@ -11,8 +11,8 @@ import SwiftUI
    "type": "CommandGroup",
    "id": Int, // Unique identifier
    "properties": {
-     "placement": String, // Required: One of "replacing", "before", "after"
-     "placementTarget": String // Required: One of "appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help"
+     "placement": String, // Optional: One of "replacing", "before", "after". Defaults to "after" if missing or invalid
+     "placementTarget": String // Optional: One of "appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help". Defaults to "help" if missing or invalid
    },
    "children": [
      // Array of child elements (e.g., Button, Divider)
@@ -62,75 +62,73 @@ import SwiftUI
 
 struct CommandGroup : ActionUIPropertyValidation {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        let validatedProperties = properties
+        var validatedProperties = properties
         
         // Validate placement
-        guard let placement = validatedProperties["placement"] as? String,
-              ["replacing", "before", "after"].contains(placement) else {
-            logger.log("CommandGroup placement must be 'replacing', 'before', or 'after'; ignoring properties", .error)
-            return [:]
+        let placement = validatedProperties["placement"] as? String
+        if placement == nil {
+            logger.log("CommandGroup placement is missing; defaulting to 'after'", .warning)
+        }
+        else if !["replacing", "before", "after"].contains(placement) {
+            logger.log("CommandGroup placement is invalid. It must be 'replacing', 'before', or 'after'; defaulting to 'after'", .warning)
+            validatedProperties["placement"] = nil
         }
         
         // Validate placementTarget
-        guard let placementTarget = validatedProperties["placementTarget"] as? String,
-              ["appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help"].contains(placementTarget) else {
-            logger.log("CommandGroup placementTarget must be a valid CommandGroupPlacement value; ignoring properties", .error)
-            return [:]
+        let placementTarget = validatedProperties["placementTarget"] as? String
+        if placementTarget == nil {
+            logger.log("CommandGroup placementTarget is missing; defaulting to 'help'", .warning)
+        } else if !["appInfo", "appSettings", "systemServices", "appVisibility", "appTermination", "newItem", "saveItem", "importExport", "printItem", "undoRedo", "pasteboard", "textEditing", "textFormatting", "toolbar", "sidebar", "windowSize", "windowList", "singleWindowList", "windowArrangement", "help"].contains(placementTarget) {
+            logger.log("CommandGroup placementTarget must be a valid CommandGroupPlacement value; defaulting to 'help'", .warning)
+            validatedProperties["placementTarget"] = nil
         }
         
         return validatedProperties
     }
     
     @MainActor
-    static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> SwiftUI.CommandGroup<AnyView> {
-        guard element.type == "CommandGroup" else {
-            logger.log("Element type must be CommandGroup, got \(element.type)", .error)
-            return SwiftUI.CommandGroup(replacing: .help) { AnyView(SwiftUI.EmptyView()) }
-        }
+    static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> some SwiftUI.Commands /*SwiftUI.CommandGroup<AnyView>*/ {
         
-        guard let placement = properties["placement"] as? String,
-              let placementTarget = properties["placementTarget"] as? String,
-              let commandGroupPlacement = placementToCommandGroupPlacement(placement, target: placementTarget, logger: logger) else {
-            logger.log("CommandGroup requires valid placement and placementTarget in properties", .error)
-            return SwiftUI.CommandGroup(replacing: .help) { AnyView(SwiftUI.EmptyView()) }
-        }
-        
+        let placement = properties["placement"] as? String ?? "after"
+        let placementTarget = properties["placementTarget"] as? String ?? "help"
+        let commandGroupPlacement = placementToCommandGroupPlacement(placement, target: placementTarget, logger: logger) ?? .help
+                
         let children = (element.subviews?["children"] as? [any ActionUIElementBase]) ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
         
         switch placement {
         case "replacing":
             return SwiftUI.CommandGroup(replacing: commandGroupPlacement) {
-                AnyView(
-                    ForEach(children, id: \.id) { child in
-                        if let childModel = windowModel?.viewModels[child.id] {
-                            ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
-                        }
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                     }
-                )
+                }
             }
         case "before":
             return SwiftUI.CommandGroup(before: commandGroupPlacement) {
-                AnyView(
-                    ForEach(children, id: \.id) { child in
-                        if let childModel = windowModel?.viewModels[child.id] {
-                            ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
-                        }
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                     }
-                )
+                }
             }
         case "after":
             return SwiftUI.CommandGroup(after: commandGroupPlacement) {
-                AnyView(
-                    ForEach(children, id: \.id) { child in
-                        if let childModel = windowModel?.viewModels[child.id] {
-                            ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
-                        }
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                     }
-                )
+                }
             }
         default:
-            return SwiftUI.CommandGroup(replacing: .help) { AnyView(SwiftUI.EmptyView()) }
+            return SwiftUI.CommandGroup(after: commandGroupPlacement) {
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    }
+                }
+           }
         }
     }
     

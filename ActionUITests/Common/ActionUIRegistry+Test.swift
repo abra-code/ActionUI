@@ -4,7 +4,9 @@ import SwiftUI
 
 extension ActionUIRegistry {
     func resetForTesting() {
-        registrations.removeAll()
+        viewRegistrations.removeAll()
         registerAllViews()
+        validationRegistrations.removeAll()
+        registerAdditionalElementValidations()
     }
 }

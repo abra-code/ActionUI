@@ -64,40 +64,35 @@ import SwiftUI
 
 struct CommandMenu : ActionUIPropertyValidation {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
-        let validatedProperties = properties
+        var validatedProperties = properties
         
         // Validate name
-        guard let name = validatedProperties["name"] as? String, !name.isEmpty else {
-            logger.log("CommandMenu name must be a non-empty string; ignoring properties", .error)
-            return [:]
+        let name = validatedProperties["name"] as? String
+        if let name, name.isEmpty {
+            logger.log("CommandMenu name must be a non-empty string; defaulting to 'Menu'", .warning)
+            validatedProperties["name"] = nil
         }
         
         return validatedProperties
     }
     
     @MainActor
-    static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> SwiftUI.CommandMenu<AnyView> {
-        guard element.type == "CommandMenu" else {
-            logger.log("Element type must be CommandMenu, got \(element.type)", .error)
-            return SwiftUI.CommandMenu("Invalid") { AnyView(SwiftUI.EmptyView()) }
-        }
+    static func build(_ element: any ActionUIElementBase, windowUUID: String, properties: [String: Any], logger: any ActionUILogger) -> some SwiftUI.Commands {
         
-        guard let name = properties["name"] as? String, !name.isEmpty else {
-            logger.log("CommandMenu requires a valid name in validated properties", .error)
-            return SwiftUI.CommandMenu("Invalid") { AnyView(SwiftUI.EmptyView()) }
+        var name = properties["name"] as? String ?? "Menu"
+        if name.isEmpty {
+            logger.log("CommandMenu name must be a non-empty string; defaulting to 'Menu'", .error)
+            name = "Menu"
         }
-        
         let children = (element.subviews?["children"] as? [any ActionUIElementBase]) ?? []
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
         
         return SwiftUI.CommandMenu(name) {
-            AnyView(
-                ForEach(children, id: \.id) { child in
-                    if let childModel = windowModel?.viewModels[child.id] {
-                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
-                    }
+            ForEach(children, id: \.id) { child in
+                if let childModel = windowModel?.viewModels[child.id] {
+                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                 }
-            )
+            }
         }
     }
 }

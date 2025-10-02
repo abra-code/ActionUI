@@ -1,0 +1,82 @@
+{
+  "type": "WindowGroup",
+  "id": 1,
+  "properties": {
+    "title": "Default Window",
+    "windowGroupID": "WelcomeWindow"
+  },
+  "content": {
+    "type": "VStack",
+    "id": 2,
+    "properties": {
+      "alignment": "center",
+      "spacing": 10.0
+    },
+    "children": [
+      {
+        "type": "Text",
+        "id": 3,
+        "properties": {
+          "text": "Welcome to Default Window"
+        }
+      }
+    ]
+  },
+  "commands": [
+    {
+      "type": "CommandMenu",
+      "id": 4,
+      "properties": {
+        "name": "ActionUI"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "id": 5,
+          "properties": {
+            "title": "New Action",
+            "actionID": "action.new",
+            "keyboardShortcut": {
+              "key": "N",
+              "modifiers": ["command", "shift"]
+            }
+          }
+        },
+        {
+          "type": "Divider",
+          "id": 6
+        },
+        {
+          "type": "Button",
+          "id": 7,
+          "properties": {
+            "title": "Run Action",
+            "actionID": "action.run",
+            "keyboardShortcut": {
+              "key": "R",
+              "modifiers": ["command", "shift"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "CommandGroup",
+      "id": 8,
+      "properties": {
+        "placement": "after",
+        "placementTarget": "appInfo"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "id": 9,
+          "properties": {
+            "title": "About ActionUI Module",
+            "actionID": "action.about"
+          }
+        }
+      ]
+    }
+  ]
+}

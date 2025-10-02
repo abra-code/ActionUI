@@ -1,12 +1,14 @@
-// ActionUITestApp.swift
-import SwiftUI
-import ActionUI
+// Fixed ActionUITestApp.swift
+
 #if canImport(UIKit)
 import UIKit
 #endif
 #if canImport(AppKit)
 import AppKit
 #endif
+
+import SwiftUI
+import ActionUI
 
 @main
 struct ActionUITestApp: App {
@@ -71,6 +73,13 @@ struct ActionUITestApp: App {
             }
         }
         .handlesExternalEvents(matching: ["ActionUIContent-*"])
+        
+        LoadableWindowGroup.load(
+            fromResource: "DefaultWindow",
+            windowUUID: UUID().uuidString,
+            logger: logger
+        )
+        .handlesExternalEvents(matching: ["DefaultWindow"])
     }
 }
 
@@ -117,11 +126,10 @@ struct JSONSelectorView: View {
     
     // Compute jsonFiles outside view builder
     private var jsonFiles: [String] {
-        let files = Bundle.main.paths(forResourcesOfType: "json", inDirectory: nil)
+        Bundle.main.paths(forResourcesOfType: "json", inDirectory: nil)
             .map { URL(filePath: $0).deletingPathExtension().lastPathComponent }
             .sorted()
-//        print("JSON files found: \(files)")
-        return files
+            .filter { $0 != "DefaultWindow" } // Filter out DefaultWindow to avoid duplication
     }
     
     var body: some View {
@@ -132,10 +140,17 @@ struct JSONSelectorView: View {
                     .accessibilityIdentifier("no_json_files_text")
             } else {
                 if supportsMultipleWindows {
-                    List(jsonFiles, id: \.self) { name in
-                        Button(name) {
-                            let windowUUID = UUID().uuidString
-                            openWindow(value: WindowIdentifier(resourceName: name, windowUUID: windowUUID))
+                    List {
+                        Button("Default Window") {
+                            openWindow(id: "WelcomeWindow") // WelcomeWindow is the windowGroupID declared in JSON description
+                        }
+                        .accessibilityIdentifier("default_window_button")
+                        
+                        ForEach(jsonFiles, id: \.self) { name in
+                            Button(name) {
+                                let windowUUID = UUID().uuidString
+                                openWindow(value: WindowIdentifier(resourceName: name, windowUUID: windowUUID))
+                            }
                         }
                     }
                     .navigationTitle("JSON Selector")

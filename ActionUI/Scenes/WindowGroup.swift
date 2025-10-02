@@ -4,14 +4,15 @@ import SwiftUI
 /*
  WindowGroup.swift
 
- Constructs a SwiftUI.WindowGroup from an ActionUIElementBase.
+ Constructs a SwiftUI.WindowGroup<AnyView> from an ActionUIElementBase.
 
  Expected JSON properties:
  {
    "type": "WindowGroup",
    "id": Int, // Unique identifier
    "properties": {
-     "title": String // Required: Non-empty string for the window title
+     "title": String, // Optional: Non-empty string for the window title, defaults to "Untitled" if not provided
+     "windowGroupID": String  // Optional: Non-empty string for the WindowGroup id - must be unique, used to identify the window content template, defaults to "title" if not provided
    },
    "content": {
      // Required: A single view element (e.g., VStack, Text)
@@ -96,7 +97,8 @@ import SwiftUI
    "type": "WindowGroup",
    "id": 1,
    "properties": {
-     "title": "ActionUI Window"
+     "title": "ActionUI Window",
+     "windowGroupID": "WelcomeWindow"
    },
    "content": {
      "type": "VStack",
@@ -168,49 +170,55 @@ import SwiftUI
 */
 
 @MainActor
-struct WindowGroup: SwiftUI.Scene, ActionUIPropertyValidation {
-    let element: any ActionUIElementBase
-    let windowUUID: String
-    private let logger: any ActionUILogger
-    
-    init(element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
-        self.element = element
-        self.windowUUID = windowUUID
-        self.logger = logger
-    }
-    
-    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
+struct WindowGroup : ActionUIPropertyValidation {
+    static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, logger in
         return properties
     }
     
-    var body: some Scene {
+    static func build(element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) -> SwiftUI.WindowGroup<AnyView> {
+        guard element.type == "WindowGroup" else {
+            logger.log("Expected 'WindowGroup' type, found '\(element.type)' for id \(element.id)", .error)
+            return SwiftUI.WindowGroup {
+                AnyView(SwiftUI.Text("Invalid element type: \(element.type)").foregroundStyle(.red))
+            }
+        }
+
+        guard let windowModel = ActionUIModel.shared.windowModels[windowUUID] else {
+            logger.log("WindowModel not found for windowUUID \(windowUUID)", .error)
+            return SwiftUI.WindowGroup {
+                AnyView(SwiftUI.Text("Internal error: WindowModel not found for windowUUID \(windowUUID)").foregroundStyle(.red))
+            }
+        }
+
         let contentElement = element.subviews?["content"] as? any ActionUIElementBase
-        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
-        let windowModel = ActionUIModel.shared.windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
-        ActionUIModel.shared.windowModels[windowUUID] = windowModel
-        
         let title = element.properties["title"] as? String ?? "Untitled"
-        
+        let windowGroupID = element.properties["windowGroupID"] as? String ?? title
+
+        return SwiftUI.WindowGroup(title, id: windowGroupID) {
+            contentElement != nil && windowModel.viewModels[contentElement!.id] != nil
+                ? AnyView(ActionUIView(element: contentElement!, model: windowModel.viewModels[contentElement!.id]!, windowUUID: windowUUID))
+                : AnyView(SwiftUI.Text("No content provided").foregroundStyle(.red))
+        }
+    }
+
+    static func applyCommands(windowGroup: SwiftUI.WindowGroup<AnyView>, commands: [any ActionUIElementBase], windowUUID: String, logger: any ActionUILogger) -> some Scene {
+
+        let windowModel = ActionUIModel.shared.windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
+    
         // Log warning if commands array exceeds 10 elements
         if commands.count > 10 {
-            logger.log("WindowGroup (id: \(element.id)) has \(commands.count) commands, exceeding the limit of 10 root-level commands. Only the first 10 will be processed.", .warning)
+            logger.log("WindowGroup \(windowGroup.self) has \(commands.count) commands, exceeding the limit of 10 root-level commands. Only the first 10 will be processed.", .warning)
         }
         
-        // Validate command types and log warnings for invalid types
+        // Validate command types
         for index in 0..<min(commands.count, 10) {
             let command = commands[index]
             if command.type != "CommandMenu" && command.type != "CommandGroup" {
-                logger.log("WindowGroup (id: \(element.id)) encountered invalid command type '\(command.type)' for command id \(command.id). Skipping.", .warning)
+                logger.log("WindowGroup \(windowGroup.self) encountered invalid command type '\(command.type)' for command id \(command.id). Skipping.", .warning)
             }
         }
         
-        return SwiftUI.WindowGroup(title) {
-            if let contentElement = contentElement,
-               let viewModel = windowModel.viewModels[contentElement.id] {
-                ActionUIView(element: contentElement, model: viewModel, windowUUID: windowUUID)
-            }
-        }
-        .commands {
+        return windowGroup.commands {
             let registry = ActionUIRegistry.shared
             if commands.count > 0 {
                 let command = commands[0]
