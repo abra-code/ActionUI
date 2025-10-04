@@ -9,10 +9,18 @@ import AppKit
 
 import SwiftUI
 import ActionUI
+import ActionUISwiftAdapter
+
+// Custom logger
+class CustomLogger: ActionUI.ActionUILogger {
+    func log(_ message: String, _ level: ActionUI.Level) {
+        print("[\(level)] \(message)")
+    }
+}
 
 @main
 struct ActionUITestApp: App {
-    let logger = ConsoleLogger(maxLevel: .verbose)
+    let logger = CustomLogger()
 
     // Runtime check for multi-window support
     private var supportsMultipleWindows: Bool {
@@ -32,6 +40,9 @@ struct ActionUITestApp: App {
     @Environment(\.openWindow) private var openWindow
     
     init() {
+        // Configure logger
+        ActionUISwift.setLogger(logger)
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")
