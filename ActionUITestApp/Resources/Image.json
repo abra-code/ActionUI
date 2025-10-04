@@ -30,12 +30,12 @@
         "type": "Image",
         "id": 3,
         "properties": {
-          "systemName": "star.fill",
+          "systemName": "checkmark.circle",
           "imageScale": "large",
-          "foregroundStyle": "yellow",
+          "foregroundStyle": "blue",
           "frame": {
-            "width": 80.0,
-            "height": 80.0,
+            "width": 100.0,
+            "height": 100.0,
             "alignment": "center"
           },
           "padding": 8.0,
@@ -48,7 +48,7 @@
         "type": "Image",
         "id": 4,
         "properties": {
-          "systemName": "heart.fill",
+          "systemName": "hand.thumbsup",
           "imageScale": "medium",
           "foregroundStyle": "red",
           "resizable": true,

@@ -2,7 +2,7 @@
   "type": "Form",
   "id": 1,
   "properties": {
-    "padding": "default",
+    "padding": "default"
   },
   "children": [
     {
