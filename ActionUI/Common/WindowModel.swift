@@ -1,6 +1,6 @@
 // Common/WindowModel.swift
 import SwiftUI
-internal import Combine
+import Combine
 
 /*
  WindowModel manages the state for a single window, including its root element and associated view models.

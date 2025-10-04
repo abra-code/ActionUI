@@ -1,6 +1,6 @@
 // Common/ViewModel.swift
 import SwiftUI
-internal import Combine
+import Combine
 
 /*
  ViewModel manages the state for a single view, including its value and validated properties.

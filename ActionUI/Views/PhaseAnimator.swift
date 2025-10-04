@@ -26,7 +26,7 @@
 */
 
 import SwiftUI
-internal import Combine // Explicitly set access level to internal
+import Combine // Explicitly set access level to internal
 
 struct PhaseAnimator: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, _ in

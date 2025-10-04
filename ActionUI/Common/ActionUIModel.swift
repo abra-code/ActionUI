@@ -1,21 +1,22 @@
 // Common/ActionUIModel.swift
 import SwiftUI
 import MapKit
-internal import Combine
+import Combine
 
 /*
  ActionUIModel manages the global state for ActionUI, including view descriptions and state.
  It provides methods to load view descriptions, handle actions, and manage element state.
  The singleton pattern ensures a single source of truth for the UI state.
+ Design decision: Made public to support ActionUISwift adapter, with internal/private access for state to preserve encapsulation.
 */
 
 @MainActor
-class ActionUIModel: ObservableObject {
+public class ActionUIModel: ObservableObject {
     // Singleton instance for global access
-    static let shared = ActionUIModel()
+    public static let shared = ActionUIModel()
     
     // Dictionary of windowUUID to WindowModel containing descriptions and viewModels
-    var windowModels: [String: WindowModel] = [:]
+    internal var windowModels: [String: WindowModel] = [:]
     
     // Registered action handlers for specific actionIDs
     internal var actionHandlers: [String: (String, String, Int, Int, Any?) -> Void] = [:]
@@ -33,39 +34,39 @@ class ActionUIModel: ObservableObject {
     }
     
     // Allows clients to set a custom logger (e.g., XCTestLogger)
-    func setLogger(_ logger: any ActionUILogger) {
+    public func setLogger(_ logger: any ActionUILogger) {
         self.logger = logger
     }
     
     // Register a handler for a specific actionID
     // Parameters:
-    // - actionID: The identifier for the action (e.g. "button.click", "table.doubleClick")
+    // - actionID: The identifier for the action (e.g., "button.click", "table.doubleClick")
     // - handler: Closure to execute when the actionID is triggered
-    func registerActionHandler(for actionID: String, handler: @escaping (String, String, Int, Int, Any?) -> Void) {
+    public func registerActionHandler(for actionID: String, handler: @escaping (String, String, Int, Int, Any?) -> Void) {
         actionHandlers[actionID] = handler
         logger.log("Registered handler for actionID: \(actionID)", .verbose)
     }
     
     // Unregister an action handler for a specific actionID
-    func unregisterActionHandler(for actionID: String) {
+    public func unregisterActionHandler(for actionID: String) {
         actionHandlers.removeValue(forKey: actionID)
         logger.log("Unregistered handler for actionID: \(actionID)", .verbose)
     }
     
     // Set a default action handler for unregistered actionIDs
-    func setDefaultActionHandler(_ handler: @escaping (String, String, Int, Int, Any?) -> Void) {
+    public func setDefaultActionHandler(_ handler: @escaping (String, String, Int, Int, Any?) -> Void) {
         defaultActionHandler = handler
         logger.log("Set default action handler", .verbose)
     }
     
     // Remove the default action handler
-    func removeDefaultActionHandler() {
+    public func removeDefaultActionHandler() {
         defaultActionHandler = nil
         logger.log("Removed default action handler", .verbose)
     }
     
     // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
-    func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
+    internal func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
         if let handler = actionHandlers[actionID] {
             logger.log("Executing handler for actionID: \(actionID), viewID: \(viewID)", .debug)
             handler(actionID, windowUUID, viewID, viewPartID, context)
@@ -78,7 +79,7 @@ class ActionUIModel: ObservableObject {
     }
     
     // Load a view description from JSON or plist data for a specific windowUUID
-    func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
+    internal func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
         let element = try windowModel.loadDescription(from: data, format: format)
         windowModels[windowUUID] = windowModel
@@ -86,7 +87,7 @@ class ActionUIModel: ObservableObject {
     }
     
     // Load a view description from a dictionary for a specific windowUUID
-    func loadDescription(from dict: [String: Any], windowUUID: String) throws -> ActionUIElement {
+    internal func loadDescription(from dict: [String: Any], windowUUID: String) throws -> ActionUIElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
         let element = try windowModel.loadDescription(from: dict)
         windowModels[windowUUID] = windowModel
@@ -94,7 +95,7 @@ class ActionUIModel: ObservableObject {
     }
 
     // Load a sub-view from JSON or plist data without overwriting the root element
-    func loadSubViewDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
+    internal func loadSubViewDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
         guard let windowModel = windowModels[windowUUID] else {
             logger.log("No WindowModel found for windowUUID: \(windowUUID)", .error)
             throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No WindowModel for windowUUID"])
@@ -103,7 +104,7 @@ class ActionUIModel: ObservableObject {
     }
 
     // Cache a view description as a binary plist to a specified URL
-    func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
+    internal func cacheAsBinaryPlist(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
         let element = try windowModel.loadDescription(from: data, format: format)
         let plistData = try PropertyListEncoder().encode(element)
@@ -112,13 +113,13 @@ class ActionUIModel: ObservableObject {
         windowModels[windowUUID] = windowModel
     }
 
-    func cacheData(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
+    internal func cacheData(_ data: Data, format: String, to url: URL, windowUUID: String) throws {
         try data.write(to: url)
         logger.log("Cached description in original format for windowUUID: \(windowUUID) at \(url)", .verbose)
     }
 
     // Get the value of a view element
-    func getElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
+    public func getElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
@@ -146,7 +147,7 @@ class ActionUIModel: ObservableObject {
     // For Table: Accepts [[String]], preserves all columns, pads rows for display if needed
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
-    func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
+    public func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
         guard let windowModel = windowModels[windowUUID],
               let _ = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -184,7 +185,7 @@ class ActionUIModel: ObservableObject {
     
     // Converts control value to a string representation for scripting
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
-    func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
+    public func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
         guard let windowModel = windowModels[windowUUID],
               let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -232,7 +233,7 @@ class ActionUIModel: ObservableObject {
     
     // Converts a string to the view's value type and delegates to setElementValue
     // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
-    func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
+    public func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
         guard let windowModel = windowModels[windowUUID],
               let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -327,7 +328,7 @@ class ActionUIModel: ObservableObject {
     // Appends items to a view’s content, updating state and validatedProperties
     // For Table: Appends [[String]], preserves all columns, pads rows for display
     // For List: Appends [String] or [[String]], converts [String] to [[String]]
-    func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
+    internal func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
         guard let windowModel = windowModels[windowUUID],
               let _ = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -358,7 +359,7 @@ class ActionUIModel: ObservableObject {
     // Retrieves a property value for a view by its name
     // Design decision: Accesses validatedProperties to ensure consistency with rendered views, as these are validated by ActionUIRegistry
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging
-    func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
+    internal func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
@@ -373,7 +374,7 @@ class ActionUIModel: ObservableObject {
     // Sets a property value for a view and re-validates it
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
     // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
-    func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
+    internal func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let windowModel = windowModels[windowUUID],
               let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)

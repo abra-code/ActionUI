@@ -25,7 +25,7 @@
 */
 
 import SwiftUI
-internal import Combine // Required for Timer.publish in onTimer trigger
+import Combine // Required for Timer.publish in onTimer trigger
 
 // Define a value type for animatable properties
 struct AnimationValues: Equatable {
