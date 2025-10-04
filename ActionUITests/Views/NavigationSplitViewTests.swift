@@ -38,7 +38,7 @@ final class NavigationSplitViewTests: XCTestCase {
         super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString

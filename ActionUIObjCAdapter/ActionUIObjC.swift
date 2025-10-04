@@ -42,7 +42,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     /// Sets a custom logger for ActionUI to handle debugging and error reporting.
     /// - Parameter logger: A client-provided logger conforming to ActionUIObjCLogger.
     @MainActor @objc public class func setLogger(_ logger: any ActionUIObjCLogger) {
-        model.setLogger(ObjCLoggerBridge(objCLogger: logger))
+        model.logger = ObjCLoggerBridge(objCLogger: logger)
     }
     
     /// Sets the value of a view element identified by viewID in the specified window.

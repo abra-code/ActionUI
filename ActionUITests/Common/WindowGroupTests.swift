@@ -22,7 +22,7 @@ final class WindowGroupTests: XCTestCase {
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString
@@ -113,9 +113,10 @@ final class WindowGroupTests: XCTestCase {
             return
         }
         
-        // Act: Instantiate WindowGroup and trigger scene construction
-        let windowGroup = WindowGroup(element: element, windowUUID: windowUUID, logger: logger)
-        _ = windowGroup.body // Trigger scene construction to process commands
+        // Act: Instantiate WindowGroup
+        let windowGroup = WindowGroup.build(element: element, windowUUID: windowUUID, logger: logger)
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
+        _ = WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
         
         // Assert: Verify parsed WindowGroup element
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
@@ -277,7 +278,7 @@ final class WindowGroupTests: XCTestCase {
     func testWindowGroupInvalidCommandType() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         // Arrange: Create JSON description with invalid command type
         let jsonString = """
@@ -333,10 +334,11 @@ final class WindowGroupTests: XCTestCase {
             return
         }
         
-        // Act: Instantiate WindowGroup and trigger scene construction
-        let windowGroup = WindowGroup(element: element, windowUUID: windowUUID, logger: consoleLogger)
-        _ = windowGroup.body // Trigger scene construction
-        
+        // Act: Instantiate WindowGroup
+        let windowGroup = WindowGroup.build(element: element, windowUUID: windowUUID, logger: logger)
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
+        _ = WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
+
         // Assert: Verify parsed elements
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
@@ -380,7 +382,7 @@ final class WindowGroupTests: XCTestCase {
         consoleLogger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
     
     func testWindowGroupTooManyCommands() throws {
@@ -427,10 +429,11 @@ final class WindowGroupTests: XCTestCase {
             return
         }
         
-        // Act: Instantiate WindowGroup and trigger scene construction
-        let windowGroup = WindowGroup(element: element, windowUUID: windowUUID, logger: logger)
-        _ = windowGroup.body // Trigger scene construction
-        
+        // Act: Instantiate WindowGroup
+        let windowGroup = WindowGroup.build(element: element, windowUUID: windowUUID, logger: logger)
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
+        _ = WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
+
         // Assert: Verify parsed elements
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
@@ -459,7 +462,7 @@ final class WindowGroupTests: XCTestCase {
     func testWindowGroupInvalidCommandProperties() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         // Arrange: Create JSON with invalid command properties (empty name, invalid placement)
         let jsonString = """
@@ -528,10 +531,11 @@ final class WindowGroupTests: XCTestCase {
             return
         }
         
-        // Act: Instantiate WindowGroup and trigger scene construction
-        let windowGroup = WindowGroup(element: element, windowUUID: windowUUID, logger: consoleLogger)
-        _ = windowGroup.body // Trigger scene construction
-        
+        // Act: Instantiate WindowGroup
+        let windowGroup = WindowGroup.build(element: element, windowUUID: windowUUID, logger: logger)
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
+        _ = WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
+
         // Assert: Verify parsed elements
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
@@ -572,7 +576,7 @@ final class WindowGroupTests: XCTestCase {
         consoleLogger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
     
     func testWindowGroupEmptyCommands() throws {
@@ -607,16 +611,16 @@ final class WindowGroupTests: XCTestCase {
             return
         }
         
-        // Act: Instantiate WindowGroup and trigger scene construction
-        let windowGroup = WindowGroup(element: element, windowUUID: windowUUID, logger: logger)
-        _ = windowGroup.body // Trigger scene construction
-        
+        // Act: Instantiate WindowGroup
+        let windowGroup = WindowGroup.build(element: element, windowUUID: windowUUID, logger: logger)
+        let commands = element.subviews?["commands"] as? [any ActionUIElementBase] ?? []
+        _ = WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
+
         // Assert: Verify parsed elements
         XCTAssertEqual(element.id, 1, "WindowGroup element ID should be 1")
         XCTAssertEqual(element.properties["title"] as? String, "Test Window", "Title should match")
         
-        let commands = element.subviews?["commands"] as? [any ActionUIElementBase]
-        XCTAssertEqual(commands?.count ?? 0, 0, "WindowGroup should be nil or have 0 command elements")
+        XCTAssertEqual(commands.count, 0, "WindowGroup should be nil or have 0 command elements")
         
         // Assert: Verify content view model
         guard let contentViewModel = windowModel.viewModels[2] else {

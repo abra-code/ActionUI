@@ -19,7 +19,7 @@ public struct ActionUISwift {
     /// - Parameter logger: A client-provided logger conforming to ActionUILogger.
     /// Design decision: Delegates to ActionUIModel.setLogger to maintain a single source of truth for logging configuration.
     public static func setLogger(_ logger: any ActionUI.ActionUILogger) {
-        model.setLogger(logger)
+        model.logger = logger
     }
     
     /// Sets the value of a view element identified by viewID in the specified window.

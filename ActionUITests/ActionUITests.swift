@@ -24,7 +24,7 @@ final class ActionUITests: XCTestCase {
         super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString
@@ -281,10 +281,10 @@ final class ActionUITests: XCTestCase {
         XCTAssertEqual((groupButton.properties["keyboardShortcut"] as? [String: Any])?["key"] as? String, "n", "Group Button keyboardShortcut key should match")
         XCTAssertEqual((groupButton.properties["keyboardShortcut"] as? [String: Any])?["modifiers"] as? [String], ["command", "shift"], "Group Button keyboardShortcut modifiers should match")
         
-        // Act: Instantiate WindowGroup and trigger scene construction
-        let windowGroup = WindowGroup(element: element, windowUUID: windowUUID, logger: logger)
-        _ = windowGroup.body // Trigger scene construction to process commands
-        
+        // Act: Instantiate WindowGroup
+        let windowGroup = WindowGroup.build(element: element, windowUUID: windowUUID, logger: logger)
+        _ = WindowGroup.applyCommands(windowGroup: windowGroup, commands: commands, windowUUID: windowUUID, logger: logger)
+
         // Assert: Verify content view model
         guard let contentViewModel = windowModel.viewModels[contentElement.id] else {
             XCTFail("Failed to retrieve viewModel for content element id: \(contentElement.id)")

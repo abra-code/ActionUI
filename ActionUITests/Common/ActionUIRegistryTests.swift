@@ -14,7 +14,7 @@ final class ActionUIRegistryTests: XCTestCase {
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString
@@ -33,7 +33,7 @@ final class ActionUIRegistryTests: XCTestCase {
     func testViewRegistration() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         let expectedViewTypes = [
             "AsyncImage", "Button", "Canvas", "ColorPicker", "ComboBox", "DatePicker",
@@ -83,14 +83,14 @@ final class ActionUIRegistryTests: XCTestCase {
         }
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
         
     // Test handling of unregistered view types
     func testUnregisteredViewType() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         let elementDict: [String: Any] = [
             "id": 1,
@@ -107,7 +107,7 @@ final class ActionUIRegistryTests: XCTestCase {
         XCTAssertTrue(PropertyComparison.arePropertiesEqual(validatedProperties, element.properties), "Unregistered view type should return original properties")
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
     
     // Test @MainActor compliance for registration and view building

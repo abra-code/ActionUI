@@ -24,20 +24,15 @@ public class ActionUIModel: ObservableObject {
     // Default handler for actions with no specific handler registered, used for all unmatched actionIDs
     private var defaultActionHandler: ((String, String, Int, Int, Any?) -> Void)?
     
-    // Design decision: Client-configurable via setLogger, defaults to ConsoleLogger for consistency
+    // Design decision: Public logger for client access, defaults to ConsoleLogger for consistency
     // Logger for debugging and error reporting
-    private var logger: any ActionUILogger
+    public var logger: any ActionUILogger
     
     private init() {
         // Initialize with default ConsoleLogger
         self.logger = ConsoleLogger(maxLevel: .verbose)
     }
-    
-    // Allows clients to set a custom logger (e.g., XCTestLogger)
-    public func setLogger(_ logger: any ActionUILogger) {
-        self.logger = logger
-    }
-    
+        
     // Register a handler for a specific actionID
     // Parameters:
     // - actionID: The identifier for the action (e.g., "button.click", "table.doubleClick")

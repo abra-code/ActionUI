@@ -22,7 +22,7 @@ final class VideoPlayerTests: XCTestCase {
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         windowUUID = UUID().uuidString
@@ -54,7 +54,7 @@ final class VideoPlayerTests: XCTestCase {
     func testVideoPlayerValidatePropertiesInvalid() {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         let properties: [String: Any] = [
             "url": 123,
@@ -67,7 +67,7 @@ final class VideoPlayerTests: XCTestCase {
         XCTAssertNil(validated["autoplay"], "Invalid autoplay should be nil")
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
     
     func testVideoPlayerValidatePropertiesMissing() {
@@ -172,7 +172,7 @@ final class VideoPlayerTests: XCTestCase {
     func testVideoPlayerInvalidURL() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         let elementDict: [String: Any] = [
             "id": 1,
@@ -193,13 +193,13 @@ final class VideoPlayerTests: XCTestCase {
         XCTAssertEqual(validatedProperties["url"] as? String, "invalid-url", "Validated url should be the invalid URL string")
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
     
     func testVideoPlayerMissingURL() throws {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIRegistry.shared.setLogger(consoleLogger)
-        ActionUIModel.shared.setLogger(consoleLogger)
+        ActionUIModel.shared.logger = consoleLogger
 
         let elementDict: [String: Any] = [
             "id": 1,
@@ -219,6 +219,6 @@ final class VideoPlayerTests: XCTestCase {
         XCTAssertNil(validatedProperties["url"], "Missing url should be nil")
 
         ActionUIRegistry.shared.setLogger(logger)
-        ActionUIModel.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
 }
