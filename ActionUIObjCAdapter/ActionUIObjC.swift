@@ -5,6 +5,14 @@
 
 import ActionUI
 import Foundation
+import SwiftUI
+
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Objective-C compatible logger protocol for bridging to ActionUILogger.
 /// Design decision: Defined in adapter to avoid modifying core ActionUI, allowing Obj-C clients to implement logging without @objc in core protocol.
@@ -115,5 +123,66 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     /// Removes the default action handler.
     @MainActor @objc public class func removeDefaultActionHandler() {
         model.removeDefaultActionHandler()
+    }
+    
+    #if canImport(AppKit)
+    /// Loads an NSView hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
+    /// Available only on macOS.
+    /// - Parameters:
+    ///   - url: The URL to the JSON or plist description file (file:// for local, http:// or https:// for remote).
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - isContentView: If true, loads as the root view of the window; if false, loads as a subview without overwriting the root element.
+    /// - Returns: An NSView (specifically, NSHostingView) with the loaded SwiftUI view embedded. If the URL or data is invalid, the view displays an error message.
+    /// Design decision: Returns NSView for Obj-C compatibility, as NSHostingView<any SwiftUI.View> is not bridgeable to Objective-C. Non-optional return reflects guaranteed view creation, with errors surfaced as view content.
+    @MainActor @objc public class func loadViewWithURL(_ url: NSURL, windowUUID: NSString, isContentView: Bool) -> NSView {
+        let swiftView = loadActionUIView(from: url as URL, windowUUID: windowUUID as String, isContentView: isContentView)
+        let hostingView = NSHostingView(rootView: AnyView(swiftView))
+        hostingView.autoresizingMask = [.width, .height]
+        return hostingView
+    }
+    #endif
+    
+    #if canImport(AppKit)
+    /// Loads an NSViewController hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
+    /// - Parameters:
+    ///   - url: The URL to the JSON or plist description file (file:// for local, http:// or https:// for remote).
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - isContentView: If true, loads as the root view of the window; if false, loads as a subview without overwriting the root element.
+    /// - Returns: An NSViewController (specifically, NSHostingController) with the loaded SwiftUI view embedded as its root view. If the URL or data is invalid, the view displays an error message.
+    /// Design decision: Returns NSViewController for Obj-C compatibility; wraps the view in an NSHostingController for macOS integration. Non-optional return reflects guaranteed controller creation, with errors surfaced as view content.
+    @MainActor @objc public class func loadHostingControllerWithURL(_ url: NSURL, windowUUID: NSString, isContentView: Bool) -> NSViewController {
+        let swiftView = loadActionUIView(from: url as URL, windowUUID: windowUUID as String, isContentView: isContentView)
+        let hostingController = NSHostingController(rootView: AnyView(swiftView))
+        hostingController.view.autoresizingMask = [.width, .height]
+        return hostingController
+    }
+    #endif
+    
+    #if canImport(UIKit)
+    /// Loads a UIViewController hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
+    /// - Parameters:
+    ///   - url: The URL to the JSON or plist description file (file:// for local, http:// or https:// for remote).
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - isContentView: If true, loads as the root view of the window; if false, loads as a subview without overwriting the root element.
+    /// - Returns: A UIViewController (specifically, UIHostingController) with the loaded SwiftUI view embedded as its root view. If the URL or data is invalid, the view displays an error message.
+    /// Design decision: Returns UIViewController for Obj-C compatibility; wraps the view in a UIHostingController for UIKit integration. Non-optional return reflects guaranteed controller creation, with errors surfaced as view content.
+    @MainActor @objc public class func loadHostingControllerWithURL(_ url: NSURL, windowUUID: NSString, isContentView: Bool) -> UIViewController {
+        let swiftView = loadActionUIView(from: url as URL, windowUUID: windowUUID as String, isContentView: isContentView)
+        let hostingController = UIHostingController(rootView: AnyView(swiftView))
+        hostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        return hostingController
+    }
+    #endif
+    
+    /// Internal helper to load the SwiftUI view, used by both loadView and loadHostingController.
+    /// Not exposed to Obj-C; bridges NSURL to URL and handles local/remote loading.
+    /// Design decision: Mirrors ActionUISwift.loadView for consistency, using FileLoadableView or RemoteLoadableView based on URL scheme. Always returns a valid view, with errors displayed as view content.
+    @MainActor private class func loadActionUIView(from url: URL, windowUUID: String, isContentView: Bool) -> any SwiftUI.View {
+        let logger = model.logger
+        if url.scheme == "file" {
+            return ActionUI.FileLoadableView(fileURL: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
+        } else {
+            return ActionUI.RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
+        }
     }
 }

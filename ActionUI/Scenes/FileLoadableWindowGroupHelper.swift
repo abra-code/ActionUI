@@ -37,7 +37,7 @@ struct FileLoadableWindowGroupHelper: SwiftUI.View {
         } else if let element = element {
             if element.type == "WindowGroup",
                let windowModel = ActionUIModel.shared.windowModels[windowUUID],
-               let viewModel = windowModel.viewModels[element.id],
+//               let viewModel = windowModel.viewModels[element.id],
                let contentElement = element.subviews?["content"] as? any ActionUIElementBase,
                let contentViewModel = windowModel.viewModels[contentElement.id] {
                 ActionUIView(element: contentElement, model: contentViewModel, windowUUID: windowUUID)

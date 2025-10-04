@@ -7,6 +7,13 @@ import ActionUI
 import Foundation
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
+
 /// Public entry point for the ActionUI Swift adapter, providing a simplified, static API to interact with the core ActionUI library.
 /// This struct wraps ActionUIModel to expose methods for setting and getting element values, registering action handlers, and configuring logging.
 /// Design decision: Uses static functions to avoid state management, as no adapter-specific state is needed currently.
@@ -106,4 +113,32 @@ public struct ActionUISwift {
             return ActionUI.RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
         }
     }
+    
+    #if canImport(AppKit)
+    /// Loads an NSHostingController hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
+    /// - Parameters:
+    ///   - url: The URL to the JSON or plist description file (file:// for local, http:// or https:// for remote).
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - isContentView: If true, loads as the root view of the window; if false, loads as a subview without overwriting the root element.
+    /// - Returns: An NSHostingController with the loaded SwiftUI view embedded as its root view.
+    /// Design decision: Wraps the view from loadView in an NSHostingController for macOS integration.
+    public static func loadHostingController(from url: URL, windowUUID: String, isContentView: Bool) -> NSHostingController<AnyView> {
+        let view = loadView(from: url, windowUUID: windowUUID, isContentView: isContentView)
+        return NSHostingController(rootView: AnyView(view))
+    }
+    #endif // canImport(AppKit)
+    
+    #if canImport(UIKit)
+    /// Loads a UIHostingController hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
+    /// - Parameters:
+    ///   - url: The URL to the JSON or plist description file (file:// for local, http:// or https:// for remote).
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - isContentView: If true, loads as the root view of the window; if false, loads as a subview without overwriting the root element.
+    /// - Returns: A UIHostingController with the loaded SwiftUI view embedded as its root view.
+    /// Design decision: Wraps the view from loadView in a UIHostingController for iOS/iPadOS/tvOS/visionOS/watchOS integration.
+    public static func loadHostingController(from url: URL, windowUUID: String, isContentView: Bool) -> UIHostingController<AnyView> {
+        let view = loadView(from: url, windowUUID: windowUUID, isContentView: isContentView)
+        return UIHostingController(rootView: AnyView(view))
+    }
+    #endif // canImport(UIKit)
 }

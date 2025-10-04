@@ -3,19 +3,11 @@
 //
 
 #import "AppDelegate.h"
+#import "ObjCLogger.h"
 
 @import ActionUIObjCAdapter;
 
 typedef void (^ActionUIObjCActionHandlerBlock)(NSString *_Nonnull actionID, NSString *_Nonnull windowUUID, NSInteger viewID, NSInteger viewPartID, id _Nullable context);
-
-@interface ObjCLogger : NSObject <ActionUIObjCLogger>
-@end
-
-@implementation ObjCLogger
-- (void)logMessage:(NSString *)message level:(NSInteger)level {
-    NSLog(@"[%ld] %@", level, message);
-}
-@end
 
 @interface AppDelegate ()
 
@@ -32,14 +24,31 @@ typedef void (^ActionUIObjCActionHandlerBlock)(NSString *_Nonnull actionID, NSSt
     [ActionUIObjC registerActionHandlerForActionID:@"action.handle" handler:^(NSString *actionID, NSString *windowUUID, NSInteger viewID, NSInteger viewPartID, id _Nullable actionContext) {
         NSLog(@"Received action callback for actionID: %@, windowUUID: %@, viewID: %ld, viewPartID: %ld, context: %@", actionID, windowUUID, (long)viewID, (long)viewPartID, actionContext);
     }];
+    
+    NSURL *url = [[NSBundle mainBundle] URLForResource:@"DefaultWindowContentView" withExtension:@"json"];
+    NSString *windowUUID = [[NSUUID UUID] UUIDString];
+    NSViewController *controller = [ActionUIObjC loadHostingControllerWithURL:url windowUUID:windowUUID isContentView:YES];
+    self.window.contentViewController = controller;
+    
+    // Set window size based on the SwiftUI view's fitting size, with a minimum threshold and fallback
+    NSSize fittingSize = controller.view.fittingSize;
+    NSLog(@"Fitting size: %f x %f", fittingSize.width, fittingSize.height);
+    NSSize windowSize = (fittingSize.width >= 400 && fittingSize.height >= 300) ? fittingSize : NSMakeSize(800, 600);
+    [self.window setContentSize:windowSize];
+    
+    // Ensure window is resizable and set min size
+    self.window.styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
+    [self.window setContentMinSize:NSMakeSize(400, 300)]; // Prevent window from being too small
+    
+    [self.window center]; // Center the window on screen
+    [self.window makeKeyAndOrderFront:nil];
+    
+    // Log final window state for debugging
+    NSLog(@"Window frame: %f x %f, styleMask: %ld", self.window.frame.size.width, self.window.frame.size.height, (long)self.window.styleMask);
 }
 #else
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    // Override point for customization after application launch.
-    [ActionUIObjC setLogger:[[ObjCLogger alloc] init]];
-    [ActionUIObjC registerActionHandlerForActionID:@"action.handle" handler:^(NSString *actionID, NSString *windowUUID, NSInteger viewID, NSInteger viewPartID, id _Nullable actionContext) {
-        NSLog(@"Received action callback for actionID: %@, windowUUID: %@, viewID: %ld, viewPartID: %ld, context: %@", actionID, windowUUID, (long)viewID, (long)viewPartID, actionContext);
-    }];
+    // No UI setup needed here; handled in SceneDelegate.m
     return YES;
 }
 #endif
@@ -48,25 +57,18 @@ typedef void (^ActionUIObjCActionHandlerBlock)(NSString *_Nonnull actionID, NSSt
     // Insert code here to tear down your application
 }
 
-
 #pragma mark - UISceneSession lifecycle
 
 #if __has_include(<UIKit/UIKit.h>)
 
 - (UISceneConfiguration *)application:(UIApplication *)application configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession options:(UISceneConnectionOptions *)options {
-    // Called when a new scene session is being created.
-    // Use this method to select a configuration to create the new scene with.
     return [[UISceneConfiguration alloc] initWithName:@"Default Configuration" sessionRole:connectingSceneSession.role];
 }
 
-
 - (void)application:(UIApplication *)application didDiscardSceneSessions:(NSSet<UISceneSession *> *)sceneSessions {
-    // Called when the user discards a scene session.
-    // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
-    // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
+    // Release any resources specific to discarded scenes
 }
 
 #endif // __has_include(<UIKit/UIKit.h>)
-
 
 @end
