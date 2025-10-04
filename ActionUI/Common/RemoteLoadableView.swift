@@ -16,6 +16,13 @@ public struct RemoteLoadableView: SwiftUI.View {
     @State private var element: ActionUIElement?
     @State private var error: Error?
     
+    public init(url: URL, windowUUID: String, isContentView: Bool, logger: any ActionUILogger) {
+        self.url = url
+        self.windowUUID = windowUUID
+        self.isContentView = isContentView
+        self.logger = logger
+    }
+    
     public var body: some SwiftUI.View {
         if let error = error {
             SwiftUI.Text("Failed to load view: \(error.localizedDescription)")
@@ -38,8 +45,7 @@ public struct RemoteLoadableView: SwiftUI.View {
                             logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
                             if isContentView {
                                 element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
-                            }
-                            else { //subview loading
+                            } else { // subview loading
                                 element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID)
                             }
                             logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)

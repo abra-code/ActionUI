@@ -5,6 +5,7 @@
 
 import ActionUI
 import Foundation
+import SwiftUI
 
 /// Public entry point for the ActionUI Swift adapter, providing a simplified, static API to interact with the core ActionUI library.
 /// This struct wraps ActionUIModel to expose methods for setting and getting element values, registering action handlers, and configuring logging.
@@ -88,5 +89,21 @@ public struct ActionUISwift {
     /// Removes the default action handler.
     public static func removeDefaultActionHandler() {
         model.removeDefaultActionHandler()
+    }
+    
+    /// Loads a SwiftUI view from a JSON or plist description at the given URL (local or remote).
+    /// - Parameters:
+    ///   - url: The URL to the JSON or plist description file (file:// for local, http:// or https:// for remote).
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - isContentView: If true, loads as the root view of the window; if false, loads as a subview without overwriting the root element.
+    /// - Returns: A SwiftUI view loaded from the description.
+    /// Design decision: Determines local vs. remote based on URL scheme; uses FileLoadableView for local (sync) and RemoteLoadableView for remote (async with ProgressView).
+    public static func loadView(from url: URL, windowUUID: String, isContentView: Bool) -> any SwiftUI.View {
+        let logger = model.logger
+        if url.scheme == "file" {
+            return ActionUI.FileLoadableView(fileURL: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
+        } else {
+            return ActionUI.RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
+        }
     }
 }

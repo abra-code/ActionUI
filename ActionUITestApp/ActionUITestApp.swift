@@ -73,11 +73,7 @@ struct ActionUITestApp: App {
         WindowGroup(for: WindowIdentifier.self) { $windowIdentifier in
             if supportsMultipleWindows, let identifier = windowIdentifier, !shouldResetState {
                 if let url = Bundle.main.url(forResource: identifier.resourceName, withExtension: ".json") {
-                    ActionUI.FileLoadableView(
-                        fileURL: url,
-                        windowUUID: identifier.windowUUID,
-                        isContentView: true,
-                        logger: logger)
+                    AnyView(ActionUISwift.loadView(from: url, windowUUID: identifier.windowUUID, isContentView: true))
                 }
             } else {
                 EmptyView()
@@ -175,11 +171,7 @@ struct JSONSelectorView: View {
                     }
                     .navigationDestination(for: String.self) { resourceName in
                         if let url = Bundle.main.url(forResource: resourceName, withExtension: ".json") {
-                            ActionUI.FileLoadableView(
-                                fileURL: url,
-                                windowUUID: resourceName,
-                                isContentView: true,
-                                logger: logger)
+                            AnyView(ActionUISwift.loadView(from: url, windowUUID: resourceName, isContentView: true))
                         }
                     }
                     .navigationTitle("JSON Selector")
