@@ -6,22 +6,38 @@
     "windowGroupID": "WelcomeWindow"
   },
   "content": {
-    "type": "VStack",
-    "id": 2,
-    "properties": {
-      "alignment": "center",
-      "spacing": 10.0
-    },
-    "children": [
-      {
-        "type": "Text",
-        "id": 3,
-        "properties": {
-          "text": "Welcome to Default Window"
+      "type": "VStack",
+      "properties": {
+          "spacing": 10.0,
+          "alignment": "center",
+          "background": "gray",
+          "frame": {
+              "minWidth": 400.0,
+              "minHeight": 300.0,
+              "idealWidth": 800.0,
+              "idealHeight": 600.0
+          }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Hello, ActionUI!"
+          },
+          "id": 2
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Action!",
+            "buttonStyle": "borderedProminent",
+            "actionID": "action.handle"
+          },
+          "id": 3
         }
-      }
-    ]
-  },
+      ]
+    }
+,
   "commands": [
     {
       "type": "CommandMenu",
