@@ -1,6 +1,6 @@
 //
-//  ActionUIJavaScript.swift
-//  ActionUIJavaScriptAdapter
+//  ActionUIJavaScriptCore.swift
+//  ActionUIJavaScriptCoreAdapter
 //
 
 import ActionUI
@@ -17,7 +17,7 @@ import AppKit
 
 /// JavaScript API Documentation
 ///
-/// The `ActionUIJavaScript` adapter exposes a global `ActionUI` object in the JavaScript context, providing the following methods for interacting with the ActionUI library:
+/// The `ActionUIJavaScriptCore` adapter uses a JavaScriptCore to run JavaScript and exposes a global `ActionUI` object in the JavaScript context, providing the following methods for interacting with the ActionUI library:
 ///
 /// - `setLogger(loggerFunction)`
 ///   - Parameters:
@@ -119,11 +119,11 @@ public typealias ActionUIJavaScriptActionHandler = JSValue
 /// Does not return native views/controllers to JavaScript; instead, provides Swift methods like loadHostingController for host-side integration after JavaScript has loaded descriptions.
 /// App Store compliance: Relies on interpreted JavaScriptCore (no JIT); users must bundle scripts or load data non-executably.
 @MainActor
-public class ActionUIJavaScript {
+public class ActionUIJavaScriptCore {
     public let context: JSContext
     
     /// Static reference to the shared ActionUIModel singleton.
-    /// Design decision: Static to ensure all instances of ActionUIJavaScript interact with the same model, aligning with the singleton pattern of ActionUIModel.shared and the design of other adapters (ActionUISwift, ActionUIObjC). This maintains consistency of UI state across multiple JavaScript contexts.
+    /// Design decision: Static to ensure all instances of ActionUIJavaScriptCore interact with the same model, aligning with the singleton pattern of ActionUIModel.shared and the design of other adapters (ActionUISwift, ActionUIObjC). This maintains consistency of UI state across multiple JavaScript contexts.
     private static let model = ActionUIModel.shared
     
     public init() {
@@ -153,7 +153,7 @@ public class ActionUIJavaScript {
         let setLogger: @convention(block) (JSValue) -> Void = { loggerFunction in
             if loggerFunction.isObject {
                 let bridge = JSLoggerBridge(loggerFunction: loggerFunction)
-                ActionUIJavaScript.model.logger = bridge
+                ActionUIJavaScriptCore.model.logger = bridge
             }
         }
         actionUIObject.setValue(setLogger, forProperty: "setLogger")
@@ -165,26 +165,26 @@ public class ActionUIJavaScript {
             // Design decision: Use JSValue.toObject() to convert JavaScript values to Swift objects (e.g., String, Double, NSDictionary).
             // Avoid toObjectOf(_:) as it requires an Objective-C class type, not suitable for generic Any conversion.
             let value = jsValue.toObject() ?? NSNull()
-            ActionUIJavaScript.model.setElementValue(windowUUID: windowUUID, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
+            ActionUIJavaScriptCore.model.setElementValue(windowUUID: windowUUID, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
         }
         actionUIObject.setValue(setElementValue, forProperty: "setElementValue")
         
         // setElementValueFromString(windowUUID, viewID, value, viewPartID)
         let setElementValueFromString: @convention(block) (String, Double, String, Double) -> Void = { windowUUID, viewID, value, viewPartID in
-            ActionUIJavaScript.model.setElementValueFromString(windowUUID: windowUUID, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
+            ActionUIJavaScriptCore.model.setElementValueFromString(windowUUID: windowUUID, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
         }
         actionUIObject.setValue(setElementValueFromString, forProperty: "setElementValueFromString")
         
         // getElementValue(windowUUID, viewID, viewPartID) -> value
         let getElementValue: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, viewPartID in
-            let value = ActionUIJavaScript.model.getElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
+            let value = ActionUIJavaScriptCore.model.getElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
             return JSValue(object: value, in: self.context)
         }
         actionUIObject.setValue(getElementValue, forProperty: "getElementValue")
         
         // getElementValueAsString(windowUUID, viewID, viewPartID) -> string
         let getElementValueAsString: @convention(block) (String, Double, Double) -> String? = { windowUUID, viewID, viewPartID in
-            return ActionUIJavaScript.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
+            return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
         }
         actionUIObject.setValue(getElementValueAsString, forProperty: "getElementValueAsString")
     }
@@ -196,14 +196,14 @@ public class ActionUIJavaScript {
                 let swiftHandler: (String, String, Int, Int, Any?) -> Void = { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
                     _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext ?? NSNull()])
                 }
-                ActionUIJavaScript.model.registerActionHandler(for: actionID, handler: swiftHandler)
+                ActionUIJavaScriptCore.model.registerActionHandler(for: actionID, handler: swiftHandler)
             }
         }
         actionUIObject.setValue(registerActionHandler, forProperty: "registerActionHandler")
         
         // unregisterActionHandler(actionID)
         let unregisterActionHandler: @convention(block) (String) -> Void = { actionID in
-            ActionUIJavaScript.model.unregisterActionHandler(for: actionID)
+            ActionUIJavaScriptCore.model.unregisterActionHandler(for: actionID)
         }
         actionUIObject.setValue(unregisterActionHandler, forProperty: "unregisterActionHandler")
         
@@ -213,14 +213,14 @@ public class ActionUIJavaScript {
                 let swiftHandler: (String, String, Int, Int, Any?) -> Void = { swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext in
                     _ = handlerFunction.call(withArguments: [swiftActionID, swiftWindowUUID, swiftViewID, swiftViewPartID, swiftContext ?? NSNull()])
                 }
-                ActionUIJavaScript.model.setDefaultActionHandler(swiftHandler)
+                ActionUIJavaScriptCore.model.setDefaultActionHandler(swiftHandler)
             }
         }
         actionUIObject.setValue(setDefaultActionHandler, forProperty: "setDefaultActionHandler")
         
         // removeDefaultActionHandler()
         let removeDefaultActionHandler: @convention(block) () -> Void = {
-            ActionUIJavaScript.model.removeDefaultActionHandler()
+            ActionUIJavaScriptCore.model.removeDefaultActionHandler()
         }
         actionUIObject.setValue(removeDefaultActionHandler, forProperty: "removeDefaultActionHandler")
     }
@@ -230,7 +230,7 @@ public class ActionUIJavaScript {
     /// Loads a SwiftUI view from a JSON or plist description at the given URL (local or remote).
     /// Design decision: Provided for Swift host code to load views after JavaScript has potentially interacted with the model (e.g., set values or handlers).
     public func loadView(from url: URL, windowUUID: String, isContentView: Bool) -> any SwiftUI.View {
-        let logger = ActionUIJavaScript.model.logger
+        let logger = ActionUIJavaScriptCore.model.logger
         if url.scheme == "file" {
             return ActionUI.FileLoadableView(fileURL: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
         } else {
