@@ -87,6 +87,17 @@ struct ActionUITestApp: App {
             logger: logger
         )
         .handlesExternalEvents(matching: ["DefaultWindow"])
+        // TODO: looks like CommandGroup & CommandMenu buttons with shortcuts will require special handling
+        // this example command shortcut works but the ones set in base View.applyModifiers do not appear:
+        .commands {
+            CommandGroup(after: .help) {
+                Button("Help from ActionUITestApp") {
+                    // Action for the About command
+                    print("Help from ActionUITestApp triggered")
+                }
+                .keyboardShortcut("H", modifiers: [.command, .shift]) // Add a keyboard shortcut
+            }
+        }
     }
 }
 
