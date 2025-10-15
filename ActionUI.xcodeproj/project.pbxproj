@@ -101,9 +101,10 @@
 		1D03F8F12E49EEC3004A42BB /* ActionUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ActionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D03F97D2E49F69A004A42BB /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/SwiftUI.framework; sourceTree = DEVELOPER_DIR; };
 		1D25A62D2E9B9DB3003D20F4 /* ActionUICppAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUICppAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D25A6442E9F9667003D20F4 /* ActionUIWebKitJSTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUIWebKitJSTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D7ED2622E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIJavaScriptCoreAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIWebKitJSAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		1DB255ED2E6BADCE00544C2F /* ActionUITestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUITestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DB255ED2E6BADCE00544C2F /* ActionUISwiftTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUISwiftTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DB256032E6BADD000544C2F /* ActionUITestAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ActionUITestAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUISwiftAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIObjCAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -125,12 +126,12 @@
 			};
 			target = 1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */;
 		};
-		1D6DF6BB2E739969002563AE /* Exceptions for "ActionUITestApp" folder in "ActionUITestApp" target */ = {
+		1D6DF6BB2E739969002563AE /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUISwiftTestApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				ActionUITestApp.xctestplan,
+				ActionUISwiftTestApp.xctestplan,
 			);
-			target = 1DB255EC2E6BADCE00544C2F /* ActionUITestApp */;
+			target = 1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -150,6 +151,11 @@
 			path = ActionUICppAdapter;
 			sourceTree = "<group>";
 		};
+		1D25A6452E9F9667003D20F4 /* ActionUIWebKitJSTestApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ActionUIWebKitJSTestApp;
+			sourceTree = "<group>";
+		};
 		1D7ED2632E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ActionUIJavaScriptCoreAdapter;
@@ -160,12 +166,12 @@
 			path = ActionUIWebKitJSAdapter;
 			sourceTree = "<group>";
 		};
-		1DB255EE2E6BADCE00544C2F /* ActionUITestApp */ = {
+		1DB255EE2E6BADCE00544C2F /* ActionUISwiftTestApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				1D6DF6BB2E739969002563AE /* Exceptions for "ActionUITestApp" folder in "ActionUITestApp" target */,
+				1D6DF6BB2E739969002563AE /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUISwiftTestApp" target */,
 			);
-			path = ActionUITestApp;
+			path = ActionUISwiftTestApp;
 			sourceTree = "<group>";
 		};
 		1DB256062E6BADD000544C2F /* ActionUITestAppUITests */ = {
@@ -211,6 +217,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1D25A62A2E9B9DB3003D20F4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D25A6412E9F9667003D20F4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -278,7 +291,7 @@
 			children = (
 				1D03F8E82E49EEC3004A42BB /* ActionUI */,
 				1D03F8F52E49EEC3004A42BB /* ActionUITests */,
-				1DB255EE2E6BADCE00544C2F /* ActionUITestApp */,
+				1DB255EE2E6BADCE00544C2F /* ActionUISwiftTestApp */,
 				1DB256062E6BADD000544C2F /* ActionUITestAppUITests */,
 				1DD4E4292E8F3228001E0C83 /* ActionUISwiftAdapter */,
 				1DD4E43D2E8F9DF2001E0C83 /* ActionUIObjCAdapter */,
@@ -286,6 +299,7 @@
 				1D7ED2632E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter */,
 				1D7ED28D2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter */,
 				1D25A62E2E9B9DB3003D20F4 /* ActionUICppAdapter */,
+				1D25A6452E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
 				1D03F97A2E49F68F004A42BB /* Frameworks */,
 				1D03F8E72E49EEC3004A42BB /* Products */,
 			);
@@ -296,7 +310,7 @@
 			children = (
 				1D03F8E62E49EEC3004A42BB /* ActionUI.framework */,
 				1D03F8F12E49EEC3004A42BB /* ActionUITests.xctest */,
-				1DB255ED2E6BADCE00544C2F /* ActionUITestApp.app */,
+				1DB255ED2E6BADCE00544C2F /* ActionUISwiftTestApp.app */,
 				1DB256032E6BADD000544C2F /* ActionUITestAppTests.xctest */,
 				1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */,
 				1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */,
@@ -304,6 +318,7 @@
 				1D7ED2622E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter.framework */,
 				1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */,
 				1D25A62D2E9B9DB3003D20F4 /* ActionUICppAdapter.framework */,
+				1D25A6442E9F9667003D20F4 /* ActionUIWebKitJSTestApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -433,6 +448,28 @@
 			productReference = 1D25A62D2E9B9DB3003D20F4 /* ActionUICppAdapter.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		1D25A6432E9F9667003D20F4 /* ActionUIWebKitJSTestApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D25A64C2E9F9669003D20F4 /* Build configuration list for PBXNativeTarget "ActionUIWebKitJSTestApp" */;
+			buildPhases = (
+				1D25A6402E9F9667003D20F4 /* Sources */,
+				1D25A6412E9F9667003D20F4 /* Frameworks */,
+				1D25A6422E9F9667003D20F4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1D25A6452E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
+			);
+			name = ActionUIWebKitJSTestApp;
+			packageProductDependencies = (
+			);
+			productName = ActionUIWebKitJSTestApp;
+			productReference = 1D25A6442E9F9667003D20F4 /* ActionUIWebKitJSTestApp.app */;
+			productType = "com.apple.product-type.application";
+		};
 		1D7ED2612E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1D7ED2682E92F365003BA8A7 /* Build configuration list for PBXNativeTarget "ActionUIJavaScriptCoreAdapter" */;
@@ -480,9 +517,9 @@
 			productReference = 1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		1DB255EC2E6BADCE00544C2F /* ActionUITestApp */ = {
+		1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1DB2560B2E6BADD000544C2F /* Build configuration list for PBXNativeTarget "ActionUITestApp" */;
+			buildConfigurationList = 1DB2560B2E6BADD000544C2F /* Build configuration list for PBXNativeTarget "ActionUISwiftTestApp" */;
 			buildPhases = (
 				1DB255E92E6BADCE00544C2F /* Sources */,
 				1DB255EA2E6BADCE00544C2F /* Frameworks */,
@@ -497,13 +534,13 @@
 				1DD4E4432E8F9DF2001E0C83 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				1DB255EE2E6BADCE00544C2F /* ActionUITestApp */,
+				1DB255EE2E6BADCE00544C2F /* ActionUISwiftTestApp */,
 			);
-			name = ActionUITestApp;
+			name = ActionUISwiftTestApp;
 			packageProductDependencies = (
 			);
 			productName = ActionUITestApp;
-			productReference = 1DB255ED2E6BADCE00544C2F /* ActionUITestApp.app */;
+			productReference = 1DB255ED2E6BADCE00544C2F /* ActionUISwiftTestApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 		1DB256022E6BADD000544C2F /* ActionUITestAppTests */ = {
@@ -619,6 +656,9 @@
 					1D25A62C2E9B9DB3003D20F4 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
+					1D25A6432E9F9667003D20F4 = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
 					1D7ED2612E92F365003BA8A7 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -659,14 +699,15 @@
 			targets = (
 				1D03F8E52E49EEC3004A42BB /* ActionUI */,
 				1D03F8F02E49EEC3004A42BB /* ActionUITests */,
-				1DB255EC2E6BADCE00544C2F /* ActionUITestApp */,
-				1DB256022E6BADD000544C2F /* ActionUITestAppTests */,
 				1DD4E4272E8F3228001E0C83 /* ActionUISwiftAdapter */,
 				1DD4E43B2E8F9DF2001E0C83 /* ActionUIObjCAdapter */,
-				1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */,
 				1D7ED2612E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter */,
 				1D7ED28B2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter */,
 				1D25A62C2E9B9DB3003D20F4 /* ActionUICppAdapter */,
+				1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */,
+				1DB256022E6BADD000544C2F /* ActionUITestAppTests */,
+				1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */,
+				1D25A6432E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
 			);
 		};
 /* End PBXProject section */
@@ -687,6 +728,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1D25A62B2E9B9DB3003D20F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1D25A6422E9F9667003D20F4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -766,6 +814,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1D25A6402E9F9667003D20F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1D7ED25E2E92F365003BA8A7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -830,7 +885,7 @@
 		};
 		1DB256052E6BADD000544C2F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 1DB255EC2E6BADCE00544C2F /* ActionUITestApp */;
+			target = 1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */;
 			targetProxy = 1DB256042E6BADD000544C2F /* PBXContainerItemProxy */;
 		};
 		1DB2561A2E6C236300544C2F /* PBXTargetDependency */ = {
@@ -1202,6 +1257,90 @@
 			};
 			name = Release;
 		};
+		1D25A64D2E9F9669003D20F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIWebKitJSTestApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		1D25A64E2E9F9669003D20F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIWebKitJSTestApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 		1D7ED2692E92F365003BA8A7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1400,7 +1539,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUITestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUISwiftTestApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -1448,7 +1587,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUITestApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUISwiftTestApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -1478,7 +1617,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = ActionUITestApp;
+				TEST_TARGET_NAME = ActionUISwiftTestApp;
 			};
 			name = Debug;
 		};
@@ -1498,7 +1637,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = ActionUITestApp;
+				TEST_TARGET_NAME = ActionUISwiftTestApp;
 			};
 			name = Release;
 		};
@@ -1793,6 +1932,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		1D25A64C2E9F9669003D20F4 /* Build configuration list for PBXNativeTarget "ActionUIWebKitJSTestApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D25A64D2E9F9669003D20F4 /* Debug */,
+				1D25A64E2E9F9669003D20F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1D7ED2682E92F365003BA8A7 /* Build configuration list for PBXNativeTarget "ActionUIJavaScriptCoreAdapter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1811,7 +1959,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1DB2560B2E6BADD000544C2F /* Build configuration list for PBXNativeTarget "ActionUITestApp" */ = {
+		1DB2560B2E6BADD000544C2F /* Build configuration list for PBXNativeTarget "ActionUISwiftTestApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DB2560C2E6BADD000544C2F /* Debug */,
