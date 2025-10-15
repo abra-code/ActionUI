@@ -13,7 +13,7 @@
     "targetForVariableExpansion" : {
       "containerPath" : "container:ActionUI.xcodeproj",
       "identifier" : "1DB255EC2E6BADCE00544C2F",
-      "name" : "ActionUITestApp"
+      "name" : "ActionUISwiftTestApp"
     }
   },
   "testTargets" : [

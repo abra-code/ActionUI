@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "1DB255EC2E6BADCE00544C2F"
-               BuildableName = "ActionUITestApp.app"
-               BlueprintName = "ActionUITestApp"
+               BuildableName = "ActionUISwiftTestApp.app"
+               BlueprintName = "ActionUISwiftTestApp"
                ReferencedContainer = "container:ActionUI.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -63,8 +63,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1DB255EC2E6BADCE00544C2F"
-            BuildableName = "ActionUITestApp.app"
-            BlueprintName = "ActionUITestApp"
+            BuildableName = "ActionUISwiftTestApp.app"
+            BlueprintName = "ActionUISwiftTestApp"
             ReferencedContainer = "container:ActionUI.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -80,8 +80,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1DB255EC2E6BADCE00544C2F"
-            BuildableName = "ActionUITestApp.app"
-            BlueprintName = "ActionUITestApp"
+            BuildableName = "ActionUISwiftTestApp.app"
+            BlueprintName = "ActionUISwiftTestApp"
             ReferencedContainer = "container:ActionUI.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

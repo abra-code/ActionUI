@@ -1,4 +1,4 @@
-// Fixed ActionUITestApp.swift
+// Fixed ActionUISwiftTestApp.swift
 
 #if canImport(UIKit)
 import UIKit
@@ -19,7 +19,7 @@ class CustomLogger: ActionUI.ActionUILogger {
 }
 
 @main
-struct ActionUITestApp: App {
+struct ActionUISwiftTestApp: App {
     let logger = CustomLogger()
 
     // Runtime check for multi-window support
@@ -91,9 +91,9 @@ struct ActionUITestApp: App {
         // this example command shortcut works but the ones set in base View.applyModifiers do not appear:
         .commands {
             CommandGroup(after: .help) {
-                Button("Help from ActionUITestApp") {
+                Button("Help from ActionUISwiftTestApp") {
                     // Action for the About command
-                    print("Help from ActionUITestApp triggered")
+                    print("Help from ActionUISwiftTestApp triggered")
                 }
                 .keyboardShortcut("H", modifiers: [.command, .shift]) // Add a keyboard shortcut
             }

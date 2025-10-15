@@ -1,13 +1,13 @@
-// ActionUITestAppTests.swift
+// ActionUISwiftTestAppTests.swift
 import XCTest
-@testable import ActionUITestApp
+@testable import ActionUISwiftTestApp
 import ActionUI
 #if canImport(UIKit)
 import UIKit
 #endif
 
 @MainActor
-final class ActionUITestAppUITests: XCTestCase {
+final class ActionUISwiftTestAppUITests: XCTestCase {
     var app: XCUIApplication!
 
     private var supportsMultipleWindows: Bool {
@@ -81,7 +81,7 @@ final class ActionUITestAppUITests: XCTestCase {
         let element = firstElement.value[firstElement.key]
         if supportsMultipleWindows {
             XCTAssertTrue(
-                app.windows.element(matching: .window, identifier: "ActionUITestApp.\(jsonFileName)-*").waitForExistence(timeout: contentLoadTimeout) || element.waitForExistence(timeout: contentLoadTimeout),
+                app.windows.element(matching: .window, identifier: "ActionUISwiftTestApp.\(jsonFileName)-*").waitForExistence(timeout: contentLoadTimeout) || element.waitForExistence(timeout: contentLoadTimeout),
                 "Window or element with accessibilityIdentifier '\(firstElement.key)' for '\(jsonFileName)' should load within \(contentLoadTimeout) seconds (multi-window). UI hierarchy: \(app.debugDescription)"
             )
         } else {
