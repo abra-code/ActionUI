@@ -13,7 +13,15 @@ try {
     // Set logger
     console.log('[' + new Date().toISOString() + '] BusinessLogic.js: Setting logger');
     ActionUI.setLogger(function(message, level) {
-        console.log('[' + new Date().toISOString() + '] BusinessLogic.js: [Level ' + level + '] ' + message);
+        const logLevels = [ "error", "warning", "info", "debug", "verbose"];
+        let levelString;
+        //level is 1-based, values in <1-5> range
+        if ((level >= 1) && (level <= 5)) {
+            levelString = logLevels[level-1];
+        } else {
+            levelString = "unknown"
+        }
+        console.log('[' + new Date().toISOString() + '] [ActionUI][' + levelString + '] ' + message);
     });
     
     // Test logger

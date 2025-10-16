@@ -25,15 +25,15 @@ final class XCTestLogger: ActionUILogger, Sendable {
         
         switch level {
         case .error:
-            XCTFail("[ERROR] \(message)")
+            XCTFail("[XCTestLogger][ERROR] \(message)")
         case .warning:
-            print("[WARNING] \(message)")
+            print("[XCTestLogger][WARNING] \(message)")
         case .info:
-            print("[INFO] \(message)")
+            print("[XCTestLogger][INFO] \(message)")
         case .debug:
-            print("[DEBUG] \(message)")
+            print("[XCTestLogger][DEBUG] \(message)")
         case .verbose:
-            print("[VERBOSE] \(message)")
+            print("[XCTestLogger][VERBOSE] \(message)")
         }
     }
 }

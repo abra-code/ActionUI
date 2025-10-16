@@ -19,18 +19,6 @@ public class ConsoleLogger: ActionUILogger {
     /// - Filters out logs with level.rawValue greater than maxLevel.rawValue.
     public func log(_ message: String, _ level: Level) {
         guard level.rawValue <= maxLevel.rawValue else { return }
-        
-        switch level {
-        case .error:
-            print("[ERROR] \(message)")
-        case .warning:
-            print("[WARNING] \(message)")
-        case .info:
-            print("[INFO] \(message)")
-        case .debug:
-            print("[DEBUG] \(message)")
-        case .verbose:
-            print("[VERBOSE] \(message)")
-        }
+        print("[ActionUI][\(level)] \(message)")
     }
 }
