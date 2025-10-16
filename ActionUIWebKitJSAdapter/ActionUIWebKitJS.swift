@@ -63,7 +63,7 @@ import AppKit
 ///     - `viewID`: Number - Unique identifier for the view element.
 ///     - `viewPartID`: Number - Optional part identifier (e.g., for multi-column tables; defaults to 0).
 ///   - Returns: Promise<String> - The string representation of the view element's value (e.g., ISO 8601 for Date), or undefined if not found.
-///   - Description: Retrieves the string representation of a view element's value asynchronously.
+///   - Description: Retrieves the string representation of the view element's value asynchronously.
 ///   - Example: `ActionUI.getElementValueAsString("window-12345", 2, 0).then(stringValue => console.log(stringValue));`
 ///
 /// - `registerActionHandler(actionID, handlerFunction)`
@@ -105,11 +105,24 @@ private class WebKitJSLoggerBridge: ActionUILogger {
     }
     
     func log(_ message: String, _ level: Level) {
-        guard let adapter = adapter else { return }
-        let js = "window.actionUI_logger(\(message.jsonEscaped), \(level.rawValue))"
-        adapter.webView.evaluateJavaScript(js) { _, error in
+        guard let adapter = adapter else {
+            print("Logger adapter is nil: \(message) [Level \(level.rawValue)]")
+            return
+        }
+        let js = """
+        if (typeof window.actionUI_logger === 'function') {
+            window.actionUI_logger("\(message.jsonEscaped)", \(level.rawValue));
+            null;
+        } else {
+            console.log("ActionUI logger not initialized: \(message.jsonEscaped) [Level \(level.rawValue)]");
+            null;
+        }
+        """
+        adapter.webView.evaluateJavaScript(js) { result, error in
             if let error = error {
                 print("Logger call error: \(error)")
+            } else {
+                print("Logger call result: \(result ?? "nil")")
             }
         }
     }
@@ -135,18 +148,29 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
     
     public init(jsSource: JavaScriptSource) {
         let config = WKWebViewConfiguration()
-        
+        config.preferences.javaScriptCanOpenWindowsAutomatically = false
+        config.preferences.setValue(true, forKey: "developerExtrasEnabled") // Enable Web Inspector
         webView = WKWebView(frame: .zero, configuration: config)
-        webView.isHidden = true // Offscreen for headless execution
+        webView.isHidden = true
         
         super.init()
         
-        // Add self as message handler after super.init
         config.userContentController.add(self, name: messageHandlerName)
+        config.userContentController.add(self, name: "consoleLog")
+        webView.navigationDelegate = self
         
-        webView.navigationDelegate = self // For injecting bridge after load
-        loadJavaScript(from: jsSource)
+        // Modified: Inject ActionUIWebKitJSBridge.js at document start
+        if let bridgeURL = Bundle.main.url(forResource: "ActionUIWebKitJSBridge", withExtension: "js"),
+           let bridgeSource = try? String(contentsOf: bridgeURL, encoding: .utf8) {
+            let userScript = WKUserScript(source: bridgeSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+            config.userContentController.addUserScript(userScript)
+            print("Injected ActionUIWebKitJSBridge.js at document start")
+        } else {
+            print("Failed to load ActionUIWebKitJSBridge.js from bundle")
+        }
+        
         setupNativeHandlers()
+        loadJavaScript(from: jsSource)
     }
     
     // Load JavaScript from source and prepare HTML
@@ -162,219 +186,183 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             scriptURL = URL(string: urlString)
         }
         
-        guard let url = scriptURL else {
-            ActionUIWebKitJS.model.logger.log("Invalid JavaScript source URL", .error)
+        guard let scriptURL = scriptURL else {
+            print("Invalid JavaScript source URL: \(source)")
             return
         }
         
-        // Minimal HTML with script reference
-        let html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <script src="\(url.absoluteString)"></script>
-        </head>
-        <body></body>
-        </html>
-        """
-        
-        webView.loadHTMLString(html, baseURL: url.deletingLastPathComponent())
-    }
-    
-    // Inject ActionUI bridge with actionUIDispatch
-    private func injectActionUI() {
-        let bridgeJS = """
-        window.actionUI_handlers = {};
-        window.actionUI_defaultHandler = null;
-        window.actionUI_logger = function() {};
-        
-        // Dispatch function for safer action handling
-        window.actionUIDispatch = function(type, actionID, args) {
-            try {
-                if (type === 'action') {
-                    const handler = window.actionUI_handlers[actionID] || window.actionUI_defaultHandler;
-                    if (handler) {
-                        handler.apply(null, args);
-                    } else {
-                        console.log('No handler for action: ' + actionID);
-                    }
-                } // Add other types here if needed (e.g., 'log')
-            } catch (error) {
-                console.error('ActionUI dispatch error: ' + error.message);
-            }
-        };
-        
-        window.ActionUI = {
-            setLogger: function(handler) {
-                window.actionUI_logger = handler;
-            },
-            setElementValue: function(windowUUID, viewID, value, viewPartID) {
-                window.webkit.messageHandlers.\(messageHandlerName).postMessage({
-                    method: 'setElementValue',
-                    args: [windowUUID, viewID, value, viewPartID]
-                });
-            },
-            setElementValueFromString: function(windowUUID, viewID, value, viewPartID) {
-                window.webkit.messageHandlers.\(messageHandlerName).postMessage({
-                    method: 'setElementValueFromString',
-                    args: [windowUUID, viewID, value, viewPartID]
-                });
-            },
-            getElementValue: async function(windowUUID, viewID, viewPartID) {
-                const id = Math.random().toString(36);
-                return new Promise(resolve => {
-                    const listener = function(e) {
-                        if (e.data.id === id) {
-                            resolve(e.data.result);
-                            window.removeEventListener('message', listener);
-                        }
-                    };
-                    window.addEventListener('message', listener);
-                    window.webkit.messageHandlers.\(messageHandlerName).postMessage({
-                        method: 'getElementValue',
-                        id: id,
-                        args: [windowUUID, viewID, viewPartID]
-                    });
-                });
-            },
-            getElementValueAsString: async function(windowUUID, viewID, viewPartID) {
-                const id = Math.random().toString(36);
-                return new Promise(resolve => {
-                    const listener = function(e) {
-                        if (e.data.id === id) {
-                            resolve(e.data.result);
-                            window.removeEventListener('message', listener);
-                        }
-                    };
-                    window.addEventListener('message', listener);
-                    window.webkit.messageHandlers.\(messageHandlerName).postMessage({
-                        method: 'getElementValueAsString',
-                        id: id,
-                        args: [windowUUID, viewID, viewPartID]
-                    });
-                });
-            },
-            registerActionHandler: function(actionID, handler) {
-                window.actionUI_handlers[actionID] = handler;
-            },
-            unregisterActionHandler: function(actionID) {
-                delete window.actionUI_handlers[actionID];
-            },
-            setDefaultActionHandler: function(handler) {
-                window.actionUI_defaultHandler = handler;
-            },
-            removeDefaultActionHandler: function() {
-                window.actionUI_defaultHandler = null;
-            }
-        };
-        """
-        webView.evaluateJavaScript(bridgeJS) { _, error in
-            if let error = error {
-                ActionUIWebKitJS.model.logger.log("Failed to inject ActionUI bridge: \(error)", .error)
-            }
+        print("Attempting to load JavaScript from: \(scriptURL.absoluteString)")
+        if FileManager.default.fileExists(atPath: scriptURL.path) {
+            print("Confirmed: BusinessLogic.js exists at \(scriptURL.path)")
+        } else {
+            print("Error: BusinessLogic.js not found at \(scriptURL.path)")
         }
+        
+        guard let htmlURL = Bundle.main.url(forResource: "index", withExtension: "html") else {
+            print("Invalid HTML file URL for index.html")
+            return
+        }
+        
+        print("Loading HTML from: \(htmlURL.absoluteString)")
+        if FileManager.default.fileExists(atPath: htmlURL.path) {
+            print("Confirmed: index.html exists at \(htmlURL.path)")
+        } else {
+            print("Error: index.html not found at \(htmlURL.path)")
+        }
+        
+        webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
     }
-
     // Set up native-side handlers
+    
     private func setupNativeHandlers() {
-        // Logger: Forward native logs to JS
         ActionUIWebKitJS.model.logger = WebKitJSLoggerBridge(adapter: self)
         
-        // Action handlers: Forward all model actions to JS via actionUIDispatch
-        ActionUIWebKitJS.model.setDefaultActionHandler { actionID, windowUUID, viewID, viewPartID, context in
+        ActionUIWebKitJS.model.setDefaultActionHandler { [weak self] actionID, windowUUID, viewID, viewPartID, context in
+            guard let self = self else { return }
             let argsJSON = self.jsonForActionHandlerArgs(actionID, windowUUID, viewID, viewPartID, context)
-            let js = "window.actionUIDispatch('action', '\(actionID.jsonEscaped)', JSON.parse(\(argsJSON.jsonEscaped)))"
-            self.webView.evaluateJavaScript(js) { _, error in
+            print("Dispatching action: \(actionID) with args: \(argsJSON)")
+            let js = "window.actionUIDispatch('action', \(actionID.jsonString), \(argsJSON))"
+            self.webView.evaluateJavaScript(js) { result, error in
                 if let error = error {
-                    ActionUIWebKitJS.model.logger.log("Action handler call error: \(error)", .error)
+                    print("Action handler call error: \(error)")
+                } else {
+                    print("Action handler call result: \(result ?? "nil")")
                 }
             }
         }
     }
-
     // Convert action args to JSON string
+    
     private func jsonForActionHandlerArgs(_ actionID: String, _ windowUUID: String, _ viewID: Int, _ viewPartID: Int, _ context: Any?) -> String {
-        let dict = [
+        // Modified: Add explicit type annotation to fix compilation error
+        var dict: [String: Any] = [
             "actionID": actionID,
             "windowUUID": windowUUID,
             "viewID": viewID,
-            "viewPartID": viewPartID,
-            "context": context ?? NSNull()
+            "viewPartID": viewPartID
         ]
-        return (try? JSONSerialization.string(with: dict)) ?? "[]"
+        // Modified: Safely handle context serialization for String, Number, and containers
+        if let context = context {
+            if let stringValue = context as? String {
+                // Handle String by setting directly (will be serialized as JSON string)
+                dict["context"] = stringValue
+            } else if let numberValue = context as? NSNumber {
+                // Handle Number (Int, Double, etc.) via NSNumber
+                dict["context"] = numberValue
+            } else if JSONSerialization.isValidJSONObject(context) {
+                // Handle Array or Dictionary
+                dict["context"] = context
+            } else {
+                // Non-serializable types fall back to null
+                print("Non-serializable context, using null: \(type(of: context))")
+                dict["context"] = NSNull()
+            }
+        } else {
+            dict["context"] = NSNull()
+        }
+        do {
+            let data = try JSONSerialization.data(withJSONObject: dict, options: [])
+            return String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
+            print("JSON serialization error: \(error)")
+            return "{}"
+        }
     }
-
     // Helper to coerce JSON numbers to Int
+    
     private func numberAsInt(_ value: Any) -> Int? {
         switch value {
         case let doubleValue as Double:
-            // Ensure the number is finite
-            if doubleValue.isFinite {
+            if doubleValue.isFinite && doubleValue == floor(doubleValue) {
                 return Int(doubleValue)
             } else {
-                ActionUIWebKitJS.model.logger.log("Invalid double value)", .warning)
+                print("Invalid double value")
                 return nil
             }
         case let intValue as Int:
             return intValue
         case let numberValue as NSNumber:
-            // NSNumber may wrap Int or Double
             let doubleValue = numberValue.doubleValue
-            if doubleValue.isFinite {
+            if doubleValue.isFinite && doubleValue == floor(doubleValue) {
                 return Int(doubleValue)
             } else {
-                ActionUIWebKitJS.model.logger.log("Invalid double value)", .warning)
+                print("Invalid double value")
                 return nil
             }
         default:
-            ActionUIWebKitJS.model.logger.log("Invalid numeric type. Expected number, got \(type(of: value))", .warning)
+            print("Invalid numeric type. Expected number, got \(type(of: value))")
             return nil
         }
     }
     
     // Handle messages from JavaScript
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any],
-              let method = body["method"] as? String,
-              let args = body["args"] as? [Any] else {
-            ActionUIWebKitJS.model.logger.log("Invalid message format from JavaScript", .warning)
+        if message.name == "consoleLog", let body = message.body as? [String: Any], let msg = body["message"] as? String {
+            print("JS Console: \(msg)")
             return
         }
         
-        let id = body["id"] as? String // For async responses
+        guard let body = message.body as? [String: Any],
+              let method = body["method"] as? String,
+              let args = body["args"] as? [Any] else {
+            print("Invalid message format from JavaScript")
+            return
+        }
+        
+        let methodLog = "Received message for method: \(method)"
+        print(methodLog)
         
         switch method {
+        case "testFromJS":
+            print("Received test from JS: Native side called successfully!")
         case "setElementValue":
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let viewPartID = numberAsInt(args[3]) {
-                let value = args[2] // Any
+                let value = args[2]
+                print("setElementValue called with windowUUID: \(windowUUID), viewID: \(viewID), value: \(value), viewPartID: \(viewPartID)")
                 ActionUIWebKitJS.model.setElementValue(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
             } else {
-                ActionUIWebKitJS.model.logger.log("Invalid arguments for setElementValue", .warning)
+                print("Invalid arguments for setElementValue: \(args)")
             }
         case "setElementValueFromString":
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let value = args[2] as? String,
                let viewPartID = numberAsInt(args[3]) {
+                print("Calling setElementValueFromString: \(value)")
                 ActionUIWebKitJS.model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
             } else {
-                ActionUIWebKitJS.model.logger.log("Invalid arguments for setElementValueFromString", .warning)
+                print("Invalid arguments for setElementValueFromString: \(args)")
             }
         case "getElementValue":
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
                let viewPartID = numberAsInt(args[2]) {
                 let value = ActionUIWebKitJS.model.getElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
-                let json = (try? JSONSerialization.string(with: value ?? NSNull())) ?? "null"
-                webView.evaluateJavaScript("window.postMessage({id: '\(id ?? "")', result: \(json)})") { _, error in
+                // Modified: Handle String and JSON-serializable types
+                let json: String
+                print("getElementValue returned value of type: \(type(of: value))")
+                if let stringValue = value as? String {
+                    // For String, escape it as a JSON string
+                    json = "\"\(stringValue.jsonEscaped)\""
+                } else if let value = value, JSONSerialization.isValidJSONObject(value) {
+                    // For JSON-serializable types (e.g., Array, Dictionary)
+                    json = (try? JSONSerialization.string(with: value)) ?? "null"
+                } else {
+                    // For nil or non-serializable types
+                    json = "null"
+                }
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
                     if let error = error {
-                        ActionUIWebKitJS.model.logger.log("getElementValue response error: \(error)", .error)
+                        print("getElementValue response error: \(error)")
+                    } else {
+                        print("getElementValue response sent: \(json)")
                     }
                 }
             } else {
-                ActionUIWebKitJS.model.logger.log("Invalid arguments for getElementValue", .warning)
+                print("Invalid arguments for getElementValue: \(args)")
             }
         case "getElementValueAsString":
             if args.count == 3, let windowUUID = args[0] as? String,
@@ -382,23 +370,52 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                let viewPartID = numberAsInt(args[2]) {
                 let value = ActionUIWebKitJS.model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID) ?? ""
                 let escaped = value.jsonEscaped
-                webView.evaluateJavaScript("window.postMessage({id: '\(id ?? "")', result: \(escaped)})") { _, error in
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: '\(escaped)'})") { _, error in
                     if let error = error {
-                        ActionUIWebKitJS.model.logger.log("getElementValueAsString response error: \(error)", .error)
+                        print("getElementValueAsString response error: \(error)")
                     }
                 }
             } else {
-                ActionUIWebKitJS.model.logger.log("Invalid arguments for getElementValueAsString", .warning)
+                print("Invalid arguments for getElementValueAsString: \(args)")
             }
         default:
-            ActionUIWebKitJS.model.logger.log("Unknown method: \(method)", .warning)
+            print("Unknown method: \(method)")
         }
     }
-
+    
     // MARK: - WKNavigationDelegate
     
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        injectActionUI()
+        print("WebView navigation finished")
+        testNativeToJS()
+        // Modified: Removed runBusinessLogic trigger as BusinessLogic.js runs immediately
+    }
+    
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        print("WebView navigation failed: \(error)")
+    }
+    
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        print("WebView provisional navigation failed: \(error)")
+    }
+    
+    public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        print("WebView didCommit navigation")
+    }
+    
+    public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        print("WebView didStartProvisionalNavigation")
+    }
+    
+    public func testNativeToJS() {
+        webView.evaluateJavaScript("window.testFromNative()") { result, error in
+            if let error = error {
+                print("Test native to JS error: \(error)")
+            } else {
+                print("Test native to JS result: \(result ?? "nil")")
+            }
+        }
     }
     
     // MARK: - Swift-side Loading Methods (mirroring ActionUISwift)
@@ -442,6 +459,19 @@ extension JSONSerialization {
 // Helper for escaping strings for JavaScript
 extension String {
     var jsonEscaped: String {
-        replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+    }
+    
+    var jsonString: String {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: [self], options: [])
+            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: CharacterSet(charactersIn: "[]")) ?? "\"\""
+        } catch {
+            return "\"\""
+        }
     }
 }

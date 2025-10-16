@@ -1,0 +1,44 @@
+{
+  "type": "VStack",
+  "properties": {
+      "spacing": 10.0,
+      "alignment": "center",
+      "background": "gray",
+      "frame": {
+          "minWidth": 400.0,
+          "minHeight": 300.0,
+          "idealWidth": 800.0,
+          "idealHeight": 600.0
+      },
+      "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Hello, ActionUI!",
+        "padding": "default"
+      },
+      "id": 1
+    },
+    {
+      "type": "Button",
+      "properties": {
+        "title": "Action!",
+        "padding": "default",
+        "buttonStyle": "borderedProminent",
+        "actionID": "action.handle"
+      },
+      "id": 2
+    },
+    {
+      "type": "TextField",
+      "properties": {
+        "placeholder": "Enter text",
+        "padding": "default",
+        "actionID": "text.submit"
+      },
+      "id": 3
+    }
+  ]
+}
