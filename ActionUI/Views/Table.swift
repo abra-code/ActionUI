@@ -1,3 +1,4 @@
+// Sources/Views/Table.swift
 /*
  Sample JSON for Table view (macOS only):
  {
@@ -96,6 +97,18 @@ struct Table: ActionUIViewConstruction {
         return validatedProperties
     }
     
+    static var initialStates: (ViewModel) -> [String: Any] = { model in
+        var states: [String: Any] = model.states
+        
+        if states.isEmpty {
+            let rows = model.validatedProperties["rows"] as? [[String]] ?? []
+            states["content"] = rows
+            states["selectedRowID"] = nil
+        }
+        
+        return states
+    }
+    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AppKit)
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
@@ -103,7 +116,7 @@ struct Table: ActionUIViewConstruction {
         let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
         let actionContext = itemType["actionContext"] as? String ?? "title"
         let columns = (properties["columns"] as? [String]) ?? []
-        let rows = (properties["rows"] as? [[String]]) ?? []
+        let rows = (model.states["content"] as? [[String]]) ?? []
         let widths = (properties["widths"] as? [Int])?.map { CGFloat($0) } ?? Array(repeating: CGFloat(100), count: columns.count)
         
         let columnData = columns.enumerated().map { (index, name) in
@@ -111,14 +124,6 @@ struct Table: ActionUIViewConstruction {
         }
         let rowData = rows.enumerated().map { (index, row) in
             TableRowData(id: "row-\(index)", values: row)
-        }
-        
-        let initialSelection = Self.initialValue(model) as? [String] ?? [] as [String]
-
-        // Append Table-specific state only if not already set
-        // TODO: must not mutate model in buildView
-        if model.states["content"] == nil {
-            model.states["content"] = rows
         }
         
         let selectionBinding = Binding<String?>(
@@ -175,7 +180,7 @@ struct Table: ActionUIViewConstruction {
                 .width(column.width)
             }
         }
-        .onChange(of: properties["rows"] as? [[String]], initial: false) { oldRows, newRows in
+        .onChange(of: properties["rows"] as? [[String]], initial: false) { _, newRows in
             let newContent = newRows ?? []
             model.states["content"] = newContent
             if let selectedRowID = model.states["selectedRowID"] as? String,

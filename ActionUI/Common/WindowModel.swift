@@ -82,6 +82,8 @@ class WindowModel: ObservableObject {
         viewModel.validateProperties(for: element)
         // Fetch initial value from properties early if the element supports it
         viewModel.value = ActionUIRegistry.shared.getInitialValue(forElementType: element.type, model: viewModel)
+        // Fetch initial states from properties early if the element supports it
+        viewModel.states = ActionUIRegistry.shared.getInitialStates(forElementType: element.type, model: viewModel)
         targetViewModels[element.id] = viewModel
         
         if let subviews = element.subviews {

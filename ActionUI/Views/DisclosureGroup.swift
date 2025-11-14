@@ -39,16 +39,23 @@ struct DisclosureGroup: ActionUIViewConstruction {
         return validatedProperties
     }
     
+    static var initialStates: (ViewModel) -> [String: Any] = { model in
+        var states: [String: Any] = model.states
+        
+        // Only initialize if states is empty (first-time setup)
+        if states.isEmpty {
+            let initialExpanded = model.validatedProperties["isExpanded"] as? Bool ?? false
+            states["isExpanded"] = initialExpanded
+        }
+        
+        return states
+    }
+    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let label = properties["label"] as? String ?? ""
-        let initialExpanded = properties["isExpanded"] as? Bool ?? false
-        
-        // Initialize DisclosureGroup-specific state
-        // TODO: must not mutate model in buildView
-        model.states["isExpanded"] = initialExpanded
         
         let expandedBinding = Binding(
-            get: { model.states["isExpanded"] as? Bool ?? initialExpanded },
+            get: { model.states["isExpanded"] as? Bool ?? false },
             set: { newValue in
                 model.states["isExpanded"] = newValue
                 

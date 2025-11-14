@@ -145,12 +145,19 @@ class ActionUIRegistry {
            constructionType.valueType != Void.self {
             let initialValue = constructionType.initialValue(model)
             if initialValue == nil,
-               constructionType.valueType != Double?.self { //any optional value type mat be nil
+               constructionType.valueType != Double?.self { //any optional value type may be nil
                 logger.log("Inital value not provided for element of type \(type), which declares non-void valueType", .error)
             }
             return initialValue
         }
         return nil
+    }
+    
+    func getInitialStates(forElementType type: String, model: ViewModel) -> [String: Any] {
+        if let constructionType = viewRegistrations[type] {
+            return constructionType.initialStates(model)
+        }
+        return [:]
     }
     
     // Builds a SwiftUI view for an element, only passing validatedProperties, leaving value and view-specific state to buildView

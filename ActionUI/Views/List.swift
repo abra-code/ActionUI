@@ -1,3 +1,4 @@
+// Sources/Views/List.swift
 /*
  Sample JSON for List view:
  {
@@ -63,26 +64,30 @@ struct List: ActionUIViewConstruction {
         return validatedProperties
     }
     
+    static var initialStates: (ViewModel) -> [String: Any] = { model in
+        var states: [String: Any] = model.states
+        
+        if states.isEmpty {
+            let items = model.validatedProperties["items"] as? [[String]] ?? []
+            states["content"] = items
+        }
+        
+        return states
+    }
+    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
         let actionContext = itemType["actionContext"] as? String ?? "title"
-        let items: [[String]] = (properties["items"] as? [[String]]) ?? []
+        let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
         let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
         let actionID = properties["actionID"] as? String
         let doubleClickActionID = properties["doubleClickActionID"] as? String
         
-        let initialSelection = Self.initialValue(model) as? [String] ?? []
-
-        // TODO: must not mutate model in buildView
-        if model.states["content"] == nil {
-            model.states["content"] = items
-        }
-        
         let selectionBinding = Binding<String?>(
             get: {
-                let value = model.value as? [String] ?? initialSelection
+                let value = model.value as? [String] ?? []
                 return value.first
             },
             set: { newValue in
@@ -127,7 +132,7 @@ struct List: ActionUIViewConstruction {
                 }
             }
         }
-        .onChange(of: properties["items"] as? [[String]], initial: false) { oldItems, newItems in
+        .onChange(of: properties["items"] as? [[String]], initial: false) { _, newItems in
             let newContent: [[String]] = newItems ?? []
             model.states["content"] = newContent
             if let selectedRow = model.value as? [String],

@@ -41,6 +41,16 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         return properties
     }
     
+    static var initialStates: (ViewModel) -> [String: Any] = { model in
+        var states: [String: Any] = model.states
+        
+        if states.isEmpty {
+            states["currentRepeatCount"] = 0
+        }
+        
+        return states
+    }
+    
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let initialValue = (properties["initialValue"] as? [String: Any]).map {
@@ -60,7 +70,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         let keyframes = (properties["keyframes"] as? [String: [String: Any]]) ?? [:]
         
         @State var animationTrigger: Int = 0
-        @State var currentRepeatCount: Int = 0
+        @State var currentRepeatCount: Int = model.states["currentRepeatCount"] as? Int ?? 0
         
         // Helper to start animation
         func startAnimation() {
@@ -76,10 +86,6 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 }
             }
         }
-        
-        // Initialize state
-        // TODO: must not mutate model in buildView
-        model.states["currentRepeatCount"] = currentRepeatCount
         
         return SwiftUI.KeyframeAnimator(
             initialValue: initialValue,
@@ -161,13 +167,14 @@ struct KeyframeAnimator: ActionUIViewConstruction {
             if autoreverses && currentRepeatCount < count {
                 if newValue % 2 == 0 {
                     currentRepeatCount += 1
+                    model.states["currentRepeatCount"] = currentRepeatCount
                     startAnimation()
                 }
             } else if currentRepeatCount < count {
                 currentRepeatCount += 1
+                model.states["currentRepeatCount"] = currentRepeatCount
                 startAnimation()
             }
-            model.states["currentRepeatCount"] = currentRepeatCount
         }
         .onAppear {
             if trigger == "onAppear" {
