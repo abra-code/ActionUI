@@ -2,7 +2,8 @@
   "type": "VStack",
   "properties": {
     "spacing": 10.0,
-    "alignment": "center"
+    "alignment": "center",
+    "padding": "default"
   },
   "children": [
     {
@@ -14,7 +15,8 @@
     {
       "type": "HStack",
       "properties": {
-        "spacing": 10.0
+        "spacing": 10.0,
+        "padding": "default"
       },
       "children": [
         {
@@ -22,6 +24,12 @@
           "properties": {
             "text": "Item 1"
           }
+        },
+        {
+            "type": "Divider",
+            "properties": {
+                "background": "gray"
+            }
         },
         {
           "type": "Text",
@@ -32,21 +40,36 @@
       ]
     },
     {
+        "type": "Divider",
+        "properties": {
+            "background": "gray"
+        }
+    },
+    {
       "type": "HStack",
       "properties": {
-        "spacing": 5.0
+        "spacing": 5.0,
+        "padding": "default"
       },
       "children": [
         {
           "type": "Button",
           "properties": {
-            "title": "Left"
+            "title": "Left",
+            "buttonStyle": "borderedProminent"
           }
+        },
+        {
+            "type": "Divider",
+            "properties": {
+                "background": "gray"
+            }
         },
         {
           "type": "Button",
           "properties": {
-            "title": "Right"
+            "title": "Right",
+            "buttonStyle": "borderedProminent"
           }
         }
       ]
