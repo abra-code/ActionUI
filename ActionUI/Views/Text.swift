@@ -13,15 +13,26 @@
 import SwiftUI
 
 struct Text: ActionUIViewConstruction {
-    // Design decision: Defines valueType as Void since Text is a static display view with no interactive state
+    // The runtime value of a Text view is its displayed string.
+    static var valueType: Any.Type { String.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         return properties
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let text = properties["text"] as? String ?? ""
         
-        return SwiftUI.Text(text)
+        let initialValue = Self.initialValue(model) as? String ?? ""
+                
+        return SwiftUI.Text(initialValue)
+    }
+
+    static var initialValue: (ViewModel) -> Any? = { model in
+        if let storedValue = model.value as? String {
+            return storedValue
+        }
+        
+        let propertiesValue = model.validatedProperties["text"] as? String ?? ""
+        return propertiesValue
     }
 }

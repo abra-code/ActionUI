@@ -16,7 +16,8 @@
 import SwiftUI
 
 struct Label: ActionUIViewConstruction {
-    // Design decision: Defines valueType as Void since Label is a static view with no interactive state
+    // The mutable runtime value is the title string
+    static var valueType: Any.Type { String.self }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -44,20 +45,30 @@ struct Label: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, _ in
         
-        let title = properties["title"] as? String ?? ""
+        let initialValue = Self.initialValue(model) as? String ?? ""
+        
         if let systemImage = properties["systemImage"] as? String {
-            return SwiftUI.Label(title, systemImage: systemImage)
+            return SwiftUI.Label(initialValue, systemImage: systemImage)
         } else if let imageName = properties["imageName"] as? String {
-            return SwiftUI.Label(title, image: imageName)
+            return SwiftUI.Label(initialValue, image: imageName)
         }
         
-        return SwiftUI.Label(title, systemImage: "").labelStyle(.titleOnly)
-
-//        return SwiftUI.Label(title: { SwiftUI.EmptyView() }, icon: { SwiftUI.EmptyView() })
+        return SwiftUI.Label(initialValue, systemImage: "").labelStyle(.titleOnly)
     }
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         return modifiedView
+    }
+    
+    static var initialValue: (ViewModel) -> Any? = { model in
+        // If value was already set programmatically before view creation, preserve it
+        if let storedValue = model.value as? String {
+            return storedValue
+        }
+        
+        // Otherwise use the validated title from the original JSON/plist
+        let propertiesValue = model.validatedProperties["title"] as? String ?? ""
+        return propertiesValue
     }
 }
