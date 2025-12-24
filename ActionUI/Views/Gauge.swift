@@ -76,10 +76,18 @@ struct Gauge: ActionUIViewConstruction {
         let valueBinding = Binding(
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
+                guard model.value as? Double != newValue else {
+                    return
+                }
+
                 if (min...max).contains(newValue) {
-                    model.value = newValue
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                    // "publishing changes from within view updates" warning
+                    DispatchQueue.main.async {
+                        model.value = newValue
+                        if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        }
                     }
                 } else {
                     logger.log("Gauge value \(newValue) out of range \(min)...\(max); ignoring", .warning)

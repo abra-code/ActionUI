@@ -57,10 +57,16 @@ struct DisclosureGroup: ActionUIViewConstruction {
         let expandedBinding = Binding(
             get: { model.states["isExpanded"] as? Bool ?? false },
             set: { newValue in
-                model.states["isExpanded"] = newValue
-                
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                guard model.states["isExpanded"] as? Bool != newValue else {
+                    return
+                }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.states["isExpanded"] = newValue
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

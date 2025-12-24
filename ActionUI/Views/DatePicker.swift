@@ -79,9 +79,16 @@ struct DatePicker: ActionUIViewConstruction {
         let dateBinding = Binding(
             get: { model.value as? Date ?? initialDate },
             set: { newValue in
-                model.value = newValue
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                guard model.value as? Date != newValue else {
+                    return
+                }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.value = newValue
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

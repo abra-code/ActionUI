@@ -165,9 +165,18 @@ struct Map: ActionUIViewConstruction {
             set: { newPosition in
                 if let region = extractRegion(from: newPosition) {
                     let coord = region.center
-                    model.value = coord
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    if let prevCoord = model.value as? CLLocationCoordinate2D,
+                          prevCoord.latitude == coord.latitude,
+                          prevCoord.longitude == coord.longitude {
+                        return
+                    }
+                    // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                    // "publishing changes from within view updates" warning
+                    DispatchQueue.main.async {
+                        model.value = coord
+                        if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                            ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        }
                     }
                 }
             }

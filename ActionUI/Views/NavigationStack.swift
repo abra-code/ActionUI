@@ -51,10 +51,17 @@ struct NavigationStack: ActionUIViewConstruction {
             },
             set: { newPath in
                 // Store path as an array of strings
-                let newPathArray = newPath.codable.map { String(describing: $0) }
-                model.value = newPathArray
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                let newPathArray = newPath.toStringArray()
+                guard model.value as? [String] != newPathArray else {
+                    return
+                }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.value = newPathArray
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

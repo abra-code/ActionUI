@@ -91,15 +91,23 @@ struct List: ActionUIViewConstruction {
                 return value.first
             },
             set: { newValue in
+                var selectedRowValues = [] as [String]
                 if let newValue = newValue,
                    let content = model.states["content"] as? [[String]],
                    let selectedRow = content.first(where: { $0.first == newValue }) {
-                    model.value = selectedRow
-                } else {
-                    model.value = [] as [String]
+                    selectedRowValues = selectedRow
                 }
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                
+                guard model.value as? [String] != selectedRowValues else {
+                    return
+                }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.value = selectedRowValues
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

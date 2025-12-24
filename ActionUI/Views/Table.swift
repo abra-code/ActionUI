@@ -130,14 +130,23 @@ struct Table: ActionUIViewConstruction {
             get: { model.states["selectedRowID"] as? String },
             set: { newValue in
                 model.states["selectedRowID"] = newValue
+                
+                var selectedRowValues = [] as [String]
                 if let selectedRowID = newValue,
                    let selectedRow = rowData.first(where: { $0.id == selectedRowID }) {
-                    model.value = selectedRow.values
-                } else {
-                    model.value = [] as [String]
+                    selectedRowValues = selectedRow.values
                 }
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                
+                guard model.value as? [String] != selectedRowValues else {
+                    return
+                }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.value = selectedRowValues
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

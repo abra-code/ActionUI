@@ -73,9 +73,16 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 case .all: newVisibilityString = "all"
                 default: newVisibilityString = "all"
                 }
-                model.states["columnVisibility"] = newVisibilityString
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                guard model.states["columnVisibility"] as? String != newVisibilityString else {
+                    return
+                }
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.states["columnVisibility"] = newVisibilityString
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
                 }
             }
         )

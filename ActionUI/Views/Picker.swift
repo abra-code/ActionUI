@@ -10,10 +10,10 @@
        // 2. With array of dictionaries we have explicit control: [{"title": "Sure Thing", "tag": "yes"}, {"title": "Absolutely Not", "tag": "no"}]
      "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only); no default
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
-     "valueChangeActionID": "picker.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
    }
-   // Note: actionID is triggered via onChange for user-initiated changes. valueChangeActionID is triggered for any value change via the binding's set closure. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
-   // The selected tag is passed as `context` (Any?) to both actionID and valueChangeActionID handlers.
+   // Note: actionID is triggered via onChange for user-initiated changes. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
+   // The selected tag is passed as `context` (Any?) to actionID handler.
+ }
  */
 
 import SwiftUI
@@ -94,14 +94,12 @@ struct Picker: ActionUIViewConstruction {
             get: { model.value as? String ?? initialValue },
             set: { newValue in
                 guard model.value as? String != newValue else {
-                    logger.log("No change in value for viewID: \(element.id), skipping update", .debug)
                     return
                 }
-                logger.log("Updating value for viewID: \(element.id) to \(newValue)", .debug)
-                model.value = newValue
-                if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                    logger.log("Dispatching valueChangeActionID: \(valueChangeActionID) for viewID: \(element.id)", .debug)
-                    ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
+                // "publishing changes from within view updates" warning
+                DispatchQueue.main.async {
+                    model.value = newValue
                 }
             }
         )
