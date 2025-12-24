@@ -3,13 +3,14 @@
   "properties": {
       "spacing": 10.0,
       "alignment": "center",
-      "background": "gray",
+      "background": "fill",
       "frame": {
           "minWidth": 400.0,
           "minHeight": 300.0,
           "idealWidth": 800.0,
           "idealHeight": 600.0
-      }
+      },
+      "padding": "default"
   },
   "children": [
     {
@@ -27,6 +28,25 @@
         "actionID": "action.handle"
       },
       "id": 2
+    },
+    {
+        "type": "Divider",
+        "properties": {
+        }
+    },
+    {
+        "type": "HStack",
+        "properties": {
+            "spacing": 10.0,
+            "padding": "default"
+        },
+        "children": [
+            {
+                "type": "Divider",
+                "properties": {
+                }
+            }
+        ]
     }
   ]
 }
