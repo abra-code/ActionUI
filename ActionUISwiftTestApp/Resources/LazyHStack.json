@@ -29,6 +29,18 @@
           "properties": {
             "text": "Item 2"
           }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 3"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 4"
+          }
         }
       ]
     }

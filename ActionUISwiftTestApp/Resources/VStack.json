@@ -9,11 +9,11 @@
     {
       "type": "Text",
       "properties": {
-        "text": "HStack Variants"
+        "text": "VStack Variants"
       }
     },
     {
-      "type": "HStack",
+      "type": "VStack",
       "properties": {
         "spacing": 10.0,
         "padding": "default"
@@ -48,29 +48,11 @@
           "properties": {
             "text": "Item 3"
           }
-        },
-        {
-            "type": "Divider",
-            "properties": {
-                "background": "gray"
-            }
-        },
-        {
-          "type": "Text",
-          "properties": {
-            "text": "Item 4"
-          }
         }
       ]
     },
     {
-        "type": "Divider",
-        "properties": {
-            "background": "gray"
-        }
-    },
-    {
-      "type": "HStack",
+      "type": "VStack",
       "properties": {
         "spacing": 5.0,
         "padding": "default"

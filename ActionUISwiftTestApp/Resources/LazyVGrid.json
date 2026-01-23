@@ -37,6 +37,42 @@
           "properties": {
             "text": "Item 2"
           }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 3"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 4"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 5"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 6"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 7"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Item 8"
+          }
         }
       ]
     }
