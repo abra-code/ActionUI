@@ -42,7 +42,11 @@ struct ActionUISwiftTestApp: App {
     init() {
         // Configure logger
         ActionUISwift.setLogger(logger)
-
+        // receiving actionID, windowUUID, viewID, viewPartID, and optional context
+        ActionUISwift.setDefaultActionHandler({actionID, windowUUID, viewID, viewPartID, context in
+            print("Default action callback for actionID:\(actionID), windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), context: \(String(describing: context))")
+        })
+        
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")

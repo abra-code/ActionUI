@@ -18,7 +18,8 @@
         "foregroundStyle": "blue",
         "font": "title",
         "padding": 10.0,
-        "accessibilityIdentifier": "click_me_button"
+        "accessibilityIdentifier": "click_me_button",
+        "actionID": "click_me_action"
       }
     },
     {
@@ -55,7 +56,8 @@
           "alignment": "center"
         },
         "padding": 12.0,
-        "accessibilityIdentifier": "delete_button"
+        "accessibilityIdentifier": "delete_button",
+        "actionID": "delete_action"
       }
     },
     {

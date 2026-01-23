@@ -88,7 +88,8 @@
             "properties": {
               "title": "Cancel",
               "buttonStyle": "plain",
-              "role": "cancel"
+              "role": "cancel",
+              "actionID": "form.cancel"
             }
           },
           {
@@ -96,7 +97,8 @@
             "id": 7,
             "properties": {
               "title": "Save",
-              "buttonStyle": "borderedProminent"
+              "buttonStyle": "borderedProminent",
+              "actionID": "form.save"
             }
           }
       ]
