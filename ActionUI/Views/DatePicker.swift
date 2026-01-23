@@ -98,11 +98,10 @@ struct DatePicker: ActionUIViewConstruction {
         var startDate: Date?
         var endDate: Date?
         if let range = properties["range"] as? [String: String] {
-            let dateFormatter = ISO8601DateFormatter()
-            if let start = range["start"], let date = dateFormatter.date(from: start) {
+            if let start = range["start"], let date = DateHelper.parseDate(from: start) {
                 startDate = date
             }
-            if let end = range["end"], let date = dateFormatter.date(from: end) {
+            if let end = range["end"], let date = DateHelper.parseDate(from: end) {
                 endDate = date
             }
         }
@@ -153,12 +152,11 @@ struct DatePicker: ActionUIViewConstruction {
     }
     
     static var initialValue: (ViewModel) -> Any? = { model in
-        if let initalValue = model.value as? Date {
-            return initalValue
+        if let initialValue = model.value as? Date {
+            return initialValue
         }
-        let dateFormatter = ISO8601DateFormatter()
         let dateString = model.validatedProperties["selectedDate"] as? String ?? ""
-        let initialDate = dateFormatter.date(from: dateString) ?? Date()
+        let initialDate = DateHelper.parseDate(from: dateString) ?? Date()
         return initialDate
     }
 }
