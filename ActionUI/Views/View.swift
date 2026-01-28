@@ -566,7 +566,7 @@ struct View: ActionUIViewConstruction {
         }
         
         if let shadow = properties["shadow"] as? [String: Any] {
-            let color = ColorHelper.resolveColor(shadow["color"] as? String ?? "black") ?? .black
+            let color = ColorHelper.resolveColor(shadow["color"] as? String) ?? .black
             let radius = shadow.cgFloat(forKey: "radius") ?? 0.0
             let x = shadow.cgFloat(forKey: "x") ?? 0.0
             let y = shadow.cgFloat(forKey: "y") ?? 0.0

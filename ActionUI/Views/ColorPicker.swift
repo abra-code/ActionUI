@@ -72,6 +72,6 @@ struct ColorPicker: ActionUIViewConstruction {
         if let initalValue = model.value as? Color {
             return initalValue
         }
-        return ColorHelper.resolveColor((model.validatedProperties["selectedColor"] as? String) ?? "clear") ?? Color.clear
+        return ColorHelper.resolveColor(model.validatedProperties["selectedColor"] as? String) ?? Color.clear
     }
 }

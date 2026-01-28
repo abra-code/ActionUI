@@ -11,7 +11,11 @@ class ColorHelper {
     // Supports named colors (e.g., "red", "orange", "clear", "accentColor") and hex formats (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
     // Returns nil if the string is invalid
     // Design decision: Includes all SwiftUI predefined colors with direct dot notation for compatibility and flexibility
-    static func resolveColor(_ string: String) -> Color? {
+    static func resolveColor(_ string: String?) -> Color? {
+        guard let string = string else {
+            return nil
+        }
+        
         let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
         // Named color mapping
