@@ -66,4 +66,9 @@ extension [String: Any] {
         guard let array = self[key] as? [Any] else { return nil }
         return array.map { ($0 as? NSNumber)?.doubleValue ?? 0.0 }
     }
+    
+    func cgFloatArray(forKey key: String) -> [CGFloat]? {
+        guard let array = self[key] as? [Any] else { return nil }
+        return array.map { CGFloat(($0 as? NSNumber)?.doubleValue ?? 0.0) }
+    }
 }

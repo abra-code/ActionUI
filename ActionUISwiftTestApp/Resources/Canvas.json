@@ -1,30 +1,315 @@
 {
   "type": "VStack",
   "properties": {
-    "spacing": 10.0,
-    "alignment": "center"
+    "spacing": 16.0,
+    "alignment": "center",
+    "padding": 20.0
   },
   "children": [
     {
       "type": "Text",
       "properties": {
-        "text": "Canvas Variants"
+        "text": "Canvas Drawing Primitives Test",
+        "fontSize": 24,
+        "fontWeight": "bold",
+        "foregroundColor": "#333333"
       }
     },
+
     {
-      "type": "Canvas",
+      "type": "HStack",
       "properties": {
-        "render": "fillCircle",
-        "color": "#FF0000"
-      }
+        "spacing": 20.0
+      },
+      "children": [
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Solid red circle fill + black stroke border",
+            "frame": { "width": 140, "height": 140 },
+            "backgroundColor": "#F8F9FA",
+            "cornerRadius": 16,
+            "operations": [
+              {
+                "type": "fill",
+                "path": { "type": "circle", "center": [0.5, 0.5], "radius": 0.45 },
+                "color": "#FF3B30"
+              },
+              {
+                "type": "stroke",
+                "path": { "type": "circle", "center": [0.5, 0.5], "radius": 0.45 },
+                "color": "#000000",
+                "lineWidth": 4
+              }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Linear gradient fill in rounded rectangle",
+            "frame": { "width": 140, "height": 140 },
+            "backgroundColor": "#F8F9FA",
+            "cornerRadius": 16,
+            "operations": [
+              {
+                "type": "fill",
+                "path": { "type": "roundedRect", "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8, "cornerRadius": 0.15 },
+                "gradient": {
+                  "type": "linear",
+                  "start": [0.0, 0.0],
+                  "end": [1.0, 1.0],
+                  "colors": ["#FF9500", "#FF2D55", "#007AFF"]
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
+
     {
-      "type": "Canvas",
+      "type": "HStack",
       "properties": {
-        "render": "none",
-        "color": "#00FF00"
-      }
+        "spacing": 20.0
+      },
+      "children": [
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Text with drop shadow applied before drawing the text",
+            "frame": { "width": 180, "height": 120 },
+            "backgroundColor": "#FFFFFF",
+            "cornerRadius": 12,
+            "operations": [
+              {
+                "type": "shadow",
+                "color": "#00000080",
+                "radius": 6,
+                "x": 3,
+                "y": 4
+              },
+              {
+                "type": "text",
+                "text": "Shadowed\nText",
+                "frame": [0.1, 0.1, 0.8, 0.8],
+                "fontSize": 28,
+                "fontWeight": "bold",
+                "color": "#1E90FF",
+                "alignment": "center"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Softer blur – text remains readable",
+            "frame": { "width": 180, "height": 120 },
+            "backgroundColor": "#E8F0FE",
+            "cornerRadius": 12,
+            "operations": [
+              {
+                "type": "blur",
+                "radius": 4
+              },
+              {
+                "type": "text",
+                "text": "Blurred\nLabel",
+                "frame": [0.1, 0.1, 0.8, 0.8],
+                "fontSize": 26,
+                "fontWeight": "semibold",
+                "color": "#D81B60",
+                "alignment": "center"
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 20.0
+      },
+      "children": [
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Custom star-like path stroked with thick line and rounded joins",
+            "frame": { "width": 140, "height": 140 },
+            "backgroundColor": "#FFF5E6",
+            "cornerRadius": 16,
+            "operations": [
+              {
+                "type": "stroke",
+                "path": {
+                  "type": "path",
+                  "commands": [
+                    ["moveTo", 0.5, 0.10],
+                    ["lineTo", 0.65, 0.40],
+                    ["lineTo", 0.95, 0.40],
+                    ["lineTo", 0.72, 0.60],
+                    ["lineTo", 0.82, 0.90],
+                    ["lineTo", 0.5, 0.70],
+                    ["lineTo", 0.18, 0.90],
+                    ["lineTo", 0.28, 0.60],
+                    ["lineTo", 0.05, 0.40],
+                    ["lineTo", 0.35, 0.40],
+                    ["closePath"]
+                  ]
+                },
+                "color": "#FF9800",
+                "lineWidth": 6,
+                "lineCap": "round",
+                "lineJoin": "round"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Layer with opacity and multiply blend + nested fill & stroke",
+            "frame": { "width": 180, "height": 140 },
+            "backgroundColor": "#F3E5F5",
+            "cornerRadius": 16,
+            "operations": [
+              {
+                "type": "layer",
+                "frame": [0.1, 0.1, 0.8, 0.8],
+                "opacity": 0.85,
+                "blendMode": "multiply",
+                "operations": [
+                  {
+                    "type": "fill",
+                    "path": { "type": "roundedRect", "x": 0, "y": 0, "width": 1, "height": 1, "cornerRadius": 0.2 },
+                    "color": "#9C27B0"
+                  },
+                  {
+                    "type": "stroke",
+                    "path": { "type": "circle", "center": [0.5, 0.5], "radius": 0.35 },
+                    "color": "#FFFFFF",
+                    "lineWidth": 8
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 16.0
+      },
+      "children": [
+        {
+            "type": "Canvas",
+            "properties": {
+              "description": "Canvas with image",
+              "frame": { "width": 200, "height": 200 },
+              "cornerRadius": 20,
+              "operations": [
+                {
+                  "type": "image",
+                  "resourceName": "abracadabra.png",
+                  "resizable": true,
+                  "scaleMode": "fill",
+                  "frame": [0.0, 0.0, 1.0, 1.0]
+                }
+              ]
+            }
+        },
+        {
+          "type": "Canvas",
+          "properties": {
+            "description": "Composition with semi-transparent gradient layer overlay, small rotated Swift symbols, shadow, and centered text",
+            "frame": { "width": 200, "height": 200 },
+            "cornerRadius": 98,
+            "operations": [
+              {
+                "type": "layer",
+                "frame": [0.0, 0.0, 1.0, 1.0],
+                "opacity": 0.65,
+                "operations": [
+                  {
+                    "type": "fill",
+                    "path": { "type": "rect", "x": 0, "y": 0, "width": 1, "height": 1 },
+                    "gradient": {
+                      "type": "linear",
+                      "start": [0.0, 0.0],
+                      "end": [1.0, 1.0],
+                      "colors": ["#1976D2", "#42A5F5", "#BBDEFB"]
+                    }
+                  }
+                ],
+                "description": "Gradient overlay with 65% opacity"
+              },
+              {
+                "type": "layer",
+                "frame": [0.0, 0.0, 1.0, 1.0],
+                "opacity": 0.95,
+                "operations": [
+                  {
+                    "type": "layer",
+                    "frame": [0.15, 0.15, 0.12, 0.12],
+                    "operations": [
+                      { "type": "rotate", "angle": -20 },
+                      { "type": "image", "systemName": "swift", "frame": [0,0,1,1], "foregroundStyle": "#000000" }
+                    ]
+                  },
+                  {
+                    "type": "layer",
+                    "frame": [0.70, 0.20, 0.11, 0.11],
+                    "operations": [
+                      { "type": "rotate", "angle": 35 },
+                      { "type": "image", "systemName": "swift", "frame": [0,0,1,1], "foregroundStyle": "#FF5722" }
+                    ]
+                  },
+                  {
+                    "type": "layer",
+                    "frame": [0.25, 0.70, 0.13, 0.13],
+                    "operations": [
+                      { "type": "rotate", "angle": 50 },
+                      { "type": "image", "systemName": "swift", "frame": [0,0,1,1], "foregroundStyle": "#000000" }
+                    ]
+                  },
+                  {
+                    "type": "layer",
+                    "frame": [0.70, 0.70, 0.12, 0.12],
+                    "operations": [
+                      { "type": "rotate", "angle": -30 },
+                      { "type": "image", "systemName": "swift", "frame": [0.0, 0.0, 1.0, 1.0], "foregroundStyle": "#000000" }
+                    ],
+                  },
+
+                ],
+                "description": "Small swarm of rotated Swift symbols"
+              },
+              {
+                "type": "shadow",
+                "color": "#00000060",
+                "radius": 8,
+                "x": 4,
+                "y": 4
+              },
+              {
+                "type": "text",
+                "text": "ActionUI",
+                "frame": [0.15, 0.40, 0.7, 0.3],
+                "fontSize": 32,
+                "fontWeight": "black",
+                "color": "#FFFFFF",
+                "alignment": "center"
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
-

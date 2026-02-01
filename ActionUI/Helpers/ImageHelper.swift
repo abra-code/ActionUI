@@ -52,6 +52,8 @@ extension SwiftUI.Image {
         switch interpretation {
         case "systemName":
             systemName = text
+        case "resourceName":
+            filePath = Bundle.main.path(forResource: text, ofType: nil)
         case "assetName":
             break // assetName = text
         case "path":
