@@ -6,8 +6,9 @@
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "systemName": "star.fill",  // Optional: String for SF Symbol
-     "name": "customImage",      // Optional: String for asset catalog image name
+     "assetName": "customImage",      // Optional: String for asset catalog image name
      "filePath": "/path/to/image.jpg", // Optional: String for local file path
+     "resourceName": "yourImage.png",  Optional: String for bundle resource image name with extension
      "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if scaleMode is specified
      "scaleMode": "fit",         // Optional: String ("fit" or "fill") for scaling mode, defaults to "fit"
      "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
@@ -42,11 +43,17 @@ struct Image: ActionUIViewConstruction {
         }
         
         // Validate name
-        if properties["name"] != nil && !(properties["name"] is String) {
-            logger.log("Image name must be a String; ignoring", .warning)
-            validatedProperties["name"] = nil
+        if properties["assetName"] != nil && !(properties["assetName"] is String) {
+            logger.log("Image assetName must be a String; ignoring", .warning)
+            validatedProperties["assetName"] = nil
         }
-        
+
+        // Validate resourceName
+        if properties["resourceName"] != nil && !(properties["resourceName"] is String) {
+            logger.log("Image resourceName must be a String; ignoring", .warning)
+            validatedProperties["resourceName"] = nil
+        }
+
         // Validate filePath
         if let filePath = properties["filePath"] as? String {
             let pathExtension = URL(fileURLWithPath: filePath).pathExtension
@@ -100,8 +107,10 @@ struct Image: ActionUIViewConstruction {
         var image: SwiftUI.Image
         if let systemName = properties["systemName"] as? String {
             image = SwiftUI.Image(systemName: systemName)
-        } else if let name = properties["name"] as? String {
+        } else if let name = properties["assetName"] as? String {
             image = SwiftUI.Image(name)
+        } else if let resourceName = properties["resourceName"] as? String {
+            image = SwiftUI.Image(from: resourceName, interpretation: "resourceName")
         } else if let filePath = properties["filePath"] as? String {
             image = SwiftUI.Image(from: filePath, interpretation: "path")
         } else {

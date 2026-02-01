@@ -14,7 +14,7 @@
         "type": "Image",
         "id": 2,
         "properties": {
-          "name": "abracode",
+          "assetName": "abracode",
           "resizable": true,
           "scaleMode": "fit",
           "frame": {
@@ -112,7 +112,7 @@
       {
         "type": "Image",
         "properties": {
-          "name": "Swift",
+          "resourceName": "abracadabra.png",
           "resizable": true,
           "scaleMode": "fit",
           "frame": {

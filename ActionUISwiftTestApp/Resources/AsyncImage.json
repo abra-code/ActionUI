@@ -8,7 +8,7 @@
     {
       "type": "Text",
       "properties": {
-        "text": "AsyncImage Variants",
+        "text": "AsyncImage Variants - Downloaded",
         "padding": "default"
       }
     },
@@ -29,10 +29,15 @@
     {
       "type": "AsyncImage",
       "properties": {
-        "url": "https://abracode.com/abracode.png",
+        "url": "https://abracode.com/ActionUI/abracadabra.png",
         "placeholder": "photo.circle",
-        "resizable": false,
-        "contentMode": "fill"
+        "resizable": true,
+        "contentMode": "fit",
+        "frame": {
+          "width": 300.0,
+          "height": 300.0,
+          "alignment": "center"
+        }
       }
     },
     {
