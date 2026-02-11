@@ -75,8 +75,9 @@ class ActionUIRegistry {
         registerView(ShareLink.self)
         registerView(Slider.self)
         registerView(Spacer.self)
-        registerView(TabBarItem.self)
         registerView(Table.self)
+        registerView(Tab.self)
+        registerView(TabView.self)
         registerView(Text.self)
         registerView(TextEditor.self)
         registerView(TextField.self)
@@ -85,7 +86,6 @@ class ActionUIRegistry {
         registerView(VideoPlayer.self)
         registerView(View.self)
         registerView(ZStack.self)
-        registerView(TabView.self)
         // Removed deprecated NavigationView
         // Add more view registrations if needed
     }

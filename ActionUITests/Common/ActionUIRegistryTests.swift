@@ -42,8 +42,8 @@ final class ActionUIRegistryTests: XCTestCase {
             "LazyVGrid", "LazyVStack", "Link", "List", "LoadableView", "Map", "Menu", "NavigationLink",
             "NavigationStack", "NavigationSplitView", "PhaseAnimator", "Picker",
             "ProgressView", "ScrollView", "ScrollViewReader", "Section", "SecureField",
-            "ShareLink", "Slider", "Spacer", "TabBarItem", "Table", "Text", "TextEditor",
-            "TextField", "Toggle", "VStack", "VideoPlayer", "View", "ZStack", "TabView"
+            "ShareLink", "Slider", "Spacer", "Table", "Tab", "TabView", "Text", "TextEditor",
+            "TextField", "Toggle", "VStack", "VideoPlayer", "View", "ZStack"
         ]
         
         for viewType in expectedViewTypes {
@@ -75,7 +75,7 @@ final class ActionUIRegistryTests: XCTestCase {
             let tableViewType = "Table"
             #endif
             
-            if viewType == "View" || viewType == "EmptyView" || viewType == "Link" || viewType == "ShareLink" || viewType == "NavigationLink" || viewType == tableViewType {
+            if viewType == "View" || viewType == "EmptyView" || viewType == "Link" || viewType == "ShareLink" || viewType == "NavigationLink" || viewType == "Tab" || viewType == tableViewType {
                 XCTAssertTrue(view is SwiftUI.EmptyView, "buildView for '\(viewType)' should return EmptyView with empty properties")
             } else {
                 XCTAssertFalse(view is SwiftUI.EmptyView, "buildView for '\(viewType)' should not return EmptyView")

@@ -5,9 +5,10 @@
   },
   "children": [
     {
-      "type": "TabBarItem",
+      "type": "Tab",
       "properties": {
-        "title": "Home"
+        "title": "Home",
+        "systemImage": "house.fill"
       },
       "content": {
         "type": "Text",
@@ -17,9 +18,11 @@
       }
     },
     {
-      "type": "TabBarItem",
+      "type": "Tab",
       "properties": {
-        "title": "Settings"
+        "title": "Settings",
+        "systemImage": "gear",
+        "badge": 1
       },
       "content": {
         "type": "Text",
