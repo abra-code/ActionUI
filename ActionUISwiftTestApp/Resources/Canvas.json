@@ -211,7 +211,7 @@
             "type": "Canvas",
             "properties": {
               "description": "Canvas with image",
-              "frame": { "width": 200, "height": 200 },
+              "frame": { "width": 180, "height": 180 },
               "cornerRadius": 20,
               "operations": [
                 {
@@ -228,7 +228,7 @@
           "type": "Canvas",
           "properties": {
             "description": "Composition with semi-transparent gradient layer overlay, small rotated Swift symbols, shadow, and centered text",
-            "frame": { "width": 200, "height": 200 },
+            "frame": { "width": 150, "height": 150 },
             "cornerRadius": 98,
             "operations": [
               {
@@ -301,7 +301,7 @@
                 "type": "text",
                 "text": "ActionUI",
                 "frame": [0.15, 0.40, 0.7, 0.3],
-                "fontSize": 32,
+                "fontSize": 24,
                 "fontWeight": "black",
                 "color": "#FFFFFF",
                 "alignment": "center"
