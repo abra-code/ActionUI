@@ -304,7 +304,7 @@
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "value": 0.75,       // Optional: Value (Double), defaults to 0.0
-     "label": "Progress", // Optional: String for label, defaults to nil
+     "title": "Progress", // Optional: String for title, defaults to nil
      "style": "accessoryCircular", // Optional: "accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity" (iOS/macOS/visionOS); defaults to "accessoryCircular"
      "range": { "min": 0.0, "max": 100.0 } // Optional: Dictionary with min/max values, defaults to 0.0 to 1.0
    }

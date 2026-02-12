@@ -6,7 +6,7 @@
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "value": 0.75,       // Optional: Value (Double), defaults to 0.0
-     "label": "Progress", // Optional: String for label, defaults to nil
+     "title": "Progress", // Optional: String for title, defaults to nil
      "style": "accessoryCircular", // Optional: "accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity" (iOS/macOS/visionOS); defaults to "accessoryCircular"
      "range": { "min": 0.0, "max": 100.0 } // Optional: Dictionary with min/max values, defaults to 0.0 to 1.0
    }
@@ -28,10 +28,10 @@ struct Gauge: ActionUIViewConstruction {
             validatedProperties["value"] = nil
         }
         
-        // Validate label
-        if !(properties["label"] is String?), properties["label"] != nil {
-            logger.log("Gauge label must be a String; defaulting to nil", .warning)
-            validatedProperties["label"] = nil
+        // Validate title
+        if !(properties["title"] is String?), properties["title"] != nil {
+            logger.log("Gauge title must be a String; defaulting to nil", .warning)
+            validatedProperties["title"] = nil
         }
         
         // Validate style
@@ -96,8 +96,8 @@ struct Gauge: ActionUIViewConstruction {
         )
         
         return SwiftUI.Gauge(value: valueBinding.wrappedValue, in: min...max) {
-            if let label = properties["label"] as? String {
-                SwiftUI.Text(label)
+            if let title = properties["title"] as? String {
+                SwiftUI.Text(title)
             } else {
                 SwiftUI.EmptyView()
             }

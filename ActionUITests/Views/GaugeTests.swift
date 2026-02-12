@@ -40,7 +40,7 @@ final class GaugeTests: XCTestCase {
             "type": "Gauge",
             "properties": {
                 "value": 0.75,
-                "label": "Progress",
+                "title": "Progress",
                 "style": "accessoryCircular",
                 "range": {"min": 0.0, "max": 100.0}
             }
@@ -59,7 +59,7 @@ final class GaugeTests: XCTestCase {
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Gauge", "Element type should be Gauge")
         XCTAssertEqual(element.properties.double(forKey: "value"), 0.75, "Value should be 0.75")
-        XCTAssertEqual(element.properties["label"] as? String, "Progress", "Label should be Progress")
+        XCTAssertEqual(element.properties["title"] as? String, "Progress", "Label should be Progress")
         XCTAssertEqual(element.properties["style"] as? String, "accessoryCircular", "Style should be accessoryCircular")
         XCTAssertEqual((element.properties["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Range min should be 0.0")
         XCTAssertEqual((element.properties["range"] as? [String: Any])?.double(forKey: "max"), 100.0, "Range max should be 100.0")
@@ -69,7 +69,7 @@ final class GaugeTests: XCTestCase {
     func testGaugeValidatePropertiesValid() {
         let properties: [String: Any] = [
             "value": 0.5,
-            "label": "Progress",
+            "title": "Progress",
             "style": "accessoryLinearCapacity",
             "range": ["min": -10.0, "max": 10.0]
         ]
@@ -77,7 +77,7 @@ final class GaugeTests: XCTestCase {
         let validated = Gauge.validateProperties(properties, logger)
         
         XCTAssertEqual(validated.double(forKey: "value"), 0.5, "Value should be valid")
-        XCTAssertEqual(validated["label"] as? String, "Progress", "Label should be valid")
+        XCTAssertEqual(validated["title"] as? String, "Progress", "Label should be valid")
         XCTAssertEqual(validated["style"] as? String, "accessoryLinearCapacity", "Style should be valid")
         XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), -10.0, "Range min should be valid")
         XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 10.0, "Range max should be valid")
@@ -86,7 +86,7 @@ final class GaugeTests: XCTestCase {
     func testGaugeValidatePropertiesInvalid() {
         let properties: [String: Any] = [
             "value": "0.5",
-            "label": 123,
+            "title": 123,
             "style": "invalidStyle",
             "range": ["min": "0", "max": true]
         ]
@@ -94,7 +94,7 @@ final class GaugeTests: XCTestCase {
         let validated = Gauge.validateProperties(properties, logger)
         
         XCTAssertNil(validated.double(forKey: "value"), "Invalid value should default to nil")
-        XCTAssertNil(validated["label"], "Invalid label should be nil")
+        XCTAssertNil(validated["title"], "Invalid title should be nil")
         XCTAssertNil(validated["style"], "Invalid style should be nil")
         XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Invalid range min should default to 0.0")
         XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 1.0, "Invalid range max should default to 1.0")
@@ -106,7 +106,7 @@ final class GaugeTests: XCTestCase {
         let validated = Gauge.validateProperties(properties, logger)
         
         XCTAssertNil(validated["value"], "Missing value should be nil")
-        XCTAssertNil(validated["label"], "Missing label should be nil")
+        XCTAssertNil(validated["title"], "Missing title should be nil")
         XCTAssertNil(validated["style"], "Missing style should be nil")
         XCTAssertNil(validated["range"], "Missing range should be nil")
     }
