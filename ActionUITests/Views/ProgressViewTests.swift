@@ -37,7 +37,7 @@ final class ProgressViewTests: XCTestCase {
         let properties: [String: Any] = [
             "value": 0.5,
             "total": 1.0,
-            "label": "Loading",
+            "title": "Loading",
             "actionID": "progress.tap"
         ]
         
@@ -45,7 +45,7 @@ final class ProgressViewTests: XCTestCase {
         
         XCTAssertEqual(validated["value"] as? Double, 0.5, "value should be valid")
         XCTAssertEqual(validated["total"] as? Double, 1.0, "total should be valid")
-        XCTAssertEqual(validated["label"] as? String, "Loading", "label should be valid")
+        XCTAssertEqual(validated["title"] as? String, "Loading", "title should be valid")
         XCTAssertEqual(validated["actionID"] as? String, "progress.tap", "actionID should be valid")
     }
     
@@ -53,14 +53,14 @@ final class ProgressViewTests: XCTestCase {
         let properties: [String: Any] = [
             "value": -0.5,
             "total": 0.0,
-            "label": 123
+            "title": 123
         ]
         
         let validated = ProgressView.validateProperties(properties, logger)
         
         XCTAssertNil(validated["value"], "Invalid value should be nil")
         XCTAssertNil(validated["total"], "Invalid total should be nil")
-        XCTAssertNil(validated["label"], "Invalid label should be nil")
+        XCTAssertNil(validated["title"], "Invalid title should be nil")
     }
     
     func testProgressViewValidatePropertiesMissing() {
@@ -70,7 +70,7 @@ final class ProgressViewTests: XCTestCase {
         
         XCTAssertNil(validated["value"], "Missing value should be nil")
         XCTAssertNil(validated["total"], "Missing total should be nil")
-        XCTAssertNil(validated["label"], "Missing label should be nil")
+        XCTAssertNil(validated["title"], "Missing title should be nil")
         XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
     }
     
@@ -81,7 +81,7 @@ final class ProgressViewTests: XCTestCase {
             "properties": [
                 "value": 0.5,
                 "total": 1.0,
-                "label": "Loading",
+                "title": "Loading",
                 "actionID": "progress.tap",
                 "padding": 10.0
             ]
@@ -103,7 +103,7 @@ final class ProgressViewTests: XCTestCase {
             "properties": {
                 "value": 0.5,
                 "total": 1.0,
-                "label": "Loading",
+                "title": "Loading",
                 "actionID": "progress.tap",
                 "padding": 10.0,
                 "offset": {"x": 5.0, "y": -5.0}
@@ -124,7 +124,7 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertEqual(element.type, "ProgressView", "Element type should be ProgressView")
         XCTAssertEqual(element.properties.double(forKey: "value"), 0.5, "value should be 0.5")
         XCTAssertEqual(element.properties.double(forKey: "total"), 1.0, "total should be 1.0")
-        XCTAssertEqual(element.properties["label"] as? String, "Loading", "label should be Loading")
+        XCTAssertEqual(element.properties["title"] as? String, "Loading", "title should be Loading")
         XCTAssertEqual(element.properties["actionID"] as? String, "progress.tap", "actionID should be progress.tap")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {

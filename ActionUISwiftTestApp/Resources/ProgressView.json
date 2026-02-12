@@ -17,13 +17,13 @@
       "properties": {
         "value": 0.5,
         "total": 1.0,
-        "label": "Loading"
+        "title": "Loading"
       }
     },
     {
       "type": "ProgressView",
       "properties": {
-        "label": "Indeterminate"
+        "title": "Indeterminate"
       }
     }
   ]

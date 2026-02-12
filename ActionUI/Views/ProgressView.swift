@@ -6,7 +6,7 @@
    "properties": {
      "value": 0.5,       // Optional: Double for current progress (0.0 to total), defaults to nil for indeterminate
      "total": 1.0,       // Optional: Double for maximum progress, defaults to 1.0 if value is set
-     "label": "Loading", // Optional: String for label, defaults to nil
+     "title": "Loading", // Optional: String for title, defaults to nil
      "actionID": "progress.tap" // Optional: String for action triggered on tap
    }
    // Note: The ProgressView shows an indeterminate spinner if "value" or "total" is missing/invalid, or a determinate bar if both are valid. Platform-specific styling (e.g., .progressViewStyle(.circular) on iOS for indeterminate) is applied in applyModifiers. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -38,9 +38,9 @@ struct ProgressView: ActionUIViewConstruction {
             validatedProperties["total"] = nil
         }
         
-        if validatedProperties["label"] != nil, !(validatedProperties["label"] is String) {
-            logger.log("ProgressView label must be a String; defaulting to nil", .warning)
-            validatedProperties["label"] = nil
+        if validatedProperties["title"] != nil, !(validatedProperties["title"] is String) {
+            logger.log("ProgressView title must be a String; defaulting to nil", .warning)
+            validatedProperties["title"] = nil
         }
         
         return validatedProperties
@@ -50,19 +50,19 @@ struct ProgressView: ActionUIViewConstruction {
         // TODO: that logic is somewhat faulty in case of indeterminate progress where value is expected to be nil
         let initialValue = Self.initialValue(model) as? Double
         let total: Double? = properties.double(forKey: "total")
-        let label: String? = properties["label"] as? String
+        let title: String? = properties["title"] as? String
         let actionID: String? = properties["actionID"] as? String
         
         let currentValue: Double? = model.states.double(forKey: "value") ?? initialValue
         
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {
-            progressView = label != nil ?
-            SwiftUI.ProgressView(label!, value: value, total: total) :
+            progressView = title != nil ?
+            SwiftUI.ProgressView(title!, value: value, total: total) :
             SwiftUI.ProgressView(value: value, total: total)
         } else {
-            progressView = label != nil ?
-            SwiftUI.ProgressView(label!) :
+            progressView = title != nil ?
+            SwiftUI.ProgressView(title!) :
             SwiftUI.ProgressView()
         }
         
