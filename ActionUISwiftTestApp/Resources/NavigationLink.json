@@ -20,7 +20,7 @@
         }
       },
       "properties": {
-        "label": "Go to Detail",
+        "title": "Go to Detail",
         "link": "detail"
       }
     }

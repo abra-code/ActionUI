@@ -13,7 +13,7 @@
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
-     "label": "Go to Detail",
+     "title": "Go to Detail",
      "link": "detail"
    }
  }
@@ -53,7 +53,7 @@ final class NavigationLinkTests: XCTestCase {
             "type": "NavigationLink",
             "destination": {"type": "Text", "id": 2, "properties": {"text": "Detail"}},
             "properties": {
-                "label": "Go to Detail",
+                "title": "Go to Detail",
                 "link": "detail"
             }
         }
@@ -85,7 +85,7 @@ final class NavigationLinkTests: XCTestCase {
         XCTAssertEqual(element.type, "NavigationLink", "Element type should be NavigationLink")
         XCTAssertEqual((destination as? ActionUIElement)?.type, "Text", "Destination should be Text")
         XCTAssertEqual((destination as? ActionUIElement)?.id, 2, "Destination ID should be 2")
-        XCTAssertEqual(element.properties["label"] as? String, "Go to Detail", "Label should be Go to Detail")
+        XCTAssertEqual(element.properties["title"] as? String, "Go to Detail", "Label should be Go to Detail")
         XCTAssertEqual(element.properties["link"] as? String, "detail", "Link should be detail")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
@@ -96,7 +96,7 @@ final class NavigationLinkTests: XCTestCase {
             "type": "NavigationLink",
             "destination": ["id": 2, "properties": ["text": "Detail"]], // Missing type
             "properties": [
-                "label": "Go to Detail",
+                "title": "Go to Detail",
                 "link": "detail"
             ]
         ]

@@ -8,7 +8,7 @@
      "type": "Text", "properties": { "text": "Detail" }
    },
    "properties": {
-     "label": "Go to Detail", // Optional: String for label, defaults to "Link" in buildView
+     "title": "Go to Detail", // Optional: String for title, defaults to "Link" in buildView
      "link": "detail" // String identifier for navigation, returns EmptyView if nil or invalid. this property is gettable and settable value for this view
    }
    // Note: These properties are specific to NavigationLink. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -23,10 +23,10 @@ struct NavigationLink: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate label
-        if let label = validatedProperties["label"], !(label is String) {
-            logger.log("Invalid type for NavigationLink label: expected String, got \(type(of: label)), ignoring", .warning)
-            validatedProperties["label"] = nil
+        // Validate title
+        if let title = validatedProperties["title"], !(title is String) {
+            logger.log("Invalid type for NavigationLink title: expected String, got \(type(of: title)), ignoring", .warning)
+            validatedProperties["title"] = nil
         }
                 
         // Validate link
@@ -48,12 +48,10 @@ struct NavigationLink: ActionUIViewConstruction {
             return SwiftUI.EmptyView()
         }
         let destination = element.subviews?["destination"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let label = properties["label"] as? String ?? "Link"
+        let title = properties["title"] as? String ?? "Link"
         
-        return SwiftUI.NavigationLink(value: initialLink) {
-            SwiftUI.Text(label)
-        }
-        .navigationDestination(for: String.self) { value in
+        return SwiftUI.NavigationLink(title, value: initialLink)
+          .navigationDestination(for: String.self) { value in
             if value == initialLink,
                let windowModel = ActionUIModel.shared.windowModels[windowUUID],
                let childModel = windowModel.viewModels[destination.id] {
@@ -61,7 +59,7 @@ struct NavigationLink: ActionUIViewConstruction {
             } else {
                 SwiftUI.EmptyView()
             }
-        }
+          }
     }
     
     static var initialValue: (ViewModel) -> Any? = { model in
