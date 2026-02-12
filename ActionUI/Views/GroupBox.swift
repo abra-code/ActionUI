@@ -1,0 +1,53 @@
+/*
+ Sample JSON for GroupBox:
+ {
+   "type": "GroupBox",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "title": "Settings"  // Optional: String for the group box title; defaults to nil
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Content" } }
+   ]
+   // Note: These properties are specific to GroupBox. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
+ }
+ */
+
+import SwiftUI
+
+struct GroupBox: ActionUIViewConstruction {
+    static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
+        var validatedProperties = properties
+        
+        if properties["title"] != nil && !(properties["title"] is String) {
+            logger.log("GroupBox 'title' must be String; setting to nil", .warning)
+            validatedProperties["title"] = nil
+        }
+        
+        return validatedProperties
+    }
+    
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let title = properties["title"] as? String
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
+        let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+        
+        if let title = title {
+            return SwiftUI.GroupBox(title) {
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    }
+                }
+            }
+        } else {
+            return SwiftUI.GroupBox {
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    }
+                }
+            }
+        }
+    }
+}

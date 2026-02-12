@@ -1,0 +1,108 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ControlGroup Variants"
+      }
+    },
+    {
+      "type": "ControlGroup",
+      "properties": {
+        "title": "Navigation"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Back",
+            "padding": "default",
+            "actionID": "backAction"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Forward",
+            "padding": "default",
+            "actionID": "forwardAction"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Refresh",
+            "padding": "default",
+            "actionID": "refreshAction"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ControlGroup",
+      "properties": {
+        "title": "Actions"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Add",
+            "padding": "default",
+            "actionID": "addAction"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Remove",
+            "padding": "default",
+            "actionID": "removeAction"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ControlGroup",
+      "properties": {
+        "title": "Settings"
+      },
+      "children": [
+          {
+            "type": "Button",
+            "properties": {
+              "title": "Set",
+              "padding": "default",
+              "actionID": "setSettings"
+            }
+        },
+        {
+          "type": "Menu",
+          "properties": {
+            "title": "Options",
+            "padding": "default"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Apples"
+              }
+            },
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Oranges"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

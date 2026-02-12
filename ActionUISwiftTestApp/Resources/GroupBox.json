@@ -1,0 +1,113 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "GroupBox Variants"
+      }
+    },
+    {
+      "type": "GroupBox",
+      "properties": {
+        "title": "Settings"
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 8.0,
+            "alignment": "leading",
+            "padding": "default"
+          },
+          "children": [
+            {
+              "type": "Toggle",
+              "properties": {
+                "title": "Remember Me"
+              }
+            },
+            {
+              "type": "Toggle",
+              "properties": {
+                "title": "Enable Notifications"
+              }
+            },
+            {
+              "type": "Toggle",
+              "properties": {
+                "title": "Auto-save"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "GroupBox",
+      "properties": {},
+      "children": [
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 8.0,
+            "padding": "default"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": {
+                "text": "Group without title"
+              }
+            },
+            {
+              "type": "Button",
+              "properties": {
+                "title": "OK",
+                "buttonStyle": "bordered",
+                "actionID": "groupBoxButton"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "GroupBox",
+      "properties": {
+        "title": "Actions"
+      },
+      "children": [
+        {
+          "type": "HStack",
+          "properties": {
+            "spacing": 8.0,
+            "padding": "default"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Cancel",
+                "buttonStyle": "bordered",
+                "actionID": "cancelAction"
+              }
+            },
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Save",
+                "buttonStyle": "borderedProminent",
+                "actionID": "saveAction"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
