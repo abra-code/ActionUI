@@ -1,4 +1,3 @@
-// Tools/ActionUIVerifier.swift
 import Foundation
 import ActionUI
 
