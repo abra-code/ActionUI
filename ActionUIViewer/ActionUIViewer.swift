@@ -115,32 +115,32 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             print("Error: No window")
             return
         }
-        
+
         let workItem = DispatchWorkItem {
             let windowNumber = window.windowNumber
             guard windowNumber > 0 else {
                 print("Error: Invalid window number")
                 return
             }
-            
-            let image = CGWindowListCreateImage(.zero, .optionIncludingWindow, CGWindowID(windowNumber), [])
+
+            let image = CGWindowListCreateImage(CGRect.zero, .optionIncludingWindow, CGWindowID(windowNumber), .boundsIgnoreFraming)
             guard let cgImage = image else {
                 print("Error: Failed to capture window")
                 return
             }
-            
+
             let url = URL(fileURLWithPath: path)
             guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
                 print("Error: Failed to create image destination")
                 return
             }
             CGImageDestinationAddImage(destination, cgImage, nil)
-            
+
             guard CGImageDestinationFinalize(destination) else {
                 print("Error: Failed to save PNG")
                 return
             }
-            
+
             print("Screenshot saved to: \(path)")
             NSApp.terminate(nil)
         }
