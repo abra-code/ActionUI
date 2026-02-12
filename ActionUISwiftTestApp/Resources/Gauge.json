@@ -15,8 +15,7 @@
     {
       "type": "Gauge",
       "properties": {
-        "value": 0.75,
-        "title": "Progress",
+        "value": 65,
         "style": "accessoryCircular",
         "range": {
           "min": 0.0,
@@ -27,7 +26,7 @@
     {
       "type": "Gauge",
       "properties": {
-        "value": 0.5,
+        "value": 0.4,
         "title": "Level",
         "style": "accessoryLinear"
       }
