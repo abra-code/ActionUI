@@ -15,7 +15,7 @@
     {
       "type": "DatePicker",
       "properties": {
-        "label": "Select Date",
+        "title": "Select Date",
         "displayStyle": "automatic",
         "range": {
           "start": "2024-01-01",
@@ -27,7 +27,7 @@
     {
       "type": "DatePicker",
       "properties": {
-        "label": "Birthday",
+        "title": "Birthday",
         "displayStyle": "graphical",
         "selectedDate": "2000-01-01"
       }

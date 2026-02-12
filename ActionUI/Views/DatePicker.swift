@@ -5,7 +5,7 @@
    "type": "DatePicker",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "label": "Select Date", // Optional: String for label, defaults to "Date"
+     "title": "Select Date", // Optional: String for title, defaults to "Date"
      "displayStyle": "automatic", // Optional: "automatic" (iOS/macOS/visionOS), "compact" (iOS/macOS/visionOS), "graphical" (iOS/macOS/visionOS), "stepperField" (macOS only), "field" (macOS only); defaults to "automatic"
      "range": { "start": "2023-01-01", "end": "2025-12-31" }, // Optional: Dictionary with start/end dates (ISO 8601 strings)
      "selectedDate": "2024-07-16" // Optional: Initial selected date (ISO 8601 string)
@@ -23,10 +23,10 @@ struct DatePicker: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate label
-        if !(validatedProperties["label"] is String?), validatedProperties["label"] != nil {
-            logger.log("DatePicker requires 'label' as String; ignoring", .warning)
-            validatedProperties["label"] = nil
+        // Validate title
+        if !(validatedProperties["title"] is String?), validatedProperties["title"] != nil {
+            logger.log("DatePicker requires 'title' as String; ignoring", .warning)
+            validatedProperties["title"] = nil
         }
         
         // Validate displayStyle
@@ -93,7 +93,7 @@ struct DatePicker: ActionUIViewConstruction {
             }
         )
         
-        let label = properties["label"] as? String ?? "Date"
+        let title = properties["title"] as? String ?? "Date"
 
         var startDate: Date?
         var endDate: Date?
@@ -114,9 +114,9 @@ struct DatePicker: ActionUIViewConstruction {
         }()
         
         if let range = dateRange {
-            return SwiftUI.DatePicker(label, selection: dateBinding, in: range, displayedComponents: .date)
+            return SwiftUI.DatePicker(title, selection: dateBinding, in: range, displayedComponents: .date)
         } else {
-            return SwiftUI.DatePicker(label, selection: dateBinding, displayedComponents: .date)
+            return SwiftUI.DatePicker(title, selection: dateBinding, displayedComponents: .date)
         }
     }
     

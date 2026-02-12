@@ -28,7 +28,7 @@ final class DatePickerTests: XCTestCase {
     
     func testValidatePropertiesValid() throws {
         let properties: [String: Any] = [
-            "label": "Select Date",
+            "title": "Select Date",
             "displayStyle": "compact",
             "range": ["start": "2023-01-01T00:00:00Z", "end": "2025-12-31T00:00:00Z"],
             "selectedDate": "2024-07-16T00:00:00Z"
@@ -36,7 +36,7 @@ final class DatePickerTests: XCTestCase {
         
         let validated = DatePicker.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["label"] as? String, "Select Date", "label should be valid String")
+        XCTAssertEqual(validated["title"] as? String, "Select Date", "title should be valid String")
         XCTAssertEqual(validated["displayStyle"] as? String, "compact", "displayStyle should be valid String")
         if let range = validated["range"] as? [String: String] {
             XCTAssertNotNil(range["start"], "range.start should be valid Date string")
@@ -55,7 +55,7 @@ final class DatePickerTests: XCTestCase {
     
     func testValidatePropertiesInvalid() throws {
         let properties: [String: Any] = [
-            "label": 123,
+            "title": 123,
             "displayStyle": "invalid",
             "range": ["start": "invalid", "end": "2025-12-31T00:00:00Z"],
             "selectedDate": true
@@ -63,7 +63,7 @@ final class DatePickerTests: XCTestCase {
         
         let validated = DatePicker.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["label"], "label should be nil for invalid type")
+        XCTAssertNil(validated["title"], "title should be nil for invalid type")
         XCTAssertNil(validated["displayStyle"], "displayStyle should be nil for invalid value")
         // validateProperties is lightweight, it does not check if the string is a valid date
         XCTAssertNil(validated["selectedDate"], "selectedDate should be nil for invalid type")
@@ -79,13 +79,13 @@ final class DatePickerTests: XCTestCase {
     
     func testValidatePropertiesPartial() throws {
         let properties: [String: Any] = [
-            "label": "Select Date",
+            "title": "Select Date",
             "selectedDate": "2024-07-16T00:00:00Z"
         ]
         
         let validated = DatePicker.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["label"] as? String, "Select Date", "label should be valid String")
+        XCTAssertEqual(validated["title"] as? String, "Select Date", "title should be valid String")
         XCTAssertNil(validated["displayStyle"], "displayStyle should be nil when not provided")
         XCTAssertNil(validated["range"], "range should be nil when not provided")
         if let selectedDate = validated["selectedDate"] as? String {
@@ -100,7 +100,7 @@ final class DatePickerTests: XCTestCase {
             "id": 1,
             "type": "DatePicker",
             "properties": [
-                "label": "Select Date",
+                "title": "Select Date",
                 "displayStyle": "compact",
                 "range": ["start": "2023-01-01T00:00:00Z", "end": "2025-12-31T00:00:00Z"],
                 "selectedDate": "2024-07-16T00:00:00Z"
