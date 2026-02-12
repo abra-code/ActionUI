@@ -204,6 +204,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				ActionUISwiftTestApp.xctestplan,
+				Resources/KeyframeAnimator.json,
+				Resources/PhaseAnimator.json,
 			);
 			target = 1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */;
 		};
