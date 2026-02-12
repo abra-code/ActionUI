@@ -1,0 +1,1021 @@
+// Sources/Views/AsyncImage.swift
+// JSON specification for ActionUI.AsyncImage:
+ {
+   "type": "AsyncImage",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "url": "https://example.com/image.jpg", // Required: String for web or local file URL, returns placeholder if nil or invalid
+     "placeholder": "photo",                 // Optional: String for SF Symbol or asset name, defaults to "photo" in buildView
+     "resizable": true,                     // Optional: Boolean to make image resizable, defaults to true in buildView
+     "contentMode": "fit"                   // Optional: "fit" or "fill" for scaling mode, defaults to "fit" in buildView
+   }
+   // Note: These properties are specific to AsyncImage. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: Invalid URLs (e.g., "invalid-url") are allowed and will construct AsyncImage, which may fail to download but should not crash.
+ }
+
+
+// Sources/Views/Button.swift
+// JSON specification for ActionUI.Button:
+ {
+   "type": "Button",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "title": "Click Me",    // Optional: String, defaults to "Button" in buildView
+     "disabled": false,      // Optional: Boolean to disable the button (handled by View)
+     "buttonStyle": "plain", // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain" in applyModifiers
+     "role": "destructive"   // Optional: Button role (e.g., "destructive", "cancel")
+   }
+   // Note: These properties are specific to Button. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Canvas.swift
+// JSON specification for ActionUI.Canvas:
+ {
+   "type": "Canvas",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction, default none
+   "properties": {
+     "operations": [     // Optional: Array of drawing operations, default []
+       // Fill with solid color
+       {
+         "type": "fill",
+         "path": { "type": "circle", "center": [0.5, 0.5], "radius": 0.4 }, // Required
+         "color": "#FF0000"  // Optional, default "black". Mutually exclusive with "gradient"
+         // or "gradient": { "type": "linear", "start": [0,0], "end": [1,1], "colors": ["#FF0000","#0000FF"], "locations": [0.0,1.0] }
+       },
+       // Stroke
+       {
+         "type": "stroke",
+         "path": { ... },    // Required
+         "color": "#0000FF", // Required
+         "lineWidth": 0.02,  // Optional, default 1
+         "lineCap": "round", // Optional ("butt","round","square"), default "butt"
+         "dash": [0.05,0.02] // Optional, default []
+       },
+       // Text
+       {
+         "type": "text",
+         "text": "Hello",    // Required
+         "frame": [0.2,0.4,0.6,0.1], // Required [x,y,w,h] normalized
+         "fontSize": 0.05,   // Optional, default ~0.05 (relative to height)
+         "fontWeight": "bold", // Optional, default "regular"
+         "color": "#333",    // Optional, default "black"
+         "alignment": "center" // Optional ("left","center","right"), default "left"
+       },
+       // Image
+       {
+         "type": "image",
+         "frame": [0.3,0.3,0.4,0.4], // Required
+         "systemName": "star.fill",   // Optional – one of these three required
+         // "assetName": "myImage",
+         // "resourceName": "yourImage.jpg"
+         // "filePath": "images/logo.png",
+         "opacity": 0.8,     // Optional, default 1.0
+         "resizingMode": "tile" // Optional ("stretch","tile","original"), default "stretch"
+       },
+       // Clip (affects subsequent ops)
+       {
+         "type": "clip",
+         "path": { ... }     // Required
+       },
+       // Transforms (cumulative)
+       { "type": "translate", "x": 0.1, "y": 0.05 }, // x/y optional, default 0
+       { "type": "scale", "x": 1.2, "y": 1.2 },      // x/y optional, default 1
+       { "type": "rotate", "angle": 45 },            // angle required (degrees)
+
+       // Shadow (drop shadow filter – affects subsequent ops)
+       {
+         "type": "shadow",
+         "color": "#000000",     // Optional, default black
+         "radius": 0.012,        // Optional (normalized), default 0.005
+         "x": 0.004,             // Optional (normalized offset), default 0.002
+         "y": 0.006,             // Optional (normalized offset), default 0.004
+         "blendMode": "normal",  // Optional, default "normal"
+         "drawAbove": false      // Optional bool, default false (shadow below content)
+       },
+
+       // Blur (affects subsequent ops)
+       {
+         "type": "blur",
+         "radius": 0.015         // Required (normalized to min dimension)
+       },
+
+       // Layer (isolates state – opacity, blend, filters, transforms, clips)
+       {
+         "type": "layer",
+         "frame": [0.1,0.1,0.8,0.8], // Required
+         "opacity": 0.75,            // Optional, default 1.0
+         "blendMode": "screen",      // Optional, default "normal"
+         "operations": [ ... ]       // Optional, default [], same format as Canvas operations
+       }
+     ],
+     "backgroundColor": "#F5F5F5", // Optional, default clear
+     "coordinateMode": "normalized", // Optional ("normalized"|"points"), default "normalized"
+     "actionID": "canvasTap"       // Optional
+   }
+ }
+
+ // Colors: #RRGGBB[AA], named, systemRed, etc.
+ // Gradients: linear / radial (see earlier examples)
+ 
+ // Paths/Shapes in "path" key:
+ // All coordinates, sizes, radii, etc. are numbers (integers or decimals).
+ // When "coordinateMode": "normalized" (default), most values are in the 0.0 to 1.0 range
+ // (0 = left/top, 1 = right/bottom of the canvas).
+ // When "coordinateMode": "points", values are absolute pixels/points.
+
+ // Supported shape types:
+
+ // circle
+ // {
+ //   "type": "circle",
+ //   "center": [0.5, 0.5],     // [x, y] center position
+ //   "radius": 0.4             // radius (0.0–0.5 is common)
+ // }
+
+ // ellipse
+ // {
+ //   "type": "ellipse",
+ //   "frame": [0.1, 0.1, 0.8, 0.8]   // [x, y, width, height]
+ // }
+
+ // rect
+ // {
+ //   "type": "rect",
+ //   "x": 0.1,
+ //   "y": 0.1,
+ //   "width": 0.8,
+ //   "height": 0.8
+ // }
+
+ // roundedRect
+ // {
+ //   "type": "roundedRect",
+ //   "x": 0.1,
+ //   "y": 0.1,
+ //   "width": 0.8,
+ //   "height": 0.8,
+ //   "cornerRadius": 0.05             // single radius for all corners (optional, default 0)
+ //   // or
+ //   "cornerRadii": [0.05, 0.1, 0.05, 0.1]   // [top-left, top-right, bottom-right, bottom-left] (optional)
+ // }
+
+ // path (custom Bézier path)
+ // {
+ //   "type": "path",
+ //   "commands": [
+ //     // Array of commands. Each command is an array: [name, arg1, arg2, ...]
+ //     // Start with "moveTo" in most cases
+ //     ["moveTo", 0.5, 0.1],                    // move pen without drawing
+ //     ["lineTo", 0.6, 0.4],                    // straight line to point
+ //     ["quadraticCurveTo", 0.7, 0.3, 0.8, 0.5], // [controlX, controlY, endX, endY]
+ //     ["curveTo", 0.9, 0.2, 1.0, 0.6, 0.8, 0.8], // cubic [c1x, c1y, c2x, c2y, endX, endY]
+ //     ["arc", 0.5, 0.5, 0.3, 0, 180, 0],       // [centerX, centerY, radius, startAngleDegrees, endAngleDegrees, clockwise (0 or 1)]
+ //     ["closePath"]                            // close the current subpath (optional)
+ //   ]
+ // }
+
+ // Practical example – simple star-like shape
+ // {
+ //   "type": "path",
+ //   "commands": [
+ //     ["moveTo", 0.5, 0.1],
+ //     ["lineTo", 0.6, 0.4],
+ //     ["lineTo", 0.9, 0.4],
+ //     ["lineTo", 0.65, 0.6],
+ //     ["lineTo", 0.75, 0.9],
+ //     ["lineTo", 0.5, 0.7],
+ //     ["lineTo", 0.25, 0.9],
+ //     ["lineTo", 0.35, 0.6],
+ //     ["lineTo", 0.1, 0.4],
+ //     ["lineTo", 0.4, 0.4],
+ //     ["closePath"]
+ //   ]
+ // }
+
+ // Tips for custom paths:
+ // - Always start with "moveTo" unless continuing a previous subpath
+ // - Angles in "arc" are in degrees (0–360), not radians
+ // - Clockwise: 1 = clockwise, 0 = counter-clockwise
+ // - Invalid commands or wrong number of arguments are ignored (logged in debug)
+ // - You can have multiple subpaths (multiple moveTo + closePath sequences)
+ // - All numbers can be integers or decimals — both work fine
+ 
+
+// Sources/Views/ColorPicker.swift
+// JSON specification for ActionUI.ColorPicker:
+ {
+   "type": "ColorPicker",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "title": "Pick a Color", // Optional: String for title, defaults to "Color" in buildView
+     "selectedColor": "#FF0000", // Optional: Initial color (hex or named color), defaults to clear in buildView
+     "actionID": "colorpicker.action" // Optional: String for action identifier, triggers on color change
+   }
+   // Note: These properties are specific to ColorPicker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+
+// Sources/Views/ComboBox.swift
+// JSON specification for ActionUI.ComboBox (macOS, iOS, iPadOS only):
+ {
+   "type": "ComboBox",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "placeholder": "Select an option", // Optional: String, defaults to ""
+     "options": ["Option1", "Option2"], // Optional: Array of strings, defaults to []
+   }
+   // Note: These properties are specific to ComboBox. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/DatePicker.swift
+// JSON specification for ActionUI.DatePicker:
+ {
+   "type": "DatePicker",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "label": "Select Date", // Optional: String for label, defaults to "Date"
+     "displayStyle": "automatic", // Optional: "automatic" (iOS/macOS/visionOS), "compact" (iOS/macOS/visionOS), "graphical" (iOS/macOS/visionOS), "stepperField" (macOS only), "field" (macOS only); defaults to "automatic"
+     "range": { "start": "2023-01-01", "end": "2025-12-31" }, // Optional: Dictionary with start/end dates (ISO 8601 strings)
+     "selectedDate": "2024-07-16" // Optional: Initial selected date (ISO 8601 string)
+   }
+   // Note: These properties are specific to DatePicker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/DisclosureGroup.swift
+// JSON specification for ActionUI.DisclosureGroup:
+ {
+   "type": "DisclosureGroup",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "label": "Details",  // Non-optional: String for the disclosure label; set to nil if invalid
+     "isExpanded": true   // Optional: Boolean for initial expanded state; set to nil if invalid
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Content" } }
+   ]
+   // Note: These properties are specific to DisclosureGroup. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Divider.swift
+// JSON specification for ActionUI.Divider:
+ {
+   "type": "Divider",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+   }
+   // Note: These properties are specific to Divider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/EmptyView.swift
+// JSON specification for ActionUI.EmptyView:
+ {
+   "type": "EmptyView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {}
+   // Note: EmptyView has no specific properties. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers to the group as a whole.
+ }
+
+
+
+// Sources/Views/Form.swift
+// JSON specification for ActionUI.Form:
+ {
+   "type": "Form",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+   },
+   "children": [
+      { "type": "Text", "properties": { "text": "Field 1" } }
+   ] // Required: Array of child views
+   // Note: These properties are specific to Form. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Gauge.swift
+// JSON specification for ActionUI.Gauge:
+ {
+   "type": "Gauge",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "value": 0.75,       // Optional: Value (Double), defaults to 0.0
+     "label": "Progress", // Optional: String for label, defaults to nil
+     "style": "accessoryCircular", // Optional: "accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity" (iOS/macOS/visionOS); defaults to "accessoryCircular"
+     "range": { "min": 0.0, "max": 100.0 } // Optional: Dictionary with min/max values, defaults to 0.0 to 1.0
+   }
+   // Note: These properties are specific to Gauge. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Grid.swift
+// JSON specification for ActionUI.Grid:
+ {
+   "type": "Grid",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "rows": [             // Required: Array of arrays of ActionUIElementBase objects. Note: Declared as a top-level key in JSON but stored in subviews["rows"] by ActionUIElement.init(from:).
+     [
+       { "type": "Text", "properties": { "text": "Cell1" } },
+       { "type": "Button", "properties": { "title": "Click" } }
+     ],
+     [
+       { "type": "Image", "properties": { "systemName": "star" } }
+     ]
+   ],
+   "properties": {
+     "alignment": "center",        // Optional: "topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"
+     "horizontalSpacing": 8.0,    // Optional: Double for horizontal spacing between columns
+     "verticalSpacing": 8.0       // Optional: Double for vertical spacing between rows
+   }
+   // Note: These properties (alignment, horizontalSpacing, verticalSpacing) are specific to Grid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Performance: Child ActionUIView instances leverage Equatable conformance to optimize rendering, reducing re-renders for unchanged cells in large grids.
+ }
+
+
+// Sources/Views/Group.swift
+// JSON specification for ActionUI.Group:
+ {
+   "type": "Group",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {},
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: Group has no specific properties and does not control layout geometry, relying on the parent container for alignment and spacing. All properties/modifiers from the base View (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are supported and applied via ActionUIRegistry.shared.applyModifiers to the group as a whole.
+ }
+
+
+// Sources/Views/HStack.swift
+// JSON specification for ActionUI.HStack:
+ {
+   "type": "HStack",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "spacing": 10.0      // Optional: Double for spacing between elements
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: The spacing property is specific to HStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Image.swift
+// JSON specification for ActionUI.Image:
+ {
+   "type": "Image",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "systemName": "star.fill",  // Optional: String for SF Symbol
+     "assetName": "customImage",      // Optional: String for asset catalog image name
+     "resourceName": "yourImage.png",      // Optional: String for bundle resource image name with extension
+     "filePath": "/path/to/image.jpg", // Optional: String for local file path
+     "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if scaleMode is specified
+     "scaleMode": "fit",         // Optional: String ("fit" or "fill") for scaling mode, defaults to "fit"
+     "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
+   }
+   // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: To enable scrolling, wrap Image in a ScrollView manually, e.g.:
+   // {
+   //   "type": "ScrollView",
+   //   "children": [
+   //     {
+   //       "type": "Image",
+   //       "properties": { ... }
+   //     }
+   //   ]
+   // }
+ }
+
+
+// Sources/Views/KeyframeAnimator.swift
+// JSON specification for ActionUI.KeyframeAnimator:
+ {
+   "type": "KeyframeAnimator",
+   "id": 1,
+   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
+     "type": "Text", "properties": { "text": "Animating" }
+   },
+   "properties": {
+     "initialValue": { "opacity": 0.0, "scale": 1.0, "rotation": 0.0 },
+     "trigger": "onAppear", // "onAppear", "onTap", "onTimer", "onStateChange"
+     "timerInterval": 2.0, // Optional, for onTimer
+     "stateKey": "counter", // Optional, for onStateChange
+     "repeat": { "count": 3, "autoreverses": true }, // Optional
+     "delay": 1.0, // Optional
+     "keyframes": {
+       "0%": { "type": "linear", "value": { "opacity": 0.0, "scale": 0.5 }, "duration": 0.8 },
+       "50%": { "type": "spring", "value": { "opacity": 1.0, "scale": 1.5 }, "duration": 0.5, "response": 0.4, "dampingRatio": 0.6 },
+       "100%": { "type": "cubic", "value": { "opacity": 0.5, "scale": 1.0 }, "duration": 0.6, "startVelocity": 0.2, "endVelocity": 0.4 },
+       "25%": { "type": "spring", "value": { "opacity": 0.5 }, "duration": 0.4, "response": 0.5, "dampingRatio": 1.0 }
+     }
+   }
+ }
+
+
+// Sources/Views/Label.swift
+// JSON specification for ActionUI.Label:
+ {
+   "type": "Label",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "title": "Title",    // Optional: String for title text, defaults to ""
+     "systemImage": "star.fill", // Optional: String for SF Symbol, defaults to nil
+     "imageName": "customIcon" // Optional: String for asset catalog image, defaults to nil
+   }
+   // Note: These properties are specific to Label. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/LazyHGrid.swift
+// JSON specification for ActionUI.LazyHGrid:
+ {
+   "type": "LazyHGrid",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "rows": [
+       { "minimum": 100.0 },
+       { "flexible": true }
+     ], // Array of row definitions (minimum: CGFloat, flexible: Bool)
+     "spacing": 10.0,     // Optional: CGFloat for spacing between elements
+     "alignment": "center" // Optional: Vertical alignment (e.g., "top", "center", "bottom")
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: These properties are specific to LazyHGrid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/LazyHStack.swift
+// JSON specification for ActionUI.LazyHStack:
+ {
+   "type": "LazyHStack",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "spacing": 10.0,     // Optional: CGFloat for spacing between elements
+     "alignment": "center" // Optional: Vertical alignment (e.g., "top", "center", "bottom")
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: These properties are specific to LazyHStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/LazyVGrid.swift
+// JSON specification for ActionUI.LazyVGrid:
+ {
+   "type": "LazyVGrid",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "columns": [
+       { "minimum": 100.0 },
+       { "flexible": true }
+     ], // Array of column definitions (minimum: CGFloat, flexible: Bool)
+     "spacing": 10.0,     // Optional: CGFloat for spacing between elements
+     "alignment": "center" // Optional: Horizontal alignment (e.g., "leading", "center", "trailing")
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: The columns, spacing, and alignment properties are specific to LazyVGrid. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/LazyVStack.swift
+// JSON specification for ActionUI.LazyVStack:
+ {
+   "type": "LazyVStack",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "spacing": 10.0,     // Optional: CGFloat for spacing between elements
+     "alignment": "center" // Optional: Horizontal alignment (e.g., "leading", "center", "trailing")
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: These properties are specific to LazyVStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Link.swift
+// JSON specification for ActionUI.Link:
+ {
+   "type": "Link",
+   "id": 1,
+   "properties": {
+     "title": "Visit Site", // Optional: String for title, defaults to "Link" in buildView
+     "url": "https://example.com" // Optional: URL string, returns EmptyView if nil or invalid
+   }
+   // Note: These properties are specific to Link. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/List.swift
+// JSON specification for ActionUI.List view:
+ {
+   "type": "List",
+   "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
+   "properties": {
+     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image/AsyncImage), "actionContext": "title"|"rowIndex" (for Button) }
+     "items": ["Item1", "Item2"], // Required: Array of strings or string arrays
+     "actionID": "list.action", // Optional: For Button viewType
+     "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
+   }
+ }
+   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
+   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+
+
+// Sources/Views/LoadableView.swift
+// JSON specification for ActionUI.LoadableView:
+ {
+   "type": "LoadableView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "url": "https://example.com/view.json", // Optional: String URL to remote JSON or binary plist (http://, https://)
+     "filePath": "/path/to/view.json",       // Optional: String absolute path to local JSON or binary plist
+     "name": "HelloWorld.json"               // Optional: String name of JSON or binary plist resource in app bundle
+   }
+   // Note: Requires exactly one of "url", "filePath", or "name" to be valid. Loads JSON or binary plist, determined by .json or .plist extension, parses into ActionUIElementBase using ActionUIModel.loadDescription, and renders ActionUIView. Remote "url" loads asynchronously with ProgressView; local "filePath" or bundle "name" loads synchronously in init. Assumes unique IDs in loaded description to avoid conflicts with existing windowModels. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: Invalid sources or unsupported extensions will result in error display. The source (url/filePath/name) is the designated value (valueType: String.self), settable via ActionUIModel.setElementValue, with heuristics: http:// or https:// for URL, file:// or / for filePath, else bundle name.
+ }
+
+
+// Sources/Views/Map.swift
+// JSON specification for ActionUI.Map:
+ {
+   "type": "Map",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "coordinate": { "latitude": 37.33233141, "longitude": -122.0312186 }, // Optional: Dictionary with latitude/longitude, defaults to nil
+     "showsUserLocation": true, // Optional: Boolean for user location, defaults to false
+     "interactionModes": ["pan", "zoom"], // Optional: Array of "pan", "zoom", "rotate", defaults to ["pan", "zoom", "rotate"]
+     "annotations": [ // Optional: Array of annotations
+       {
+         "coordinate": { "latitude": 37.332, "longitude": -122.031 },
+         "title": String?, // Optional
+         "subtitle": String? // Optional
+       }
+     ]
+   }
+   // Note: These properties are specific to Map. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Design decision: Uses modern Map initializer with MapCameraPosition and MapContentBuilder (macOS 14.0+, iOS 17.0+). Annotations use Annotation for title/subtitle support.
+ }
+
+
+// Sources/Views/Menu.swift
+// JSON specification for ActionUI.Menu:
+ {
+   "type": "Menu",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "label": "Options",  // Optional: String for label, defaults to "Menu"
+   },
+   "children": [
+     { "type": "Button", "properties": { "title": "Option 1" } }
+   ] // Required: Array of child views (typically Buttons)
+
+   // Note: These properties are specific to Menu. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/NavigationLink.swift
+// JSON specification for ActionUI.NavigationLink:
+ {
+   "type": "NavigationLink",
+   "id": 1,
+   "destination": {      // Optional: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["destination"] by ActionUIElement.init(from:).
+     "type": "Text", "properties": { "text": "Detail" }
+   },
+   "properties": {
+     "label": "Go to Detail", // Optional: String for label, defaults to "Link" in buildView
+     "link": "detail" // Optional: String identifier for navigation, returns EmptyView if nil or invalid
+   }
+   // Note: These properties are specific to NavigationLink. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/NavigationSplitView.swift
+// JSON specification for ActionUI.NavigationSplitView:
+ {
+   "type": "NavigationSplitView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by ActionUIElement.init(from:).
+     "type": "Text", "properties": { "text": "Sidebar" }
+   },
+   "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
+     "type": "Text", "properties": { "text": "Content" }
+   },
+   "detail": {           // Required: Single child view for detail. Note: Declared as a top-level key in JSON but stored in subviews["detail"].
+     "type": "Text", "properties": { "text": "Detail" }
+   },
+   "properties": {
+     "columnVisibility": "all", // Optional: "automatic", "all", "doubleColumn", "detail"; defaults to "all"
+     "style": "balanced" // Optional: "automatic", "balanced", "prominentDetail"; defaults to "automatic"
+   }
+   // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/NavigationStack.swift
+// JSON specification for ActionUI.NavigationStack:
+ {
+   "type": "NavigationStack",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
+     "type": "Text", "properties": { "text": "Home" }
+   },
+   "properties": {
+     "navigationTitle": "App", // Optional: String for navigation title
+     "path": ["detail"] // Optional: Array of String for navigation path
+   }
+   // Note: These properties are specific to NavigationStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/PhaseAnimator.swift
+// JSON specification for ActionUI.PhaseAnimator:
+ {
+   "type": "PhaseAnimator",
+   "id": 1,
+   "content": {          // Required: Single child view. Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
+     "type": "Text", "properties": { "text": "Animating" }
+   },
+   "properties": {
+     "values": [0.0, 1.0, 2.0],
+     "trigger": "onAppear", // "onAppear", "onTap", "onTimer", "onStateChange"
+     "timerInterval": 2.0, // Optional, for onTimer
+     "stateKey": "counter", // Optional, for onStateChange
+     "animation": {
+       "type": "spring", // linear, easeIn, easeOut, easeInOut, spring, interactiveSpring, smooth, bouncy, timingCurve
+       "duration": 0.5, // For linear, easeIn, easeOut, easeInOut, smooth, bouncy, timingCurve
+       "response": 0.5, // For spring, interactiveSpring
+       "dampingFraction": 0.7, // Optional for spring, interactiveSpring
+       "blendDuration": 0.0, // Optional for spring, interactiveSpring
+       "extraBounce": 0.1, // Optional for smooth, bouncy
+       "controlPoints": [0.2, 0.8, 0.4, 1.0] // For timingCurve (c0x, c0y, c1x, c1y)
+     }
+   }
+ }
+
+
+// Sources/Views/Picker.swift
+// JSON specification for ActionUI.Picker:
+ {
+   "type": "Picker",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "title": "Select Option",    // Optional: String, no default
+     "options": [ "One",  "Two", "Three" ] // Required. Two supported formats:
+       // 1. With simple array of strings we have titles only. Tags are automatically "1", "2", "3"... (1-based index as String)
+       // 2. With array of dictionaries we have explicit control: [{"title": "Sure Thing", "tag": "yes"}, {"title": "Absolutely Not", "tag": "no"}]
+     "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only); no default
+     "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
+   }
+   // Note: actionID is triggered via onChange for user-initiated changes. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
+   // The selected tag is passed as `context` (Any?) to actionID handler.
+ }
+ 
+
+// Sources/Views/ProgressView.swift
+// JSON specification for ActionUI.ProgressView:
+ {
+   "type": "ProgressView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "value": 0.5,       // Optional: Double for current progress (0.0 to total), defaults to nil for indeterminate
+     "total": 1.0,       // Optional: Double for maximum progress, defaults to 1.0 if value is set
+     "label": "Loading", // Optional: String for label, defaults to nil
+     "actionID": "progress.tap" // Optional: String for action triggered on tap
+   }
+   // Note: The ProgressView shows an indeterminate spinner if "value" or "total" is missing/invalid, or a determinate bar if both are valid. Platform-specific styling (e.g., .progressViewStyle(.circular) on iOS for indeterminate) is applied in applyModifiers. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/ScrollView.swift
+// JSON specification for ActionUI.ScrollView:
+ {
+   "type": "ScrollView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "content": {          // Required: Single child view or array of views. Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
+     "type": "Text", "properties": { "text": "Scrollable content" }
+   },
+   "properties": {
+     "axis": "vertical",  // Optional: "vertical", "horizontal", or "both"; defaults to "vertical"
+     "showsIndicators": true // Optional: Boolean for scroll indicators, defaults to true
+   }
+   // Note: These properties are specific to ScrollView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/ScrollViewReader.swift
+// JSON specification for ActionUI.ScrollViewReader:
+ {
+   "type": "ScrollViewReader",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "content": {          // Required: Single child view (typically ScrollView). Note: Declared as a top-level key in JSON but stored in subviews["content"] by ActionUIElement.init(from:).
+     "type": "ScrollView", "properties": { "content": { "type": "Text", "properties": { "text": "Item 1" } } }
+   },
+   "properties": {
+     "scrollTo": 5,       // Optional: Integer ID to scroll to, defaults to nil
+     "anchor": "top"      // Optional: "top", "center", "bottom"; defaults to "center"
+   }
+   // Note: These properties are specific to ScrollViewReader. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Section.swift
+// JSON specification for ActionUI.Section:
+ {
+   "type": "Section",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "header": "Details", // Optional: String for header, defaults to nil
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } }
+   ] // Required: Array of child views
+   // Note: These properties are specific to Section. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/SecureField.swift
+// JSON specification for ActionUI.SecureField:
+ {
+   "type": "SecureField",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "placeholder": "Enter password", // Optional: String for placeholder, defaults to ""
+     "textContentType": "password",  // Optional: String for content type, must be one of: "password", "newPassword", "oneTimeCode"; defaults to nil, ignored on macOS
+     "actionID": "secure.submit"     // Optional: String for action triggered on submit (e.g., Return key)
+   }
+   // Note: The SecureField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). Supported values for "textContentType": "password", "newPassword", "oneTimeCode" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
+ }
+
+
+// Sources/Views/ShareLink.swift
+// JSON specification for ActionUI.ShareLink:
+ {
+   "type": "ShareLink",
+   "id": 1,
+   "properties": {
+     "item": "https://example.com", // Optional: URL string, returns EmptyView if nil or invalid
+     "subject": "Check this out", // Optional: String for subject, ignored if nil
+     "message": "Look at this link!" // Optional: String for message, ignored if nil
+   }
+   // Note: These properties are specific to ShareLink. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Slider.swift
+// JSON specification for ActionUI.Slider:
+ {
+   "type": "Slider",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "value": 50.0,       // Optional: Initial value (Double), defaults to 0.0
+     "range": { "min": 0.0, "max": 100.0 }, // Optional: Dictionary with min/max values, defaults to 0.0 to 1.0. "range" becomes required if you specify "step"
+     "step": 1.0          // Optional: Step increment (Double), defaults to continuous sliding if not present
+   }
+   // Note: These properties are specific to Slider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Spacer.swift
+// JSON specification for ActionUI.Spacer:
+ {
+   "type": "Spacer",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "minLength": 20.0    // Optional: CGFloat for minimum length
+   }
+   // Note: These properties are specific to Spacer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/Table.swift
+// JSON specification for ActionUI.Table view (macOS only):
+ {
+   "type": "Table",
+   "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
+   "properties": {
+     "itemType": { "viewType": "Button", "actionContext": "rowColumnIndex" }, // Required, rowColumnIndex returns Point(row: Int, column: Int)
+     "columns": ["Name", "Action"], // Required: Array of strings for column headers
+     "rows": [["Alice", "Click"], ["Bob", "Edit"]], // Required: Array of string arrays
+     "widths": [100, 80], // Optional: Array of integers for column widths
+     "actionID": "table.action", // Optional: For Button viewType
+     "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
+   }
+ }
+// Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
+// Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+ 
+
+// Sources/Views/TabView.swift
+// JSON specification for ActionUI.TabView:
+ {
+   "type": "TabView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "selection": 0,     // Optional: Integer for selected tab index (0-based), defaults to 0
+     "style": "automatic" // Optional: "automatic" (default), "tabBarOnly", "sidebarAdaptable" (iOS 18+/macOS 15+ only)
+   },
+   "children": [         // Required: Array of tab configurations with content
+     {
+       "type": "Tab",
+       "properties": {          // Tab configuration (not a view type, just tab metadata)
+         "title": "Home",        // Required: String for tab title
+         "systemImage": "house", // Optional: String for SF Symbol name
+         "assetImage": "myTab",  // Optional: String for asset image name. One of systemImage or assetImage must be provided
+         "badge": 5              // Optional: Integer or String for badge display
+       },
+       "content": {      // Required: Single child view for tab content
+         "type": "VStack",
+         "properties": { "spacing": 10 },
+         "children": [
+           { "type": "Text", "properties": { "text": "Home Content" } }
+         ]
+       }
+     },
+     {
+       "type": "Tab",
+       "properties": {
+         "title": "Settings",
+         "systemImage": "gear",
+         "badge": "!"
+       },
+       "content": {
+         "type": "Text",
+         "properties": { "text": "Settings Content" }
+       }
+     }
+   ]
+   // Note: These properties are specific to TabView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+   // Note: Each child in "children" is a dictionary with "properties" (tab configuration) and "content" (the actual ActionUIView to display). Tabs are identified by their index (0-based) in the children array.
+   // Note: TabView supports "valueChangeActionID" to trigger actions when selection changes programmatically or via user interaction.
+   // Note: The "style" property controls the tab view style on iOS 18+/macOS 15+: "automatic" (default platform behavior), "tabBarOnly" (always show tab bar), "sidebarAdaptable" (adaptive sidebar on iPad). On earlier platforms, this property is ignored.
+   // Platform compatibility: Uses native SwiftUI.Tab on iOS 18+/macOS 15+, falls back to .tabItem modifier on iOS 17.6/macOS 14.6 for backward compatibility.
+ }
+
+
+// Sources/Views/Text.swift
+// JSON specification for ActionUI.Text:
+ {
+   "type": "Text",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "text": "Hello, World!" // Optional: String, defaults to empty string
+   }
+   // Note: These properties are specific to Text. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/TextEditor.swift
+// JSON specification for ActionUI.TextEditor:
+ {
+   "type": "TextEditor",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "placeholder": "Enter text here" // Optional: String, no default value if omitted or empty
+   }
+   // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/TextField.swift
+// JSON specification for ActionUI.TextField:
+ {
+   "type": "TextField",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "placeholder": "Enter text", // Optional: String for placeholder, defaults to "" in buildView
+     "textContentType": "username", // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
+     "actionID": "text.submit",   // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
+     "valueChangeActionID": "text.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
+   }
+ }
+// Note: The TextField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). valueChangeActionID is triggered continously on each change via the binding's set closure.
+// Supported values for "textContentType": "name", "namePrefix", "givenName", "middleName", "familyName", "nameSuffix", "nickname", "jobTitle", "organizationName", "location", "fullStreetAddress", "streetAddressLine1", "streetAddressLine2", "addressCity", "addressState", "addressCityAndState", "sublocality", "countryName", "postalCode", "telephoneNumber", "emailAddress", "url", "creditCardNumber", "creditCardSecurityCode", "creditCardName", "creditCardExpiration", "creditCardType", "username", "password", "newPassword", "oneTimeCode", "shipmentTrackingNumber", "flightNumber", "dateTime", "birthdate", "birthdateDay", "birthdateMonth", "birthdateYear", "paymentMethod" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
+// Note: actionID is triggered via onSubmit for user-initiated submits (e.g., Return key).  Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers. On macOS, the default text field style (likely rounded) is used.
+
+
+// Sources/Views/Toggle.swift
+// JSON specification for ActionUI.Toggle:
+ {
+   "type": "Toggle",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "title": "Enable Feature", // Optional: String, defaults to "Toggle"
+     "style": "switch",        // Optional: "switch" (iOS/macOS/visionOS), "checkbox" (macOS only), "button" (iOS/macOS/visionOS); defaults to "switch"
+   }
+   // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/VideoPlayer.swift
+// JSON specification for ActionUI.VideoPlayer:
+ {
+   "type": "VideoPlayer",
+   "id": 1,
+   "properties": {
+     "url": "https://example.com/video.mp4", // Optional: URL string, returns EmptyView if nil or invalid
+     "autoplay": true    // Optional: Boolean for autoplay, ignored if nil
+   }
+   // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/View.swift
+// JSON specification for ActionUI.View (base structure for all views):
+ {
+   "type": "View",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "padding": 10.0,      // Optional: Double for padding around the view, string "default" or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
+     "hidden": false,      // Optional: Boolean to hide the view
+     "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
+     "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
+     "background": "white", // Optional: SwiftUI color (e.g., "red", "blue"), hex (e.g., "#FF0000"), or semantic style for background, resolved via background
+     "frame": {            // Optional: Dictionary defining view size
+       "width": 100.0,     // Optional: Double for fixed width
+       "height": 100.0,    // Optional: Double for fixed height
+       "alignment": "center" // Optional: String ("leading", "center", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"), defaults to "center"
+     },
+     "offset": {           // Optional: Dictionary for relative positioning
+       "x": 10.0,          // Optional: Double for horizontal offset
+       "y": -5.0           // Optional: Double for vertical offset
+     },
+     "opacity": 1.0,       // Optional: Double (0.0 to 1.0) for view transparency
+     "cornerRadius": 5.0,  // Optional: Double for rounded corners
+     "actionID": "view.action", // Optional: String for action identifier
+     "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change (user or programmatic)
+     "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
+     "onAppearActionID": "view.onAppear", // Optional: String for action identifier triggered on view appear (via .onAppear modifier)
+     "onDisappearActionID": "view.onDisappear", // Optional: String for action identifier triggered on view disappear (via .onDisappear modifier)
+     "disabled": false,     // Optional: Boolean to disable user interaction
+     "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
+     "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
+     "accessibilityHidden": false, // Optional: Boolean to hide view from VoiceOver
+     "accessibilityIdentifier": "view_1", // Optional: String for UI testing identifier
+     "shadow": {           // Optional: Dictionary for shadow styling
+       "color": "black",   // Optional: SwiftUI color or hex, defaults to black
+       "radius": 5.0,      // Optional: Double for shadow radius
+       "x": 0.0,           // Optional: Double for x-offset
+       "y": 2.0            // Optional: Double for y-offset
+     }
+   }
+ }
+
+// NOTE:
+// Supported semantic styles for foregroundStyle/background:
+//   - "background", "foreground", "primary", "secondary", "tertiary", "quaternary", "separator", "placeholder"
+// Supported named colors:
+//   - "red", "blue", "green", "yellow", "orange", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "clear", "accentcolor"
+// You can also use hex color strings (e.g., "#FF0000", "#FF000080")
+
+
+// Sources/Views/VStack.swift
+// JSON specification for ActionUI.VStack:
+ {
+   "type": "VStack",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "spacing": 10.0,     // Optional: CGFloat for spacing between elements
+     "alignment": "center" // Optional: Horizontal alignment (e.g., "leading", "center", "trailing")
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Item 1" } },
+     { "type": "Text", "properties": { "text": "Item 2" } }
+   ]
+   // Note: These properties are specific to VStack. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
+ }
+
+
+// Sources/Views/ZStack.swift
+// JSON specification for ActionUI.ZStack:
+ {
+   "type": "ZStack",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "alignment": "center" // Optional: String ("topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing")
+   },
+   "children": [
+     { "type": "Text", "properties": { "text": "Background" } },
+     { "type": "Text", "properties": { "text": "Foreground" } }
+   ]
+   // Note: The alignment property is specific to ZStack. Common SwiftUI.View properties (padding, hidden, foregroundColor, font, background, frame, offset, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) are inherited and applied via ActionUIRegistry.shared.applyModifiers (from View.applyModifiers).
+ }
+
+
