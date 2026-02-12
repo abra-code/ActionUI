@@ -37,7 +37,7 @@ final class DisclosureGroupTests: XCTestCase {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "DisclosureGroup",
-            "properties": ["label": "Test"]
+            "properties": ["title": "Test"]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
 
@@ -50,25 +50,25 @@ final class DisclosureGroupTests: XCTestCase {
     
     func testValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "label": "Details",
+            "title": "Details",
             "isExpanded": true
         ]
         
         let validated = DisclosureGroup.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["label"] as? String, "Details", "label should be valid String")
+        XCTAssertEqual(validated["title"] as? String, "Details", "title should be valid String")
         XCTAssertEqual(validated["isExpanded"] as? Bool, true, "isExpanded should be valid Bool")
     }
     
     func testValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "label": 123,
+            "title": 123,
             "isExpanded": "true"
         ]
         
         let validated = DisclosureGroup.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["label"], "label should be nil for invalid type")
+        XCTAssertNil(validated["title"], "title should be nil for invalid type")
         XCTAssertNil(validated["isExpanded"], "isExpanded should be nil for invalid type")
     }
     
@@ -77,7 +77,7 @@ final class DisclosureGroupTests: XCTestCase {
         
         let validated = DisclosureGroup.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["label"], "label should be nil when missing")
+        XCTAssertNil(validated["title"], "title should be nil when missing")
         XCTAssertNil(validated["isExpanded"], "isExpanded should be nil when missing")
     }
     
@@ -104,7 +104,7 @@ final class DisclosureGroupTests: XCTestCase {
             "id": 1,
             "type": "DisclosureGroup",
             "properties": [
-                "label": "Details",
+                "title": "Details",
                 "isExpanded": true
             ],
             "children": [
@@ -116,7 +116,7 @@ final class DisclosureGroupTests: XCTestCase {
                 [
                     "id": 3,
                     "type": "Button",
-                    "properties": ["label": "Click Me", "actionID": "buttonAction"]
+                    "properties": ["title": "Click Me", "actionID": "buttonAction"]
                 ]
             ]
         ]
@@ -127,7 +127,7 @@ final class DisclosureGroupTests: XCTestCase {
         // Verify decoded element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "DisclosureGroup", "Element type should be DisclosureGroup")
-        XCTAssertEqual(element.properties["label"] as? String, "Details", "Label should be Details")
+        XCTAssertEqual(element.properties["title"] as? String, "Details", "Label should be Details")
         XCTAssertEqual(element.properties["isExpanded"] as? Bool, true, "isExpanded should be true")
         
         // Verify children are ActionUIElement instances
@@ -138,7 +138,7 @@ final class DisclosureGroupTests: XCTestCase {
             XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
             XCTAssertEqual((children[0] as? ActionUIElement)?.properties["text"] as? String, "Hello, World!", "First child text should be correct")
             XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Button", "Second child should be Button")
-            XCTAssertEqual((children[1] as? ActionUIElement)?.properties["label"] as? String, "Click Me", "Second child label should be correct")
+            XCTAssertEqual((children[1] as? ActionUIElement)?.properties["title"] as? String, "Click Me", "Second child title should be correct")
         }
         
         // Test corrected buildView via ActionUIRegistry

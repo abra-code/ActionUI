@@ -15,7 +15,7 @@
     {
       "type": "DisclosureGroup",
       "properties": {
-        "label": "Details",
+        "title": "Details",
         "isExpanded": true
       },
       "children": [
@@ -30,7 +30,7 @@
     {
       "type": "DisclosureGroup",
       "properties": {
-        "label": "More Info",
+        "title": "More Info",
         "isExpanded": false
       },
       "children": [

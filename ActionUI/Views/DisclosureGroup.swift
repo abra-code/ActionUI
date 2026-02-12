@@ -5,7 +5,7 @@
    "type": "DisclosureGroup",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "label": "Details",  // Non-optional: String for the disclosure label; set to nil if invalid
+     "title": "Details",  // Non-optional: String for the disclosure title; set to nil if invalid
      "isExpanded": true   // Optional: Boolean for initial expanded state; set to nil if invalid
    },
    "children": [
@@ -23,10 +23,10 @@ struct DisclosureGroup: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate label (must be String)
-        if let label = properties["label"], !(label is String) {
-            logger.log("DisclosureGroup 'label' must be String; setting to nil", .warning)
-            validatedProperties["label"] = nil
+        // Validate title (must be String)
+        if let title = properties["title"], !(title is String) {
+            logger.log("DisclosureGroup 'title' must be String; setting to nil", .warning)
+            validatedProperties["title"] = nil
         }
         
         // Validate isExpanded (must be Bool)
@@ -52,7 +52,7 @@ struct DisclosureGroup: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let label = properties["label"] as? String ?? ""
+        let title = properties["title"] as? String ?? ""
         
         let expandedBinding = Binding(
             get: { model.states["isExpanded"] as? Bool ?? false },
@@ -73,15 +73,13 @@ struct DisclosureGroup: ActionUIViewConstruction {
         
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         
-        return SwiftUI.DisclosureGroup(isExpanded: expandedBinding) {
+        return SwiftUI.DisclosureGroup(title, isExpanded: expandedBinding) {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(children, id: \.id) { child in
                 if let childModel = windowModel?.viewModels[child.id] {
                     ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                 }
             }
-        } label: {
-            SwiftUI.Text(label)
         }
     }
 }
