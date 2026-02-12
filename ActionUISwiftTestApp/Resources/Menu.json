@@ -15,7 +15,7 @@
     {
       "type": "Menu",
       "properties": {
-        "label": "Options"
+        "title": "Options"
       },
       "children": [
         {

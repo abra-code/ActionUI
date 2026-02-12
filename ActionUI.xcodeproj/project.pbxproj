@@ -284,6 +284,11 @@
 			path = ActionUIViewer;
 			sourceTree = "<group>";
 		};
+		1DDC4C442F3E626F00604C66 /* Documentation */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Documentation;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -395,6 +400,7 @@
 		1D03F8DC2E49EEC3004A42BB = {
 			isa = PBXGroup;
 			children = (
+				1DDC4C442F3E626F00604C66 /* Documentation */,
 				1D03F8E82E49EEC3004A42BB /* ActionUI */,
 				1D03F8F52E49EEC3004A42BB /* ActionUITests */,
 				1DB255EE2E6BADCE00544C2F /* ActionUISwiftTestApp */,

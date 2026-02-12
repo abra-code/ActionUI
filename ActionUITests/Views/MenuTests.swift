@@ -35,24 +35,24 @@ final class MenuTests: XCTestCase {
     
     func testMenuValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "label": "Options",
+            "title": "Options",
             "padding": 10.0
         ]
         
         let validated = Menu.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["label"] as? String, "Options", "label should be valid")
+        XCTAssertEqual(validated["title"] as? String, "Options", "title should be valid")
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
     }
     
     func testMenuValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "label": 123
+            "title": 123
         ]
         
         let validated = Menu.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["label"], "Invalid label should be nil")
+        XCTAssertNil(validated["title"], "Invalid title should be nil")
     }
     
     func testMenuValidatePropertiesMissing() {
@@ -60,7 +60,7 @@ final class MenuTests: XCTestCase {
         
         let validated = Menu.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["label"], "Missing label should be nil")
+        XCTAssertNil(validated["title"], "Missing title should be nil")
     }
     
     func testMenuConstruction() throws {
@@ -68,7 +68,7 @@ final class MenuTests: XCTestCase {
             "id": 1,
             "type": "Menu",
             "properties": [
-                "label": "Options",
+                "title": "Options",
                 "padding": 10.0
             ],
             "children": [
@@ -90,7 +90,7 @@ final class MenuTests: XCTestCase {
             "id": 1,
             "type": "Menu",
             "properties": {
-                "label": "Options",
+                "title": "Options",
                 "padding": 10.0,
                 "offset": {"x": 5.0, "y": -5.0}
             },
@@ -111,7 +111,7 @@ final class MenuTests: XCTestCase {
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "Menu", "Element type should be Menu")
-        XCTAssertEqual(element.properties["label"] as? String, "Options", "label should be Options")
+        XCTAssertEqual(element.properties["title"] as? String, "Options", "title should be Options")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")

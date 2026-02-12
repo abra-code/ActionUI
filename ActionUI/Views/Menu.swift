@@ -4,7 +4,7 @@
    "type": "Menu",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "label": "Options",  // Optional: String for label, defaults to "Menu"
+     "title": "Options",  // Optional: String for title, defaults to "Menu"
    },
    "children": [
      { "type": "Button", "properties": { "title": "Option 1" } }
@@ -19,10 +19,10 @@ struct Menu: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate label
-        if properties["label"] != nil && !(properties["label"] is String) {
-            logger.log("Menu label must be a String; ignoring", .warning)
-            validatedProperties["label"] = nil
+        // Validate title
+        if properties["title"] != nil && !(properties["title"] is String) {
+            logger.log("Menu title must be a String; ignoring", .warning)
+            validatedProperties["title"] = nil
         }
         
         return validatedProperties
@@ -30,17 +30,15 @@ struct Menu: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
-        let label = properties["label"] as? String ?? "Menu" // Default to "Menu" if label is nil
+        let title = properties["title"] as? String ?? "Menu" // Default to "Menu" if title is nil
         
-        return SwiftUI.Menu {
+        return SwiftUI.Menu(title) {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(children, id: \.id) { child in
                 if let childModel = windowModel?.viewModels[child.id] {
                     ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                 }
             }
-        } label: {
-            SwiftUI.Text(label)
         }
     }
     
