@@ -7,17 +7,17 @@ import Foundation
 public class ConsoleLogger: ActionUILogger {
     /// The maximum logging level to include (e.g., set to .info to exclude debug and verbose logs).
     /// Logs with a level.rawValue greater than maxLevel.rawValue are ignored.
-    private let maxLevel: Level
+    private let maxLevel: LoggerLevel
     
     /// Initializes the logger with a maximum logging level.
     /// - Parameter maxLevel: The maximum level to log (default: .verbose).
-    public init(maxLevel: Level = .verbose) {
+    public init(maxLevel: LoggerLevel = .verbose) {
         self.maxLevel = maxLevel
     }
     
     /// Logs a message to the console with the specified severity level.
     /// - Filters out logs with level.rawValue greater than maxLevel.rawValue.
-    public func log(_ message: String, _ level: Level) {
+    public func log(_ message: String, _ level: LoggerLevel) {
         guard level.rawValue <= maxLevel.rawValue else { return }
         print("[ActionUI][\(level)] \(message)")
     }

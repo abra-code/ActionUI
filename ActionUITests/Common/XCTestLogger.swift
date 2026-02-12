@@ -8,11 +8,11 @@ import XCTest
 final class XCTestLogger: ActionUILogger, Sendable {
     /// The maximum logging level to include (e.g., set to .info to exclude debug and verbose logs).
     /// Logs with a level.rawValue greater than maxLevel.rawValue are ignored.
-    private let maxLevel: Level
+    private let maxLevel: LoggerLevel
     
     /// Initializes the logger with a maximum logging level.
     /// - Parameter maxLevel: The maximum level to log (default: .verbose).
-    init(maxLevel: Level = .verbose) {
+    init(maxLevel: LoggerLevel = .verbose) {
         self.maxLevel = maxLevel
     }
     
@@ -20,7 +20,7 @@ final class XCTestLogger: ActionUILogger, Sendable {
     /// - Uses XCTAssert for error-level messages to fail tests.
     /// - Uses print for warning, info, debug, and verbose levels.
     /// - Filters out logs with level.rawValue greater than maxLevel.rawValue.
-    func log(_ message: String, _ level: Level) {
+    func log(_ message: String, _ level: LoggerLevel) {
         guard level.rawValue <= maxLevel.rawValue else { return }
         
         switch level {

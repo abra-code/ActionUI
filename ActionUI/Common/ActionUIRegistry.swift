@@ -22,7 +22,11 @@ class ActionUIRegistry {
     
     private init() {
         // Initialize with default ConsoleLogger
-        self.logger = ConsoleLogger(maxLevel: .verbose)
+        var loggerLevel: LoggerLevel = .warning
+#if DEBUG
+        loggerLevel = .info
+#endif
+        self.logger = ConsoleLogger(maxLevel: loggerLevel)
         // Automatically register supported SwiftUI view types
         registerAllViews()
         registerAdditionalElementValidations()
@@ -101,13 +105,13 @@ class ActionUIRegistry {
     @inline(__always)
     func registerView(_ type: any ActionUIViewConstruction.Type) {
         viewRegistrations[String(describing: type.self)] = type
-        logger.log("Registered view type: \(String(describing: type.self))", .info)
+        logger.log("Registered view type: \(String(describing: type.self))", .verbose)
     }
     
     @inline(__always)
     func registerPropertyValidation(_ type: any ActionUIPropertyValidation.Type) {
         validationRegistrations[String(describing: type.self)] = type
-        logger.log("Registered property validation for element type: \(String(describing: type.self))", .info)
+        logger.log("Registered property validation for element type: \(String(describing: type.self))", .verbose)
     }
 
     // Validates properties for a given element type, returning unchanged properties if type not registered

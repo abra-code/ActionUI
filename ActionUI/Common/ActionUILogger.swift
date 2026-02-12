@@ -8,13 +8,13 @@ public protocol ActionUILogger {
     /// - Parameters:
     ///   - message: The message to log.
     ///   - level: The severity level of the message (error, warning, info, debug, or verbose).
-    func log(_ message: String, _ level: Level)
+    func log(_ message: String, _ level: LoggerLevel)
 }
 
 /// Enum defining the severity levels for logging in the ActionUI library.
 /// Uses Int raw values to enable filtering logs below a certain level (e.g., log only if level.rawValue <= maxLevel).
 /// Lower values indicate higher severity.
-public enum Level: Int, Sendable {
+public enum LoggerLevel: Int, Sendable {
     /// Indicates a critical issue that may prevent normal operation (e.g., invalid JSON causing view rendering failure).
     case error = 1
     /// Indicates a non-critical issue that may affect functionality (e.g., missing optional property with a fallback).

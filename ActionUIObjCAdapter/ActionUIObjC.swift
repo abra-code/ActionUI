@@ -28,7 +28,7 @@ private class ObjCLoggerBridge: ActionUILogger {
         self.objCLogger = objCLogger
     }
     
-    func log(_ message: String, _ level: Level) {
+    func log(_ message: String, _ level: LoggerLevel) {
         objCLogger.logMessage(message as NSString, level: level.rawValue)
     }
 }

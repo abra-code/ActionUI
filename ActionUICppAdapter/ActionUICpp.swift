@@ -27,7 +27,7 @@ public typealias ActionUICppLogger = (String, Int) -> Void
 private struct CppLoggerAdapter: ActionUILogger {
     let closure: ActionUICppLogger
     
-    func log(_ message: String, _ level: ActionUI.Level) {
+    func log(_ message: String, _ level: ActionUI.LoggerLevel) {
         closure(message, level.rawValue)
     }
 }
@@ -42,7 +42,7 @@ public struct ActionUICpp {
     @MainActor private static let model = ActionUIModel.shared
     
     /// Sets a custom logger for ActionUI to handle debugging and error reporting.
-    /// - Parameter logger: A closure to invoke for logging, receiving message and level (rawValue of ActionUILogger.Level).
+    /// - Parameter logger: A closure to invoke for logging, receiving message and level (rawValue of ActionUI.LoggerLevel).
     @MainActor public static func setLogger(_ logger: @escaping ActionUICppLogger) {
         model.logger = CppLoggerAdapter(closure: logger)
     }

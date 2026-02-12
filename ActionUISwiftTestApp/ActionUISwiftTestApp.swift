@@ -13,7 +13,7 @@ import ActionUISwiftAdapter
 
 // Custom logger
 class CustomLogger: ActionUI.ActionUILogger {
-    func log(_ message: String, _ level: ActionUI.Level) {
+    func log(_ message: String, _ level: ActionUI.LoggerLevel) {
         print("[ActionUI][\(level)] \(message)")
     }
 }

@@ -21,7 +21,7 @@ import AppKit
 ///
 /// - `setLogger(loggerFunction)`
 ///   - Parameters:
-///     - `loggerFunction`: Function - A function that receives a message (string) and level (number, corresponding to `ActionUILogger.Level` raw values: 1=error, 2=warning, 3=info, 4=debug, 5=verbose).
+///     - `loggerFunction`: Function - A function that receives a message (string) and level (number, corresponding to `ActionUI.LoggerLevel` raw values: 1=error, 2=warning, 3=info, 4=debug, 5=verbose).
 ///       - `error` (1): Indicates a critical issue that may prevent normal operation (e.g., invalid JSON causing view rendering failure).
 ///       - `warning` (2): Indicates a non-critical issue that may affect functionality (e.g., missing optional property with a fallback).
 ///       - `info` (3): Indicates general information for debugging or tracking (e.g., view registration or state update).
@@ -102,7 +102,7 @@ private class JSLoggerBridge: ActionUILogger {
         self.loggerFunction = loggerFunction
     }
     
-    func log(_ message: String, _ level: Level) {
+    func log(_ message: String, _ level: LoggerLevel) {
         _ = loggerFunction.call(withArguments: [message, level.rawValue])
     }
 }
