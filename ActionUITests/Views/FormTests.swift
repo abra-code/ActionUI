@@ -40,7 +40,7 @@ final class FormTests: XCTestCase {
             "properties": [:],
             "children": [
                 ["id": 2, "type": "Text", "properties": ["text": "Field 1"]],
-                ["id": 3, "type": "Button", "properties": ["label": "Submit", "actionID": "submitAction"]]
+                ["id": 3, "type": "Button", "properties": ["title": "Submit", "actionID": "submitAction"]]
             ]
         ]
         
@@ -62,7 +62,7 @@ final class FormTests: XCTestCase {
         XCTAssertEqual((children[0] as? ActionUIElement)?.type, "Text", "First child should be Text")
         XCTAssertEqual((children[0] as? ActionUIElement)?.properties["text"] as? String, "Field 1", "First child text should be correct")
         XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Button", "Second child should be Button")
-        XCTAssertEqual((children[1] as? ActionUIElement)?.properties["label"] as? String, "Submit", "Second child label should be correct")
+        XCTAssertEqual((children[1] as? ActionUIElement)?.properties["title"] as? String, "Submit", "Second child title should be correct")
     }
     
     func testFormJSONDecoding() throws {
