@@ -1,24 +1,36 @@
 import Foundation
-import ActionUI
+@testable import ActionUI
 
 @MainActor
 struct ActionUIVerifier {
-    private let logger: ActionUILogger
+    private let logger: VerifierLogger
     
     init() {
         // Use a custom logger to print errors to stderr and track failure
         self.logger = VerifierLogger()
+        ActionUIRegistry.shared.setLogger(logger)
+        ActionUIModel.shared.logger = logger
     }
     
+    var hadErrors: Bool {
+        return logger.hadErrors
+    }
+    
+    var hadWarnings: Bool {
+        return logger.hadWarnings
+    }
+
     func verify(jsonPath: String) -> Bool {
         do {
+            fputs("Verifying JSON at: \(jsonPath)\n", stdout)
             let data = try Data(contentsOf: URL(fileURLWithPath: jsonPath))
-        	let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             return validateElement(element, path: jsonPath)
         } catch {
             logger.log("Failed to load or decode JSON at \(jsonPath): \(error)", .error)
             return false
         }
+        
     }
     
     func verifyDirectory(_ directoryPath: String) -> Bool {
@@ -41,58 +53,50 @@ struct ActionUIVerifier {
         return isValid
     }
     
+    // TODO: construct a better "path" with information regarding the element in the json being validated
+    // so we can provide useful error information containing the problematic element location
+    
     private func validateElement(_ element: any ActionUIElementBase, path: String) -> Bool {
         var isValid = true
-        
-        // Validate element type
-        if !ActionUIRegistry.shared.isValidElementType(element.type) {
-            logger.log("[\(path)] Invalid element type: \(element.type)", .error)
-            isValid = false
-        }
-        
+
         // Validate properties
-        let validatedProperties = ActionUIRegistry.shared.validateProperties(
+        let _ = ActionUIRegistry.shared.validateProperties(
             forElementType: element.type,
-            properties: View.validateProperties(element.properties, logger: logger),
-            logger: logger
-        )
+            properties: element.properties)
         
-        // Check mandatory properties (example; customize as needed)
-        let mandatoryProperties = mandatoryProperties(for: element.type)
-        for property in mandatoryProperties {
-            if validatedProperties[property] == nil {
-                logger.log("[\(path)] Missing mandatory property '\(property)' for element type: \(element.type)", .error)
-                isValid = false
-            }
-        }
-        
-        // Recursively validate children
-        if let children = element.children {
-            for (index, child) in children.enumerated() {
-                if !validateElement(child, path: "\(path)/children[\(index)]") {
-                    isValid = false
+        // Recursively validate subviews
+        // We could have arrays of children ("children", "sidebar", etc) or a single child ("content") or arrays of arrays ("rows")
+        // "children", "rows", "content", "destination", "sidebar", "detail"
+        if let subviews = element.subviews {
+            for (key, value) in subviews {
+                switch (value) {
+                case (let children as [ActionUIElement]):
+                    for (index, child) in children.enumerated() {
+                        if !validateElement(child, path: "\(path)/\(key)[\(index)]") {
+                            isValid = false
+                        }
+                    }
+                case (let rows as [[ActionUIElement]]):
+                    for (rIndex, row) in rows.enumerated() {
+                        for (cIndex, child) in row.enumerated() {
+                            if !validateElement(child, path: "\(path)/\(key)[\(rIndex)][\(cIndex)]") {
+                                isValid = false
+                            }
+                        }
+                    }
+                case (let child as ActionUIElement):
+                    if !validateElement(child, path: "\(path)/\(key)") {
+                        isValid = false
+                    }
+                default:
+                    return false // Type mismatch or unsupported type
                 }
             }
         }
         
         return isValid
     }
-    
-    // Define mandatory properties per element type
-    private func mandatoryProperties(for type: String) -> [String] {
-        // Example; customize based on your requirements
-        switch type {
-        case "Button":
-            return ["label"]
-        case "TextField":
-            return ["placeholder"]
-        case "Toggle":
-            return ["label"]
-        default:
-            return []
-        }
-    }
-    
+        
     // must ensure unique view ids in the whole view tree
     func verifyUniqueIDs(json: [String: Any], seenIDs: inout Set<Int>, logger: any ActionUILogger) throws {
 		if let id = json["id"] as? Int {
@@ -119,10 +123,14 @@ struct ActionUIVerifier {
 // Custom logger for verifier tool
 private class VerifierLogger: ActionUILogger {
     private var hasErrors = false
+    private var hasWarnings = false
     
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
-        // Only print errors to stderr
-        if level == .error {
+
+        if level == .warning {
+            fputs("[WARNING] \(message)\n", stdout)
+            hasWarnings = true
+        } else if level == .error {
             fputs("[ERROR] \(message)\n", stderr)
             hasErrors = true
         }
@@ -130,6 +138,10 @@ private class VerifierLogger: ActionUILogger {
     
     var hadErrors: Bool {
         return hasErrors
+    }
+
+    var hadWarnings: Bool {
+        return hasWarnings
     }
 }
 
@@ -156,7 +168,20 @@ struct ActionUIVerifierMain {
         }
         
         let success = isDirectory ? verifier.verifyDirectory(path) : verifier.verify(jsonPath: path)
-        exit(success ? 0 : 1)
+        if !success || verifier.hadErrors {
+            
+            fputs("Verification failed\n", stdout)
+            exit(1)
+        }
+        
+        var resultString: String = "OK"
+        if(verifier.hadWarnings)
+        {
+            resultString = "OK-ish (had warnings, may not render as expected)"
+        }
+        
+        fputs("\(resultString)\n", stdout)
+        exit(0)
     }
 }
 

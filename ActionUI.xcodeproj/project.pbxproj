@@ -16,6 +16,9 @@
 		1DD4E4302E8F3228001E0C83 /* ActionUISwiftAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */; };
 		1DD4E4602E8FAB45001E0C83 /* ActionUIObjCAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */; };
 		1DD4E4612E8FAB49001E0C83 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
+		1DDC4BE32F3DA8A100604C66 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
+		1DDC4BF32F3DC8B700604C66 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
+		1DDC4BF42F3DC8B700604C66 /* ActionUISwiftAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +106,27 @@
 			remoteGlobalIDString = 1DD4E43B2E8F9DF2001E0C83;
 			remoteInfo = ActionUIObjCAdapter;
 		};
+		1DDC4BE12F3DA88D00604C66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D03F8E52E49EEC3004A42BB;
+			remoteInfo = ActionUI;
+		};
+		1DDC4BEF2F3DC8A900604C66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D03F8E52E49EEC3004A42BB;
+			remoteInfo = ActionUI;
+		};
+		1DDC4BF12F3DC8A900604C66 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1DD4E4272E8F3228001E0C83;
+			remoteInfo = ActionUISwiftAdapter;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -116,6 +140,24 @@
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DDC483A2F3DA52D00604C66 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		1DDC4BE62F3DC89D00604C66 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -132,6 +174,8 @@
 		1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUISwiftAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIObjCAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E44F2E8FA9CA001E0C83 /* ActionUIObjCTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUIObjCTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DDC483C2F3DA52D00604C66 /* ActionUIVerifier */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ActionUIVerifier; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DDC4BE82F3DC89D00604C66 /* ActionUIViewer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -230,6 +274,16 @@
 			path = ActionUIObjCTestApp;
 			sourceTree = "<group>";
 		};
+		1DDC483D2F3DA52D00604C66 /* ActionUIVerifier */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ActionUIVerifier;
+			sourceTree = "<group>";
+		};
+		1DDC4BE92F3DC89D00604C66 /* ActionUIViewer */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ActionUIViewer;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -318,6 +372,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1DDC48392F3DA52D00604C66 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1DDC4BE32F3DA8A100604C66 /* ActionUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DDC4BE52F3DC89D00604C66 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1DDC4BF32F3DC8B700604C66 /* ActionUI.framework in Frameworks */,
+				1DDC4BF42F3DC8B700604C66 /* ActionUISwiftAdapter.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -335,6 +406,8 @@
 				1D7ED28D2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter */,
 				1D25A62E2E9B9DB3003D20F4 /* ActionUICppAdapter */,
 				1D25A6452E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
+				1DDC483D2F3DA52D00604C66 /* ActionUIVerifier */,
+				1DDC4BE92F3DC89D00604C66 /* ActionUIViewer */,
 				1D03F97A2E49F68F004A42BB /* Frameworks */,
 				1D03F8E72E49EEC3004A42BB /* Products */,
 			);
@@ -354,6 +427,8 @@
 				1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */,
 				1D25A62D2E9B9DB3003D20F4 /* ActionUICppAdapter.framework */,
 				1D25A6442E9F9667003D20F4 /* ActionUIWebKitJSTestApp.app */,
+				1DDC483C2F3DA52D00604C66 /* ActionUIVerifier */,
+				1DDC4BE82F3DC89D00604C66 /* ActionUIViewer */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -675,6 +750,53 @@
 			productReference = 1DD4E44F2E8FA9CA001E0C83 /* ActionUIObjCTestApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		1DDC483B2F3DA52D00604C66 /* ActionUIVerifier */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DDC48422F3DA52D00604C66 /* Build configuration list for PBXNativeTarget "ActionUIVerifier" */;
+			buildPhases = (
+				1DDC48382F3DA52D00604C66 /* Sources */,
+				1DDC48392F3DA52D00604C66 /* Frameworks */,
+				1DDC483A2F3DA52D00604C66 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1DDC4BE22F3DA88D00604C66 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1DDC483D2F3DA52D00604C66 /* ActionUIVerifier */,
+			);
+			name = ActionUIVerifier;
+			packageProductDependencies = (
+			);
+			productName = ActionUIVerifier;
+			productReference = 1DDC483C2F3DA52D00604C66 /* ActionUIVerifier */;
+			productType = "com.apple.product-type.tool";
+		};
+		1DDC4BE72F3DC89D00604C66 /* ActionUIViewer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DDC4BEC2F3DC89D00604C66 /* Build configuration list for PBXNativeTarget "ActionUIViewer" */;
+			buildPhases = (
+				1DDC4BE42F3DC89D00604C66 /* Sources */,
+				1DDC4BE52F3DC89D00604C66 /* Frameworks */,
+				1DDC4BE62F3DC89D00604C66 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1DDC4BF02F3DC8A900604C66 /* PBXTargetDependency */,
+				1DDC4BF22F3DC8A900604C66 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1DDC4BE92F3DC89D00604C66 /* ActionUIViewer */,
+			);
+			name = ActionUIViewer;
+			packageProductDependencies = (
+			);
+			productName = ActionUIViewer;
+			productReference = 1DDC4BE82F3DC89D00604C66 /* ActionUIViewer */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -682,7 +804,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					1D03F8E52E49EEC3004A42BB = {
@@ -719,6 +841,12 @@
 					1DD4E44E2E8FA9CA001E0C83 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
+					1DDC483B2F3DA52D00604C66 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					1DDC4BE72F3DC89D00604C66 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = 1D03F8E02E49EEC3004A42BB /* Build configuration list for PBXProject "ActionUI" */;
@@ -746,6 +874,8 @@
 				1DB256022E6BADD000544C2F /* ActionUITestAppTests */,
 				1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */,
 				1D25A6432E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
+				1DDC483B2F3DA52D00604C66 /* ActionUIVerifier */,
+				1DDC4BE72F3DC89D00604C66 /* ActionUIViewer */,
 			);
 		};
 /* End PBXProject section */
@@ -908,6 +1038,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1DDC48382F3DA52D00604C66 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DDC4BE42F3DC89D00604C66 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -970,6 +1114,21 @@
 			isa = PBXTargetDependency;
 			target = 1DD4E43B2E8F9DF2001E0C83 /* ActionUIObjCAdapter */;
 			targetProxy = 1DD4E45E2E8FAB31001E0C83 /* PBXContainerItemProxy */;
+		};
+		1DDC4BE22F3DA88D00604C66 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D03F8E52E49EEC3004A42BB /* ActionUI */;
+			targetProxy = 1DDC4BE12F3DA88D00604C66 /* PBXContainerItemProxy */;
+		};
+		1DDC4BF02F3DC8A900604C66 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D03F8E52E49EEC3004A42BB /* ActionUI */;
+			targetProxy = 1DDC4BEF2F3DC8A900604C66 /* PBXContainerItemProxy */;
+		};
+		1DDC4BF22F3DC8A900604C66 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DD4E4272E8F3228001E0C83 /* ActionUISwiftAdapter */;
+			targetProxy = 1DDC4BF12F3DC8A900604C66 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1962,6 +2121,62 @@
 			};
 			name = Release;
 		};
+		1DDC48402F3DA52D00604C66 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		1DDC48412F3DA52D00604C66 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		1DDC4BED2F3DC89D00604C66 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				INFOPLIST_FILE = ActionUIViewer/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIViewer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		1DDC4BEE2F3DC89D00604C66 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				INFOPLIST_FILE = ActionUIViewer/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIViewer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2069,6 +2284,24 @@
 			buildConfigurations = (
 				1DD4E4582E8FA9CB001E0C83 /* Debug */,
 				1DD4E4592E8FA9CB001E0C83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DDC48422F3DA52D00604C66 /* Build configuration list for PBXNativeTarget "ActionUIVerifier" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DDC48402F3DA52D00604C66 /* Debug */,
+				1DDC48412F3DA52D00604C66 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DDC4BEC2F3DC89D00604C66 /* Build configuration list for PBXNativeTarget "ActionUIViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DDC4BED2F3DC89D00604C66 /* Debug */,
+				1DDC4BEE2F3DC89D00604C66 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
