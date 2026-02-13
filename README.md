@@ -341,11 +341,14 @@ The following use cases do not require obtaining license:
 Required when using this library in a product or service that generates revenue 
 or is distributed commercially **and** the company does not meet small business definition as described above.
 
+Re-licensing or sub-licensing of the library is not allowed with either Apache 2.0 or commercial licence.
+
+
 ## Contribution-ware
 To encourage adoption and community contributions a free license will be granted to companies not meeting the small business criteria but contributing significantly to the project.
 
 ## Contributing
-By contributing to the project you agree that your contribution to ActionUI library may be included in commercial license without you being compensated, in addition to standard Apache 2.0 intellectual property and patent waiver. If you cannot accept these terms, do not contribute.
+By contributing to the project you agree that your contribution to ActionUI library may be included in commercial license without compensation or royalties to you, in addition to standard Apache 2.0 intellectual property and patent waiver. If you cannot accept these terms, DO NOT contribute.
 
 ## Project Background
 
