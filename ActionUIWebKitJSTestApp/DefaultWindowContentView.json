@@ -3,7 +3,6 @@
   "properties": {
       "spacing": 10.0,
       "alignment": "center",
-      "background": "gray",
       "frame": {
           "minWidth": 400.0,
           "minHeight": 300.0,

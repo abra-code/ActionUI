@@ -209,6 +209,13 @@
 			);
 			target = 1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */;
 		};
+		1DDC4C462F3F11B700604C66 /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIObjCTestApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/abracadabra.png,
+			);
+			target = 1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -249,6 +256,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				1D6DF6BB2E739969002563AE /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUISwiftTestApp" target */,
+				1DDC4C462F3F11B700604C66 /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIObjCTestApp" target */,
 			);
 			path = ActionUISwiftTestApp;
 			sourceTree = "<group>";

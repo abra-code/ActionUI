@@ -3,7 +3,6 @@
   "properties": {
       "spacing": 10.0,
       "alignment": "center",
-      "background": "fill",
       "frame": {
           "minWidth": 400.0,
           "minHeight": 300.0,
@@ -35,18 +34,19 @@
         }
     },
     {
-        "type": "HStack",
-        "properties": {
-            "spacing": 10.0,
-            "padding": "default"
+      "type": "Image",
+      "properties": {
+        "resourceName": "abracadabra.png",
+        "resizable": true,
+        "scaleMode": "fit",
+        "frame": {
+          "width": 200.0,
+          "height": 200.0,
+          "alignment": "center"
         },
-        "children": [
-            {
-                "type": "Divider",
-                "properties": {
-                }
-            }
-        ]
+        "padding": 8.0,
+        "accessibilityIdentifier": "swift_image"
+      }
     }
   ]
 }
