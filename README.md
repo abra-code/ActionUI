@@ -325,30 +325,17 @@ The demo is intentionally minimal to show the core functionality without unneces
 
 ## License
 
-ActionUI library is dual-licensed:
-1. **Apache 2.0** - Free for open source projects, small businesses, internal/non-commercial use
-2. **Commercial License** - Required for production/commercial products
-
-## Permitted Under Apache 2.0
-The following use cases do not require obtaining license:
-- Personal projects
-- Open source projects
-- For-profit projects by small businesses, as defined by having 10 or less employees and less than $10M annual revenue
-- Internal tooling
-- Educational use
-
-## Commercial License
-Required when using this library in a product or service that generates revenue 
-or is distributed commercially **and** the company does not meet small business definition as described above.
-
-Re-licensing or sub-licensing of the library is not allowed with either Apache 2.0 or commercial licence.
-
+ActionUI is licensed under the PolyForm Small Business License 1.0.0 — free for personal projects, open source, education, internal tools, and qualifying small businesses (fewer than 100 people **and** under ~$1.3M adjusted revenue). Larger commercial use requires a paid license — contact me for details.
 
 ## Contribution-ware
 To encourage adoption and community contributions a free license will be granted to companies not meeting the small business criteria but contributing significantly to the project.
+Contribution classification:
+- trivial: small bug fix, minor documentation change or addition, filing a bug
+- non-trivial: adding a new view or modifier, important bug fix or minor enhancement, adding several unit tests, adding example or test code, adding important documentation
+- significant/major: adding a major feature, solving an architectural problem, implementing advanced build or test infrastructure, adding a new language adapter ready for integration (not just a proof of concept); ten or more non-trivial contributions cross the threshold into the significant contribution
 
 ## Contributing
-By contributing to the project you agree that your contribution to ActionUI library may be included in commercial license without compensation or royalties to you, in addition to standard Apache 2.0 intellectual property and patent waiver. If you cannot accept these terms, DO NOT contribute.
+By contributing to the project you agree that your contribution to ActionUI library may be included in commercial license without compensation or royalties to you. If you cannot accept these terms, DO NOT contribute.
 
 ## Project Background
 
