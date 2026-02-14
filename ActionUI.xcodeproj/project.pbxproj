@@ -20,6 +20,7 @@
 		1DDC4BF32F3DC8B700604C66 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
 		1DDC4BF42F3DC8B700604C66 /* ActionUISwiftAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */; };
 		1DDC4C4A2F40684500604C66 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DDC4C492F40684500604C66 /* AVKit.framework */; };
+		1DDC4C4C2F40782700604C66 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DDC4C4B2F40782700604C66 /* AVKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -178,6 +179,7 @@
 		1DDC483C2F3DA52D00604C66 /* ActionUIVerifier */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ActionUIVerifier; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DDC4BE82F3DC89D00604C66 /* ActionUIViewer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DDC4C492F40684500604C66 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
+		1DDC4C4B2F40782700604C66 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk/System/Library/Frameworks/AVKit.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -354,6 +356,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1DDC4C4C2F40782700604C66 /* AVKit.framework in Frameworks */,
 				1DD4E4302E8F3228001E0C83 /* ActionUISwiftAdapter.framework in Frameworks */,
 				1D6DF6A42E6DB5F5002563AE /* ActionUI.framework in Frameworks */,
 			);
@@ -456,6 +459,7 @@
 			isa = PBXGroup;
 			children = (
 				1DDC4C492F40684500604C66 /* AVKit.framework */,
+				1DDC4C4B2F40782700604C66 /* AVKit.framework */,
 				1D03F97D2E49F69A004A42BB /* SwiftUI.framework */,
 			);
 			name = Frameworks;
