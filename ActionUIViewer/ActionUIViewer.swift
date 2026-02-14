@@ -1,9 +1,14 @@
+// ActionUI - SwiftUI component library
+// Copyright (c) 2025-2026 Tomasz Kukielka
 //
-//  ActionUIViewer main.swift
+// Licensed under the PolyForm Small Business License 1.0.0
+// https://polyformproject.org/licenses/small-business/1.0.0
+
+//
+//  ActionUIViewer.swift
 //  ActionUIViewer
 //
 //  A command-line tool to view ActionUI JSON files in a window.
-//  Usage: ActionUIViewer <path-to-json-file>
 //
 
 import SwiftUI
@@ -42,6 +47,13 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     var screenshotPath: String?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { @MainActor in
+            await handleApplicationLaunch()
+        }
+    }
+    
+    @MainActor
+    func handleApplicationLaunch() async {
         var jsonFilePath: String?
         var screenshotPath: String?
         
@@ -62,26 +74,62 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             i += 1
         }
         
-        guard let path = jsonFilePath else {
-            print("Usage: ActionUIViewer [--screenshot <output.png>] <input.json>")
+        guard let pathOrUrl = jsonFilePath else {
+            print("Usage: ActionUIViewer [--screenshot <output.png>] <path/to/input.json|https://url.to/input.json>")
             NSApp.terminate(nil)
             return
         }
         
-        let url = URL(fileURLWithPath: path)
-        self.screenshotPath = screenshotPath
+        var url: URL
+        var displayTitle: String
         
-        guard FileManager.default.fileExists(atPath: path) else {
-            print("Error: File not found at path: \(path)")
-            window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
-                            styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            window.contentView = NSHostingView(rootView: ErrorView(message: "File not found:\n\(path)"))
-            window.delegate = self
-            window.center()
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
+        if pathOrUrl.hasPrefix("http://") || pathOrUrl.hasPrefix("https://") {
+            guard let parsedUrl = URL(string: pathOrUrl) else {
+                print("Error: Invalid URL: \(pathOrUrl)")
+                NSApp.terminate(nil)
+                return
+            }
+            url = parsedUrl
+            displayTitle = parsedUrl.lastPathComponent.isEmpty ? parsedUrl.host ?? parsedUrl.absoluteString : parsedUrl.lastPathComponent
+            
+            print("Fetching remote JSON...")
+            
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    print("Error: Failed to fetch remote JSON")
+                    NSApp.terminate(nil)
+                    return
+                }
+                
+                let tempDir = FileManager.default.temporaryDirectory
+                let tempFile = tempDir.appendingPathComponent("remote_\(UUID().uuidString).json")
+                try data.write(to: tempFile)
+                url = tempFile
+                print("Saved remote JSON to temp file: \(tempFile.path)")
+            } catch {
+                print("Error fetching remote JSON: \(error)")
+                NSApp.terminate(nil)
+                return
+            }
+        } else {
+            url = URL(fileURLWithPath: pathOrUrl)
+            displayTitle = url.lastPathComponent
+            
+            guard FileManager.default.fileExists(atPath: pathOrUrl) else {
+                print("Error: File not found at path: \(pathOrUrl)")
+                window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
+                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                window.contentView = NSHostingView(rootView: ErrorView(message: "File not found:\n\(pathOrUrl)"))
+                window.delegate = self
+                window.center()
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
         }
+        
+        self.screenshotPath = screenshotPath
         
         let windowUUID = UUID().uuidString
         let logger = CustomLogger()
@@ -93,7 +141,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 800, height: 600),
                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
                          backing: .buffered, defer: false)
-        window.title = "ActionUI Viewer - \(url.lastPathComponent)"
+        window.title = "ActionUI Viewer - \(displayTitle)"
         window.center()
         window.delegate = self
         
@@ -123,7 +171,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 return
             }
 
-            let image = CGWindowListCreateImage(CGRect.zero, .optionIncludingWindow, CGWindowID(windowNumber), .boundsIgnoreFraming)
+            let image = CGWindowListCreateImage(CGRect.zero, .optionIncludingWindow, CGWindowID(windowNumber), [])
             guard let cgImage = image else {
                 print("Error: Failed to capture window")
                 return

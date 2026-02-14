@@ -19,6 +19,7 @@
 		1DDC4BE32F3DA8A100604C66 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
 		1DDC4BF32F3DC8B700604C66 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
 		1DDC4BF42F3DC8B700604C66 /* ActionUISwiftAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */; };
+		1DDC4C4A2F40684500604C66 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DDC4C492F40684500604C66 /* AVKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -176,6 +177,7 @@
 		1DD4E44F2E8FA9CA001E0C83 /* ActionUIObjCTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUIObjCTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DDC483C2F3DA52D00604C66 /* ActionUIVerifier */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ActionUIVerifier; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DDC4BE82F3DC89D00604C66 /* ActionUIViewer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DDC4C492F40684500604C66 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -399,6 +401,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1DDC4C4A2F40684500604C66 /* AVKit.framework in Frameworks */,
 				1DDC4BF32F3DC8B700604C66 /* ActionUI.framework in Frameworks */,
 				1DDC4BF42F3DC8B700604C66 /* ActionUISwiftAdapter.framework in Frameworks */,
 			);
@@ -452,6 +455,7 @@
 		1D03F97A2E49F68F004A42BB /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				1DDC4C492F40684500604C66 /* AVKit.framework */,
 				1D03F97D2E49F69A004A42BB /* SwiftUI.framework */,
 			);
 			name = Frameworks;
