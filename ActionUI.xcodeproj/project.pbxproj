@@ -73,6 +73,13 @@
 			remoteGlobalIDString = 1D03F8E52E49EEC3004A42BB;
 			remoteInfo = ActionUI;
 		};
+		1DC076BE2F41B8830036DA50 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D03F8E52E49EEC3004A42BB;
+			remoteInfo = ActionUI;
+		};
 		1DD4E42E2E8F3228001E0C83 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
@@ -173,6 +180,7 @@
 		1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIWebKitJSAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DB255ED2E6BADCE00544C2F /* ActionUISwiftTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUISwiftTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DB256032E6BADD000544C2F /* ActionUITestAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ActionUITestAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DC076C62F41B8830036DA50 /* ActionUICAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUICAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUISwiftAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIObjCAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E44F2E8FA9CA001E0C83 /* ActionUIObjCTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUIObjCTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -213,6 +221,21 @@
 			);
 			target = 1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */;
 		};
+		1DC076C72F41B8830036DA50 /* Exceptions for "ActionUICppAdapter" folder in "ActionUICAdapter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ActionUICpp.swift,
+			);
+			target = 1DC076BC2F41B8830036DA50 /* ActionUICAdapter */;
+		};
+		1DC076CD2F41B8EB0036DA50 /* Exceptions for "ActionUICAdapter" folder in "ActionUICAdapter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			publicHeaders = (
+				ActionUIC.h,
+				ActionUICAdapter.h,
+			);
+			target = 1DC076BC2F41B8830036DA50 /* ActionUICAdapter */;
+		};
 		1DDC4C462F3F11B700604C66 /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIObjCTestApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -235,6 +258,9 @@
 		};
 		1D25A62E2E9B9DB3003D20F4 /* ActionUICppAdapter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1DC076C72F41B8830036DA50 /* Exceptions for "ActionUICppAdapter" folder in "ActionUICAdapter" target */,
+			);
 			path = ActionUICppAdapter;
 			sourceTree = "<group>";
 		};
@@ -268,6 +294,14 @@
 		1DB256062E6BADD000544C2F /* ActionUITestAppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ActionUITestAppUITests;
+			sourceTree = "<group>";
+		};
+		1DC076CA2F41B8DF0036DA50 /* ActionUICAdapter */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1DC076CD2F41B8EB0036DA50 /* Exceptions for "ActionUICAdapter" folder in "ActionUICAdapter" target */,
+			);
+			path = ActionUICAdapter;
 			sourceTree = "<group>";
 		};
 		1DD4E4292E8F3228001E0C83 /* ActionUISwiftAdapter */ = {
@@ -369,6 +403,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1DC076C12F41B8830036DA50 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1DD4E4252E8F3228001E0C83 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -427,6 +468,7 @@
 				1D7ED2632E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter */,
 				1D7ED28D2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter */,
 				1D25A62E2E9B9DB3003D20F4 /* ActionUICppAdapter */,
+				1DC076CA2F41B8DF0036DA50 /* ActionUICAdapter */,
 				1D25A6452E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
 				1DDC483D2F3DA52D00604C66 /* ActionUIVerifier */,
 				1DDC4BE92F3DC89D00604C66 /* ActionUIViewer */,
@@ -451,6 +493,7 @@
 				1D25A6442E9F9667003D20F4 /* ActionUIWebKitJSTestApp.app */,
 				1DDC483C2F3DA52D00604C66 /* ActionUIVerifier */,
 				1DDC4BE82F3DC89D00604C66 /* ActionUIViewer */,
+				1DC076C62F41B8830036DA50 /* ActionUICAdapter.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -490,6 +533,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1D7ED2872E93AAC2003BA8A7 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC076BF2F41B8830036DA50 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -703,6 +753,31 @@
 			productReference = 1DB256032E6BADD000544C2F /* ActionUITestAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		1DC076BC2F41B8830036DA50 /* ActionUICAdapter */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DC076C32F41B8830036DA50 /* Build configuration list for PBXNativeTarget "ActionUICAdapter" */;
+			buildPhases = (
+				1DC076BF2F41B8830036DA50 /* Headers */,
+				1DC076C02F41B8830036DA50 /* Sources */,
+				1DC076C12F41B8830036DA50 /* Frameworks */,
+				1DC076C22F41B8830036DA50 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1DC076BD2F41B8830036DA50 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1D25A62E2E9B9DB3003D20F4 /* ActionUICppAdapter */,
+				1DC076CA2F41B8DF0036DA50 /* ActionUICAdapter */,
+			);
+			name = ActionUICAdapter;
+			packageProductDependencies = (
+			);
+			productName = ActionUICppAdapter;
+			productReference = 1DC076C62F41B8830036DA50 /* ActionUICAdapter.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		1DD4E4272E8F3228001E0C83 /* ActionUISwiftAdapter */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1DD4E4342E8F3228001E0C83 /* Build configuration list for PBXNativeTarget "ActionUISwiftAdapter" */;
@@ -856,6 +931,9 @@
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = 1DB255EC2E6BADCE00544C2F;
 					};
+					1DC076BC2F41B8830036DA50 = {
+						LastSwiftMigration = 2620;
+					};
 					1DD4E4272E8F3228001E0C83 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -894,6 +972,7 @@
 				1D7ED2612E92F365003BA8A7 /* ActionUIJavaScriptCoreAdapter */,
 				1D7ED28B2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter */,
 				1D25A62C2E9B9DB3003D20F4 /* ActionUICppAdapter */,
+				1DC076BC2F41B8830036DA50 /* ActionUICAdapter */,
 				1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */,
 				1DB256022E6BADD000544C2F /* ActionUITestAppTests */,
 				1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */,
@@ -955,6 +1034,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1DB256012E6BADD000544C2F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC076C22F41B8830036DA50 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1041,6 +1127,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1DC076C02F41B8830036DA50 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1DD4E4242E8F3228001E0C83 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1113,6 +1206,11 @@
 			isa = PBXTargetDependency;
 			target = 1D03F8E52E49EEC3004A42BB /* ActionUI */;
 			targetProxy = 1DB256192E6C236300544C2F /* PBXContainerItemProxy */;
+		};
+		1DC076BD2F41B8830036DA50 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D03F8E52E49EEC3004A42BB /* ActionUI */;
+			targetProxy = 1DC076BE2F41B8830036DA50 /* PBXContainerItemProxy */;
 		};
 		1DD4E42F2E8F3228001E0C83 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1298,19 +1396,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1339,19 +1428,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1421,19 +1501,10 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1448,6 +1519,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_ENABLE_EXPLICIT_MODULES = YES;
 				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -1463,19 +1535,10 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1490,6 +1553,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_ENABLE_EXPLICIT_MODULES = YES;
 				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -1602,19 +1666,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1643,19 +1698,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1684,19 +1730,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1725,19 +1762,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1893,6 +1921,75 @@
 			};
 			name = Release;
 		};
+		1DC076C42F41B8830036DA50 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				MACH_O_TYPE = staticlib;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUICAdapter;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		1DC076C52F41B8830036DA50 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				MACH_O_TYPE = staticlib;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUICAdapter;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		1DD4E4322E8F3228001E0C83 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1902,19 +1999,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1922,6 +2010,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUISwiftAdapter;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = auto;
+				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1942,19 +2031,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -1962,6 +2042,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUISwiftAdapter;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = auto;
+				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1983,19 +2064,10 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -2025,19 +2097,10 @@
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_MODULE_VERIFIER = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
 				MACH_O_TYPE = staticlib;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
@@ -2281,6 +2344,15 @@
 			buildConfigurations = (
 				1DB256122E6BADD000544C2F /* Debug */,
 				1DB256132E6BADD000544C2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DC076C32F41B8830036DA50 /* Build configuration list for PBXNativeTarget "ActionUICAdapter" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DC076C42F41B8830036DA50 /* Debug */,
+				1DC076C52F41B8830036DA50 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

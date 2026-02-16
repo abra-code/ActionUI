@@ -1,7 +1,16 @@
+// ActionUI - SwiftUI component library
+// Copyright (c) 2025-2026 Tomasz Kukielka
+//
+// Licensed under the PolyForm Small Business License 1.0.0
+// https://polyformproject.org/licenses/small-business/1.0.0
+
 //
 //  ActionUICpp.swift
 //  ActionUICppAdapter
 //
+//  This is a proof of concept but it doesn't look like Swift -> C++ bridge is good enough to make it usable
+//  The generated -Swift.h is missing member methods because of unsupported features used
+//  Also, the implementations here don't have any code ensuring @MainActor isolation
 
 import ActionUI
 import Foundation
