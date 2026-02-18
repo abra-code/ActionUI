@@ -20,4 +20,8 @@ FOUNDATION_EXPORT double ActionUICAdapterVersionNumber;
 FOUNDATION_EXPORT const unsigned char ActionUICAdapterVersionString[];
 
 // Import the C interface
-#import <ActionUICAdapter/ActionUIC.h>
+#if __has_include(<ActionUICAdapter/ActionUIC.h>)
+    #import <ActionUICAdapter/ActionUIC.h>   // Xcode framework build
+#else
+    #import "ActionUIC.h"                    // SPM build
+#endif

@@ -231,8 +231,8 @@
 		1DC076CD2F41B8EB0036DA50 /* Exceptions for "ActionUICAdapter" folder in "ActionUICAdapter" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			publicHeaders = (
-				ActionUIC.h,
-				ActionUICAdapter.h,
+				include/ActionUIC.h,
+				include/ActionUICAdapter.h,
 			);
 			target = 1DC076BC2F41B8830036DA50 /* ActionUICAdapter */;
 		};

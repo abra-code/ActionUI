@@ -20,6 +20,10 @@ import Foundation
 import ActionUI
 import SwiftUI
 
+#if SWIFT_PACKAGE
+import ActionUICAdapterHeaders
+#endif
+
 #if canImport(AppKit)
 import AppKit
 #endif
