@@ -364,6 +364,21 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             } else {
                 print("Invalid arguments for getElementValue: \(args)")
             }
+        case "getElementInfo":
+            if args.count == 1, let windowUUID = args[0] as? String {
+                let info = ActionUIWebKitJS.model.getElementInfo(windowUUID: windowUUID)
+                // Convert [Int: String] to [String: String] for JSON serialization
+                let stringKeyedInfo = Dictionary(uniqueKeysWithValues: info.map { (String($0.key), $0.value) })
+                let json = (try? JSONSerialization.string(with: stringKeyedInfo)) ?? "{}"
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                    if let error = error {
+                        print("getElementInfo response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementInfo: \(args)")
+            }
         case "getElementValueAsString":
             if args.count == 3, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),

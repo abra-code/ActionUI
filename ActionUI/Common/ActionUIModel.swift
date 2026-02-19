@@ -366,6 +366,50 @@ public class ActionUIModel: ObservableObject {
         return nil
     }
     
+    // Returns a dictionary mapping positive (user-assigned) view IDs to their view type strings for a given window.
+    // Negative IDs are auto-assigned and excluded; 0 is not a valid ID.
+    // Design decision: Traverses the element tree rather than viewModels to avoid exposing auto-assigned negative IDs
+    public func getElementInfo(windowUUID: String) -> [Int: String] {
+        guard let windowModel = windowModels[windowUUID],
+              let rootElement = windowModel.element else {
+            logger.log("No window found for windowUUID: \(windowUUID)", .warning)
+            return [:]
+        }
+        var result: [Int: String] = [:]
+        collectElementInfo(from: rootElement, into: &result)
+        return result
+    }
+
+    // Recursively collects element IDs and types from the element tree
+    private func collectElementInfo(from element: any ActionUIElementBase, into result: inout [Int: String]) {
+        if element.id > 0 {
+            result[element.id] = element.type
+        }
+        guard let subviews = element.subviews else { return }
+        if let children = subviews["children"] as? [any ActionUIElementBase] {
+            for child in children {
+                collectElementInfo(from: child, into: &result)
+            }
+        }
+        if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
+            for row in rows {
+                for child in row {
+                    collectElementInfo(from: child, into: &result)
+                }
+            }
+        }
+        if let commands = subviews["commands"] as? [any ActionUIElementBase] {
+            for command in commands {
+                collectElementInfo(from: command, into: &result)
+            }
+        }
+        for key in ["content", "destination", "sidebar", "detail"] {
+            if let child = subviews[key] as? any ActionUIElementBase {
+                collectElementInfo(from: child, into: &result)
+            }
+        }
+    }
+
     // Sets a property value for a view and re-validates it
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
     // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels

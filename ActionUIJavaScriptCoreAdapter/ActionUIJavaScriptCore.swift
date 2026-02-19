@@ -187,6 +187,17 @@ public class ActionUIJavaScriptCore {
             return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
         }
         actionUIObject.setValue(getElementValueAsString, forProperty: "getElementValueAsString")
+
+        // getElementInfo(windowUUID) -> {viewID: elementType, ...}
+        let getElementInfo: @convention(block) (String) -> JSValue = { windowUUID in
+            let info = ActionUIJavaScriptCore.model.getElementInfo(windowUUID: windowUUID)
+            let jsObject = JSValue(newObjectIn: self.context)!
+            for (id, type) in info {
+                jsObject.setValue(type, forProperty: String(id))
+            }
+            return jsObject
+        }
+        actionUIObject.setValue(getElementInfo, forProperty: "getElementInfo")
     }
     
     private func setupActionHandlerMethods(actionUIObject: JSValue) {

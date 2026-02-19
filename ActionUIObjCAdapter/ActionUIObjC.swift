@@ -96,6 +96,19 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         return model.getElementValueAsString(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID)) as NSString?
     }
     
+    /// Returns a dictionary mapping user-assigned (positive) view IDs to their ActionUI view type strings for a given window.
+    /// Auto-assigned negative IDs and ID 0 are excluded.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: NSDictionary mapping NSNumber viewIDs to NSString ActionUI view types.
+    @MainActor @objc public class func getElementInfoWithWindowUUID(_ windowUUID: NSString) -> NSDictionary {
+        let info = model.getElementInfo(windowUUID: windowUUID as String)
+        let nsDict = NSMutableDictionary(capacity: info.count)
+        for (id, type) in info {
+            nsDict[NSNumber(value: id)] = type as NSString
+        }
+        return nsDict
+    }
+
     /// Registers an action handler for a specific actionID.
     /// - Parameters:
     ///   - actionID: Identifier for the action (e.g., "button.click").
@@ -138,6 +151,9 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         let swiftView = loadActionUIView(from: url as URL, windowUUID: windowUUID as String, isContentView: isContentView)
         let hostingView = NSHostingView(rootView: AnyView(swiftView))
         hostingView.autoresizingMask = [.width, .height]
+		
+		// clients can use `hostingView.fittingSize` to set the window size
+        
         return hostingView
     }
     #endif
@@ -154,6 +170,10 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         let swiftView = loadActionUIView(from: url as URL, windowUUID: windowUUID as String, isContentView: isContentView)
         let hostingController = NSHostingController(rootView: AnyView(swiftView))
         hostingController.view.autoresizingMask = [.width, .height]
+        
+        // clients can use `hostingController.view.fittingSize` to adjust
+        // the size of the window hosting this view as a main content view
+
         return hostingController
     }
     #endif

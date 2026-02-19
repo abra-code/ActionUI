@@ -384,6 +384,37 @@ public func actionUIGetElementValueString(
     return strdup(value)
 }
 
+// MARK: - Element Info
+
+/// Returns a JSON string mapping positive view IDs to their view type strings.
+/// Caller must free the returned string with actionUIFreeString.
+/// Returns NULL if no window found or no elements with positive IDs.
+/// JSON format: {"2":"TextField","3":"SecureField","4":"Picker",...}
+@_cdecl("actionUIGetElementInfoJSON")
+public func actionUIGetElementInfoJSON(
+    _ windowUUID: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    let info = runOnMainActorSync {
+        ActionUIModel.shared.getElementInfo(windowUUID: swiftWindowUUID)
+    }
+
+    if info.isEmpty {
+        return nil
+    }
+
+    // Convert [Int: String] to [String: String] for JSON serialization
+    let stringKeyedInfo = Dictionary(uniqueKeysWithValues: info.map { (String($0.key), $0.value) })
+    guard let json = valueToJSON(stringKeyedInfo) else {
+        return nil
+    }
+
+    return strdup(json)
+}
+
 // MARK: - Type-specific Setters
 
 @_cdecl("actionUISetIntValue")

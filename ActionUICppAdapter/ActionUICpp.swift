@@ -99,6 +99,14 @@ public struct ActionUICpp {
         return model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
     }
     
+    /// Returns a dictionary mapping user-assigned (positive) view IDs to their view type strings for a given window.
+    /// Auto-assigned negative IDs and ID 0 are excluded.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: Dictionary of [viewID: elementType] for all user-assigned views.
+    @MainActor public static func getElementInfo(windowUUID: String) -> [Int: String] {
+        return model.getElementInfo(windowUUID: windowUUID)
+    }
+
     /// Registers an action handler for a specific actionID.
     /// - Parameters:
     ///   - actionID: Identifier for the action (e.g., "button.click").
