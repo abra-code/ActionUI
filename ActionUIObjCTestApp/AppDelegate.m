@@ -33,12 +33,12 @@ typedef void (^ActionUIObjCActionHandlerBlock)(NSString *_Nonnull actionID, NSSt
     // Set window size based on the SwiftUI view's fitting size, with a minimum threshold and fallback
     NSSize fittingSize = controller.view.fittingSize;
     NSLog(@"Fitting size: %f x %f", fittingSize.width, fittingSize.height);
-    NSSize windowSize = (fittingSize.width >= 400 && fittingSize.height >= 300) ? fittingSize : NSMakeSize(800, 600);
+    NSSize windowSize = (fittingSize.width >= 10 && fittingSize.height >= 10) ? fittingSize : NSMakeSize(480, 320);
     [self.window setContentSize:windowSize];
     
     // Ensure window is resizable and set min size
     self.window.styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
-    [self.window setContentMinSize:NSMakeSize(400, 300)]; // Prevent window from being too small
+//    [self.window setContentMinSize:NSMakeSize(400, 300)]; // Prevent window from being too small
     
     [self.window center]; // Center the window on screen
     [self.window makeKeyAndOrderFront:nil];
