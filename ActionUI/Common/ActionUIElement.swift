@@ -80,13 +80,18 @@ struct ActionUIElement: ActionUIElementBase {
     let properties: [String: Any]
     var subviews: [String: Any]?
     
-    // Counter for generating unique negative IDs when not specified
+    // Counter for generating unique negative IDs when not specified.
+    // Protected by a lock so it is safe to call from any thread (e.g. Decodable init).
+    private static let negativeIDLock = NSLock()
     private static var negativeIDCounter: Int = -1
-    
+
     // Generates a unique negative ID for elements without an explicit ID
     internal static func generateNegativeID() -> Int {
-        defer { negativeIDCounter -= 1 }
-        return negativeIDCounter
+        negativeIDLock.withLock {
+            let id = negativeIDCounter
+            negativeIDCounter -= 1
+            return id
+        }
     }
     
     // Initializes a ActionUIElement with explicit values
