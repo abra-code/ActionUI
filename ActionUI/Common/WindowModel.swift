@@ -60,14 +60,17 @@ class WindowModel: ObservableObject {
         
         let subViewModels = populateViewModels(from: subElement) // Get populated dictionary
 
-        // Merge subViewModels into main viewModels, ensuring no ID conflicts
+        // Merge subViewModels into main viewModels, ensuring no ID conflicts.
+        // Build the merged dictionary first, then assign once to fire a single @Published notification.
+        var merged = self.viewModels
         for (id, viewModel) in subViewModels {
-            if self.viewModels[id] == nil {
-                self.viewModels[id] = viewModel
+            if merged[id] == nil {
+                merged[id] = viewModel
             } else {
                 logger.log("ID conflict for sub-view \(id); skipping merge", .error)
             }
         }
+        self.viewModels = merged
         
         logger.log("Loaded sub-view with element id: \(subElement.id)", .debug)
         return subElement
