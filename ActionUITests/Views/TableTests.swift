@@ -42,7 +42,6 @@ final class TableTests: XCTestCase {
             "properties": {
                 "itemType": {"viewType": "Text"},
                 "columns": ["Name", "Action"],
-                "rows": [["Alice", "Click"], ["Bob", "Edit"]],
                 "widths": [100, 80],
                 "actionID": "table.action",
                 "padding": 10.0
@@ -53,11 +52,11 @@ final class TableTests: XCTestCase {
             XCTFail("Failed to convert JSON string to Data")
             return
         }
-        
+
         let actionUIModel = ActionUIModel.shared
-        
+
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        
+
         guard let windowModel = actionUIModel.windowModels[windowUUID],
               let viewModel = windowModel.viewModels[element.id] else {
             XCTFail("Failed to retrieve viewModel")
@@ -65,20 +64,17 @@ final class TableTests: XCTestCase {
         }
 
         let validatedProperties = Table.validateProperties(element.properties, logger)
-        
+
         let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
-        
-        logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
-        
-        XCTAssertEqual(viewModel.states["content"] as? [[String]], [["Alice", "Click"], ["Bob", "Edit"]], "State content should match rows")
-        
+
+        XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
+
         if let itemType = element.properties["itemType"] as? [String: Any] {
             XCTAssertEqual(itemType["viewType"] as? String, "Text", "ItemType viewType should be Text")
         } else {
             XCTFail("itemType should be a dictionary")
         }
         XCTAssertEqual((element.properties["columns"] as? [String])?.count, 2, "Columns should have 2 elements")
-        XCTAssertEqual((element.properties["rows"] as? [[String]])?.count, 2, "Rows should have 2 elements")
         XCTAssertEqual((element.properties["widths"] as? [Int])?.count, 2, "Widths should have 2 elements")
         XCTAssertEqual(element.properties["actionID"] as? String, "table.action", "ActionID should be table.action")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
@@ -90,13 +86,12 @@ final class TableTests: XCTestCase {
         let properties: [String: Any] = [
             "itemType": ["viewType": "Invalid", "dataInterpretation": "invalid", "actionContext": "invalid"],
             "columns": 123,
-            "rows": 456,
             "widths": ["100"],
             "doubleClickActionID": 789
         ]
-        
+
         let validated = Table.validateProperties(properties, logger)
-        
+
         if let itemType = validated["itemType"] as? [String: Any] {
             XCTAssertEqual(itemType["viewType"] as? String, "Text", "Invalid viewType should default to Text")
             XCTAssertEqual(itemType["dataInterpretation"] as? String, "invalid", "Invalid dataInterpretation should be preserved")
@@ -105,24 +100,86 @@ final class TableTests: XCTestCase {
             XCTFail("itemType should be valid dictionary")
         }
         XCTAssertEqual(validated["columns"] as? [String], [], "Invalid columns should default to []")
-        XCTAssertEqual(validated["rows"] as? [[String]], [], "Invalid rows should default to []")
         XCTAssertNil(validated["widths"], "Invalid widths should be nil")
         XCTAssertNil(validated["doubleClickActionID"], "Invalid doubleClickActionID should be nil")
     }
-    
+
     func testTableValidatePropertiesMissing() {
         let properties: [String: Any] = [:]
-        
+
         let validated = Table.validateProperties(properties, logger)
-        
+
         if let itemType = validated["itemType"] as? [String: Any] {
             XCTAssertEqual(itemType["viewType"] as? String, "Text", "Missing itemType should default to Text")
         } else {
             XCTFail("itemType should be valid dictionary")
         }
         XCTAssertEqual(validated["columns"] as? [String], [], "Missing columns should default to []")
-        XCTAssertEqual(validated["rows"] as? [[String]], [], "Missing rows should default to []")
         XCTAssertNil(validated["widths"], "Missing widths should be nil")
         XCTAssertNil(validated["doubleClickActionID"], "Missing doubleClickActionID should be nil")
     }
+
+    // MARK: - Row management tests (macOS only, Table is macOS-only)
+
+    #if os(macOS)
+    private func loadTableElement(columns: [String] = ["Name", "Age"]) throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Table",
+            "properties": [
+                "itemType": ["viewType": "Text"],
+                "columns": columns,
+                "actionID": "table.action"
+            ]
+        ]
+        _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
+    }
+
+    func testTableGetRowsEmptyOnLoad() throws {
+        try loadTableElement()
+        let rows = ActionUIModel.shared.getElementRows(windowUUID: windowUUID, viewID: 1)
+        XCTAssertEqual(rows, [], "Freshly loaded Table should have empty rows")
+    }
+
+    func testTableSetAndGetRows() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        let newRows = [["Alice", "30"], ["Bob", "25"]]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: newRows)
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), newRows)
+    }
+
+    func testTableClearRows() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"]])
+        model.clearElementRows(windowUUID: windowUUID, viewID: 1)
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [])
+    }
+
+    func testTableAppendRows() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"]])
+        model.appendElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob", "25"], ["Charlie", "22"]])
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [
+            ["Alice", "30"], ["Bob", "25"], ["Charlie", "22"]
+        ])
+    }
+
+    func testTableGetColumnCountFromContent() throws {
+        try loadTableElement(columns: ["Name", "Age"])
+        let model = ActionUIModel.shared
+        // Load a row with a hidden 3rd column (e.g. a row ID not shown in the UI)
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30", "hidden-id"]])
+        XCTAssertEqual(model.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 3,
+                       "Column count from content should include hidden columns beyond visible ones")
+    }
+
+    func testTableGetColumnCountFromPropertiesBeforeContentLoaded() throws {
+        try loadTableElement(columns: ["Name", "Age"])
+        XCTAssertEqual(ActionUIModel.shared.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 2,
+                       "Column count should reflect the 'columns' property when no content is loaded")
+    }
+    #endif
 }

@@ -250,4 +250,225 @@ final class ActionUIModelTests: XCTestCase {
         let info = actionUIModel.getElementInfo(windowUUID: windowUUID)
         XCTAssertTrue(info.isEmpty, "Should return empty dict after test reset")
     }
+
+    // MARK: - getElementRows / setElementRows / clearElementRows / appendElementRows tests
+
+    private func loadListElement(viewID: Int = 1) throws {
+        let elementDict: [String: Any] = [
+            "id": viewID,
+            "type": "List",
+            "properties": [
+                "itemType": ["viewType": "Text"],
+                "actionID": "list.action"
+            ]
+        ]
+        _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
+    }
+
+    func testGetElementRowsEmptyOnLoad() throws {
+        try loadListElement()
+        let rows = ActionUIModel.shared.getElementRows(windowUUID: windowUUID, viewID: 1)
+        XCTAssertEqual(rows, [], "Freshly loaded List should have empty rows")
+    }
+
+    func testGetElementRowsNilForUnknownView() throws {
+        try loadListElement()
+        let rows = ActionUIModel.shared.getElementRows(windowUUID: windowUUID, viewID: 999)
+        XCTAssertNil(rows, "Should return nil for an unknown viewID")
+    }
+
+    func testGetElementRowsNilForUnknownWindow() {
+        let rows = ActionUIModel.shared.getElementRows(windowUUID: "nonexistent", viewID: 1)
+        XCTAssertNil(rows, "Should return nil for an unknown windowUUID")
+    }
+
+    func testSetElementRowsAndGet() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        let newRows = [["Alice", "30"], ["Bob", "25"]]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: newRows)
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), newRows)
+    }
+
+    func testSetElementRowsReplacesExisting() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice"], ["Bob"]])
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Charlie"]])
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [["Charlie"]])
+    }
+
+    func testSetElementRowsClearsSelectionWhenRowRemoved() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        let rows = [["Alice", "30"], ["Bob", "25"]]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: rows)
+        // Simulate selection of "Alice" row
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Alice", "30"]
+        // Replace rows without "Alice"
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob", "25"]])
+        let selectedValue = model.windowModels[windowUUID]?.viewModels[1]?.value as? [String]
+        XCTAssertEqual(selectedValue, [], "Selection should be cleared when selected row is removed")
+    }
+
+    func testSetElementRowsPreservesSelectionWhenRowRetained() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        let rows = [["Alice", "30"], ["Bob", "25"]]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: rows)
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Alice", "30"]
+        // Replace rows keeping "Alice"
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Charlie", "22"]])
+        let selectedValue = model.windowModels[windowUUID]?.viewModels[1]?.value as? [String]
+        XCTAssertEqual(selectedValue, ["Alice", "30"], "Selection should be preserved when selected row is still present")
+    }
+
+    func testSetElementRowsNoOpForUnknownView() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 999, rows: [["Alice"]])
+        // No crash; the known element is unaffected
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [])
+    }
+
+    func testClearElementRows() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice"], ["Bob"]])
+        model.clearElementRows(windowUUID: windowUUID, viewID: 1)
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [], "Rows should be empty after clear")
+    }
+
+    func testClearElementRowsClearsSelection() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice"]])
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Alice"]
+        model.clearElementRows(windowUUID: windowUUID, viewID: 1)
+        let selectedValue = model.windowModels[windowUUID]?.viewModels[1]?.value as? [String]
+        XCTAssertEqual(selectedValue, [], "Selection should be cleared after clearElementRows")
+    }
+
+    func testClearElementRowsNoOpForUnknownView() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice"]])
+        model.clearElementRows(windowUUID: windowUUID, viewID: 999) // no-op
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [["Alice"]])
+    }
+
+    func testAppendElementRows() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice"]])
+        model.appendElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob"], ["Charlie"]])
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [["Alice"], ["Bob"], ["Charlie"]])
+    }
+
+    func testAppendElementRowsToEmpty() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.appendElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice"]])
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [["Alice"]])
+    }
+
+    func testAppendElementRowsNoOpForUnknownView() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.appendElementRows(windowUUID: windowUUID, viewID: 999, rows: [["Alice"]])
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1), [])
+    }
+
+    // MARK: - getElementColumnCount tests
+
+    func testGetElementColumnCountFromContent() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["A", "B", "C"], ["D", "E", "F"]])
+        XCTAssertEqual(model.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 3)
+    }
+
+    func testGetElementColumnCountMaxAcrossRows() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        // Rows with varying column counts; max should be reported
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["A", "B"], ["C", "D", "E"]])
+        XCTAssertEqual(model.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 3)
+    }
+
+    func testGetElementColumnCountFromPropertiesWhenNoContent() throws {
+        #if os(macOS)
+        // columns is a Table-only property; List does not validate or expose it
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Table",
+            "properties": [
+                "itemType": ["viewType": "Text"],
+                "columns": ["Name", "Age", "Score"]
+            ]
+        ]
+        _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
+        XCTAssertEqual(ActionUIModel.shared.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 3,
+                       "Should fall back to column count from validated 'columns' property when no content is loaded")
+        #endif
+    }
+
+    func testGetElementColumnCountZeroForNonTableElement() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "TextField",
+            "properties": ["placeholder": "Enter text"]
+        ]
+        _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
+        XCTAssertEqual(ActionUIModel.shared.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 0,
+                       "Should return 0 for non-table elements")
+    }
+
+    func testGetElementColumnCountZeroForUnknownView() {
+        XCTAssertEqual(ActionUIModel.shared.getElementColumnCount(windowUUID: windowUUID, viewID: 999), 0)
+    }
+
+    // MARK: - getElementProperty tests
+
+    func testGetElementPropertyReturnsValue() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Gauge",
+            "properties": ["value": 0.5]
+        ]
+        let model = ActionUIModel.shared
+        _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
+        let value = model.getElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "value")
+        XCTAssertEqual(value as? Double, 0.5, "Should return validated property value")
+    }
+
+    func testGetElementPropertyNilForMissingProperty() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Gauge",
+            "properties": ["value": 0.5]
+        ]
+        let model = ActionUIModel.shared
+        _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
+        let value = model.getElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "nonexistent")
+        XCTAssertNil(value, "Should return nil for a property that does not exist")
+    }
+
+    func testGetElementPropertyNilForUnknownView() {
+        let value = ActionUIModel.shared.getElementProperty(windowUUID: windowUUID, viewID: 999, propertyName: "value")
+        XCTAssertNil(value, "Should return nil for an unknown viewID")
+    }
+
+    func testGetElementPropertyReflectsSetElementProperty() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Gauge",
+            "properties": ["value": 0.5]
+        ]
+        let model = ActionUIModel.shared
+        _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
+        model.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "value", value: 0.9)
+        let retrieved = model.getElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "value")
+        XCTAssertEqual(retrieved as? Double, 0.9, "getElementProperty should reflect value set by setElementProperty")
+    }
 }

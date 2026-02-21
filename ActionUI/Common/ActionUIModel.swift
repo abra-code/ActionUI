@@ -126,7 +126,7 @@ public class ActionUIModel: ObservableObject {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
             } else if viewPartID > 0 {
-                return selectedRow.count > viewPartID - 1 ? selectedRow[viewPartID - 1] : ""
+                return (selectedRow.count > (viewPartID - 1)) ? selectedRow[viewPartID - 1] : ""
             }
             logger.log("Invalid viewPartID \(viewPartID) for multi-column content", .warning)
             return nil
@@ -149,15 +149,11 @@ public class ActionUIModel: ObservableObject {
             return
         }
         let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
-        if let newRows = value as? [[String]], let columns = viewModel.validatedProperties["columns"] as? [String] {
-            let validatedRows = newRows.map { row in
-                (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
-            }
+        if let newRows = value as? [[String]] {
             viewModel.states["content"] = newRows
             if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
                 viewModel.value = [] as [String]
             }
-            viewModel.validatedProperties["rows"] = validatedRows
             logger.log("Updated Table content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else if let newItems = value as? [String] {
             // List: Convert [String] to [[String]] for consistency
@@ -168,7 +164,6 @@ public class ActionUIModel: ObservableObject {
             } else if let selectedItem = viewModel.value as? String, !newItems.contains(selectedItem) {
                 viewModel.value = []
             }
-            viewModel.validatedProperties["items"] = newContent
             logger.log("Updated List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else {
             // Other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker)
@@ -193,7 +188,7 @@ public class ActionUIModel: ObservableObject {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
             } else if viewPartID > 0 {
-                return selectedRow.count > viewPartID - 1 ? selectedRow[viewPartID - 1] : ""
+                return (selectedRow.count > (viewPartID - 1)) ? selectedRow[viewPartID - 1] : ""
             }
             logger.log("Invalid viewPartID \(viewPartID) for multi-column content", .warning)
             return nil
@@ -320,41 +315,10 @@ public class ActionUIModel: ObservableObject {
         }
     }
     
-    // Appends items to a view’s content, updating state and validatedProperties
-    // For Table: Appends [[String]], preserves all columns, pads rows for display
-    // For List: Appends [String] or [[String]], converts [String] to [[String]]
-    internal func appendElementItems(windowUUID: String, viewID: Int, items: Any) {
-        guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
-            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
-            return
-        }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
-        if let newRows = items as? [[String]], let columns = viewModel.validatedProperties["columns"] as? [String],
-           var currentContent = viewModel.states["content"] as? [[String]] {
-            currentContent.append(contentsOf: newRows)
-            viewModel.states["content"] = currentContent
-            viewModel.validatedProperties["rows"] = currentContent.map { row in
-                (row.count < columns.count) ? row + Array(repeating: "", count: columns.count - row.count) : row
-            }
-            logger.log("Appended rows to Table content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
-            // List: Convert [String] to [[String]] and append
-        } else if let newItems = items as? [String], var currentContent = viewModel.states["content"] as? [[String]] {
-            let newContent = newItems.map { [$0] }
-            currentContent.append(contentsOf: newContent)
-            viewModel.states["content"] = currentContent
-            viewModel.validatedProperties["items"] = currentContent
-            logger.log("Appended items to List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
-        } else {
-            logger.log("Invalid items type for appendElementItems, viewID: \(viewID)", .warning)
-        }
-        windowModel.viewModels[viewID] = viewModel
-    }
-    
     // Retrieves a property value for a view by its name
     // Design decision: Accesses validatedProperties to ensure consistency with rendered views, as these are validated by ActionUIRegistry
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging
-    internal func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
+    public func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
@@ -366,6 +330,85 @@ public class ActionUIModel: ObservableObject {
         return nil
     }
     
+    // Returns the number of data columns for a table/list view.
+    // Uses the actual content rows to determine column count, which may exceed the number
+    // of visible columns defined in the JSON — this supports hidden columns beyond the
+    // displayed ones (e.g., a hidden ID column needed at runtime but not shown to the user).
+    // Falls back to validatedProperties["columns"].count if content is not yet loaded.
+    // Returns 0 for non-table elements, or if the view is not found.
+    public func getElementColumnCount(windowUUID: String, viewID: Int) -> Int {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return 0
+        }
+        // Use actual content data: supports hidden columns beyond visible columns
+        if let content = viewModel.states["content"] as? [[String]], !content.isEmpty {
+            return content.map { $0.count }.max() ?? 0
+        }
+        // Fall back to visible column count before any content is loaded
+        if let columns = viewModel.validatedProperties["columns"] as? [String] {
+            return columns.count
+        }
+        return 0
+    }
+
+    // Returns all content rows for a table view element.
+    // Returns nil if the view is not found or is not a table.
+    public func getElementRows(windowUUID: String, viewID: Int) -> [[String]]? {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
+        }
+        return viewModel.states["content"] as? [[String]]
+    }
+
+    // Sets all content rows for a table/list view element, replacing any existing rows.
+    // Clears the current selection if the selected row is no longer present.
+    public func setElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
+        guard let windowModel = windowModels[windowUUID],
+              let _ = windowModel.element?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        viewModel.states["content"] = rows
+        if let selectedRow = viewModel.value as? [String], !rows.contains(where: { $0.first == selectedRow.first }) {
+            viewModel.value = [] as [String]
+        }
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Set \(rows.count) rows for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+    }
+
+    // Clears all content rows from a table/list view element, preserving column definitions.
+    public func clearElementRows(windowUUID: String, viewID: Int) {
+        guard let windowModel = windowModels[windowUUID],
+              let _ = windowModel.element?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        viewModel.states["content"] = [] as [[String]]
+        if viewModel.value is [String] {
+            viewModel.value = [] as [String]
+        }
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Cleared table rows for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+    }
+
+    // Appends rows to a table/list view element's existing content.
+    public func appendElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
+        guard let windowModel = windowModels[windowUUID],
+              let _ = windowModel.element?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        let existingContent = viewModel.states["content"] as? [[String]] ?? []
+        viewModel.states["content"] = existingContent + rows
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Appended \(rows.count) rows to table viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+    }
+
     // Returns a dictionary mapping positive (user-assigned) view IDs to their view type strings for a given window.
     // Negative IDs are auto-assigned and excluded; 0 is not a valid ID.
     // Design decision: Traverses the element tree rather than viewModels to avoid exposing auto-assigned negative IDs
@@ -413,7 +456,7 @@ public class ActionUIModel: ObservableObject {
     // Sets a property value for a view and re-validates it
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
     // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
-    internal func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
+    public func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
         guard let windowModel = windowModels[windowUUID],
               let element = windowModel.element?.findElement(by: viewID) else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)

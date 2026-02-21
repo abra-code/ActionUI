@@ -7,7 +7,6 @@
    "properties": {
      "itemType": { "viewType": "Button", "actionContext": "rowColumnIndex" }, // Required, rowColumnIndex returns Point(row: Int, column: Int)
      "columns": ["Name", "Action"], // Required: Array of strings for column headers
-     "rows": [["Alice", "Click"], ["Bob", "Edit"]], // Required: Array of string arrays
      "widths": [100, 80], // Optional: Array of integers for column widths
      "actionID": "table.action", // Optional: For Button viewType
      "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
@@ -64,22 +63,6 @@ struct Table: ActionUIViewConstruction {
             logger.log("Table columns must be an array of strings; defaulting to []", .warning)
             validatedProperties["columns"] = []
         }
-        if validatedProperties["rows"] == nil {
-            validatedProperties["rows"] = []
-        } else if !(validatedProperties["rows"] is [[String]]) {
-            logger.log("Table rows must be an array of string arrays; defaulting to []", .warning)
-            validatedProperties["rows"] = []
-        }
-        if let rows = validatedProperties["rows"] as? [[String]],
-           let columns = validatedProperties["columns"] as? [String] {
-            validatedProperties["rows"] = rows.map { row in
-                if row.count < columns.count {
-                    logger.log("Table row has \(row.count) values, expected at least \(columns.count); padding with empty strings", .warning)
-                    return row + Array(repeating: "", count: columns.count - row.count)
-                }
-                return row
-            }
-        }
         if let widths = properties["widths"] as? [Int] {
             validatedProperties["widths"] = widths
         } else if properties["widths"] != nil {
@@ -99,13 +82,10 @@ struct Table: ActionUIViewConstruction {
     
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states: [String: Any] = model.states
-        
         if states.isEmpty {
-            let rows = model.validatedProperties["rows"] as? [[String]] ?? []
-            states["content"] = rows
+            states["content"] = [] as [[String]]
             states["selectedRowID"] = nil
         }
-        
         return states
     }
     
@@ -188,16 +168,6 @@ struct Table: ActionUIViewConstruction {
                 }
                 .width(column.width)
             }
-        }
-        .onChange(of: properties["rows"] as? [[String]], initial: false) { _, newRows in
-            let newContent = newRows ?? []
-            model.states["content"] = newContent
-            if let selectedRowID = model.states["selectedRowID"] as? String,
-               !rowData.contains(where: { $0.id == selectedRowID }) {
-                model.states["selectedRowID"] = nil
-                model.value = [] as [String]
-            }
-            model.validatedProperties["rows"] = newContent
         }
         .onTapGesture(count: 2) {
             if let doubleClickActionID = properties["doubleClickActionID"] as? String,

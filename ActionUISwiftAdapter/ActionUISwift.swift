@@ -73,6 +73,75 @@ public struct ActionUISwift {
         return model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
     }
     
+    /// Returns the number of data columns for a table/list view element.
+    /// Reports the maximum column count across all content rows, so hidden columns beyond
+    /// the visible ones defined in the JSON layout are included.
+    /// Returns 0 for non-table elements or if the view is not found.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    /// - Returns: Number of data columns, or 0 if the view is not a table or not found.
+    public static func getElementColumnCount(windowUUID: String, viewID: Int) -> Int {
+        return model.getElementColumnCount(windowUUID: windowUUID, viewID: viewID)
+    }
+
+    /// Returns all content rows for a table/list view element.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    /// - Returns: Array of string arrays representing rows, or nil if the view is not a table or not found.
+    public static func getElementRows(windowUUID: String, viewID: Int) -> [[String]]? {
+        return model.getElementRows(windowUUID: windowUUID, viewID: viewID)
+    }
+
+    /// Clears all content rows from a table/list view element, preserving column definitions.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    public static func clearElementRows(windowUUID: String, viewID: Int) {
+        model.clearElementRows(windowUUID: windowUUID, viewID: viewID)
+    }
+
+    /// Replaces all content rows for a table/list view element.
+    /// Clears the current selection if the selected row is no longer present.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - rows: Array of string arrays to set as the new content.
+    public static func setElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
+        model.setElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
+    }
+
+    /// Appends rows to a table/list view element's existing content.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - rows: Array of string arrays to append.
+    public static func appendElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
+        model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
+    }
+
+    /// Gets a structural property value for a view element by property name.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - propertyName: The property key (e.g., "columns", "widths", "disabled").
+    /// - Returns: The property value, or nil if not found.
+    public static func getElementProperty(windowUUID: String, viewID: Int, propertyName: String) -> Any? {
+        return model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName)
+    }
+
+    /// Sets a structural property value for a view element by property name.
+    /// The value is re-validated through the element's validateProperties function.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - propertyName: The property key (e.g., "columns", "widths", "disabled").
+    ///   - value: The new property value.
+    public static func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
+        model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
+    }
+
     /// Returns a dictionary mapping user-assigned (positive) view IDs to their view type strings for a given window.
     /// Auto-assigned negative IDs and ID 0 are excluded.
     /// - Parameter windowUUID: Unique identifier for the window.

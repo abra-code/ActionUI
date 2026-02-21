@@ -6,7 +6,6 @@
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
      "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image/AsyncImage), "actionContext": "title"|"rowIndex" (for Button) }
-     "items": ["Item1", "Item2"], // Required: Array of strings or string arrays
      "actionID": "list.action", // Optional: For Button viewType
      "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
    }
@@ -45,15 +44,6 @@ struct List: ActionUIViewConstruction {
         }
         validatedProperties["itemType"] = itemType
         
-        if validatedProperties["items"] == nil {
-            validatedProperties["items"] = []
-        } else if let items = validatedProperties["items"] as? [String] {
-            validatedProperties["items"] = items.map { [$0] }
-        } else if !(validatedProperties["items"] is [[String]]) {
-            logger.log("List items must be an array of strings or string arrays; defaulting to []", .warning)
-            validatedProperties["items"] = []
-        }
-
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if properties["doubleClickActionID"] != nil {
@@ -66,12 +56,9 @@ struct List: ActionUIViewConstruction {
     
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states: [String: Any] = model.states
-        
         if states.isEmpty {
-            let items = model.validatedProperties["items"] as? [[String]] ?? []
-            states["content"] = items
+            states["content"] = [] as [[String]]
         }
-        
         return states
     }
     
@@ -139,15 +126,6 @@ struct List: ActionUIViewConstruction {
                     }
                 }
             }
-        }
-        .onChange(of: properties["items"] as? [[String]], initial: false) { _, newItems in
-            let newContent: [[String]] = newItems ?? []
-            model.states["content"] = newContent
-            if let selectedRow = model.value as? [String],
-               !newContent.contains(where: { $0.first == selectedRow.first }) {
-                model.value = [] as [String]
-            }
-            model.validatedProperties["items"] = newContent
         }
         #if canImport(AppKit)
         .onTapGesture(count: 2) {

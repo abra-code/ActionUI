@@ -384,6 +384,179 @@ public func actionUIGetElementValueString(
     return strdup(value)
 }
 
+// MARK: - Element Column Count
+
+/// Returns the number of data columns for a table/list view element.
+/// Reports the maximum column count across all content rows, including hidden columns
+/// beyond the visible ones defined in the JSON layout.
+/// Returns 0 for non-table elements or if the view is not found.
+@_cdecl("actionUIGetElementColumnCount")
+public func actionUIGetElementColumnCount(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64
+) -> Int64 {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    let count = runOnMainActorSync {
+        ActionUIModel.shared.getElementColumnCount(windowUUID: swiftWindowUUID, viewID: Int(viewID))
+    }
+
+    return Int64(count)
+}
+
+// MARK: - Element Rows
+
+/// Returns a JSON string representing all content rows for a table/list view element.
+/// Caller must free the returned string with actionUIFreeString.
+/// Returns NULL if the view is not a table, not found, or has no rows.
+/// JSON format: [["cell1","cell2"],["cell3","cell4"],...]
+@_cdecl("actionUIGetElementRowsJSON")
+public func actionUIGetElementRowsJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    let rows = runOnMainActorSync {
+        ActionUIModel.shared.getElementRows(windowUUID: swiftWindowUUID, viewID: Int(viewID))
+    }
+
+    guard let rows = rows else {
+        return nil
+    }
+
+    guard let json = valueToJSON(rows) else {
+        return nil
+    }
+
+    return strdup(json)
+}
+
+/// Clears all content rows from a table/list view element, preserving column definitions.
+@_cdecl("actionUIClearElementRows")
+public func actionUIClearElementRows(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64
+) {
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.clearElementRows(windowUUID: swiftWindowUUID, viewID: Int(viewID))
+    }
+}
+
+/// Replaces all content rows for a table/list view element from a JSON string.
+/// Clears the current selection if the selected row is no longer present.
+/// JSON format: [["cell1","cell2"],["cell3","cell4"],...]
+@_cdecl("actionUISetElementRowsJSON")
+public func actionUISetElementRowsJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ rowsJSON: UnsafePointer<CChar>
+) -> Bool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftRowsJSON = String(cString: rowsJSON)
+
+    guard let value = jsonToValue(swiftRowsJSON), let rows = value as? [[String]] else {
+        setError("Invalid rows JSON: expected array of string arrays")
+        return false
+    }
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.setElementRows(windowUUID: swiftWindowUUID, viewID: Int(viewID), rows: rows)
+    }
+
+    return true
+}
+
+/// Appends rows to a table/list view element's existing content from a JSON string.
+/// JSON format: [["cell1","cell2"],["cell3","cell4"],...]
+@_cdecl("actionUIAppendElementRowsJSON")
+public func actionUIAppendElementRowsJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ rowsJSON: UnsafePointer<CChar>
+) -> Bool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftRowsJSON = String(cString: rowsJSON)
+
+    guard let value = jsonToValue(swiftRowsJSON), let rows = value as? [[String]] else {
+        setError("Invalid rows JSON: expected array of string arrays")
+        return false
+    }
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.appendElementRows(windowUUID: swiftWindowUUID, viewID: Int(viewID), rows: rows)
+    }
+
+    return true
+}
+
+// MARK: - Element Properties
+
+/// Gets a structural property value for a view element, returned as a JSON string.
+/// Caller must free the returned string with actionUIFreeString.
+/// Returns NULL if not found.
+@_cdecl("actionUIGetElementPropertyJSON")
+public func actionUIGetElementPropertyJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ propertyName: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftPropertyName = String(cString: propertyName)
+
+    let value = runOnMainActorSync {
+        ActionUIModel.shared.getElementProperty(windowUUID: swiftWindowUUID, viewID: Int(viewID), propertyName: swiftPropertyName)
+    }
+
+    guard let value = value else {
+        return nil
+    }
+
+    guard let json = valueToJSON(value) else {
+        return nil
+    }
+
+    return strdup(json)
+}
+
+/// Sets a structural property value for a view element from a JSON string.
+/// The value is re-validated through the element's validateProperties function.
+@_cdecl("actionUISetElementPropertyJSON")
+public func actionUISetElementPropertyJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ propertyName: UnsafePointer<CChar>,
+    _ valueJSON: UnsafePointer<CChar>
+) -> Bool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftPropertyName = String(cString: propertyName)
+    let swiftValueJSON = String(cString: valueJSON)
+
+    guard let value = jsonToValue(swiftValueJSON) else {
+        return false
+    }
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.setElementProperty(windowUUID: swiftWindowUUID, viewID: Int(viewID), propertyName: swiftPropertyName, value: value)
+    }
+
+    return true
+}
+
 // MARK: - Element Info
 
 /// Returns a JSON string mapping positive view IDs to their view type strings.

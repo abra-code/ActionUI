@@ -90,6 +90,63 @@ import AppKit
 ///   - Description: Removes the default action handler.
 ///   - Example: `ActionUI.removeDefaultActionHandler();`
 ///
+/// - `getElementColumnCount(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Returns: Number - The number of data columns, or 0 if the view is not a table or not found.
+///   - Description: Returns the number of data columns for a table/list view, including hidden columns beyond the visible ones.
+///   - Example: `let count = ActionUI.getElementColumnCount("window-12345", 1);`
+///
+/// - `getElementRows(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Returns: Array<Array<String>> - Array of string arrays representing rows, or undefined if not a table or not found.
+///   - Description: Returns all content rows for a table/list view element.
+///   - Example: `let rows = ActionUI.getElementRows("window-12345", 1);`
+///
+/// - `clearElementRows(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Description: Clears all content rows from a table/list view element, preserving column definitions.
+///   - Example: `ActionUI.clearElementRows("window-12345", 1);`
+///
+/// - `setElementRows(windowUUID, viewID, rows)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `rows`: Array<Array<String>> - Rows to set as the new content.
+///   - Description: Replaces all content rows for a table/list view element.
+///   - Example: `ActionUI.setElementRows("window-12345", 1, [["Alice", "30"], ["Bob", "25"]]);`
+///
+/// - `appendElementRows(windowUUID, viewID, rows)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `rows`: Array<Array<String>> - Rows to append.
+///   - Description: Appends rows to a table/list view element's existing content.
+///   - Example: `ActionUI.appendElementRows("window-12345", 1, [["Charlie", "22"]]);`
+///
+/// - `getElementProperty(windowUUID, viewID, propertyName)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `propertyName`: String - The property key (e.g., "columns", "widths", "disabled").
+///   - Returns: Any - The property value, or undefined if not found.
+///   - Description: Gets a structural property value for a view element by property name.
+///   - Example: `let val = ActionUI.getElementProperty("window-12345", 1, "disabled");`
+///
+/// - `setElementProperty(windowUUID, viewID, propertyName, value)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `propertyName`: String - The property key (e.g., "columns", "widths", "disabled").
+///     - `value`: Any - The new property value.
+///   - Description: Sets a structural property value for a view element by property name.
+///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
+///
 /// Design decision: These APIs mirror the `ActionUISwift` and `ActionUIObjC` adapters, with JavaScript-compatible types (e.g., Number for viewID, Any for values). The adapter does not return native views/controllers to JavaScript or expose internal model operations like loadDescription. Instead, Swift host code uses `loadView` or `loadHostingController` to render the UI after JavaScript interactions, typically with a JSON or plist description provided via the host.
 /// App Store compliance: JavaScript is interpreted via JavaScriptCore (no JIT); scripts must be bundled or loaded as non-executable data.
 
@@ -187,6 +244,57 @@ public class ActionUIJavaScriptCore {
             return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
         }
         actionUIObject.setValue(getElementValueAsString, forProperty: "getElementValueAsString")
+
+        // getElementColumnCount(windowUUID, viewID) -> number
+        let getElementColumnCount: @convention(block) (String, Double) -> Int = { windowUUID, viewID in
+            return ActionUIJavaScriptCore.model.getElementColumnCount(windowUUID: windowUUID, viewID: Int(viewID))
+        }
+        actionUIObject.setValue(getElementColumnCount, forProperty: "getElementColumnCount")
+
+        // getElementRows(windowUUID, viewID) -> [[String]] or undefined
+        let getElementRows: @convention(block) (String, Double) -> JSValue = { windowUUID, viewID in
+            if let rows = ActionUIJavaScriptCore.model.getElementRows(windowUUID: windowUUID, viewID: Int(viewID)) {
+                return JSValue(object: rows, in: self.context)
+            }
+            return JSValue(undefinedIn: self.context)
+        }
+        actionUIObject.setValue(getElementRows, forProperty: "getElementRows")
+
+        // clearElementRows(windowUUID, viewID)
+        let clearElementRows: @convention(block) (String, Double) -> Void = { windowUUID, viewID in
+            ActionUIJavaScriptCore.model.clearElementRows(windowUUID: windowUUID, viewID: Int(viewID))
+        }
+        actionUIObject.setValue(clearElementRows, forProperty: "clearElementRows")
+
+        // setElementRows(windowUUID, viewID, rows)
+        let setElementRows: @convention(block) (String, Double, JSValue) -> Void = { windowUUID, viewID, jsRows in
+            if let rows = jsRows.toObject() as? [[String]] {
+                ActionUIJavaScriptCore.model.setElementRows(windowUUID: windowUUID, viewID: Int(viewID), rows: rows)
+            }
+        }
+        actionUIObject.setValue(setElementRows, forProperty: "setElementRows")
+
+        // appendElementRows(windowUUID, viewID, rows)
+        let appendElementRows: @convention(block) (String, Double, JSValue) -> Void = { windowUUID, viewID, jsRows in
+            if let rows = jsRows.toObject() as? [[String]] {
+                ActionUIJavaScriptCore.model.appendElementRows(windowUUID: windowUUID, viewID: Int(viewID), rows: rows)
+            }
+        }
+        actionUIObject.setValue(appendElementRows, forProperty: "appendElementRows")
+
+        // getElementProperty(windowUUID, viewID, propertyName) -> value
+        let getElementProperty: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, propertyName in
+            let value = ActionUIJavaScriptCore.model.getElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName)
+            return JSValue(object: value, in: self.context)
+        }
+        actionUIObject.setValue(getElementProperty, forProperty: "getElementProperty")
+
+        // setElementProperty(windowUUID, viewID, propertyName, value)
+        let setElementProperty: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, propertyName, jsValue in
+            let value = jsValue.toObject() ?? NSNull()
+            ActionUIJavaScriptCore.model.setElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName, value: value)
+        }
+        actionUIObject.setValue(setElementProperty, forProperty: "setElementProperty")
 
         // getElementInfo(windowUUID) -> {viewID: elementType, ...}
         let getElementInfo: @convention(block) (String) -> JSValue = { windowUUID in

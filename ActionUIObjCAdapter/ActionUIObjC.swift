@@ -96,6 +96,77 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         return model.getElementValueAsString(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID)) as NSString?
     }
     
+    /// Returns the number of columns defined for a table/list view element.
+    /// Returns 0 for non-table elements or if the view is not found.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    /// - Returns: Number of columns, or 0 if the view is not a table or not found.
+    @MainActor @objc public class func getElementColumnCountWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger) -> NSInteger {
+        return NSInteger(model.getElementColumnCount(windowUUID: windowUUID as String, viewID: Int(viewID)))
+    }
+
+    /// Returns all content rows for a table/list view element.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    /// - Returns: NSArray of NSArray<NSString*> rows, or nil if the view is not a table or not found.
+    @MainActor @objc public class func getElementRowsWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger) -> NSArray? {
+        return model.getElementRows(windowUUID: windowUUID as String, viewID: Int(viewID)) as NSArray?
+    }
+
+    /// Clears all content rows from a table/list view element, preserving column definitions.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    @MainActor @objc public class func clearElementRowsWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger) {
+        model.clearElementRows(windowUUID: windowUUID as String, viewID: Int(viewID))
+    }
+
+    /// Replaces all content rows for a table/list view element.
+    /// Clears the current selection if the selected row is no longer present.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - rows: NSArray of NSArray<NSString*> rows to set as the new content.
+    @MainActor @objc public class func setElementRowsWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, rows: NSArray) {
+        if let swiftRows = rows as? [[String]] {
+            model.setElementRows(windowUUID: windowUUID as String, viewID: Int(viewID), rows: swiftRows)
+        }
+    }
+
+    /// Appends rows to a table/list view element's existing content.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - rows: NSArray of NSArray<NSString*> rows to append.
+    @MainActor @objc public class func appendElementRowsWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, rows: NSArray) {
+        if let swiftRows = rows as? [[String]] {
+            model.appendElementRows(windowUUID: windowUUID as String, viewID: Int(viewID), rows: swiftRows)
+        }
+    }
+
+    /// Gets a structural property value for a view element by property name.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - propertyName: The property key (e.g., "columns", "widths", "disabled").
+    /// - Returns: The property value, or nil if not found.
+    @MainActor @objc public class func getElementPropertyWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, propertyName: NSString) -> Any? {
+        return model.getElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String)
+    }
+
+    /// Sets a structural property value for a view element by property name.
+    /// The value is re-validated through the element's validateProperties function.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - propertyName: The property key (e.g., "columns", "widths", "disabled").
+    ///   - value: The new property value.
+    @MainActor @objc public class func setElementPropertyWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, propertyName: NSString, value: Any) {
+        model.setElementProperty(windowUUID: windowUUID as String, viewID: Int(viewID), propertyName: propertyName as String, value: value)
+    }
+
     /// Returns a dictionary mapping user-assigned (positive) view IDs to their ActionUI view type strings for a given window.
     /// Auto-assigned negative IDs and ID 0 are excluded.
     /// - Parameter windowUUID: Unique identifier for the window.

@@ -90,6 +90,63 @@ import AppKit
 ///   - Description: Removes the default action handler.
 ///   - Example: `ActionUI.removeDefaultActionHandler();`
 ///
+/// - `getElementColumnCount(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Returns: Promise<Number> - The number of data columns, or 0 if the view is not a table or not found.
+///   - Description: Returns the number of data columns for a table/list view, including hidden columns beyond the visible ones.
+///   - Example: `ActionUI.getElementColumnCount("window-12345", 1).then(count => console.log(count));`
+///
+/// - `getElementRows(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Returns: Promise<Array<Array<String>>> - Array of string arrays representing rows, or undefined if the view is not a table or not found.
+///   - Description: Returns all content rows for a table/list view element.
+///   - Example: `ActionUI.getElementRows("window-12345", 1).then(rows => console.log(rows));`
+///
+/// - `clearElementRows(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Description: Clears all content rows from a table/list view element, preserving column definitions.
+///   - Example: `ActionUI.clearElementRows("window-12345", 1);`
+///
+/// - `setElementRows(windowUUID, viewID, rows)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `rows`: Array<Array<String>> - Rows to set as the new content, serialized to JSON.
+///   - Description: Replaces all content rows for a table/list view element. Clears the current selection if the selected row is no longer present.
+///   - Example: `ActionUI.setElementRows("window-12345", 1, [["Alice", "30"], ["Bob", "25"]]);`
+///
+/// - `appendElementRows(windowUUID, viewID, rows)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `rows`: Array<Array<String>> - Rows to append, serialized to JSON.
+///   - Description: Appends rows to a table/list view element's existing content.
+///   - Example: `ActionUI.appendElementRows("window-12345", 1, [["Charlie", "22"]]);`
+///
+/// - `getElementProperty(windowUUID, viewID, propertyName)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `propertyName`: String - The property key (e.g., "columns", "widths", "disabled").
+///   - Returns: Promise<Any> - The property value, or undefined if not found.
+///   - Description: Gets a structural property value for a view element by property name.
+///   - Example: `ActionUI.getElementProperty("window-12345", 1, "disabled").then(val => console.log(val));`
+///
+/// - `setElementProperty(windowUUID, viewID, propertyName, value)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `propertyName`: String - The property key (e.g., "columns", "widths", "disabled").
+///     - `value`: Any - The new property value, serialized to JSON.
+///   - Description: Sets a structural property value for a view element by property name.
+///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
+///
 /// Design decision: APIs are asynchronous where returns are involved (e.g., getElementValue) due to the WebKit bridge's nature. Complex types (e.g., value in setElementValue) are serialized to JSON. Action handlers and logger are stored as global JavaScript functions and called from native code via evaluateJavaScript. The adapter uses a hidden WKWebView (offscreen) to execute JavaScript, enabling remote script loading while maintaining a native ActionUI experience.
 /// App Store compliance: WKWebView allows loading remote JavaScript as web content, which is permitted under App Store guidelines (Guideline 4.7) as long as the app provides substantial native functionality. Scripts can be bundled or fetched non-executably; avoid arbitrary code execution (e.g., eval of user input).
 
@@ -363,6 +420,96 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 }
             } else {
                 print("Invalid arguments for getElementValue: \(args)")
+            }
+        case "getElementColumnCount":
+            if args.count == 2, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]) {
+                let columnCount = ActionUIWebKitJS.model.getElementColumnCount(windowUUID: windowUUID, viewID: viewID)
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(columnCount)})") { _, error in
+                    if let error = error {
+                        print("getElementColumnCount response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementColumnCount: \(args)")
+            }
+        case "getElementRows":
+            if args.count == 2, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]) {
+                let rows = ActionUIWebKitJS.model.getElementRows(windowUUID: windowUUID, viewID: viewID)
+                let id = body["id"] as? String ?? ""
+                let json: String
+                if let rows = rows, let data = try? JSONSerialization.data(withJSONObject: rows), let str = String(data: data, encoding: .utf8) {
+                    json = str
+                } else {
+                    json = "null"
+                }
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                    if let error = error {
+                        print("getElementRows response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementRows: \(args)")
+            }
+        case "clearElementRows":
+            if args.count == 2, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]) {
+                ActionUIWebKitJS.model.clearElementRows(windowUUID: windowUUID, viewID: viewID)
+            } else {
+                print("Invalid arguments for clearElementRows: \(args)")
+            }
+        case "setElementRows":
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let rows = args[2] as? [[String]] {
+                ActionUIWebKitJS.model.setElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
+            } else {
+                print("Invalid arguments for setElementRows: \(args)")
+            }
+        case "appendElementRows":
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let rows = args[2] as? [[String]] {
+                ActionUIWebKitJS.model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
+            } else {
+                print("Invalid arguments for appendElementRows: \(args)")
+            }
+        case "getElementProperty":
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let propertyName = args[2] as? String {
+                let value = ActionUIWebKitJS.model.getElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName)
+                let id = body["id"] as? String ?? ""
+                let json: String
+                if let value = value, JSONSerialization.isValidJSONObject(value) {
+                    json = (try? JSONSerialization.string(with: value)) ?? "null"
+                } else if let stringValue = value as? String {
+                    json = "\"\(stringValue.jsonEscaped)\""
+                } else if let numberValue = value as? NSNumber {
+                    json = numberValue.stringValue
+                } else if let boolValue = value as? Bool {
+                    json = boolValue ? "true" : "false"
+                } else {
+                    json = "null"
+                }
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                    if let error = error {
+                        print("getElementProperty response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementProperty: \(args)")
+            }
+        case "setElementProperty":
+            if args.count == 4, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let propertyName = args[2] as? String {
+                let value = args[3]
+                ActionUIWebKitJS.model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
+            } else {
+                print("Invalid arguments for setElementProperty: \(args)")
             }
         case "getElementInfo":
             if args.count == 1, let windowUUID = args[0] as? String {
