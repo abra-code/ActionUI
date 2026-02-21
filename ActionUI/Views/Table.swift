@@ -14,6 +14,15 @@
  }
    // Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+
+ Observable state:
+   value ([String])                    Selected row as an array of column strings (first column = display value).
+                                       Access via getElementValue / setElementValue.
+   states["content"]   [[String]]      All table rows; each inner array holds one row's column values.
+                                       Access via getElementRows / setElementRows / appendElementRows /
+                                       clearElementRows / getElementColumnCount.
+   states["selectedRowID"] String?     Stable row ID of the currently selected row; nil when nothing is
+                                       selected. No dedicated public API — use getElementState / setElementState.
  */
 
 import SwiftUI

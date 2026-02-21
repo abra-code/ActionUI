@@ -13,6 +13,10 @@
    ]
    // Note: These properties are specific to DisclosureGroup. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
+
+ Observable state (via getElementState / setElementState):
+   states["isExpanded"] Bool          true when the group is expanded, false when collapsed.
+                                      Reflects user interaction; write to expand/collapse programmatically.
 */
 
 import SwiftUI

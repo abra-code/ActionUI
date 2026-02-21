@@ -73,6 +73,48 @@ public struct ActionUISwift {
         return model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
     }
     
+    /// Returns the current value for a single state key of a view element.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key (e.g., "isLoading", "canGoBack").
+    /// - Returns: The state value, or nil if the view or key is not found.
+    public static func getElementState(windowUUID: String, viewID: Int, key: String) -> Any? {
+        return model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key)
+    }
+
+    /// Returns the string representation of a single state value.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key.
+    /// - Returns: String representation, or nil if the view or key is not found.
+    public static func getElementStateAsString(windowUUID: String, viewID: Int, key: String) -> String? {
+        return model.getElementStateAsString(windowUUID: windowUUID, viewID: viewID, key: key)
+    }
+
+    /// Sets a single state key to a new value.
+    /// Rejects the update (with an error log) if the new value's type differs from the existing value's type.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key.
+    ///   - value: The new value. Must match the type of the existing value if the key already exists.
+    public static func setElementState(windowUUID: String, viewID: Int, key: String, value: Any) {
+        model.setElementState(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
+    }
+
+    /// Sets a single state key by parsing a string into the type of the existing value.
+    /// If the key does not yet exist the string is stored as-is.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key.
+    ///   - value: String representation of the new value.
+    public static func setElementStateFromString(windowUUID: String, viewID: Int, key: String, value: String) {
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
+    }
+
     /// Returns the number of data columns for a table/list view element.
     /// Reports the maximum column count across all content rows, so hidden columns beyond
     /// the visible ones defined in the JSON layout are included.

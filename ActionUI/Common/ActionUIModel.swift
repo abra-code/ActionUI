@@ -314,7 +314,130 @@ public class ActionUIModel: ObservableObject {
             setElementValue(windowUUID: windowUUID, viewID: viewID, value: convertedValue, viewPartID: viewPartID)
         }
     }
-    
+
+    // MARK: - Element State API
+
+    // Returns the current value for a single state key, or nil if the view or key is not found.
+    public func getElementState(windowUUID: String, viewID: Int, key: String) -> Any? {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
+        }
+        if let value = viewModel.states[key] {
+            return value
+        }
+        logger.log("State key '\(key)' not found for viewID: \(viewID)", .warning)
+        return nil
+    }
+
+    // Returns the string representation of a single state value.
+    // Design decision: Uses pattern matching on the concrete type rather than a fixed registry,
+    // because state types are set by view implementations and are not declared statically.
+    public func getElementStateAsString(windowUUID: String, viewID: Int, key: String) -> String? {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
+        }
+        guard let value = viewModel.states[key] else {
+            logger.log("State key '\(key)' not found for viewID: \(viewID)", .warning)
+            return nil
+        }
+        switch value {
+        case let b as Bool:   return b.description
+        case let d as Double: return String(d)
+        case let f as Float:  return String(f)
+        case let i as Int:    return String(i)
+        case let s as String: return s
+        default:              return String(describing: value)
+        }
+    }
+
+    // Sets a single state key to a new value.
+    // Design decision: Rejects updates that would change the type of an existing key to prevent
+    // type corruption that would break setElementStateFromString's type-guided parsing.
+    public func setElementState(windowUUID: String, viewID: Int, key: String, value: Any) {
+        guard let windowModel = windowModels[windowUUID],
+              let _ = windowModel.element?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        if let existing = viewModel.states[key] {
+            guard type(of: existing) == type(of: value) else {
+                logger.log("Type mismatch for state key '\(key)' on viewID: \(viewID); expected \(type(of: existing)), got \(type(of: value))", .error)
+                return
+            }
+        }
+        viewModel.states[key] = value
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Set state '\(key)' for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+    }
+
+    // Parses a string into the type of the existing state value and stores it.
+    // Uses type(of: existing) for O(1) type detection without trying every possible cast.
+    // If the key does not yet exist, stores the string as-is.
+    public func setElementStateFromString(windowUUID: String, viewID: Int, key: String, value: String) {
+        guard let windowModel = windowModels[windowUUID],
+              let _ = windowModel.element?.findElement(by: viewID) else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        let converted: Any
+        if let existing = viewModel.states[key] {
+            let t = type(of: existing)
+            if t == Bool.self {
+                if value.lowercased() == "true" {
+                    converted = true
+                } else if value.lowercased() == "false" {
+                    converted = false
+                } else {
+                    logger.log("Invalid string for Bool state key '\(key)': \(value)", .warning)
+                    return
+                }
+            } else if t == Double.self {
+                guard let d = Double(value) else {
+                    logger.log("Invalid string for Double state key '\(key)': \(value)", .warning)
+                    return
+                }
+                converted = d
+            } else if t == Float.self {
+                guard let f = Float(value) else {
+                    logger.log("Invalid string for Float state key '\(key)': \(value)", .warning)
+                    return
+                }
+                converted = f
+            } else if t == Int.self {
+                guard let i = Int(value) else {
+                    logger.log("Invalid string for Int state key '\(key)': \(value)", .warning)
+                    return
+                }
+                converted = i
+            } else if t == String.self {
+                converted = value
+            } else {
+                logger.log("Unsupported state type \(t) for key '\(key)' on viewID: \(viewID)", .warning)
+                return
+            }
+        } else {
+            // Key does not exist yet — attempt JSON type inference so callers can establish
+            // Bool/Int/Double/Array/Object state in one call without a prior typed setter.
+            // Pre-scan avoids the NSError allocation cost of a failed parse for plain strings,
+            // which are the most common expected type.
+            if JSONHelper.looksLikeJSONFragment(value),
+               let data = value.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) {
+                converted = JSONHelper.normalizedJSONValue(parsed)
+            } else {
+                converted = value   // plain string
+            }
+        }
+        viewModel.states[key] = converted
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Set state '\(key)' from string for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+    }
+
+
     // Retrieves a property value for a view by its name
     // Design decision: Accesses validatedProperties to ensure consistency with rendered views, as these are validated by ActionUIRegistry
     // Returns nil with a warning if the view or property is missing to prevent crashes and provide clear feedback for debugging

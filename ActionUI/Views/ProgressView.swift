@@ -11,6 +11,10 @@
    }
    // Note: The ProgressView shows an indeterminate spinner if "value" or "total" is missing/invalid, or a determinate bar if both are valid. Platform-specific styling (e.g., .progressViewStyle(.circular) on iOS for indeterminate) is applied in applyModifiers. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
+
+ Observable state (via getElementState / setElementState):
+   states["progress"] Double?         Current progress (0.0 – total). Overrides the initial JSON "value"
+                                      property at runtime. Set to nil to revert to indeterminate.
 */
 
 import SwiftUI
@@ -53,7 +57,7 @@ struct ProgressView: ActionUIViewConstruction {
         let title: String? = properties["title"] as? String
         let actionID: String? = properties["actionID"] as? String
         
-        let currentValue: Double? = model.states.double(forKey: "value") ?? initialValue
+        let currentValue: Double? = model.states.double(forKey: "progress") ?? initialValue
         
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {

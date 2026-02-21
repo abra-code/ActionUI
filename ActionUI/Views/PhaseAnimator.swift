@@ -23,6 +23,11 @@
      }
    }
  }
+
+ Observable state (via getElementState / setElementState):
+   states[stateKey]              Int  When trigger is "onStateChange", the animator watches the state key
+                                      named by the "stateKey" property. Increment its Int value via
+                                      setElementState to fire the next animation cycle.
 */
 
 import SwiftUI

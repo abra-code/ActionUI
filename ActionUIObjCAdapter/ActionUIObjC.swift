@@ -96,6 +96,48 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         return model.getElementValueAsString(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID)) as NSString?
     }
     
+    /// Returns the current value for a single state key of a view element.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key (e.g., "isLoading", "canGoBack").
+    /// - Returns: The state value, or nil if the view or key is not found.
+    @MainActor @objc public class func getElementStateWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, key: NSString) -> Any? {
+        return model.getElementState(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String)
+    }
+
+    /// Returns the string representation of a single state value.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key.
+    /// - Returns: String representation, or nil if the view or key is not found.
+    @MainActor @objc public class func getElementStateAsStringWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, key: NSString) -> NSString? {
+        return model.getElementStateAsString(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String) as NSString?
+    }
+
+    /// Sets a single state key to a new value.
+    /// Rejects the update (with an error log) if the new value's type differs from the existing value's type.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key.
+    ///   - value: The new value. Must match the type of the existing value if the key already exists.
+    @MainActor @objc public class func setElementStateWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, key: NSString, value: Any) {
+        model.setElementState(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String, value: value)
+    }
+
+    /// Sets a single state key by parsing a string into the type of the existing value.
+    /// If the key does not yet exist the string is stored as-is.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The state key.
+    ///   - value: String representation of the new value.
+    @MainActor @objc public class func setElementStateFromStringWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, key: NSString, value: NSString) {
+        model.setElementStateFromString(windowUUID: windowUUID as String, viewID: Int(viewID), key: key as String, value: value as String)
+    }
+
     /// Returns the number of columns defined for a table/list view element.
     /// Returns 0 for non-table elements or if the view is not found.
     /// - Parameters:

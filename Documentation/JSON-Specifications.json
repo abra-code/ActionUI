@@ -214,7 +214,9 @@
    }
    // Note: These properties are specific to ColorPicker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
-
+// Observable state:
+//   value (String)   Selected color as a hex string (e.g., "#FF0000FF") (via getElementValue / setElementValue).
+//                    Write a hex or named color string to change the selected color programmatically.
 
 
 // Sources/Views/ComboBox.swift
@@ -228,6 +230,8 @@
    }
    // Note: These properties are specific to ComboBox. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (String)   Currently entered or selected text in the combo box (via getElementValue / setElementValue).
 
 
 // Sources/Views/DatePicker.swift
@@ -243,6 +247,9 @@
    }
    // Note: These properties are specific to DatePicker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (String)   Selected date as an ISO 8601 string (e.g., "2024-07-16T00:00:00Z") (via getElementValue / setElementValue).
+//                    Write an ISO 8601 date string to set the selected date programmatically.
 
 
 // Sources/Views/DisclosureGroup.swift
@@ -259,6 +266,10 @@
    ]
    // Note: These properties are specific to DisclosureGroup. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   states["isExpanded"] Bool   true when the group is expanded, false when collapsed.
+//                               Reflects user interaction; write to expand/collapse programmatically
+//                               (via getElementState / setElementState).
 
 
 // Sources/Views/Divider.swift
@@ -310,6 +321,8 @@
    }
    // Note: These properties are specific to Gauge. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (Double)   Current gauge value within the declared range (via getElementValue / setElementValue).
 
 
 // Sources/Views/Grid.swift
@@ -417,6 +430,13 @@
      }
    }
  }
+// Observable state:
+//   states["currentRepeatCount"] Int   Number of completed animation cycles since the view appeared.
+//                                      Written by the view after each cycle; treat as read-only from the
+//                                      host app (via getElementState).
+//   states[stateKey]             Int   When trigger is "onStateChange", increment this Int (named by the
+//                                      "stateKey" property, defaults to "counter") to fire the next
+//                                      animation cycle (via setElementState).
 
 
 // Sources/Views/Label.swift
@@ -541,6 +561,12 @@
    //   - getElementRows(windowUUID:viewID:)          — read current rows
    // Each row is an array of strings: [["Row 1 text"], ["Row 2 text"], ...]. The list starts empty until rows are set.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+// Observable state:
+//   value ([String])              Currently selected row value(s) as an array of strings
+//                                 (via getElementValue / setElementValue).
+//   states["content"] [[String]]  All list rows; each inner array holds one item's string value.
+//                                 Managed via setElementRows / appendElementRows / clearElementRows /
+//                                 getElementRows adapter APIs rather than getElementState / setElementState.
 
 
 // Sources/Views/LoadableView.swift
@@ -556,6 +582,11 @@
    // Note: Requires exactly one of "url", "filePath", or "name" to be valid. Loads JSON or binary plist, determined by .json or .plist extension, parses into ActionUIElementBase using ActionUIModel.loadDescription, and renders ActionUIView. Remote "url" loads asynchronously with ProgressView; local "filePath" or bundle "name" loads synchronously in init. Assumes unique IDs in loaded description to avoid conflicts with existing windowModels. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
    // Note: Invalid sources or unsupported extensions will result in error display. The source (url/filePath/name) is the designated value (valueType: String.self), settable via ActionUIModel.setElementValue, with heuristics: http:// or https:// for URL, file:// or / for filePath, else bundle name.
  }
+// Observable state:
+//   value (String)   Current source as a URL string, absolute file path, or bundle resource name
+//                    (via getElementValue / setElementValue). Write a new value to reload the view
+//                    from a different source; the heuristic (http(s):// → URL, file:// or / → filePath,
+//                    else bundle name) applies at runtime.
 
 
 // Sources/Views/Map.swift
@@ -578,6 +609,11 @@
    // Note: These properties are specific to Map. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
    // Design decision: Uses modern Map initializer with MapCameraPosition and MapContentBuilder (macOS 14.0+, iOS 17.0+). Annotations use Annotation for title/subtitle support.
  }
+// Observable state:
+//   value (String)   Current map center as a JSON coordinate string, e.g.
+//                    "{\"latitude\":37.33233141,\"longitude\":-122.0312186}"
+//                    (via getElementValue / setElementValue). Write a JSON coordinate string to
+//                    re-center the map programmatically.
 
 
 // Sources/Views/Menu.swift
@@ -632,6 +668,10 @@
    }
    // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   states["columnVisibility"] String   Current column visibility: "automatic", "all", "doubleColumn",
+//                                       or "detail". Updated on user interaction; write to change
+//                                       programmatically (via getElementState / setElementState).
 
 
 // Sources/Views/NavigationStack.swift
@@ -674,6 +714,10 @@
      }
    }
  }
+// Observable state:
+//   states[stateKey] Int   When trigger is "onStateChange", increment this Int (named by the
+//                          "stateKey" property, defaults to "counter") to fire the next animation
+//                          cycle (via getElementState / setElementState).
 
 
 // Sources/Views/Picker.swift
@@ -692,7 +736,11 @@
    // Note: actionID is triggered via onChange for user-initiated changes. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
    // The selected tag is passed as `context` (Any?) to actionID handler.
  }
- 
+// Observable state:
+//   value (String)   Tag of the currently selected option (via getElementValue / setElementValue).
+//                    For simple string arrays the tag is the 1-based index as a String ("1", "2", …);
+//                    for dictionary options it is the explicit "tag" value.
+
 
 // Sources/Views/ProgressView.swift
 // JSON specification for ActionUI.ProgressView:
@@ -707,6 +755,9 @@
    }
    // Note: The ProgressView shows an indeterminate spinner if "value" or "total" is missing/invalid, or a determinate bar if both are valid. Platform-specific styling (e.g., .progressViewStyle(.circular) on iOS for indeterminate) is applied in applyModifiers. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state (via getElementState / setElementState):
+//   states["progress"] Double?   Current progress (0.0 – total). Overrides the initial JSON "value" property
+//                                at runtime. Set to nil to revert to indeterminate.
 
 
 // Sources/Views/ScrollView.swift
@@ -768,6 +819,8 @@
    }
    // Note: The SecureField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). Supported values for "textContentType": "password", "newPassword", "oneTimeCode" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
  }
+// Observable state:
+//   value (String)   Current text entered in the secure field (via getElementValue / setElementValue).
 
 
 // Sources/Views/ShareLink.swift
@@ -796,6 +849,8 @@
    }
    // Note: These properties are specific to Slider. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (Double)   Current slider position within the declared range (via getElementValue / setElementValue).
 
 
 // Sources/Views/Spacer.swift
@@ -831,7 +886,15 @@
 //   - getElementRows(windowUUID:viewID:)          — read current rows
 // Each row is an array of strings aligned to the "columns" definition: [["Alice", "Click"], ["Bob", "Edit"], ...]. Rows may include extra trailing elements for hidden columns (e.g. a row ID) — getElementColumnCount reports the true maximum column count across all loaded rows, which may exceed columns.count. The table starts empty until rows are set.
 // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
- 
+// Observable state:
+//   value ([String])                 Selected row ID(s) as an array of strings
+//                                    (via getElementValue / setElementValue).
+//   states["content"] [[String]]     All table rows; each inner array holds one row's column values.
+//                                    Managed via setElementRows / appendElementRows / clearElementRows /
+//                                    getElementRows adapter APIs rather than getElementState / setElementState.
+//   states["selectedRowID"] String?  Stable row ID of the currently selected row; nil when nothing is
+//                                    selected (via getElementState / setElementState).
+
 
 // Sources/Views/TabView.swift
 // JSON specification for ActionUI.TabView:
@@ -878,6 +941,8 @@
    // Note: The "style" property controls the tab view style on iOS 18+/macOS 15+: "automatic" (default platform behavior), "tabBarOnly" (always show tab bar), "sidebarAdaptable" (adaptive sidebar on iPad). On earlier platforms, this property is ignored.
    // Platform compatibility: Uses native SwiftUI.Tab on iOS 18+/macOS 15+, falls back to .tabItem modifier on iOS 17.6/macOS 14.6 for backward compatibility.
  }
+// Observable state:
+//   value (Int)   Index of the currently selected tab (0-based) (via getElementValue / setElementValue).
 
 
 // Sources/Views/Text.swift
@@ -902,6 +967,8 @@
    }
    // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (String)   Current text content of the editor (via getElementValue / setElementValue).
 
 
 // Sources/Views/TextField.swift
@@ -919,6 +986,8 @@
 // Note: The TextField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). valueChangeActionID is triggered continously on each change via the binding's set closure.
 // Supported values for "textContentType": "name", "namePrefix", "givenName", "middleName", "familyName", "nameSuffix", "nickname", "jobTitle", "organizationName", "location", "fullStreetAddress", "streetAddressLine1", "streetAddressLine2", "addressCity", "addressState", "addressCityAndState", "sublocality", "countryName", "postalCode", "telephoneNumber", "emailAddress", "url", "creditCardNumber", "creditCardSecurityCode", "creditCardName", "creditCardExpiration", "creditCardType", "username", "password", "newPassword", "oneTimeCode", "shipmentTrackingNumber", "flightNumber", "dateTime", "birthdate", "birthdateDay", "birthdateMonth", "birthdateYear", "paymentMethod" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
 // Note: actionID is triggered via onSubmit for user-initiated submits (e.g., Return key).  Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers. On macOS, the default text field style (likely rounded) is used.
+// Observable state:
+//   value (String)   Current text entered in the field (via getElementValue / setElementValue).
 
 
 // Sources/Views/Toggle.swift
@@ -932,6 +1001,8 @@
    }
    // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (Bool)   Current on/off state of the toggle (via getElementValue / setElementValue).
 
 
 // Sources/Views/VideoPlayer.swift
@@ -945,6 +1016,9 @@
    }
    // Note: These properties are specific to VideoPlayer. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
  }
+// Observable state:
+//   value (String)   URL string of the currently loaded video (via getElementValue / setElementValue).
+//                    Write a new URL string to swap the video source at runtime.
 
 
 // Sources/Views/View.swift

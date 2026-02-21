@@ -147,6 +147,42 @@ import AppKit
 ///   - Description: Sets a structural property value for a view element by property name.
 ///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
 ///
+/// - `getElementState(windowUUID, viewID, key)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The state key (e.g., "isLoading", "canGoBack", "estimatedProgress").
+///   - Returns: Any - The state value, or `undefined` if not found.
+///   - Description: Returns the current value for a single state key of a view element.
+///   - Example: `let loading = ActionUI.getElementState("window-12345", 1, "isLoading");`
+///
+/// - `getElementStateAsString(windowUUID, viewID, key)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The state key.
+///   - Returns: String - The string representation of the state value, or `undefined` if not found.
+///   - Description: Returns the string representation of a single state value.
+///   - Example: `let progress = ActionUI.getElementStateAsString("window-12345", 1, "estimatedProgress");`
+///
+/// - `setElementState(windowUUID, viewID, key, value)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The state key.
+///     - `value`: Any - The new value. Must match the type of the existing value if the key already exists.
+///   - Description: Sets a single state key to a new value. Rejects (with an error log) if the type differs from the existing value.
+///   - Example: `ActionUI.setElementState("window-12345", 1, "isLoading", false);`
+///
+/// - `setElementStateFromString(windowUUID, viewID, key, value)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The state key.
+///     - `value`: String - String representation of the new value, parsed into the existing key's type.
+///   - Description: Sets a single state key by parsing a string into the type of the existing value. If the key does not yet exist the string is stored as-is.
+///   - Example: `ActionUI.setElementStateFromString("window-12345", 1, "estimatedProgress", "0.75");`
+///
 /// Design decision: These APIs mirror the `ActionUISwift` and `ActionUIObjC` adapters, with JavaScript-compatible types (e.g., Number for viewID, Any for values). The adapter does not return native views/controllers to JavaScript or expose internal model operations like loadDescription. Instead, Swift host code uses `loadView` or `loadHostingController` to render the UI after JavaScript interactions, typically with a JSON or plist description provided via the host.
 /// App Store compliance: JavaScript is interpreted via JavaScriptCore (no JIT); scripts must be bundled or loaded as non-executable data.
 
@@ -306,6 +342,32 @@ public class ActionUIJavaScriptCore {
             return jsObject
         }
         actionUIObject.setValue(getElementInfo, forProperty: "getElementInfo")
+
+        // getElementState(windowUUID, viewID, key) -> value or undefined
+        let getElementState: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, key in
+            let value = ActionUIJavaScriptCore.model.getElementState(windowUUID: windowUUID, viewID: Int(viewID), key: key)
+            return JSValue(object: value, in: self.context)
+        }
+        actionUIObject.setValue(getElementState, forProperty: "getElementState")
+
+        // getElementStateAsString(windowUUID, viewID, key) -> string or undefined
+        let getElementStateAsString: @convention(block) (String, Double, String) -> String? = { windowUUID, viewID, key in
+            return ActionUIJavaScriptCore.model.getElementStateAsString(windowUUID: windowUUID, viewID: Int(viewID), key: key)
+        }
+        actionUIObject.setValue(getElementStateAsString, forProperty: "getElementStateAsString")
+
+        // setElementState(windowUUID, viewID, key, value)
+        let setElementState: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, key, jsValue in
+            let value = jsValue.toObject() ?? NSNull()
+            ActionUIJavaScriptCore.model.setElementState(windowUUID: windowUUID, viewID: Int(viewID), key: key, value: value)
+        }
+        actionUIObject.setValue(setElementState, forProperty: "setElementState")
+
+        // setElementStateFromString(windowUUID, viewID, key, value)
+        let setElementStateFromString: @convention(block) (String, Double, String, String) -> Void = { windowUUID, viewID, key, value in
+            ActionUIJavaScriptCore.model.setElementStateFromString(windowUUID: windowUUID, viewID: Int(viewID), key: key, value: value)
+        }
+        actionUIObject.setValue(setElementStateFromString, forProperty: "setElementStateFromString")
     }
     
     private func setupActionHandlerMethods(actionUIObject: JSValue) {

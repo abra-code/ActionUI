@@ -267,7 +267,7 @@ private func jsonToValue(_ json: String) -> Any? {
     }
     
     do {
-        return try JSONSerialization.jsonObject(with: data, options: [])
+        return try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
     } catch {
         setError("Failed to parse JSON: \(error)")
         return nil

@@ -22,6 +22,14 @@
      }
    }
  }
+
+ Observable state (via getElementState / setElementState):
+   states["currentRepeatCount"] Int   Number of animation cycles completed since the view appeared.
+                                      Written by the view after each cycle; treat as read-only from the
+                                      host app. Access via getElementState.
+   states[stateKey]              Int  When trigger is "onStateChange", the animator watches the state key
+                                      named by the "stateKey" property. Increment its Int value via
+                                      setElementState to fire the next animation cycle.
 */
 
 import SwiftUI

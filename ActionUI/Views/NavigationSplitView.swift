@@ -19,6 +19,10 @@
    }
    // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
+
+ Observable state (via getElementState / setElementState):
+   states["columnVisibility"] String  Current column visibility: "automatic", "all", "doubleColumn", or
+                                      "detail". Updated on user interaction; write to change programmatically.
 */
 
 import SwiftUI

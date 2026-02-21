@@ -12,6 +12,13 @@
  }
    // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+
+ Observable state:
+   value ([String])                   Selected item as a one-element string array (or empty when nothing selected).
+                                      Access via getElementValue / setElementValue.
+   states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
+                                      hidden-column data. Access via getElementRows / setElementRows /
+                                      appendElementRows / clearElementRows.
  */
 
 import SwiftUI
