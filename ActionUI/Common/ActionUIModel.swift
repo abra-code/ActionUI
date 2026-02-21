@@ -463,11 +463,12 @@ public class ActionUIModel: ObservableObject {
             return
         }
         let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
-        // Update validatedProperties directly
+        // Notify SwiftUI before mutating the non-published validatedProperties,
+        // matching the willSet contract expected by ObservableObject observers.
+        viewModel.objectWillChange.send()
         viewModel.validatedProperties[propertyName] = value
         // Re-validate to ensure type safety and HIG compliance
         viewModel.validateProperties(viewModel.validatedProperties, elementType: element.type, logger: logger)
-        windowModel.viewModels[viewID] = viewModel // Trigger SwiftUI refresh
         logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }
 }
