@@ -1021,6 +1021,41 @@
 //                    Write a new URL string to swap the video source at runtime.
 
 
+// Sources/Views/WebView.swift
+// JSON specification for ActionUI.WebView (iOS 26.0+ / macOS 26.0+ only):
+ {
+   "type": "WebView",
+   "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction
+   "properties": {
+     "url": "https://www.swift.org",        // Optional: Initial URL to load; takes precedence over html
+     "html": "<h1>Hello</h1>",             // Optional: Inline HTML to render (used when url is absent)
+     "baseURL": "https://example.com",      // Optional: Base URL for resolving relative links in html content
+     "customUserAgent": "MyApp/1.0",        // Optional: Overrides the default WebKit user agent
+     "backForwardNavigationGestures": true, // Optional: Bool, enable swipe back/forward gestures; default true
+     "magnificationGestures": true,         // Optional: Bool, enable pinch-to-zoom; default true
+     "linkPreviews": true,                  // Optional: Bool, enable long-press link previews; default true
+     "valueChangeActionID": "onURLChange",  // Optional: Fired when the page URL changes after navigation completes
+     "navigationActionID": "onNavigation"   // Optional: Fired when isLoading changes (navigation started / finished)
+   }
+   // Note: Requires iOS 26.0+ / macOS 26.0+. On older OS versions a fallback Label is shown instead.
+   // Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
+   // cornerRadius, actionID, disabled, onAppearActionID, onDisappearActionID, etc.) are inherited.
+ }
+// Observable state:
+//   value (String)                      Current page URL (via getElementValue / setElementValue).
+//                                       Write a URL string to navigate, or one of these commands:
+//                                         "goBack"    – navigate back  (no-op if canGoBack is false)
+//                                         "goForward" – navigate forward (no-op if canGoForward is false)
+//                                         "reload"    – reload the current page
+//                                         "stop"      – cancel an in-flight load
+//   states["title"]            String?  Page <title> text; absent until first load completes.
+//   states["isLoading"]        Bool     true while a navigation is in flight.
+//   states["estimatedProgress"] Double  0.0–1.0 load progress.
+//   states["canGoBack"]        Bool     Back list has entries.
+//   states["canGoForward"]     Bool     Forward list has entries.
+// All states accessible via getElementState / setElementState.
+
+
 // Sources/Views/View.swift
 // JSON specification for ActionUI.View (base structure for all views):
  {

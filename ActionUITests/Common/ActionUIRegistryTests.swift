@@ -43,7 +43,7 @@ final class ActionUIRegistryTests: XCTestCase {
             "NavigationStack", "NavigationSplitView", "PhaseAnimator", "Picker",
             "ProgressView", "ScrollView", "ScrollViewReader", "Section", "SecureField",
             "ShareLink", "Slider", "Spacer", "Table", "Tab", "TabView", "Text", "TextEditor",
-            "TextField", "Toggle", "VStack", "VideoPlayer", "View", "ZStack"
+            "TextField", "Toggle", "VStack", "VideoPlayer", "View", "WebView", "ZStack"
         ]
         
         for viewType in expectedViewTypes {

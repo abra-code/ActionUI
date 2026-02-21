@@ -91,6 +91,7 @@ class ActionUIRegistry {
         registerView(VStack.self)
         registerView(VideoPlayer.self)
         registerView(View.self)
+        registerView(WebView.self)
         registerView(ZStack.self)
         // Removed deprecated NavigationView
         // Add more view registrations if needed
