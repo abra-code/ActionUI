@@ -10,6 +10,20 @@ import XCTest
 import SwiftUI
 @testable import ActionUI
 
+// Logger that records messages without failing the test, used for tests that intentionally
+// trigger .error-level logs (e.g. type-mismatch rejection in setElementState).
+private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
+    private(set) var errors: [String] = []
+    private(set) var warnings: [String] = []
+    func log(_ message: String, _ level: LoggerLevel) {
+        switch level {
+        case .error:   errors.append(message)
+        case .warning: warnings.append(message)
+        default:       break
+        }
+    }
+}
+
 @MainActor
 final class ActionUIModelTests: XCTestCase {
     private var logger: XCTestLogger!
@@ -470,5 +484,292 @@ final class ActionUIModelTests: XCTestCase {
         model.setElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "value", value: 0.9)
         let retrieved = model.getElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "value")
         XCTAssertEqual(retrieved as? Double, 0.9, "getElementProperty should reflect value set by setElementProperty")
+    }
+
+    // MARK: - getElementState tests
+
+    private func loadToggleElement(viewID: Int = 1) throws {
+        let elementDict: [String: Any] = [
+            "id": viewID,
+            "type": "Toggle",
+            "properties": ["title": "Feature"]
+        ]
+        _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
+    }
+
+    func testGetElementStateNilForUnknownWindow() throws {
+        try loadToggleElement()
+        let value = ActionUIModel.shared.getElementState(windowUUID: "nonexistent", viewID: 1, key: "isOn")
+        XCTAssertNil(value, "Should return nil for unknown windowUUID")
+    }
+
+    func testGetElementStateNilForUnknownView() throws {
+        try loadToggleElement()
+        let value = ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 999, key: "isOn")
+        XCTAssertNil(value, "Should return nil for unknown viewID")
+    }
+
+    func testGetElementStateNilForMissingKey() throws {
+        try loadToggleElement()
+        let value = ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 1, key: "nonexistent")
+        XCTAssertNil(value, "Should return nil when key has never been set")
+    }
+
+    func testGetElementStateReturnsStoredValue() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.windowModels[windowUUID]?.viewModels[1]?.states["counter"] = 7
+        let value = model.getElementState(windowUUID: windowUUID, viewID: 1, key: "counter")
+        XCTAssertEqual(value as? Int, 7, "Should return the stored state value")
+    }
+
+    func testGetElementStateReflectsSetElementState() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "score", value: 42)
+        let value = model.getElementState(windowUUID: windowUUID, viewID: 1, key: "score")
+        XCTAssertEqual(value as? Int, 42)
+    }
+
+    // MARK: - getElementStateAsString tests
+
+    func testGetElementStateAsStringNilForUnknownWindow() throws {
+        try loadToggleElement()
+        let s = ActionUIModel.shared.getElementStateAsString(windowUUID: "nonexistent", viewID: 1, key: "k")
+        XCTAssertNil(s)
+    }
+
+    func testGetElementStateAsStringNilForUnknownView() throws {
+        try loadToggleElement()
+        let s = ActionUIModel.shared.getElementStateAsString(windowUUID: windowUUID, viewID: 999, key: "k")
+        XCTAssertNil(s)
+    }
+
+    func testGetElementStateAsStringNilForMissingKey() throws {
+        try loadToggleElement()
+        let s = ActionUIModel.shared.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "nonexistent")
+        XCTAssertNil(s)
+    }
+
+    func testGetElementStateAsStringBool() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.windowModels[windowUUID]?.viewModels[1]?.states["flag"] = true
+        XCTAssertEqual(model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "flag"), "true")
+        model.windowModels[windowUUID]?.viewModels[1]?.states["flag"] = false
+        XCTAssertEqual(model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "flag"), "false")
+    }
+
+    func testGetElementStateAsStringDouble() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.windowModels[windowUUID]?.viewModels[1]?.states["progress"] = 0.75
+        let s = model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "progress")
+        XCTAssertEqual(s, "0.75")
+    }
+
+    func testGetElementStateAsStringInt() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.windowModels[windowUUID]?.viewModels[1]?.states["count"] = 3
+        let s = model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "count")
+        XCTAssertEqual(s, "3")
+    }
+
+    func testGetElementStateAsStringString() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.windowModels[windowUUID]?.viewModels[1]?.states["label"] = "hello"
+        let s = model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "label")
+        XCTAssertEqual(s, "hello")
+    }
+
+    // MARK: - setElementState tests
+
+    func testSetElementStateNoOpForUnknownWindow() throws {
+        try loadToggleElement()
+        ActionUIModel.shared.setElementState(windowUUID: "nonexistent", viewID: 1, key: "k", value: 1)
+        // No crash; no state stored in the real window
+        XCTAssertNil(ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 1, key: "k"))
+    }
+
+    func testSetElementStateNoOpForUnknownView() throws {
+        try loadToggleElement()
+        ActionUIModel.shared.setElementState(windowUUID: windowUUID, viewID: 999, key: "k", value: 1)
+        // No crash
+        XCTAssertNil(ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 999, key: "k"))
+    }
+
+    func testSetElementStateNewKey() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "score", value: 10)
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "score") as? Int, 10)
+    }
+
+    func testSetElementStateOverwritesSameType() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "score", value: 10)
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "score", value: 20)
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "score") as? Int, 20)
+    }
+
+    func testSetElementStateRejectsTypeMismatchAndLogsError() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "flag", value: true)
+
+        // Swap in a non-failing recording logger so the expected .error doesn't XCTFail
+        let recordingLogger = RecordingLogger()
+        model.logger = recordingLogger
+
+        // Attempt to replace Bool with Int — should be rejected
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "flag", value: 1)
+
+        model.logger = logger   // restore
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "flag") as? Bool, true,
+                       "Type mismatch should leave the original value unchanged")
+        XCTAssertTrue(recordingLogger.errors.count > 0, "Type mismatch should log an error")
+    }
+
+    func testSetElementStateMultipleKeys() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "a", value: "hello")
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "b", value: 3.14)
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "a") as? String, "hello")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "b") as? Double, 3.14)
+    }
+
+    // MARK: - setElementStateFromString tests
+
+    func testSetElementStateFromStringNoOpForUnknownWindow() throws {
+        try loadToggleElement()
+        ActionUIModel.shared.setElementStateFromString(windowUUID: "nonexistent", viewID: 1, key: "k", value: "v")
+        XCTAssertNil(ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 1, key: "k"))
+    }
+
+    func testSetElementStateFromStringNoOpForUnknownView() throws {
+        try loadToggleElement()
+        ActionUIModel.shared.setElementStateFromString(windowUUID: windowUUID, viewID: 999, key: "k", value: "v")
+        XCTAssertNil(ActionUIModel.shared.getElementState(windowUUID: windowUUID, viewID: 999, key: "k"))
+    }
+
+    func testSetElementStateFromStringNewKeyPlainString() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "label", value: "hello")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "label") as? String, "hello",
+                       "Plain string should be stored as String")
+    }
+
+    func testSetElementStateFromStringNewKeyInfersBool() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "flag", value: "true")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "flag") as? Bool, true,
+                       "JSON fragment 'true' should be stored as Bool")
+    }
+
+    func testSetElementStateFromStringNewKeyInfersInt() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "count", value: "42")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "count") as? Int, 42,
+                       "Whole-number JSON fragment should be stored as Int")
+    }
+
+    func testSetElementStateFromStringNewKeyInfersDouble() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "ratio", value: "3.14")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "ratio") as? Double, 3.14,
+                       "Fractional JSON fragment should be stored as Double")
+    }
+
+    func testSetElementStateFromStringNewKeyInfersArray() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "items", value: "[1,2,3]")
+        let stored = model.getElementState(windowUUID: windowUUID, viewID: 1, key: "items")
+        XCTAssertNotNil(stored as? [Any], "JSON array string should be stored as Array")
+    }
+
+    func testSetElementStateFromStringExistingBoolTrue() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "enabled", value: false)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "enabled", value: "true")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "enabled") as? Bool, true)
+    }
+
+    func testSetElementStateFromStringExistingBoolFalse() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "enabled", value: true)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "enabled", value: "false")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "enabled") as? Bool, false)
+    }
+
+    func testSetElementStateFromStringExistingBoolInvalidStringNoOp() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "enabled", value: true)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "enabled", value: "yes")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "enabled") as? Bool, true,
+                       "Invalid Bool string should leave existing value unchanged")
+    }
+
+    func testSetElementStateFromStringExistingDouble() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "progress", value: 0.0)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "progress", value: "0.75")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "progress") as? Double, 0.75)
+    }
+
+    func testSetElementStateFromStringExistingDoubleInvalidStringNoOp() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "progress", value: 0.5)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "progress", value: "notanumber")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "progress") as? Double, 0.5,
+                       "Invalid Double string should leave existing value unchanged")
+    }
+
+    func testSetElementStateFromStringExistingInt() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "count", value: 0)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "count", value: "7")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "count") as? Int, 7)
+    }
+
+    func testSetElementStateFromStringExistingIntInvalidStringNoOp() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "count", value: 5)
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "count", value: "abc")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "count") as? Int, 5,
+                       "Invalid Int string should leave existing value unchanged")
+    }
+
+    func testSetElementStateFromStringExistingString() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "label", value: "old")
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "label", value: "new")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "label") as? String, "new")
+    }
+
+    func testSetElementStateFromStringRoundTripViaAsString() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "score", value: 99)
+        let asString = model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "score")
+        XCTAssertEqual(asString, "99")
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "score", value: asString!)
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "score") as? Int, 99)
     }
 }
