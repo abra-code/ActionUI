@@ -215,7 +215,7 @@ struct ActionUIElement: ActionUIElementBase {
         let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
         var subviews: [String: Any]?
         if children != nil {
-            subviews = [:]
+            if subviews == nil { subviews = [:] }
             subviews!["children"] = children
         }
                 
@@ -226,9 +226,7 @@ struct ActionUIElement: ActionUIElementBase {
                 try row.map { try ActionUIElement(from: $0, logger: logger) }
             }
             
-            if subviews == nil {
-                subviews = [:]
-            }
+            if subviews == nil { subviews = [:] }
             subviews!["rows"] = rows
         }
         
@@ -238,9 +236,7 @@ struct ActionUIElement: ActionUIElementBase {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
                     let childElement = try ActionUIElement(from: childDict, logger: logger)
-                    if subviews == nil {
-                        subviews = [:]
-                    }
+                    if subviews == nil { subviews = [:] }
                     subviews![key] = childElement
                 } catch {
                     // Log error and skip invalid child, leaving property unset
@@ -253,7 +249,7 @@ struct ActionUIElement: ActionUIElementBase {
         // Note: JSON specifies "commands" as a top-level key, but we move it to subviews["commands"]
         let commands = try commandsArray?.map { try ActionUIElement(from: $0, logger: logger) }
         if commands != nil {
-            subviews = [:]
+            if subviews == nil { subviews = [:] }
             subviews!["commands"] = commands
         }
 
