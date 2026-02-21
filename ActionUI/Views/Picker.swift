@@ -61,8 +61,13 @@ struct Picker: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate options format (logs warnings via extractOptions)
-        _ = extractOptions(from: properties["options"], logger: logger)
+        // Validate options format and remove if invalid
+        if let rawOptions = properties["options"] {
+            if rawOptions as? [String] == nil && rawOptions as? [[String: Any]] == nil {
+                logger.log("Picker 'options' must be [String] or [[\"title\": String, \"tag\": String]]; setting to nil", .warning)
+                validatedProperties["options"] = nil
+            }
+        }
         
         // Validate pickerStyle
 #if os(macOS)
@@ -146,6 +151,8 @@ struct Picker: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        return nil
+        // Fall back to the first option's tag from validated properties
+        let items = extractOptions(from: model.validatedProperties["options"])
+        return items.first?.tag
     }
 }

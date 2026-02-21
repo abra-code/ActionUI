@@ -74,7 +74,7 @@ final class PickerTests: XCTestCase {
         XCTAssertEqual(element.properties["valueChangeActionID"] as? String, "picker.valueChanged", "valueChangeActionID should match")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
         
-        XCTAssertEqual(viewModel.value as? String, "Option1", "State should initialize with first option")
+        XCTAssertEqual(viewModel.value as? String, "1", "State should initialize with first option index tag")
     }
         
     func testPickerValidatePropertiesValid() {
@@ -175,11 +175,11 @@ final class PickerTests: XCTestCase {
         _ = actionUIView.body // Force view rendering
         
         // Simulate programmatic value change
-        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
-        logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
-        
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "2")
+        logger.log("Test: Programmatically set value to tag \"2\" (Option2) for viewID: \(element.id)", .debug)
+
         let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
-        XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
+        XCTAssertEqual(updatedValue as? String, "2", "Picker state should update value correctly")
     }
     
     func testPickerNoActionOnProgrammaticStateChange() throws {
@@ -215,11 +215,11 @@ final class PickerTests: XCTestCase {
         _ = actionUIView.body // Force view rendering
         
         // Simulate programmatic value change
-        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
-        logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
-        
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "2")
+        logger.log("Test: Programmatically set value to tag \"2\" (Option2) for viewID: \(element.id)", .debug)
+
         let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
-        XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
+        XCTAssertEqual(updatedValue as? String, "2", "Picker state should update value correctly")
     }
     
     func testActionUIViewWithPickerActionHandling() throws {
@@ -265,18 +265,18 @@ final class PickerTests: XCTestCase {
         _ = actionUIView.body // Force view rendering
         
         // Assert: Verify state initialization
-        XCTAssertEqual(viewModel.value as? String, "Option1", "Picker state should initialize value to first option")
+        XCTAssertEqual(viewModel.value as? String, "1", "Picker state should initialize value to first option index tag")
         
         // Assert: Verify view construction
         XCTAssertFalse(actionUIView.body is SwiftUI.EmptyView, "ActionUIView body should not return EmptyView")
         
         // Act: Simulate programmatic value change
-        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
-        logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
-        
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "2")
+        logger.log("Test: Programmatically set value to tag \"2\" (Option2) for viewID: \(element.id)", .debug)
+
         // Assert: Verify state update
         let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
-        XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
+        XCTAssertEqual(updatedValue as? String, "2", "Picker state should update value correctly")
                 
         // Log state for debugging
         logger.log("Final state for viewID \(element.id): \(String(describing: viewModel))", .debug)
@@ -314,11 +314,11 @@ final class PickerTests: XCTestCase {
         _ = actionUIView.body // Force view rendering
         
         // Record time before setting value
-        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "Option2")
-        logger.log("Test: Programmatically set value to Option2 for viewID: \(element.id)", .debug)
-                
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "2")
+        logger.log("Test: Programmatically set value to tag \"2\" (Option2) for viewID: \(element.id)", .debug)
+
         // Assert: Verify state update
         let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
-        XCTAssertEqual(updatedValue as? String, "Option2", "Picker state should update value correctly")
+        XCTAssertEqual(updatedValue as? String, "2", "Picker state should update value correctly")
     }
 }
