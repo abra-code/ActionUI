@@ -150,6 +150,7 @@ public class ActionUIModel: ObservableObject {
         }
         let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         if let newRows = value as? [[String]] {
+            viewModel.objectWillChange.send()
             viewModel.states["content"] = newRows
             if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
                 viewModel.value = [] as [String]
@@ -158,6 +159,7 @@ public class ActionUIModel: ObservableObject {
         } else if let newItems = value as? [String] {
             // List: Convert [String] to [[String]] for consistency
             let newContent = newItems.map { [$0] }
+            viewModel.objectWillChange.send()
             viewModel.states["content"] = newContent
             if let selectedRow = viewModel.value as? [String], !newContent.contains(where: { $0.first == selectedRow.first }) {
                 viewModel.value = [] as [String]
@@ -368,6 +370,7 @@ public class ActionUIModel: ObservableObject {
                 return
             }
         }
+        viewModel.objectWillChange.send()
         viewModel.states[key] = value
         windowModel.viewModels[viewID] = viewModel
         logger.log("Set state '\(key)' for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
@@ -432,6 +435,7 @@ public class ActionUIModel: ObservableObject {
                 converted = value   // plain string
             }
         }
+        viewModel.objectWillChange.send()
         viewModel.states[key] = converted
         windowModel.viewModels[viewID] = viewModel
         logger.log("Set state '\(key)' from string for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
@@ -494,6 +498,7 @@ public class ActionUIModel: ObservableObject {
             return
         }
         let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        viewModel.objectWillChange.send()
         viewModel.states["content"] = rows
         if let selectedRow = viewModel.value as? [String], !rows.contains(where: { $0.first == selectedRow.first }) {
             viewModel.value = [] as [String]
@@ -510,6 +515,7 @@ public class ActionUIModel: ObservableObject {
             return
         }
         let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        viewModel.objectWillChange.send()
         viewModel.states["content"] = [] as [[String]]
         if viewModel.value is [String] {
             viewModel.value = [] as [String]
@@ -526,6 +532,7 @@ public class ActionUIModel: ObservableObject {
             return
         }
         let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
+        viewModel.objectWillChange.send()
         let existingContent = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states["content"] = existingContent + rows
         windowModel.viewModels[viewID] = viewModel
