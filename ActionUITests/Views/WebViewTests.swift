@@ -442,4 +442,157 @@ final class WebViewTests: XCTestCase {
     func testWebViewValueType() {
         XCTAssertTrue(WebView.valueType == String.self, "WebView valueType should be String")
     }
+
+    // MARK: - validateProperties – new configuration properties
+
+    func testWebViewValidateProperties_LimitsNavigationsToAppBoundDomains_Valid() {
+        let validated = WebView.validateProperties(["limitsNavigationsToAppBoundDomains": true], logger)
+        XCTAssertEqual(validated["limitsNavigationsToAppBoundDomains"] as? Bool, true)
+    }
+
+    func testWebViewValidateProperties_LimitsNavigationsToAppBoundDomains_Invalid() {
+        ActionUIModel.shared.logger = consoleLogger
+        let validated = WebView.validateProperties(["limitsNavigationsToAppBoundDomains": "yes"], consoleLogger)
+        XCTAssertNil(validated["limitsNavigationsToAppBoundDomains"], "Non-Bool should be removed")
+        ActionUIModel.shared.logger = logger
+    }
+
+    func testWebViewValidateProperties_UpgradeKnownHostsToHTTPS_Valid() {
+        let validated = WebView.validateProperties(["upgradeKnownHostsToHTTPS": true], logger)
+        XCTAssertEqual(validated["upgradeKnownHostsToHTTPS"] as? Bool, true)
+    }
+
+    func testWebViewValidateProperties_UpgradeKnownHostsToHTTPS_Invalid() {
+        ActionUIModel.shared.logger = consoleLogger
+        let validated = WebView.validateProperties(["upgradeKnownHostsToHTTPS": 1], consoleLogger)
+        XCTAssertNil(validated["upgradeKnownHostsToHTTPS"], "Non-Bool should be removed")
+        ActionUIModel.shared.logger = logger
+    }
+
+    // MARK: - validateProperties – userScripts
+
+    func testWebViewValidateProperties_UserScripts_InlineSource() {
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentStart", "source": "window.foo = 1;", "forMainFrameOnly": false]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], logger)
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.count, 1, "Valid script should be preserved")
+        XCTAssertEqual(out?.first?["source"] as? String, "window.foo = 1;")
+        XCTAssertEqual(out?.first?["injectionTime"] as? String, "documentStart")
+    }
+
+    func testWebViewValidateProperties_UserScripts_DocumentEnd() {
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentEnd", "source": "console.log('ready');"]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], logger)
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.first?["injectionTime"] as? String, "documentEnd")
+    }
+
+    func testWebViewValidateProperties_UserScripts_FilePath() {
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentEnd", "filePath": "/tmp/script.js"]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], logger)
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.count, 1, "Script with filePath should be accepted at validation time")
+        XCTAssertEqual(out?.first?["filePath"] as? String, "/tmp/script.js")
+    }
+
+    func testWebViewValidateProperties_UserScripts_ResourceName() {
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentStart", "resourceName": "MyScript.js"]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], logger)
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.count, 1, "Script with resourceName should be accepted at validation time")
+        XCTAssertEqual(out?.first?["resourceName"] as? String, "MyScript.js")
+    }
+
+    func testWebViewValidateProperties_UserScripts_ResourceName_UppercaseExtension() {
+        // .JS (uppercase) must be treated the same as .js when stripping the extension
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentStart", "resourceName": "MyScript.JS"]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], logger)
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.count, 1, "Script with uppercase .JS extension should be accepted")
+        XCTAssertEqual(out?.first?["resourceName"] as? String, "MyScript.JS")
+    }
+
+    func testWebViewValidateProperties_UserScripts_MissingSource_Skipped() {
+        ActionUIModel.shared.logger = consoleLogger
+        // No source, filePath, or resourceName — should be dropped
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentStart"]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], consoleLogger)
+        XCTAssertNil(validated["userScripts"], "Scripts without any source should be removed entirely")
+        ActionUIModel.shared.logger = logger
+    }
+
+    func testWebViewValidateProperties_UserScripts_InvalidInjectionTime_NormalisedToDocumentEnd() {
+        ActionUIModel.shared.logger = consoleLogger
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "immediately", "source": "1+1;"]
+        ]
+        let validated = WebView.validateProperties(["userScripts": scripts], consoleLogger)
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.first?["injectionTime"] as? String, "documentEnd",
+                       "Invalid injectionTime should be normalised to 'documentEnd'")
+        ActionUIModel.shared.logger = logger
+    }
+
+    func testWebViewValidateProperties_UserScripts_NotAnArray_Removed() {
+        ActionUIModel.shared.logger = consoleLogger
+        let validated = WebView.validateProperties(["userScripts": "console.log('hi');"], consoleLogger)
+        XCTAssertNil(validated["userScripts"], "Non-array userScripts should be removed")
+        ActionUIModel.shared.logger = logger
+    }
+
+    func testWebViewValidateProperties_UserScripts_MultipleScripts() {
+        let scripts: [[String: Any]] = [
+            ["injectionTime": "documentStart", "source": "var a = 1;"],
+            ["injectionTime": "documentEnd",   "source": "var b = 2;", "forMainFrameOnly": true],
+            ["injectionTime": "documentStart"] // no source — should be dropped
+        ]
+        ActionUIModel.shared.logger = consoleLogger
+        let validated = WebView.validateProperties(["userScripts": scripts], consoleLogger)
+        ActionUIModel.shared.logger = logger
+        let out = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(out?.count, 2, "Only scripts with a source should be kept")
+        XCTAssertEqual(out?[0]["injectionTime"] as? String, "documentStart")
+        XCTAssertEqual(out?[1]["forMainFrameOnly"] as? Bool, true)
+    }
+
+    // MARK: - JSON round-trip with new properties
+
+    func testWebViewJSONDecoding_WithConfigurationProperties() throws {
+        let jsonString = """
+        {
+            "id": 10,
+            "type": "WebView",
+            "properties": {
+                "url": "https://example.com",
+                "limitsNavigationsToAppBoundDomains": true,
+                "upgradeKnownHostsToHTTPS": true,
+                "userScripts": [
+                    { "injectionTime": "documentStart", "source": "window.injected = true;" }
+                ]
+            }
+        }
+        """
+        let jsonData = try XCTUnwrap(jsonString.data(using: .utf8))
+        let element = try ActionUIModel.shared.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        let validated = element.properties
+        XCTAssertEqual(validated["limitsNavigationsToAppBoundDomains"] as? Bool, true)
+        XCTAssertEqual(validated["upgradeKnownHostsToHTTPS"] as? Bool, true)
+        let scripts = validated["userScripts"] as? [[String: Any]]
+        XCTAssertEqual(scripts?.count, 1)
+        XCTAssertEqual(scripts?.first?["source"] as? String, "window.injected = true;")
+        XCTAssertEqual(scripts?.first?["injectionTime"] as? String, "documentStart")
+    }
 }

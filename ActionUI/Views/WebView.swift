@@ -12,12 +12,27 @@
      "backForwardNavigationGestures": true,   // Optional: Bool, enable swipe back/forward gestures; default true
      "magnificationGestures": true,           // Optional: Bool, enable pinch-to-zoom; default true
      "linkPreviews": true,                    // Optional: Bool, enable long-press link previews; default true
+     "limitsNavigationsToAppBoundDomains": false, // Optional: Bool; restrict navigation to app-bound domains; default false
+     "upgradeKnownHostsToHTTPS": false,           // Optional: Bool; auto-upgrade known HTTP hosts to HTTPS; default false
+     "userScripts": [     // Optional: Array of JS descriptors injected before/after page load
+       {
+         "injectionTime": "documentStart", // Required: "documentStart" or "documentEnd"
+         "source": "window.myFlag = true;", // One required source — inline JS string
+         // OR "filePath": "/absolute/path/to/script.js"  — absolute path to a .js file on disk
+         // OR "resourceName": "MyScript.js"              — .js file in the app's main bundle
+         "forMainFrameOnly": false          // Optional Bool; inject into all frames when false; default false
+       }
+     ],
      "valueChangeActionID": "onURLChange",    // Optional: Fired when URL changes after a navigation completes
      "navigationActionID": "onNavigation"     // Optional: Fired when isLoading changes (navigation started / finished)
    }
  }
 
  Note: WebView requires iOS 26.0+ / macOS 26.0+. On older OS versions a fallback Label is shown instead.
+
+ Note: userScripts are injected via WKUserScript on each page load via WebPage.Configuration.
+ The "resourceName" lookup strips a trailing .js extension then calls Bundle.main.path(forResource:ofType:),
+ mirroring Image.swift's resourceName pattern.
 
  Observable state (via getElementValue / getElementState):
    value (String)                     Current page URL.
@@ -80,9 +95,46 @@ struct WebView: ActionUIViewConstruction {
             validated["linkPreviews"] = nil
         }
 
+        if let limits = validated["limitsNavigationsToAppBoundDomains"], !(limits is Bool) {
+            logger.log("WebView limitsNavigationsToAppBoundDomains must be a Bool; ignoring", .warning)
+            validated["limitsNavigationsToAppBoundDomains"] = nil
+        }
+
+        if let upgrade = validated["upgradeKnownHostsToHTTPS"], !(upgrade is Bool) {
+            logger.log("WebView upgradeKnownHostsToHTTPS must be a Bool; ignoring", .warning)
+            validated["upgradeKnownHostsToHTTPS"] = nil
+        }
+
         if let navActionID = validated["navigationActionID"], !(navActionID is String) {
             logger.log("WebView navigationActionID must be a String; ignoring", .warning)
             validated["navigationActionID"] = nil
+        }
+
+        // Validate userScripts array
+        if let raw = validated["userScripts"] {
+            if let scripts = raw as? [[String: Any]] {
+                var validScripts: [[String: Any]] = []
+                for (i, script) in scripts.enumerated() {
+                    let hasSource = script["source"] is String
+                    let hasFilePath = script["filePath"] is String
+                    let hasResourceName = script["resourceName"] is String
+                    guard hasSource || hasFilePath || hasResourceName else {
+                        logger.log("WebView userScripts[\(i)] missing 'source', 'filePath', or 'resourceName'; skipping", .warning)
+                        continue
+                    }
+                    var entry = script
+                    if let time = script["injectionTime"] as? String,
+                       !["documentStart", "documentEnd"].contains(time) {
+                        logger.log("WebView userScripts[\(i)] injectionTime '\(time)' invalid; defaulting to 'documentEnd'", .warning)
+                        entry["injectionTime"] = "documentEnd"
+                    }
+                    validScripts.append(entry)
+                }
+                validated["userScripts"] = validScripts.isEmpty ? nil : validScripts
+            } else {
+                logger.log("WebView userScripts must be an array of dictionaries; ignoring", .warning)
+                validated["userScripts"] = nil
+            }
         }
 
         return validated
@@ -124,15 +176,25 @@ struct WebView: ActionUIViewConstruction {
 
 @available(iOS 26.0, macOS 26.0, *)
 private struct WebViewContent: SwiftUI.View {
-    @State private var page = WebPage()
+    @State private var page: WebPage
     /// Tracks the last URL we pushed into model.value ourselves, so we can distinguish
     /// programmatic URL updates from host-app navigation commands in onChange(of: commandValue).
-    @State private var lastTrackedURL: String = ""
+    @State private var lastTrackedURL: String
     @ObservedObject var model: ViewModel
     let properties: [String: Any]
     let element: any ActionUIElementBase
     let windowUUID: String
     let logger: any ActionUILogger
+
+    init(model: ViewModel, properties: [String: Any], element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
+        self.model = model
+        self.properties = properties
+        self.element = element
+        self.windowUUID = windowUUID
+        self.logger = logger
+        _page = State(initialValue: WebPage(configuration: WebViewContent.makeConfiguration(properties: properties, logger: logger)))
+        _lastTrackedURL = State(initialValue: "")
+    }
 
     /// A convenience accessor for the current model value cast to String.
     private var commandValue: String? { model.value as? String }
@@ -181,6 +243,80 @@ private struct WebViewContent: SwiftUI.View {
             .webViewBackForwardNavigationGestures(backForward ? .enabled : .disabled)
             .webViewMagnificationGestures(magnification ? .enabled : .disabled)
             .webViewLinkPreviews(linkPreviews ? .enabled : .disabled)
+    }
+
+    // MARK: Configuration
+
+    /// Builds a WebPage.Configuration from validated properties.
+    /// Called once at init time so user scripts survive page reloads within the same view lifetime.
+    private static func makeConfiguration(properties: [String: Any], logger: any ActionUILogger) -> WebPage.Configuration {
+        var config = WebPage.Configuration()
+
+        if let limits = properties["limitsNavigationsToAppBoundDomains"] as? Bool {
+            config.limitsNavigationsToAppBoundDomains = limits
+        }
+
+        if let upgrade = properties["upgradeKnownHostsToHTTPS"] as? Bool {
+            config.upgradeKnownHostsToHTTPS = upgrade
+        }
+
+        if let scripts = properties["userScripts"] as? [[String: Any]], !scripts.isEmpty {
+            let userContentController = WKUserContentController()
+            for scriptDict in scripts {
+                guard let source = resolveJSSource(from: scriptDict, logger: logger) else { continue }
+                let injectionTimeStr = scriptDict["injectionTime"] as? String ?? "documentEnd"
+                let injectionTime: WKUserScriptInjectionTime = (injectionTimeStr == "documentStart") ? .atDocumentStart : .atDocumentEnd
+                let forMainFrameOnly = scriptDict["forMainFrameOnly"] as? Bool ?? false
+                let script = WKUserScript(source: source, injectionTime: injectionTime, forMainFrameOnly: forMainFrameOnly)
+                userContentController.addUserScript(script)
+            }
+            config.userContentController = userContentController
+        }
+
+        return config
+    }
+
+    /// Resolves the JavaScript source string from a script descriptor.
+    /// Mirrors the Image.swift resourceName / filePath / source pattern.
+    private static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger) -> String? {
+        if let source = descriptor["source"] as? String {
+            return source
+        }
+
+        if let filePath = descriptor["filePath"] as? String {
+            do {
+                return try String(contentsOfFile: filePath, encoding: .utf8)
+            } catch {
+                logger.log("WebView userScript: failed to read file at '\(filePath)': \(error.localizedDescription)", .warning)
+                return nil
+            }
+        }
+
+        if let resourceName = descriptor["resourceName"] as? String {
+            // Strip .js extension to use Bundle path(forResource:ofType:)
+            let nameWithoutExt = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
+            if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
+                do {
+                    return try String(contentsOfFile: path, encoding: .utf8)
+                } catch {
+                    logger.log("WebView userScript: failed to read bundle resource '\(resourceName)': \(error.localizedDescription)", .warning)
+                    return nil
+                }
+            }
+            // Fallback: try the name as-is (e.g. "MyScript" without extension, or unusual extension)
+            if let path = Bundle.main.path(forResource: resourceName, ofType: nil) {
+                do {
+                    return try String(contentsOfFile: path, encoding: .utf8)
+                } catch {
+                    logger.log("WebView userScript: failed to read bundle resource '\(resourceName)': \(error.localizedDescription)", .warning)
+                    return nil
+                }
+            }
+            logger.log("WebView userScript: bundle resource '\(resourceName)' not found", .warning)
+            return nil
+        }
+
+        return nil
     }
 
     // MARK: Setup

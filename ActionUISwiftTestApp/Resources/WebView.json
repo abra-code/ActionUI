@@ -1,0 +1,86 @@
+{
+  "type": "ScrollView",
+  "properties": {
+    "axis": "vertical"
+  },
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 16.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+
+      {
+        "type": "Text",
+        "properties": {
+          "text": "WebView – Remote URL",
+          "font": "headline"
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Loads swift.org with back/forward gestures and pinch-to-zoom enabled.",
+          "font": "subheadline",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "WebView",
+        "id": 1,
+        "properties": {
+          "url": "https://www.swift.org",
+          "backForwardNavigationGestures": true,
+          "magnificationGestures": true,
+          "linkPreviews": true,
+          "frame": { "height": 320 },
+          "cornerRadius": 10.0
+        }
+      },
+
+      {
+        "type": "Divider"
+      },
+
+      {
+        "type": "Text",
+        "properties": {
+          "text": "WebView – Local HTML + JS Injection",
+          "font": "headline"
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Local HTML page with two userScripts: webview-inject-start.js (documentStart) sets window.actionUI, and webview-inject-end.js (documentEnd) updates the status banner.",
+          "font": "subheadline",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "WebView",
+        "id": 2,
+        "properties": {
+          "html": "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>ActionUI Demo</title><style>*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;margin:0;padding:16px;background:#f5f5f7;color:#1c1c1e}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}h2{font-size:17px;font-weight:600;margin:0 0 12px}p{font-size:14px;color:#555;margin:6px 0}code{font-family:monospace;background:#f0f0f5;padding:1px 5px;border-radius:4px;font-size:13px}#actionui-banner{padding:10px 14px;border-radius:8px;font-size:14px;border:1px solid #d1d1d6;background:#f0f0f0;color:#555;margin-bottom:12px}</style></head><body><div class='card'><h2>ActionUI WebView Demo</h2><div id='actionui-banner'>Waiting for documentEnd injection&#8230;</div><p>window.actionUI.injectedAtStart: <code id='start-flag'>checking&#8230;</code></p><p>window.actionUI.framework: <code id='framework'>checking&#8230;</code></p><script>var ai=window.actionUI;document.getElementById('start-flag').textContent=ai&&ai.injectedAtStart?'true':'not set';document.getElementById('framework').textContent=ai&&ai.framework?ai.framework:'not set';</script></div><div class='card'><h2>About this demo</h2><p>The page content is defined inline in <code>WebView.json</code>.</p><p>Two scripts are injected from the app bundle via <code>userScripts</code>:</p><p><code>webview-inject-start.js</code> &rarr; documentStart</p><p><code>webview-inject-end.js</code> &rarr; documentEnd</p></div></body></html>",
+          "userScripts": [
+            {
+              "injectionTime": "documentStart",
+              "resourceName": "webview-inject-start.js",
+              "forMainFrameOnly": false
+            },
+            {
+              "injectionTime": "documentEnd",
+              "resourceName": "webview-inject-end.js",
+              "forMainFrameOnly": false
+            }
+          ],
+          "frame": { "height": 380 },
+          "cornerRadius": 10.0
+        }
+      }
+
+    ]
+  }
+}
