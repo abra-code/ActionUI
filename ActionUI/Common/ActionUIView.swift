@@ -8,7 +8,7 @@
 import SwiftUI
 
 @MainActor
-public struct ActionUIView: SwiftUI.View, Equatable {
+public struct ActionUIView: SwiftUI.View /*, Equatable*/ {
     let element: any ActionUIElementBase
     @ObservedObject var model: ViewModel
     let windowUUID: String
@@ -38,7 +38,8 @@ public struct ActionUIView: SwiftUI.View, Equatable {
             windowUUID: windowUUID
         )
     }
-
+    
+    #if false // incorrect equality function causes views not to refresh when they should be after mutating states
     // Equatable conformance to compare ActionUIView instances
     public static func == (lhs: ActionUIView, rhs: ActionUIView) -> Bool {
         guard lhs.element.id == rhs.element.id,
@@ -87,4 +88,5 @@ public struct ActionUIView: SwiftUI.View, Equatable {
 
         return true
     }
+    #endif // false
 }
