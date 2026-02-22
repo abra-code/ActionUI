@@ -146,6 +146,8 @@ final class DisclosureGroupTests: XCTestCase {
         
         logger.log("Creating view for element \(element.id) with children", .debug)
         let viewModel = ViewModel()
+        viewModel.validatedProperties = validatedProperties
+        viewModel.states = ActionUIRegistry.shared.getInitialStates(forElementType: element.type, model: viewModel)
         let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
         _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
         logger.log("After build: state[\(element.id)] = \(String(describing: viewModel))", .debug)
