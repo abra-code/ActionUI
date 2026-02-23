@@ -79,28 +79,45 @@ struct List: ActionUIViewConstruction {
         let actionID = properties["actionID"] as? String
         let doubleClickActionID = properties["doubleClickActionID"] as? String
         
-        let selectionBinding = Binding<String?>(
+        // Indices are 0..<displayItems.count — stable even with duplicate display strings
+        let selectionBinding = Binding<Set<Int>>(
             get: {
-                let value = model.value as? [String] ?? []
-                return value.first
-            },
-            set: { newValue in
-                var selectedRowValues = [] as [String]
-                if let newValue = newValue,
-                   let content = model.states["content"] as? [[String]],
-                   let selectedRow = content.first(where: { $0.first == newValue }) {
-                    selectedRowValues = selectedRow
+                guard let selectedRow = model.value as? [String],
+                      !selectedRow.isEmpty,
+                      let content = model.states["content"] as? [[String]],
+                      let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
+                    return Set<Int>()
                 }
-                
-                guard model.value as? [String] != selectedRowValues else {
+                return Set([selectedIndex])
+            },
+            set: { newSet in
+                // Enforce single selection for now (take first if somehow multi arrives)
+                guard let newIndex = newSet.first else {
+                    if !(model.value as? [String] ?? []).isEmpty {
+                        DispatchQueue.main.async {
+                            model.value = []
+                            // optional: trigger valueChangeActionID if needed
+                        }
+                    }
                     return
                 }
-                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
-                // "publishing changes from within view updates" warning
+
+                guard let content = model.states["content"] as? [[String]],
+                      content.indices.contains(newIndex) else { return }
+
+                let selectedRowValues = content[newIndex]
+
+                guard (model.value as? [String]) != selectedRowValues else { return }
+
                 DispatchQueue.main.async {
                     model.value = selectedRowValues
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        ActionUIModel.shared.actionHandler(
+                            valueChangeActionID,
+                            windowUUID: windowUUID,
+                            viewID: element.id,
+                            viewPartID: 0
+                        )
                     }
                 }
             }

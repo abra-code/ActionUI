@@ -5,7 +5,10 @@
    "type": "Table",
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "itemType": { "viewType": "Button", "actionContext": "rowColumnIndex" }, // Required, rowColumnIndex returns Point(row: Int, column: Int)
+     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage",
+                                         // "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (optional for Image/AsyncImage),
+                                         // "actionContext": "rowIndex"|"columnIndex"|"rowColumnIndex" (optional for Button) }
+                                         // rowColumnIndex creates Point(row: Int, column: Int) for context
      "columns": ["Name", "Action"], // Required: Array of strings for column headers
      "widths": [100, 80], // Optional: Array of integers for column widths
      "actionID": "table.action", // Optional: For Button viewType
@@ -115,26 +118,40 @@ struct Table: ActionUIViewConstruction {
             TableRowData(id: "row-\(index)", values: row)
         }
         
-        let selectionBinding = Binding<String?>(
-            get: { model.states["selectedRowID"] as? String },
-            set: { newValue in
-                model.states["selectedRowID"] = newValue
-                
-                var selectedRowValues = [] as [String]
-                if let selectedRowID = newValue,
-                   let selectedRow = rowData.first(where: { $0.id == selectedRowID }) {
+        let selectionBinding = Binding<Set<String>>(
+            get: {
+                guard let selectedRow = model.value as? [String],
+                      !selectedRow.isEmpty else {
+                    return Set<String>()
+                }
+                // Find which row-id corresponds to this value array
+                if let matchingRow = rowData.first(where: { $0.values == selectedRow }) {
+                    return Set([matchingRow.id])
+                }
+                return Set<String>()
+            },
+            set: { newSet in
+                let newRowID: String? = newSet.first   // enforce single for now
+        
+                var selectedRowValues: [String] = []
+        
+                if let rowID = newRowID,
+                   let selectedRow = rowData.first(where: { $0.id == rowID }) {
                     selectedRowValues = selectedRow.values
                 }
-                
-                guard model.value as? [String] != selectedRowValues else {
-                    return
-                }
-                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
-                // "publishing changes from within view updates" warning
+        
+                guard (model.value as? [String]) != selectedRowValues else { return }
+        
                 DispatchQueue.main.async {
                     model.value = selectedRowValues
+        
                     if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        ActionUIModel.shared.actionHandler(
+                            valueChangeActionID,
+                            windowUUID: windowUUID,
+                            viewID: element.id,
+                            viewPartID: 0
+                        )
                     }
                 }
             }

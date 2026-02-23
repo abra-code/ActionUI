@@ -1,18 +1,52 @@
 {
-  "type": "Table",
+  "type": "VStack",
   "properties": {
-    "itemType": {
-      "viewType": "Button",
-      "actionContext": "rowColumnIndex"
+    "spacing": 8,
+    "padding": "default",
+    "frame": { "maxWidth": 600, "maxHeight": 500 }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "padding": "default",
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Load Data",
+            "actionID": "table.demo.load",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Append Row",
+            "actionID": "table.demo.append",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Clear",
+            "actionID": "table.demo.clear",
+            "buttonStyle": "bordered"
+          }
+        }
+      ]
     },
-    "columns": [
-      "Name",
-      "Action"
-    ],
-    "widths": [
-      100,
-      80
-    ],
-    "actionID": "table.action"
-  }
+    {
+      "type": "Table",
+      "id": 1,
+      "properties": {
+        "itemType": { "viewType": "Text" },
+        "columns": ["Name", "Role", "Department"],
+        "widths": [160, 130, 150],
+        "padding": "default",
+        "valueChangeActionID": "table.demo.selectionChanged"
+      }
+    }
+  ]
 }

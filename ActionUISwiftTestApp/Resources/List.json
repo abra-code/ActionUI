@@ -1,8 +1,62 @@
 {
-  "type": "List",
+  "type": "VStack",
   "properties": {
-    "itemType": {
-      "viewType": "Text"
+    "spacing": 8,
+    "padding": "default",
+    "frame": { "maxWidth": 400, "maxHeight": 500 }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Load Items",
+            "actionID": "list.demo.load",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Append",
+            "actionID": "list.demo.append",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Clear",
+            "actionID": "list.demo.clear",
+            "buttonStyle": "bordered"
+          }
+        }
+      ]
     },
-  }
+    {
+      "type": "List",
+      "id": 1,
+      "properties": {
+        "itemType": { "viewType": "Text" },
+        "padding": "default",
+        "shadow": {
+          "color": "gray",
+          "radius": 3.0,
+          "x": 2.0,
+          "y": 2.0
+        },
+        "valueChangeActionID": "list.demo.selectionChanged"
+      }
+    },
+    {
+      "type": "Text",
+      "id": 2,
+      "properties": {
+        "text": "Selected: (none)"
+      }
+    }
+  ]
 }

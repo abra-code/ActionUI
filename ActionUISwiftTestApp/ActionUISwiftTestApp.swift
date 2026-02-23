@@ -47,6 +47,60 @@ struct ActionUISwiftTestApp: App {
             print("Default action callback for actionID:\(actionID), windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), context: \(String(describing: context))")
         })
         
+        // Table demo handlers
+        var tableAppendIndex = 0
+        let tableExtraRows: [[String]] = [
+            ["Frank Chen",    "Director",  "Operations"],
+            ["Grace Kim",     "Lead",      "Platform"],
+            ["Henry Wu",      "Intern",    "Data"]
+        ]
+        ActionUISwift.registerActionHandler(actionID: "table.demo.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [
+                ["Alice Johnson", "Engineer",  "Platform"],
+                ["Bob Smith",     "Designer",  "Product"],
+                ["Carol White",   "Manager",   "Engineering"],
+                ["David Lee",     "Analyst",   "Data"],
+                ["Eva Martinez",  "Engineer",  "Platform"]
+            ])
+        }
+        ActionUISwift.registerActionHandler(actionID: "table.demo.append") { _, windowUUID, _, _, _ in
+            let row = tableExtraRows[tableAppendIndex % tableExtraRows.count]
+            tableAppendIndex += 1
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 1, rows: [row])
+        }
+        ActionUISwift.registerActionHandler(actionID: "table.demo.clear") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 1)
+        }
+        ActionUISwift.registerActionHandler(actionID: "table.demo.selectionChanged") { _, windowUUID, _, _, _ in
+            if let selected = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], !selected.isEmpty {
+                print("Table row selected: \(selected)")
+            }
+        }
+
+        // List demo handlers
+        var listAppendIndex = 0
+        let listExtraItems = ["Haskell", "Elixir", "Julia", "Zig", "Dart"]
+        ActionUISwift.registerActionHandler(actionID: "list.demo.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [
+                ["Swift"], ["Python"], ["Kotlin"], ["TypeScript"], ["Rust"], ["Go"]
+            ])
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.demo.append") { _, windowUUID, _, _, _ in
+            let item = listExtraItems[listAppendIndex % listExtraItems.count]
+            listAppendIndex += 1
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 1, rows: [[item]])
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.demo.clear") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 1)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.demo.selectionChanged") { _, windowUUID, _, _, _ in
+            let selected = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String]
+            let label = selected?.first.map { "Selected: \($0)" } ?? "Selected: <none>"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: label)
+        }
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")
