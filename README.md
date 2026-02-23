@@ -46,6 +46,7 @@ ActionUI currently supports **50+ SwiftUI components** including:
 - Text & images: `Text`, `Label`, `Image`, `AsyncImage`
 - Data visualization: `ProgressView`, `Gauge`, `Table`, `List`
 - Media: `VideoPlayer`, `Map`, `Canvas`
+- Web: `WebView` (requires iOS/macOS 26)
 - Utilities: `Spacer`, `Divider`, `EmptyView`
 
 **Dynamic Loading:**
@@ -292,6 +293,7 @@ ActionUI will meet you where you are. Currently available programming environmen
 - ActionUIObjCAdapter
 - ActionUIJavaScriptCoreAdapter
 - ActionUIWebKitJSAdapter
+- ActionUICAdapter
 - ActionUICppAdapter
 - more to come
 
