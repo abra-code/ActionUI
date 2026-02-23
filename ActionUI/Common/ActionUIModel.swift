@@ -124,7 +124,7 @@ public class ActionUIModel: ObservableObject {
         // Design decision: Preserve extra columns in "content" beyond displayed columns to support runtime data (e.g., database IDs)
         if let _ = viewModel.states["content"] as? [[String]], let selectedRow = viewModel.value as? [String] {
             if viewPartID == 0 {
-                return selectedRow.joined(separator: "\t")
+                return selectedRow
             } else if viewPartID > 0 {
                 return (selectedRow.count > (viewPartID - 1)) ? selectedRow[viewPartID - 1] : ""
             }
