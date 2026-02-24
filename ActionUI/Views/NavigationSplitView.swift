@@ -7,7 +7,7 @@
    "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Sidebar" }
    },
-   "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
+   "content": {          // Optional: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
      "type": "Text", "properties": { "text": "Content" }
    },
    "detail": {           // Required: Single child view for detail. Note: Declared as a top-level key in JSON but stored in subviews["detail"].
@@ -53,7 +53,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let sidebar = element.subviews?["sidebar"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
+        let content = element.subviews?["content"] as? any ActionUIElementBase
         let detail = element.subviews?["detail"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         
         let visibilityBinding = Binding<NavigationSplitViewVisibility>(
@@ -93,23 +93,41 @@ struct NavigationSplitView: ActionUIViewConstruction {
         
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
         
-        return SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-            if let childModel = windowModel?.viewModels[sidebar.id] {
-                ActionUIView(element: sidebar, model: childModel, windowUUID: windowUUID)
-            } else {
-                SwiftUI.EmptyView()
+        if let content = content {
+            return SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
+                if let childModel = windowModel?.viewModels[sidebar.id] {
+                    ActionUIView(element: sidebar, model: childModel, windowUUID: windowUUID)
+                } else {
+                    SwiftUI.EmptyView()
+                }
+            } content: {
+                if let childModel = windowModel?.viewModels[content.id] {
+                    ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+                } else {
+                    SwiftUI.EmptyView()
+                }
+            } detail: {
+                if let childModel = windowModel?.viewModels[detail.id] {
+                    ActionUIView(element: detail, model: childModel, windowUUID: windowUUID)
+                } else {
+                    SwiftUI.EmptyView()
+                }
             }
-        } content: {
-            if let childModel = windowModel?.viewModels[content.id] {
-                ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
-            } else {
-                SwiftUI.EmptyView()
-            }
-        } detail: {
-            if let childModel = windowModel?.viewModels[detail.id] {
-                ActionUIView(element: detail, model: childModel, windowUUID: windowUUID)
-            } else {
-                SwiftUI.EmptyView()
+        }
+        else
+        {
+            return SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
+                if let childModel = windowModel?.viewModels[sidebar.id] {
+                    ActionUIView(element: sidebar, model: childModel, windowUUID: windowUUID)
+                } else {
+                    SwiftUI.EmptyView()
+                }
+            } detail: {
+                if let childModel = windowModel?.viewModels[detail.id] {
+                    ActionUIView(element: detail, model: childModel, windowUUID: windowUUID)
+                } else {
+                    SwiftUI.EmptyView()
+                }
             }
         }
     }

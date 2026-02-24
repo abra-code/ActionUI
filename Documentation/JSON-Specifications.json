@@ -659,7 +659,7 @@
    "sidebar": {          // Required: Single child view for sidebar. Note: Declared as a top-level key in JSON but stored in subviews["sidebar"] by ActionUIElement.init(from:).
      "type": "Text", "properties": { "text": "Sidebar" }
    },
-   "content": {          // Required: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
+   "content": {          // Optional: Single child view for content. Note: Declared as a top-level key in JSON but stored in subviews["content"].
      "type": "Text", "properties": { "text": "Content" }
    },
    "detail": {           // Required: Single child view for detail. Note: Declared as a top-level key in JSON but stored in subviews["detail"].
