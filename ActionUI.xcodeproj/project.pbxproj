@@ -12,7 +12,6 @@
 		1D25A6552E9F98C0003D20F4 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
 		1D25A6562E9F98C8003D20F4 /* ActionUIWebKitJSAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */; };
 		1D6DF6A42E6DB5F5002563AE /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
-		1D6DF6A52E6DB5F5002563AE /* ActionUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		1DD4E4302E8F3228001E0C83 /* ActionUISwiftAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */; };
 		1DD4E4602E8FAB45001E0C83 /* ActionUIObjCAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */; };
 		1DD4E4612E8FAB49001E0C83 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
@@ -145,7 +144,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				1D6DF6A52E6DB5F5002563AE /* ActionUI.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
