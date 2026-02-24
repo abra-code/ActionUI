@@ -32,7 +32,8 @@
           "A",
           "B"
         ],
-        "pickerStyle": "segmented"
+        "pickerStyle": "segmented",
+        "actionID": "picker.selection"
       }
     }
   ]
