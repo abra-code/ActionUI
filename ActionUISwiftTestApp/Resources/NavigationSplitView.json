@@ -1,22 +1,109 @@
 {
   "type": "NavigationSplitView",
+  "id": 1,
   "sidebar": {
-    "type": "Text",
+    "type": "VStack",
     "properties": {
-      "text": "Sidebar"
-    }
+      "spacing": 12,
+      "navigationSplitViewColumnWidth": {
+        "min": 260,
+        "ideal": 340,
+        "max": 460
+      }
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Sidebar Area",
+          "font": "headline",
+          "padding": {
+            "top": 16,
+            "leading": 16,
+            "bottom": 8,
+            "trailing": 16
+          }
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "This is the sidebar column with width: {min=260, ideal=340, max=460}.\n",
+          "multilineTextAlignment": "center"
+        }
+      }    ]
   },
   "content": {
-    "type": "Text",
+    "type": "VStack",
     "properties": {
-      "text": "Content"
-    }
+      "spacing": 16,
+      "navigationSplitViewColumnWidth": {
+        "min": 380,
+        "ideal": 520,
+        "max": 720
+      },
+      "padding": {
+        "top": 16,
+        "leading": 16,
+        "bottom": 16,
+        "trailing": 16
+      }
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Content Area",
+          "font": "title2"
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "This is the middle column.\nResize the split view to see how widths behave.",
+          "multilineTextAlignment": "center"
+        }
+      }
+    ]
   },
   "detail": {
-    "type": "Text",
+    "type": "VStack",
     "properties": {
-      "text": "Detail"
-    }
+      "spacing": 20,
+      "navigationSplitViewColumnWidth": {
+        "min": 420,
+        "ideal": 680,
+        "max": 1000
+      },
+      "padding": {
+        "top": 16,
+        "leading": 16,
+        "bottom": 16,
+        "trailing": 16
+      }
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Detail View",
+          "font": "title"
+        }
+      },
+      {
+        "type": "GroupBox",
+        "properties": { "title": "Information" },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "This is the detail column.\nIt has the widest recommended range.",
+              "foregroundStyle": "secondary"
+            }
+          }
+        ]
+      }
+    ]
   },
   "properties": {
     "columnVisibility": "all",

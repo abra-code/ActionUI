@@ -49,7 +49,13 @@
        "radius": 5.0,      // Optional: Double for shadow radius
        "x": 0.0,           // Optional: Double for x-offset
        "y": 2.0            // Optional: Double for y-offset
-     }
+     },
+     "navigationSplitViewColumnWidth": {     // Optional – only meaningful when this view is used as sidebar/content/detail in NavigationSplitView
+       "ideal": 360.0,                       // Required: preferred column width (Double) – must be provided
+       "min": 280.0,                         // Optional: minimum allowed width
+       "max": 480.0                          // Optional: maximum allowed width
+     },
+     "navigationSplitViewColumnWidth": 400.0, // Number – fixed column width
    }
  }
 
@@ -74,6 +80,11 @@
  - Flexible Frame: Uses "minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight" (at least one required) with an optional "alignment".
  Mixing keys from both forms (e.g., "width" with "minWidth") is invalid and will result in the frame being ignored with a warning.
  Invalid types for any frame dimension will result in the entire frame being ignored.
+
+ navigationSplitViewColumnWidth notes:
+ - "ideal" is required in dictionary form to match SwiftUI API.
+ - Modifier is ignored unless view is used inside NavigationSplitView column.
+ - System tries to respect values, but macOS users can still drag divider beyond min/max in some situations.
 */
 
 import SwiftUI
@@ -456,6 +467,51 @@ struct View: ActionUIViewConstruction {
                 validatedProperties["shadow"] = nil
             }
         }
+
+        if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
+            var validatedValue: Any? = nil
+            
+            // Case 1: dictionary with explicit range
+            if let dict = columnWidthAny as? [String: Any] {
+                var temp: [String: Any] = [:]
+                var hasIdeal = false
+                
+                if let ideal = dict.cgFloat(forKey: "ideal"), ideal > 0 {
+                    temp["ideal"] = ideal
+                    hasIdeal = true
+                } else if dict["ideal"] != nil {
+                    logger.log("navigationSplitViewColumnWidth.ideal must be positive number", .warning)
+                }
+                
+                if let minVal = dict.cgFloat(forKey: "min"), minVal > 0 {
+                    temp["min"] = minVal
+                }
+                
+                if let maxVal = dict.cgFloat(forKey: "max"), maxVal > 0 {
+                    temp["max"] = maxVal
+                }
+                
+                if hasIdeal {
+                    validatedValue = temp
+                } else {
+                    logger.log("navigationSplitViewColumnWidth dictionary requires 'ideal' key with positive number", .warning)
+                }
+            }
+            // Case 2: single number: fixed width
+            else if let fixed = properties.cgFloat(forKey: "navigationSplitViewColumnWidth"), fixed > 0 {
+                validatedValue = fixed
+            }
+
+            // Assign only if valid
+            if let validatedValue {
+                validatedProperties["navigationSplitViewColumnWidth"] = validatedValue
+            } else {
+                // Explicitly remove / reject invalid value
+                validatedProperties["navigationSplitViewColumnWidth"] = nil
+                // Optional: log that we discarded it
+                logger.log("Discarded invalid navigationSplitViewColumnWidth value", .debug)
+            }
+        }
         
         return validatedProperties
     }
@@ -597,6 +653,23 @@ struct View: ActionUIViewConstruction {
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(onDisappearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
                 }
+            }
+        }
+        
+        if let columnWidth = properties["navigationSplitViewColumnWidth"] {
+            if let dict = columnWidth as? [String: Any],
+                let ideal = dict.cgFloat(forKey: "ideal"), ideal > 0 {
+                let min = dict.cgFloat(forKey: "min")
+                let max = dict.cgFloat(forKey: "max")
+                
+                modifiedView = modifiedView.navigationSplitViewColumnWidth(
+                    min: min,
+                    ideal: ideal,
+                    max: max
+                )
+            }
+            else if let fixed = properties.cgFloat(forKey: "navigationSplitViewColumnWidth"), fixed > 0 {
+                modifiedView = modifiedView.navigationSplitViewColumnWidth(fixed)
             }
         }
         
