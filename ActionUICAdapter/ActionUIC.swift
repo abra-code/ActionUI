@@ -557,6 +557,110 @@ public func actionUISetElementPropertyJSON(
     return true
 }
 
+// MARK: - Element State Management
+
+/// Returns the current value for a single state key of a view element, as a JSON string.
+/// Caller must free the returned string with actionUIFreeString.
+/// Returns NULL if the view or key is not found.
+@_cdecl("actionUIGetElementStateJSON")
+public func actionUIGetElementStateJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ key: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftKey = String(cString: key)
+
+    let value = runOnMainActorSync {
+        ActionUIModel.shared.getElementState(windowUUID: swiftWindowUUID, viewID: Int(viewID), key: swiftKey)
+    }
+
+    guard let value = value else {
+        return nil
+    }
+
+    guard let json = valueToJSON(value) else {
+        return nil
+    }
+
+    return strdup(json)
+}
+
+/// Returns the string representation of a single state value for a view element.
+/// Caller must free the returned string with actionUIFreeString.
+/// Returns NULL if the view or key is not found.
+@_cdecl("actionUIGetElementStateString")
+public func actionUIGetElementStateString(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ key: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftKey = String(cString: key)
+
+    let result = runOnMainActorSync {
+        ActionUIModel.shared.getElementStateAsString(windowUUID: swiftWindowUUID, viewID: Int(viewID), key: swiftKey)
+    }
+
+    guard let value = result else {
+        return nil
+    }
+
+    return strdup(value)
+}
+
+/// Sets a single state key to a new value parsed from a JSON string.
+/// Rejects the update (with an error log) if the new value's type differs from the existing value's type.
+@_cdecl("actionUISetElementStateJSON")
+public func actionUISetElementStateJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ key: UnsafePointer<CChar>,
+    _ valueJSON: UnsafePointer<CChar>
+) -> Bool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftKey = String(cString: key)
+    let swiftValueJSON = String(cString: valueJSON)
+
+    guard let value = jsonToValue(swiftValueJSON) else {
+        return false
+    }
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.setElementState(windowUUID: swiftWindowUUID, viewID: Int(viewID), key: swiftKey, value: value)
+    }
+
+    return true
+}
+
+/// Sets a single state key by parsing a string into the type of the existing value.
+/// If the key does not yet exist the string is stored as-is.
+@_cdecl("actionUISetElementStateFromString")
+public func actionUISetElementStateFromString(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ key: UnsafePointer<CChar>,
+    _ value: UnsafePointer<CChar>
+) -> Bool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftKey = String(cString: key)
+    let swiftValue = String(cString: value)
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.setElementStateFromString(windowUUID: swiftWindowUUID, viewID: Int(viewID), key: swiftKey, value: swiftValue)
+    }
+
+    return true
+}
+
 // MARK: - Element Info
 
 /// Returns a JSON string mapping positive view IDs to their view type strings.
