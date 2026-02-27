@@ -72,13 +72,18 @@ private func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
     }
 }
 
+// MARK: - String Helpers
+
+/// Heap-copy `str` into a malloc-owned C string. Caller must free with actionUIFreeString.
+private func actionStrdup(_ str: String) -> UnsafeMutablePointer<CChar>? {
+    return str.withCString { strdup($0) }
+}
+
 // MARK: - Version Info
 
 @_cdecl("actionUIGetVersion")
-public func actionUIGetVersion() -> UnsafePointer<CChar> {
-    let version = "1.0.0"
-    let cString = strdup(version)!
-    return UnsafePointer(cString)
+public func actionUIGetVersion() -> UnsafeMutablePointer<CChar>? {
+    return actionStrdup("1.0.0")
 }
 
 // MARK: - Logging
@@ -171,7 +176,7 @@ private func bridgeActionHandler(actionID: String, windowUUID: String, viewID: I
 }
 
 @_cdecl("actionUIRegisterActionHandler")
-public func actionUIRegisterActionHandler(_ actionID: UnsafePointer<CChar>, _ handler: @escaping ActionUIActionHandler) -> Bool {
+public func actionUIRegisterActionHandler(_ actionID: UnsafePointer<CChar>, _ handler: @escaping ActionUIActionHandler) -> CBool {
     let swiftActionID = String(cString: actionID)
     actionHandlers[swiftActionID] = handler
     
@@ -185,7 +190,7 @@ public func actionUIRegisterActionHandler(_ actionID: UnsafePointer<CChar>, _ ha
 }
 
 @_cdecl("actionUIUnregisterActionHandler")
-public func actionUIUnregisterActionHandler(_ actionID: UnsafePointer<CChar>) -> Bool {
+public func actionUIUnregisterActionHandler(_ actionID: UnsafePointer<CChar>) -> CBool {
     let swiftActionID = String(cString: actionID)
     actionHandlers.removeValue(forKey: swiftActionID)
     
@@ -237,10 +242,9 @@ private func clearError() {
 }
 
 @_cdecl("actionUIGetLastError")
-public func actionUIGetLastError() -> UnsafePointer<CChar>? {
+public func actionUIGetLastError() -> UnsafeMutablePointer<CChar>? {
     guard let error = lastError else { return nil }
-    let cString = strdup(error)!
-    return UnsafePointer(cString)
+    return actionStrdup(error)
 }
 
 @_cdecl("actionUIClearError")
@@ -282,7 +286,7 @@ public func actionUISetElementValueJSON(
     _ viewID: Int64,
     _ valueJSON: UnsafePointer<CChar>,
     _ viewPartID: Int64
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -329,8 +333,8 @@ public func actionUIGetElementValueJSON(
     guard let json = valueToJSON(value) else {
         return nil
     }
-    
-    return strdup(json)
+
+    return actionStrdup(json)
 }
 
 // MARK: - Element Value Management (String)
@@ -341,7 +345,7 @@ public func actionUISetElementValueString(
     _ viewID: Int64,
     _ valueString: UnsafePointer<CChar>,
     _ viewPartID: Int64
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -380,8 +384,8 @@ public func actionUIGetElementValueString(
     guard let value = result else {
         return nil
     }
-    
-    return strdup(value)
+
+    return actionStrdup(value)
 }
 
 // MARK: - Element Column Count
@@ -433,7 +437,7 @@ public func actionUIGetElementRowsJSON(
         return nil
     }
 
-    return strdup(json)
+    return actionStrdup(json)
 }
 
 /// Clears all content rows from a table/list view element, preserving column definitions.
@@ -457,7 +461,7 @@ public func actionUISetElementRowsJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
     _ rowsJSON: UnsafePointer<CChar>
-) -> Bool {
+) -> CBool {
     clearError()
 
     let swiftWindowUUID = String(cString: windowUUID)
@@ -482,7 +486,7 @@ public func actionUIAppendElementRowsJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
     _ rowsJSON: UnsafePointer<CChar>
-) -> Bool {
+) -> CBool {
     clearError()
 
     let swiftWindowUUID = String(cString: windowUUID)
@@ -528,7 +532,7 @@ public func actionUIGetElementPropertyJSON(
         return nil
     }
 
-    return strdup(json)
+    return actionStrdup(json)
 }
 
 /// Sets a structural property value for a view element from a JSON string.
@@ -539,7 +543,7 @@ public func actionUISetElementPropertyJSON(
     _ viewID: Int64,
     _ propertyName: UnsafePointer<CChar>,
     _ valueJSON: UnsafePointer<CChar>
-) -> Bool {
+) -> CBool {
     clearError()
 
     let swiftWindowUUID = String(cString: windowUUID)
@@ -585,7 +589,7 @@ public func actionUIGetElementStateJSON(
         return nil
     }
 
-    return strdup(json)
+    return actionStrdup(json)
 }
 
 /// Returns the string representation of a single state value for a view element.
@@ -610,7 +614,7 @@ public func actionUIGetElementStateString(
         return nil
     }
 
-    return strdup(value)
+    return actionStrdup(value)
 }
 
 /// Sets a single state key to a new value parsed from a JSON string.
@@ -621,7 +625,7 @@ public func actionUISetElementStateJSON(
     _ viewID: Int64,
     _ key: UnsafePointer<CChar>,
     _ valueJSON: UnsafePointer<CChar>
-) -> Bool {
+) -> CBool {
     clearError()
 
     let swiftWindowUUID = String(cString: windowUUID)
@@ -647,7 +651,7 @@ public func actionUISetElementStateFromString(
     _ viewID: Int64,
     _ key: UnsafePointer<CChar>,
     _ value: UnsafePointer<CChar>
-) -> Bool {
+) -> CBool {
     clearError()
 
     let swiftWindowUUID = String(cString: windowUUID)
@@ -689,7 +693,7 @@ public func actionUIGetElementInfoJSON(
         return nil
     }
 
-    return strdup(json)
+    return actionStrdup(json)
 }
 
 // MARK: - Type-specific Setters
@@ -700,7 +704,7 @@ public func actionUISetIntValue(
     _ viewID: Int64,
     _ value: Int64,
     _ viewPartID: Int64
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -721,7 +725,7 @@ public func actionUISetDoubleValue(
     _ viewID: Int64,
     _ value: Double,
     _ viewPartID: Int64
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -740,11 +744,11 @@ public func actionUISetDoubleValue(
 public func actionUISetBoolValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
-    _ value: Bool,
+    _ value: CBool,
     _ viewPartID: Int64
-) -> Bool {
+) -> CBool {
     clearError()
-    
+
     let swiftWindowUUID = String(cString: windowUUID)
     runOnMainActorAsync {
         ActionUIModel.shared.setElementValue(
@@ -763,7 +767,7 @@ public func actionUISetStringValue(
     _ viewID: Int64,
     _ value: UnsafePointer<CChar>,
     _ viewPartID: Int64
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -787,7 +791,7 @@ public func actionUIGetIntValue(
     _ viewID: Int64,
     _ viewPartID: Int64,
     _ outValue: UnsafeMutablePointer<Int64>
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -822,7 +826,7 @@ public func actionUIGetDoubleValue(
     _ viewID: Int64,
     _ viewPartID: Int64,
     _ outValue: UnsafeMutablePointer<Double>
-) -> Bool {
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -856,8 +860,8 @@ public func actionUIGetBoolValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
     _ viewPartID: Int64,
-    _ outValue: UnsafeMutablePointer<Bool>
-) -> Bool {
+    _ outValue: UnsafeMutablePointer<CBool>
+) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
@@ -906,7 +910,7 @@ public func actionUIGetStringValue(
     }
     
     if let stringValue = value as? String {
-        return strdup(stringValue)
+        return actionStrdup(stringValue)
     }
     
     setError("Value is not a string")
@@ -920,7 +924,7 @@ public func actionUIGetStringValue(
 public func actionUILoadHostingControllerFromURL(
     _ urlString: UnsafePointer<CChar>,
     _ windowUUID: UnsafePointer<CChar>,
-    _ isContentView: Bool
+    _ isContentView: CBool
 ) -> UnsafeMutableRawPointer? {
     clearError()
     
@@ -963,7 +967,7 @@ public func actionUILoadHostingControllerFromURL(
 public func actionUILoadViewFromJSON(
     _ jsonString: UnsafePointer<CChar>,
     _ windowUUID: UnsafePointer<CChar>,
-    _ isContentView: Bool
+    _ isContentView: CBool
 ) -> UnsafeMutableRawPointer? {
     clearError()
     
