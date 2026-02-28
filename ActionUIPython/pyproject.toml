@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "actionui"
+version = "1.0.0"
+description = "Python bindings for ActionUI — native macOS SwiftUI GUI from Python"
+requires-python = ">=3.8"
+
+# ActionUI and ActionUICAdapter are statically linked into the extension .so.
+# Only macOS system frameworks (Foundation, SwiftUI, AppKit) are runtime deps.
+# Set ACTIONUI_FRAMEWORKS_DIR before building to point at pre-built static
+# .framework bundles, or place them in ./frameworks/ next to this file.
+
+[tool.setuptools]
+# Only actionui.py is the installable module; test_native.py is not packaged.
+py-modules = ["actionui"]

@@ -3,3 +3,11 @@
 *.xcuserstate
 */xcuserdata
 Private/
+
+# ActionUI Python extension
+ActionUIPython/actionui.egg-info/
+ActionUIPython/__pycache__/
+ActionUIPython/frameworks/
+ActionUIPython/build/
+ActionUIPython/dist/
+ActionUIPython/*.so
