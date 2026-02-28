@@ -96,8 +96,11 @@ struct Image: ActionUIViewConstruction {
         }
         
         // Check if all image source properties are nil
-        if validatedProperties["systemName"] == nil && validatedProperties["name"] == nil && validatedProperties["filePath"] == nil {
-            logger.log("Image requires one of 'systemName', 'name', or 'filePath'; defaulting to empty image", .warning)
+        if validatedProperties["systemName"] == nil &&
+            validatedProperties["name"] == nil &&
+            validatedProperties["resourceName"] == nil &&
+            validatedProperties["filePath"] == nil {
+            logger.log("Image requires one of 'systemName', 'name', 'resourceName' or 'filePath'; defaulting to empty image", .warning)
         }
         
         return validatedProperties

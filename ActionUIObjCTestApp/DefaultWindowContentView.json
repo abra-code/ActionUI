@@ -34,18 +34,17 @@
         }
     },
     {
-      "type": "Image",
+      "type": "AsyncImage",
       "properties": {
-        "resourceName": "abracadabra.png",
+        "url": "https://abracode.com/ActionUI/abracadabra.png",
+        "placeholder": "photo.circle",
         "resizable": true,
-        "scaleMode": "fit",
+        "contentMode": "fit",
         "frame": {
           "width": 200.0,
           "height": 200.0,
           "alignment": "center"
-        },
-        "padding": 8.0,
-        "accessibilityIdentifier": "swift_image"
+        }
       }
     }
   ]
