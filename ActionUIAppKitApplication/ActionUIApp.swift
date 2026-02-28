@@ -65,6 +65,7 @@ private var didResignActiveHandler:     ActionUIAppLifecycleHandler? = nil
 private var willTerminateHandler:       ActionUIAppLifecycleHandler? = nil
 private var shouldTerminateHandler:     ActionUIAppShouldTerminateHandler? = nil
 private var windowWillCloseHandler:     ActionUIAppWindowHandler? = nil
+private var windowWillPresentHandler:   ActionUIAppWindowHandler? = nil
 
 // MARK: - Window registry (UUID → NSWindow)
 
@@ -171,6 +172,11 @@ public func actionUIAppSetWindowWillCloseHandler(_ handler: ActionUIAppWindowHan
     windowWillCloseHandler = handler
 }
 
+@_cdecl("actionUIAppSetWindowWillPresentHandler")
+public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowHandler?) {
+    windowWillPresentHandler = handler
+}
+
 // MARK: - App control
 
 /// Start the NSApplication run loop.  Blocks until the app terminates.
@@ -257,6 +263,9 @@ public func actionUIAppLoadAndPresentWindow(
         window.delegate = ActionUIApplicationDelegate.shared
 
         windows[swiftUUID] = window
+        if let handler = windowWillPresentHandler {
+            swiftUUID.withCString { handler($0) }
+        }
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate()
     }
