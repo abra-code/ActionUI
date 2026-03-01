@@ -62,7 +62,13 @@ class Application:
 
     _instance: Optional['Application'] = None
 
-    def __init__(self):
+    def __init__(self, name: Optional[str] = None):
+        """Create the application singleton.
+
+        Args:
+            name: Application name shown in the menu bar (About, Hide, Quit).
+                  Defaults to the process name if ``None``.
+        """
         if Application._instance is not None:
             raise RuntimeError("Only one Application instance can exist")
 
@@ -77,6 +83,9 @@ class Application:
         self._window_present_handler: Optional[Callable[['Window'], None]] = None
         # UUID → Window for all windows opened via load_and_present_window().
         self._windows: Dict[str, 'Window'] = {}
+
+        if name is not None:
+            _actionui.app_set_name(name)
 
         _actionui.set_default_action_handler(self._action_bridge)
         # Register internal bridges so we always handle window lifecycle
@@ -333,6 +342,54 @@ class Application:
         from the internal registry.
         """
         _actionui.app_close_window(window_uuid)
+
+    def load_menu_bar(self, source: Optional[str] = None):
+        """Install the default menu bar and optionally apply custom commands.
+
+        Args:
+            source: One of the following (or ``None`` for just the defaults):
+
+                * A filesystem path to a JSON file containing an array of
+                  ``CommandMenu`` / ``CommandGroup`` elements.
+                * A raw JSON string (must start with ``[``).
+
+                The JSON uses the same schema as ActionUI's SwiftUI commands::
+
+                    [
+                      {
+                        "type": "CommandMenu",
+                        "id": 100,
+                        "properties": { "name": "Tools" },
+                        "children": [
+                          {
+                            "type": "Button",
+                            "id": 101,
+                            "properties": {
+                              "title": "Run Script",
+                              "actionID": "tools.runScript",
+                              "keyboardShortcut": { "key": "r", "modifiers": ["command"] }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+        """
+        if source is None:
+            _actionui.app_load_menu_bar()
+            return
+
+        json_string = source
+        # Heuristic: if it starts with '[' it's inline JSON; otherwise
+        # try to read it as a file path and fall back to passing the
+        # raw string to the C layer (which will log a parse error).
+        if not source.lstrip().startswith('['):
+            import os
+            path = os.path.abspath(source)
+            if os.path.isfile(path):
+                with open(path, 'r') as f:
+                    json_string = f.read()
+
+        _actionui.app_load_menu_bar(json_string)
 
 
 class Window:

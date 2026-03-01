@@ -283,6 +283,13 @@ static PyObject* py_app_set_window_will_present(PyObject* self, PyObject* args) 
     Py_RETURN_NONE;
 }
 
+static PyObject* py_app_set_name(PyObject* self, PyObject* args) {
+    const char* name;
+    if (PyArg_ParseTuple(args, "s", &name) == 0) return NULL;
+    actionUIAppSetName(name);
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_app_run(PyObject* self, PyObject* args) {
     Py_BEGIN_ALLOW_THREADS
     actionUIAppRun();
@@ -308,6 +315,13 @@ static PyObject* py_app_close_window(PyObject* self, PyObject* args) {
     const char* windowUUID;
     if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
     actionUIAppCloseWindow(windowUUID);
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_app_load_menu_bar(PyObject* self, PyObject* args) {
+    const char* jsonString = NULL;
+    if (PyArg_ParseTuple(args, "|z", &jsonString) == 0) return NULL;
+    actionUIAppLoadMenuBar(jsonString);
     Py_RETURN_NONE;
 }
 
@@ -819,7 +833,9 @@ static PyMethodDef ActionUIMethods[] = {
     {"app_set_window_will_present",   py_app_set_window_will_present,   METH_VARARGS,
      "app_set_window_will_present(callback|None) — callback(windowUUID: str); fires before makeKeyAndOrderFront"},
 
-    /* App lifecycle — control */
+    /* App name and control */
+    {"app_set_name",                  py_app_set_name,                  METH_VARARGS,
+     "app_set_name(name) — set the application name for the menu bar."},
     {"app_run",                       py_app_run,                       METH_NOARGS,
      "app_run() — start NSApplication run loop; blocks until the app terminates."},
     {"app_terminate",                 py_app_terminate,                 METH_NOARGS,
@@ -828,6 +844,8 @@ static PyMethodDef ActionUIMethods[] = {
      "app_load_and_present_window(url, windowUUID[, title]) — load JSON and open a window."},
     {"app_close_window",              py_app_close_window,              METH_VARARGS,
      "app_close_window(windowUUID) — close the window identified by windowUUID."},
+    {"app_load_menu_bar",             py_app_load_menu_bar,             METH_VARARGS,
+     "app_load_menu_bar([jsonString]) — install default menu bar and optionally apply commands JSON."},
 
     {NULL, NULL, 0, NULL}
 };

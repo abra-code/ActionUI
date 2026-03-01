@@ -9,9 +9,9 @@ Two static frameworks expose ActionUI to non-Swift callers via C-linkage
 API.  `ActionUIC.h` defines types only (enums, callback typedefs); function
 declarations are auto-generated into `ActionUICAdapter-Swift.h`.
 
-**ActionUIAppKitApplication** — NSApplication lifecycle and window management.
-`ActionUIApp.h` defines the three callback typedefs; function declarations are
-auto-generated into `ActionUIAppKitApplication-Swift.h`.
+**ActionUIAppKitApplication** — NSApplication lifecycle, window management, and
+menu bar construction.  `ActionUIApp.h` defines the three callback typedefs;
+function declarations are auto-generated into `ActionUIAppKitApplication-Swift.h`.
 
 Both headers are guarded with `#if defined(__OBJC__)`, so callers must compile
 as Objective-C (`.m`).  See `BUILD.md §Why .m instead of .c` for the rationale.
@@ -180,12 +180,25 @@ void actionUIAppSetWindowWillPresentHandler  (ActionUIAppWindowHandler handler);
 // Pass NULL to any setter to deregister.
 ```
 
+### App name
+
+```c
+void actionUIAppSetName(const char* name);
+// Set the application name shown in the menu bar (About, Hide, Quit).
+// Also patches Bundle.main CFBundleName so macOS displays the correct
+// bold title in the app menu (works around Python.app bundle identity).
+// Must be called before actionUIAppRun().
+```
+
 ### App control
 
 ```c
 void actionUIAppRun(void);
 // Start the NSApplication run loop.  Blocks until the app terminates.
 // Must be called from the main thread.
+// Installs the default menu bar (App, File, Edit, Window, Help) automatically
+// in applicationWillFinishLaunching if no menu bar has been loaded.
+// Activates the app and brings windows to front in applicationDidFinishLaunching.
 
 void actionUIAppTerminate(void);
 // Request graceful termination (equivalent to Cmd-Q).
@@ -208,6 +221,56 @@ void actionUIAppCloseWindow(const char* windowUUID);
 // windowWillClose handler fires before the window is removed from the registry.
 ```
 
+### Menu bar
+
+```c
+void actionUIAppLoadMenuBar(const char* jsonString);
+// Install the default menu bar and optionally apply custom commands from JSON.
+// Pass NULL to install only the default menu bar (App, File, Edit, Window, Help).
+//
+// jsonString is a JSON array of CommandMenu and/or CommandGroup elements:
+//
+//   CommandMenu — adds a new top-level menu (inserted before Window and Help):
+//   {
+//     "type": "CommandMenu",
+//     "id": 100,
+//     "properties": { "name": "Tools" },
+//     "children": [
+//       { "type": "Button", "id": 101, "properties": {
+//           "title": "Run Script", "actionID": "tools.run",
+//           "keyboardShortcut": { "key": "r", "modifiers": ["command"] }
+//       }},
+//       { "type": "Divider", "id": 102 }
+//     ]
+//   }
+//
+//   CommandGroup — inserts/replaces items in an existing default menu:
+//   {
+//     "type": "CommandGroup",
+//     "id": 200,
+//     "properties": {
+//       "placement": "after",          // "before", "after", or "replacing"
+//       "placementTarget": "newItem"   // see placement targets below
+//     },
+//     "children": [...]
+//   }
+//
+// Supported placementTarget values:
+//   App menu:    appInfo, appSettings, systemServices, appVisibility, appTermination
+//   File menu:   newItem, saveItem, importExport, printItem
+//   Edit menu:   undoRedo, pasteboard, textEditing, textFormatting
+//   View menu:   toolbar, sidebar
+//   Window menu: windowSize, windowList, singleWindowList, windowArrangement
+//   Help menu:   help
+//
+// Button children support:
+//   "title"            — menu item title (required)
+//   "actionID"         — dispatched through ActionUIModel action handlers
+//   "keyboardShortcut" — { "key": "t", "modifiers": ["command", "shift"] }
+//
+// Uses the same schema as ActionUI's SwiftUI CommandMenu/CommandGroup.
+```
+
 ---
 
 ## Python API (`actionui.py`)
@@ -217,7 +280,8 @@ void actionUIAppCloseWindow(const char* windowUUID);
 ```python
 import actionui
 
-app = actionui.Application()   # singleton — raises RuntimeError on second call
+app = actionui.Application()                  # singleton — raises RuntimeError on second call
+app = actionui.Application(name="My App")     # set the app name in the menu bar
 ```
 
 #### Lifecycle decorators
@@ -262,6 +326,37 @@ def _(window: Window): ...
 ```python
 app.run()          # start NSApplication run loop; blocks — never returns
 app.terminate()    # request graceful termination (async, any thread)
+```
+
+#### Menu bar
+
+```python
+# Install default menu bar only (also happens automatically on app.run()):
+app.load_menu_bar()
+
+# Load custom commands from a JSON file:
+app.load_menu_bar("menus.json")
+
+# Load custom commands from an inline JSON string:
+app.load_menu_bar('[{"type": "CommandMenu", "id": 100, ...}]')
+```
+
+The JSON uses the same `CommandMenu` / `CommandGroup` schema as SwiftUI
+commands.  `CommandMenu` adds a new top-level menu; `CommandGroup` inserts
+items into existing default menus using `placement` + `placementTarget`.
+
+Button children with `actionID` are dispatched through the same action handler
+system as UI button clicks:
+
+```python
+app.load_menu_bar('[{"type":"CommandMenu","id":1,"properties":{"name":"Tools"},'
+                   '"children":[{"type":"Button","id":2,"properties":'
+                   '{"title":"Run","actionID":"tools.run",'
+                   '"keyboardShortcut":{"key":"r","modifiers":["command"]}}}]}]')
+
+@app.action("tools.run")
+def on_run(ctx):
+    print("Run clicked!")
 ```
 
 #### Window management
@@ -373,7 +468,8 @@ actionui.clear_error()
 
 - **BUILD.md** — build instructions, framework setup, architecture, type conversions, distribution
 - **test_native.py** — element API smoke test
-- **test_app_api.py** — app lifecycle API smoke test
-- **test_app_lifecycle.py** — full integration test (real NSApplication run loop)
+- **test_app_api.py** — app lifecycle and menu bar API smoke test
+- **test_app_lifecycle.py** — full lifecycle integration test (real NSApplication run loop)
+- **test_menu_bar.py** — menu bar integration test (custom menus, action dispatch, app naming)
 - **ActionUIC.h** — C type definitions (element API)
 - **ActionUIApp.h** — C callback typedef definitions (app lifecycle API)

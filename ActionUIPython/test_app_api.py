@@ -45,10 +45,12 @@ def test_module_api_surface():
         "app_set_should_terminate",
         "app_set_window_will_close",
         "app_set_window_will_present",
+        "app_set_name",
         "app_run",
         "app_terminate",
         "app_load_and_present_window",
         "app_close_window",
+        "app_load_menu_bar",
     ]
 
     for name in expected:
@@ -186,6 +188,83 @@ def test_url_conversion():
           convert("https://example.com/ui.json") == "https://example.com/ui.json")
 
 
+def test_menu_bar_api(app: actionui.Application):
+    """Menu bar API must exist and accept valid/invalid inputs without crashing."""
+    print("\n=== Menu bar API ===")
+
+    check("Application has load_menu_bar method",
+          hasattr(app, "load_menu_bar"))
+
+    # No-arg call (installs default menu bar)
+    try:
+        app.load_menu_bar()
+        check("load_menu_bar() with no args does not raise", True)
+    except Exception as e:
+        check(f"load_menu_bar() raised {type(e).__name__}: {e}", False)
+
+    # None arg
+    try:
+        app.load_menu_bar(None)
+        check("load_menu_bar(None) does not raise", True)
+    except Exception as e:
+        check(f"load_menu_bar(None) raised {type(e).__name__}: {e}", False)
+
+    # Valid CommandMenu JSON
+    import json
+    valid_json = json.dumps([{
+        "type": "CommandMenu",
+        "id": 900,
+        "properties": {"name": "Test"},
+        "children": [{
+            "type": "Button",
+            "id": 901,
+            "properties": {"title": "Item", "actionID": "test.item"}
+        }]
+    }])
+    try:
+        app.load_menu_bar(valid_json)
+        check("load_menu_bar(valid CommandMenu JSON) does not raise", True)
+    except Exception as e:
+        check(f"load_menu_bar(valid JSON) raised {type(e).__name__}: {e}", False)
+
+    # Valid CommandGroup JSON
+    group_json = json.dumps([{
+        "type": "CommandGroup",
+        "id": 910,
+        "properties": {"placement": "after", "placementTarget": "help"},
+        "children": [{
+            "type": "Divider",
+            "id": 911
+        }]
+    }])
+    try:
+        app.load_menu_bar(group_json)
+        check("load_menu_bar(valid CommandGroup JSON) does not raise", True)
+    except Exception as e:
+        check(f"load_menu_bar(CommandGroup JSON) raised {type(e).__name__}: {e}", False)
+
+    # Invalid JSON — must not crash
+    try:
+        app.load_menu_bar("not valid json")
+        check("load_menu_bar(invalid JSON string) does not crash", True)
+    except Exception as e:
+        check(f"load_menu_bar(invalid JSON) raised {type(e).__name__}: {e}", False)
+
+    # Empty array — valid, adds nothing
+    try:
+        app.load_menu_bar("[]")
+        check("load_menu_bar('[]') does not raise", True)
+    except Exception as e:
+        check(f"load_menu_bar('[]') raised {type(e).__name__}: {e}", False)
+
+    # C-level: non-array JSON object — logged as error, no crash
+    try:
+        _actionui.app_load_menu_bar('{"type":"CommandMenu"}')
+        check("app_load_menu_bar(non-array JSON) does not crash", True)
+    except Exception as e:
+        check(f"C-level non-array JSON raised {type(e).__name__}: {e}", False)
+
+
 def test_singleton_enforcement():
     """A second Application() in the same process must raise RuntimeError."""
     print("\n=== Application singleton enforcement ===")
@@ -236,6 +315,7 @@ def main():
     test_deregistration(app)
     test_type_checking(app)
     test_url_conversion()
+    test_menu_bar_api(app)
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
 
