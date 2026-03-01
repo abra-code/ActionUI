@@ -61,7 +61,7 @@ public class ActionUIModel: ObservableObject {
     }
     
     // Execute the handler for an actionID, falling back to defaultActionHandler if no specific handler is found
-    internal func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
+    public func actionHandler(_ actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any? = nil) {
         if let handler = actionHandlers[actionID] {
             logger.log("Executing handler for actionID: \(actionID), viewID: \(viewID)", .debug)
             handler(actionID, windowUUID, viewID, viewPartID, context)

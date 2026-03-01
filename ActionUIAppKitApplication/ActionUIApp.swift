@@ -67,6 +67,11 @@ private var shouldTerminateHandler:     ActionUIAppShouldTerminateHandler? = nil
 private var windowWillCloseHandler:     ActionUIAppWindowHandler? = nil
 private var windowWillPresentHandler:   ActionUIAppWindowHandler? = nil
 
+// MARK: - Application name (set before run)
+
+/// Custom application name.  When set, overrides processName in the menu bar.
+var appName: String? = nil
+
 // MARK: - Window registry (UUID → NSWindow)
 
 private var windows: [String: NSWindow] = [:]
@@ -80,11 +85,30 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
     // MARK: NSApplicationDelegate
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Install the default menu bar before the user's handler fires,
+        // so the menu bar is visible by the time didFinishLaunching runs.
+        // Always reinstall when appName is set — a menu bar may have been
+        // loaded earlier (e.g. by actionUIAppLoadMenuBar) before the
+        // caller set the app name, so the titles would be stale.
+        let app = NSApplication.shared
+        if appName != nil || app.mainMenu == nil || app.mainMenu?.items.isEmpty == true {
+            installDefaultMenuBar(appName: appName)
+        }
+
         willFinishLaunchingHandler?()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         didFinishLaunchingHandler?()
+
+        // Bring the app to front.  Delayed so the window server has time
+        // to fully register the process after setActivationPolicy(.regular).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NSApp.activate()
+            for window in NSApp.windows where window.isVisible {
+                window.orderFrontRegardless()
+            }
+        }
     }
 
     func applicationWillBecomeActive(_ notification: Notification) {
@@ -175,6 +199,27 @@ public func actionUIAppSetWindowWillCloseHandler(_ handler: ActionUIAppWindowHan
 @_cdecl("actionUIAppSetWindowWillPresentHandler")
 public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowHandler?) {
     windowWillPresentHandler = handler
+}
+
+// MARK: - App name
+
+/// Set the application name used in the menu bar (About, Hide, Quit).
+/// Must be called before `actionUIAppRun()`.
+/// Also sets `ProcessInfo.processInfo.processName` so the system picks it up.
+@_cdecl("actionUIAppSetName")
+public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
+    let swiftName = String(cString: name)
+    appName = swiftName
+    ProcessInfo.processInfo.processName = swiftName
+
+    // Patch the main bundle's info dictionary so macOS picks up the
+    // custom name for the app menu title.  The underlying NSDictionary
+    // returned by -[NSBundle infoDictionary] is actually mutable at
+    // runtime — this is the standard trick for unbundled processes
+    // (e.g. Python scripts) that don't have their own Info.plist.
+    if let info = Bundle.main.infoDictionary as NSDictionary? {
+        (info as? NSMutableDictionary)?["CFBundleName"] = swiftName
+    }
 }
 
 // MARK: - App control
