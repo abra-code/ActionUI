@@ -51,6 +51,8 @@ def test_module_api_surface():
         "app_load_and_present_window",
         "app_close_window",
         "app_load_menu_bar",
+        "app_run_open_panel",
+        "app_run_save_panel",
     ]
 
     for name in expected:
@@ -265,6 +267,21 @@ def test_menu_bar_api(app: actionui.Application):
         check(f"C-level non-array JSON raised {type(e).__name__}: {e}", False)
 
 
+def test_file_panel_api(app: actionui.Application):
+    """File panel API must exist on Application and at the C level."""
+    print("\n=== File panel API ===")
+
+    check("Application has open_panel method",
+          hasattr(app, "open_panel"))
+    check("Application has save_panel method",
+          hasattr(app, "save_panel"))
+
+    check("_actionui.app_run_open_panel is callable",
+          callable(getattr(_actionui, "app_run_open_panel", None)))
+    check("_actionui.app_run_save_panel is callable",
+          callable(getattr(_actionui, "app_run_save_panel", None)))
+
+
 def test_singleton_enforcement():
     """A second Application() in the same process must raise RuntimeError."""
     print("\n=== Application singleton enforcement ===")
@@ -316,6 +333,7 @@ def main():
     test_type_checking(app)
     test_url_conversion()
     test_menu_bar_api(app)
+    test_file_panel_api(app)
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
 

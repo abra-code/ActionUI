@@ -343,6 +343,124 @@ class Application:
         """
         _actionui.app_close_window(window_uuid)
 
+    # ------------------------------------------------------------------
+    # File panels (NSOpenPanel / NSSavePanel)
+    # ------------------------------------------------------------------
+
+    def open_panel(self, *,
+                   title: Optional[str] = None,
+                   prompt: Optional[str] = None,
+                   message: Optional[str] = None,
+                   identifier: Optional[str] = None,
+                   allowed_types: Optional[List[str]] = None,
+                   allows_multiple: bool = False,
+                   can_choose_files: bool = True,
+                   can_choose_directories: bool = False,
+                   directory: Optional[str] = None,
+                   shows_hidden_files: bool = False,
+                   treats_file_packages_as_directories: bool = False,
+                   can_create_directories: bool = True,
+                   allows_other_file_types: bool = False) -> Optional[List[str]]:
+        """Run an NSOpenPanel.  Returns a list of selected file paths, or
+        ``None`` if the user cancelled.
+
+        All parameters are optional; sensible defaults are applied.
+        ``allowed_types`` accepts file extensions (``"json"``) and/or
+        UTI strings (``"public.image"``).
+
+        Must be called while the run loop is active (e.g. from an action
+        handler or lifecycle callback).
+        """
+        config = self._build_panel_config(
+            title=title, prompt=prompt, message=message,
+            identifier=identifier, allowed_types=allowed_types,
+            directory=directory, shows_hidden_files=shows_hidden_files,
+            treats_file_packages_as_directories=treats_file_packages_as_directories,
+            can_create_directories=can_create_directories,
+            allows_other_file_types=allows_other_file_types,
+        )
+        if allows_multiple:
+            config["allowsMultipleSelection"] = True
+        if not can_choose_files:
+            config["canChooseFiles"] = False
+        if can_choose_directories:
+            config["canChooseDirectories"] = True
+
+        config_json = json.dumps(config) if config else None
+        result = _actionui.app_run_open_panel(config_json)
+        if result is None:
+            return None
+        return json.loads(result)
+
+    def save_panel(self, *,
+                   title: Optional[str] = None,
+                   prompt: Optional[str] = None,
+                   message: Optional[str] = None,
+                   identifier: Optional[str] = None,
+                   allowed_types: Optional[List[str]] = None,
+                   filename: Optional[str] = None,
+                   directory: Optional[str] = None,
+                   shows_hidden_files: bool = False,
+                   treats_file_packages_as_directories: bool = False,
+                   can_create_directories: bool = True,
+                   allows_other_file_types: bool = False) -> Optional[str]:
+        """Run an NSSavePanel.  Returns the chosen file path, or ``None``
+        if the user cancelled.
+
+        All parameters are optional; sensible defaults are applied.
+        ``allowed_types`` accepts file extensions (``"json"``) and/or
+        UTI strings (``"public.image"``).
+
+        Must be called while the run loop is active (e.g. from an action
+        handler or lifecycle callback).
+        """
+        config = self._build_panel_config(
+            title=title, prompt=prompt, message=message,
+            identifier=identifier, allowed_types=allowed_types,
+            directory=directory, shows_hidden_files=shows_hidden_files,
+            treats_file_packages_as_directories=treats_file_packages_as_directories,
+            can_create_directories=can_create_directories,
+            allows_other_file_types=allows_other_file_types,
+        )
+        if filename is not None:
+            config["nameFieldStringValue"] = filename
+
+        config_json = json.dumps(config) if config else None
+        return _actionui.app_run_save_panel(config_json)
+
+    @staticmethod
+    def _build_panel_config(**kwargs) -> Dict[str, Any]:
+        """Build a config dict for file panels, omitting None/default values."""
+        config: Dict[str, Any] = {}
+        _simple = {
+            "title": "title",
+            "prompt": "prompt",
+            "message": "message",
+            "identifier": "identifier",
+        }
+        for py_key, json_key in _simple.items():
+            val = kwargs.get(py_key)
+            if val is not None:
+                config[json_key] = val
+
+        if kwargs.get("allowed_types") is not None:
+            config["allowedContentTypes"] = kwargs["allowed_types"]
+        if kwargs.get("directory") is not None:
+            config["directoryURL"] = kwargs["directory"]
+        if kwargs.get("shows_hidden_files"):
+            config["showsHiddenFiles"] = True
+        if kwargs.get("treats_file_packages_as_directories"):
+            config["treatsFilePackagesAsDirectories"] = True
+        if not kwargs.get("can_create_directories", True):
+            config["canCreateDirectories"] = False
+        if kwargs.get("allows_other_file_types"):
+            config["allowsOtherFileTypes"] = True
+        return config
+
+    # ------------------------------------------------------------------
+    # Menu bar
+    # ------------------------------------------------------------------
+
     def load_menu_bar(self, source: Optional[str] = None):
         """Install the default menu bar and optionally apply custom commands.
 

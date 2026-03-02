@@ -325,6 +325,26 @@ static PyObject* py_app_load_menu_bar(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_app_run_open_panel(PyObject* self, PyObject* args) {
+    const char* configJSON = NULL;
+    if (PyArg_ParseTuple(args, "|z", &configJSON) == 0) return NULL;
+    char* result = actionUIAppRunOpenPanel(configJSON);
+    if (result == NULL) Py_RETURN_NONE;
+    PyObject* py_result = PyUnicode_FromString(result);
+    actionUIFreeString(result);
+    return py_result;
+}
+
+static PyObject* py_app_run_save_panel(PyObject* self, PyObject* args) {
+    const char* configJSON = NULL;
+    if (PyArg_ParseTuple(args, "|z", &configJSON) == 0) return NULL;
+    char* result = actionUIAppRunSavePanel(configJSON);
+    if (result == NULL) Py_RETURN_NONE;
+    PyObject* py_result = PyUnicode_FromString(result);
+    actionUIFreeString(result);
+    return py_result;
+}
+
 // MARK: - Python API: Version
 
 static PyObject* py_get_version(PyObject* self, PyObject* args) {
@@ -846,6 +866,10 @@ static PyMethodDef ActionUIMethods[] = {
      "app_close_window(windowUUID) — close the window identified by windowUUID."},
     {"app_load_menu_bar",             py_app_load_menu_bar,             METH_VARARGS,
      "app_load_menu_bar([jsonString]) — install default menu bar and optionally apply commands JSON."},
+    {"app_run_open_panel",            py_app_run_open_panel,            METH_VARARGS,
+     "app_run_open_panel([configJSON]) -> str|None — run NSOpenPanel; returns JSON array of paths or None."},
+    {"app_run_save_panel",            py_app_run_save_panel,            METH_VARARGS,
+     "app_run_save_panel([configJSON]) -> str|None — run NSSavePanel; returns path or None."},
 
     {NULL, NULL, 0, NULL}
 };

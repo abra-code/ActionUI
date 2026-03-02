@@ -75,6 +75,7 @@ private func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
 // MARK: - String Helpers
 
 /// Heap-copy `str` into a malloc-owned C string. Caller must free with actionUIFreeString.
+@inline(__always)
 private func actionStrdup(_ str: String) -> UnsafeMutablePointer<CChar>? {
     return str.withCString { strdup($0) }
 }

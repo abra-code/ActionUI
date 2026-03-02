@@ -20,6 +20,7 @@ import AppKit
 import Foundation
 import ActionUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if SWIFT_PACKAGE
 import ActionUIAppKitApplicationHeaders
@@ -323,5 +324,148 @@ public func actionUIAppCloseWindow(_ windowUUID: UnsafePointer<CChar>) {
     let uuid = String(cString: windowUUID)
     runOnMainActorAsync {
         windows[uuid]?.close()
+    }
+}
+
+// MARK: - String duplication helper (file-private)
+
+/// Duplicate a Swift String into a malloc'd C string.  Caller owns the memory
+/// and must free it via `actionUIFreeString` (which calls `free(3)`).
+@inline(__always)
+private func actionStrdup(_ string: String) -> UnsafeMutablePointer<CChar> {
+    return string.withCString { strdup($0)! }
+}
+
+// MARK: - File panels (NSOpenPanel / NSSavePanel)
+
+/// Parse a JSON config dictionary and configure an `NSOpenPanel`.
+/// Returns the panel result as a JSON array of file paths, or `nil` if cancelled.
+///
+/// Config JSON keys (all optional):
+///   title, prompt, message, identifier,
+///   allowedContentTypes: [String],  // file extensions ("json") or UTI strings ("public.image")
+///   allowsMultipleSelection: Bool,
+///   canChooseDirectories: Bool,
+///   canChooseFiles: Bool,
+///   directoryURL: String,
+///   showsHiddenFiles: Bool,
+///   treatsFilePackagesAsDirectories: Bool,
+///   canCreateDirectories: Bool,
+///   allowsOtherFileTypes: Bool
+@_cdecl("actionUIAppRunOpenPanel")
+public func actionUIAppRunOpenPanel(
+    _ configJSON: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    let jsonString = configJSON.map { String(cString: $0) }
+    return runOnMainActorSync {
+        let config = parseFilePanelConfig(jsonString)
+
+        let panel = NSOpenPanel()
+        applyCommonPanelConfig(panel, config: config)
+
+        panel.allowsMultipleSelection         = config["allowsMultipleSelection"] as? Bool ?? false
+        panel.canChooseDirectories             = config["canChooseDirectories"] as? Bool ?? false
+        panel.canChooseFiles                   = config["canChooseFiles"] as? Bool ?? true
+
+        let response = panel.runModal()
+        guard response == .OK else { return nil }
+
+        let paths = panel.urls.map { $0.path }
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: paths),
+              let jsonString = String(data: jsonData, encoding: .utf8)
+        else { return nil }
+
+        return actionStrdup(jsonString)
+    }
+}
+
+/// Parse a JSON config dictionary and configure an `NSSavePanel`.
+/// Returns the chosen file path as a C string, or `nil` if cancelled.
+///
+/// Config JSON keys (all optional):
+///   title, prompt, message, identifier,
+///   allowedContentTypes: [String],
+///   nameFieldStringValue: String,  // default filename
+///   directoryURL: String,
+///   showsHiddenFiles: Bool,
+///   treatsFilePackagesAsDirectories: Bool,
+///   canCreateDirectories: Bool,
+///   allowsOtherFileTypes: Bool
+@_cdecl("actionUIAppRunSavePanel")
+public func actionUIAppRunSavePanel(
+    _ configJSON: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    let jsonString = configJSON.map { String(cString: $0) }
+    return runOnMainActorSync {
+        let config = parseFilePanelConfig(jsonString)
+
+        let panel = NSSavePanel()
+        applyCommonPanelConfig(panel, config: config)
+
+        if let filename = config["nameFieldStringValue"] as? String {
+            panel.nameFieldStringValue = filename
+        }
+
+        let response = panel.runModal()
+        guard response == .OK, let url = panel.url else { return nil }
+
+        return actionStrdup(url.path)
+    }
+}
+
+// MARK: - File panel helpers (private)
+
+/// Parse optional JSON config into a dictionary.  Returns empty dict on nil or parse failure.
+private func parseFilePanelConfig(_ jsonString: String?) -> [String: Any] {
+    guard let jsonString else { return [:] }
+    guard let data = jsonString.data(using: .utf8),
+          let obj = try? JSONSerialization.jsonObject(with: data),
+          let dict = obj as? [String: Any]
+    else { return [:] }
+    return dict
+}
+
+/// Apply common NSSavePanel configuration from a parsed JSON dict.
+@MainActor
+private func applyCommonPanelConfig(_ panel: NSSavePanel, config: [String: Any]) {
+    if let title = config["title"] as? String {
+        panel.title = title
+    }
+    if let prompt = config["prompt"] as? String {
+        panel.prompt = prompt
+    }
+    if let message = config["message"] as? String {
+        panel.message = message
+    }
+    if let identifier = config["identifier"] as? String {
+        panel.identifier = NSUserInterfaceItemIdentifier(identifier)
+    }
+    if let typeStrings = config["allowedContentTypes"] as? [String] {
+        var types: [UTType] = []
+        for str in typeStrings {
+            if let t = UTType(filenameExtension: str) {
+                types.append(t)
+            } else if let t = UTType(str) {
+                types.append(t)
+            }
+        }
+        if !types.isEmpty {
+            panel.allowedContentTypes = types
+        }
+    }
+    if let dirPath = config["directoryURL"] as? String {
+        panel.directoryURL = URL(fileURLWithPath: dirPath)
+    }
+    if let v = config["showsHiddenFiles"] as? Bool {
+        panel.showsHiddenFiles = v
+    }
+    if let v = config["treatsFilePackagesAsDirectories"] as? Bool {
+        panel.treatsFilePackagesAsDirectories = v
+    }
+    if let v = config["canCreateDirectories"] as? Bool {
+        panel.canCreateDirectories = v
+    }
+    if let v = config["allowsOtherFileTypes"] as? Bool {
+        panel.allowsOtherFileTypes = v
     }
 }

@@ -271,6 +271,42 @@ void actionUIAppLoadMenuBar(const char* jsonString);
 // Uses the same schema as ActionUI's SwiftUI CommandMenu/CommandGroup.
 ```
 
+### File panels
+
+```c
+char* actionUIAppRunOpenPanel(const char* configJSON);
+// Run an NSOpenPanel with optional JSON configuration.
+// Returns a JSON array of selected file paths: ["/path/a.json","/path/b.json"]
+// Returns NULL if the user cancelled.  Free result with actionUIFreeString().
+//
+// configJSON is a JSON object (all fields optional):
+// {
+//   "title": "Select Files",
+//   "prompt": "Open",
+//   "message": "Choose files to import",
+//   "identifier": "com.myapp.openImages",
+//   "allowedContentTypes": ["json", "txt", "public.image"],
+//   "allowsMultipleSelection": true,
+//   "canChooseDirectories": false,
+//   "canChooseFiles": true,
+//   "directoryURL": "/Users/foo/Documents",
+//   "showsHiddenFiles": false,
+//   "treatsFilePackagesAsDirectories": false,
+//   "canCreateDirectories": true,
+//   "allowsOtherFileTypes": false
+// }
+// Pass NULL for default configuration.
+
+char* actionUIAppRunSavePanel(const char* configJSON);
+// Run an NSSavePanel with optional JSON configuration.
+// Returns the chosen file path as a string, or NULL if cancelled.
+// Free result with actionUIFreeString().
+//
+// Accepts the same config keys as actionUIAppRunOpenPanel, plus:
+//   "nameFieldStringValue": "untitled.json"  — default filename
+// (allowsMultipleSelection, canChooseDirectories, canChooseFiles are ignored)
+```
+
 ---
 
 ## Python API (`actionui.py`)
@@ -358,6 +394,47 @@ app.load_menu_bar('[{"type":"CommandMenu","id":1,"properties":{"name":"Tools"},'
 def on_run(ctx):
     print("Run clicked!")
 ```
+
+#### File panels
+
+```python
+# Open panel — returns list of paths or None if cancelled
+paths = app.open_panel(
+    title="Select Files",
+    prompt="Open",
+    message="Choose files to import",
+    identifier="com.myapp.openImages",
+    allowed_types=["json", "txt", "public.image"],
+    allows_multiple=True,
+    can_choose_files=True,         # default True
+    can_choose_directories=False,  # default False
+    directory="/Users/foo/Documents",
+    shows_hidden_files=False,
+    treats_file_packages_as_directories=False,
+    can_create_directories=True,
+    allows_other_file_types=False,
+)
+
+# Save panel — returns file path or None if cancelled
+path = app.save_panel(
+    title="Save Document",
+    prompt="Save",
+    message="Choose a location",
+    identifier="com.myapp.saveDoc",
+    allowed_types=["json"],
+    filename="untitled.json",
+    directory="/Users/foo/Documents",
+    shows_hidden_files=False,
+    treats_file_packages_as_directories=False,
+    can_create_directories=True,
+    allows_other_file_types=False,
+)
+```
+
+All parameters are keyword-only and optional.  `allowed_types` accepts file
+extensions (`"json"`) and UTI strings (`"public.image"`).  Both methods block
+inside `runModal()` and return results synchronously — call them from action
+handlers or lifecycle callbacks while the run loop is active.
 
 #### Window management
 
@@ -471,5 +548,6 @@ actionui.clear_error()
 - **test_app_api.py** — app lifecycle and menu bar API smoke test
 - **test_app_lifecycle.py** — full lifecycle integration test (real NSApplication run loop)
 - **test_menu_bar.py** — menu bar integration test (custom menus, action dispatch, app naming)
+- **test_file_panels.py** — file panel API surface and edge case smoke test
 - **ActionUIC.h** — C type definitions (element API)
 - **ActionUIApp.h** — C callback typedef definitions (app lifecycle API)
