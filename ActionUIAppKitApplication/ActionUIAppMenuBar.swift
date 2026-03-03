@@ -86,7 +86,7 @@ private func buildAppMenu(appName: String) -> NSMenuItem {
     let menu = NSMenu()   // title ignored for app menu
 
     menu.addItem(withTitle: "About \(appName)",
-                 action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+                 action: #selector(ActionUIApplicationDelegate.showAboutPanel(_:)),
                  keyEquivalent: "")
 
     menu.addItem(.separator())

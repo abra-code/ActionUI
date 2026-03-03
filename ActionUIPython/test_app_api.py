@@ -46,6 +46,7 @@ def test_module_api_surface():
         "app_set_window_will_close",
         "app_set_window_will_present",
         "app_set_name",
+        "app_set_icon",
         "app_run",
         "app_terminate",
         "app_load_and_present_window",

@@ -62,12 +62,16 @@ class Application:
 
     _instance: Optional['Application'] = None
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, name: Optional[str] = None, icon: Optional[str] = None):
         """Create the application singleton.
 
         Args:
             name: Application name shown in the menu bar (About, Hide, Quit).
                   Defaults to the process name if ``None``.
+            icon: Path to an image file (PNG, ICNS, etc.) used as the
+                  application icon in the Dock and About panel.  If ``None``,
+                  the default ActionUI icon shipped alongside this module is
+                  used automatically.
         """
         if Application._instance is not None:
             raise RuntimeError("Only one Application instance can exist")
@@ -86,6 +90,14 @@ class Application:
 
         if name is not None:
             _actionui.app_set_name(name)
+
+        import os
+        if icon is not None:
+            _actionui.app_set_icon(os.path.abspath(icon))
+        else:
+            default_icon = os.path.join(os.path.dirname(__file__), "actionui-app-icon.icns")
+            if os.path.isfile(default_icon):
+                _actionui.app_set_icon(default_icon)
 
         _actionui.set_default_action_handler(self._action_bridge)
         # Register internal bridges so we always handle window lifecycle

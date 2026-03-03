@@ -73,6 +73,10 @@ private var windowWillPresentHandler:   ActionUIAppWindowHandler? = nil
 /// Custom application name.  When set, overrides processName in the menu bar.
 var appName: String? = nil
 
+/// Custom application icon.  Applied in actionUIAppRun before
+/// setActivationPolicy(.regular) so the dock picks it up immediately.
+var appIcon: NSImage? = nil
+
 // MARK: - Window registry (UUID → NSWindow)
 
 private var windows: [String: NSWindow] = [:]
@@ -100,6 +104,12 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Re-apply the custom icon after the window server has fully
+        // registered the process — catches any reset during launch.
+        if let icon = appIcon {
+            NSApplication.shared.applicationIconImage = icon
+        }
+
         didFinishLaunchingHandler?()
 
         // Bring the app to front.  Delayed so the window server has time
@@ -135,6 +145,38 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let handler = shouldTerminateHandler else { return .terminateNow }
         return handler() ? .terminateNow : .terminateCancel
+    }
+
+    // MARK: About panel
+
+    @objc func showAboutPanel(_ sender: Any?) {
+        var options: [NSApplication.AboutPanelOptionKey: Any] = [
+            // Suppress inherited version / copyright from the host bundle
+            .version: "1.0",
+            .init(rawValue: "Copyright"): "",
+        ]
+
+        // Show the custom icon if one was set via actionUIAppSetIcon.
+        if let icon = appIcon {
+            options[.applicationIcon] = icon
+        }
+
+        // Show the custom app name if one was set via actionUIAppSetName.
+        if let name = appName {
+            options[.applicationName] = name
+        }
+
+        // Credits line — rendered as attributed string in the About panel.
+        let credits = NSAttributedString(
+            string: "Application created with ActionUI\nhttps://github.com/abra-code/ActionUI",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ]
+        )
+        options[.credits] = credits
+
+        NSApplication.shared.orderFrontStandardAboutPanel(options: options)
     }
 
     // MARK: NSWindowDelegate
@@ -205,21 +247,59 @@ public func actionUIAppSetWindowWillPresentHandler(_ handler: ActionUIAppWindowH
 // MARK: - App name
 
 /// Set the application name used in the menu bar (About, Hide, Quit).
+/// You only want to do it if you are launching an unbundled app
+/// In regular bundled app, don't use this API - it erases infoDictionary and sets CFBundleName only
 /// Must be called before `actionUIAppRun()`.
 /// Also sets `ProcessInfo.processInfo.processName` so the system picks it up.
 @_cdecl("actionUIAppSetName")
 public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
-    let swiftName = String(cString: name)
-    appName = swiftName
-    ProcessInfo.processInfo.processName = swiftName
+    let swiftAppName = String(cString: name)
+    appName = swiftAppName
+    ProcessInfo.processInfo.processName = swiftAppName
 
     // Patch the main bundle's info dictionary so macOS picks up the
     // custom name for the app menu title.  The underlying NSDictionary
     // returned by -[NSBundle infoDictionary] is actually mutable at
     // runtime — this is the standard trick for unbundled processes
     // (e.g. Python scripts) that don't have their own Info.plist.
-    if let info = Bundle.main.infoDictionary as NSDictionary? {
-        (info as? NSMutableDictionary)?["CFBundleName"] = swiftName
+    
+    if let info = Bundle.main.infoDictionary as NSDictionary?,
+       let mutable = info as? NSMutableDictionary {
+        mutable.removeAllObjects()
+        mutable["CFBundleName"] = swiftAppName
+    }
+}
+
+// MARK: - App icon
+
+/// Set the application icon (Dock + About panel).
+/// Takes a filesystem path to an image file (PNG, ICNS, TIFF, etc.).
+/// Must be called before `actionUIAppRun()`.
+///
+/// Patches the main bundle's info dictionary to remove `CFBundleIconFile`
+/// and `CFBundleIconName` so the standard About panel (and the dock for
+/// framework-style Python) fall back to `applicationIconImage` instead of
+/// the host executable's icon (e.g. Python.app's rocket).
+@_cdecl("actionUIAppSetIcon")
+public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
+    let swiftPath = String(cString: path)
+    guard let image = NSImage(contentsOfFile: swiftPath) else { return }
+    appIcon = image
+
+    // Register under the well-known application icon name so that
+    // AppKit APIs that fetch the icon by name (e.g. the standard
+    // About panel via NSImage(named: .applicationIcon)) return our
+    // image instead of the host bundle's icon.
+    // NSImage.setName(_:) requires removing any previous image
+    // registered under that name first.
+    if let old = NSImage(named: NSImage.applicationIconName) {
+        old.setName(nil as NSImage.Name?)
+    }
+    image.setName(NSImage.applicationIconName)
+
+    // If the run loop is already active, apply immediately.
+    runOnMainActorAsync {
+        NSApplication.shared.applicationIconImage = image
     }
 }
 
@@ -230,6 +310,16 @@ public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
 @_cdecl("actionUIAppRun")
 public func actionUIAppRun() {
     let app = NSApplication.shared
+
+    // Apply the custom icon *before* setActivationPolicy so the dock shows
+    // it from the moment the app appears, rather than flashing the default
+    // icon first.  For non-framework Python (no .app bundle) this is the
+    // only opportunity — once the activation policy is set, the window
+    // server has already latched the icon.
+    if let icon = appIcon {
+        app.applicationIconImage = icon
+    }
+
     app.setActivationPolicy(.regular)
     app.delegate = ActionUIApplicationDelegate.shared
     app.run()

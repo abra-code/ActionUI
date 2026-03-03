@@ -39,7 +39,7 @@
             "alignment": "center"
           },
           "padding": 8.0,
-          "accessibilityIdentifier": "star_image"
+          "accessibilityIdentifier": "checkmark_image"
         }
       }
     ],
@@ -54,13 +54,13 @@
           "resizable": true,
           "scaleMode": "fill",
           "frame": {
-            "width": 90.0,
-            "height": 90.0,
+            "width": 70.0,
+            "height": 70.0,
             "alignment": "center"
           },
           "padding": 8.0,
           "cornerRadius": 10.0,
-          "accessibilityIdentifier": "heart_image"
+          "accessibilityIdentifier": "thumbsup_image"
         }
       },
       {
@@ -93,20 +93,16 @@
         "type": "Image",
         "id": 6,
         "properties": {
-          "systemName": "photo",
-          "imageScale": "large",
-          "foregroundStyle": "purple",
+          "resourceName": "ActionUI.icns",
           "resizable": true,
           "scaleMode": "fit",
-          "background": "gray",
           "frame": {
             "width": 180.0,
             "height": 100.0,
             "alignment": "center"
           },
           "padding": 12.0,
-          "cornerRadius": 8.0,
-          "accessibilityIdentifier": "photo_image"
+          "accessibilityIdentifier": "actionui_app_icon"
         }
       },
       {
@@ -121,7 +117,7 @@
             "alignment": "center"
           },
           "padding": 8.0,
-          "accessibilityIdentifier": "swift_image"
+          "accessibilityIdentifier": "abracadabra_image"
         }
       }
     ]

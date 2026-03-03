@@ -190,6 +190,17 @@ void actionUIAppSetName(const char* name);
 // Must be called before actionUIAppRun().
 ```
 
+### App icon
+
+```c
+void actionUIAppSetIcon(const char* path);
+// Set the application icon (Dock + About panel).
+// path — filesystem path to an image file (PNG, ICNS, TIFF, etc.).
+// Loads the image via NSImage(contentsOfFile:) and sets
+// NSApplication.shared.applicationIconImage.
+// Must be called before actionUIAppRun() for the icon to appear on launch.
+```
+
 ### App control
 
 ```c
@@ -318,6 +329,9 @@ import actionui
 
 app = actionui.Application()                  # singleton — raises RuntimeError on second call
 app = actionui.Application(name="My App")     # set the app name in the menu bar
+app = actionui.Application(icon="icon.png")   # custom icon (Dock + About panel)
+app = actionui.Application(name="My App", icon="icon.png")  # both
+# If icon is omitted, the default ActionUI icon (shipped with the module) is used.
 ```
 
 #### Lifecycle decorators

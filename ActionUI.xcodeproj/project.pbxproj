@@ -242,6 +242,13 @@
 			);
 			target = 1D895B762F51FB8C0046573E /* ActionUIAppKitApplication */;
 		};
+		1D895DE72F569DCE0046573E /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIWebKitJSTestApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ActionUI.icon,
+			);
+			target = 1D25A6432E9F9667003D20F4 /* ActionUIWebKitJSTestApp */;
+		};
 		1DC076CD2F41B8EB0036DA50 /* Exceptions for "ActionUICAdapter" folder in "ActionUICAdapter" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			publicHeaders = (
@@ -253,6 +260,7 @@
 		1DDC4C462F3F11B700604C66 /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIObjCTestApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ActionUI.icon,
 				Resources/abracadabra.png,
 			);
 			target = 1DD4E44E2E8FA9CA001E0C83 /* ActionUIObjCTestApp */;
@@ -306,6 +314,7 @@
 			exceptions = (
 				1D6DF6BB2E739969002563AE /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUISwiftTestApp" target */,
 				1DDC4C462F3F11B700604C66 /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIObjCTestApp" target */,
+				1D895DE72F569DCE0046573E /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIWebKitJSTestApp" target */,
 			);
 			path = ActionUISwiftTestApp;
 			sourceTree = "<group>";
@@ -1646,7 +1655,7 @@
 		1D25A64D2E9F9669003D20F4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = ActionUI;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ActionUIWebKitJSTestApp/ActionUIWebKitJSTestApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1695,7 +1704,7 @@
 		1D25A64E2E9F9669003D20F4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = ActionUI;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ActionUIWebKitJSTestApp/ActionUIWebKitJSTestApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1941,7 +1950,7 @@
 		1DB2560C2E6BADD000544C2F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = ActionUI;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1989,7 +1998,7 @@
 		1DB2560D2E6BADD000544C2F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = ActionUI;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -2276,7 +2285,7 @@
 		1DD4E4582E8FA9CB001E0C83 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = ActionUI;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -2330,7 +2339,7 @@
 		1DD4E4592E8FA9CB001E0C83 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = ActionUI;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

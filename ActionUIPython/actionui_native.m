@@ -290,6 +290,13 @@ static PyObject* py_app_set_name(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_app_set_icon(PyObject* self, PyObject* args) {
+    const char* path;
+    if (PyArg_ParseTuple(args, "s", &path) == 0) return NULL;
+    actionUIAppSetIcon(path);
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_app_run(PyObject* self, PyObject* args) {
     Py_BEGIN_ALLOW_THREADS
     actionUIAppRun();
@@ -856,6 +863,8 @@ static PyMethodDef ActionUIMethods[] = {
     /* App name and control */
     {"app_set_name",                  py_app_set_name,                  METH_VARARGS,
      "app_set_name(name) — set the application name for the menu bar."},
+    {"app_set_icon",                  py_app_set_icon,                  METH_VARARGS,
+     "app_set_icon(path) — set the application icon (Dock + About panel)."},
     {"app_run",                       py_app_run,                       METH_NOARGS,
      "app_run() — start NSApplication run loop; blocks until the app terminates."},
     {"app_terminate",                 py_app_terminate,                 METH_NOARGS,

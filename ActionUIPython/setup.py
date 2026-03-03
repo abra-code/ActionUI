@@ -66,6 +66,7 @@ unpack them into ./frameworks/ automatically before this script runs.
 
 import os
 import sys
+import sysconfig
 from setuptools import setup, Extension
 
 # ---------------------------------------------------------------------------
@@ -181,4 +182,17 @@ actionui_extension = Extension(
     ],
 )
 
-setup(ext_modules=[actionui_extension])
+# ---------------------------------------------------------------------------
+# Data files — default app icon
+# ---------------------------------------------------------------------------
+# data_files destinations are relative to sys.prefix when installed via pip.
+# Compute the relative path from sys.prefix to the purelib (site-packages)
+# directory so the icon lands alongside actionui.py.
+_purelib = sysconfig.get_path('purelib')
+_prefix  = sysconfig.get_config_var('prefix') or sys.prefix
+_site_packages_rel = os.path.relpath(_purelib, _prefix)
+
+setup(
+    ext_modules=[actionui_extension],
+    data_files=[(_site_packages_rel, ['actionui-app-icon.icns'])],
+)
