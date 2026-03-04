@@ -276,7 +276,7 @@ private func safeJSONString(from value: Any) -> String? {
         // Wrap in an array, serialize, then strip the surrounding brackets.
         if let data = try? JSONSerialization.data(withJSONObject: [s], options: []),
            let arr = String(data: data, encoding: .utf8) {
-            // "[\"hello\"]" → "\"hello\""
+            // "[\"hello\"]" -> "\"hello\""
             let inner = arr.dropFirst(1).dropLast(1)
             return String(inner)
         }

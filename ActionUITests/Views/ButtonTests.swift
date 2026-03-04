@@ -172,6 +172,6 @@ final class ButtonTests: XCTestCase {
         let props3: [String: Any] = ["imageScale": "extra-large"]
         validated = Button.validateProperties(props3, logger)
         XCTAssertEqual(validated["imageScale"] as? String, "extra-large")
-        // Note: your code keeps invalid strings → scale falls back to .medium
+        // Note: current code keeps invalid strings and scale falls back to .medium
     }
 }

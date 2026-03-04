@@ -22,10 +22,10 @@ class JSONHelper {
 
     /// Bridges NSNumber/NSString from JSONSerialization to Swift-native types so that
     /// type(of:) comparisons on the result match types stored by Swift code.
-    /// - NSNumber booleans  → Bool
-    /// - NSNumber whole numbers → Int
-    /// - NSNumber fractional → Double
-    /// - NSString → String
+    /// - NSNumber booleans -> Bool
+    /// - NSNumber whole numbers -> Int
+    /// - NSNumber fractional -> Double
+    /// - NSString -> String
     /// - Everything else (NSArray, NSDictionary, NSNull) is returned as-is.
     static func normalizedJSONValue(_ value: Any) -> Any {
         switch value {

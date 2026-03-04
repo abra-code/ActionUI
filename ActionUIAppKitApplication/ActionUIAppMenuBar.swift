@@ -275,7 +275,7 @@ private enum MenuPlacementTag: Int {
     }
 }
 
-// MARK: - CommandMenu / CommandGroup → NSMenu adapter
+// MARK: - CommandMenu / CommandGroup to NSMenu adapter
 
 /// Target object for custom menu items that dispatch through ActionUIModel.
 @MainActor

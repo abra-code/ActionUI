@@ -588,7 +588,7 @@
 // Observable state:
 //   value (String)   Current source as a URL string, absolute file path, or bundle resource name
 //                    (via getElementValue / setElementValue). Write a new value to reload the view
-//                    from a different source; the heuristic (http(s):// → URL, file:// or / → filePath,
+//                    from a different source; the heuristic (http(s):// means URL, file:// or / means filePath,
 //                    else bundle name) applies at runtime.
 
 

@@ -77,7 +77,7 @@ var appName: String? = nil
 /// setActivationPolicy(.regular) so the dock picks it up immediately.
 var appIcon: NSImage? = nil
 
-// MARK: - Window registry (UUID → NSWindow)
+// MARK: - Window registry (UUID to NSWindow)
 
 private var windows: [String: NSWindow] = [:]
 
@@ -390,7 +390,7 @@ public func actionUIAppLoadAndPresentWindow(
         // ARC manages the window's lifetime via the `windows` dictionary.
         // The default (isReleasedWhenClosed = true) would cause AppKit to
         // call an extra -release on close, conflicting with ARC and leaving
-        // the close animation with a dangling pointer → SIGSEGV.
+        // the close animation with a dangling pointer, causing SIGSEGV.
         window.isReleasedWhenClosed  = false
         window.title                 = swiftTitle ?? url.deletingPathExtension().lastPathComponent
         window.contentViewController = controller
