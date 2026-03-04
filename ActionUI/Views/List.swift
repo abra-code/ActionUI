@@ -5,7 +5,7 @@
    "type": "List",
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image/AsyncImage), "actionContext": "title"|"rowIndex" (for Button) }
+     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image), "actionContext": "title"|"rowIndex" (for Button) }
      "actionID": "list.action", // Optional: For Button viewType
      "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
    }
@@ -35,7 +35,7 @@ struct List: ActionUIViewConstruction {
             logger.log("List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
             itemType["viewType"] = "Text"
         }
-        if viewType == "Image" || viewType == "AsyncImage" {
+        if viewType == "Image" {
             let dataInterpretation = itemType["dataInterpretation"] as? String
             if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
                 logger.log("List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName", .warning)

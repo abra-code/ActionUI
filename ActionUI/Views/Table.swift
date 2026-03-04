@@ -6,7 +6,7 @@
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
      "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage",
-                                         // "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (optional for Image/AsyncImage),
+                                         // "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (optional for Image),
                                          // "actionContext": "rowIndex"|"columnIndex"|"rowColumnIndex" (optional for Button) }
                                          // rowColumnIndex creates Point(row: Int, column: Int) for context
      "columns": ["Name", "Action"], // Required: Array of strings for column headers
@@ -53,7 +53,7 @@ struct Table: ActionUIViewConstruction {
             logger.log("Table itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
             itemType["viewType"] = "Text"
         }
-        if viewType == "Image" || viewType == "AsyncImage" {
+        if viewType == "Image" {
             let dataInterpretation = itemType["dataInterpretation"] as? String
             if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
                 logger.log("Table itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName", .warning)

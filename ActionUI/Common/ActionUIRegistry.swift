@@ -152,7 +152,10 @@ class ActionUIRegistry {
            constructionType.valueType != Void.self {
             let initialValue = constructionType.initialValue(model)
             if initialValue == nil,
-               constructionType.valueType != Double?.self { //any optional value type may be nil
+               constructionType.valueType != String?.self,
+               constructionType.valueType != Double?.self,
+               constructionType.valueType != Int?.self,
+               constructionType.valueType != Bool?.self { //any optional value type may be nil
                 logger.log("Inital value not provided for element of type \(type), which declares non-void valueType", .error)
             }
             return initialValue

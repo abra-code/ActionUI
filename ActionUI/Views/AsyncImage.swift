@@ -18,8 +18,10 @@
 import SwiftUI
 
 struct AsyncImage: ActionUIViewConstruction {
-    static var valueType: Any.Type { Void.self }
-    
+    // The runtime value of an AsyncImage is its URL string.
+    // Setting the value programmatically overrides the static "url" property.
+    static var valueType: Any.Type { String.self }
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
@@ -58,18 +60,18 @@ struct AsyncImage: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let urlString = properties["url"] as? String
+        let urlString = Self.initialValue(model) as? String
         let placeholder = properties["placeholder"] as? String ?? "photo"
         let resizable = properties["resizable"] as? Bool ?? true
         let contentModeString = properties["contentMode"] as? String ?? "fit"
-        
+
         let contentMode: ContentMode = contentModeString == "fit" ? .fit : .fill
-        
+
         guard let urlString = urlString, let url = URL(string: urlString) else {
             logger.log("AsyncImage missing valid url, using placeholder '\(placeholder)'", .warning)
             return SwiftUI.Image(systemName: placeholder)
         }
-        
+
         return SwiftUI.AsyncImage(url: url) { phase in
             switch phase {
             case .success(let image):
@@ -84,5 +86,14 @@ struct AsyncImage: ActionUIViewConstruction {
                 SwiftUI.Image(systemName: placeholder)
             }
         }
+    }
+
+    static var initialValue: (ViewModel) -> Any? = { model in
+        // Runtime value (set via set_string / set_value) takes precedence
+        if let storedValue = model.value as? String {
+            return storedValue
+        }
+        // Fall back to the static "url" property from JSON
+        return model.validatedProperties["url"] as? String
     }
 }

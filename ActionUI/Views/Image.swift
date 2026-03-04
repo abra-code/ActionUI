@@ -31,8 +31,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Image: ActionUIViewConstruction {
-    // Design decision: Defines valueType as Void since Image is a static view with no interactive state
-    
+    // The runtime value of an Image is a string interpreted using "mixed" heuristics
+    // (file path, SF Symbol name, or asset name).  Setting the value programmatically
+    // overrides the static source properties (systemName, assetName, filePath, resourceName).
+    static var valueType: Any.Type { String?.self }
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
@@ -95,20 +98,35 @@ struct Image: ActionUIViewConstruction {
             validatedProperties["imageScale"] = nil
         }
         
-        // Check if all image source properties are nil
-        if validatedProperties["systemName"] == nil &&
-            validatedProperties["name"] == nil &&
-            validatedProperties["resourceName"] == nil &&
-            validatedProperties["filePath"] == nil {
-            logger.log("Image requires one of 'systemName', 'name', 'resourceName' or 'filePath'; defaulting to empty image", .warning)
+        // Enforce mutual exclusivity among image source properties.
+        // When multiple are present (e.g. runtime set_property added "filePath"
+        // while "systemName" remains from the original JSON), keep only the
+        // most specific one.  Priority: filePath > resourceName > assetName > systemName.
+        let sourceKeys = ["filePath", "resourceName", "assetName", "systemName"]
+        let presentSources = sourceKeys.filter { validatedProperties[$0] is String }
+        if presentSources.count > 1, let winner = presentSources.first {
+            for key in presentSources.dropFirst() {
+                validatedProperties[key] = nil
+            }
+            logger.log("Image: multiple source properties set; using '\(winner)', cleared \(presentSources.dropFirst().joined(separator: ", "))", .info)
         }
-        
+
+        // Check if all image source properties are nil
+        if presentSources.isEmpty {
+            logger.log("Image requires one of 'systemName', 'assetName', 'resourceName' or 'filePath'; defaulting to empty image", .warning)
+        }
+
         return validatedProperties
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         var image: SwiftUI.Image
-        if let systemName = properties["systemName"] as? String {
+
+        // Runtime value (set via set_string / set_value) takes precedence
+        // over static properties.  Interpreted using "mixed" heuristics.
+        if let runtimeValue = model.value as? String, !runtimeValue.isEmpty {
+            image = SwiftUI.Image(from: runtimeValue, interpretation: "mixed")
+        } else if let systemName = properties["systemName"] as? String {
             image = SwiftUI.Image(systemName: systemName)
         } else if let name = properties["assetName"] as? String {
             image = SwiftUI.Image(name)
@@ -119,9 +137,9 @@ struct Image: ActionUIViewConstruction {
         } else {
             image = SwiftUI.Image(systemName: "photo")
         }
-        
+
         let scaleMode = (properties["scaleMode"] as? String)
-        
+
         // Apply resizable and scaleMode modifiers
         // "scaleMode" implies "resizable" even if not explicitly declared
         let resizable = properties["resizable"] as? Bool ?? (scaleMode != nil)
@@ -131,6 +149,13 @@ struct Image: ActionUIViewConstruction {
         }
 
         return image
+    }
+
+    static var initialValue: (ViewModel) -> Any? = { model in
+        // Returns non-nil only when a runtime value was explicitly set
+        // via set_string / set_value.  Nil means "use static properties"
+        // — buildView handles those with their specific interpretations.
+        return model.value as? String
     }
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in

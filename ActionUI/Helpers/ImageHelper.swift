@@ -71,6 +71,13 @@ extension SwiftUI.Image {
                 }
             }
             
+            // Check if it looks like a bundle resource name (has image file extension)
+            if filePath == nil, systemName == nil,
+               ImageHelper.validateImageFilePath(text) != nil,
+               let resourcePath = Bundle.main.path(forResource: text, ofType: nil) {
+                filePath = resourcePath
+            }
+
             if filePath == nil, systemName == nil { // try if we can find bundled asset of that name
 #if canImport(UIKit)
                 if UIImage(named: text) != nil {
