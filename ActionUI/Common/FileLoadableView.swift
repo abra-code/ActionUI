@@ -11,17 +11,19 @@ public struct FileLoadableView: SwiftUI.View {
     let fileURL: URL
     let windowUUID: String
     let isContentView: Bool
+    let parentID: Int
     let logger: any ActionUILogger
-    
+
     private let element: ActionUIElement?
     private let error: Error?
-    
-    public init(fileURL: URL, windowUUID: String, isContentView: Bool, logger: any ActionUILogger) {
+
+    public init(fileURL: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, logger: any ActionUILogger) {
         self.fileURL = fileURL
         self.windowUUID = windowUUID
         self.isContentView = isContentView
+        self.parentID = parentID
         self.logger = logger
-        
+
         // Perform synchronous loading in init
         do {
             let data = try Data(contentsOf: fileURL)
@@ -30,7 +32,7 @@ public struct FileLoadableView: SwiftUI.View {
             if isContentView {
                 self.element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
             } else {
-                self.element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID)
+                self.element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID)
             }
             logger.log("Successfully loaded \(format) for LoadableView from file \(fileURL)", .debug)
             self.error = nil

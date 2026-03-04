@@ -94,4 +94,194 @@ final class LoadableViewTests: XCTestCase {
 //        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
 //        XCTAssertTrue(view is SwiftUI.AnyView, "Built view should be wrapped in AnyView")
     }
+
+    // MARK: - Sub-view replacement (dynamic content swapping) tests
+
+    /// Helper: loads a root window with a LoadableView placeholder, then loads a sub-view JSON as its content.
+    private func loadRootWithLoadableView() throws -> WindowModel {
+        let rootJSON = """
+        {
+            "id": 1,
+            "type": "VStack",
+            "properties": {},
+            "children": [
+                { "id": 100, "type": "LoadableView", "properties": { "filePath": "/tmp/panel.json" } }
+            ]
+        }
+        """
+        let data = rootJSON.data(using: .utf8)!
+        _ = try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
+        return ActionUIModel.shared.windowModels[windowUUID]!
+    }
+
+    /// Helper: creates sub-view JSON data with a given root id and child ids.
+    private func subViewJSON(rootID: Int, childIDs: [Int]) -> Data {
+        let children = childIDs.map { """
+            { "id": \($0), "type": "Text", "properties": { "text": "child \($0)" } }
+        """ }.joined(separator: ",\n")
+        let json = """
+        {
+            "id": \(rootID),
+            "type": "VStack",
+            "properties": {},
+            "children": [ \(children) ]
+        }
+        """
+        return json.data(using: .utf8)!
+    }
+
+    func testFirstLoadWithParentIDRecordsOwnership() throws {
+        let windowModel = try loadRootWithLoadableView()
+        let parentID = 100
+
+        let subData = subViewJSON(rootID: 200, childIDs: [201, 202])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json", parentID: parentID)
+
+        // Ownership should be recorded
+        XCTAssertNotNil(windowModel.loadedSubViewIDs[parentID], "Should record child IDs under parentID")
+        XCTAssertTrue(windowModel.loadedSubViewIDs[parentID]!.contains(200))
+        XCTAssertTrue(windowModel.loadedSubViewIDs[parentID]!.contains(201))
+        XCTAssertTrue(windowModel.loadedSubViewIDs[parentID]!.contains(202))
+
+        // ViewModels should be populated
+        XCTAssertNotNil(windowModel.viewModels[200])
+        XCTAssertNotNil(windowModel.viewModels[201])
+        XCTAssertNotNil(windowModel.viewModels[202])
+    }
+
+    func testReplaceRemovesOldChildModels() throws {
+        let windowModel = try loadRootWithLoadableView()
+        let parentID = 100
+
+        // First load
+        let subData1 = subViewJSON(rootID: 200, childIDs: [201, 202])
+        _ = try windowModel.loadSubViewDescription(from: subData1, format: "json", parentID: parentID)
+        XCTAssertNotNil(windowModel.viewModels[200])
+        XCTAssertNotNil(windowModel.viewModels[201])
+
+        // Replace with new content
+        let subData2 = subViewJSON(rootID: 300, childIDs: [301])
+        _ = try windowModel.loadSubViewDescription(from: subData2, format: "json", parentID: parentID)
+
+        // Old models should be gone
+        XCTAssertNil(windowModel.viewModels[200], "Old root sub-view model should be removed")
+        XCTAssertNil(windowModel.viewModels[201], "Old child model should be removed")
+        XCTAssertNil(windowModel.viewModels[202], "Old child model should be removed")
+
+        // New models should be present
+        XCTAssertNotNil(windowModel.viewModels[300], "New root sub-view model should be present")
+        XCTAssertNotNil(windowModel.viewModels[301], "New child model should be present")
+
+        // Ownership tracking updated
+        XCTAssertEqual(windowModel.loadedSubViewIDs[parentID], Set([300, 301]))
+    }
+
+    func testIDReuseAcrossSwaps() throws {
+        let windowModel = try loadRootWithLoadableView()
+        let parentID = 100
+
+        // First load with IDs 1001, 1002
+        let subData1 = subViewJSON(rootID: 1001, childIDs: [1002])
+        _ = try windowModel.loadSubViewDescription(from: subData1, format: "json", parentID: parentID)
+        let oldViewModel = windowModel.viewModels[1001]
+        XCTAssertNotNil(oldViewModel)
+
+        // Replace reusing the same IDs — should not conflict
+        let subData2 = subViewJSON(rootID: 1001, childIDs: [1002])
+        _ = try windowModel.loadSubViewDescription(from: subData2, format: "json", parentID: parentID)
+
+        // New ViewModels should be different instances
+        let newViewModel = windowModel.viewModels[1001]
+        XCTAssertNotNil(newViewModel)
+        XCTAssertFalse(oldViewModel === newViewModel, "Reused IDs should get fresh ViewModel instances after swap")
+    }
+
+    func testNestedLoadableViewRecursiveCleanup() throws {
+        let windowModel = try loadRootWithLoadableView()
+        let parentA = 100
+
+        // Parent A loads child B (which is itself a LoadableView parent)
+        let subDataA = subViewJSON(rootID: 500, childIDs: [501])
+        _ = try windowModel.loadSubViewDescription(from: subDataA, format: "json", parentID: parentA)
+
+        // Simulate child B (id=500) acting as a nested LoadableView that loaded its own children
+        let parentB = 500
+        let subDataB = subViewJSON(rootID: 600, childIDs: [601, 602])
+        _ = try windowModel.loadSubViewDescription(from: subDataB, format: "json", parentID: parentB)
+
+        // Verify nested state
+        XCTAssertNotNil(windowModel.viewModels[600])
+        XCTAssertNotNil(windowModel.viewModels[601])
+        XCTAssertNotNil(windowModel.loadedSubViewIDs[parentB])
+
+        // Now replace parent A — should recursively remove B's children too
+        let subDataA2 = subViewJSON(rootID: 700, childIDs: [701])
+        _ = try windowModel.loadSubViewDescription(from: subDataA2, format: "json", parentID: parentA)
+
+        // All of A's old direct children and B's nested children should be gone
+        XCTAssertNil(windowModel.viewModels[500], "Direct child of A should be removed")
+        XCTAssertNil(windowModel.viewModels[501], "Direct child of A should be removed")
+        XCTAssertNil(windowModel.viewModels[600], "Nested child of B should be removed")
+        XCTAssertNil(windowModel.viewModels[601], "Nested child of B should be removed")
+        XCTAssertNil(windowModel.viewModels[602], "Nested child of B should be removed")
+
+        // B's ownership entry should also be cleaned up
+        XCTAssertNil(windowModel.loadedSubViewIDs[parentB], "Nested parent's tracking should be removed")
+
+        // New content should be present
+        XCTAssertNotNil(windowModel.viewModels[700])
+        XCTAssertNotNil(windowModel.viewModels[701])
+    }
+
+    func testFullWindowReloadClearsTracking() throws {
+        let windowModel = try loadRootWithLoadableView()
+        let parentID = 100
+
+        // Load a sub-view with parentID tracking
+        let subData = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json", parentID: parentID)
+        XCTAssertFalse(windowModel.loadedSubViewIDs.isEmpty, "Should have tracking entries")
+
+        // Full window reload
+        let rootJSON = """
+        { "id": 1, "type": "Text", "properties": { "text": "fresh" } }
+        """
+        _ = try windowModel.loadDescription(from: rootJSON.data(using: .utf8)!, format: "json")
+
+        XCTAssertTrue(windowModel.loadedSubViewIDs.isEmpty, "Full reload should clear all sub-view tracking")
+    }
+
+    func testParentIDZeroDoesNotTrack() throws {
+        let windowModel = try loadRootWithLoadableView()
+
+        // Load sub-view with default parentID=0 (backward-compatible path)
+        let subData = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json")
+
+        // No ownership tracking for parentID 0
+        XCTAssertNil(windowModel.loadedSubViewIDs[0], "parentID 0 should not create tracking entries")
+
+        // ViewModels should still be populated
+        XCTAssertNotNil(windowModel.viewModels[200])
+        XCTAssertNotNil(windowModel.viewModels[201])
+    }
+
+    func testRootViewModelsPreservedDuringSubViewReplace() throws {
+        let windowModel = try loadRootWithLoadableView()
+        let parentID = 100
+
+        // Root viewModels (id 1 and 100) should exist
+        XCTAssertNotNil(windowModel.viewModels[1], "Root VStack model should exist")
+        XCTAssertNotNil(windowModel.viewModels[100], "LoadableView model should exist")
+
+        // Load and replace sub-views
+        let subData1 = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData1, format: "json", parentID: parentID)
+        let subData2 = subViewJSON(rootID: 300, childIDs: [301])
+        _ = try windowModel.loadSubViewDescription(from: subData2, format: "json", parentID: parentID)
+
+        // Root viewModels should be untouched
+        XCTAssertNotNil(windowModel.viewModels[1], "Root VStack model should be preserved after sub-view swap")
+        XCTAssertNotNil(windowModel.viewModels[100], "LoadableView model should be preserved after sub-view swap")
+    }
 }

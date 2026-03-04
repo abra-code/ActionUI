@@ -10,6 +10,8 @@ import Combine
 class WindowModel: ObservableObject {
     @Published var element: (any ActionUIElementBase)?
     @Published var viewModels: [Int: ViewModel] = [:]
+    /// Maps a LoadableView's element ID to set of child view IDs it loaded
+    var loadedSubViewIDs: [Int: Set<Int>] = [:]
     let windowUUID: String
     private let logger: any ActionUILogger
 
@@ -24,12 +26,14 @@ class WindowModel: ObservableObject {
             let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             self.element = element
             self.viewModels = populateViewModels(from: element) // Update self.viewModels
+            self.loadedSubViewIDs = [:]
             logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
             let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             self.element = element
             self.viewModels = populateViewModels(from: element) // Update self.viewModels
+            self.loadedSubViewIDs = [:]
             logger.log("Loaded plist description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else {
@@ -43,11 +47,26 @@ class WindowModel: ObservableObject {
         let element = try ActionUIElement(from: dict, logger: logger)
         self.element = element
         self.viewModels = populateViewModels(from: element) // Update self.viewModels
+        self.loadedSubViewIDs = [:]
         return element
     }
 
-    // Load a sub-view from JSON or plist data without overwriting the root element
-    func loadSubViewDescription(from data: Data, format: String) throws -> ActionUIElement {
+    // Load a sub-view from JSON or plist data without overwriting the root element.
+    // When parentID != 0, removes old child models owned by that parent before loading,
+    // enabling dynamic content swapping without ID conflicts.
+    func loadSubViewDescription(from data: Data, format: String, parentID: Int = 0) throws -> ActionUIElement {
+        // Remove old child models if replacing an existing parent's content
+        if parentID != 0 {
+            let oldIDs = collectAndRemoveSubViewIDs(for: parentID)
+            if !oldIDs.isEmpty {
+                var updated = self.viewModels
+                for id in oldIDs { updated.removeValue(forKey: id) }
+                self.viewModels = updated
+                logger.log("Removed \(oldIDs.count) old child models for parent \(parentID)", .debug)
+            }
+        }
+
+        // Decode new element
         let subElement: ActionUIElement
         if format == "json" {
             subElement = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
@@ -57,8 +76,12 @@ class WindowModel: ObservableObject {
             logger.log("Unsupported format: \(format)", .error)
             throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
         }
-        
-        let subViewModels = populateViewModels(from: subElement) // Get populated dictionary
+
+        // Populate new ViewModels and record ownership if tracking a parent
+        let subViewModels = populateViewModels(from: subElement)
+        if parentID != 0 {
+            loadedSubViewIDs[parentID] = Set(subViewModels.keys)
+        }
 
         // Merge subViewModels into main viewModels, ensuring no ID conflicts.
         // Build the merged dictionary first, then assign once to fire a single @Published notification.
@@ -71,9 +94,19 @@ class WindowModel: ObservableObject {
             }
         }
         self.viewModels = merged
-        
-        logger.log("Loaded sub-view with element id: \(subElement.id)", .debug)
+
+        logger.log("Loaded sub-view with element id: \(subElement.id)" + (parentID != 0 ? " for parent \(parentID)" : ""), .debug)
         return subElement
+    }
+
+    /// Recursively collect all sub-view IDs owned by parentID (and their nested children)
+    private func collectAndRemoveSubViewIDs(for parentID: Int) -> Set<Int> {
+        guard let directChildren = loadedSubViewIDs.removeValue(forKey: parentID) else { return [] }
+        var allIDs = directChildren
+        for childID in directChildren {
+            allIDs.formUnion(collectAndRemoveSubViewIDs(for: childID))
+        }
+        return allIDs
     }
 
     // Recursively populate viewModels for the element and its subviews, returning the populated dictionary

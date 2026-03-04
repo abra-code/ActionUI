@@ -11,15 +11,17 @@ public struct RemoteLoadableView: SwiftUI.View {
     let url: URL
     let windowUUID: String
     let isContentView: Bool
+    let parentID: Int
     let logger: any ActionUILogger
-    
+
     @State private var element: ActionUIElement?
     @State private var error: Error?
-    
-    public init(url: URL, windowUUID: String, isContentView: Bool, logger: any ActionUILogger) {
+
+    public init(url: URL, windowUUID: String, isContentView: Bool, parentID: Int = 0, logger: any ActionUILogger) {
         self.url = url
         self.windowUUID = windowUUID
         self.isContentView = isContentView
+        self.parentID = parentID
         self.logger = logger
     }
     
@@ -45,8 +47,8 @@ public struct RemoteLoadableView: SwiftUI.View {
                             logger.log("Determined format '\(format)' for remote URL \(url)", .debug)
                             if isContentView {
                                 element = try ActionUIModel.shared.loadDescription(from: data, format: format, windowUUID: windowUUID)
-                            } else { // subview loading
-                                element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID)
+                            } else {
+                                element = try ActionUIModel.shared.loadSubViewDescription(from: data, format: format, windowUUID: windowUUID, parentID: parentID)
                             }
                             logger.log("Successfully loaded \(format) for LoadableView from remote \(url)", .debug)
                         } catch {

@@ -72,7 +72,7 @@ struct LoadableView: ActionUIViewConstruction {
                 return SwiftUI.Text("Invalid URL: \(value)")
             }
             logger.log("Interpreting value as remote URL: \(value)", .debug)
-            return RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
+            return RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, logger: logger)
         } else {
             var fileURL: URL
             if value.lowercased().hasPrefix("file://") {
@@ -97,7 +97,7 @@ struct LoadableView: ActionUIViewConstruction {
                 fileURL = url
                 logger.log("Interpreting value as bundle name: \(value)", .debug)
             }
-            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, logger: logger)
+            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, logger: logger)
         }
     }
     
