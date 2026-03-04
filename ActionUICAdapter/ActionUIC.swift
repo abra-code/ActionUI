@@ -153,14 +153,7 @@ private func bridgeActionHandler(actionID: String, windowUUID: String, viewID: I
     
     var contextJSON: String? = nil
     if let context = context {
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: context, options: [])
-            contextJSON = String(data: jsonData, encoding: .utf8)
-        } catch {
-            runOnMainActorAsync {
-                ActionUIModel.shared.logger.log("Failed to serialize context to JSON: \(error)", .warning)
-            }
-        }
+        contextJSON = safeJSONString(from: context)
     }
     
     actionID.withCString { actionCStr in
@@ -255,14 +248,59 @@ public func actionUIClearError() {
 
 // MARK: - JSON Conversion Helpers
 
-private func valueToJSON(_ value: Any) -> String? {
-    do {
-        let data = try JSONSerialization.data(withJSONObject: value, options: [])
-        return String(data: data, encoding: .utf8)
-    } catch {
-        setError("Failed to convert value to JSON: \(error)")
+/// Convert any value to a JSON string safely, without risking ObjC exceptions.
+/// `JSONSerialization.data(withJSONObject:)` throws an ObjC `NSException`
+/// (not a Swift `Error`) when the top-level object is not a valid JSON
+/// container (e.g. a bare String or Number).  ObjC exceptions bypass
+/// Swift's `do/catch`, crashing the process.
+///
+/// This helper checks `isValidJSONObject` first and falls back to manual
+/// serialization for scalar types that are valid JSON values but cannot be
+/// a top-level `withJSONObject` argument.
+private func safeJSONString(from value: Any) -> String? {
+    // Arrays and dictionaries — the common path.
+    if JSONSerialization.isValidJSONObject(value) {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: value, options: [])
+            return String(data: data, encoding: .utf8)
+        } catch {
+            // Should not happen after isValidJSONObject, but handle gracefully.
+            setError("Failed to convert value to JSON: \(error)")
+            return nil
+        }
+    }
+
+    // Scalar types that are valid JSON but not valid top-level NSJSONSerialization objects.
+    switch value {
+    case let s as String:
+        // Wrap in an array, serialize, then strip the surrounding brackets.
+        if let data = try? JSONSerialization.data(withJSONObject: [s], options: []),
+           let arr = String(data: data, encoding: .utf8) {
+            // "[\"hello\"]" → "\"hello\""
+            let inner = arr.dropFirst(1).dropLast(1)
+            return String(inner)
+        }
+        return nil
+    case let n as NSNumber:
+        // CFBoolean is bridged to NSNumber; detect bools by CFBooleanGetTypeID.
+        if CFGetTypeID(n) == CFBooleanGetTypeID() {
+            return n.boolValue ? "true" : "false"
+        }
+        return "\(n)"
+    case let b as Bool:
+        return b ? "true" : "false"
+    case let i as Int:
+        return "\(i)"
+    case let d as Double:
+        return "\(d)"
+    default:
+        setError("Cannot convert value of type \(type(of: value)) to JSON")
         return nil
     }
+}
+
+private func valueToJSON(_ value: Any) -> String? {
+    return safeJSONString(from: value)
 }
 
 private func jsonToValue(_ json: String) -> Any? {
