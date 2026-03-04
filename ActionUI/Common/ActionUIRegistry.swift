@@ -144,7 +144,8 @@ class ActionUIRegistry {
     // Retrieves the value type for a given view element type
     // Design decision: Returns Void if valueType is not implemented, ensuring compatibility with non-interactive views
     func getElementValueType(forElementType type: String) -> Any.Type {
-        return viewRegistrations[type]?.valueType ?? Void.self
+        let valueType = viewRegistrations[type]?.valueType ?? Void.self
+        return getNonOptionalType(valueType)
     }
     
     func getInitialValue(forElementType type: String, model: ViewModel) -> Any? {
@@ -152,10 +153,7 @@ class ActionUIRegistry {
            constructionType.valueType != Void.self {
             let initialValue = constructionType.initialValue(model)
             if initialValue == nil,
-               constructionType.valueType != String?.self,
-               constructionType.valueType != Double?.self,
-               constructionType.valueType != Int?.self,
-               constructionType.valueType != Bool?.self { //any optional value type may be nil
+                !isOptional(constructionType.valueType) { //any optional value type may be nil
                 logger.log("Inital value not provided for element of type \(type), which declares non-void valueType", .error)
             }
             return initialValue
