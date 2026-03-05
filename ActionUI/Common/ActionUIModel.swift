@@ -145,11 +145,10 @@ public class ActionUIModel: ObservableObject {
     // For other views: Sets "value" directly
     public func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
         guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
+              let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         if let newRows = value as? [[String]] {
             viewModel.objectWillChange.send()
             viewModel.states["content"] = newRows
@@ -179,15 +178,13 @@ public class ActionUIModel: ObservableObject {
     // Converts control value to a string representation for scripting
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
     public func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
-        guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.element?.findElement(by: viewID) else {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
         }
-        let viewModel = windowModel.viewModels[viewID]
-        let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
+        let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType)
         
-        if let _ = viewModel?.states["content"] as? [[String]], let selectedRow = viewModel?.value as? [String] {
+        if let _ = viewModel.states["content"] as? [[String]], let selectedRow = viewModel.value as? [String] {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
             } else if viewPartID > 0 {
@@ -195,9 +192,9 @@ public class ActionUIModel: ObservableObject {
             }
             logger.log("Invalid viewPartID \(viewPartID) for multi-column content", .warning)
             return nil
-        } else if let selectedItem = viewModel?.value as? String {
+        } else if let selectedItem = viewModel.value as? String {
             return selectedItem
-        } else if let value = viewModel?.value {
+        } else if let value = viewModel.value {
             if valueType == Bool.self, let boolValue = value as? Bool {
                 return boolValue.description
             } else if valueType == Color.self, let color = value as? Color {
@@ -227,13 +224,11 @@ public class ActionUIModel: ObservableObject {
     // Converts a string to the view's value type and delegates to setElementValue
     // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
     public func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
-        guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.element?.findElement(by: viewID) else {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let _ = windowModel.viewModels[viewID] ?? ViewModel()
-        let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: element.type)
+        let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType)
         var convertedValue: Any?
         
         if valueType == [String].self {
@@ -306,7 +301,7 @@ public class ActionUIModel: ObservableObject {
                 return
             }
         } else if valueType == Void.self {
-            logger.log("View with Void valueType does not support setElementValueFromString: \(element.type) for viewID: \(viewID)", .warning)
+            logger.log("View with Void valueType does not support setElementValueFromString: \(viewModel.elementType) for viewID: \(viewID)", .warning)
             return
         } else {
             logger.log("Unsupported valueType for setElementValueFromString: \(valueType) for viewID: \(viewID)", .warning)
@@ -360,11 +355,10 @@ public class ActionUIModel: ObservableObject {
     // type corruption that would break setElementStateFromString's type-guided parsing.
     public func setElementState(windowUUID: String, viewID: Int, key: String, value: Any) {
         guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
+              let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         if let existing = viewModel.states[key] {
             guard type(of: existing) == type(of: value) else {
                 logger.log("Type mismatch for state key '\(key)' on viewID: \(viewID); expected \(type(of: existing)), got \(type(of: value))", .error)
@@ -382,11 +376,10 @@ public class ActionUIModel: ObservableObject {
     // If the key does not yet exist, stores the string as-is.
     public func setElementStateFromString(windowUUID: String, viewID: Int, key: String, value: String) {
         guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
+              let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         let converted: Any
         if let existing = viewModel.states[key] {
             let t = type(of: existing)
@@ -494,11 +487,10 @@ public class ActionUIModel: ObservableObject {
     // Clears the current selection if the selected row is no longer present.
     public func setElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
         guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
+              let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         viewModel.objectWillChange.send()
         viewModel.states["content"] = rows
         if let selectedRow = viewModel.value as? [String], !rows.contains(where: { $0.first == selectedRow.first }) {
@@ -511,11 +503,10 @@ public class ActionUIModel: ObservableObject {
     // Clears all content rows from a table/list view element, preserving column definitions.
     public func clearElementRows(windowUUID: String, viewID: Int) {
         guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
+              let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         viewModel.objectWillChange.send()
         viewModel.states["content"] = [] as [[String]]
         if viewModel.value is [String] {
@@ -528,11 +519,10 @@ public class ActionUIModel: ObservableObject {
     // Appends rows to a table/list view element's existing content.
     public func appendElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
         guard let windowModel = windowModels[windowUUID],
-              let _ = windowModel.element?.findElement(by: viewID) else {
+              let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         viewModel.objectWillChange.send()
         let existingContent = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states["content"] = existingContent + rows
@@ -588,18 +578,16 @@ public class ActionUIModel: ObservableObject {
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
     // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels
     public func setElementProperty(windowUUID: String, viewID: Int, propertyName: String, value: Any) {
-        guard let windowModel = windowModels[windowUUID],
-              let element = windowModel.element?.findElement(by: viewID) else {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
-        let viewModel = windowModel.viewModels[viewID] ?? ViewModel()
         // Notify SwiftUI before mutating the non-published validatedProperties,
         // matching the willSet contract expected by ObservableObject observers.
         viewModel.objectWillChange.send()
         viewModel.validatedProperties[propertyName] = value
         // Re-validate to ensure type safety and HIG compliance
-        viewModel.validateProperties(viewModel.validatedProperties, elementType: element.type, logger: logger)
+        viewModel.validateProperties(viewModel.validatedProperties, elementType: viewModel.elementType, logger: logger)
         logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }
 }

@@ -114,6 +114,7 @@ class WindowModel: ObservableObject {
         var targetViewModels: [Int: ViewModel] = [:]
         
         let viewModel = ViewModel()
+        viewModel.elementType = element.type
         // Validate properties and set in ViewModel
         viewModel.validateProperties(for: element)
         // Fetch initial value from properties early if the element supports it

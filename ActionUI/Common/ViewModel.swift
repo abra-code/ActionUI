@@ -11,11 +11,13 @@ class ViewModel: ObservableObject {
     @Published var value: Any?
     @Published var states: [String: Any]
     var validatedProperties: [String: Any] // Non-published cache
+    var elementType: String // View type name (e.g. "TextField", "Slider")
 
     init() {
         self.value = nil
         self.states = [:]
         self.validatedProperties = [:]
+        self.elementType = ""
     }
 
     // Validate properties for the given element, updating validatedProperties
