@@ -91,6 +91,10 @@ struct TextField: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
+        // Fall back to "text" property if set in JSON (e.g., for pre-populated fields)
+        if let text = model.validatedProperties["text"] as? String {
+            return text
+        }
         return ""
     }
 }
