@@ -25,7 +25,8 @@ struct ActionUIVerifier {
             fputs("Verifying JSON at: \(jsonPath)\n", stdout)
             let data = try Data(contentsOf: URL(fileURLWithPath: jsonPath))
             let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
-            return validateElement(element, path: jsonPath)
+            var seenIDs = Set<Int>()
+            return validateElement(element, path: jsonPath, seenIDs: &seenIDs)
         } catch {
             logger.log("Failed to load or decode JSON at \(jsonPath): \(error)", .error)
             return false
@@ -56,14 +57,31 @@ struct ActionUIVerifier {
     // TODO: construct a better "path" with information regarding the element in the json being validated
     // so we can provide useful error information containing the problematic element location
     
-    private func validateElement(_ element: any ActionUIElementBase, path: String) -> Bool {
+    private func validateElement(_ element: any ActionUIElementBase, path: String, seenIDs: inout Set<Int>) -> Bool {
         var isValid = true
+
+        // Validate ID:
+        // - Negative IDs are auto-assigned by ActionUI for elements without explicit "id" in JSON — skip those.
+        // - Zero is always invalid (id must be positive non-zero if set).
+        // - Positive IDs must be unique across the entire view tree.
+        let id = element.id
+        if id == 0 {
+            logger.log("\(path): Invalid id 0 — IDs must be positive non-zero integers", .error)
+            isValid = false
+        } else if id > 0 {
+            if seenIDs.contains(id) {
+                logger.log("\(path): Duplicate id \(id) — IDs must be unique across the entire view tree", .error)
+                isValid = false
+            }
+            seenIDs.insert(id)
+        }
+        // id < 0: auto-assigned, skip
 
         // Validate properties
         let _ = ActionUIRegistry.shared.validateProperties(
             forElementType: element.type,
             properties: element.properties)
-        
+
         // Recursively validate subviews
         // We could have arrays of children ("children", "sidebar", etc) or a single child ("content") or arrays of arrays ("rows")
         // "children", "rows", "content", "destination", "sidebar", "detail"
@@ -72,20 +90,20 @@ struct ActionUIVerifier {
                 switch (value) {
                 case (let children as [ActionUIElement]):
                     for (index, child) in children.enumerated() {
-                        if !validateElement(child, path: "\(path)/\(key)[\(index)]") {
+                        if !validateElement(child, path: "\(path)/\(key)[\(index)]", seenIDs: &seenIDs) {
                             isValid = false
                         }
                     }
                 case (let rows as [[ActionUIElement]]):
                     for (rIndex, row) in rows.enumerated() {
                         for (cIndex, child) in row.enumerated() {
-                            if !validateElement(child, path: "\(path)/\(key)[\(rIndex)][\(cIndex)]") {
+                            if !validateElement(child, path: "\(path)/\(key)[\(rIndex)][\(cIndex)]", seenIDs: &seenIDs) {
                                 isValid = false
                             }
                         }
                     }
                 case (let child as ActionUIElement):
-                    if !validateElement(child, path: "\(path)/\(key)") {
+                    if !validateElement(child, path: "\(path)/\(key)", seenIDs: &seenIDs) {
                         isValid = false
                     }
                 default:
@@ -93,7 +111,7 @@ struct ActionUIVerifier {
                 }
             }
         }
-        
+
         return isValid
     }
         
