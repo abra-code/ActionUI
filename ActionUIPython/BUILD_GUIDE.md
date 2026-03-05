@@ -98,9 +98,35 @@ via CommandMenu/CommandGroup JSON.
 
 ---
 
-## Step 1 — Obtain the static frameworks
+## Quick start — build script
 
-### Option A: Build from source (Xcode)
+The included `build_and_install.sh` automates the entire process:
+
+```bash
+cd ActionUIPython
+./build_and_install.sh
+```
+
+This will:
+1. Remove stale `build/` and `actionui.egg-info/` directories
+2. Build the `ActionUIAppKitApplication` scheme as Release universal (arm64 + x86_64)
+   via xcodebuild, which also builds ActionUI and ActionUICAdapter as dependencies
+3. Output frameworks to `ActionUIPython/frameworks/Release/`
+4. Run `pip3 install --no-cache-dir --verbose .`
+
+To use a custom output directory for frameworks:
+
+```bash
+./build_and_install.sh /path/to/output
+```
+
+---
+
+## Manual build
+
+### Step 1 — Obtain the static frameworks
+
+#### Option A: Build from source (Xcode)
 
 Open `ActionUI.xcodeproj` and build the three required targets:
 **ActionUI**, **ActionUICAdapter**, and **ActionUIAppKitApplication**.
@@ -112,6 +138,7 @@ for scheme in ActionUI ActionUICAdapter ActionUIAppKitApplication; do
              -configuration Release \
              -destination "generic/platform=macOS" \
              BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+             ONLY_ACTIVE_ARCH=NO \
              SKIP_INSTALL=NO \
              MACH_O_TYPE=staticlib \
              build
@@ -129,7 +156,7 @@ ActionUIPython/
     └── ActionUIAppKitApplication.framework
 ```
 
-### Option B: Download a pre-built release archive (future)
+#### Option B: Download a pre-built release archive (future)
 
 ActionUI releases will publish static framework archives as GitHub Actions
 artifacts.  Once available, download and extract:
@@ -137,16 +164,14 @@ artifacts.  Once available, download and extract:
 ```bash
 cd ActionUIPython
 # Example (URL TBD when releases are published):
-curl -L https://github.com/<org>/ActionUI/releases/download/v1.0.0/ActionUI-static-frameworks.zip \
+curl -L https://github.com/abra-code/ActionUI/releases/download/v1.0.0/ActionUI-static-frameworks.zip \
      -o frameworks.zip
 unzip frameworks.zip -d frameworks/
 ```
 
 After extraction the layout should match the one shown in Option A.
 
----
-
-## Step 2 — Build the Python extension
+### Step 2 — Build the Python extension
 
 ```bash
 cd ActionUIPython
@@ -229,6 +254,7 @@ ActionUI/
     ├── actionui.py                        Pythonic wrapper
     ├── setup.py                           Build script (extension definition)
     ├── pyproject.toml                     Modern build system declaration
+    ├── build_and_install.sh               One-step build + install script
     ├── test_native.py                     API smoke test (no run loop)
     ├── test_app_api.py                    App lifecycle + menu bar API smoke test
     ├── test_app_lifecycle.py              Full lifecycle integration test
