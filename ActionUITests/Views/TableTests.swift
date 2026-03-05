@@ -40,7 +40,6 @@ final class TableTests: XCTestCase {
             "id": 1,
             "type": "Table",
             "properties": {
-                "itemType": {"viewType": "Text"},
                 "columns": ["Name", "Action"],
                 "widths": [100, 80],
                 "actionID": "table.action",
@@ -69,10 +68,13 @@ final class TableTests: XCTestCase {
 
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
 
-        if let itemType = element.properties["itemType"] as? [String: Any] {
-            XCTAssertEqual(itemType["viewType"] as? String, "Text", "ItemType viewType should be Text")
+        // columnTypes should be auto-populated with Text defaults for each column
+        if let columnTypes = validatedProperties["columnTypes"] as? [[String: Any]] {
+            XCTAssertEqual(columnTypes.count, 2, "columnTypes should have 2 entries")
+            XCTAssertEqual(columnTypes[0]["viewType"] as? String, "Text", "Default viewType should be Text")
+            XCTAssertEqual(columnTypes[1]["viewType"] as? String, "Text", "Default viewType should be Text")
         } else {
-            XCTFail("itemType should be a dictionary")
+            XCTFail("columnTypes should be a valid array")
         }
         XCTAssertEqual((element.properties["columns"] as? [String])?.count, 2, "Columns should have 2 elements")
         XCTAssertEqual((element.properties["widths"] as? [Int])?.count, 2, "Widths should have 2 elements")
@@ -84,7 +86,9 @@ final class TableTests: XCTestCase {
     
     func testTableValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "itemType": ["viewType": "Invalid", "dataInterpretation": "invalid", "actionContext": "invalid"],
+            "columnTypes": [
+                ["viewType": "Invalid", "dataInterpretation": "invalid", "actionContext": "invalid"]
+            ],
             "columns": 123,
             "widths": ["100"],
             "doubleClickActionID": 789
@@ -92,12 +96,11 @@ final class TableTests: XCTestCase {
 
         let validated = Table.validateProperties(properties, logger)
 
-        if let itemType = validated["itemType"] as? [String: Any] {
-            XCTAssertEqual(itemType["viewType"] as? String, "Text", "Invalid viewType should default to Text")
-            XCTAssertEqual(itemType["dataInterpretation"] as? String, "invalid", "Invalid dataInterpretation should be preserved")
-            XCTAssertEqual(itemType["actionContext"] as? String, "invalid", "Invalid actionContext should be preserved")
+        if let columnTypes = validated["columnTypes"] as? [[String: Any]] {
+            XCTAssertEqual(columnTypes.count, 1, "columnTypes should have 1 entry")
+            XCTAssertEqual(columnTypes[0]["viewType"] as? String, "Text", "Invalid viewType should default to Text")
         } else {
-            XCTFail("itemType should be valid dictionary")
+            XCTFail("columnTypes should be valid array")
         }
         XCTAssertEqual(validated["columns"] as? [String], [], "Invalid columns should default to []")
         XCTAssertNil(validated["widths"], "Invalid widths should be nil")
@@ -109,10 +112,10 @@ final class TableTests: XCTestCase {
 
         let validated = Table.validateProperties(properties, logger)
 
-        if let itemType = validated["itemType"] as? [String: Any] {
-            XCTAssertEqual(itemType["viewType"] as? String, "Text", "Missing itemType should default to Text")
+        if let columnTypes = validated["columnTypes"] as? [[String: Any]] {
+            XCTAssertEqual(columnTypes.count, 0, "Missing columnTypes with no columns should be empty")
         } else {
-            XCTFail("itemType should be valid dictionary")
+            XCTFail("columnTypes should be valid array")
         }
         XCTAssertEqual(validated["columns"] as? [String], [], "Missing columns should default to []")
         XCTAssertNil(validated["widths"], "Missing widths should be nil")
@@ -127,7 +130,6 @@ final class TableTests: XCTestCase {
             "id": 1,
             "type": "Table",
             "properties": [
-                "itemType": ["viewType": "Text"],
                 "columns": columns,
                 "actionID": "table.action"
             ]

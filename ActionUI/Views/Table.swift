@@ -5,17 +5,21 @@
    "type": "Table",
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage",
-                                         // "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (optional for Image),
-                                         // "actionContext": "rowIndex"|"columnIndex"|"rowColumnIndex" (optional for Button) }
-                                         // rowColumnIndex creates Point(row: Int, column: Int) for context
-     "columns": ["Name", "Action"], // Required: Array of strings for column headers
-     "widths": [100, 80], // Optional: Array of integers for column widths
-     "actionID": "table.action", // Optional: For Button viewType
-     "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
+     "columns": ["Name", "Action", "Icon"], // Required: Array of strings for column headers
+     "columnTypes": [                       // Optional: Per-column type config array. Defaults to all Text.
+       { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"
+       { "viewType": "Button",              // Columns without an entry default to Text.
+         "actionContext": "rowIndex",       // "actionContext": "title"|"rowIndex"|"columnIndex"|"rowColumnIndex" (Button only)
+         "actionID": "row.action" },        // "actionID": "..." (Button only — fires on button click) }
+       { "viewType": "Image",
+         "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
+     ],
+     "widths": [100, 80, 40],               // Optional: Array of integers for column widths
+     "actionID": "table.selection.changed", // Optional: Fires on selection change (all cell types)
+     "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
  }
-   // Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
+   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"], using row IDs for tracking. The table-level actionID fires on selection change. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
 
  Observable state:
@@ -47,27 +51,38 @@ struct Table: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
-        let viewType = itemType["viewType"] as? String ?? "Text"
-        if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
-            logger.log("Table itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
-            itemType["viewType"] = "Text"
+        // Parse columnTypes array — each entry: { viewType, dataInterpretation?, actionContext?, actionID? }
+        var columnTypes = properties["columnTypes"] as? [[String: Any]] ?? []
+        let columns = properties["columns"] as? [String] ?? []
+        // Pad to match columns count, defaulting to Text
+        while columnTypes.count < columns.count {
+            columnTypes.append(["viewType": "Text"])
         }
-        if viewType == "Image" {
-            let dataInterpretation = itemType["dataInterpretation"] as? String
-            if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
-                logger.log("Table itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName", .warning)
-                itemType["dataInterpretation"] = "systemName"
+        // Validate each entry
+        for i in 0..<columnTypes.count {
+            var ct = columnTypes[i]
+            let vt = ct["viewType"] as? String ?? "Text"
+            if !["Text", "Button", "Image", "AsyncImage"].contains(vt) {
+                logger.log("Table columnTypes[\(i)].viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
+                ct["viewType"] = "Text"
             }
-        }
-        if viewType == "Button" {
-            let actionContext = itemType["actionContext"] as? String
-            if !["title", "rowIndex", "columnIndex", "rowColumnIndex"].contains(actionContext) {
-                logger.log("Table itemType.actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title", .warning)
-                itemType["actionContext"] = "title"
+            if vt == "Image" {
+                let di = ct["dataInterpretation"] as? String
+                if !["path", "systemName", "assetName", "resourceName", "mixed"].contains(di) {
+                    logger.log("Table columnTypes[\(i)].dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for Image; defaulting to systemName", .warning)
+                    ct["dataInterpretation"] = "systemName"
+                }
             }
+            if vt == "Button" {
+                let ac = ct["actionContext"] as? String
+                if !["title", "rowIndex", "columnIndex", "rowColumnIndex"].contains(ac) {
+                    logger.log("Table columnTypes[\(i)].actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title", .warning)
+                    ct["actionContext"] = "title"
+                }
+            }
+            columnTypes[i] = ct
         }
-        validatedProperties["itemType"] = itemType
+        validatedProperties["columnTypes"] = columnTypes
         
         if validatedProperties["columns"] == nil {
             validatedProperties["columns"] = []
@@ -103,10 +118,7 @@ struct Table: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AppKit)
-        let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
-        let viewType = itemType["viewType"] as? String ?? "Text"
-        let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
-        let actionContext = itemType["actionContext"] as? String ?? "title"
+        let columnTypes = properties["columnTypes"] as? [[String: Any]] ?? []
         let columns = (properties["columns"] as? [String]) ?? []
         let rows = (model.states["content"] as? [[String]]) ?? []
         let widths = (properties["widths"] as? [Int])?.map { CGFloat($0) } ?? Array(repeating: CGFloat(100), count: columns.count)
@@ -145,9 +157,9 @@ struct Table: ActionUIViewConstruction {
                 DispatchQueue.main.async {
                     model.value = selectedRowValues
         
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                    if let actionID = properties["actionID"] as? String {
                         ActionUIModel.shared.actionHandler(
-                            valueChangeActionID,
+                            actionID,
                             windowUUID: windowUUID,
                             viewID: element.id,
                             viewPartID: 0
@@ -160,14 +172,18 @@ struct Table: ActionUIViewConstruction {
         return SwiftUI.Table(rowData, selection: selectionBinding) {
             SwiftUI.TableColumnForEach(columnData) { column in
                 SwiftUI.TableColumn(column.name) { row in
-                    let value = row.values[column.id]
+                    let value = column.id < row.values.count ? row.values[column.id] : ""
+                    let colType = column.id < columnTypes.count ? columnTypes[column.id] : ["viewType": "Text"]
+                    let viewType = colType["viewType"] as? String ?? "Text"
+                    let dataInterpretation = colType["dataInterpretation"] as? String ?? "systemName"
+                    let actionContext = colType["actionContext"] as? String ?? "title"
                     SwiftUI.Group {
                         switch viewType {
                         case "Text":
                             SwiftUI.Text(value)
                         case "Button":
                             SwiftUI.Button(value) {
-                                if let actionID = properties["actionID"] as? String {
+                                if let buttonActionID = colType["actionID"] as? String {
                                     let context: Any = {
                                         switch actionContext {
                                         case "rowIndex": return rowData.firstIndex(where: { $0.id == row.id }) ?? -1
@@ -176,7 +192,7 @@ struct Table: ActionUIViewConstruction {
                                         default: return value
                                         }
                                     }()
-                                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
+                                    ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
                                 }
                             }
                         case "Image":
@@ -200,8 +216,7 @@ struct Table: ActionUIViewConstruction {
                let selectedRow = model.value as? [String],
                !selectedRow.isEmpty,
                let index = rowData.firstIndex(where: { $0.values == selectedRow }) {
-                let context: Any = actionContext == "rowIndex" ? index : selectedRow.first ?? ""
-                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
+                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
             }
         }
         #else

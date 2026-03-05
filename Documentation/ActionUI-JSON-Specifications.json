@@ -551,25 +551,25 @@
    "type": "List",
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image), "actionContext": "title"|"rowIndex" (for Button) }
-     "actionID": "list.action", // Optional: For Button viewType
-     "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
+     "itemType": {                            // Optional: Defaults to { "viewType": "Text" }
+       "viewType": "Button",                  // "Text"|"Button"|"Image"|"AsyncImage"
+       "actionContext": "rowIndex",           // "title"|"rowIndex" (Button only)
+       "actionID": "list.buttonClick",        // Button only — fires on button click
+       "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
+     },
+     "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
+     "doubleClickActionID": "list.double.click"  // Optional: String for double-click action (macOS only, context = row index)
    }
  }
-   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
-   // IMPORTANT — Dynamic rows: List rows are NOT declared in the JSON description. They must be populated at runtime via the adapter API:
-   //   - setElementRows(windowUUID:viewID:rows:)     — replace all rows
-   //   - appendElementRows(windowUUID:viewID:rows:)  — append rows to existing content
-   //   - clearElementRows(windowUUID:viewID:)        — remove all rows (preserves column definitions)
-   //   - getElementRows(windowUUID:viewID:)          — read current rows
-   // Each row is an array of strings: [["Row 1 text"], ["Row 2 text"], ...]. The list starts empty until rows are set.
+   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. The list-level actionID fires on selection change. Button items have their own actionID in itemType, fired on click — this cleanly separates selection events from button click events. On macOS, double-click triggers doubleClickActionID with row index as context. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+
 // Observable state:
-//   value ([String])              Currently selected row value(s) as an array of strings
-//                                 (via getElementValue / setElementValue).
-//   states["content"] [[String]]  All list rows; each inner array holds one item's string value.
-//                                 Managed via setElementRows / appendElementRows / clearElementRows /
-//                                 getElementRows adapter APIs rather than getElementState / setElementState.
+//   value ([String])                   Selected item as a one-element string array (or empty when nothing selected).
+//                                      Access via getElementValue / setElementValue.
+//   states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
+//                                      hidden-column data. Access via getElementRows / setElementRows /
+//                                      appendElementRows / clearElementRows.
 
 
 // Sources/Views/LoadableView.swift
@@ -874,32 +874,31 @@
    "type": "Table",
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-       "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage",
-                                           // "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (optional for Image),
-                                           // "actionContext": "rowIndex"|"columnIndex"|"rowColumnIndex" (optional for Button) }
-                                           // rowColumnIndex creates Point(row: Int, column: Int) for context
-     "columns": ["Name", "Action"], // Required: Array of strings for column headers (visible column titles)
-     "widths": [100, 80], // Optional: Array of integers for column widths
-     "actionID": "table.action", // Optional: For Button viewType
-     "doubleClickActionID": "table.doubleClick" // Optional: String for double-click action
+     "columns": ["Name", "Action", "Icon"], // Required: Array of strings for column headers
+     "columnTypes": [                       // Optional: Per-column type config array. Defaults to all Text.
+       { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"
+       { "viewType": "Button",              // Columns without an entry default to Text.
+         "actionContext": "rowIndex",       // "actionContext": "title"|"rowIndex"|"columnIndex"|"rowColumnIndex" (Button only)
+         "actionID": "row.action" },        // "actionID": "..." (Button only — fires on button click) }
+       { "viewType": "Image",
+         "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
+     ],
+     "widths": [100, 80, 40],               // Optional: Array of integers for column widths
+     "actionID": "table.selection.changed", // Optional: Fires on selection change (all cell types)
+     "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
  }
-// Note: The Table view is macOS-only, showing a multi-column table with homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state["value"], using row IDs for tracking. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
-// IMPORTANT — Dynamic rows: Table rows are NOT declared in the JSON description. They must be populated at runtime via the adapter API:
-//   - setElementRows(windowUUID:viewID:rows:)     — replace all rows
-//   - appendElementRows(windowUUID:viewID:rows:)  — append rows to existing content
-//   - clearElementRows(windowUUID:viewID:)        — remove all rows (preserves column definitions)
-//   - getElementRows(windowUUID:viewID:)          — read current rows
-// Each row is an array of strings aligned to the "columns" definition: [["Alice", "Click"], ["Bob", "Edit"], ...]. Rows may include extra trailing elements for hidden columns (e.g. a row ID) — getElementColumnCount reports the true maximum column count across all loaded rows, which may exceed columns.count. The table starts empty until rows are set.
-// Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"], using row IDs for tracking. The table-level actionID fires on selection change. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns on macOS 14.4+. Falls back to a placeholder message for earlier versions.
+   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+
 // Observable state:
-//   value ([String])                 Selected row ID(s) as an array of strings
-//                                    (via getElementValue / setElementValue).
-//   states["content"] [[String]]     All table rows; each inner array holds one row's column values.
-//                                    Managed via setElementRows / appendElementRows / clearElementRows /
-//                                    getElementRows adapter APIs rather than getElementState / setElementState.
-//   states["selectedRowID"] String?  Stable row ID of the currently selected row; nil when nothing is
-//                                    selected (via getElementState / setElementState).
+//   value ([String])                    Selected row as an array of column strings (first column = display value).
+//                                       Access via getElementValue / setElementValue.
+//   states["content"]   [[String]]      All table rows; each inner array holds one row's column values.
+//                                       Access via getElementRows / setElementRows / appendElementRows /
+//                                       clearElementRows / getElementColumnCount.
+//   states["selectedRowID"] String?     Stable row ID of the currently selected row; nil when nothing is
+//                                       selected. No dedicated public API — use getElementState / setElementState.
 
 
 // Sources/Views/TabView.swift

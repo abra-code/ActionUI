@@ -5,12 +5,17 @@
    "type": "List",
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
-     "itemType": { "viewType": "Text" }, // Required: { "viewType": "Text"|"Button"|"Image"|"AsyncImage", "dataInterpretation": "path"|"systemName"|"assetName"|"mixed" (for Image), "actionContext": "title"|"rowIndex" (for Button) }
-     "actionID": "list.action", // Optional: For Button viewType
-     "doubleClickActionID": "list.doubleClick" // Optional: String for double-click action (macOS only)
+     "itemType": {                            // Optional: Defaults to { "viewType": "Text" }
+       "viewType": "Button",                  // "Text"|"Button"|"Image"|"AsyncImage"
+       "actionContext": "rowIndex",           // "title"|"rowIndex" (Button only)
+       "actionID": "list.buttonClick",        // Button only — fires on button click
+       "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
+     },
+     "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
+     "doubleClickActionID": "list.double.click"  // Optional: String for double-click action (macOS only, context = row index)
    }
  }
-   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. On macOS, double-click triggers doubleClickActionID with context (title or rowIndex). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
+   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. The list-level actionID fires on selection change. Button items have their own actionID in itemType, fired on click — this cleanly separates selection events from button click events. On macOS, double-click triggers doubleClickActionID with row index as context. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
 
  Observable state:
@@ -37,8 +42,8 @@ struct List: ActionUIViewConstruction {
         }
         if viewType == "Image" {
             let dataInterpretation = itemType["dataInterpretation"] as? String
-            if !["path", "systemName", "assetName", "mixed"].contains(dataInterpretation) {
-                logger.log("List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', or 'mixed' for \(viewType); defaulting to systemName", .warning)
+            if !["path", "systemName", "assetName", "resourceName", "mixed"].contains(dataInterpretation) {
+                logger.log("List itemType.dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for \(viewType); defaulting to systemName", .warning)
                 itemType["dataInterpretation"] = "systemName"
             }
         }
@@ -76,7 +81,7 @@ struct List: ActionUIViewConstruction {
         let actionContext = itemType["actionContext"] as? String ?? "title"
         let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
         let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
-        let actionID = properties["actionID"] as? String
+        let buttonActionID = itemType["actionID"] as? String
         let doubleClickActionID = properties["doubleClickActionID"] as? String
         
         // Indices are 0..<displayItems.count — stable even with duplicate display strings
@@ -111,9 +116,9 @@ struct List: ActionUIViewConstruction {
 
                 DispatchQueue.main.async {
                     model.value = selectedRowValues
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                    if let actionID = properties["actionID"] as? String {
                         ActionUIModel.shared.actionHandler(
-                            valueChangeActionID,
+                            actionID,
                             windowUUID: windowUUID,
                             viewID: element.id,
                             viewPartID: 0
@@ -132,9 +137,9 @@ struct List: ActionUIViewConstruction {
                         SwiftUI.Text(item)
                     case "Button":
                         SwiftUI.Button(item) {
-                            if let actionID = actionID {
+                            if let buttonActionID = buttonActionID {
                                 let context: Any = actionContext == "rowIndex" ? index : item
-                                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
+                                ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
                             }
                         }
                     case "Image":
@@ -157,8 +162,7 @@ struct List: ActionUIViewConstruction {
                let selectedRow = model.value as? [String],
                !selectedRow.isEmpty,
                let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
-                let context: Any = actionContext == "rowIndex" ? index : selectedRow[0]
-                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
+                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
             }
         }
         #endif

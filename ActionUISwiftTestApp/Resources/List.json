@@ -48,7 +48,7 @@
           "x": 2.0,
           "y": 2.0
         },
-        "valueChangeActionID": "list.demo.selectionChanged"
+        "actionID": "list.demo.selection.changed"
       }
     },
     {

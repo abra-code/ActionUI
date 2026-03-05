@@ -71,7 +71,7 @@ struct ActionUISwiftTestApp: App {
         ActionUISwift.registerActionHandler(actionID: "table.demo.clear") { _, windowUUID, _, _, _ in
             ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 1)
         }
-        ActionUISwift.registerActionHandler(actionID: "table.demo.selectionChanged") { _, windowUUID, _, _, _ in
+        ActionUISwift.registerActionHandler(actionID: "table.demo.selection.changed") { _, windowUUID, _, _, _ in
             if let selected = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], !selected.isEmpty {
                 print("Table row selected: \(selected)")
             }
@@ -95,7 +95,7 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 1)
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
         }
-        ActionUISwift.registerActionHandler(actionID: "list.demo.selectionChanged") { _, windowUUID, _, _, _ in
+        ActionUISwift.registerActionHandler(actionID: "list.demo.selection.changed") { _, windowUUID, _, _, _ in
             let selected = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String]
             let label = selected?.first.map { "Selected: \($0)" } ?? "Selected: <none>"
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: label)

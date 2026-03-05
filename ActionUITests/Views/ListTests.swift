@@ -67,7 +67,7 @@ final class ListTests: XCTestCase {
             "properties": {
                 "itemType": {"viewType": "Button", "actionContext": "rowIndex"},
                 "actionID": "list.action",
-                "doubleClickActionID": "list.doubleClick",
+                "doubleClickActionID": "list.double.click",
                 "padding": 10.0
             }
         }
@@ -96,7 +96,7 @@ final class ListTests: XCTestCase {
             XCTFail("itemType should be valid dictionary")
         }
         XCTAssertEqual(element.properties["actionID"] as? String, "list.action", "actionID should be list.action")
-        XCTAssertEqual(element.properties["doubleClickActionID"] as? String, "list.doubleClick", "doubleClickActionID should be list.doubleClick")
+        XCTAssertEqual(element.properties["doubleClickActionID"] as? String, "list.double.click", "doubleClickActionID should be list.double.click")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
         XCTAssertEqual(viewModel.value as? [String], [], "State value should be empty")
@@ -106,7 +106,7 @@ final class ListTests: XCTestCase {
         let properties: [String: Any] = [
             "itemType": ["viewType": "Image", "dataInterpretation": "systemName"],
             "actionID": "list.action",
-            "doubleClickActionID": "list.doubleClick",
+            "doubleClickActionID": "list.double.click",
             "padding": 10.0
         ]
 
@@ -119,7 +119,7 @@ final class ListTests: XCTestCase {
             XCTFail("itemType should be valid dictionary")
         }
         XCTAssertEqual(validated["actionID"] as? String, "list.action", "actionID should be preserved")
-        XCTAssertEqual(validated["doubleClickActionID"] as? String, "list.doubleClick", "doubleClickActionID should be preserved")
+        XCTAssertEqual(validated["doubleClickActionID"] as? String, "list.double.click", "doubleClickActionID should be preserved")
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
     }
 
