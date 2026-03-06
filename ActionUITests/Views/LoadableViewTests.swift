@@ -284,4 +284,152 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[1], "Root VStack model should be preserved after sub-view swap")
         XCTAssertNotNil(windowModel.viewModels[100], "LoadableView model should be preserved after sub-view swap")
     }
+
+    // MARK: - viewDidLoadActionID tests
+
+    /// Helper: loads a root window with a LoadableView that has viewDidLoadActionID set.
+    private func loadRootWithViewDidLoadAction() throws -> WindowModel {
+        let rootJSON = """
+        {
+            "id": 1,
+            "type": "VStack",
+            "properties": {},
+            "children": [
+                { "id": 100, "type": "LoadableView", "properties": { "filePath": "/tmp/panel.json", "viewDidLoadActionID": "params.loaded" } }
+            ]
+        }
+        """
+        let data = rootJSON.data(using: .utf8)!
+        _ = try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
+        return ActionUIModel.shared.windowModels[windowUUID]!
+    }
+
+    /// Tracks dedup state for simulateFireViewDidLoad, mirroring the static dict in FileLoadableView/RemoteLoadableView.
+    private var simulatedLoadedSources: [String: String] = [:]
+
+    /// Simulates the fireViewDidLoad logic used by FileLoadableView/RemoteLoadableView.
+    /// This avoids needing SwiftUI view instantiation in unit tests.
+    private func simulateFireViewDidLoad(parentID: Int, source: String, actionID: String) {
+        guard !actionID.isEmpty else { return }
+        guard ActionUIModel.shared.windowModels[windowUUID]?.viewModels[parentID] != nil else { return }
+
+        let key = "\(windowUUID!)_\(parentID)"
+        guard simulatedLoadedSources[key] != source else { return }
+        simulatedLoadedSources[key] = source
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: parentID, viewPartID: 0)
+    }
+
+    func testViewDidLoadActionIDPropertyValidation() throws {
+        let windowModel = try loadRootWithViewDidLoadAction()
+        let viewModel = windowModel.viewModels[100]!
+        XCTAssertEqual(viewModel.validatedProperties["viewDidLoadActionID"] as? String, "params.loaded",
+                       "viewDidLoadActionID should be preserved in validated properties")
+    }
+
+    func testViewDidLoadFiresOnFirstLoad() throws {
+        let windowModel = try loadRootWithViewDidLoadAction()
+        let parentID = 100
+
+        // Load sub-view content
+        let subData = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json", parentID: parentID)
+
+        // Track action handler calls
+        var firedActions: [(String, Int)] = []
+        ActionUIModel.shared.setDefaultActionHandler { actionID, _, viewID, _, _ in
+            firedActions.append((actionID, viewID))
+        }
+
+        // Simulate fireViewDidLoad
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/panel.json", actionID: "params.loaded")
+
+        XCTAssertEqual(firedActions.count, 1, "Action should fire once")
+        XCTAssertEqual(firedActions[0].0, "params.loaded", "Action ID should match")
+        XCTAssertEqual(firedActions[0].1, parentID, "View ID should be the LoadableView's ID")
+    }
+
+    func testViewDidLoadDoesNotReFireForSameSource() throws {
+        let windowModel = try loadRootWithViewDidLoadAction()
+        let parentID = 100
+
+        let subData = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json", parentID: parentID)
+
+        var fireCount = 0
+        ActionUIModel.shared.setDefaultActionHandler { _, _, _, _, _ in
+            fireCount += 1
+        }
+
+        // First call should fire
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/panel.json", actionID: "params.loaded")
+        XCTAssertEqual(fireCount, 1, "Should fire on first call")
+
+        // Second call with same source should not fire (simulates SwiftUI body rebuild)
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/panel.json", actionID: "params.loaded")
+        XCTAssertEqual(fireCount, 1, "Should not re-fire for the same source")
+    }
+
+    func testViewDidLoadFiresAgainForNewSource() throws {
+        let windowModel = try loadRootWithViewDidLoadAction()
+        let parentID = 100
+
+        var firedSources: [String] = []
+        ActionUIModel.shared.setDefaultActionHandler { actionID, _, _, _, _ in
+            firedSources.append(actionID)
+        }
+
+        // First source
+        let subData1 = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData1, format: "json", parentID: parentID)
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/brightness.json", actionID: "params.loaded")
+
+        // Replace with new source
+        let subData2 = subViewJSON(rootID: 300, childIDs: [301])
+        _ = try windowModel.loadSubViewDescription(from: subData2, format: "json", parentID: parentID)
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/contrast.json", actionID: "params.loaded")
+
+        XCTAssertEqual(firedSources.count, 2, "Should fire for each new source")
+    }
+
+    func testViewDidLoadNotFiredWithoutActionID() throws {
+        // Use the helper without viewDidLoadActionID
+        let windowModel = try loadRootWithLoadableView()
+        let parentID = 100
+
+        let subData = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json", parentID: parentID)
+
+        var fireCount = 0
+        ActionUIModel.shared.setDefaultActionHandler { _, _, _, _, _ in
+            fireCount += 1
+        }
+
+        // Empty actionID should not fire (mirrors nil viewDidLoadActionID in real code)
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/panel.json", actionID: "")
+        XCTAssertEqual(fireCount, 0, "Should not fire when actionID is empty")
+    }
+
+    func testFullReloadClearsViewModels() throws {
+        let windowModel = try loadRootWithViewDidLoadAction()
+        let parentID = 100
+
+        let subData = subViewJSON(rootID: 200, childIDs: [201])
+        _ = try windowModel.loadSubViewDescription(from: subData, format: "json", parentID: parentID)
+
+        var fireCount = 0
+        ActionUIModel.shared.setDefaultActionHandler { _, _, _, _, _ in
+            fireCount += 1
+        }
+
+        simulateFireViewDidLoad(parentID: parentID, source: "file:///tmp/panel.json", actionID: "params.loaded")
+        XCTAssertEqual(fireCount, 1)
+
+        // Full window reload should clear all ViewModels
+        let rootJSON = """
+        { "id": 1, "type": "Text", "properties": { "text": "fresh" } }
+        """
+        _ = try windowModel.loadDescription(from: rootJSON.data(using: .utf8)!, format: "json")
+
+        XCTAssertNil(windowModel.viewModels[parentID], "Old LoadableView ViewModel should be gone after full reload")
+    }
 }

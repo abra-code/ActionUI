@@ -7,7 +7,8 @@
    "properties": {
      "url": "https://example.com/view.json", // Optional: String URL to remote JSON or binary plist (http://, https://)
      "filePath": "/path/to/view.json",       // Optional: String absolute path to local JSON or binary plist
-     "name": "HelloWorld.json"               // Optional: String name of JSON or binary plist resource in app bundle
+     "name": "HelloWorld.json",              // Optional: String name of JSON or binary plist resource in app bundle
+     "viewDidLoadActionID": "view.loaded"    // Optional: String action triggered once after a new sub-view is loaded. Not re-triggered on SwiftUI body rebuilds for the same source.
    }
    // Note: Requires exactly one of "url", "filePath", or "name" to be valid. Loads JSON or binary plist, determined by .json or .plist extension, parses into ActionUIElementBase using ActionUIModel.loadDescription, and renders ActionUIView. Remote "url" loads asynchronously with ProgressView; local "filePath" or bundle "name" loads synchronously in init. Assumes unique IDs in loaded description to avoid conflicts with existing windowModels. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
    // Note: Invalid sources or unsupported extensions will result in error display. The source (url/filePath/name) is the designated value (valueType: String.self), settable via ActionUIModel.setElementValue, with heuristics: http:// or https:// for URL, file:// or / for filePath, else bundle name.
@@ -57,8 +58,9 @@ struct LoadableView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        
+
         let isContentView = false
+        let viewDidLoadActionID = properties["viewDidLoadActionID"] as? String
         // Use model.value if set (heuristics to interpret), else fallback to validated properties
         guard let value = Self.initialValue(model) as? String, !value.isEmpty else {
             logger.log("No valid source for LoadableView, displaying error SwiftUI.Text", .warning)
@@ -72,7 +74,7 @@ struct LoadableView: ActionUIViewConstruction {
                 return SwiftUI.Text("Invalid URL: \(value)")
             }
             logger.log("Interpreting value as remote URL: \(value)", .debug)
-            return RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, logger: logger)
+            return RemoteLoadableView(url: url, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
         } else {
             var fileURL: URL
             if value.lowercased().hasPrefix("file://") {
@@ -97,7 +99,7 @@ struct LoadableView: ActionUIViewConstruction {
                 fileURL = url
                 logger.log("Interpreting value as bundle name: \(value)", .debug)
             }
-            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, logger: logger)
+            return FileLoadableView(fileURL: fileURL, windowUUID: windowUUID, isContentView: isContentView, parentID: element.id, viewDidLoadActionID: viewDidLoadActionID, logger: logger)
         }
     }
     
