@@ -137,5 +137,31 @@ final class ComboBoxTests: XCTestCase {
         #else
         XCTAssertTrue(view is SwiftUI.EmptyView, "ComboBox should return EmptyView on watchOS/tvOS")
         #endif
-    }    
+    }
+
+    func testComboBoxTextPropertyValidation() {
+        let valid = ComboBox.validateProperties(["text": "hello"], logger)
+        XCTAssertEqual(valid["text"] as? String, "hello", "Valid text should be preserved")
+
+        let invalid = ComboBox.validateProperties(["text": 123], logger)
+        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+    }
+
+    func testComboBoxInitialValueFromTextProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["text": "Option1"]
+
+        let closure = ActionUI.ComboBox.initialValue
+        let value = closure(viewModel) as? String
+        XCTAssertEqual(value, "Option1", "initialValue should fall back to text property")
+    }
+
+    func testComboBoxInitialValuePrefersModelValue() {
+        let viewModel = ViewModel()
+        viewModel.value = "Option2"
+        viewModel.validatedProperties = ["text": "Option1"]
+
+        let value = ActionUI.ComboBox.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "Option2", "initialValue should prefer model.value over text property")
+    }
 }

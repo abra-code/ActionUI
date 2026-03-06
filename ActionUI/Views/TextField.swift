@@ -5,6 +5,7 @@
    "type": "TextField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "Hello",              // Optional: String initial value for the field, defaults to ""
      "placeholder": "Enter text", // Optional: String for placeholder, defaults to "" in buildView
      "textContentType": "username", // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
      "actionID": "text.submit",   // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
@@ -35,12 +36,18 @@ struct TextField: ActionUIViewConstruction {
             validatedProperties["placeholder"] = nil
         }
         
+        // Validate text (initial value)
+        if properties["text"] != nil && !(properties["text"] is String) {
+            logger.log("TextField text must be a String; ignoring", .warning)
+            validatedProperties["text"] = nil
+        }
+
         // Validate textContentType
         if !(properties["textContentType"] is String?), properties["textContentType"] != nil {
             logger.log("TextField textContentType must be a String; defaulting to nil", .warning)
             validatedProperties["textContentType"] = nil
         }
-        
+
         return validatedProperties
     }
     

@@ -4,6 +4,7 @@
    "type": "Toggle",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "isOn": true,              // Optional: Boolean initial state, defaults to false
      "title": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch" (iOS/macOS/visionOS), "checkbox" (macOS only), "button" (iOS/macOS/visionOS); defaults to "switch"
    }
@@ -19,6 +20,12 @@ struct Toggle: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
+        // Validate isOn (initial value)
+        if properties["isOn"] != nil && !(properties["isOn"] is Bool) {
+            logger.log("Toggle isOn must be a Bool; ignoring", .warning)
+            validatedProperties["isOn"] = nil
+        }
+
         // Validate style based on platform
         #if os(macOS)
         let validStyles = ["switch", "button", "checkbox"]
@@ -29,7 +36,7 @@ struct Toggle: ActionUIViewConstruction {
             logger.log("Toggle style '\(style)' invalid on \(ProcessInfo.processInfo.operatingSystemVersionString); falling back to default", .warning)
             validatedProperties["style"] = nil
         }
-        
+
         return validatedProperties
     }
     
@@ -84,6 +91,9 @@ struct Toggle: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? Bool {
             return initialValue
+        }
+        if let isOn = model.validatedProperties["isOn"] as? Bool {
+            return isOn
         }
         return false
     }

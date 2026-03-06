@@ -26,6 +26,13 @@
         "placeholder": "New Password",
         "textContentType": "newPassword"
       }
+    },
+    {
+      "type": "SecureField",
+      "properties": {
+        "text": "secret",
+        "placeholder": "With initial value"
+      }
     }
   ]
 }

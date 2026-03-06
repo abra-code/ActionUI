@@ -228,6 +228,7 @@
    "type": "ComboBox",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "Option1",                  // Optional: String initial value, defaults to ""
      "placeholder": "Select an option", // Optional: String, defaults to ""
      "options": ["Option1", "Option2"], // Optional: Array of strings, defaults to []
    }
@@ -832,6 +833,7 @@
    "type": "SecureField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "",                      // Optional: String initial value, defaults to ""
      "placeholder": "Enter password", // Optional: String for placeholder, defaults to ""
      "textContentType": "password",  // Optional: String for content type, must be one of: "password", "newPassword", "oneTimeCode"; defaults to nil, ignored on macOS
      "actionID": "secure.submit"     // Optional: String for action triggered on submit (e.g., Return key)
@@ -984,6 +986,7 @@
    "type": "TextEditor",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "Initial content",        // Optional: String initial value, defaults to ""
      "placeholder": "Enter text here" // Optional: String, no default value if omitted or empty
    }
    // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
@@ -998,6 +1001,7 @@
    "type": "TextField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "Hello",              // Optional: String initial value for the field, defaults to ""
      "placeholder": "Enter text", // Optional: String for placeholder, defaults to "" in buildView
      "textContentType": "username", // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
      "actionID": "text.submit",   // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
@@ -1017,6 +1021,7 @@
    "type": "Toggle",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "isOn": true,              // Optional: Boolean initial state, defaults to false
      "title": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch" (iOS/macOS/visionOS), "checkbox" (macOS only), "button" (iOS/macOS/visionOS); defaults to "switch"
    }

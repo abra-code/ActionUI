@@ -125,4 +125,29 @@ final class TextEditorTests: XCTestCase {
         }
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
     }
+
+    func testTextEditorTextPropertyValidation() {
+        let valid = TextEditor.validateProperties(["text": "hello"], logger)
+        XCTAssertEqual(valid["text"] as? String, "hello", "Valid text should be preserved")
+
+        let invalid = TextEditor.validateProperties(["text": 123], logger)
+        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+    }
+
+    func testTextEditorInitialValueFromTextProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["text": "initial content"]
+
+        let value = TextEditor.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "initial content", "initialValue should fall back to text property")
+    }
+
+    func testTextEditorInitialValuePrefersModelValue() {
+        let viewModel = ViewModel()
+        viewModel.value = "edited"
+        viewModel.validatedProperties = ["text": "initial content"]
+
+        let value = TextEditor.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "edited", "initialValue should prefer model.value over text property")
+    }
 }

@@ -133,4 +133,29 @@ final class SecureFieldTests: XCTestCase {
         }
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be empty string")
     }
+
+    func testSecureFieldTextPropertyValidation() {
+        let valid = SecureField.validateProperties(["text": "secret"], logger)
+        XCTAssertEqual(valid["text"] as? String, "secret", "Valid text should be preserved")
+
+        let invalid = SecureField.validateProperties(["text": 123], logger)
+        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+    }
+
+    func testSecureFieldInitialValueFromTextProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["text": "prefilled"]
+
+        let value = SecureField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "prefilled", "initialValue should fall back to text property")
+    }
+
+    func testSecureFieldInitialValuePrefersModelValue() {
+        let viewModel = ViewModel()
+        viewModel.value = "typed"
+        viewModel.validatedProperties = ["text": "prefilled"]
+
+        let value = SecureField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "typed", "initialValue should prefer model.value over text property")
+    }
 }

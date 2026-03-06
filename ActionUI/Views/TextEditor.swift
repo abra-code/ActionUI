@@ -4,6 +4,7 @@
    "type": "TextEditor",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "Initial content",        // Optional: String initial value, defaults to ""
      "placeholder": "Enter text here" // Optional: String, no default value if omitted or empty
    }
    // Note: These properties are specific to TextEditor. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -19,12 +20,18 @@ struct TextEditor: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
+        // Validate text (initial value)
+        if properties["text"] != nil && !(properties["text"] is String) {
+            logger.log("TextEditor text must be a String; ignoring", .warning)
+            validatedProperties["text"] = nil
+        }
+
         // Validate placeholder
         if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
             logger.log("TextEditor placeholder must be a String; defaulting to nil", .warning)
             validatedProperties["placeholder"] = nil
         }
-        
+
         return validatedProperties
     }
     
@@ -70,6 +77,9 @@ struct TextEditor: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? String {
             return initialValue
+        }
+        if let text = model.validatedProperties["text"] as? String {
+            return text
         }
         return ""
     }

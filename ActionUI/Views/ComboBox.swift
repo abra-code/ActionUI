@@ -5,6 +5,7 @@
    "type": "ComboBox",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "Option1",                  // Optional: String initial value, defaults to ""
      "placeholder": "Select an option", // Optional: String, defaults to ""
      "options": ["Option1", "Option2"], // Optional: Array of strings, defaults to []
    }
@@ -25,6 +26,12 @@ struct ComboBox: ActionUIViewConstruction {
         logger.log("ComboBox is not supported on watchOS/tvOS; defaulting to empty properties", .warning)
         validatedProperties = [:]
         #else
+        // Validate text (initial value)
+        if properties["text"] != nil && !(properties["text"] is String) {
+            logger.log("ComboBox text must be a String; ignoring", .warning)
+            validatedProperties["text"] = nil
+        }
+
         // Validate options
         if let options = validatedProperties["options"] as? [String] {
             if options.isEmpty {
@@ -86,6 +93,9 @@ struct ComboBox: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? String {
             return initialValue
+        }
+        if let text = model.validatedProperties["text"] as? String {
+            return text
         }
         return ""
     }

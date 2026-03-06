@@ -4,6 +4,7 @@
    "type": "SecureField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "text": "secret",               // Optional: String initial value, defaults to ""
      "placeholder": "Enter password", // Optional: String for placeholder, defaults to ""
      "textContentType": "password",  // Optional: String for content type, must be one of: "password", "newPassword", "oneTimeCode"; defaults to nil, ignored on macOS
      "actionID": "secure.submit"     // Optional: String for action triggered on submit (e.g., Return key)
@@ -24,6 +25,12 @@ struct SecureField: ActionUIViewConstruction {
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
+
+        // Validate text (initial value)
+        if properties["text"] != nil && !(properties["text"] is String) {
+            logger.log("SecureField text must be a String; ignoring", .warning)
+            validatedProperties["text"] = nil
+        }
 
         // Validate placeholder
         if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
@@ -100,6 +107,9 @@ struct SecureField: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? String {
             return initialValue
+        }
+        if let text = model.validatedProperties["text"] as? String {
+            return text
         }
         return ""
     }

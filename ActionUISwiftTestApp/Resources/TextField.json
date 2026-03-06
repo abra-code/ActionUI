@@ -26,6 +26,13 @@
         "placeholder": "Email",
         "textContentType": "emailAddress"
       }
+    },
+    {
+      "type": "TextField",
+      "properties": {
+        "text": "Pre-filled value",
+        "placeholder": "With initial text"
+      }
     }
   ]
 }

@@ -157,4 +157,29 @@ final class ToggleTests: XCTestCase {
         }
         XCTAssertEqual(viewModel.value as? Bool, false, "Initial viewModel value should be false")
     }
+
+    func testToggleIsOnPropertyValidation() {
+        let valid = Toggle.validateProperties(["isOn": true], logger)
+        XCTAssertEqual(valid["isOn"] as? Bool, true, "Valid isOn should be preserved")
+
+        let invalid = Toggle.validateProperties(["isOn": "yes"], logger)
+        XCTAssertNil(invalid["isOn"], "Non-Bool isOn should be removed")
+    }
+
+    func testToggleInitialValueFromIsOnProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["isOn": true]
+
+        let value = Toggle.initialValue(viewModel) as? Bool
+        XCTAssertEqual(value, true, "initialValue should fall back to isOn property")
+    }
+
+    func testToggleInitialValuePrefersModelValue() {
+        let viewModel = ViewModel()
+        viewModel.value = false
+        viewModel.validatedProperties = ["isOn": true]
+
+        let value = Toggle.initialValue(viewModel) as? Bool
+        XCTAssertEqual(value, false, "initialValue should prefer model.value over isOn property")
+    }
 }

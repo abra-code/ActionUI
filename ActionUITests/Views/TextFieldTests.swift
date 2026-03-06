@@ -133,4 +133,29 @@ final class TextFieldTests: XCTestCase {
         }
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
     }
+
+    func testTextFieldTextPropertyValidation() {
+        let valid = TextField.validateProperties(["text": "hello"], logger)
+        XCTAssertEqual(valid["text"] as? String, "hello", "Valid text should be preserved")
+
+        let invalid = TextField.validateProperties(["text": 123], logger)
+        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+    }
+
+    func testTextFieldInitialValueFromTextProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["text": "prefilled"]
+
+        let value = TextField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "prefilled", "initialValue should fall back to text property")
+    }
+
+    func testTextFieldInitialValuePrefersModelValue() {
+        let viewModel = ViewModel()
+        viewModel.value = "typed"
+        viewModel.validatedProperties = ["text": "prefilled"]
+
+        let value = TextField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "typed", "initialValue should prefer model.value over text property")
+    }
 }

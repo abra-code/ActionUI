@@ -27,6 +27,24 @@
         "style": "checkbox",
         "padding": "default"
       }
+    },
+    {
+      "type": "Toggle",
+      "properties": {
+        "title": "Initially On",
+        "isOn": true,
+        "style": "switch",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "Toggle",
+      "properties": {
+        "title": "Checked by Default",
+        "isOn": true,
+        "style": "checkbox",
+        "padding": "default"
+      }
     }
   ]
 }
