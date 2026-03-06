@@ -41,7 +41,7 @@ struct ActionUIVerifier {
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         ) else {
-            logger.log("Failed to read directory: \(directoryPath)", .error)
+            logger.log("Failed to read directory: \(directoryPath). Check path exists and is accessible.", .error)
             return false
         }
         
@@ -146,10 +146,10 @@ private class VerifierLogger: ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
 
         if level == .warning {
-            fputs("[WARNING] \(message)\n", stdout)
+            fputs("warning: \(message)\n", stderr)
             hasWarnings = true
         } else if level == .error {
-            fputs("[ERROR] \(message)\n", stderr)
+            fputs("error: \(message)\n", stderr)
             hasErrors = true
         }
     }
@@ -181,14 +181,13 @@ struct ActionUIVerifierMain {
             let attributes = try fileManager.attributesOfItem(atPath: path)
             isDirectory = attributes[.type] as? FileAttributeType == .typeDirectory
         } catch {
-            fputs("Error: Cannot access path \(path): \(error)\n", stderr)
+            fputs("error: Cannot access path \(path): \(error)\n", stderr)
             exit(1)
         }
-        
+
         let success = isDirectory ? verifier.verifyDirectory(path) : verifier.verify(jsonPath: path)
         if !success || verifier.hadErrors {
-            
-            fputs("Verification failed\n", stdout)
+            fputs("error: Verification failed\n", stderr)
             exit(1)
         }
         
