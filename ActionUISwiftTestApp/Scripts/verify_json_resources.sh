@@ -1,8 +1,6 @@
 #!/bin/bash
 # Verify all JSON resource files using ActionUIVerifier during build.
-# Add this as a "Run Script" build phase in ActionUISwiftTestApp,
-# after the "Copy Bundle Resources" phase.
-# Ensure ActionUIVerifier is listed as a target dependency.
+# This is "Run Script" build phase in ActionUISwiftTestApp
 
 VERIFIER="${BUILT_PRODUCTS_DIR}/ActionUIVerifier"
 
