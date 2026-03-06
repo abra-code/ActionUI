@@ -33,22 +33,17 @@
       }
     },
     {
-      "type": "View",
+      "type": "Canvas",
       "properties": {
-        "padding": 10.0,
-        "foregroundStyle": "blue",
-        "background": "white",
+        "background": "yellow",
         "frame": {
-          "width": 100.0,
-          "height": 100.0,
-          "alignment": "center"
+          "width": 200.0,
+          "height": 200.0
         },
-        "opacity": 0.8,
-        "cornerRadius": 5.0,
-        "shadow": {
-          "radius": 5.0,
-          "x": 0.0,
-          "y": 2.0
+        "cornerRadius": 8.0,
+        "border": {
+          "color": "red",
+          "width": 2.0
         }
       }
     }

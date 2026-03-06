@@ -50,6 +50,10 @@
        "x": 0.0,           // Optional: Double for x-offset
        "y": 2.0            // Optional: Double for y-offset
      },
+     "border": {           // Optional: Dictionary for border styling
+       "color": "blue",   // Optional: SwiftUI color or hex, defaults to black
+       "width": 1.0       // Optional: Double for border width, defaults to 1.0
+     },
      "navigationSplitViewColumnWidth": {     // Optional – only meaningful when this view is used as sidebar/content/detail in NavigationSplitView
        "ideal": 360.0,                       // Required: preferred column width (Double) – must be provided
        "min": 280.0,                         // Optional: minimum allowed width
@@ -468,6 +472,40 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate border
+        if let border = properties["border"] {
+            if let borderDict = border as? [String: Any] {
+                var validBorder: [String: Any] = [:]
+                var isValid = true
+
+                if let color = borderDict["color"] as? String {
+                    validBorder["color"] = color
+                } else if borderDict["color"] != nil {
+                    logger.log("Invalid type for border.color: expected String, got \(type(of: borderDict["color"]!)), ignoring border", .warning)
+                    isValid = false
+                }
+
+                if let width = borderDict.cgFloat(forKey: "width") {
+                    validBorder["width"] = width
+                } else if borderDict["width"] != nil {
+                    logger.log("Invalid type for border.width: expected numeric, got \(type(of: borderDict["width"]!)), ignoring border", .warning)
+                    isValid = false
+                }
+
+                if isValid && !validBorder.isEmpty {
+                    validatedProperties["border"] = validBorder
+                } else if isValid {
+                    // Empty dict means use defaults
+                    validatedProperties["border"] = validBorder
+                } else {
+                    validatedProperties["border"] = nil
+                }
+            } else {
+                logger.log("Invalid type for border: expected [String: Any], got \(type(of: border)), ignoring", .warning)
+                validatedProperties["border"] = nil
+            }
+        }
+
         if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
             var validatedValue: Any? = nil
             
@@ -621,6 +659,12 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.cornerRadius(cornerRadius)
         }
         
+        if let border = properties["border"] as? [String: Any] {
+            let color = ColorHelper.resolveColor(border["color"] as? String) ?? .black
+            let width = border.cgFloat(forKey: "width") ?? 1.0
+            modifiedView = modifiedView.border(color, width: width)
+        }
+
         if let shadow = properties["shadow"] as? [String: Any] {
             let color = ColorHelper.resolveColor(shadow["color"] as? String) ?? .black
             let radius = shadow.cgFloat(forKey: "radius") ?? 0.0

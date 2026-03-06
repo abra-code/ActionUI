@@ -43,11 +43,12 @@ final class ViewTests: XCTestCase {
             "accessibilityHint": "Base view",
             "accessibilityHidden": false,
             "accessibilityIdentifier": "view_1",
-            "shadow": ["color": "black", "radius": 5.0, "x": 0.0, "y": 2.0]
+            "shadow": ["color": "black", "radius": 5.0, "x": 0.0, "y": 2.0],
+            "border": ["color": "red", "width": 2.0]
         ]
-        
+
         let validated = View.validateProperties(properties, logger)
-        
+
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be valid CGFloat")
         XCTAssertEqual(validated["hidden"] as? Bool, false, "hidden should be valid Bool")
         XCTAssertEqual(validated["foregroundStyle"] as? String, "blue", "foregroundStyle should be valid string")
@@ -81,6 +82,12 @@ final class ViewTests: XCTestCase {
             XCTAssertEqual(shadow.cgFloat(forKey: "y"), 2.0, "shadow.y should be 2.0")
         } else {
             XCTFail("shadow should be a dictionary")
+        }
+        if let border = validated["border"] as? [String: Any] {
+            XCTAssertEqual(border["color"] as? String, "red", "border.color should be red")
+            XCTAssertEqual(border.cgFloat(forKey: "width"), 2.0, "border.width should be 2.0")
+        } else {
+            XCTFail("border should be a dictionary")
         }
     }
     
@@ -121,11 +128,12 @@ final class ViewTests: XCTestCase {
             "accessibilityHint": 456,
             "accessibilityHidden": "true",
             "accessibilityIdentifier": 789,
-            "shadow": ["color": 123, "radius": "5", "x": "0", "y": true]
+            "shadow": ["color": 123, "radius": "5", "x": "0", "y": true],
+            "border": ["color": 123, "width": "2"]
         ]
-        
+
         let validated = View.validateProperties(properties, logger)
-        
+
         XCTAssertNil(validated["padding"], "padding should be nil for invalid type")
         XCTAssertNil(validated["hidden"], "hidden should be nil for invalid type")
         XCTAssertNil(validated["foregroundStyle"], "foregroundStyle should be nil for invalid type")
@@ -142,6 +150,7 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["accessibilityHidden"], "accessibilityHidden should be nil for invalid type")
         XCTAssertNil(validated["accessibilityIdentifier"], "accessibilityIdentifier should be nil for invalid type")
         XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
+        XCTAssertNil(validated["border"], "border should be nil for invalid types")
     }
     
     func testValidatePropertiesMissing() throws {
