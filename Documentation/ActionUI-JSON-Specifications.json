@@ -1138,6 +1138,7 @@
        "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
        "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
      },
+     "controlSize": "regular", // Optional: "mini", "small", "regular", "large", "extraLarge"; no default (system default)
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver

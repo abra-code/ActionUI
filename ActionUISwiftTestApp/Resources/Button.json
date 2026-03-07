@@ -101,6 +101,56 @@
     {
       "type": "Text",
       "properties": {
+        "text": "controlSize variants",
+        "font": "headline",
+        "padding": { "top": 16, "bottom": 4 }
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12,
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Mini",
+            "buttonStyle": "bordered",
+            "controlSize": "mini"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Small",
+            "buttonStyle": "bordered",
+            "controlSize": "small"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Regular",
+            "buttonStyle": "bordered",
+            "controlSize": "regular"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Large",
+            "buttonStyle": "bordered",
+            "controlSize": "large"
+          }
+        }
+      ]
+    },
+
+    {
+      "type": "Text",
+      "properties": {
         "text": "Image scale comparison (icon only)",
         "font": "headline",
         "padding": {

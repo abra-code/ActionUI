@@ -970,4 +970,26 @@ final class ViewTests: XCTestCase {
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
         XCTAssertNil(validatedProperties["keyboardShortcut"], "keyboardShortcut should be nil for invalid key")
     }
+
+    // MARK: - controlSize validation
+
+    func testValidatePropertiesControlSizeValid() throws {
+        for size in ["mini", "small", "regular", "large", "extraLarge"] {
+            let properties: [String: Any] = ["controlSize": size]
+            let validated = View.validateProperties(properties, logger)
+            XCTAssertEqual(validated["controlSize"] as? String, size, "controlSize '\(size)' should be valid")
+        }
+    }
+
+    func testValidatePropertiesControlSizeInvalidValue() throws {
+        let properties: [String: Any] = ["controlSize": "huge"]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["controlSize"], "Invalid controlSize should be nil")
+    }
+
+    func testValidatePropertiesControlSizeInvalidType() throws {
+        let properties: [String: Any] = ["controlSize": 42]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["controlSize"], "Non-string controlSize should be nil")
+    }
 }

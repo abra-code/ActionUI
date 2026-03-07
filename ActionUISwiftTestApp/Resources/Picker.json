@@ -60,6 +60,59 @@
         "pickerStyle": "radioGroup",
         "horizontalRadioGroupLayout": true
       }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Menu Picker — controlSize variants",
+        "font": "headline",
+        "padding": { "top": 16, "bottom": 4 }
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Mini",
+        "options": ["One", "Two", "Three"],
+        "pickerStyle": "menu",
+        "controlSize": "mini"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Small",
+        "options": ["One", "Two", "Three"],
+        "pickerStyle": "menu",
+        "controlSize": "small"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Regular",
+        "options": ["One", "Two", "Three"],
+        "pickerStyle": "menu",
+        "controlSize": "regular"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Large",
+        "options": ["One", "Two", "Three"],
+        "pickerStyle": "menu",
+        "controlSize": "large"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Extra Large",
+        "options": ["One", "Two", "Three"],
+        "pickerStyle": "menu",
+        "controlSize": "extraLarge"
+      }
     }
   ]
 }

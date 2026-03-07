@@ -39,6 +39,7 @@
        "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
        "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
      },
+     "controlSize": "regular", // Optional: "mini", "small", "regular", "large", "extraLarge"; defaults to none (system default)
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
@@ -506,6 +507,20 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate controlSize
+        if let controlSize = properties["controlSize"] {
+            if let sizeStr = controlSize as? String {
+                let validSizes = ["mini", "small", "regular", "large", "extraLarge"]
+                if !validSizes.contains(sizeStr) {
+                    logger.log("Invalid controlSize '\(sizeStr)'; expected one of \(validSizes), ignoring", .warning)
+                    validatedProperties["controlSize"] = nil
+                }
+            } else {
+                logger.log("Invalid type for controlSize: expected String, got \(type(of: controlSize)), ignoring", .warning)
+                validatedProperties["controlSize"] = nil
+            }
+        }
+
         if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
             var validatedValue: Any? = nil
             
@@ -663,6 +678,23 @@ struct View: ActionUIViewConstruction {
             let color = ColorHelper.resolveColor(border["color"] as? String) ?? .black
             let width = border.cgFloat(forKey: "width") ?? 1.0
             modifiedView = modifiedView.border(color, width: width)
+        }
+
+        if let controlSize = properties["controlSize"] as? String {
+            switch controlSize {
+            case "mini":
+                modifiedView = modifiedView.controlSize(.mini)
+            case "small":
+                modifiedView = modifiedView.controlSize(.small)
+            case "regular":
+                modifiedView = modifiedView.controlSize(.regular)
+            case "large":
+                modifiedView = modifiedView.controlSize(.large)
+            case "extraLarge":
+                modifiedView = modifiedView.controlSize(.extraLarge)
+            default:
+                break
+            }
         }
 
         if let shadow = properties["shadow"] as? [String: Any] {
