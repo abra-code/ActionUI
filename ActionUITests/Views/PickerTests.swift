@@ -134,11 +134,35 @@ final class PickerTests: XCTestCase {
             "options": ["Option1", "Option2"],
             "pickerStyle": "wheel"
         ]
-        
+
         let validated = Picker.validateProperties(properties, logger)
-        
+
         XCTAssertNil(validated["pickerStyle"], "Wheel style should be nil on macOS")
         XCTAssertEqual(validated["options"] as? [String], ["Option1", "Option2"], "Options should remain valid")
+    }
+
+    func testPickerRadioGroupStyleMacOS() {
+        let properties: [String: Any] = [
+            "options": ["Red", "Green", "Blue"],
+            "pickerStyle": "radioGroup"
+        ]
+
+        let validated = Picker.validateProperties(properties, logger)
+
+        XCTAssertEqual(validated["pickerStyle"] as? String, "radioGroup", "radioGroup style should be valid on macOS")
+    }
+
+    func testPickerRadioGroupHorizontalLayout() {
+        let properties: [String: Any] = [
+            "options": ["Small", "Medium", "Large"],
+            "pickerStyle": "radioGroup",
+            "horizontalRadioGroupLayout": true
+        ]
+
+        let validated = Picker.validateProperties(properties, logger)
+
+        XCTAssertEqual(validated["pickerStyle"] as? String, "radioGroup")
+        XCTAssertEqual(validated["horizontalRadioGroupLayout"] as? Bool, true)
     }
     #endif
     

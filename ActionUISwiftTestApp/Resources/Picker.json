@@ -35,6 +35,31 @@
         "pickerStyle": "segmented",
         "actionID": "picker.selection"
       }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Radio Group",
+        "options": [
+          "Red",
+          "Green",
+          "Blue"
+        ],
+        "pickerStyle": "radioGroup"
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Horizontal Radio",
+        "options": [
+          "Small",
+          "Medium",
+          "Large"
+        ],
+        "pickerStyle": "radioGroup",
+        "horizontalRadioGroupLayout": true
+      }
     }
   ]
 }
