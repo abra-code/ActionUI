@@ -470,6 +470,51 @@ class Application:
         return config
 
     # ------------------------------------------------------------------
+    # Alert dialog
+    # ------------------------------------------------------------------
+
+    def alert(self, *,
+              title: Optional[str] = None,
+              message: Optional[str] = None,
+              style: str = "informational",
+              buttons: Optional[List[str]] = None) -> Optional[str]:
+        """Run a modal alert dialog.
+
+        Args:
+            title:    Bold heading text.
+            message:  Informative text below the title.
+            style:    ``"informational"`` (default), ``"warning"``, or
+                      ``"critical"``.
+            buttons:  List of button titles. The first is the default
+                      (rightmost) button.  Defaults to ``["OK"]``.
+
+        Returns:
+            The title of the clicked button, or ``None`` on error.
+
+        Example::
+
+            result = app.alert(
+                title="Replace Pipeline?",
+                message="The current pipeline is not empty.",
+                style="warning",
+                buttons=["Replace", "Cancel"],
+            )
+            if result == "Replace":
+                ...
+        """
+        config: Dict[str, Any] = {}
+        if title is not None:
+            config["title"] = title
+        if message is not None:
+            config["message"] = message
+        if style != "informational":
+            config["style"] = style
+        if buttons is not None:
+            config["buttons"] = buttons
+        config_json = json.dumps(config) if config else None
+        return _actionui.app_run_alert(config_json)
+
+    # ------------------------------------------------------------------
     # Menu bar
     # ------------------------------------------------------------------
 

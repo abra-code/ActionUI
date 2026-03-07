@@ -352,6 +352,16 @@ static PyObject* py_app_run_save_panel(PyObject* self, PyObject* args) {
     return py_result;
 }
 
+static PyObject* py_app_run_alert(PyObject* self, PyObject* args) {
+    const char* configJSON = NULL;
+    if (PyArg_ParseTuple(args, "|z", &configJSON) == 0) return NULL;
+    char* result = actionUIAppRunAlert(configJSON);
+    if (result == NULL) Py_RETURN_NONE;
+    PyObject* py_result = PyUnicode_FromString(result);
+    actionUIFreeString(result);
+    return py_result;
+}
+
 // MARK: - Python API: Version
 
 static PyObject* py_get_version(PyObject* self, PyObject* args) {
@@ -879,6 +889,8 @@ static PyMethodDef ActionUIMethods[] = {
      "app_run_open_panel([configJSON]) -> str|None — run NSOpenPanel; returns JSON array of paths or None."},
     {"app_run_save_panel",            py_app_run_save_panel,            METH_VARARGS,
      "app_run_save_panel([configJSON]) -> str|None — run NSSavePanel; returns path or None."},
+    {"app_run_alert",                 py_app_run_alert,                 METH_VARARGS,
+     "app_run_alert([configJSON]) -> str|None — run modal NSAlert; returns clicked button title or None."},
 
     {NULL, NULL, 0, NULL}
 };

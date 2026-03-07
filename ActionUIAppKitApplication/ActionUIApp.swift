@@ -433,6 +433,66 @@ private func actionStrdup(_ string: String) -> UnsafeMutablePointer<CChar> {
     return string.withCString { strdup($0)! }
 }
 
+// MARK: - Alert dialog
+
+/// Run a modal alert dialog and return the title of the button that was clicked.
+///
+/// Config JSON keys (all optional):
+///   title: String              — bold heading text
+///   message: String            — informative text below the title
+///   style: String              — "informational" (default), "warning", or "critical"
+///   buttons: [String]          — button titles, first is the default (rightmost),
+///                                 second is placed to its left, etc.
+///                                 Defaults to ["OK"] if omitted.
+///
+/// Returns the title of the clicked button as a C string, or nil on error.
+@_cdecl("actionUIAppRunAlert")
+public func actionUIAppRunAlert(
+    _ configJSON: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    let jsonString = configJSON.map { String(cString: $0) }
+    return runOnMainActorSync {
+        var config: [String: Any] = [:]
+        if let json = jsonString,
+           let data = json.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            config = parsed
+        }
+
+        let alert = NSAlert()
+
+        if let title = config["title"] as? String {
+            alert.messageText = title
+        }
+        if let message = config["message"] as? String {
+            alert.informativeText = message
+        }
+
+        switch config["style"] as? String {
+        case "warning":
+            alert.alertStyle = .warning
+        case "critical":
+            alert.alertStyle = .critical
+        default:
+            alert.alertStyle = .informational
+        }
+
+        let buttons = config["buttons"] as? [String] ?? ["OK"]
+        for title in buttons {
+            alert.addButton(withTitle: title)
+        }
+
+        let response = alert.runModal()
+
+        // NSAlert buttons are numbered .alertFirstButtonReturn, +1, +2, …
+        let index = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        if index >= 0 && index < buttons.count {
+            return actionStrdup(buttons[index])
+        }
+        return nil
+    }
+}
+
 // MARK: - File panels (NSOpenPanel / NSSavePanel)
 
 /// Parse a JSON config dictionary and configure an `NSOpenPanel`.
