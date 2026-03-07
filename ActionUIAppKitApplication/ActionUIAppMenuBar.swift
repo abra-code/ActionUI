@@ -85,18 +85,34 @@ func installDefaultMenuBar(appName: String? = nil) {
 private func buildAppMenu(appName: String) -> NSMenuItem {
     let menu = NSMenu()   // title ignored for app menu
 
+    // --- appInfo ---
+    let appInfoSentinel = NSMenuItem.separator()
+    appInfoSentinel.tag = MenuPlacementTag.appInfo.rawValue
+    menu.addItem(appInfoSentinel)
+
     menu.addItem(withTitle: "About \(appName)",
                  action: #selector(ActionUIApplicationDelegate.showAboutPanel(_:)),
                  keyEquivalent: "")
 
-    menu.addItem(.separator())
+    // --- appSettings ---
+    let appSettingsSentinel = NSMenuItem.separator()
+    appSettingsSentinel.tag = MenuPlacementTag.appSettings.rawValue
+    menu.addItem(appSettingsSentinel)
+
+    // --- systemServices ---
+    let systemServicesSentinel = NSMenuItem.separator()
+    systemServicesSentinel.tag = MenuPlacementTag.systemServices.rawValue
+    menu.addItem(systemServicesSentinel)
 
     let servicesMenu = NSMenu(title: "Services")
     let servicesItem = menu.addItem(withTitle: "Services", action: nil, keyEquivalent: "")
     servicesItem.submenu = servicesMenu
     NSApp.servicesMenu = servicesMenu
 
-    menu.addItem(.separator())
+    // --- appVisibility ---
+    let appVisibilitySentinel = NSMenuItem.separator()
+    appVisibilitySentinel.tag = MenuPlacementTag.appVisibility.rawValue
+    menu.addItem(appVisibilitySentinel)
 
     menu.addItem(withTitle: "Hide \(appName)",
                  action: #selector(NSApplication.hide(_:)),
@@ -111,7 +127,10 @@ private func buildAppMenu(appName: String) -> NSMenuItem {
                  action: #selector(NSApplication.unhideAllApplications(_:)),
                  keyEquivalent: "")
 
-    menu.addItem(.separator())
+    // --- appTermination ---
+    let appTerminationSentinel = NSMenuItem.separator()
+    appTerminationSentinel.tag = MenuPlacementTag.appTermination.rawValue
+    menu.addItem(appTerminationSentinel)
 
     menu.addItem(withTitle: "Quit \(appName)",
                  action: #selector(NSApplication.terminate(_:)),
@@ -125,9 +144,29 @@ private func buildAppMenu(appName: String) -> NSMenuItem {
 private func buildFileMenu() -> NSMenuItem {
     let menu = NSMenu(title: "File")
 
+    // --- New / Open / Open Recent group ---
+    let newItemSentinel = NSMenuItem.separator()
+    newItemSentinel.tag = MenuPlacementTag.newItem.rawValue
+    menu.addItem(newItemSentinel)
+
+    // --- Close / Save group ---
     menu.addItem(withTitle: "Close",
                  action: #selector(NSWindow.performClose(_:)),
                  keyEquivalent: "w")
+
+    let saveItemSentinel = NSMenuItem.separator()
+    saveItemSentinel.tag = MenuPlacementTag.saveItem.rawValue
+    menu.addItem(saveItemSentinel)
+
+    // --- Import / Export group ---
+    let importExportSentinel = NSMenuItem.separator()
+    importExportSentinel.tag = MenuPlacementTag.importExport.rawValue
+    menu.addItem(importExportSentinel)
+
+    // --- Print group ---
+    let printItemSentinel = NSMenuItem.separator()
+    printItemSentinel.tag = MenuPlacementTag.printItem.rawValue
+    menu.addItem(printItemSentinel)
 
     let item = NSMenuItem()
     item.submenu = menu
@@ -136,6 +175,11 @@ private func buildFileMenu() -> NSMenuItem {
 
 private func buildEditMenu() -> NSMenuItem {
     let menu = NSMenu(title: "Edit")
+
+    // --- undoRedo ---
+    let undoRedoSentinel = NSMenuItem.separator()
+    undoRedoSentinel.tag = MenuPlacementTag.undoRedo.rawValue
+    menu.addItem(undoRedoSentinel)
 
     menu.addItem(withTitle: "Undo",
                  action: Selector(("undo:")),
@@ -146,7 +190,10 @@ private func buildEditMenu() -> NSMenuItem {
                             keyEquivalent: "z")
     redo.keyEquivalentModifierMask = [.command, .shift]
 
-    menu.addItem(.separator())
+    // --- pasteboard ---
+    let pasteboardSentinel = NSMenuItem.separator()
+    pasteboardSentinel.tag = MenuPlacementTag.pasteboard.rawValue
+    menu.addItem(pasteboardSentinel)
 
     menu.addItem(withTitle: "Cut",
                  action: #selector(NSText.cut(_:)),
@@ -168,6 +215,16 @@ private func buildEditMenu() -> NSMenuItem {
                  action: #selector(NSText.selectAll(_:)),
                  keyEquivalent: "a")
 
+    // --- textEditing ---
+    let textEditingSentinel = NSMenuItem.separator()
+    textEditingSentinel.tag = MenuPlacementTag.textEditing.rawValue
+    menu.addItem(textEditingSentinel)
+
+    // --- textFormatting ---
+    let textFormattingSentinel = NSMenuItem.separator()
+    textFormattingSentinel.tag = MenuPlacementTag.textFormatting.rawValue
+    menu.addItem(textFormattingSentinel)
+
     let item = NSMenuItem()
     item.submenu = menu
     return item
@@ -175,6 +232,11 @@ private func buildEditMenu() -> NSMenuItem {
 
 private func buildWindowMenu() -> (NSMenuItem, NSMenu) {
     let menu = NSMenu(title: "Window")
+
+    // --- windowSize ---
+    let windowSizeSentinel = NSMenuItem.separator()
+    windowSizeSentinel.tag = MenuPlacementTag.windowSize.rawValue
+    menu.addItem(windowSizeSentinel)
 
     menu.addItem(withTitle: "Minimize",
                  action: #selector(NSWindow.performMiniaturize(_:)),
@@ -184,11 +246,23 @@ private func buildWindowMenu() -> (NSMenuItem, NSMenu) {
                  action: #selector(NSWindow.performZoom(_:)),
                  keyEquivalent: "")
 
-    menu.addItem(.separator())
+    // --- windowArrangement ---
+    let windowArrangementSentinel = NSMenuItem.separator()
+    windowArrangementSentinel.tag = MenuPlacementTag.windowArrangement.rawValue
+    menu.addItem(windowArrangementSentinel)
 
     menu.addItem(withTitle: "Bring All to Front",
                  action: #selector(NSApplication.arrangeInFront(_:)),
                  keyEquivalent: "")
+
+    // --- windowList / singleWindowList ---
+    let windowListSentinel = NSMenuItem.separator()
+    windowListSentinel.tag = MenuPlacementTag.windowList.rawValue
+    menu.addItem(windowListSentinel)
+
+    let singleWindowListSentinel = NSMenuItem.separator()
+    singleWindowListSentinel.tag = MenuPlacementTag.singleWindowList.rawValue
+    menu.addItem(singleWindowListSentinel)
 
     let item = NSMenuItem()
     item.submenu = menu
@@ -197,6 +271,11 @@ private func buildWindowMenu() -> (NSMenuItem, NSMenu) {
 
 private func buildHelpMenu(appName: String) -> (NSMenuItem, NSMenu) {
     let menu = NSMenu(title: "Help")
+
+    // --- help ---
+    let helpSentinel = NSMenuItem.separator()
+    helpSentinel.tag = MenuPlacementTag.help.rawValue
+    menu.addItem(helpSentinel)
 
     menu.addItem(withTitle: "\(appName) Help",
                  action: #selector(NSApplication.showHelp(_:)),
@@ -297,9 +376,11 @@ private final class MenuActionTarget: NSObject {
 
     @objc func performAction(_ sender: NSMenuItem) {
         guard let actionID = actionIDsByTag[sender.tag] else { return }
+        // Resolve the front window's UUID so menu actions target the key window
+        let windowUUID = keyWindowUUID()
         ActionUIModel.shared.actionHandler(
             actionID,
-            windowUUID: "",        // menu actions are not window-scoped
+            windowUUID: windowUUID,
             viewID: sender.tag,
             viewPartID: 0,
             context: nil
@@ -384,9 +465,15 @@ private func applyCommandMenu(properties: [String: Any],
     let menuItem = NSMenuItem()
     menuItem.submenu = menu
 
-    // Insert before the Help menu (last item), or append if no items
-    let helpIndex = mainMenu.items.count > 0 ? mainMenu.items.count - 1 : 0
-    mainMenu.insertItem(menuItem, at: helpIndex)
+    // Insert before Window menu (or Help if no Window menu found).
+    // This keeps Window and Help as the rightmost menus per macOS convention.
+    var insertIndex = mainMenu.items.count
+    if let windowIndex = mainMenu.items.firstIndex(where: { $0.submenu?.title == "Window" }) {
+        insertIndex = windowIndex
+    } else if let helpIndex = mainMenu.items.firstIndex(where: { $0.submenu?.title == "Help" }) {
+        insertIndex = helpIndex
+    }
+    mainMenu.insertItem(menuItem, at: insertIndex)
 }
 
 // MARK: - CommandGroup application

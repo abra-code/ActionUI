@@ -81,6 +81,13 @@ var appIcon: NSImage? = nil
 
 private var windows: [String: NSWindow] = [:]
 
+/// Returns the UUID of the key (frontmost) window, or an empty string if none.
+@MainActor
+func keyWindowUUID() -> String {
+    guard let keyWindow = NSApp.keyWindow else { return "" }
+    return windows.first(where: { $0.value === keyWindow })?.key ?? ""
+}
+
 // MARK: - Application delegate
 
 final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
