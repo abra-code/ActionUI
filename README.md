@@ -43,6 +43,12 @@ This produces a fully native SwiftUI form — no Swift code, no Xcode storyboard
 - **Cross-platform** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript
 
+## Example Apps using ActionUI
+
+- [TextUtil.app](https://github.com/abra-code/TextUtilApp)
+- [Sips.app](https://github.com/abra-code/SipsApp)
+- [PillowUI Python applet](https://github.com/abra-code/PillowUI)
+
 ## Python Example
 
 ```python
