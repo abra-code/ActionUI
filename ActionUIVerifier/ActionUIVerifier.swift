@@ -1,5 +1,5 @@
 import Foundation
-@testable import ActionUI
+import ActionUI
 
 @MainActor
 struct ActionUIVerifier {

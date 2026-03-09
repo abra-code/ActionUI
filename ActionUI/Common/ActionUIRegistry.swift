@@ -8,7 +8,7 @@ import SwiftUI
 */
 
 @MainActor
-class ActionUIRegistry {
+public class ActionUIRegistry {
     // Design decision: Stores the type conforming to ActionUIViewConstruction, allowing runtime lookup of optional closure properties
     internal var viewRegistrations: [String: any ActionUIViewConstruction.Type] = [:]
     // for other non-View elements we register validation only
@@ -18,7 +18,7 @@ class ActionUIRegistry {
     // Design decision: Client-configurable via setLogger, defaults to ConsoleLogger for consistency
     private var logger: any ActionUILogger
     
-    static let shared = ActionUIRegistry()
+    public static let shared = ActionUIRegistry()
     
     private init() {
         // Initialize with default ConsoleLogger
@@ -34,7 +34,7 @@ class ActionUIRegistry {
     
     // Allows clients to set a custom logger (e.g., XCTestLogger)
     // Design decision: Mirrors ActionUIModel.registerActionHandler for client customization
-    func setLogger(_ logger: any ActionUILogger) {
+    public func setLogger(_ logger: any ActionUILogger) {
         self.logger = logger
     }
     
@@ -118,7 +118,7 @@ class ActionUIRegistry {
     }
 
     // Validates properties for a given element type, returning unchanged properties if type not registered
-    func validateProperties(forElementType type: String, properties: [String: Any]) -> [String: Any] {
+    public func validateProperties(forElementType type: String, properties: [String: Any]) -> [String: Any] {
         if let constructionType = viewRegistrations[type] {
             let baseValidated = View.validateProperties(properties, logger)
             return constructionType.validateProperties(baseValidated, logger)

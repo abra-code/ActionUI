@@ -32,7 +32,7 @@ import SwiftUI
 import Foundation
 
 // Protocol defining the structure of an ActionUIElementBase, used for JSON-based UI construction
-protocol ActionUIElementBase: Identifiable, Codable {
+public protocol ActionUIElementBase: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
@@ -74,11 +74,11 @@ extension ActionUIViewConstruction {
 }
 
 // Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views and other elements
-struct ActionUIElement: ActionUIElementBase {
-    let id: Int
-    let type: String
-    let properties: [String: Any]
-    var subviews: [String: Any]?
+public struct ActionUIElement: ActionUIElementBase {
+    public let id: Int
+    public let type: String
+    public let properties: [String: Any]
+    public var subviews: [String: Any]?
     
     // Counter for generating unique negative IDs when not specified.
     // Protected by a lock so it is safe to call from any thread (e.g. Decodable init).
@@ -107,7 +107,7 @@ struct ActionUIElement: ActionUIElementBase {
         case id, type, properties, children, rows, content, destination, sidebar, detail, commands
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let logger = decoder.logger
         let container = try decoder.container(keyedBy: ElementCodingKeys.self)
         id = try container.decodeIfPresent(Int.self, forKey: .id) ?? ActionUIElement.generateNegativeID()
@@ -151,7 +151,7 @@ struct ActionUIElement: ActionUIElementBase {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         let logger = encoder.logger
         var container = encoder.container(keyedBy: ElementCodingKeys.self)
         try container.encode(id, forKey: .id)
@@ -264,7 +264,7 @@ struct ActionUIElement: ActionUIElementBase {
 
 // Extension to make ActionUIElement Equatable
 extension ActionUIElement: Equatable {
-    static func == (lhs: ActionUIElement, rhs: ActionUIElement) -> Bool {
+    public static func == (lhs: ActionUIElement, rhs: ActionUIElement) -> Bool {
         // Compare id, type, and properties
         guard lhs.id == rhs.id,
               lhs.type == rhs.type,

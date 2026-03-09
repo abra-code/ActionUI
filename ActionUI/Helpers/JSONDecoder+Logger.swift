@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension JSONDecoder {
+public extension JSONDecoder {
     convenience init(logger: any ActionUILogger) {
         self.init()
         
