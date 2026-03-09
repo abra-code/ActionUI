@@ -274,6 +274,11 @@ public func actionUIAppSetName(_ name: UnsafePointer<CChar>) {
        let mutable = info as? NSMutableDictionary {
         mutable.removeAllObjects()
         mutable["CFBundleName"] = swiftAppName
+
+        let sanitized = swiftAppName
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "-")
+        mutable["CFBundleIdentifier"] = "com.abracode.actionui.\(sanitized)"
     }
 }
 
