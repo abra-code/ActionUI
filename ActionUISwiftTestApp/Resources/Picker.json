@@ -64,6 +64,30 @@
     {
       "type": "Text",
       "properties": {
+        "text": "Menu Picker — with sections",
+        "font": "headline",
+        "padding": { "top": 16, "bottom": 4 }
+      }
+    },
+    {
+      "type": "Picker",
+      "properties": {
+        "title": "Output Format",
+        "options": [
+          {"section": "Popular"},
+          {"title": "HTML", "tag": "html"},
+          {"title": "RTF", "tag": "docx"},
+          {"section": "Other"},
+          {"title": "EPUB", "tag": "epub"},
+          {"title": "LaTeX", "tag": "latex"}
+        ],
+        "pickerStyle": "menu",
+        "actionID": "picker.selection"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
         "text": "Menu Picker — controlSize variants",
         "font": "headline",
         "padding": { "top": 16, "bottom": 4 }

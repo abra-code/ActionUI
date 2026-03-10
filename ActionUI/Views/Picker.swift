@@ -8,6 +8,10 @@
      "options": [ "One",  "Two", "Three" ] // Required. Two supported formats:
        // 1. With simple array of strings we have titles only. Tags are automatically "1", "2", "3"... (1-based index as String)
        // 2. With array of dictionaries we have explicit control: [{"title": "Sure Thing", "tag": "yes"}, {"title": "Absolutely Not", "tag": "no"}]
+       //    Optionally, dictionaries can include {"section": "Group Name"} entries to group items into named sections (works best with "menu" pickerStyle):
+       //    [{"section": "Popular"}, {"title": "HTML", "tag": "html"}, {"section": "Other"}, {"title": "XML", "tag": "xml"}]
+       //    Items following a section entry belong to that section until the next section entry.
+       //    Items before any section entry are placed in an implicit ungrouped section.
      "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only), "radioGroup" (macOS only); no default
      "horizontalRadioGroupLayout": false, // Optional: Bool, applies .horizontalRadioGroupLayout() when pickerStyle is "radioGroup" (macOS only); defaults to false
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
@@ -27,21 +31,45 @@ struct Picker: ActionUIViewConstruction {
         let tag: String
         var id: String { tag }
     }
-    
-    private static func extractOptions(from raw: Any?, logger: (any ActionUILogger)? = nil) -> [OptionItem] {
+
+    private struct OptionSection: Identifiable {
+        let title: String?
+        let items: [OptionItem]
+        var id: String { title ?? "_ungrouped" }
+    }
+
+    private static func extractSections(from raw: Any?, logger: (any ActionUILogger)? = nil) -> [OptionSection] {
         guard let raw = raw else { return [] }
-        
-        // Format 1: with simple array of strings we generate 1-based index tags
+
+        // Format 1: simple array of strings - single ungrouped section
         if let titles = raw as? [String] {
-            return titles.enumerated().map { index, title in
+            let items = titles.enumerated().map { index, title in
                 OptionItem(title: title, tag: String(index + 1))
             }
+            return [OptionSection(title: nil, items: items)]
         }
-        
-        // Format 2: explicit title/tag dictionaries
+
+        // Format 2: array of dictionaries, possibly with section entries
         if let dicts = raw as? [[String: Any]] {
-            var items: [OptionItem] = []
+            var sections: [OptionSection] = []
+            var currentSectionTitle: String? = nil
+            var currentItems: [OptionItem] = []
+            var hasSections = false
+
             for (idx, dict) in dicts.enumerated() {
+                // Check for section header entry
+                if let sectionTitle = dict["section"] as? String {
+                    hasSections = true
+                    // Flush current items into a section
+                    if !currentItems.isEmpty || sections.isEmpty == false {
+                        sections.append(OptionSection(title: currentSectionTitle, items: currentItems))
+                        currentItems = []
+                    }
+                    currentSectionTitle = sectionTitle
+                    continue
+                }
+
+                // Regular option item
                 guard let title = dict["title"] as? String, !title.isEmpty else {
                     logger?.log("Picker options[\(idx)] missing valid 'title'; skipping", .warning)
                     continue
@@ -50,13 +78,26 @@ struct Picker: ActionUIViewConstruction {
                     logger?.log("Picker options[\(idx)] missing valid 'tag'; skipping", .warning)
                     continue
                 }
-                items.append(OptionItem(title: title, tag: tag))
+                currentItems.append(OptionItem(title: title, tag: tag))
             }
-            return items
+
+            // Flush remaining items
+            if hasSections {
+                sections.append(OptionSection(title: currentSectionTitle, items: currentItems))
+            } else {
+                // No section entries found - single ungrouped section (Format 2)
+                sections = [OptionSection(title: nil, items: currentItems)]
+            }
+
+            return sections
         }
-        
+
         logger?.log("Picker 'options' must be [String] or [[\"title\": String, \"tag\": String]]", .warning)
         return []
+    }
+
+    private static func extractOptions(from raw: Any?, logger: (any ActionUILogger)? = nil) -> [OptionItem] {
+        return extractSections(from: raw, logger: logger).flatMap { $0.items }
     }
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
@@ -91,10 +132,11 @@ struct Picker: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        
-        let items = extractOptions(from: properties["options"], logger: logger)
-        let initialValue = Self.initialValue(model) as? String ?? items.first?.tag ?? ""
-        
+
+        let sections = extractSections(from: properties["options"], logger: logger)
+        let allItems = sections.flatMap { $0.items }
+        let initialValue = Self.initialValue(model) as? String ?? allItems.first?.tag ?? ""
+
         // Create a specific binding for the value to ensure reactivity
         let valueBinding = Binding<String>(
             get: { model.value as? String ?? initialValue },
@@ -109,14 +151,31 @@ struct Picker: ActionUIViewConstruction {
                 }
             }
         )
-        
+
         let title = properties["title"] as? String ?? ""
         let actionID = properties["actionID"] as? String
-        
+        let useSections = sections.contains { $0.title != nil }
+
         // Build the Picker with .onChange chained directly – original reliable pattern
         return SwiftUI.Picker(title, selection: valueBinding) {
-            ForEach(items) { item in
-                SwiftUI.Text(item.title).tag(item.tag)
+            if useSections {
+                ForEach(sections) { section in
+                    if let sectionTitle = section.title {
+                        SwiftUI.Section(sectionTitle) {
+                            ForEach(section.items) { item in
+                                SwiftUI.Text(item.title).tag(item.tag)
+                            }
+                        }
+                    } else {
+                        ForEach(section.items) { item in
+                            SwiftUI.Text(item.title).tag(item.tag)
+                        }
+                    }
+                }
+            } else {
+                ForEach(allItems) { item in
+                    SwiftUI.Text(item.title).tag(item.tag)
+                }
             }
         }
         .onChange(of: valueBinding.wrappedValue) { _, newValue in

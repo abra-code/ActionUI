@@ -750,6 +750,10 @@
      "options": [ "One",  "Two", "Three" ] // Required. Two supported formats:
        // 1. With simple array of strings we have titles only. Tags are automatically "1", "2", "3"... (1-based index as String)
        // 2. With array of dictionaries we have explicit control: [{"title": "Sure Thing", "tag": "yes"}, {"title": "Absolutely Not", "tag": "no"}]
+       //    Optionally, dictionaries can include {"section": "Group Name"} entries to group items into named sections (works best with "menu" pickerStyle):
+       //    [{"section": "Popular"}, {"title": "HTML", "tag": "html"}, {"section": "Other"}, {"title": "XML", "tag": "xml"}]
+       //    Items following a section entry belong to that section until the next section entry.
+       //    Items before any section entry are placed in an implicit ungrouped section.
      "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only), "radioGroup" (macOS only); no default
      "horizontalRadioGroupLayout": false, // Optional: Bool, applies .horizontalRadioGroupLayout() when pickerStyle is "radioGroup" (macOS only); defaults to false
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
@@ -761,6 +765,7 @@
 //   value (String)   Tag of the currently selected option (via getElementValue / setElementValue).
 //                    For simple string arrays the tag is the 1-based index as a String ("1", "2", …);
 //                    for dictionary options it is the explicit "tag" value.
+//                    For sectioned options the tag is the explicit "tag" value of the selected item.
 
 
 // Sources/Views/ProgressView.swift

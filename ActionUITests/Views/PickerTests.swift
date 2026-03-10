@@ -306,6 +306,125 @@ final class PickerTests: XCTestCase {
         logger.log("Final state for viewID \(element.id): \(String(describing: viewModel))", .debug)
     }
     
+    func testPickerWithSections() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Picker",
+            "properties": {
+                "title": "Output Format",
+                "options": [
+                    {"section": "Popular"},
+                    {"title": "HTML", "tag": "html"},
+                    {"title": "Word", "tag": "docx"},
+                    {"section": "Other"},
+                    {"title": "LaTeX", "tag": "latex"},
+                    {"title": "Textile", "tag": "textile"}
+                ],
+                "pickerStyle": "menu"
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        // Create ActionUIView and force body creation
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        _ = actionUIView.body
+
+        // Initial value should be the first selectable item's tag, not the section
+        XCTAssertEqual(viewModel.value as? String, "html", "State should initialize with first option tag")
+
+        // Programmatic value change to an item in the second section
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "latex")
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        XCTAssertEqual(updatedValue as? String, "latex", "Picker should accept tags from any section")
+    }
+
+    func testPickerSectionsWithUngroupedItems() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Picker",
+            "properties": {
+                "title": "Mixed",
+                "options": [
+                    {"title": "Ungrouped", "tag": "ug"},
+                    {"section": "Group A"},
+                    {"title": "Item A", "tag": "a"}
+                ],
+                "pickerStyle": "menu"
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        _ = actionUIView.body
+
+        // Initial value should be the first item (ungrouped)
+        XCTAssertEqual(viewModel.value as? String, "ug", "State should initialize with first option tag even when ungrouped")
+    }
+
+    func testPickerDictOptionsWithoutSectionsUnchanged() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Picker",
+            "properties": {
+                "title": "No Sections",
+                "options": [
+                    {"title": "Yes", "tag": "yes"},
+                    {"title": "No", "tag": "no"}
+                ],
+                "pickerStyle": "menu"
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        _ = actionUIView.body
+
+        // Should work exactly as before - no sections, first tag selected
+        XCTAssertEqual(viewModel.value as? String, "yes", "Dict options without sections should work as before")
+    }
+
     func testPickerValueChangeActionAsyncDispatch() throws {
         let valueChangeActionID = "picker.valueChanged"
         
