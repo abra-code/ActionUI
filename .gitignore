@@ -11,3 +11,4 @@ ActionUIPython/frameworks/
 ActionUIPython/build/
 ActionUIPython/dist/
 ActionUIPython/*.so
+build

@@ -31,6 +31,89 @@
           }
         }
       ]
+    },
+    {
+      "type": "Menu",
+      "properties": {
+        "title": "With Divider"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Cut"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Copy"
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Delete"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Menu",
+      "properties": {
+        "title": "With Sections"
+      },
+      "children": [
+        {
+          "type": "Section",
+          "properties": {
+            "header": "Clipboard"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Cut"
+              }
+            },
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Copy"
+              }
+            },
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Paste"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Section",
+          "properties": {
+            "header": "File"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Save"
+              }
+            },
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Save As..."
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

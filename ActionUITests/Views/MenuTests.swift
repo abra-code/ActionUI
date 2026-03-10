@@ -136,4 +136,116 @@ final class MenuTests: XCTestCase {
         }
         XCTAssertNil(viewModel.value, "Initial viewModel value should be nil for Menu")
     }
+
+    func testMenuWithDivider() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Menu",
+            "properties": {
+                "title": "Edit"
+            },
+            "children": [
+                {"type": "Button", "id": 2, "properties": {"title": "Cut"}},
+                {"type": "Button", "id": 3, "properties": {"title": "Copy"}},
+                {"type": "Divider"},
+                {"type": "Button", "id": 4, "properties": {"title": "Delete"}}
+            ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        XCTAssertEqual(element.type, "Menu")
+        if let children = element.subviews?["children"] as? [any ActionUIElementBase] {
+            XCTAssertEqual(children.count, 4, "Should have 4 children including Divider")
+            XCTAssertEqual(children[0].type, "Button")
+            XCTAssertEqual(children[1].type, "Button")
+            XCTAssertEqual(children[2].type, "Divider")
+            XCTAssertEqual(children[3].type, "Button")
+        } else {
+            XCTFail("Children should be valid array")
+        }
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        XCTAssertFalse(actionUIView.body is SwiftUI.EmptyView, "Menu with Divider should render")
+    }
+
+    func testMenuWithSections() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Menu",
+            "properties": {
+                "title": "Actions"
+            },
+            "children": [
+                {
+                    "type": "Section",
+                    "id": 10,
+                    "properties": {"header": "Clipboard"},
+                    "children": [
+                        {"type": "Button", "id": 2, "properties": {"title": "Cut"}},
+                        {"type": "Button", "id": 3, "properties": {"title": "Copy"}}
+                    ]
+                },
+                {
+                    "type": "Section",
+                    "id": 11,
+                    "properties": {"header": "File"},
+                    "children": [
+                        {"type": "Button", "id": 4, "properties": {"title": "Save"}}
+                    ]
+                }
+            ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        XCTAssertEqual(element.type, "Menu")
+        if let children = element.subviews?["children"] as? [any ActionUIElementBase] {
+            XCTAssertEqual(children.count, 2, "Should have 2 Section children")
+            XCTAssertEqual(children[0].type, "Section")
+            XCTAssertEqual(children[0].properties["header"] as? String, "Clipboard")
+            XCTAssertEqual(children[1].type, "Section")
+            XCTAssertEqual(children[1].properties["header"] as? String, "File")
+
+            // Verify nested children in first section
+            if let sectionChildren = children[0].subviews?["children"] as? [any ActionUIElementBase] {
+                XCTAssertEqual(sectionChildren.count, 2, "Clipboard section should have 2 buttons")
+                XCTAssertEqual(sectionChildren[0].properties["title"] as? String, "Cut")
+                XCTAssertEqual(sectionChildren[1].properties["title"] as? String, "Copy")
+            } else {
+                XCTFail("Section children should be valid array")
+            }
+        } else {
+            XCTFail("Children should be valid array")
+        }
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        XCTAssertFalse(actionUIView.body is SwiftUI.EmptyView, "Menu with Sections should render")
+    }
 }
