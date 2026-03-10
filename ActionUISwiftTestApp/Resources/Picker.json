@@ -45,7 +45,8 @@
           "Green",
           "Blue"
         ],
-        "pickerStyle": "radioGroup"
+        "pickerStyle": "radioGroup",
+        "actionID": "picker.radio.selection"
       }
     },
     {
@@ -58,7 +59,8 @@
           "Large"
         ],
         "pickerStyle": "radioGroup",
-        "horizontalRadioGroupLayout": true
+        "horizontalRadioGroupLayout": true,
+        "actionID": "picker.radio.horizontal.selection"
       }
     },
     {
@@ -76,7 +78,7 @@
         "options": [
           {"section": "Popular"},
           {"title": "HTML", "tag": "html"},
-          {"title": "RTF", "tag": "docx"},
+          {"title": "RTF", "tag": "rtf"},
           {"section": "Other"},
           {"title": "EPUB", "tag": "epub"},
           {"title": "LaTeX", "tag": "latex"}

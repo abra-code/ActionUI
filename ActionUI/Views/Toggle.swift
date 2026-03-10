@@ -7,6 +7,7 @@
      "isOn": true,              // Optional: Boolean initial state, defaults to false
      "title": "Enable Feature", // Optional: String, defaults to "Toggle"
      "style": "switch",        // Optional: "switch" (iOS/macOS/visionOS), "checkbox" (macOS only), "button" (iOS/macOS/visionOS); defaults to "switch"
+     "actionID": "toggle.changed", // Optional: String for action triggered on value change
    }
    // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
@@ -52,19 +53,21 @@ struct Toggle: ActionUIViewConstruction {
                 guard model.value as? Bool != newValue else {
                     return
                 }
-                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
-                // "publishing changes from within view updates" warning
+                // DispatchQueue.main.async avoids "publishing changes from within view updates" warning.
+                // actionID is fired here in the binding setter (not via .onChange) so it only triggers
+                // on user interaction. .onChange would also fire on programmatic value changes,
+                // which can cause cascading actions and unexpected behavior.
                 DispatchQueue.main.async {
                     model.value = newValue
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    if let actionID = properties["actionID"] as? String {
+                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
                     }
                 }
             }
         )
-        
+
         let title = properties["title"] as? String ?? "Toggle"
-        
+
         return SwiftUI.Toggle(title, isOn: toggleBinding)
     }
     

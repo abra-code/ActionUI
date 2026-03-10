@@ -16,8 +16,10 @@
      "horizontalRadioGroupLayout": false, // Optional: Bool, applies .horizontalRadioGroupLayout() when pickerStyle is "radioGroup" (macOS only); defaults to false
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
    }
-   // Note: actionID is triggered via onChange for user-initiated changes. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
-   // The selected tag is passed as `context` (Any?) to actionID handler.
+   // Note: actionID is triggered from the binding setter, so it only fires on user-initiated changes
+   // (not on programmatic value updates). The selected tag is passed as `context` (Any?) to the handler.
+   // Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity,
+   // cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
  }
  */
 
@@ -144,19 +146,22 @@ struct Picker: ActionUIViewConstruction {
                 guard model.value as? String != newValue else {
                     return
                 }
-                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
-                // "publishing changes from within view updates" warning
+                // DispatchQueue.main.async avoids "publishing changes from within view updates" warning.
+                // actionID is fired here in the binding setter (not via .onChange) so it only triggers
+                // on user interaction. .onChange would also fire on programmatic value changes,
+                // which can cause cascading actions and unexpected behavior.
                 DispatchQueue.main.async {
                     model.value = newValue
+                    if let actionID = properties["actionID"] as? String {
+                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
+                    }
                 }
             }
         )
 
         let title = properties["title"] as? String ?? ""
-        let actionID = properties["actionID"] as? String
         let useSections = sections.contains { $0.title != nil }
 
-        // Build the Picker with .onChange chained directly – original reliable pattern
         return SwiftUI.Picker(title, selection: valueBinding) {
             if useSections {
                 ForEach(sections) { section in
@@ -176,12 +181,6 @@ struct Picker: ActionUIViewConstruction {
                 ForEach(allItems) { item in
                     SwiftUI.Text(item.title).tag(item.tag)
                 }
-            }
-        }
-        .onChange(of: valueBinding.wrappedValue) { _, newValue in
-            if let actionID = actionID {
-                logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
             }
         }
     }

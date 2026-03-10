@@ -14,35 +14,43 @@
     },
     {
       "type": "Toggle",
+      "id": 1,
       "properties": {
         "title": "Enable Feature",
         "style": "switch",
+        "actionID": "toggle.switch.changed",
         "padding": "default"
       }
     },
     {
       "type": "Toggle",
+      "id": 2,
       "properties": {
         "title": "Checkbox",
         "style": "checkbox",
+        "actionID": "toggle.checkbox.changed",
         "padding": "default"
       }
     },
     {
       "type": "Toggle",
+      "id": 3,
       "properties": {
         "title": "Initially On",
         "isOn": true,
         "style": "switch",
+        "actionID": "toggle.initially.on.changed",
         "padding": "default"
       }
     },
     {
       "type": "Toggle",
+      "id": 4,
       "properties": {
         "title": "Checked by Default",
         "isOn": true,
         "style": "checkbox",
+        "actionID": "toggle.checked.default.changed",
         "padding": "default"
       }
     }
