@@ -14,12 +14,12 @@ ActionUI is a SwiftUI library that renders dynamic UIs from JSON descriptions. I
       {
         "type": "TextField",
         "id": 1,
-        "properties": { "placeholder": "Enter your name", "actionID": "nameChanged" }
+        "properties": { "title": "Name", "prompt": "Enter your name", "actionID": "nameChanged" }
       },
       {
         "type": "Picker",
         "id": 2,
-        "properties": { "label": "Theme", "items": ["Light", "Dark", "Auto"], "actionID": "themeChanged" }
+        "properties": { "title": "Theme", "items": ["Light", "Dark", "Auto"], "actionID": "themeChanged" }
       },
       {
         "type": "Button",

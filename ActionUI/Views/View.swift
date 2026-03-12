@@ -40,6 +40,7 @@
        "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
      },
      "controlSize": "regular", // Optional: "mini", "small", "regular", "large", "extraLarge"; defaults to none (system default)
+     "labelsHidden": true,  // Optional: Boolean to hide labels on child views (e.g., within Form/LabeledContent); defaults to false
      "disabled": false,     // Optional: Boolean to disable user interaction
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
@@ -521,6 +522,11 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        if properties["labelsHidden"] != nil && !(properties["labelsHidden"] is Bool) {
+            logger.log("Invalid type for labelsHidden: expected Bool, ignoring", .warning)
+            validatedProperties["labelsHidden"] = nil
+        }
+
         if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
             var validatedValue: Any? = nil
             
@@ -695,6 +701,10 @@ struct View: ActionUIViewConstruction {
             default:
                 break
             }
+        }
+
+        if let labelsHidden = properties["labelsHidden"] as? Bool, labelsHidden {
+            modifiedView = modifiedView.labelsHidden()
         }
 
         if let shadow = properties["shadow"] as? [String: Any] {

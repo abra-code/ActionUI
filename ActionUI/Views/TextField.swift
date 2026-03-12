@@ -5,7 +5,7 @@
    "type": "TextField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Username",            // Optional: String label displayed before the field, defaults to ""
+     "title": "Username",            // Optional: String label for the field, defaults to "" (shown in Form/LabeledContent contexts)
      "text": "Hello",                // Optional: String initial value for the field, defaults to ""
      "prompt": "Enter text",         // Optional: String prompt (placeholder) shown inside the field when empty, defaults to nil
      "textContentType": "username",  // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS

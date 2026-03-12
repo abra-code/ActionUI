@@ -33,7 +33,7 @@
     {
       "type": "TextField",
       "properties": {
-        "placeholder": "Enter text",
+        "prompt": "Enter text",
         "padding": "default",
         "actionID": "text.submit"
       },

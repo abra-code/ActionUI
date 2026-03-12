@@ -4,7 +4,7 @@
    "type": "SecureField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Password",            // Optional: String label displayed before the field, defaults to ""
+     "title": "Password",            // Optional: String label for the field, defaults to "" (shown in Form/LabeledContent contexts)
      "text": "secret",               // Optional: String initial value, defaults to ""
      "prompt": "Enter password",     // Optional: String prompt (placeholder) shown inside the field when empty, defaults to nil
      "textContentType": "password",  // Optional: String for content type, must be one of: "password", "newPassword", "oneTimeCode"; defaults to nil, ignored on macOS

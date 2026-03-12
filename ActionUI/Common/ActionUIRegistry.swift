@@ -58,6 +58,7 @@ public class ActionUIRegistry {
         registerView(Image.self)
         registerView(KeyframeAnimator.self)
         registerView(Label.self)
+        registerView(ActionUI.LabeledContent.self)
         registerView(LazyHGrid.self)
         registerView(LazyHStack.self)
         registerView(LazyVGrid.self)

@@ -103,7 +103,7 @@ def main():
                 "type": "TextField",
                 "id": 3,
                 "properties": {
-                    "placeholder": "Enter your name",
+                    "prompt": "Enter your name",
                     "actionID": "textfield.changed"
                 }
             },
@@ -128,7 +128,7 @@ def main():
                 "type": "Toggle",
                 "id": 8,
                 "properties": {
-                    "label": "Enable feature",
+                    "title": "Enable feature",
                     "value": True,
                     "actionID": "toggle.changed"
                 }

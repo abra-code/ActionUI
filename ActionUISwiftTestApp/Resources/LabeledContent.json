@@ -1,0 +1,114 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "LabeledContent Variants"
+      }
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Username"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 1,
+          "properties": {
+            "prompt": "Enter username"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Password"
+      },
+      "children": [
+        {
+          "type": "SecureField",
+          "id": 2,
+          "properties": {
+            "prompt": "Enter password",
+            "textContentType": "password"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Multiple children"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 3,
+          "properties": {
+            "prompt": "First"
+          }
+        },
+        {
+          "type": "TextField",
+          "id": 4,
+          "properties": {
+            "prompt": "Second"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Static value"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Read-only info"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Hidden label",
+        "labelsHidden": true
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 5,
+          "properties": {
+            "prompt": "Label hidden via labelsHidden"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "No title provided omitted"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 6,
+          "properties": {
+            "prompt": "LabeledContent with empty title"
+          }
+        }
+      ]
+    }
+  ]
+}

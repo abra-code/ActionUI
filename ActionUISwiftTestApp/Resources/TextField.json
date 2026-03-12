@@ -2,7 +2,7 @@
   "type": "VStack",
   "properties": {
     "spacing": 10.0,
-    "alignment": "center",
+    "alignment": "leading",
     "padding": "default"
   },
   "children": [
@@ -13,28 +13,124 @@
       }
     },
     {
-      "type": "TextField",
+      "type": "LabeledContent",
       "properties": {
-        "title": "Username",
-        "prompt": "Enter username",
-        "textContentType": "username",
-        "actionID": "text.submit"
+        "title": "Username"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 1,
+          "properties": {
+            "prompt": "Enter username",
+            "textContentType": "username",
+            "actionID": "text.submit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Email"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 2,
+          "properties": {
+            "prompt": "Enter email",
+            "textContentType": "emailAddress"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Pre-filled"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 3,
+          "properties": {
+            "text": "Pre-filled value"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Standalone TextField experiments:",
+        "font": "caption"
       }
     },
     {
       "type": "TextField",
+      "id": 4,
       "properties": {
-        "title": "Email",
-        "prompt": "Enter email",
-        "textContentType": "emailAddress"
+        "title": "Title (default)",
+        "prompt": "title hidden by SwiftUI"
       }
     },
     {
       "type": "TextField",
+      "id": 5,
       "properties": {
-        "title": "Pre-filled",
-        "text": "Pre-filled value"
+        "title": "Title (labelsHidden=false)",
+        "prompt": "title explicitly not hidden - not effective",
+        "labelsHidden": false
       }
+    },
+    {
+      "type": "TextField",
+      "id": 6,
+      "properties": {
+        "title": "Title (labelsHidden=true)",
+        "prompt": "title explicitly hidden",
+        "labelsHidden": true
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "LabeledContent + labelsHidden:",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Visible label",
+        "labelsHidden": false
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 7,
+          "properties": {
+            "prompt": "labelsHidden=false on LabeledContent"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Hidden label",
+        "labelsHidden": true
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 8,
+          "properties": {
+            "prompt": "labelsHidden=true on LabeledContent"
+          }
+        }
+      ]
     }
   ]
 }

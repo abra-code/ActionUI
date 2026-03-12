@@ -151,7 +151,7 @@ final class ActionUIModelTests: XCTestCase {
             "properties": [:],
             "children": [
                 ["id": 2, "type": "TextField", "properties": ["title": "Name"]],
-                ["id": 3, "type": "Toggle", "properties": ["label": "Active"]],
+                ["id": 3, "type": "Toggle", "properties": ["title": "Active"]],
                 ["id": 4, "type": "Slider", "properties": [:]]
             ]
         ]
@@ -579,8 +579,8 @@ final class ActionUIModelTests: XCTestCase {
     func testGetElementStateAsStringString() throws {
         try loadToggleElement()
         let model = ActionUIModel.shared
-        model.windowModels[windowUUID]?.viewModels[1]?.states["label"] = "hello"
-        let s = model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "label")
+        model.windowModels[windowUUID]?.viewModels[1]?.states["title"] = "hello"
+        let s = model.getElementStateAsString(windowUUID: windowUUID, viewID: 1, key: "title")
         XCTAssertEqual(s, "hello")
     }
 
@@ -659,8 +659,8 @@ final class ActionUIModelTests: XCTestCase {
     func testSetElementStateFromStringNewKeyPlainString() throws {
         try loadToggleElement()
         let model = ActionUIModel.shared
-        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "label", value: "hello")
-        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "label") as? String, "hello",
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "title", value: "hello")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "title") as? String, "hello",
                        "Plain string should be stored as String")
     }
 
@@ -758,9 +758,9 @@ final class ActionUIModelTests: XCTestCase {
     func testSetElementStateFromStringExistingString() throws {
         try loadToggleElement()
         let model = ActionUIModel.shared
-        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "label", value: "old")
-        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "label", value: "new")
-        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "label") as? String, "new")
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "title", value: "old")
+        model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "title", value: "new")
+        XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "title") as? String, "new")
     }
 
     func testSetElementStateFromStringRoundTripViaAsString() throws {

@@ -38,7 +38,7 @@ final class ActionUIRegistryTests: XCTestCase {
         let expectedViewTypes = [
             "AsyncImage", "Button", "Canvas", "ColorPicker", "DatePicker",
             "DisclosureGroup", "Divider", "EmptyView", "Form", "Gauge", "Grid", "Group",
-            "HStack", "Image", "KeyframeAnimator", "Label", "LazyHGrid", "LazyHStack",
+            "HStack", "Image", "KeyframeAnimator", "Label", "LabeledContent", "LazyHGrid", "LazyHStack",
             "LazyVGrid", "LazyVStack", "Link", "List", "LoadableView", "Map", "Menu", "NavigationLink",
             "NavigationStack", "NavigationSplitView", "PhaseAnimator", "Picker",
             "ProgressView", "ScrollView", "ScrollViewReader", "Section", "SecureField",
