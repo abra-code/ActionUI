@@ -5,10 +5,11 @@
    "type": "TextField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "text": "Hello",              // Optional: String initial value for the field, defaults to ""
-     "placeholder": "Enter text", // Optional: String for placeholder, defaults to "" in buildView
-     "textContentType": "username", // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
-     "actionID": "text.submit",   // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
+     "title": "Username",            // Optional: String label displayed before the field, defaults to ""
+     "text": "Hello",                // Optional: String initial value for the field, defaults to ""
+     "prompt": "Enter text",         // Optional: String prompt (placeholder) shown inside the field when empty, defaults to nil
+     "textContentType": "username",  // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
+     "actionID": "text.submit",      // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
      "valueChangeActionID": "text.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
    }
  }
@@ -30,10 +31,16 @@ struct TextField: ActionUIViewConstruction {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         
-        // Validate placeholder
-        if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
-            logger.log("TextField placeholder must be a String; defaulting to nil", .warning)
-            validatedProperties["placeholder"] = nil
+        // Validate title
+        if properties["title"] != nil && !(properties["title"] is String) {
+            logger.log("TextField title must be a String; defaulting to empty string", .warning)
+            validatedProperties["title"] = nil
+        }
+
+        // Validate prompt
+        if !(properties["prompt"] is String?), properties["prompt"] != nil {
+            logger.log("TextField prompt must be a String; defaulting to nil", .warning)
+            validatedProperties["prompt"] = nil
         }
         
         // Validate text (initial value)
@@ -52,7 +59,8 @@ struct TextField: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let placeholder = properties["placeholder"] as? String ?? ""
+        let title = properties["title"] as? String ?? ""
+        let prompt = (properties["prompt"] as? String).map { SwiftUI.Text($0) }
         let initialValue = Self.initialValue(model) as? String ?? ""
 
         let textBinding = Binding(
@@ -71,10 +79,10 @@ struct TextField: ActionUIViewConstruction {
                 }
             }
         )
-        
+
         let actionID = properties["actionID"] as? String
-        
-        return SwiftUI.TextField(placeholder, text: textBinding)
+
+        return SwiftUI.TextField(title, text: textBinding, prompt: prompt)
             .onSubmit {
                 // Trigger actionID only on submit (e.g., Return key)
                 if let actionID = actionID {

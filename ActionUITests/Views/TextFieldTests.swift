@@ -35,27 +35,27 @@ final class TextFieldTests: XCTestCase {
         
     func testTextFieldValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "placeholder": "Enter text",
+            "prompt": "Enter text",
             "textContentType": "username",
             "actionID": "text.submit"
         ]
-        
+
         let validated = TextField.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated["placeholder"] as? String, "Enter text", "Placeholder should be valid")
+
+        XCTAssertEqual(validated["prompt"] as? String, "Enter text", "Prompt should be valid")
         XCTAssertEqual(validated["textContentType"] as? String, "username", "textContentType should be valid")
         XCTAssertEqual(validated["actionID"] as? String, "text.submit", "actionID should be valid")
     }
     
     func testTextFieldValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "placeholder": 123,
+            "prompt": 123,
             "textContentType": 456
         ]
-        
+
         let validated = TextField.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["placeholder"], "Invalid placeholder should be nil")
+
+        XCTAssertNil(validated["prompt"], "Invalid prompt should be nil")
         XCTAssertNil(validated["textContentType"], "Invalid textContentType should be nil")
     }
     
@@ -64,7 +64,7 @@ final class TextFieldTests: XCTestCase {
         
         let validated = TextField.validateProperties(properties, logger)
         
-        XCTAssertNil(validated["placeholder"], "Missing placeholder should be nil")
+        XCTAssertNil(validated["prompt"], "Missing prompt should be nil")
         XCTAssertNil(validated["textContentType"], "Missing textContentType should be nil")
         XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
     }
@@ -74,13 +74,13 @@ final class TextFieldTests: XCTestCase {
             "id": 1,
             "type": "TextField",
             "properties": [
-                "placeholder": "Enter text",
+                "prompt": "Enter text",
                 "textContentType": "username",
                 "actionID": "text.submit",
                 "padding": 10.0
             ]
         ]
-        
+
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = TextField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
@@ -95,7 +95,7 @@ final class TextFieldTests: XCTestCase {
             "id": 1,
             "type": "TextField",
             "properties": {
-                "placeholder": "Enter text",
+                "prompt": "Enter text",
                 "textContentType": "username",
                 "actionID": "text.submit",
                 "padding": 10.0,
@@ -115,7 +115,7 @@ final class TextFieldTests: XCTestCase {
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "TextField", "Element type should be TextField")
-        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter text", "placeholder should be Enter text")
+        XCTAssertEqual(element.properties["prompt"] as? String, "Enter text", "prompt should be Enter text")
         XCTAssertEqual(element.properties["textContentType"] as? String, "username", "textContentType should be username")
         XCTAssertEqual(element.properties["actionID"] as? String, "text.submit", "actionID should be text.submit")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")

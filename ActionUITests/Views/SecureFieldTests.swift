@@ -3,7 +3,7 @@
  SecureFieldTests.swift
 
  Tests for the SecureField component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding, including placeholder defaults and restricted textContentType values.
+ Verifies JSON decoding, property validation, view construction, and state binding, including prompt defaults and restricted textContentType values.
 */
 
 import XCTest
@@ -35,27 +35,27 @@ final class SecureFieldTests: XCTestCase {
         
     func testSecureFieldValidatePropertiesValid() {
         let properties: [String: Any] = [
-            "placeholder": "Enter password",
+            "prompt": "Enter password",
             "textContentType": "password",
             "actionID": "secure.submit"
         ]
-        
+
         let validated = SecureField.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated["placeholder"] as? String, "Enter password", "Placeholder should be valid")
+
+        XCTAssertEqual(validated["prompt"] as? String, "Enter password", "Prompt should be valid")
         XCTAssertEqual(validated["textContentType"] as? String, "password", "textContentType should be valid")
         XCTAssertEqual(validated["actionID"] as? String, "secure.submit", "actionID should be valid")
     }
     
     func testSecureFieldValidatePropertiesInvalid() {
         let properties: [String: Any] = [
-            "placeholder": 123,
+            "prompt": 123,
             "textContentType": "username"
         ]
-        
+
         let validated = SecureField.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated["placeholder"] as? String, nil, "Invalid placeholder should be nil")
+
+        XCTAssertNil(validated["prompt"], "Invalid prompt should be nil")
         XCTAssertNil(validated["textContentType"], "Invalid textContentType should be nil")
     }
     
@@ -64,7 +64,7 @@ final class SecureFieldTests: XCTestCase {
         
         let validated = SecureField.validateProperties(properties, logger)
         
-        XCTAssertEqual(validated["placeholder"] as? String, nil, "Missing placeholder should be nil")
+        XCTAssertNil(validated["prompt"], "Missing prompt should be nil")
         XCTAssertNil(validated["textContentType"], "Missing textContentType should be nil")
         XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
     }
@@ -74,13 +74,13 @@ final class SecureFieldTests: XCTestCase {
             "id": 1,
             "type": "SecureField",
             "properties": [
-                "placeholder": "Enter password",
+                "prompt": "Enter password",
                 "textContentType": "password",
                 "actionID": "secure.submit",
                 "padding": 10.0
             ]
         ]
-        
+
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let validatedProperties = SecureField.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
@@ -95,7 +95,7 @@ final class SecureFieldTests: XCTestCase {
             "id": 1,
             "type": "SecureField",
             "properties": {
-                "placeholder": "Enter password",
+                "prompt": "Enter password",
                 "textContentType": "password",
                 "actionID": "secure.submit",
                 "padding": 10.0,
@@ -115,7 +115,7 @@ final class SecureFieldTests: XCTestCase {
                 
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "SecureField", "Element type should be SecureField")
-        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter password", "placeholder should be Enter password")
+        XCTAssertEqual(element.properties["prompt"] as? String, "Enter password", "prompt should be Enter password")
         XCTAssertEqual(element.properties["textContentType"] as? String, "password", "textContentType should be password")
         XCTAssertEqual(element.properties["actionID"] as? String, "secure.submit", "actionID should be secure.submit")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")

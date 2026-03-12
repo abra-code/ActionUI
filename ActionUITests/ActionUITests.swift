@@ -45,7 +45,7 @@ final class ActionUITests: XCTestCase {
             "id": 1,
             "type": "TextField",
             "properties": {
-                "placeholder": "Enter username",
+                "title": "Username",
                 "textContentType": "username",
                 "actionID": "text.submit",
                 "padding": 8.0
@@ -70,7 +70,7 @@ final class ActionUITests: XCTestCase {
         // Verify parsed element
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "TextField", "Element type should be TextField")
-        XCTAssertEqual(element.properties["placeholder"] as? String, "Enter username", "Placeholder should match")
+        XCTAssertEqual(element.properties["title"] as? String, "Username", "Title should match")
         XCTAssertEqual(element.properties["textContentType"] as? String, "username", "textContentType should match")
         XCTAssertEqual(element.properties["actionID"] as? String, "text.submit", "actionID should match")
         XCTAssertEqual(element.properties.double(forKey: "padding"), 8.0, "Padding should be retrieved as Double with value 8.0")
@@ -92,7 +92,7 @@ final class ActionUITests: XCTestCase {
         let validatedProperties = viewModel.validatedProperties
         
         XCTAssertFalse(validatedProperties.isEmpty, "Validated properties should exist")
-        XCTAssertEqual(validatedProperties["placeholder"] as? String, "Enter username", "Validated placeholder should match")
+        XCTAssertEqual(validatedProperties["title"] as? String, "Username", "Validated title should match")
         XCTAssertEqual(validatedProperties["textContentType"] as? String, "username", "Validated textContentType should match")
         XCTAssertEqual(validatedProperties["actionID"] as? String, "text.submit", "Validated actionID should match")
         XCTAssertEqual(validatedProperties.double(forKey: "padding"), 8.0, "Validated padding should be Double with value 8.0")

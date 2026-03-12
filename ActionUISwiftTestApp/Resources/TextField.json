@@ -15,7 +15,8 @@
     {
       "type": "TextField",
       "properties": {
-        "placeholder": "Enter text",
+        "title": "Username",
+        "prompt": "Enter username",
         "textContentType": "username",
         "actionID": "text.submit"
       }
@@ -23,15 +24,16 @@
     {
       "type": "TextField",
       "properties": {
-        "placeholder": "Email",
+        "title": "Email",
+        "prompt": "Enter email",
         "textContentType": "emailAddress"
       }
     },
     {
       "type": "TextField",
       "properties": {
-        "text": "Pre-filled value",
-        "placeholder": "With initial text"
+        "title": "Pre-filled",
+        "text": "Pre-filled value"
       }
     }
   ]

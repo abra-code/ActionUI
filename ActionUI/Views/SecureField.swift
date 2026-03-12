@@ -4,8 +4,9 @@
    "type": "SecureField",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
+     "title": "Password",            // Optional: String label displayed before the field, defaults to ""
      "text": "secret",               // Optional: String initial value, defaults to ""
-     "placeholder": "Enter password", // Optional: String for placeholder, defaults to ""
+     "prompt": "Enter password",     // Optional: String prompt (placeholder) shown inside the field when empty, defaults to nil
      "textContentType": "password",  // Optional: String for content type, must be one of: "password", "newPassword", "oneTimeCode"; defaults to nil, ignored on macOS
      "actionID": "secure.submit"     // Optional: String for action triggered on submit (e.g., Return key)
    }
@@ -32,10 +33,16 @@ struct SecureField: ActionUIViewConstruction {
             validatedProperties["text"] = nil
         }
 
-        // Validate placeholder
-        if !(properties["placeholder"] is String?), properties["placeholder"] != nil {
-            logger.log("SecureField placeholder must be a String; defaulting to nil", .warning)
-            validatedProperties["placeholder"] = nil
+        // Validate title
+        if properties["title"] != nil && !(properties["title"] is String) {
+            logger.log("SecureField title must be a String; defaulting to empty string", .warning)
+            validatedProperties["title"] = nil
+        }
+
+        // Validate prompt
+        if !(properties["prompt"] is String?), properties["prompt"] != nil {
+            logger.log("SecureField prompt must be a String; defaulting to nil", .warning)
+            validatedProperties["prompt"] = nil
         }
 
         // Validate textContentType, allow only secure types
@@ -53,10 +60,11 @@ struct SecureField: ActionUIViewConstruction {
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let placeholder = properties["placeholder"] as? String ?? ""
+        let title = properties["title"] as? String ?? ""
+        let prompt = (properties["prompt"] as? String).map { SwiftUI.Text($0) }
         let actionID = properties["actionID"] as? String
         let initialValue = Self.initialValue(model) as? String ?? ""
-        
+
         let textBinding = Binding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
@@ -74,7 +82,7 @@ struct SecureField: ActionUIViewConstruction {
             }
         )
 
-        return SwiftUI.SecureField(placeholder, text: textBinding)
+        return SwiftUI.SecureField(title, text: textBinding, prompt: prompt)
             .onSubmit {
                 // Trigger actionID only on submit (e.g., Return key or "Done" on iOS)
                 if let actionID = actionID {

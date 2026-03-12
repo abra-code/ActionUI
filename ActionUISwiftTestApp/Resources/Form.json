@@ -15,7 +15,8 @@
           "type": "TextField",
           "id": 2,
           "properties": {
-            "placeholder": "Enter your name",
+            "title": "Name",
+            "prompt": "Enter your name",
             "textContentType": "name",
             "actionID": "text.submit",
             "valueChangeActionID": "text.valueChanged"
@@ -25,7 +26,8 @@
           "type": "SecureField",
           "id": 3,
           "properties": {
-            "placeholder": "Enter password",
+            "title": "Password",
+            "prompt": "Enter password",
             "textContentType": "password",
             "actionID": "secure.submit"
           }
@@ -74,7 +76,7 @@
       "type": "HStack",
       "properties": {
         "spacing": 10.0,
-        "padding": "default",
+        "padding": "default"
       },
       "children": [
           {

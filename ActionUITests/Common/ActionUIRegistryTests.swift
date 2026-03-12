@@ -36,7 +36,7 @@ final class ActionUIRegistryTests: XCTestCase {
         ActionUIModel.shared.logger = consoleLogger
 
         let expectedViewTypes = [
-            "AsyncImage", "Button", "Canvas", "ColorPicker", "ComboBox", "DatePicker",
+            "AsyncImage", "Button", "Canvas", "ColorPicker", "DatePicker",
             "DisclosureGroup", "Divider", "EmptyView", "Form", "Gauge", "Grid", "Group",
             "HStack", "Image", "KeyframeAnimator", "Label", "LazyHGrid", "LazyHStack",
             "LazyVGrid", "LazyVStack", "Link", "List", "LoadableView", "Map", "Menu", "NavigationLink",

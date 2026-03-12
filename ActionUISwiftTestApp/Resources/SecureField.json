@@ -15,7 +15,8 @@
     {
       "type": "SecureField",
       "properties": {
-        "placeholder": "Enter password",
+        "title": "Password",
+        "prompt": "Enter password",
         "textContentType": "password",
         "actionID": "secure.submit"
       }
@@ -23,15 +24,16 @@
     {
       "type": "SecureField",
       "properties": {
-        "placeholder": "New Password",
+        "title": "New Password",
+        "prompt": "Enter new password",
         "textContentType": "newPassword"
       }
     },
     {
       "type": "SecureField",
       "properties": {
-        "text": "secret",
-        "placeholder": "With initial value"
+        "title": "Secret",
+        "text": "secret"
       }
     }
   ]

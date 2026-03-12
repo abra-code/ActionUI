@@ -123,7 +123,7 @@ final class GroupTests: XCTestCase {
             "type": "Group",
             "properties": [:],
             "children": [
-                ["type": "TextField", "id": 2, "properties": ["placeholder": "Enter text"]],
+                ["type": "TextField", "id": 2, "properties": ["title": "Enter text"]],
                 ["type": "Text", "id": 3, "properties": ["text": "Static"]]
             ]
         ]
@@ -152,7 +152,7 @@ final class GroupTests: XCTestCase {
             "properties": [:],
             "children": [
                 ["type": "Text", "id": 3, "properties": ["text": "Static"]],
-                ["type": "TextField", "id": 2, "properties": ["placeholder": "Enter text"]]
+                ["type": "TextField", "id": 2, "properties": ["title": "Enter text"]]
             ]
         ]
         

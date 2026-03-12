@@ -51,7 +51,7 @@ final class ActionUIModelTests: XCTestCase {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "TextField",
-            "properties": ["placeholder": "Enter text"]
+            "properties": ["title": "Enter text"]
         ]
         
         let actionUIModel = ActionUIModel.shared
@@ -105,7 +105,7 @@ final class ActionUIModelTests: XCTestCase {
             "type": "Form",
             "properties": [:],
             "children": [
-                ["id": 2, "type": "TextField", "properties": ["placeholder": "Enter text"]]
+                ["id": 2, "type": "TextField", "properties": ["title": "Enter text"]]
             ]
         ]
 
@@ -133,7 +133,7 @@ final class ActionUIModelTests: XCTestCase {
         let elementDict: [String: Any] = [
             "id": 5,
             "type": "TextField",
-            "properties": ["placeholder": "Name"]
+            "properties": ["title": "Name"]
         ]
 
         let actionUIModel = ActionUIModel.shared
@@ -150,7 +150,7 @@ final class ActionUIModelTests: XCTestCase {
             "type": "Form",
             "properties": [:],
             "children": [
-                ["id": 2, "type": "TextField", "properties": ["placeholder": "Name"]],
+                ["id": 2, "type": "TextField", "properties": ["title": "Name"]],
                 ["id": 3, "type": "Toggle", "properties": ["label": "Active"]],
                 ["id": 4, "type": "Slider", "properties": [:]]
             ]
@@ -431,7 +431,7 @@ final class ActionUIModelTests: XCTestCase {
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "TextField",
-            "properties": ["placeholder": "Enter text"]
+            "properties": ["title": "Enter text"]
         ]
         _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
         XCTAssertEqual(ActionUIModel.shared.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 0,
