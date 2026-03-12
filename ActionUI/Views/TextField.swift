@@ -8,11 +8,29 @@
      "title": "Username",            // Optional: String label for the field, defaults to "" (shown in Form/LabeledContent contexts)
      "text": "Hello",                // Optional: String initial value for the field, defaults to ""
      "prompt": "Enter text",         // Optional: String prompt (placeholder) shown inside the field when empty, defaults to nil
+     "format": "decimal",            // Optional: "integer", "decimal", "percent", "currency". When set, uses SwiftUI value:format: constructor. Value is stored as String internally
+     "currencyCode": "USD",          // Optional: ISO 4217 currency code, defaults to "USD". Only used with format "currency"
+     "fractionLength": {"min": 0, "max": 2}, // Optional: Int (exact) or {"min": N, "max": N} (range). Controls decimal places for decimal/percent/currency
+     "value": 9.99,                  // Optional: Initial numeric value (Int, Double, or String). Used instead of "text" when format is set. Defaults to 0
      "textContentType": "username",  // Optional: String for content type (e.g., "username", "password"), defaults to nil, ignored on macOS
      "actionID": "text.submit",      // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
      "valueChangeActionID": "text.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
    }
  }
+
+ Formatted numeric TextField example (value stored as String, converted internally):
+ {
+   "type": "TextField",
+   "id": 2,
+   "properties": {
+     "title": "Price",
+     "format": "currency",          // Optional: "integer", "decimal", "percent", "currency". When set, uses SwiftUI value:format: constructor
+     "currencyCode": "USD",         // Optional: ISO 4217 currency code, defaults to "USD". Only used with format "currency"
+     "fractionLength": {"min": 0, "max": 2}, // Optional: Int (exact) or {"min": N, "max": N} (range). Controls decimal places for decimal/percent/currency
+     "value": 9.99                  // Optional: Initial numeric value (Int, Double, or String). Used instead of "text" when format is set. Defaults to 0
+   }
+ }
+
    // Note: The TextField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). valueChangeActionID is triggered continously on each change via the binding's set closure.
    Supported values for "textContentType": "name", "namePrefix", "givenName", "middleName", "familyName", "nameSuffix", "nickname", "jobTitle", "organizationName", "location", "fullStreetAddress", "streetAddressLine1", "streetAddressLine2", "addressCity", "addressState", "addressCityAndState", "sublocality", "countryName", "postalCode", "telephoneNumber", "emailAddress", "url", "creditCardNumber", "creditCardSecurityCode", "creditCardName", "creditCardExpiration", "creditCardType", "username", "password", "newPassword", "oneTimeCode", "shipmentTrackingNumber", "flightNumber", "dateTime", "birthdate", "birthdateDay", "birthdateMonth", "birthdateYear", "paymentMethod" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
 
@@ -25,12 +43,12 @@ import UIKit
 #endif
 
 struct TextField: ActionUIViewConstruction {
-    static var valueType: Any.Type { String.self } // Value is the text input
-    
+    static var valueType: Any.Type { String.self } // Value is always String, even for formatted numeric fields
+
     // Validates properties specific to TextField; baseline properties are validated by ActionUIRegistry.validateProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
+
         // Validate title
         if properties["title"] != nil && !(properties["title"] is String) {
             logger.log("TextField title must be a String; defaulting to empty string", .warning)
@@ -42,8 +60,8 @@ struct TextField: ActionUIViewConstruction {
             logger.log("TextField prompt must be a String; defaulting to nil", .warning)
             validatedProperties["prompt"] = nil
         }
-        
-        // Validate text (initial value)
+
+        // Validate text (initial value for text mode)
         if properties["text"] != nil && !(properties["text"] is String) {
             logger.log("TextField text must be a String; ignoring", .warning)
             validatedProperties["text"] = nil
@@ -55,14 +73,85 @@ struct TextField: ActionUIViewConstruction {
             validatedProperties["textContentType"] = nil
         }
 
+        // Validate format-related properties (format, fractionLength, currencyCode, value)
+        if let format = properties["format"] {
+            if let formatStr = format as? String {
+                let validFormats = ["integer", "decimal", "percent", "currency"]
+                if !validFormats.contains(formatStr) {
+                    logger.log("TextField format must be one of \(validFormats); ignoring", .warning)
+                    validatedProperties["format"] = nil
+                }
+            } else {
+                logger.log("TextField format must be a String; ignoring", .warning)
+                validatedProperties["format"] = nil
+            }
+        }
+
+        if let fractionLength = properties["fractionLength"] {
+            if fractionLength is Int {
+                // Valid: exact fraction length
+            } else if let dict = fractionLength as? [String: Any] {
+                if dict["min"] == nil && dict["max"] == nil {
+                    logger.log("TextField fractionLength dict must have 'min' and/or 'max'; ignoring", .warning)
+                    validatedProperties["fractionLength"] = nil
+                }
+            } else {
+                logger.log("TextField fractionLength must be Int or {min, max} dict; ignoring", .warning)
+                validatedProperties["fractionLength"] = nil
+            }
+        }
+
+        if properties["currencyCode"] != nil && !(properties["currencyCode"] is String) {
+            logger.log("TextField currencyCode must be a String; defaulting to USD", .warning)
+            validatedProperties["currencyCode"] = nil
+        }
+
+        // Validate "value" — accept Int, Double, or String (numeric)
+        if let value = properties["value"] {
+            if !(value is Int) && !(value is Double) && !(value is String) {
+                logger.log("TextField value must be a number or String; ignoring", .warning)
+                validatedProperties["value"] = nil
+            }
+        }
+
         return validatedProperties
     }
-    
+
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let title = properties["title"] as? String ?? ""
         let prompt = (properties["prompt"] as? String).map { SwiftUI.Text($0) }
         let initialValue = Self.initialValue(model) as? String ?? ""
+        let actionID = properties["actionID"] as? String
 
+        let onSubmit = {
+            if let actionID = actionID {
+                logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+            }
+        }
+
+        // Formatted numeric TextField
+        if let format = NumberFormatHelper.resolve(from: properties) {
+            let onValueChange: (String) -> Void = { newValue in
+                DispatchQueue.main.async {
+                    model.value = newValue
+                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
+                }
+            }
+
+            return NumberFormatHelper.buildFormattedTextField(
+                title: title,
+                prompt: prompt,
+                format: format,
+                model: model,
+                defaultValue: initialValue,
+                onValueChange: onValueChange
+            ).onSubmit(onSubmit)
+        }
+
+        // Standard text TextField
         let textBinding = Binding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
@@ -80,18 +169,10 @@ struct TextField: ActionUIViewConstruction {
             }
         )
 
-        let actionID = properties["actionID"] as? String
-
         return SwiftUI.TextField(title, text: textBinding, prompt: prompt)
-            .onSubmit {
-                // Trigger actionID only on submit (e.g., Return key)
-                if let actionID = actionID {
-                    logger.log("Executing handler for actionID: \(actionID), viewID: \(element.id)", .debug)
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                }
-            }
+            .onSubmit(onSubmit)
     }
-    
+
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         #if canImport(UIKit)
@@ -101,13 +182,18 @@ struct TextField: ActionUIViewConstruction {
         #endif
         return modifiedView
     }
-    
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? String {
             return initialValue
         }
+        let props = model.validatedProperties
+        // For formatted fields, use "value" property (may be numeric from JSON)
+        if props["format"] != nil {
+            return NumberFormatHelper.initialValueString(from: props)
+        }
         // Fall back to "text" property if set in JSON (e.g., for pre-populated fields)
-        if let text = model.validatedProperties["text"] as? String {
+        if let text = props["text"] as? String {
             return text
         }
         return ""

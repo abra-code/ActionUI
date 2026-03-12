@@ -131,6 +131,81 @@
           }
         }
       ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Formatted numeric TextFields:",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Quantity"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 10,
+          "properties": {
+            "format": "integer",
+            "value": 10
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Score"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 11,
+          "properties": {
+            "prompt": "0.00",
+            "format": "decimal",
+            "fractionLength": {"min": 0, "max": 2},
+            "value": 3.14
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Price"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 12,
+          "properties": {
+            "format": "currency",
+            "currencyCode": "USD",
+            "fractionLength": {"min": 2, "max": 2},
+            "value": 9.99
+          }
+        }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": {
+        "title": "Rate"
+      },
+      "children": [
+        {
+          "type": "TextField",
+          "id": 13,
+          "properties": {
+            "format": "percent",
+            "value": 0.15
+          }
+        }
+      ]
     }
   ]
 }

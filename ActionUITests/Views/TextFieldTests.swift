@@ -158,4 +158,136 @@ final class TextFieldTests: XCTestCase {
         let value = TextField.initialValue(viewModel) as? String
         XCTAssertEqual(value, "typed", "initialValue should prefer model.value over text property")
     }
+
+    // MARK: - Format property validation
+
+    func testTextFieldFormatValidation() {
+        let valid = TextField.validateProperties(["format": "integer"], logger)
+        XCTAssertEqual(valid["format"] as? String, "integer", "Valid format should be preserved")
+
+        let validDecimal = TextField.validateProperties(["format": "decimal"], logger)
+        XCTAssertEqual(validDecimal["format"] as? String, "decimal")
+
+        let validPercent = TextField.validateProperties(["format": "percent"], logger)
+        XCTAssertEqual(validPercent["format"] as? String, "percent")
+
+        let validCurrency = TextField.validateProperties(["format": "currency", "currencyCode": "EUR"], logger)
+        XCTAssertEqual(validCurrency["format"] as? String, "currency")
+        XCTAssertEqual(validCurrency["currencyCode"] as? String, "EUR")
+
+        let invalidFormat = TextField.validateProperties(["format": "unknown"], logger)
+        XCTAssertNil(invalidFormat["format"], "Invalid format should be removed")
+
+        let nonStringFormat = TextField.validateProperties(["format": 123], logger)
+        XCTAssertNil(nonStringFormat["format"], "Non-String format should be removed")
+    }
+
+    func testTextFieldFractionLengthValidation() {
+        let exact = TextField.validateProperties(["format": "decimal", "fractionLength": 2], logger)
+        XCTAssertEqual(exact["fractionLength"] as? Int, 2, "Exact fractionLength should be preserved")
+
+        let range = TextField.validateProperties(["format": "decimal", "fractionLength": ["min": 0, "max": 3]], logger)
+        XCTAssertNotNil(range["fractionLength"], "Range fractionLength should be preserved")
+
+        let invalid = TextField.validateProperties(["format": "decimal", "fractionLength": "two"], logger)
+        XCTAssertNil(invalid["fractionLength"], "Invalid fractionLength should be removed")
+    }
+
+    func testTextFieldValuePropertyValidation() {
+        let intValue = TextField.validateProperties(["format": "integer", "value": 42], logger)
+        XCTAssertEqual(intValue["value"] as? Int, 42, "Int value should be preserved")
+
+        let doubleValue = TextField.validateProperties(["format": "decimal", "value": 3.14], logger)
+        XCTAssertEqual(doubleValue["value"] as? Double, 3.14, "Double value should be preserved")
+
+        let stringValue = TextField.validateProperties(["format": "integer", "value": "100"], logger)
+        XCTAssertEqual(stringValue["value"] as? String, "100", "String value should be preserved")
+
+        let invalidValue = TextField.validateProperties(["format": "integer", "value": [1, 2]], logger)
+        XCTAssertNil(invalidValue["value"], "Array value should be removed")
+    }
+
+    // MARK: - Formatted TextField initial value
+
+    func testTextFieldFormatInitialValueFromIntProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["format": "integer", "value": 42]
+
+        let value = TextField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "42", "initialValue should convert Int value to String")
+    }
+
+    func testTextFieldFormatInitialValueFromDoubleProperty() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["format": "decimal", "value": 3.14]
+
+        let value = TextField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "3.14", "initialValue should convert Double value to String")
+    }
+
+    func testTextFieldFormatInitialValueDefault() {
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = ["format": "integer"]
+
+        let value = TextField.initialValue(viewModel) as? String
+        XCTAssertEqual(value, "0", "initialValue for formatted field should default to '0'")
+    }
+
+    // MARK: - Formatted TextField construction
+
+    func testTextFieldIntegerFormatConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "TextField",
+            "properties": [
+                "title": "Quantity",
+                "format": "integer",
+                "value": 10
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+    }
+
+    func testTextFieldCurrencyFormatConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "TextField",
+            "properties": [
+                "title": "Price",
+                "format": "currency",
+                "currencyCode": "USD",
+                "fractionLength": ["min": 2, "max": 2],
+                "value": 9.99
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+    }
+
+    func testTextFieldPercentFormatConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "TextField",
+            "properties": [
+                "title": "Rate",
+                "format": "percent",
+                "value": 0.15
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+    }
 }
