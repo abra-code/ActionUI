@@ -576,7 +576,7 @@ struct View: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
         
-        // Do not handle actionID here; concrete views (e.g., ComboBox, DatePicker) should handle actionID in buildView with specific context (e.g., windowUUID, viewID, viewPartID)
+        // Do not handle actionID here; concrete views (e.g., DatePicker) should handle actionID in buildView with specific context (e.g., windowUUID, viewID, viewPartID)
         
         if let padding = properties["padding"] as? [String: Any] {
             modifiedView = modifiedView.padding(EdgeInsets(

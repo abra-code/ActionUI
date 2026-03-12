@@ -54,7 +54,7 @@ The central state manager. Holds view values, routes action callbacks, and provi
 HStack, VStack, ZStack, LazyHStack, LazyVStack, LazyHGrid, LazyVGrid, Grid, NavigationStack, NavigationSplitView, NavigationLink, TabView, Group, Section, Form, ControlGroup, DisclosureGroup, GroupBox, ScrollView, ScrollViewReader
 
 **Input Controls:**
-TextField, SecureField, TextEditor, Picker, ComboBox, DatePicker, ColorPicker, Toggle, Slider, Button, Link, ShareLink, Menu
+TextField, SecureField, TextEditor, Picker, DatePicker, ColorPicker, Toggle, Slider, Button, Link, ShareLink, Menu
 
 **Display Elements:**
 Text, Label, Image, AsyncImage, ProgressView, Gauge, Table, List, VideoPlayer, Map, Canvas, WebView, Spacer, Divider, EmptyView
