@@ -1,0 +1,36 @@
+{
+  "type": "TabView",
+  "properties": {
+    "selection": 0,
+    "style": "sidebarAdaptable"
+  },
+  "children": [
+    {
+      "type": "Tab",
+      "properties": {
+        "title": "Home",
+        "systemImage": "house.fill"
+      },
+      "content": {
+        "type": "Text",
+        "properties": {
+          "text": "Home"
+        }
+      }
+    },
+    {
+      "type": "Tab",
+      "properties": {
+        "title": "Settings",
+        "systemImage": "gear",
+        "badge": 1
+      },
+      "content": {
+        "type": "Text",
+        "properties": {
+          "text": "Settings"
+        }
+      }
+    }
+  ]
+}
