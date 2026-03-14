@@ -11,10 +11,40 @@
         "systemImage": "house.fill"
       },
       "content": {
-        "type": "Text",
-        "properties": {
-          "text": "Home"
-        }
+        "type": "VStack",
+        "properties": { "spacing": 20, "padding": "default" },
+        "children": [
+          {
+            "type": "Text",
+            "properties": { "text": "Grouped Style (macOS only)", "font": "headline" }
+          },
+          {
+            "type": "TabView",
+            "id": 10,
+            "properties": {
+              "selection": 0,
+              "style": "grouped"
+            },
+            "children": [
+              {
+                "type": "Tab",
+                "properties": { "title": "General", "systemImage": "gearshape" },
+                "content": {
+                  "type": "Text",
+                  "properties": { "text": "General Settings", "padding": "default" }
+                }
+              },
+              {
+                "type": "Tab",
+                "properties": { "title": "Advanced", "systemImage": "wrench.and.screwdriver" },
+                "content": {
+                  "type": "Text",
+                  "properties": { "text": "Advanced Settings", "padding": "default" }
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -25,10 +55,49 @@
         "badge": 1
       },
       "content": {
-        "type": "Text",
-        "properties": {
-          "text": "Settings"
-        }
+        "type": "VStack",
+        "properties": { "spacing": 20, "padding": "default" },
+        "children": [
+          {
+            "type": "Text",
+            "properties": { "text": "Page Style (iOS/tvOS/watchOS/visionOS only — ignored on macOS)", "font": "headline" }
+          },
+          {
+            "type": "TabView",
+            "id": 20,
+            "properties": {
+              "selection": 0,
+              "style": "page",
+              "frame": { "height": 200 }
+            },
+            "children": [
+              {
+                "type": "Tab",
+                "properties": { "title": "Page 1", "systemImage": "1.circle" },
+                "content": {
+                  "type": "Text",
+                  "properties": { "text": "Swipe Page 1", "font": "title", "foregroundStyle": "blue" }
+                }
+              },
+              {
+                "type": "Tab",
+                "properties": { "title": "Page 2", "systemImage": "2.circle" },
+                "content": {
+                  "type": "Text",
+                  "properties": { "text": "Swipe Page 2", "font": "title", "foregroundStyle": "green" }
+                }
+              },
+              {
+                "type": "Tab",
+                "properties": { "title": "Page 3", "systemImage": "3.circle" },
+                "content": {
+                  "type": "Text",
+                  "properties": { "text": "Swipe Page 3", "font": "title", "foregroundStyle": "orange" }
+                }
+              }
+            ]
+          }
+        ]
       }
     }
   ]

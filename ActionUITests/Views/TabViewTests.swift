@@ -149,4 +149,26 @@ final class TabViewTests: XCTestCase {
         }
         XCTAssertEqual(viewModel.value as? Int, 0, "Initial viewModel value should be 0")
     }
+
+    // MARK: - Style validation
+
+    func testTabViewValidatePropertiesStyleValid() {
+        for style in ["automatic", "tabBarOnly", "sidebarAdaptable", "page", "verticalPage", "grouped"] {
+            let properties: [String: Any] = ["style": style]
+            let validated = TabView.validateProperties(properties, logger)
+            XCTAssertEqual(validated["style"] as? String, style, "Style '\(style)' should be valid")
+        }
+    }
+
+    func testTabViewValidatePropertiesStyleInvalidValue() {
+        let properties: [String: Any] = ["style": "carousel"]
+        let validated = TabView.validateProperties(properties, logger)
+        XCTAssertNil(validated["style"], "Invalid style value should be nil")
+    }
+
+    func testTabViewValidatePropertiesStyleInvalidType() {
+        let properties: [String: Any] = ["style": 42]
+        let validated = TabView.validateProperties(properties, logger)
+        XCTAssertNil(validated["style"], "Non-string style should be nil")
+    }
 }
