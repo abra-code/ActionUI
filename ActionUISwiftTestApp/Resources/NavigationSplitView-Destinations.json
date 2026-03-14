@@ -1,0 +1,139 @@
+{
+  "type": "NavigationSplitView",
+  "id": 1,
+  "properties": {
+    "columnVisibility": "all",
+    "style": "balanced"
+  },
+  "sidebar": {
+    "type": "List",
+    "id": 2,
+    "properties": {
+      "actionID": "sidebar.selection.changed",
+      "navigationSplitViewColumnWidth": {
+        "min": 200,
+        "ideal": 280,
+        "max": 400
+      }
+    },
+    "children": [
+      {
+        "type": "Label",
+        "id": 100,
+        "properties": {
+          "title": "First Item",
+          "systemImage": "1.circle",
+          "destinationViewId": 10
+        }
+      },
+      {
+        "type": "Label",
+        "id": 101,
+        "properties": {
+          "title": "Second Item",
+          "systemImage": "2.circle",
+          "destinationViewId": 11
+        }
+      },
+      {
+        "type": "Label",
+        "id": 102,
+        "properties": {
+          "title": "Third Item",
+          "systemImage": "3.circle",
+          "destinationViewId": 12
+        }
+      }
+    ]
+  },
+  "detail": {
+    "type": "Text",
+    "properties": {
+      "text": "Select an item from the sidebar",
+      "foregroundStyle": "secondary"
+    }
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": {
+        "spacing": 16,
+        "navigationTitle": "First Item",
+        "padding": "default"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "First Item Detail",
+            "font": "title"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "This is the detail view for the first sidebar item.",
+            "foregroundStyle": "secondary"
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 11,
+      "properties": {
+        "spacing": 16,
+        "navigationTitle": "Second Item",
+        "padding": "default"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Second Item Detail",
+            "font": "title"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "This is the detail view for the second sidebar item.",
+            "foregroundStyle": "secondary"
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 12,
+      "properties": {
+        "spacing": 16,
+        "navigationTitle": "Third Item",
+        "padding": "default"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Third Item Detail",
+            "font": "title"
+          }
+        },
+        {
+          "type": "GroupBox",
+          "properties": { "title": "Information" },
+          "children": [
+            {
+              "type": "Text",
+              "properties": {
+                "text": "This is the detail view for the third sidebar item.\nIt demonstrates a more complex destination layout.",
+                "foregroundStyle": "secondary"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

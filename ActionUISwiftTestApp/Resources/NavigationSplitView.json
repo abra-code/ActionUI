@@ -1,6 +1,10 @@
 {
   "type": "NavigationSplitView",
   "id": 1,
+  "properties": {
+    "columnVisibility": "all",
+    "style": "balanced"
+  },
   "sidebar": {
     "type": "VStack",
     "properties": {
@@ -104,9 +108,5 @@
         ]
       }
     ]
-  },
-  "properties": {
-    "columnVisibility": "all",
-    "style": "balanced"
   }
 }
