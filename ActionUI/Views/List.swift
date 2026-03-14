@@ -42,10 +42,27 @@
     //      fired on click — this cleanly separates selection events from button click events. On macOS, 
     //      double-click triggers doubleClickActionID with row index as context.
     //   2. Heterogeneous list: Shows a list of arbitrary views defined in the "children" array.
-    //      Selection behavior is similar to homogeneous lists, using the view's id for identification.
-    //      Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, 
-    //      cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and 
-    //      applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). 
+    //      Operates in two sub-modes depending on whether actionID is set:
+    //
+    //      a) With actionID (selectable mode): List(selection:) binding is enabled using
+    //         bidirectional child-ID mapping (same pattern as NavigationSplitView.buildSidebarList).
+    //         Selection is stored in model.value as [String] with the stringified child element ID.
+    //         actionID fires on selection change. Children should be Labels/Text (not NavigationLinks)
+    //         because List(selection:) intercepts taps on iOS.
+    //         When used inside NavigationStack with destinations, NavigationStack detects this pattern
+    //         and handles push navigation — see NavigationStack.swift.
+    //
+    //      b) Without actionID (no-selection mode): No selection binding. NavigationLinks handle
+    //         their own taps. Action callbacks:
+    //           - Button children: fire their own actionID on tap.
+    //           - NavigationLink children: push destinations via NavigationStack.
+    //           - Label/Text children: display-only; use Button if tap action is needed.
+    //
+    //      Note: NavigationSplitView sidebar selection is handled by NavigationSplitView.buildSidebarList(),
+    //      which constructs its own List(selection:) — it does not go through this List.buildView path.
+    //      Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity,
+    //      cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and
+    //      applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
     //      The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
     //    Performance: For homogeneous lists, child views are strongly typed to avoid AnyView overhead, 
     //    identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). 
@@ -112,61 +129,39 @@ struct List: ActionUIViewConstruction {
         // Check for heterogeneous list (children array)
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         if !children.isEmpty {
-            // Heterogeneous list mode: show arbitrary views from children array
-            let actionID = properties["actionID"] as? String
-            let doubleClickActionID = properties["doubleClickActionID"] as? String
-            
-            // Selection binding for heterogeneous list (selected view IDs as Set<Int>)
-            let selectionBinding = Binding<Set<Int>>(
-                get: {
-                    if let value = model.value as? [String], !value.isEmpty,
-                       let idString = value.first,
-                       let id = Int(idString) {
-                        return Set([id])
-                    }
-                    return Set<Int>()
-                },
-                set: { newSet in
-                    // Enforce single selection for now (take first if somehow multi arrives)
-                    if let newID = newSet.first {
-                        DispatchQueue.main.async {
-                            model.value = [String(newID)]
-                            if let actionID = actionID {
-                                ActionUIModel.shared.actionHandler(
-                                    actionID,
-                                    windowUUID: windowUUID,
-                                    viewID: element.id,
-                                    viewPartID: 0
-                                )
-                            }
-                        }
-                    } else {
-                        DispatchQueue.main.async {
-                            model.value = []
+            if let actionID = properties["actionID"] as? String {
+                // Selectable heterogeneous list mode: List(selection:) with child ID mapping.
+                // Same pattern as NavigationSplitView.buildSidebarList — Labels/Text are selectable,
+                // actionID fires on selection change with child element ID as context.
+                let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+
+                let selectionBinding = SelectionListHelper.makeHeterogeneousSelectionBinding(
+                    model: model,
+                    actionID: actionID,
+                    windowUUID: windowUUID,
+                    viewID: element.id
+                )
+
+                return SelectionListHelper.buildSelectableList(
+                    selection: selectionBinding,
+                    children: children,
+                    listElement: element,
+                    listModel: nil as ViewModel?,
+                    windowModel: windowModel,
+                    windowUUID: windowUUID
+                )
+            } else {
+                // No-selection heterogeneous list mode: NavigationLinks handle their own taps.
+                // No List(selection:) binding — on iOS, selection binding intercepts taps and
+                // prevents NavigationLink from activating.
+                return SwiftUI.List {
+                    ForEach(children, id: \.id) { child in
+                        if let childModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[child.id] {
+                            ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
                         }
                     }
                 }
-            )
-            
-            return SwiftUI.List(selection: selectionBinding) {
-                ForEach(children, id: \.id) { child in
-                    if let childModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[child.id] {
-                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
-                            .tag(child.id) // Required for selection to work with id
-                    }
-                }
             }
-            #if canImport(AppKit)
-            .onTapGesture(count: 2) {
-                if let doubleClickActionID = doubleClickActionID,
-                   let value = model.value as? [String], !value.isEmpty,
-                   let idString = value.first,
-                   let id = Int(idString),
-                   let index = children.firstIndex(where: { $0.id == id }) {
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
-                }
-            }
-            #endif
         } else {
             // Homogeneous list mode
             let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]

@@ -108,14 +108,9 @@ struct NavigationSplitView: ActionUIViewConstruction {
             let sidebarChildren = sidebar.subviews?["children"] as? [any ActionUIElementBase] ?? []
 
             // Build bidirectional maps: child element ID <-> destination view ID
-            var childToDestination: [Int: Int] = [:]
-            var destinationToChild: [Int: Int] = [:]
-            for child in sidebarChildren {
-                if let destId = windowModel?.viewModels[child.id]?.validatedProperties["destinationViewId"] as? Int {
-                    childToDestination[child.id] = destId
-                    destinationToChild[destId] = child.id
-                }
-            }
+            let maps = SelectionListHelper.buildIDMaps(children: sidebarChildren, windowModel: windowModel)
+            let childToDestination = maps.childToDestination
+            let destinationToChild = maps.destinationToChild
 
             let selectionBinding = Binding<Int?>(
                 get: {
@@ -143,7 +138,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 // 3-pane with destinations: sidebar selection drives detail switching
                 return ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
                     SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-                        Self.buildSidebarList(selectionBinding: selectionBinding, sidebarChildren: sidebarChildren, sidebar: sidebar, windowModel: windowModel, windowUUID: windowUUID)
+                        SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID)
                     } content: {
                         if let childModel = windowModel?.viewModels[content.id] {
                             ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
@@ -158,7 +153,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 // 2-pane with destinations: sidebar selection drives detail switching
                 return ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
                     SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-                        Self.buildSidebarList(selectionBinding: selectionBinding, sidebarChildren: sidebarChildren, sidebar: sidebar, windowModel: windowModel, windowUUID: windowUUID)
+                        SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID)
                     } detail: {
                         DestinationDetailView(model: model, destinations: destinations, defaultDetail: detail, windowModel: windowModel, windowUUID: windowUUID)
                     }
@@ -204,35 +199,6 @@ struct NavigationSplitView: ActionUIViewConstruction {
                     }
                 }
             }
-        }
-    }
-
-    /// Builds the sidebar List with a single-selection binding for destination switching.
-    /// The selection binding uses bidirectional maps (built by the caller) to translate between
-    /// child element IDs (used by ForEach identity / List selection) and destination view IDs
-    /// (stored in states["selectedDestination"]). Explicit .tag() is not used because ActionUIView
-    /// returns AnyView which breaks tag propagation.
-    /// Applies the sidebar element's View modifiers (e.g., navigationSplitViewColumnWidth) to the built List.
-    @ViewBuilder
-    private static func buildSidebarList(
-        selectionBinding: Binding<Int?>,
-        sidebarChildren: [any ActionUIElementBase],
-        sidebar: any ActionUIElementBase,
-        windowModel: WindowModel?,
-        windowUUID: String
-    ) -> some SwiftUI.View {
-        let listView = SwiftUI.List(selection: selectionBinding) {
-            ForEach(sidebarChildren, id: \.id) { child in
-                if let childModel = windowModel?.viewModels[child.id] {
-                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
-                }
-            }
-        }
-        if let sidebarModel = windowModel?.viewModels[sidebar.id] {
-            let sidebarProps = ActionUIRegistry.shared.getValidatedProperties(element: sidebar, model: sidebarModel)
-            ActionUIRegistry.shared.applyViewModifiers(to: listView, properties: sidebarProps, element: sidebar, model: sidebarModel, windowUUID: windowUUID)
-        } else {
-            listView
         }
     }
 

@@ -60,7 +60,8 @@
       "properties": {
         "spacing": 16,
         "navigationTitle": "First Item",
-        "padding": "default"
+        "padding": "default",
+        "onAppearActionID": "destination.10.appeared"
       },
       "children": [
         {
@@ -85,7 +86,8 @@
       "properties": {
         "spacing": 16,
         "navigationTitle": "Second Item",
-        "padding": "default"
+        "padding": "default",
+        "onAppearActionID": "destination.11.appeared"
       },
       "children": [
         {
@@ -110,7 +112,8 @@
       "properties": {
         "spacing": 16,
         "navigationTitle": "Third Item",
-        "padding": "default"
+        "padding": "default",
+        "onAppearActionID": "destination.12.appeared"
       },
       "children": [
         {

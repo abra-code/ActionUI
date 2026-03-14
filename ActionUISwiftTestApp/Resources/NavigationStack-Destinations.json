@@ -1,26 +1,30 @@
 {
   "type": "NavigationStack",
-    "properties": {
+  "properties": {
     "navigationTitle": "Elements"
   },
   "content": {
     "type": "List",
     "id": 1,
     "properties": {
-      "actionID": "list.selection.changed"
+      "actionID": "navstack.list.selection.changed"
     },
     "children": [
       {
-        "type": "NavigationLink",
+        "type": "Label",
+        "id": 100,
         "properties": {
           "title": "Element 10",
+          "systemImage": "1.circle",
           "destinationViewId": 10
         }
       },
       {
-        "type": "NavigationLink",
+        "type": "Label",
+        "id": 101,
         "properties": {
           "title": "Element 11",
+          "systemImage": "2.circle",
           "destinationViewId": 11
         }
       }

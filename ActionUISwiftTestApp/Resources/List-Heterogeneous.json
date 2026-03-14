@@ -1,0 +1,91 @@
+{
+  "type": "NavigationStack",
+  "properties": {
+    "navigationTitle": "Heterogeneous List"
+  },
+  "content": {
+    "type": "VStack",
+    "children": [
+      {
+        "type": "Text",
+        "id": 20,
+        "properties": {
+          "text": "Selectable list (with actionID):",
+          "font": "headline",
+          "padding": true
+        }
+      },
+      {
+        "type": "List",
+        "id": 1,
+        "properties": {
+          "actionID": "hetero.list.selection.changed"
+        },
+        "children": [
+          {
+            "type": "Label",
+            "id": 100,
+            "properties": {
+              "title": "Selectable Label A",
+              "systemImage": "a.circle"
+            }
+          },
+          {
+            "type": "Label",
+            "id": 101,
+            "properties": {
+              "title": "Selectable Label B",
+              "systemImage": "b.circle"
+            }
+          },
+          {
+            "type": "Label",
+            "id": 102,
+            "properties": {
+              "title": "Selectable Label C",
+              "systemImage": "c.circle"
+            }
+          }
+        ]
+      },
+      {
+        "type": "Text",
+        "id": 21,
+        "properties": {
+          "text": "Non-selectable list (no actionID):",
+          "font": "headline",
+          "padding": true
+        }
+      },
+      {
+        "type": "List",
+        "id": 2,
+        "children": [
+          {
+            "type": "Button",
+            "id": 200,
+            "properties": {
+              "title": "Action Button 1",
+              "actionID": "hetero.button.1"
+            }
+          },
+          {
+            "type": "Button",
+            "id": 201,
+            "properties": {
+              "title": "Action Button 2",
+              "actionID": "hetero.button.2"
+            }
+          },
+          {
+            "type": "Text",
+            "id": 202,
+            "properties": {
+              "text": "Display-only Text row"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
