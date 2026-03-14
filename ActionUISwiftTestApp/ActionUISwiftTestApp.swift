@@ -189,9 +189,9 @@ struct WindowIdentifier: Hashable, Codable {
 struct JSONSelectorView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
-    @State private var navigationPath = NavigationPath()
+    @State private var selectedResource: String?
     let logger: any ActionUILogger
-    
+
     private var supportsMultipleWindows: Bool {
         #if canImport(UIKit)
         return UIApplication.shared.supportsMultipleScenes
@@ -199,7 +199,7 @@ struct JSONSelectorView: View {
         return true // macOS supports multiple windows
         #endif
     }
-    
+
     // Compute jsonFiles outside view builder
     private var jsonFiles: [String] {
         Bundle.main.paths(forResourcesOfType: "json", inDirectory: nil)
@@ -207,46 +207,70 @@ struct JSONSelectorView: View {
             .sorted()
             .filter { $0 != "DefaultWindow" } // Filter out DefaultWindow to avoid duplication
     }
-    
+
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            if jsonFiles.isEmpty {
-                Text("No JSON files found in the app bundle.")
-                    .padding()
-                    .accessibilityIdentifier("no_json_files_text")
-            } else {
-                if supportsMultipleWindows {
-                    List {
-                        Button("Default Window") {
-                            openWindow(id: "WelcomeWindow") // WelcomeWindow is the windowGroupID declared in JSON description
-                        }
-                        .accessibilityIdentifier("default_window_button")
-                        
-                        ForEach(jsonFiles, id: \.self) { name in
-                            Button(name) {
-                                let windowUUID = UUID().uuidString
-                                openWindow(value: WindowIdentifier(resourceName: name, windowUUID: windowUUID))
-                            }
+        if jsonFiles.isEmpty {
+            Text("No JSON files found in the app bundle.")
+                .padding()
+                .accessibilityIdentifier("no_json_files_text")
+        } else {
+            if supportsMultipleWindows {
+                List {
+                    Button("Default Window") {
+                        openWindow(id: "WelcomeWindow") // WelcomeWindow is the windowGroupID declared in JSON description
+                    }
+                    .accessibilityIdentifier("default_window_button")
+
+                    ForEach(jsonFiles, id: \.self) { name in
+                        Button(name) {
+                            let windowUUID = UUID().uuidString
+                            openWindow(value: WindowIdentifier(resourceName: name, windowUUID: windowUUID))
                         }
                     }
-                    .navigationTitle("JSON Selector")
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("json_selector_list")
-                } else {
-                    List(jsonFiles, id: \.self) { name in
-                        NavigationLink(value: name) {
-                            Text(name)
-                        }
-                    }
-                    .navigationDestination(for: String.self) { resourceName in
-                        if let url = Bundle.main.url(forResource: resourceName, withExtension: ".json") {
-                            AnyView(ActionUISwift.loadView(from: url, windowUUID: resourceName, isContentView: true))
-                        }
-                    }
-                    .navigationTitle("JSON Selector")
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("json_selector_list")
                 }
+                .navigationTitle("JSON Selector")
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("json_selector_list")
+            }
+            else {
+            #if canImport(UIKit)
+            
+                // Single-window mode (iOS without multi-scene support):
+                // use fullScreenCover to avoid nesting NavigationStacks.
+                // JSON views like NavigationStack.json create their own NavigationStack,
+                // so embedding them inside the outer NavigationStack causes broken navigation on iOS.
+                List(jsonFiles, id: \.self) { name in
+                    Button(name) {
+                        selectedResource = name
+                    }
+                }
+                .navigationTitle("JSON Selector")
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("json_selector_list")
+                .fullScreenCover(isPresented: Binding(
+                    get: { selectedResource != nil },
+                    set: { if !$0 { selectedResource = nil } }
+                )) {
+                    GeometryReader { _ in
+                        if let resourceName = selectedResource,
+                           let url = Bundle.main.url(forResource: resourceName, withExtension: ".json") {
+                            AnyView(ActionUISwift.loadView(from: url, windowUUID: resourceName, isContentView: true))
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        Button {
+                            selectedResource = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                        }
+                    }
+                }
+            #endif // canImport(UIKit)
             }
         }
     }
