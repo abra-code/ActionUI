@@ -75,7 +75,7 @@ final class ActionUIRegistryTests: XCTestCase {
             let tableViewType = "Table"
             #endif
             
-            if viewType == "View" || viewType == "EmptyView" || viewType == "Link" || viewType == "ShareLink" || viewType == "NavigationLink" || viewType == "Tab" || viewType == tableViewType {
+            if viewType == "View" || viewType == "EmptyView" || viewType == "Link" || viewType == "ShareLink" || viewType == "Tab" || viewType == tableViewType {
                 XCTAssertTrue(view is SwiftUI.EmptyView, "buildView for '\(viewType)' should return EmptyView with empty properties")
             } else {
                 XCTAssertFalse(view is SwiftUI.EmptyView, "buildView for '\(viewType)' should not return EmptyView")

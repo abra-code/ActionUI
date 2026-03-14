@@ -1,15 +1,43 @@
 {
   "type": "NavigationStack",
-  "content": {
-    "type": "Text",
-    "properties": {
-      "text": "Home"
-    }
-  },
   "properties": {
-    "navigationTitle": "App",
-    "path": [
-      "detail"
+    "navigationTitle": "Choices"
+  },
+  "content": {
+    "type": "List",
+    "id": 1,
+    "properties": {
+      "actionID": "list.selection.changed"
+    },
+    "children": [
+      {
+        "type": "NavigationLink",
+        "id": 10,
+        "properties": {
+          "title": "First Item",
+        },
+        "destination": {
+          "type": "Text",
+          "properties": {
+            "navigationTitle": "First",
+            "text": "Detail for First Item"
+          }
+        }
+      },
+      {
+        "type": "NavigationLink",
+        "id": 20,
+        "properties": {
+          "title": "Second Item",
+        },
+        "destination": {
+          "type": "Text",
+          "properties": {
+            "navigationTitle": "Second",
+            "text": "Detail for Second Item"
+          }
+        }
+      }
     ]
   }
 }

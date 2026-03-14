@@ -62,6 +62,11 @@
        "max": 480.0                          // Optional: maximum allowed width
      },
      "navigationSplitViewColumnWidth": 400.0, // Number – fixed column width
+     "navigationTitle": "Detail",            // Optional: String for navigation title (for views navigated to)
+     "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
+                                            // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
+                                            // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
+                                            // and by sidebar List children in NavigationSplitView to select a destination view.
    }
  }
 
@@ -407,6 +412,17 @@ struct View: ActionUIViewConstruction {
             validatedProperties["disabled"] = nil
         }
         
+        if let navigationTitle = properties["navigationTitle"], !(navigationTitle is String) {
+            logger.log("Invalid type for navigationTitle: expected String, got \(type(of: navigationTitle)), ignoring", .warning)
+            validatedProperties["navigationTitle"] = nil
+        }
+
+        // Validate destinationViewId (used by NavigationLink and sidebar children in NavigationSplitView with destinations)
+        if validatedProperties["destinationViewId"] != nil, !(validatedProperties["destinationViewId"] is Int) {
+            logger.log("Invalid type for destinationViewId: expected numeric, got \(type(of: validatedProperties["destinationViewId"]!)), ignoring", .warning)
+            validatedProperties["destinationViewId"] = nil
+        }
+
         // Validate accessibility properties
         if let accessibilityLabel = properties["accessibilityLabel"], !(accessibilityLabel is String) {
             logger.log("Invalid type for accessibilityLabel: expected String, got \(type(of: accessibilityLabel)), ignoring", .warning)
@@ -793,6 +809,10 @@ struct View: ActionUIViewConstruction {
             }
         }
         
+        if let navigationTitle = properties["navigationTitle"] as? String {
+            modifiedView = modifiedView.navigationTitle(navigationTitle)
+        }
+
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityLabel(accessibilityLabel)
         }

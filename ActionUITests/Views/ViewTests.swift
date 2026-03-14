@@ -992,4 +992,28 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(properties, logger)
         XCTAssertNil(validated["controlSize"], "Non-string controlSize should be nil")
     }
+
+    // MARK: - destinationViewId validation
+
+    func testValidatePropertiesDestinationViewIdValidInt() throws {
+        let properties: [String: Any] = ["destinationViewId": 10]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertEqual(validated["destinationViewId"] as? Int, 10, "destinationViewId should preserve valid Int")
+    }
+
+    func testValidatePropertiesDestinationViewIdInvalidType() throws {
+        let properties: [String: Any] = ["destinationViewId": "ten"]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["destinationViewId"], "destinationViewId should be nil for String type")
+
+        let properties2: [String: Any] = ["destinationViewId": 10.5]
+        let validated2 = View.validateProperties(properties2, logger)
+        XCTAssertNil(validated2["destinationViewId"], "destinationViewId should be nil for Double type")
+    }
+
+    func testValidatePropertiesDestinationViewIdMissing() throws {
+        let properties: [String: Any] = ["padding": 10.0]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["destinationViewId"], "destinationViewId should not be present when not provided")
+    }
 }

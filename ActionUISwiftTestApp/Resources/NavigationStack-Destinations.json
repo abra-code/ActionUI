@@ -1,0 +1,47 @@
+{
+  "type": "NavigationStack",
+    "properties": {
+    "navigationTitle": "Elements"
+  },
+  "content": {
+    "type": "List",
+    "id": 1,
+    "properties": {
+      "actionID": "list.selection.changed"
+    },
+    "children": [
+      {
+        "type": "NavigationLink",
+        "properties": {
+          "title": "Element 10",
+          "destinationViewId": 10
+        }
+      },
+      {
+        "type": "NavigationLink",
+        "properties": {
+          "title": "Element 11",
+          "destinationViewId": 11
+        }
+      }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "Text",
+      "id": 10,
+      "properties": {
+        "navigationTitle": "Details for 10",
+        "text": "Detail for destination view id 10"
+      }
+    },
+    {
+      "type": "Text",
+      "id": 11,
+      "properties": {
+        "navigationTitle": "Details for 11",
+        "text": "Detail for destination view id 11"
+      }
+    }
+  ]
+}

@@ -100,7 +100,7 @@ final class NavigationLinkTests: XCTestCase {
                 "link": "detail"
             ]
         ]
-        
+
         do {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
@@ -111,5 +111,77 @@ final class NavigationLinkTests: XCTestCase {
         } catch {
             XCTFail("Failed to parse element: \(error)")
         }
+    }
+
+    // MARK: - Form 2 (destinationViewId) tests
+
+    func testNavigationLinkForm2DestinationViewId() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "NavigationLink",
+            "properties": {
+                "title": "Go to Detail",
+                "destinationViewId": 10
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        XCTAssertEqual(element.properties["title"] as? String, "Go to Detail")
+        XCTAssertEqual(viewModel.validatedProperties["destinationViewId"] as? Int, 10, "destinationViewId should be validated as Int")
+        XCTAssertNil(element.subviews?["destination"], "No inline destination should be present")
+
+        // initialValue should return the destinationViewId
+        let initialValue = NavigationLink.initialValue(viewModel)
+        XCTAssertEqual(initialValue as? Int, 10, "initialValue should return destinationViewId Int")
+    }
+
+    func testNavigationLinkForm2BuildView() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "NavigationLink",
+            "properties": [
+                "title": "Go to Detail",
+                "destinationViewId": 10
+            ]
+        ]
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let validatedProperties = ActionUIRegistry.shared.getValidatedProperties(element: element, model: viewModel)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        XCTAssertNotNil(view, "buildView should succeed for Form 2 NavigationLink with destinationViewId")
+    }
+
+    func testNavigationLinkValidatePropertiesTitle() throws {
+        // Valid title
+        let validProps: [String: Any] = ["title": "My Link"]
+        let validated = NavigationLink.validateProperties(validProps, logger)
+        XCTAssertEqual(validated["title"] as? String, "My Link", "Valid string title should be preserved")
+
+        // Invalid title type
+        let invalidProps: [String: Any] = ["title": 123]
+        let validated2 = NavigationLink.validateProperties(invalidProps, logger)
+        XCTAssertNil(validated2["title"], "Non-string title should be nil")
     }
 }

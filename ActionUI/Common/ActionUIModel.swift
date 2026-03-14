@@ -550,11 +550,15 @@ public class ActionUIModel: ObservableObject {
             result[element.id] = element.type
         }
         guard let subviews = element.subviews else { return }
-        if let children = subviews["children"] as? [any ActionUIElementBase] {
-            for child in children {
-                collectElementInfo(from: child, into: &result)
+        
+        for key in ["children", "destinations"] {
+            if let children = subviews[key] as? [any ActionUIElementBase] {
+                for child in children {
+                    collectElementInfo(from: child, into: &result)
+                }
             }
         }
+        
         if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
             for row in rows {
                 for child in row {

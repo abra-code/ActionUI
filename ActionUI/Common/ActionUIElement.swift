@@ -24,6 +24,7 @@
    "detail": {           // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in subviews["detail"]
      "type": "Text", "properties": { "text": "Detail" }
    },
+   "destinations": []    // Optional: Array of destination elements to switch on their id in NavigationStack & NavigationSplitView detail pane. Note: Handled as a top-level key in JSON but stored in subviews["destinations"]
    "commands": [],       // Optional: Array of command elements. Note: Handled as a top-level key in JSON but stored in subviews["commands"]
  }
 */
@@ -36,7 +37,7 @@ public protocol ActionUIElementBase: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
-    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar" or "detail"
+    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "destinations"
 }
 
 protocol ActionUIPropertyValidation {
@@ -104,7 +105,7 @@ public struct ActionUIElement: ActionUIElementBase {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, commands
+        case id, type, properties, children, rows, content, destination, sidebar, detail, commands, destinations
     }
     
     public init(from decoder: Decoder) throws {
@@ -125,9 +126,11 @@ public struct ActionUIElement: ActionUIElementBase {
         
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
-        if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: .children) {
-            if subviews == nil { subviews = [:] }
-            subviews!["children"] = children
+        for key in ["children", "destinations"] {
+            if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: ElementCodingKeys(rawValue: key)!) {
+                if subviews == nil { subviews = [:] }
+                subviews![key] = children
+            }
         }
         
         if let rows = try container.decodeIfPresent([[ActionUIElement]].self, forKey: .rows) {
@@ -178,10 +181,12 @@ public struct ActionUIElement: ActionUIElementBase {
         }
         
         // Encode children
-        if let children = subviews["children"] as? [ActionUIElement] {
-            try container.encodeIfPresent(children, forKey: .children)
-        } else {
-            try container.encodeNil(forKey: .children)
+        for key in ["children", "destinations"] {
+            if let children = subviews[key] as? [ActionUIElement] {
+                try container.encodeIfPresent(children, forKey: ElementCodingKeys(rawValue: key)!)
+            } else {
+                try container.encodeNil(forKey: ElementCodingKeys(rawValue: key)!)
+            }
         }
         
         // Encode rows
@@ -215,13 +220,16 @@ public struct ActionUIElement: ActionUIElementBase {
             throw NSError(domain: "ActionUIElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
         }
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
-        let childrenArray = dictionary["children"] as? [[String: Any]]
-        // Note: JSON specifies "children" as a top-level key, but we move it to subviews["children"]
-        let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
         var subviews: [String: Any]?
-        if children != nil {
-            if subviews == nil { subviews = [:] }
-            subviews!["children"] = children
+        
+        for key in ["children", "destinations"] {
+            let childrenArray = dictionary[key] as? [[String: Any]]
+            // Note: JSON specifies "children"/"destinations" as a top-level key, but we move it to subviews["children"/"destinations"]
+            let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
+            if children != nil {
+                if subviews == nil { subviews = [:] }
+                subviews![key] = children
+            }
         }
                 
         // Decode rows for Grid
@@ -280,7 +288,7 @@ extension ActionUIElement: Equatable {
         }
         
         // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "commands"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "commands", "destinations"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             
@@ -334,7 +342,16 @@ extension ActionUIElementBase {
                 }
             }
         }
-        
+
+        // Search in "destinations" (array of elements)
+        if let destinations = subviews["destinations"] as? [any ActionUIElementBase] {
+            for child in destinations {
+                if let found = child.findElement(by: viewID) {
+                    return found
+                }
+            }
+        }
+
         // Search in "rows" (array of arrays of elements)
         if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
             for row in rows {

@@ -124,14 +124,17 @@ class WindowModel: ObservableObject {
         targetViewModels[element.id] = viewModel
         
         if let subviews = element.subviews {
-            if let children = subviews["children"] as? [any ActionUIElementBase] {
-                for child in children {
-                    let childViewModels = populateViewModels(from: child)
-                    for (id, viewModel) in childViewModels {
-                        targetViewModels[id] = viewModel
+            for key in ["children", "destinations"] {
+                if let children = subviews[key] as? [any ActionUIElementBase] {
+                    for child in children {
+                        let childViewModels = populateViewModels(from: child)
+                        for (id, viewModel) in childViewModels {
+                            targetViewModels[id] = viewModel
+                        }
                     }
                 }
             }
+            
             if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
                 for row in rows.flatMap({ $0 }) {
                     let rowViewModels = populateViewModels(from: row)
