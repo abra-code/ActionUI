@@ -2,7 +2,8 @@
   "type": "TabView",
   "properties": {
     "selection": 0,
-    "style": "sidebarAdaptable"
+    "style": "sidebarAdaptable",
+    "actionID": "tab.selection.changed"
   },
   "children": [
     {
