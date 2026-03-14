@@ -4,9 +4,15 @@
 
 VERIFIER="${BUILT_PRODUCTS_DIR}/ActionUIVerifier"
 
+
 if [ ! -x "$VERIFIER" ]; then
-    echo "error: ActionUIVerifier not found at $VERIFIER"
-    exit 1
+    if [ "${PLATFORM_FAMILY_NAME}" = "macOS" ]; then
+        echo "error: ActionUIVerifier not found at $VERIFIER"
+        exit 1
+    else
+        echo "warning: ActionUIVerifier runs only when building for macOS"
+        exit 0
+    fi
 fi
 
 RESOURCES_DIR="${SRCROOT}/ActionUISwiftTestApp/Resources"
