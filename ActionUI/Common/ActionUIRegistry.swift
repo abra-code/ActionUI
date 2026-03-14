@@ -51,6 +51,7 @@ public class ActionUIRegistry {
         registerView(EmptyView.self)
         registerView(Form.self)
         registerView(Gauge.self)
+        registerView(GeometryReader.self)
         registerView(Grid.self)
         registerView(Group.self)
         registerView(GroupBox.self)

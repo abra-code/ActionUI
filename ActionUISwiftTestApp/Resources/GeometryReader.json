@@ -1,0 +1,54 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "GeometryReader Demo",
+        "font": "title2",
+        "padding": true
+      }
+    },
+    {
+      "type": "GeometryReader",
+      "id": 1,
+      "properties": {
+        "alignment": "center",
+        "background": "#E8F0FE"
+      },
+      "content": {
+        "type": "VStack",
+        "children": [
+          {
+            "type": "Label",
+            "properties": {
+              "title": "Centered in GeometryReader",
+              "systemImage": "arrow.up.left.and.arrow.down.right"
+            }
+          },
+          {
+            "type": "Text",
+            "id": 10,
+            "properties": {
+              "text": "Size: ...",
+              "font": "caption",
+              "foregroundColor": "#666666"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Below GeometryReader",
+        "font": "caption",
+        "foregroundColor": "#999999",
+        "padding": true
+      }
+    }
+  ]
+}
