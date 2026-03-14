@@ -1,7 +1,8 @@
 {
   "type": "TabView",
   "properties": {
-    "selection": 0
+    "selection": 0,
+    "actionID": "top.tab.selection.changed"
   },
   "children": [
     {
@@ -23,7 +24,8 @@
             "id": 10,
             "properties": {
               "selection": 0,
-              "style": "grouped"
+              "style": "grouped",
+              "actionID": "tab.10.selection.changed"
             },
             "children": [
               {
@@ -68,7 +70,8 @@
             "properties": {
               "selection": 0,
               "style": "page",
-              "frame": { "height": 200 }
+              "frame": { "height": 200 },
+              "actionID": "page.20.selection.changed"
             },
             "children": [
               {

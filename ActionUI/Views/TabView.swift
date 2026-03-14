@@ -40,7 +40,7 @@
    ]
    // Note: These properties are specific to TabView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers(to: baseView, properties: element.properties).
    // Note: Each child in "children" is a dictionary with "properties" (tab configuration) and "content" (the actual ActionUIView to display). Tabs are identified by their index (0-based) in the children array.
-   // Note: TabView supports "valueChangeActionID" to trigger actions when selection changes programmatically or via user interaction.
+   // Note: TabView supports "actionID" to trigger actions when selection changes via user interaction and passes selected tab index as context
    // Note: The "style" property controls the tab view style:
    //   "automatic" — default platform behavior (all platforms)
    //   "tabBarOnly" — always show tab bar (iOS 18+/macOS 15+)
@@ -103,8 +103,8 @@ struct TabView: ActionUIViewConstruction {
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
                     model.value = newValue
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    if let valueChangeActionID = properties["actionID"] as? String {
+                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
                     }
                 }
             }
