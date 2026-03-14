@@ -235,4 +235,99 @@ final class ListTests: XCTestCase {
         try loadListElement()
         XCTAssertNil(ActionUIModel.shared.getElementRows(windowUUID: windowUUID, viewID: 999))
     }
+
+    // MARK: - Heterogeneous list tests
+
+    func testHeterogeneousListJSONDecoding() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "List",
+            "properties": {
+                "actionID": "list.selection"
+            },
+            "children": [
+                { "type": "Text", "id": 10, "properties": { "text": "Item A" } },
+                { "type": "Button", "id": 11, "properties": { "title": "Item B" } }
+            ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let element = try ActionUIModel.shared.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        XCTAssertEqual(element.id, 1)
+        XCTAssertEqual(element.type, "List")
+
+        let children = element.subviews?["children"] as? [any ActionUIElementBase]
+        XCTAssertNotNil(children, "children should be parsed into subviews")
+        XCTAssertEqual(children?.count, 2, "Should have 2 children")
+        XCTAssertEqual((children?[0] as? ActionUIElement)?.type, "Text")
+        XCTAssertEqual((children?[1] as? ActionUIElement)?.type, "Button")
+    }
+
+    func testHeterogeneousListConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "List",
+            "properties": [
+                "actionID": "list.selection"
+            ],
+            "children": [
+                ["type": "Text", "id": 10, "properties": ["text": "Item A"]],
+                ["type": "Button", "id": 11, "properties": ["title": "Item B"]]
+            ]
+        ]
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        // Verify child view models were created
+        XCTAssertNotNil(windowModel.viewModels[10], "ViewModel should be created for child id 10")
+        XCTAssertNotNil(windowModel.viewModels[11], "ViewModel should be created for child id 11")
+
+        let validatedProperties = List.validateProperties(element.properties, logger)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        XCTAssertNotNil(view, "buildView should succeed with heterogeneous children")
+    }
+
+    func testHeterogeneousListEmptyChildren() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "List",
+            "properties": [
+                "itemType": ["viewType": "Text"],
+                "actionID": "list.action"
+            ],
+            "children": [] as [[String: Any]]
+        ]
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        // Empty children should fall back to homogeneous mode
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
+        XCTAssertTrue(children.isEmpty, "Empty children array should result in empty subviews")
+
+        // Should still build successfully (homogeneous mode)
+        let validatedProperties = List.validateProperties(element.properties, logger)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        XCTAssertNotNil(view, "buildView should succeed with empty children (homogeneous fallback)")
+        XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty in homogeneous mode")
+    }
 }

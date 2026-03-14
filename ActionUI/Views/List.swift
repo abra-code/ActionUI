@@ -1,30 +1,64 @@
 // Sources/Views/List.swift
 /*
- Sample JSON for List view:
- {
-   "type": "List",
-   "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
-   "properties": {
-     "itemType": {                            // Optional: Defaults to { "viewType": "Text" }
-       "viewType": "Button",                  // "Text"|"Button"|"Image"|"AsyncImage"
-       "actionContext": "rowIndex",           // "title"|"rowIndex" (Button only)
-       "actionID": "list.buttonClick",        // Button only — fires on button click
-       "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
-     },
-     "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
-     "doubleClickActionID": "list.double.click"  // Optional: String for double-click action (macOS only, context = row index)
-   }
- }
-   // Note: The List shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. The list-level actionID fires on selection change. Button items have their own actionID in itemType, fired on click — this cleanly separates selection events from button click events. On macOS, double-click triggers doubleClickActionID with row index as context. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
-   // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+  Sample JSON for List view:
+  {
+    "type": "List",
+    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
+    "properties": {
+      // Form 1: Homogeneous list of pre-declared types from external data
+      "itemType": {                            // Optional: Defaults to { "viewType": "Text" }
+        "viewType": "Button",                  // "Text"|"Button"|"Image"|"AsyncImage"
+        "actionContext": "rowIndex",           // "title"|"rowIndex" (Button only)
+        "actionID": "list.buttonClick",        // Button only — fires on button click
+        "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
+      },
+      "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
+      "doubleClickActionID": "list.double.click"  // Optional: String for double-click action (macOS only, context = row index)
+    },
+    // Form 2: Heterogeneous list from embedded JSON
+    "children": [                            // Optional: Array of child views for complex lists
+      { 
+        "type": "NavigationLink", 
+        "id": 10,                            // Recommended: Set unique ID for selection support
+        "properties": { 
+          "title": "Item 1" 
+        },
+        "destination": {                   // Destination must be a full view element
+          "type": "Text",
+          "properties": { "title": "Item 1 Detail" }
+        }
+      },
+      { 
+        "type": "Button", 
+        "id": 11,                            // Recommended: Set unique ID for selection support
+        "properties": { "title": "Item 2" } 
+      }
+    ]
+  }
+    // Note: The List can operate in two modes:
+    //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) 
+    //      specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. 
+    //      The list-level actionID fires on selection change. Button items have their own actionID in itemType, 
+    //      fired on click — this cleanly separates selection events from button click events. On macOS, 
+    //      double-click triggers doubleClickActionID with row index as context.
+    //   2. Heterogeneous list: Shows a list of arbitrary views defined in the "children" array.
+    //      Selection behavior is similar to homogeneous lists, using the view's id for identification.
+    //      Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, 
+    //      cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and 
+    //      applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). 
+    //      The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
+    //    Performance: For homogeneous lists, child views are strongly typed to avoid AnyView overhead, 
+    //    identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). 
+    //    For heterogeneous lists, views are constructed dynamically. Image creation uses SwiftUI.Image extension, 
+    //    aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
 
- Observable state:
-   value ([String])                   Selected item as a one-element string array (or empty when nothing selected).
-                                      Access via getElementValue / setElementValue.
-   states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
-                                      hidden-column data. Access via getElementRows / setElementRows /
-                                      appendElementRows / clearElementRows.
- */
+  Observable state:
+    value ([String])                   Selected item as a one-element string array (or empty when nothing selected).
+                                       Access via getElementValue / setElementValue.
+    states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
+                                       hidden-column data. Access via getElementRows / setElementRows /
+                                       appendElementRows / clearElementRows.
+*/
 
 import SwiftUI
 
@@ -75,97 +109,158 @@ struct List: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
-        let viewType = itemType["viewType"] as? String ?? "Text"
-        let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
-        let actionContext = itemType["actionContext"] as? String ?? "title"
-        let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
-        let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
-        let buttonActionID = itemType["actionID"] as? String
-        let doubleClickActionID = properties["doubleClickActionID"] as? String
-        
-        // Indices are 0..<displayItems.count — stable even with duplicate display strings
-        let selectionBinding = Binding<Set<Int>>(
-            get: {
-                guard let selectedRow = model.value as? [String],
-                      !selectedRow.isEmpty,
-                      let content = model.states["content"] as? [[String]],
-                      let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
+        // Check for heterogeneous list (children array)
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
+        if !children.isEmpty {
+            // Heterogeneous list mode: show arbitrary views from children array
+            let actionID = properties["actionID"] as? String
+            let doubleClickActionID = properties["doubleClickActionID"] as? String
+            
+            // Selection binding for heterogeneous list (selected view IDs as Set<Int>)
+            let selectionBinding = Binding<Set<Int>>(
+                get: {
+                    if let value = model.value as? [String], !value.isEmpty,
+                       let idString = value.first,
+                       let id = Int(idString) {
+                        return Set([id])
+                    }
                     return Set<Int>()
-                }
-                return Set([selectedIndex])
-            },
-            set: { newSet in
-                // Enforce single selection for now (take first if somehow multi arrives)
-                guard let newIndex = newSet.first else {
-                    if !(model.value as? [String] ?? []).isEmpty {
+                },
+                set: { newSet in
+                    // Enforce single selection for now (take first if somehow multi arrives)
+                    if let newID = newSet.first {
                         DispatchQueue.main.async {
-                            model.value = []
-                            // optional: trigger valueChangeActionID if needed
-                        }
-                    }
-                    return
-                }
-
-                guard let content = model.states["content"] as? [[String]],
-                      content.indices.contains(newIndex) else { return }
-
-                let selectedRowValues = content[newIndex]
-
-                guard (model.value as? [String]) != selectedRowValues else { return }
-
-                DispatchQueue.main.async {
-                    model.value = selectedRowValues
-                    if let actionID = properties["actionID"] as? String {
-                        ActionUIModel.shared.actionHandler(
-                            actionID,
-                            windowUUID: windowUUID,
-                            viewID: element.id,
-                            viewPartID: 0
-                        )
-                    }
-                }
-            }
-        )
-        
-        return SwiftUI.List(selection: selectionBinding) {
-            SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
-                SwiftUI.Group {
-                    let item = displayItems[index]
-                    switch viewType {
-                    case "Text":
-                        SwiftUI.Text(item)
-                    case "Button":
-                        SwiftUI.Button(item) {
-                            if let buttonActionID = buttonActionID {
-                                let context: Any = actionContext == "rowIndex" ? index : item
-                                ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
+                            model.value = [String(newID)]
+                            if let actionID = actionID {
+                                ActionUIModel.shared.actionHandler(
+                                    actionID,
+                                    windowUUID: windowUUID,
+                                    viewID: element.id,
+                                    viewPartID: 0
+                                )
                             }
                         }
-                    case "Image":
-                        SwiftUI.Image(from: item, interpretation: dataInterpretation)
-                    case "AsyncImage":
-                        SwiftUI.AsyncImage(url: URL(string: item)) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            SwiftUI.ProgressView()
+                    } else {
+                        DispatchQueue.main.async {
+                            model.value = []
                         }
-                    default:
-                        SwiftUI.Text(item)
+                    }
+                }
+            )
+            
+            return SwiftUI.List(selection: selectionBinding) {
+                ForEach(children, id: \.id) { child in
+                    if let childModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                            .tag(child.id) // Required for selection to work with id
                     }
                 }
             }
-        }
-        #if canImport(AppKit)
-        .onTapGesture(count: 2) {
-            if let doubleClickActionID = doubleClickActionID,
-               let selectedRow = model.value as? [String],
-               !selectedRow.isEmpty,
-               let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
-                ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+            #if canImport(AppKit)
+            .onTapGesture(count: 2) {
+                if let doubleClickActionID = doubleClickActionID,
+                   let value = model.value as? [String], !value.isEmpty,
+                   let idString = value.first,
+                   let id = Int(idString),
+                   let index = children.firstIndex(where: { $0.id == id }) {
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+                }
             }
+            #endif
+        } else {
+            // Homogeneous list mode
+            let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
+            let viewType = itemType["viewType"] as? String ?? "Text"
+            let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
+            let actionContext = itemType["actionContext"] as? String ?? "title"
+            let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
+            let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
+            let buttonActionID = itemType["actionID"] as? String
+            let doubleClickActionID = properties["doubleClickActionID"] as? String
+            
+            // Indices are 0..<displayItems.count — stable even with duplicate display strings
+            let selectionBinding = Binding<Set<Int>>(
+                get: {
+                    guard let selectedRow = model.value as? [String],
+                          !selectedRow.isEmpty,
+                          let content = model.states["content"] as? [[String]],
+                          let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
+                        return Set<Int>()
+                    }
+                    return Set([selectedIndex])
+                },
+                set: { newSet in
+                    // Enforce single selection for now (take first if somehow multi arrives)
+                    guard let newIndex = newSet.first else {
+                        if !(model.value as? [String] ?? []).isEmpty {
+                            DispatchQueue.main.async {
+                                model.value = []
+                                // optional: trigger valueChangeActionID if needed
+                            }
+                        }
+                        return
+                    }
+                    
+                    guard let content = model.states["content"] as? [[String]],
+                          content.indices.contains(newIndex) else { return }
+                    
+                    let selectedRowValues = content[newIndex]
+                    
+                    guard (model.value as? [String]) != selectedRowValues else { return }
+                    
+                    DispatchQueue.main.async {
+                        model.value = selectedRowValues
+                        if let actionID = properties["actionID"] as? String {
+                            ActionUIModel.shared.actionHandler(
+                                actionID,
+                                windowUUID: windowUUID,
+                                viewID: element.id,
+                                viewPartID: 0
+                            )
+                        }
+                    }
+                }
+            )
+            
+            return SwiftUI.List(selection: selectionBinding) {
+                SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
+                    SwiftUI.Group {
+                        let item = displayItems[index]
+                        switch viewType {
+                        case "Text":
+                            SwiftUI.Text(item)
+                        case "Button":
+                            SwiftUI.Button(item) {
+                                if let buttonActionID = buttonActionID {
+                                    let context: Any = actionContext == "rowIndex" ? index : item
+                                    ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
+                                }
+                            }
+                        case "Image":
+                            SwiftUI.Image(from: item, interpretation: dataInterpretation)
+                        case "AsyncImage":
+                            SwiftUI.AsyncImage(url: URL(string: item)) { image in
+                                image.resizable().scaledToFit()
+                            } placeholder: {
+                                SwiftUI.ProgressView()
+                            }
+                        default:
+                            SwiftUI.Text(item)
+                        }
+                    }
+                }
+            }
+            #if canImport(AppKit)
+            .onTapGesture(count: 2) {
+                if let doubleClickActionID = doubleClickActionID,
+                   let selectedRow = model.value as? [String],
+                   !selectedRow.isEmpty,
+                   let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+                }
+            }
+            #endif
         }
-        #endif
     }
     
     static var initialValue: (ViewModel) -> Any? = { model in
