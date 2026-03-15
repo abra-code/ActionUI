@@ -17,7 +17,7 @@ extension [String: Any] {
         guard let value = self[key] else {
             return nil
         }
-        
+
         switch value {
         case let intValue as Int:
             return Double(intValue)
@@ -31,6 +31,12 @@ extension [String: Any] {
             return Double(int64Value)
         case let uintValue as UInt:
             return Double(uintValue)
+        case let stringValue as String:
+            let lower = stringValue.lowercased()
+            if lower == "inf" || lower == "infinity" {
+                return .infinity
+            }
+            return nil
         default:
             return nil
         }
@@ -43,7 +49,7 @@ extension [String: Any] {
         guard let value = self[key] else {
             return nil
         }
-        
+
         switch value {
         case let intValue as Int:
             return CGFloat(intValue)
@@ -57,6 +63,12 @@ extension [String: Any] {
             return CGFloat(int64Value)
         case let uintValue as UInt:
             return CGFloat(uintValue)
+        case let stringValue as String:
+            let lower = stringValue.lowercased()
+            if lower == "inf" || lower == "infinity" {
+                return .infinity
+            }
+            return nil
         default:
             return nil
         }

@@ -182,6 +182,86 @@ final class DictionaryNumericTests: XCTestCase {
         )
     }
     
+    func testDoubleForKeyWithInfinityStrings() {
+        let dictionary: [String: Any] = [
+            "inf": "inf",
+            "infinity": "infinity",
+            "INF": "INF",
+            "Infinity": "Infinity",
+            "notInf": "infinite",
+            "numeric": "8.0"
+        ]
+
+        XCTAssertEqual(
+            dictionary.double(forKey: "inf"),
+            .infinity,
+            "Should return .infinity for 'inf'"
+        )
+        XCTAssertEqual(
+            dictionary.double(forKey: "infinity"),
+            .infinity,
+            "Should return .infinity for 'infinity'"
+        )
+        XCTAssertEqual(
+            dictionary.double(forKey: "INF"),
+            .infinity,
+            "Should return .infinity for 'INF' (case-insensitive)"
+        )
+        XCTAssertEqual(
+            dictionary.double(forKey: "Infinity"),
+            .infinity,
+            "Should return .infinity for 'Infinity' (case-insensitive)"
+        )
+        XCTAssertNil(
+            dictionary.double(forKey: "notInf"),
+            "Should return nil for 'infinite' (not a recognized infinity string)"
+        )
+        XCTAssertNil(
+            dictionary.double(forKey: "numeric"),
+            "Should return nil for '8.0' (numeric strings are not parsed)"
+        )
+    }
+
+    func testCGFloatForKeyWithInfinityStrings() {
+        let dictionary: [String: Any] = [
+            "inf": "inf",
+            "infinity": "infinity",
+            "INF": "INF",
+            "Infinity": "Infinity",
+            "notInf": "infinite",
+            "numeric": "8.0"
+        ]
+
+        XCTAssertEqual(
+            dictionary.cgFloat(forKey: "inf"),
+            .infinity,
+            "Should return .infinity for 'inf'"
+        )
+        XCTAssertEqual(
+            dictionary.cgFloat(forKey: "infinity"),
+            .infinity,
+            "Should return .infinity for 'infinity'"
+        )
+        XCTAssertEqual(
+            dictionary.cgFloat(forKey: "INF"),
+            .infinity,
+            "Should return .infinity for 'INF' (case-insensitive)"
+        )
+        XCTAssertEqual(
+            dictionary.cgFloat(forKey: "Infinity"),
+            .infinity,
+            "Should return .infinity for 'Infinity' (case-insensitive)"
+        )
+        XCTAssertNil(
+            dictionary.cgFloat(forKey: "notInf"),
+            "Should return nil for 'infinite' (not a recognized infinity string)"
+        )
+        XCTAssertNil(
+            dictionary.cgFloat(forKey: "numeric"),
+            "Should return nil for '8.0' (numeric strings are not parsed)"
+        )
+    }
+
     func testDoubleForKeyWithEdgeCases() {
         // Arrange: Dictionary with edge case numeric values
         let dictionary: [String: Any] = [
