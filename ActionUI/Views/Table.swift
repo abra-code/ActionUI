@@ -14,7 +14,7 @@
        { "viewType": "Image",
          "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
      ],
-     "widths": [100, 80, 40],               // Optional: Array of integers for column widths
+     "widths": [100, 80, 40],               // Optional: Array of integers for ideal column widths (resizable; last column fills remaining space)
      "actionID": "table.selection.changed", // Optional: Fires on selection change (all cell types)
      "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
@@ -42,7 +42,9 @@ struct TableRowData: Identifiable {
 struct ColumnData: Identifiable {
     let id: Int
     let name: String
-    let width: CGFloat
+    let minWidth: CGFloat?
+    let idealWidth: CGFloat?
+    let maxWidth: CGFloat?
 }
 
 struct Table: ActionUIViewConstruction {
@@ -121,10 +123,19 @@ struct Table: ActionUIViewConstruction {
         let columnTypes = properties["columnTypes"] as? [[String: Any]] ?? []
         let columns = (properties["columns"] as? [String]) ?? []
         let rows = (model.states["content"] as? [[String]]) ?? []
-        let widths = (properties["widths"] as? [Int])?.map { CGFloat($0) } ?? Array(repeating: CGFloat(100), count: columns.count)
-        
+        let idealWidths = (properties["widths"] as? [Int])?.map { CGFloat($0) }
+        let lastVisibleIndex = columns.count - 1
+
         let columnData = columns.enumerated().map { (index, name) in
-            ColumnData(id: index, name: name, width: widths.indices.contains(index) ? widths[index] : 100)
+            let ideal: CGFloat? = idealWidths.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 100
+            let isLast = (index == lastVisibleIndex)
+            return ColumnData(
+                id: index,
+                name: name,
+                minWidth: 40,
+                idealWidth: ideal,
+                maxWidth: isLast ? .infinity : nil
+            )
         }
         let rowData = rows.enumerated().map { (index, row) in
             TableRowData(id: "row-\(index)", values: row)
@@ -208,7 +219,7 @@ struct Table: ActionUIViewConstruction {
                         }
                     }
                 }
-                .width(column.width)
+                .width(min: column.minWidth, ideal: column.idealWidth, max: column.maxWidth)
             }
         }
         .onTapGesture(count: 2) {
