@@ -265,6 +265,51 @@ final class ActionUIModelTests: XCTestCase {
         XCTAssertTrue(info.isEmpty, "Should return empty dict after test reset")
     }
 
+    func testGetElementInfoIncludesSubViewElements() throws {
+        // Simulate a window with a root element (like a TabView) and a dynamically loaded sub-view
+        // (like a LoadableView loading General.json). The sub-view elements should appear in getElementInfo.
+        let rootDict: [String: Any] = [
+            "id": 10,
+            "type": "VStack",
+            "properties": [:],
+            "children": [
+                ["id": 101, "type": "Text", "properties": ["text": "placeholder"]]
+            ]
+        ]
+
+        let actionUIModel = ActionUIModel.shared
+        _ = try actionUIModel.loadDescription(from: rootDict, windowUUID: windowUUID)
+
+        // Before sub-view load: only root elements
+        let infoBefore = actionUIModel.getElementInfo(windowUUID: windowUUID)
+        XCTAssertEqual(infoBefore.count, 2)
+        XCTAssertEqual(infoBefore[10], "VStack")
+        XCTAssertEqual(infoBefore[101], "Text")
+
+        // Load sub-view content (simulates LoadableView loading a JSON file)
+        let subViewJSON = """
+        {
+            "type": "VStack",
+            "properties": {},
+            "children": [
+                {"id": 302, "type": "TextField", "properties": {}},
+                {"id": 303, "type": "TextField", "properties": {}},
+                {"id": 305, "type": "TextField", "properties": {}}
+            ]
+        }
+        """
+        let subData = subViewJSON.data(using: .utf8)!
+        _ = try actionUIModel.loadSubViewDescription(from: subData, format: "json", windowUUID: windowUUID, parentID: 101)
+
+        // After sub-view load: should include both root and sub-view elements
+        let infoAfter = actionUIModel.getElementInfo(windowUUID: windowUUID)
+        XCTAssertEqual(infoAfter[10], "VStack", "Root element should still be present")
+        XCTAssertEqual(infoAfter[101], "Text", "Root child should still be present")
+        XCTAssertEqual(infoAfter[302], "TextField", "Sub-view element should be discovered")
+        XCTAssertEqual(infoAfter[303], "TextField", "Sub-view element should be discovered")
+        XCTAssertEqual(infoAfter[305], "TextField", "Sub-view element should be discovered")
+    }
+
     // MARK: - getElementRows / setElementRows / clearElementRows / appendElementRows tests
 
     private func loadListElement(viewID: Int = 1) throws {
