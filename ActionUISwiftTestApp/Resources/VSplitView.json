@@ -1,0 +1,32 @@
+{
+  "type": "VSplitView",
+  "id": 1,
+  "properties": {},
+  "children": [
+    {
+      "type": "TextEditor",
+      "id": 2,
+      "properties": {
+        "text": "Top pane — source code or input area",
+        "font": "system(size: 12, design: monospaced)",
+        "frame": {
+          "minHeight": 100,
+          "idealHeight": 200
+        }
+      }
+    },
+    {
+      "type": "TextEditor",
+      "id": 3,
+      "properties": {
+        "text": "Bottom pane — output or log area",
+        "font": "system(size: 11, design: monospaced)",
+        "disabled": true,
+        "frame": {
+          "minHeight": 80,
+          "idealHeight": 150
+        }
+      }
+    }
+  ]
+}

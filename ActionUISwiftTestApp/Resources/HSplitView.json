@@ -1,0 +1,77 @@
+{
+  "type": "HSplitView",
+  "id": 1,
+  "properties": {},
+  "children": [
+    {
+      "type": "List",
+      "id": 2,
+      "properties": {
+        "actionID": "hsplit.list.selection.changed",
+        "frame": {
+          "minWidth": 150,
+          "idealWidth": 200,
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        }
+      },
+      "children": [
+        {
+          "type": "Label",
+          "id": 100,
+          "properties": {
+            "title": "README.md",
+            "systemImage": "doc.text"
+          }
+        },
+        {
+          "type": "Label",
+          "id": 101,
+          "properties": {
+            "title": "Package.swift",
+            "systemImage": "shippingbox"
+          }
+        },
+        {
+          "type": "Label",
+          "id": 102,
+          "properties": {
+            "title": "Sources",
+            "systemImage": "folder"
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "properties": {
+        "alignment": "leading",
+        "spacing": 8,
+        "padding": "default",
+        "frame": {
+          "maxWidth": "infinity",
+          "maxHeight": "infinity"
+        }
+      },
+      "children": [
+        {
+          "type": "Text",
+          "id": 10,
+          "properties": {
+            "text": "Detail",
+            "font": "title2"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 11,
+          "properties": {
+            "text": "Select an item from the sidebar.",
+            "foregroundStyle": "secondary"
+          }
+        },
+        { "type": "Spacer" }
+      ]
+    }
+  ]
+}
