@@ -532,15 +532,23 @@ public class ActionUIModel: ObservableObject {
 
     // Returns a dictionary mapping positive (user-assigned) view IDs to their view type strings for a given window.
     // Negative IDs are auto-assigned and excluded; 0 is not a valid ID.
-    // Design decision: Traverses the element tree rather than viewModels to avoid exposing auto-assigned negative IDs
+    // Includes elements loaded dynamically by LoadableView (merged into viewModels but not in the element tree).
     public func getElementInfo(windowUUID: String) -> [Int: String] {
-        guard let windowModel = windowModels[windowUUID],
-              let rootElement = windowModel.element else {
+        guard let windowModel = windowModels[windowUUID] else {
             logger.log("No window found for windowUUID: \(windowUUID)", .warning)
             return [:]
         }
         var result: [Int: String] = [:]
-        collectElementInfo(from: rootElement, into: &result)
+        if let rootElement = windowModel.element {
+            collectElementInfo(from: rootElement, into: &result)
+        }
+        // Also include positive IDs from viewModels that weren't in the element tree
+        // (e.g. elements loaded dynamically by LoadableView)
+        for (id, viewModel) in windowModel.viewModels {
+            if id > 0 && result[id] == nil {
+                result[id] = viewModel.elementType
+            }
+        }
         return result
     }
 
