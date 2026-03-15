@@ -352,6 +352,49 @@ final class PickerTests: XCTestCase {
         XCTAssertEqual(updatedValue as? String, "latex", "Picker should accept tags from any section")
     }
 
+    func testPickerWithDivider() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Picker",
+            "properties": {
+                "title": "Template",
+                "options": [
+                    {"title": "Empty", "tag": "empty"},
+                    {"title": "Window", "tag": "window"},
+                    {"divider": true},
+                    {"title": "Clone Existing…", "tag": "__clone__"}
+                ],
+                "pickerStyle": "menu"
+            }
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        _ = actionUIView.body
+
+        // Initial value should be the first selectable item, divider is skipped
+        XCTAssertEqual(viewModel.value as? String, "empty", "State should initialize with first option tag")
+
+        // Can select item after divider
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: "__clone__")
+        let updatedValue = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id)
+        XCTAssertEqual(updatedValue as? String, "__clone__", "Picker should accept tags after a divider")
+    }
+
     func testPickerSectionsWithUngroupedItems() throws {
         let jsonString = """
         {

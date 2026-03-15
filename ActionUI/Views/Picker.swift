@@ -12,6 +12,7 @@
        //    [{"section": "Popular"}, {"title": "HTML", "tag": "html"}, {"section": "Other"}, {"title": "XML", "tag": "xml"}]
        //    Items following a section entry belong to that section until the next section entry.
        //    Items before any section entry are placed in an implicit ungrouped section.
+       //    A {"divider": true} entry inserts a visual separator line (works best with "menu" pickerStyle).
      "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only), "radioGroup" (macOS only); no default
      "horizontalRadioGroupLayout": false, // Optional: Bool, applies .horizontalRadioGroupLayout() when pickerStyle is "radioGroup" (macOS only); defaults to false
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
@@ -37,8 +38,13 @@ struct Picker: ActionUIViewConstruction {
     private struct OptionSection: Identifiable {
         let title: String?
         let items: [OptionItem]
-        var id: String { title ?? "_ungrouped" }
+        let index: Int
+        var id: String { title ?? "_section_\(index)" }
     }
+
+    // Dividers inside a SwiftUI Picker content builder are silently ignored (only tagged views are kept).
+    // To render a visual separator, we convert {"divider": true} into a Section with nil title.
+    // Section { items } (no header) produces a divider line between groups without empty header space.
 
     private static func extractSections(from raw: Any?, logger: (any ActionUILogger)? = nil) -> [OptionSection] {
         guard let raw = raw else { return [] }
@@ -48,10 +54,10 @@ struct Picker: ActionUIViewConstruction {
             let items = titles.enumerated().map { index, title in
                 OptionItem(title: title, tag: String(index + 1))
             }
-            return [OptionSection(title: nil, items: items)]
+            return [OptionSection(title: nil, items: items, index: 0)]
         }
 
-        // Format 2: array of dictionaries, possibly with section entries
+        // Format 2: array of dictionaries, possibly with section/divider entries
         if let dicts = raw as? [[String: Any]] {
             var sections: [OptionSection] = []
             var currentSectionTitle: String? = nil
@@ -59,12 +65,22 @@ struct Picker: ActionUIViewConstruction {
             var hasSections = false
 
             for (idx, dict) in dicts.enumerated() {
-                // Check for section header entry
+                // Divider entry: flush current items into a section, start a new nil-titled section
+                if dict["divider"] as? Bool == true {
+                    hasSections = true
+                    if !currentItems.isEmpty || !sections.isEmpty {
+                        sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
+                        currentItems = []
+                    }
+                    currentSectionTitle = nil
+                    continue
+                }
+
+                // Section header entry
                 if let sectionTitle = dict["section"] as? String {
                     hasSections = true
-                    // Flush current items into a section
-                    if !currentItems.isEmpty || sections.isEmpty == false {
-                        sections.append(OptionSection(title: currentSectionTitle, items: currentItems))
+                    if !currentItems.isEmpty || !sections.isEmpty {
+                        sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
                         currentItems = []
                     }
                     currentSectionTitle = sectionTitle
@@ -85,10 +101,9 @@ struct Picker: ActionUIViewConstruction {
 
             // Flush remaining items
             if hasSections {
-                sections.append(OptionSection(title: currentSectionTitle, items: currentItems))
+                sections.append(OptionSection(title: currentSectionTitle, items: currentItems, index: sections.count))
             } else {
-                // No section entries found - single ungrouped section (Format 2)
-                sections = [OptionSection(title: nil, items: currentItems)]
+                sections = [OptionSection(title: nil, items: currentItems, index: 0)]
             }
 
             return sections
@@ -160,20 +175,25 @@ struct Picker: ActionUIViewConstruction {
         )
 
         let title = properties["title"] as? String ?? ""
-        let useSections = sections.contains { $0.title != nil }
+        let useSections = sections.count > 1 || sections.contains { $0.title != nil }
 
+        // Dividers inside a Picker content builder are silently ignored by SwiftUI.
+        // Instead, we use Section (with or without a header) to create visual separators.
+        // Section { items } with no header renders a divider line without empty header space.
         return SwiftUI.Picker(title, selection: valueBinding) {
             if useSections {
                 ForEach(sections) { section in
-                    if let sectionTitle = section.title {
+                    if let sectionTitle = section.title, !sectionTitle.isEmpty {
                         SwiftUI.Section(sectionTitle) {
                             ForEach(section.items) { item in
                                 SwiftUI.Text(item.title).tag(item.tag)
                             }
                         }
                     } else {
-                        ForEach(section.items) { item in
-                            SwiftUI.Text(item.title).tag(item.tag)
+                        SwiftUI.Section {
+                            ForEach(section.items) { item in
+                                SwiftUI.Text(item.title).tag(item.tag)
+                            }
                         }
                     }
                 }

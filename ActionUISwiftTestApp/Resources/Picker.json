@@ -66,26 +66,47 @@
     {
       "type": "Text",
       "properties": {
-        "text": "Menu Picker — with sections",
+        "text": "Menu Picker — with sections and dividers",
         "font": "headline",
         "padding": { "top": 16, "bottom": 4 }
       }
     },
     {
-      "type": "Picker",
-      "properties": {
-        "title": "Output Format",
-        "options": [
-          {"section": "Popular"},
-          {"title": "HTML", "tag": "html"},
-          {"title": "RTF", "tag": "rtf"},
-          {"section": "Other"},
-          {"title": "EPUB", "tag": "epub"},
-          {"title": "LaTeX", "tag": "latex"}
-        ],
-        "pickerStyle": "menu",
-        "actionID": "picker.selection"
-      }
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        {
+          "type": "Picker",
+          "properties": {
+            "title": "Sections",
+            "options": [
+              {"section": "Popular"},
+              {"title": "HTML", "tag": "html"},
+              {"title": "RTF", "tag": "rtf"},
+              {"section": "Other"},
+              {"title": "EPUB", "tag": "epub"},
+              {"title": "LaTeX", "tag": "latex"}
+            ],
+            "pickerStyle": "menu",
+            "actionID": "picker.selection"
+          }
+        },
+        {
+          "type": "Picker",
+          "properties": {
+            "title": "Divider",
+            "options": [
+              {"title": "HTML", "tag": "html"},
+              {"title": "RTF", "tag": "rtf"},
+              {"divider": true},
+              {"title": "EPUB", "tag": "epub"},
+              {"title": "LaTeX", "tag": "latex"}
+            ],
+            "pickerStyle": "menu",
+            "actionID": "picker.selection"
+          }
+        }
+      ]
     },
     {
       "type": "Text",

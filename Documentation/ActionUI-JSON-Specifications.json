@@ -911,6 +911,7 @@
        //    [{"section": "Popular"}, {"title": "HTML", "tag": "html"}, {"section": "Other"}, {"title": "XML", "tag": "xml"}]
        //    Items following a section entry belong to that section until the next section entry.
        //    Items before any section entry are placed in an implicit ungrouped section.
+       //    A {"divider": true} entry inserts a visual separator line (works best with "menu" pickerStyle).
      "pickerStyle": "menu",      // Optional: "menu" (iOS/macOS/visionOS), "segmented" (iOS/macOS/visionOS), "wheel" (iOS/visionOS only), "radioGroup" (macOS only); no default
      "horizontalRadioGroupLayout": false, // Optional: Bool, applies .horizontalRadioGroupLayout() when pickerStyle is "radioGroup" (macOS only); defaults to false
      "actionID": "picker.selection", // Optional: String for action triggered on user-initiated selection change (inherited from View)
