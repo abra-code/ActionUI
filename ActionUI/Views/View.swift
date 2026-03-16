@@ -8,7 +8,11 @@
      "padding": 10.0,      // Optional: Double for padding around the view, string "default" or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
      "hidden": false,      // Optional: Boolean to hide the view
      "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
-     "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
+     "font": "body",       // Optional: String for SwiftUI font role (e.g., "title", "body") or font name (e.g., "Menlo"),
+                           //   or dictionary: { "name": "Menlo", "size": 12, "weight": "bold", "design": "monospaced" }
+                           //   Dictionary keys: "name" (String, omit for system font), "size" (Number, required for dict form),
+                           //   "weight" (String: ultraLight/thin/light/regular/medium/semibold/bold/heavy/black),
+                           //   "design" (String: default/monospaced/rounded/serif)
      "background": "white", // Optional: SwiftUI color (e.g., "red", "blue"), hex (e.g., "#FF0000"), or semantic style for background, resolved via background
      "frame": {            // Optional: Dictionary defining view size, supports two mutually exclusive forms
        // Fixed Frame Form:
@@ -146,10 +150,12 @@ struct View: ActionUIViewConstruction {
             validatedProperties["foregroundStyle"] = nil
         }
         
-        // Validate font
-        if let font = properties["font"], !(font is String) {
-            logger.log("Invalid type for font: expected String, got \(type(of: font)), ignoring", .warning)
-            validatedProperties["font"] = nil
+        // Validate font (String or Dictionary)
+        if let font = properties["font"] {
+            if !(font is String) && !(font is [String: Any]) {
+                logger.log("Invalid type for font: expected String or Dictionary, got \(type(of: font)), ignoring", .warning)
+                validatedProperties["font"] = nil
+            }
         }
         
         // Validate background
@@ -613,7 +619,7 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.padding()
         }
         
-        if let font = properties["font"] as? String {
+        if let font = properties["font"] {
             modifiedView = modifiedView.font(FontHelper.resolveFont(font, logger))
         }
         

@@ -1313,7 +1313,12 @@
      "padding": 10.0,      // Optional: Double for padding around the view, string "default" or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
      "hidden": false,      // Optional: Boolean to hide the view
      "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
-     "font": "body",       // Optional: SwiftUI font role (e.g., "title", "body") for text content
+     "font": "body",       // Optional: String for named text style (e.g., "title", "body") or font name (e.g., "Menlo"),
+                           //   or dictionary: { "name": "Menlo", "size": 12, "weight": "bold", "design": "monospaced" }
+                           //   "name" (String, optional): font family name; omit for system font
+                           //   "size" (Number, required for dict form): point size
+                           //   "weight" (String, optional): ultraLight/thin/light/regular/medium/semibold/bold/heavy/black
+                           //   "design" (String, optional): default/monospaced/rounded/serif
      "background": "white", // Optional: SwiftUI color (e.g., "red", "blue"), hex (e.g., "#FF0000"), or semantic style for background, resolved via background
      "frame": {            // Optional: Dictionary defining view size, supports two mutually exclusive forms
        // Fixed Frame Form:
