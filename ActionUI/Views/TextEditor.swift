@@ -16,14 +16,15 @@
 */
 
 import SwiftUI
+import Combine
 
 struct TextEditor: ActionUIViewConstruction {
     // Design decision: Defines valueType as String to reflect text input for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { String.self }
-    
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
+
         // Validate text (initial value)
         if properties["text"] != nil && !(properties["text"] is String) {
             logger.log("TextEditor text must be a String; ignoring", .warning)
@@ -38,48 +39,24 @@ struct TextEditor: ActionUIViewConstruction {
 
         return validatedProperties
     }
-    
+
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialValue = Self.initialValue(model) as? String ?? ""
         let isReadOnly = properties["readOnly"] as? Bool ?? false
+        let placeholder = properties["placeholder"] as? String
+        let valueChangeActionID = properties["valueChangeActionID"] as? String
 
-        let textBinding = Binding(
-            get: { model.value as? String ?? initialValue },
-            set: { newValue in
-                if isReadOnly { return }
-                guard model.value as? String != newValue else {
-                    return
-                }
-                // Use DispatchQueue.main.async to guarantee deferred execution and avoid
-                // "publishing changes from within view updates" warning
-                DispatchQueue.main.async {
-                    model.value = newValue
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                    }
-                }
-            }
+        return TextEditorContainer(
+            model: model,
+            initialValue: initialValue,
+            isReadOnly: isReadOnly,
+            placeholder: placeholder,
+            valueChangeActionID: valueChangeActionID,
+            windowUUID: windowUUID,
+            elementId: element.id
         )
-        
-        if let placeholder = properties["placeholder"] as? String, !placeholder.isEmpty {
-            return SwiftUI.TextEditor(text: textBinding)
-                .overlay(
-                    SwiftUI.Group {
-                        if model.value as? String == "" {
-                            SwiftUI.Text(placeholder)
-                                .foregroundColor(.gray)
-                                .allowsHitTesting(false)
-                        } else {
-                            SwiftUI.EmptyView()
-                        }
-                    },
-                    alignment: .topLeading
-                )
-        } else {
-            return SwiftUI.TextEditor(text: textBinding)
-        }
     }
-    
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? String {
             return initialValue
@@ -88,5 +65,84 @@ struct TextEditor: ActionUIViewConstruction {
             return text
         }
         return ""
+    }
+
+    /// Non-@State counter to track pending async model updates without triggering view refreshes.
+    /// While pendingCount > 0, onReceive from model.$value is suppressed to prevent stale async
+    /// updates from resetting @State text and jumping the cursor during fast typing.
+    private class PendingUpdateTracker {
+        var pendingCount = 0
+    }
+
+    /// Wrapper view that owns @State for text, keeping SwiftUI in full control of cursor position.
+    /// Changes are synced to/from the ViewModel asynchronously, preventing cursor jumping
+    /// when hosted in NSHostingController. Mirrors NavigationStack.NavigationPathContainer pattern.
+    private struct TextEditorContainer: SwiftUI.View {
+        @ObservedObject var model: ViewModel
+        @State private var text: String
+        @State private var tracker = PendingUpdateTracker()
+        let initialValue: String
+        let isReadOnly: Bool
+        let placeholder: String?
+        let valueChangeActionID: String?
+        let windowUUID: String
+        let elementId: Int
+
+        init(model: ViewModel, initialValue: String, isReadOnly: Bool, placeholder: String?,
+             valueChangeActionID: String?, windowUUID: String, elementId: Int) {
+            self.model = model
+            self.initialValue = initialValue
+            self.isReadOnly = isReadOnly
+            self.placeholder = placeholder
+            self.valueChangeActionID = valueChangeActionID
+            self.windowUUID = windowUUID
+            self.elementId = elementId
+            self._text = State(initialValue: model.value as? String ?? initialValue)
+        }
+
+        var body: some SwiftUI.View {
+            textEditorView
+                .onChange(of: text) { _, newValue in
+                    // User typing → sync to model asynchronously (safe since @State holds cursor truth)
+                    if isReadOnly { return }
+                    if model.value as? String != newValue {
+                        tracker.pendingCount += 1
+                        DispatchQueue.main.async {
+                            model.value = newValue
+                            tracker.pendingCount -= 1
+                            if let valueChangeActionID {
+                                ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: elementId, viewPartID: 0)
+                            }
+                        }
+                    }
+                }
+                .onReceive(model.$value.map { $0 as? String ?? initialValue }) { modelValue in
+                    // Only accept external (programmatic) changes; suppress feedback from our own async updates
+                    if tracker.pendingCount == 0 && modelValue != text {
+                        text = modelValue
+                    }
+                }
+        }
+
+        @ViewBuilder
+        private var textEditorView: some SwiftUI.View {
+            if let placeholder, !placeholder.isEmpty {
+                SwiftUI.TextEditor(text: $text)
+                    .overlay(
+                        SwiftUI.Group {
+                            if text.isEmpty {
+                                SwiftUI.Text(placeholder)
+                                    .foregroundColor(.gray)
+                                    .allowsHitTesting(false)
+                            } else {
+                                SwiftUI.EmptyView()
+                            }
+                        },
+                        alignment: .topLeading
+                    )
+            } else {
+                SwiftUI.TextEditor(text: $text)
+            }
+        }
     }
 }
