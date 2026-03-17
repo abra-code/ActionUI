@@ -44,6 +44,7 @@ public class ActionUIRegistry {
         registerView(Button.self)
         registerView(Canvas.self)
         registerView(ColorPicker.self)
+        registerView(ContentUnavailableView.self)
         registerView(ControlGroup.self)
         registerView(DatePicker.self)
         registerView(DisclosureGroup.self)

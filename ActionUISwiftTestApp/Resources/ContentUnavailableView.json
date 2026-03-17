@@ -1,0 +1,76 @@
+{
+  "type": "Grid",
+  "properties": {
+    "padding": "default"
+  },
+  "rows": [
+    [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "With icon and description:",
+          "font": "caption"
+        }
+      },
+      {
+        "type": "ContentUnavailableView",
+        "id": 1,
+        "properties": {
+          "title": "No Favorites",
+          "systemImage": "star.slash",
+          "description": "Items you mark as favorite will appear here."
+        }
+      }
+    ],
+    [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Title and icon only:",
+          "font": "caption"
+        }
+      },
+      {
+        "type": "ContentUnavailableView",
+        "id": 2,
+        "properties": {
+          "title": "No Internet Connection",
+          "systemImage": "wifi.slash"
+        }
+      }
+    ],
+    [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Search variant (with query):",
+          "font": "caption"
+        }
+      },
+      {
+        "type": "ContentUnavailableView",
+        "id": 3,
+        "properties": {
+          "search": true,
+          "query": "planets"
+        }
+      }
+    ],
+    [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Search variant (empty query):",
+          "font": "caption"
+        }
+      },
+      {
+        "type": "ContentUnavailableView",
+        "id": 4,
+        "properties": {
+          "search": true
+        }
+      }
+    ]
+  ]
+}
