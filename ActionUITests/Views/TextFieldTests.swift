@@ -233,6 +233,63 @@ final class TextFieldTests: XCTestCase {
         XCTAssertEqual(value, "0", "initialValue for formatted field should default to '0'")
     }
 
+    // MARK: - Axis property validation
+
+    func testTextFieldAxisValidation() {
+        let vertical = TextField.validateProperties(["axis": "vertical"], logger)
+        XCTAssertEqual(vertical["axis"] as? String, "vertical", "Valid vertical axis should be preserved")
+
+        let horizontal = TextField.validateProperties(["axis": "horizontal"], logger)
+        XCTAssertEqual(horizontal["axis"] as? String, "horizontal", "Valid horizontal axis should be preserved")
+
+        let invalid = TextField.validateProperties(["axis": "diagonal"], logger)
+        XCTAssertNil(invalid["axis"], "Invalid axis value should be removed")
+
+        let nonString = TextField.validateProperties(["axis": 123], logger)
+        XCTAssertNil(nonString["axis"], "Non-String axis should be removed")
+    }
+
+    // MARK: - LineLimit property validation
+
+    func testTextFieldLineLimitExactValidation() {
+        let exact = TextField.validateProperties(["lineLimit": 5], logger)
+        XCTAssertEqual(exact["lineLimit"] as? Int, 5, "Exact lineLimit should be preserved")
+    }
+
+    func testTextFieldLineLimitRangeValidation() {
+        let range = TextField.validateProperties(["lineLimit": ["min": 3, "max": 10]], logger)
+        XCTAssertNotNil(range["lineLimit"], "Range lineLimit should be preserved")
+
+        let minOnly = TextField.validateProperties(["lineLimit": ["min": 3]], logger)
+        XCTAssertNotNil(minOnly["lineLimit"], "Min-only lineLimit should be preserved")
+
+        let emptyDict = TextField.validateProperties(["lineLimit": ["foo": "bar"]], logger)
+        XCTAssertNil(emptyDict["lineLimit"], "Dict without min/max should be removed")
+
+        let invalid = TextField.validateProperties(["lineLimit": "five"], logger)
+        XCTAssertNil(invalid["lineLimit"], "Non-Int/dict lineLimit should be removed")
+    }
+
+    // MARK: - Vertical TextField construction
+
+    func testTextFieldVerticalConstruction() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "TextField",
+            "properties": [
+                "prompt": "Enter description...",
+                "axis": "vertical",
+                "lineLimit": ["min": 3, "max": 10]
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        viewModel.validatedProperties = validatedProperties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+    }
+
     // MARK: - Formatted TextField construction
 
     func testTextFieldIntegerFormatConstruction() throws {

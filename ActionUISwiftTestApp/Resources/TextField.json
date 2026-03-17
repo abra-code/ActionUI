@@ -135,6 +135,40 @@
     {
       "type": "Text",
       "properties": {
+        "text": "Multi-line TextField (axis: vertical):",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "TextField",
+      "id": 20,
+      "properties": {
+        "prompt": "Enter a description...",
+        "axis": "vertical",
+        "lineLimit": {"min": 3, "max": 8}
+      }
+    },
+    {
+      "type": "TextField",
+      "id": 21,
+      "properties": {
+        "prompt": "Grows with no upper limit...",
+        "axis": "vertical",
+        "lineLimit": {"min": 2}
+      }
+    },
+    {
+      "type": "TextField",
+      "id": 22,
+      "properties": {
+        "prompt": "Fixed 5 lines",
+        "axis": "vertical",
+        "lineLimit": 5
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
         "text": "Formatted numeric TextFields:",
         "font": "caption"
       }

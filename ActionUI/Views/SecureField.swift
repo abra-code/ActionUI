@@ -9,8 +9,10 @@
      "prompt": "Enter password",     // Optional: String prompt (placeholder) shown inside the field when empty, defaults to nil
      "textContentType": "password",  // Optional: String for content type, must be one of: "password", "newPassword", "oneTimeCode"; defaults to nil, ignored on macOS
      "actionID": "secure.submit"     // Optional: String for action triggered on submit (e.g., Return key)
+                                     //   On macOS, actionID is also triggered when the field loses focus (tab away, click elsewhere),
+                                     //   matching classic AppKit text field behavior where ending editing commits the value.
    }
-   // Note: The SecureField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). Supported values for "textContentType": "password", "newPassword", "oneTimeCode" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
+   // Note: The SecureField view triggers an action via 'actionID' when the user submits input (e.g., Return key or "Done" on iOS). On macOS, actionID is also triggered on focus loss (tab, click away) to match classic AppKit behavior. Supported values for "textContentType": "password", "newPassword", "oneTimeCode" (ignored on macOS). Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). On macOS, the default text field style (likely rounded) is used.
  }
 */
 
@@ -22,7 +24,7 @@ import UIKit
 struct SecureField: ActionUIViewConstruction {
     // Design decision: Defines valueType as String to reflect secure text input for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type { String.self }
-    
+
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -53,10 +55,10 @@ struct SecureField: ActionUIViewConstruction {
             logger.log("SecureField textContentType must be 'password', 'newPassword', or 'oneTimeCode'; defaulting to nil", .warning)
             validatedProperties["textContentType"] = nil
         }
-        
+
         return validatedProperties
     }
-    
+
     // Builds the SwiftUI.SecureField view, binding its text to state and triggering actionID on submit
     // Design decision: Initializes value as "" if not set, preserving shared state (validatedProperties)
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
@@ -64,6 +66,12 @@ struct SecureField: ActionUIViewConstruction {
         let prompt = (properties["prompt"] as? String).map { SwiftUI.Text($0) }
         let actionID = properties["actionID"] as? String
         let initialValue = Self.initialValue(model) as? String ?? ""
+
+        let onSubmit = {
+            if let actionID = actionID {
+                ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+            }
+        }
 
         let textBinding = Binding(
             get: { model.value as? String ?? initialValue },
@@ -82,15 +90,12 @@ struct SecureField: ActionUIViewConstruction {
             }
         )
 
-        return SwiftUI.SecureField(title, text: textBinding, prompt: prompt)
-            .onSubmit {
-                // Trigger actionID only on submit (e.g., Return key or "Done" on iOS)
-                if let actionID = actionID {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
-                }
-            }
+        return TextFieldFocusContainer(onSubmit: onSubmit) {
+            SwiftUI.SecureField(title, text: textBinding, prompt: prompt)
+                .onSubmit(onSubmit)
+        }
     }
-    
+
     // Applies modifiers specific to SecureField, such as textContentType
     // Design decision: Relies on default macOS text field style (likely rounded) for HIG compliance; textContentType is iOS-only
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
@@ -111,7 +116,7 @@ struct SecureField: ActionUIViewConstruction {
         #endif
         return modifiedView
     }
-    
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? String {
             return initialValue
