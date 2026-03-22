@@ -9,7 +9,6 @@
      "systemImage": "plus.circle", // Optional: SF Symbol name
      "assetImage": "Logo",   // Optional: name from Assets.xcassets
      "imageScale": "large",  // Optional: image scale: "small", "medium", "large". Defaults to "medium" if absent
-     "disabled": false,      // Optional: Boolean to disable the button (handled by View)
      "buttonStyle": "plain", // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain" in applyModifiers
      "role": "destructive"   // Optional: Button role (e.g., "destructive", "cancel")
    }
