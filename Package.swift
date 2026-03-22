@@ -11,6 +11,9 @@
 //   • ActionUIObjCAdapter            – Objective-C adapter
 //   • ActionUIJavaScriptCoreAdapter  – JavaScriptCore adapter
 //   • ActionUIWebKitJSAdapter        – WebKit / WKWebView JS bridge adapter
+//   • ActionUIDocumentation          – Resource-only bundle (schemas, templates, index)
+//   • ActionUIViewer                 – Command-line tool to preview ActionUI JSON windows
+//   • ActionUIVerifier               – Command-line tool to validate ActionUI JSON files
 //
 // Excluded adapters:
 //   • ActionUICppAdapter             – not included in this distribution
@@ -68,6 +71,15 @@ let package = Package(
         .library(
             name: "ActionUIWebKitJSAdapter",
             targets: ["ActionUIWebKitJSAdapter"]
+        ),
+
+        // MARK: - Documentation bundle
+        // Resource-only bundle containing element schemas (.md), JSON templates,
+        // and the element index. No code dependencies — consumers access the
+        // bundle at runtime via ActionUIDocumentation.bundle.
+        .library(
+            name: "ActionUIDocumentation",
+            targets: ["ActionUIDocumentation"]
         ),
     ],
     targets: [
@@ -166,6 +178,41 @@ let package = Package(
             resources: [
                 .process("ActionUIWebKitJSBridge.js"),
             ],
+        ),
+
+        // MARK: - ActionUIViewer
+        // Command-line tool that loads an ActionUI JSON file and displays it
+        // in a native window. Used for previewing UI layouts during development.
+        .executableTarget(
+            name: "ActionUIViewer",
+            dependencies: ["ActionUI", "ActionUISwiftAdapter"],
+            path: "ActionUIViewer",
+            exclude: ["Info.plist"],
+        ),
+
+        // MARK: - ActionUIVerifier
+        // Command-line tool that validates ActionUI JSON files, checking for
+        // parse errors, unknown element types, duplicate IDs, and schema issues.
+        .executableTarget(
+            name: "ActionUIVerifier",
+            dependencies: ["ActionUI"],
+            path: "ActionUIVerifier",
+        ),
+
+        // MARK: - ActionUIDocumentation
+        // Resource-only target. Bundles the Documentation/ folder so consumers
+        // can access schemas, JSON templates, and the element index at runtime.
+        // Not linked into any framework — meant to be copied into app bundles.
+        .target(
+            name: "ActionUIDocumentation",
+            path: "Documentation",
+            sources: ["ActionUIDocumentation.swift"],
+            resources: [
+                .copy("ActionUI-JSON-Guide.md"),
+                .copy("ActionUI-Elements.md"),
+                .copy("Schemas"),
+                .copy("Elements"),
+            ]
         ),
 
         // MARK: - Unit tests for ActionUI core
