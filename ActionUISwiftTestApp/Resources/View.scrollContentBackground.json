@@ -1,0 +1,190 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20.0,
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "View.scrollContentBackground Modifier",
+        "font": "headline"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 20.0
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4.0
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": { "text": "List (default background)" }
+            },
+            {
+              "type": "List",
+              "properties": {
+                "background": "background.secondary",
+                "frame": { "width": 200.0, "height": 100.0 }
+              },
+              "children": [
+                { "type": "Text", "properties": { "text": "Item 1" } },
+                { "type": "Text", "properties": { "text": "Item 2" } },
+                { "type": "Text", "properties": { "text": "Item 3" } }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4.0
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": { "text": "List (hidden background)" }
+            },
+            {
+              "type": "List",
+              "properties": {
+                "background": "background.secondary",
+                "scrollContentBackground": "hidden",
+                "frame": { "width": 200.0, "height": 100.0 }
+              },
+              "children": [
+                { "type": "Text", "properties": { "text": "Item 1" } },
+                { "type": "Text", "properties": { "text": "Item 2" } },
+                { "type": "Text", "properties": { "text": "Item 3" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 20.0
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4.0
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": { "text": "TextEditor (default background)" }
+            },
+            {
+              "type": "TextEditor",
+              "id": 1,
+              "properties": {
+                "text": "Edit me",
+                "background": "background.secondary",
+                "frame": { "width": 200.0, "height": 100.0 }
+              }
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4.0
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": { "text": "TextEditor (hidden background)" }
+            },
+            {
+              "type": "TextEditor",
+              "id": 2,
+              "properties": {
+                "text": "Edit me",
+                "background": "background.secondary",
+                "scrollContentBackground": "hidden",
+                "frame": { "width": 200.0, "height": 100.0 }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 20.0
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4.0
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": { "text": "Form (default background)" }
+            },
+            {
+              "type": "Form",
+              "properties": {
+                "background": "background.secondary",
+                "frame": { "width": 200.0, "height": 200.0 },
+                "padding": "default"
+              },
+              "children": [
+                { "type": "TextField", "id": 3, "properties": { "title": "Name" } },
+                { "type": "Toggle", "id": 4, "properties": { "title": "Enabled" } },
+                { "type": "Text", "properties": { "text": "A form item" } }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4.0
+          },
+          "children": [
+            {
+              "type": "Text",
+              "properties": { "text": "Form (hidden background)" }
+            },
+            {
+              "type": "Form",
+              "properties": {
+                "background": "background.secondary",
+                "scrollContentBackground": "hidden",
+                "frame": { "width": 200.0, "height": 200.0 },
+                "padding": "default"
+              },
+              "children": [
+                { "type": "TextField", "id": 5, "properties": { "title": "Name" } },
+                { "type": "Toggle", "id": 6, "properties": { "title": "Enabled" } },
+                { "type": "Text", "properties": { "text": "A form item" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Background color is set on all views above.\nLeft column: default (visible) scroll content background hides the gray.\nRight column: hidden scroll content background lets the gray show through.",
+        "foregroundStyle": "primary"
+      }
+    }
+  ]
+}

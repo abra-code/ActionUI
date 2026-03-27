@@ -47,6 +47,7 @@
       "width": 1.0
     },
     "navigationTitle": "View",
+    "scrollContentBackground": "visible",
     "popoverArrowEdge": "top",
     "popoverActionID": "view.popover",
     "destinationViewId": 2,
