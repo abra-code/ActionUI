@@ -25,6 +25,11 @@ import SwiftUI
 // Without it, we would need to add a lot of specialized code to load non-ActionUIElement type
 
 struct Tab: ActionUIViewConstruction {
+    static var valueType: Any.Type = Void.self
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         return properties
     }

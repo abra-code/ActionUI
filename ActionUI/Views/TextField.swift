@@ -60,7 +60,9 @@ import UIKit
 #endif
 
 struct TextField: ActionUIViewConstruction {
-    static var valueType: Any.Type { String.self } // Value is always String, even for formatted numeric fields
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = String.self // Value is always String, even for formatted numeric fields
 
     // Validates properties specific to TextField; baseline properties are validated by ActionUIRegistry.validateProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in

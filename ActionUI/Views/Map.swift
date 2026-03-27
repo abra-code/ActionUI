@@ -43,8 +43,11 @@ extension [String: Any] {
 
 
 struct Map: ActionUIViewConstruction {
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     // Design decision: Defines valueType as CLLocationCoordinate2D to reflect map's center coordinate for type-safe string parsing in ActionUIModel
-    static var valueType: Any.Type { CLLocationCoordinate2D.self }
+    static var valueType: Any.Type = CLLocationCoordinate2D.self
     
     // Struct for annotation items
     private struct MapAnnotationItem: Identifiable {

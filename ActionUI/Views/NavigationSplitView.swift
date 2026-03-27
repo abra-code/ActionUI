@@ -62,8 +62,11 @@ import SwiftUI
 import Combine
 
 struct NavigationSplitView: ActionUIViewConstruction {
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
 
-    static var valueType: Any.Type { Void.self }
+
+    static var valueType: Any.Type = Void.self
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

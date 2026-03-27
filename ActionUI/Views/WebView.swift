@@ -55,7 +55,9 @@ import SwiftUI
 import WebKit
 
 struct WebView: ActionUIViewConstruction {
-    static var valueType: Any.Type { String.self }
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+
+    static var valueType: Any.Type = String.self
 
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validated = properties
@@ -414,4 +416,6 @@ private struct WebViewContent: SwiftUI.View {
             model.value = urlString
         }
     }
+
 }
+

@@ -16,8 +16,10 @@
 import SwiftUI
 
 struct Label: ActionUIViewConstruction {
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     // The mutable runtime value is the title string
-    static var valueType: Any.Type { String.self }
+    static var valueType: Any.Type = String.self
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

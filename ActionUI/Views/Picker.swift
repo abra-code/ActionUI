@@ -27,7 +27,9 @@
 import SwiftUI
 
 struct Picker: ActionUIViewConstruction {
-    static var valueType: Any.Type { String.self }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = String.self
     
     private struct OptionItem: Identifiable {
         let title: String

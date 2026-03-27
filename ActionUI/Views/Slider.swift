@@ -15,7 +15,10 @@
 import SwiftUI
 
 struct Slider: ActionUIViewConstruction {
-    static var valueType: Any.Type { Double.self } // Value is the slider's position
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = Double.self // Value is the slider's position
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

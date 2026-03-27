@@ -106,7 +106,10 @@
 import SwiftUI
 
 struct View: ActionUIViewConstruction {
-    static var valueType: Any.Type { Void.self }
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = Void.self
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -708,7 +711,7 @@ struct View: ActionUIViewConstruction {
             let width = border.cgFloat(forKey: "width") ?? 1.0
             modifiedView = modifiedView.border(color, width: width)
         }
-
+        
         if let controlSize = properties["controlSize"] as? String {
             switch controlSize {
             case "mini":
@@ -725,11 +728,11 @@ struct View: ActionUIViewConstruction {
                 break
             }
         }
-
+        
         if let labelsHidden = properties["labelsHidden"] as? Bool, labelsHidden {
             modifiedView = modifiedView.labelsHidden()
         }
-
+        
         if let shadow = properties["shadow"] as? [String: Any] {
             let color = ColorHelper.resolveColor(shadow["color"] as? String) ?? .black
             let radius = shadow.cgFloat(forKey: "radius") ?? 0.0
@@ -767,7 +770,7 @@ struct View: ActionUIViewConstruction {
         
         if let columnWidth = properties["navigationSplitViewColumnWidth"] {
             if let dict = columnWidth as? [String: Any],
-                let ideal = dict.cgFloat(forKey: "ideal"), ideal > 0 {
+               let ideal = dict.cgFloat(forKey: "ideal"), ideal > 0 {
                 let min = dict.cgFloat(forKey: "min")
                 let max = dict.cgFloat(forKey: "max")
                 
@@ -793,7 +796,6 @@ struct View: ActionUIViewConstruction {
                         logger.log("Duplicate modifiers found in keyboardShortcut.modifiers: \(modifiersArray), using unique values: \(uniqueModifiers)", .warning)
                     }
                     var eventModifiers: EventModifiers = []
-                    let validModifiers = ["command", "shift", "option", "control", "capsLock"]
                     for modifier in uniqueModifiers {
                         switch modifier {
                         case "command":
@@ -819,7 +821,7 @@ struct View: ActionUIViewConstruction {
         if let navigationTitle = properties["navigationTitle"] as? String {
             modifiedView = modifiedView.navigationTitle(navigationTitle)
         }
-
+        
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityLabel(accessibilityLabel)
         }

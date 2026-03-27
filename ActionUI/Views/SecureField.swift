@@ -22,8 +22,10 @@ import UIKit
 #endif
 
 struct SecureField: ActionUIViewConstruction {
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     // Design decision: Defines valueType as String to reflect secure text input for type-safe string parsing in ActionUIModel
-    static var valueType: Any.Type { String.self }
+    static var valueType: Any.Type = String.self
 
     // Validates properties specific to SecureField; baseline properties are validated by ActionUIRegistry.getValidatedProperties
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in

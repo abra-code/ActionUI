@@ -23,7 +23,9 @@ import UIKit
 #endif
 
 struct ProgressView: ActionUIViewConstruction {
-    static var valueType: Any.Type { Double?.self }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = Double?.self
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

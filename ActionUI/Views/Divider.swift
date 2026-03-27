@@ -13,11 +13,16 @@
 import SwiftUI
 
 struct Divider: ActionUIViewConstruction {
+    static var valueType: Any.Type = Void.self
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         return properties
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, _, _, _, _ in
         return SwiftUI.Divider()
-    }    
+    }
 }

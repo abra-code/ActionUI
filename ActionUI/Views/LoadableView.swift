@@ -19,7 +19,10 @@ import SwiftUI
 import Foundation
 
 struct LoadableView: ActionUIViewConstruction {
-    static var valueType: Any.Type { String.self } // String for url, filePath, or name
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = String.self // String for url, filePath, or name
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

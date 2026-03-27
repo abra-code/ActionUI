@@ -31,10 +31,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct Image: ActionUIViewConstruction {
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     // The runtime value of an Image is a string interpreted using "mixed" heuristics
     // (file path, SF Symbol name, or asset name).  Setting the value programmatically
     // overrides the static source properties (systemName, assetName, filePath, resourceName).
-    static var valueType: Any.Type { String?.self }
+    static var valueType: Any.Type = String?.self
 
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

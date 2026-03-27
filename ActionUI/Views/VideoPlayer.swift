@@ -16,7 +16,9 @@ import SwiftUI
 import AVKit
 
 struct VideoPlayer: ActionUIViewConstruction {
-    static var valueType: Any.Type { String.self } // Non-optional String for URL
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = String.self // Non-optional String for URL
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

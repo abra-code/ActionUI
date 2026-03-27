@@ -54,25 +54,6 @@ protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     static var initialStates: (ViewModel) -> [String: Any] { get }
 }
 
-// Default implementations for ActionUIViewConstruction
-extension ActionUIViewConstruction {
-    static var valueType: Any.Type {
-        return Void.self
-    }
-    
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View {
-        return { view, _, _, _, _ in view }
-    }
-    
-    static var initialValue: (ViewModel) -> Any?
-    {
-        return { model in return model.value }
-    }
-    
-    static var initialStates: (ViewModel) -> [String: Any] {
-        return { model in return model.states }
-    }
-}
 
 // Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views and other elements
 public struct ActionUIElement: ActionUIElementBase {

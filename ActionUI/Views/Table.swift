@@ -48,7 +48,9 @@ struct ColumnData: Identifiable {
 }
 
 struct Table: ActionUIViewConstruction {
-    static let valueType: Any.Type = [String].self // Value is the selected row as [String]
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+
+    static var valueType: Any.Type = [String].self // Value is the selected row as [String]
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

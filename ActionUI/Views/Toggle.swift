@@ -16,7 +16,9 @@
 import SwiftUI
 
 struct Toggle: ActionUIViewConstruction {
-    static var valueType: Any.Type { Bool.self } // Value is the toggle's on/off state
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
+    static var valueType: Any.Type = Bool.self // Value is the toggle's on/off state
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

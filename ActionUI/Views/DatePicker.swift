@@ -17,8 +17,10 @@
 import SwiftUI
 
 struct DatePicker: ActionUIViewConstruction {
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     // Design decision: Defines valueType as Date to support type-safe string parsing in ActionUIModel
-    static var valueType: Any.Type { Date.self }
+    static var valueType: Any.Type = Date.self
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties

@@ -34,6 +34,10 @@ import SwiftUI
 import Combine // Explicitly set access level to internal
 
 struct PhaseAnimator: ActionUIViewConstruction {
+    static var valueType: Any.Type = Void.self
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, _ in
         return properties
     }
