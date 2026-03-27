@@ -430,7 +430,7 @@ final class WebViewTests: XCTestCase {
         let viewModel = ViewModel()
         _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
 
-        for command in ["goBack", "goForward", "reload", "stop"] {
+        for command in ["#goBack", "#goForward", "#reload", "#stop"] {
             viewModel.value = command
             XCTAssertEqual(viewModel.value as? String, command,
                            "Command '\(command)' should be stored in model.value")

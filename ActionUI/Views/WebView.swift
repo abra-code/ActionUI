@@ -37,10 +37,10 @@
  Observable state (via getElementValue / getElementState):
    value (String)                     Current page URL.
                                       Write a URL string to navigate, or one of these commands:
-                                        "goBack"    – navigate back  (no-op if canGoBack is false)
-                                        "goForward" – navigate forward (no-op if canGoForward is false)
-                                        "reload"    – reload the current page
-                                        "stop"      – cancel an in-flight load
+                                        "#goBack"    – navigate back  (no-op if canGoBack is false)
+                                        "#goForward" – navigate forward (no-op if canGoForward is false)
+                                        "#reload"    – reload the current page
+                                        "#stop"      – cancel an in-flight load
    states["title"]     String?        Page <title> text; absent until first load completes
    states["isLoading"] Bool           true while a navigation is in flight
    states["estimatedProgress"] Double 0.0–1.0 load progress
@@ -376,24 +376,24 @@ private struct WebViewContent: SwiftUI.View {
         guard let command, !command.isEmpty, command != lastTrackedURL else { return }
 
         switch command {
-        case "goBack":
+        case "#goBack":
             if let backItem = page.backForwardList.backList.last {
                 page.load(backItem)
             } else {
                 logger.log("WebView goBack: no back item available", .warning)
                 resetModelValueToCurrentURL()
             }
-        case "goForward":
+        case "#goForward":
             if let forwardItem = page.backForwardList.forwardList.first {
                 page.load(forwardItem)
             } else {
                 logger.log("WebView goForward: no forward item available", .warning)
                 resetModelValueToCurrentURL()
             }
-        case "reload":
+        case "#reload":
             page.reload()
             resetModelValueToCurrentURL()
-        case "stop":
+        case "#stop":
             page.stopLoading()
             resetModelValueToCurrentURL()
         default:
