@@ -148,6 +148,9 @@ struct ActionUISwiftTestApp: App {
         // TODO: looks like CommandGroup & CommandMenu buttons with shortcuts will require special handling
         // this example command shortcut works but the ones set in base View.applyModifiers do not appear:
         .commands {
+            
+            TextEditingCommands()
+            
             CommandGroup(after: .help) {
                 Button("Help from ActionUISwiftTestApp") {
                     // Action for the About command
