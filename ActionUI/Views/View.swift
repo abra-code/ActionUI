@@ -84,7 +84,11 @@
 
  NOTE:
  Supported semantic styles for foregroundStyle/background:
-   - "background", "foreground", "primary", "secondary", "tertiary", "quaternary", "separator", "placeholder"
+   - "background", "background.secondary", "background.tertiary", "background.quaternary"
+   - "foreground", "foreground.secondary", "foreground.tertiary", "foreground.quaternary"
+   - "primary", "secondary", "tertiary", "quaternary", "quinary"
+   - "fill", "fill.secondary", "fill.tertiary", "fill.quaternary"
+   - "separator", "placeholder", "link", "selection", "tint", "windowBackground"
  Supported named colors:
    - "red", "blue", "green", "yellow", "orange", "purple", "pink", "mint", "teal", "cyan", "indigo", "brown", "gray", "black", "white", "clear", "accentcolor"
  You can also use hex color strings (e.g., "#FF0000", "#FF000080")

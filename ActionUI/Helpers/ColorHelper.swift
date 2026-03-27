@@ -111,14 +111,28 @@ class ColorHelper {
     
     // Resolves a string to a SwiftUI ShapeStyle (semantic or color)
     // Checks for semantic named styles, falls back to resolveColor()
-    // Supported semantic styles: background, foreground, primary, secondary, tertiary, quaternary, separator, placeholder
+    // Supported semantic styles: background(.secondary/.tertiary/.quaternary), foreground(.secondary/.tertiary/.quaternary),
+    // primary, secondary, tertiary, quaternary, quinary, separator, tint, fill(.secondary/.tertiary/.quaternary),
+    // placeholder, link, selection, windowBackground
     static func resolveShapeStyle(_ string: String) -> (any ShapeStyle)? {
         let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         switch normalized {
         case "background":
             return .background
+        case "background.secondary":
+            return .background.secondary
+        case "background.tertiary":
+            return .background.tertiary
+        case "background.quaternary":
+            return .background.quaternary
         case "foreground":
             return .foreground
+        case "foreground.secondary":
+            return .foreground.secondary
+        case "foreground.tertiary":
+            return .foreground.tertiary
+        case "foreground.quaternary":
+            return .foreground.quaternary
         case "primary":
             return .primary
         case "secondary":
@@ -135,6 +149,12 @@ class ColorHelper {
             return .tint
         case "fill":
         	return .fill
+        case "fill.secondary":
+            return .fill.secondary
+        case "fill.tertiary":
+            return .fill.tertiary
+        case "fill.quaternary":
+            return .fill.quaternary
         case "placeholder":
             return .placeholder
         case "link":
