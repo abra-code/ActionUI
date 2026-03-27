@@ -9,7 +9,6 @@
      "systemImage": "plus.circle", // Optional: SF Symbol name
      "assetImage": "Logo",   // Optional: name from Assets.xcassets
      "imageScale": "large",  // Optional: image scale: "small", "medium", "large". Defaults to "medium" if absent
-     "buttonStyle": "plain", // Optional: Button style (e.g., "plain", "bordered", "borderedProminent"), defaults to "plain" in applyModifiers
      "role": "destructive"   // Optional: Button role (e.g., "destructive", "cancel")
    }
    // Note: These properties are specific to Button. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -49,17 +48,7 @@ struct Button: ActionUIViewConstruction {
             logger.log("Invalid imageScale type", .warning)
             validatedProperties["imageScale"] = nil
         }
-        
-        if let buttonStyle = validatedProperties["buttonStyle"] as? String {
-            if !["plain", "bordered", "borderedProminent"].contains(buttonStyle) {
-                logger.log("Invalid Button buttonStyle '\(buttonStyle)', ignoring", .warning)
-                validatedProperties["buttonStyle"] = nil
-            }
-        } else if validatedProperties["buttonStyle"] != nil {
-            logger.log("Invalid type for Button buttonStyle: expected String, got \(type(of: validatedProperties["buttonStyle"]!)), ignoring", .warning)
-            validatedProperties["buttonStyle"] = nil
-        }
-        
+                
         if let role = validatedProperties["role"] as? String {
             if !["destructive", "cancel"].contains(role) {
                 logger.log("Invalid Button role '\(role)', ignoring", .warning)
@@ -143,15 +132,5 @@ struct Button: ActionUIViewConstruction {
                 AnyView(makeLabel())
             }
         )
-        
-        let buttonStyle = properties["buttonStyle"] as? String ?? "plain"
-        switch buttonStyle {
-        case "bordered":
-            return buttonView.buttonStyle(.bordered)
-        case "borderedProminent":
-            return buttonView.buttonStyle(.borderedProminent)
-        default:
-            return buttonView.buttonStyle(.plain)
-        }
-    }    
+    }
 }

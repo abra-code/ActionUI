@@ -47,7 +47,8 @@ final class ButtonTests: XCTestCase {
             "role": "invalid"
         ]
         
-        let validated = Button.validateProperties(properties, logger)
+        var validated = Button.validateProperties(properties, logger)
+        validated = View.validateProperties(validated, logger)
         
         XCTAssertNil(validated["title"], "title should be nil for invalid type")
         XCTAssertNil(validated["buttonStyle"], "buttonStyle should be nil for invalid value")
@@ -131,7 +132,7 @@ final class ButtonTests: XCTestCase {
         let validated = Button.validateProperties(element.properties, logger)
         let viewModel = ViewModel()
         
-        let view = Button.buildView(element, viewModel, windowUUID, validated, logger)
+        let _ = Button.buildView(element, viewModel, windowUUID, validated, logger)
         
         // We can't deeply inspect SwiftUI view hierarchy in unit tests easily,
         // but we can at least confirm it builds without crash and is Button type

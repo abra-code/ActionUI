@@ -61,6 +61,11 @@
        "color": "blue",   // Optional: SwiftUI color or hex, defaults to black
        "width": 1.0       // Optional: Double for border width, defaults to 1.0
      },
+     "buttonStyle": "plain", // Optional: button style, applicable to different view types
+                             // Allowed values: "automtic", "plain", "borderless", "bordered", "borderedProminent", defaults to "automatic"
+                             // Can be used with Button, Menu, Link, NavigationLink
+                             // Container views (VStack, HStack, ZStack, List, Form, etc) - inhertiance: the style propagates down to all buttons inside
+                             // Text, Image, Rectangle - no effect: the modifier is accepted but does nothing useful
      "navigationSplitViewColumnWidth": {     // Optional – only meaningful when this view is used as sidebar/content/detail in NavigationSplitView
        "ideal": 360.0,                       // Required: preferred column width (Double) – must be provided
        "min": 280.0,                         // Optional: minimum allowed width
@@ -536,6 +541,16 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        if let buttonStyle = validatedProperties["buttonStyle"] as? String {
+            if !["automatic", "plain", "borderless", "bordered", "borderedProminent"].contains(buttonStyle) {
+                logger.log("Invalid buttonStyle '\(buttonStyle)', ignoring", .warning)
+                validatedProperties["buttonStyle"] = nil
+            }
+        } else if validatedProperties["buttonStyle"] != nil {
+            logger.log("Invalid type for Button buttonStyle: expected String, got \(type(of: validatedProperties["buttonStyle"]!)), ignoring", .warning)
+            validatedProperties["buttonStyle"] = nil
+        }
+
         // Validate controlSize
         if let controlSize = properties["controlSize"] {
             if let sizeStr = controlSize as? String {
@@ -727,7 +742,22 @@ struct View: ActionUIViewConstruction {
             let width = border.cgFloat(forKey: "width") ?? 1.0
             modifiedView = modifiedView.border(color, width: width)
         }
-        
+
+        if let buttonStyle = properties["buttonStyle"] as? String {
+            switch buttonStyle {
+            case "plain":
+                modifiedView = modifiedView.buttonStyle(.plain)
+            case "bordered":
+                modifiedView = modifiedView.buttonStyle(.bordered)
+            case "borderless":
+                modifiedView = modifiedView.buttonStyle(.borderless)
+            case "borderedProminent":
+                modifiedView = modifiedView.buttonStyle(.borderedProminent)
+            default:
+                break
+            }
+        }
+
         if let controlSize = properties["controlSize"] as? String {
             switch controlSize {
             case "mini":

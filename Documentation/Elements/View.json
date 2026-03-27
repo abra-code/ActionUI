@@ -33,6 +33,7 @@
     "accessibilityHint": "Base view",
     "accessibilityHidden": false,
     "accessibilityIdentifier": "view_1",
+    "buttonStyle": "automatic",
     "controlSize": "regular",
     "labelsHidden": false,
     "shadow": {

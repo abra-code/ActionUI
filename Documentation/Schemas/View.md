@@ -48,6 +48,8 @@ JSON schema and usage documentation for `View`.
        "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
        "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
      },
+     "buttonStyle": "automatic", // Optional: "automatic", "plain", "borderless", "bordered", "borderedProminent"; defaults to "automatic".
+                                // Applicable to Button, Menu, Link, NavigationLink. On container views (VStack, HStack, List, Form, etc.) the style propagates to all buttons inside.
      "controlSize": "regular", // Optional: "mini", "small", "regular", "large", "extraLarge"; no default (system default)
      "labelsHidden": true,  // Optional: Boolean to hide labels on child views (e.g., within LabeledContent/Form); defaults to false
      "disabled": false,     // Optional: Boolean to disable user interaction

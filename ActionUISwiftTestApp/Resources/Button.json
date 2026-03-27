@@ -9,93 +9,113 @@
   },
   "children": [
     {
-      "type": "Button",
-      "id": 2,
-      "properties": {
-        "title": "Click Me",
-        "disabled": false,
-        "buttonStyle": "plain",
-        "foregroundStyle": "blue",
-        "font": "title",
-        "padding": 10.0,
-        "accessibilityIdentifier": "click_me_button",
-        "actionID": "click_me_action"
-      }
-    },
-    {
-      "type": "Button",
-      "id": 3,
-      "properties": {
-        "title": "Submit",
-        "disabled": false,
-        "buttonStyle": "borderedProminent",
-        "padding": {
-          "top": 5.0,
-          "bottom": 5.0,
-          "leading": 10.0,
-          "trailing": 10.0
-        },
-        "cornerRadius": 8.0,
-        "opacity": 0.9,
-        "accessibilityIdentifier": "submit_button",
-        "actionID": "submit_action"
-      }
-    },
-    {
-      "type": "Button",
-      "id": 4,
-      "properties": {
-        "title": "Delete",
-        "disabled": false,
-        "buttonStyle": "bordered",
-        "role": "destructive",
-        "font": "body",
-        "frame": {
-          "width": 150.0,
-          "height": 44.0,
+        "type": "HStack",
+        "properties": {
+          "spacing": 12,
           "alignment": "center"
         },
-        "padding": 12.0,
-        "accessibilityIdentifier": "delete_button",
-        "actionID": "delete_action"
-      }
+        "children": [
+			{
+			  "type": "Button",
+			  "id": 2,
+			  "properties": {
+				"title": "Plain",
+				"buttonStyle": "plain",
+				"foregroundStyle": "blue",
+				"font": "headline",
+				"padding": 10.0,
+				"accessibilityIdentifier": "click_me_button",
+				"actionID": "click_me_action"
+			  }
+			},
+			{
+			  "type": "Button",
+			  "id": 3,
+			  "properties": {
+				"title": "Submit",
+				"buttonStyle": "borderedProminent",
+				"padding": {
+				  "top": 5.0,
+				  "bottom": 5.0,
+				  "leading": 10.0,
+				  "trailing": 10.0
+				},
+				"accessibilityIdentifier": "submit_button",
+				"actionID": "submit_action"
+			  }
+			},
+			{
+			  "type": "Button",
+			  "id": 5,
+			  "properties": {
+				"title": "Disabled",
+				"disabled": true,
+				"buttonStyle": "bordered",
+				"font": "callout",
+				"padding": 8.0,
+				"accessibilityIdentifier": "disabled_button"
+			  }
+			},
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Borderless",
+                "buttonStyle": "borderless",
+                "padding": 8.0,
+                "accessibilityIdentifier": "borderless_button"
+              }
+            }
+       ]
     },
     {
-      "type": "Button",
-      "id": 5,
-      "properties": {
-        "title": "Disabled Button",
-        "disabled": true,
-        "buttonStyle": "bordered",
-        "font": "callout",
-        "padding": 8.0,
-        "opacity": 0.5,
-        "accessibilityIdentifier": "disabled_button"
-      }
-    },
-    {
-      "type": "Button",
-      "id": 6,
-      "properties": {
-        "title": "Cancel",
-        "disabled": false,
-        "buttonStyle": "bordered",
-        "role": "cancel",
-        "cornerRadius": 10.0,
-        "frame": {
-          "width": 120.0,
-          "height": 40.0,
+        "type": "HStack",
+        "properties": {
+          "spacing": 12,
           "alignment": "center"
         },
-        "padding": {
-          "top": 10.0,
-          "bottom": 10.0,
-          "leading": 20.0,
-          "trailing": 20.0
-        },
-        "accessibilityIdentifier": "cancel_button",
-        "actionID": "cancel_action"
-      }
+        "children": [
+			{
+			  "type": "Button",
+			  "id": 4,
+			  "properties": {
+				"title": "Delete",
+				"disabled": false,
+				"role": "destructive",
+				"font": "body",
+				"frame": {
+				  "width": 150.0,
+				  "height": 44.0,
+				  "alignment": "center"
+				},
+				"padding": 12.0,
+				"accessibilityIdentifier": "delete_button",
+				"actionID": "delete_action"
+			  }
+			},
+			{
+			  "type": "Button",
+			  "id": 6,
+			  "properties": {
+				"title": "Cancel",
+				"disabled": false,
+				"role": "cancel",
+				"cornerRadius": 10.0,
+				"frame": {
+				  "width": 120.0,
+				  "height": 40.0,
+				  "alignment": "center"
+				},
+				"padding": {
+				  "top": 10.0,
+				  "bottom": 10.0,
+				  "leading": 20.0,
+				  "trailing": 20.0
+				},
+				"accessibilityIdentifier": "cancel_button",
+				"actionID": "cancel_action"
+			  }
+			},
+        ]
     },
 
     {
