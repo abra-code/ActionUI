@@ -114,6 +114,85 @@
           ]
         }
       ]
+    },
+    {
+      "type": "Menu",
+      "properties": {
+        "title": ""
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Empty Title Option 1"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Empty Title Option 2"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Menu",
+      "properties": {},
+      "label": {
+        "type": "Image", "properties": { "systemName": "ellipsis.circle" }
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "One Option"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Another Option"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Menu",
+      "properties": {
+          "buttonStyle": "plain"
+      },
+      "label": {
+          "type": "Image", "properties": {
+              "systemName": "book.closed.circle",
+              "imageScale": "large"
+          }
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Novel"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Biography"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Cookbook"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Manual"
+          }
+        }
+      ]
     }
   ]
 }

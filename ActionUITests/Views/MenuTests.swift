@@ -248,4 +248,73 @@ final class MenuTests: XCTestCase {
         let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
         XCTAssertFalse(actionUIView.body is SwiftUI.EmptyView, "Menu with Sections should render")
     }
+
+    func testMenuWithLabelSubview() throws {
+        let jsonString = """
+        {
+            "id": 1,
+            "type": "Menu",
+            "properties": {},
+            "label": {
+                "id": 10,
+                "type": "Image",
+                "properties": { "systemName": "ellipsis.circle" }
+            },
+            "children": [
+                {"type": "Button", "id": 2, "properties": {"title": "Option 1"}},
+                {"type": "Button", "id": 3, "properties": {"title": "Option 2"}}
+            ]
+        }
+        """
+        guard let jsonData = jsonString.data(using: .utf8) else {
+            XCTFail("Failed to convert JSON string to Data")
+            return
+        }
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
+
+        XCTAssertEqual(element.type, "Menu")
+
+        if let label = element.subviews?["label"] as? ActionUIElement {
+            XCTAssertEqual(label.id, 10, "Label ID should be 10")
+            XCTAssertEqual(label.type, "Image", "Label type should be Image")
+            XCTAssertEqual(label.properties["systemName"] as? String, "ellipsis.circle", "Label systemName should match")
+        } else {
+            XCTFail("Label subview should be a valid ActionUIElement")
+        }
+
+        if let children = element.subviews?["children"] as? [any ActionUIElementBase] {
+            XCTAssertEqual(children.count, 2, "Should have 2 children")
+        } else {
+            XCTFail("Children should be valid array")
+        }
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        XCTAssertNotNil(windowModel.viewModels[10], "Label subview should have its own ViewModel")
+
+        let actionUIView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+        XCTAssertFalse(actionUIView.body is SwiftUI.EmptyView, "Menu with label should render")
+    }
+
+    func testMenuWithLabelIgnoresTitle() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Menu",
+            "properties": ["title": "Should Be Ignored"],
+            "label": ["id": 10, "type": "Image", "properties": ["systemName": "gear"]] as [String: Any],
+            "children": [
+                ["type": "Button", "id": 2, "properties": ["title": "Action"]]
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        XCTAssertNotNil(element.subviews?["label"], "Label subview should be present")
+        XCTAssertEqual(element.properties["title"] as? String, "Should Be Ignored", "Title property is preserved but label takes precedence in buildView")
+    }
 }

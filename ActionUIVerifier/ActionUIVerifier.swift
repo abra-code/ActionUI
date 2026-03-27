@@ -84,7 +84,7 @@ struct ActionUIVerifier {
 
         // Recursively validate subviews
         // We could have arrays of children ("children", "sidebar", etc) or a single child ("content") or arrays of arrays ("rows")
-        // "children", "rows", "content", "destination", "sidebar", "detail", "popover"
+        // "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover"
         if let subviews = element.subviews {
             for (key, value) in subviews {
                 switch (value) {

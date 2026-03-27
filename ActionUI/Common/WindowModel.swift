@@ -143,7 +143,7 @@ class WindowModel: ObservableObject {
                     }
                 }
             }
-            for key in ["content", "destination", "sidebar", "detail", "popover"] {
+            for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
                 if let child = subviews[key] as? any ActionUIElementBase {
                     let childViewModels = populateViewModels(from: child)
                     for (id, viewModel) in childViewModels {

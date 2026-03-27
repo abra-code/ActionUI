@@ -579,7 +579,7 @@ public class ActionUIModel: ObservableObject {
                 collectElementInfo(from: command, into: &result)
             }
         }
-        for key in ["content", "destination", "sidebar", "detail", "popover"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
             if let child = subviews[key] as? any ActionUIElementBase {
                 collectElementInfo(from: child, into: &result)
             }

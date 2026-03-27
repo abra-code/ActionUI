@@ -4,7 +4,10 @@
    "type": "Menu",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Options",  // Optional: String for title, defaults to "Menu"
+     "title": "Options", // Optional: String for title, defaults to empty
+   },
+   "label": {            // Optional: a single child view to display instead of title for the control
+     "type": "Image", "properties": { "systemName": "ellipsis.circle" }
    },
    "children": [
      { "type": "Button", "properties": { "title": "Option 1" } }
@@ -37,10 +40,25 @@ struct Menu: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
-        let title = properties["title"] as? String ?? "Menu" // Default to "Menu" if title is nil
         
+        let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+        
+        if let labelContent = element.subviews?["label"] as? any ActionUIElementBase {
+            return SwiftUI.Menu {
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    }
+                }
+            } label: {
+                if let labelModel = windowModel?.viewModels[labelContent.id] {
+                    ActionUIView(element: labelContent, model: labelModel, windowUUID: windowUUID)
+                }
+            }
+        }
+        
+        let title = properties["title"] as? String ?? ""
         return SwiftUI.Menu(title) {
-            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
             ForEach(children, id: \.id) { child in
                 if let childModel = windowModel?.viewModels[child.id] {
                     ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
