@@ -5,7 +5,7 @@
    "type": "ColorPicker",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "title": "Pick a Color", // Optional: String for title, defaults to "Color" in buildView
+     "title": "Pick a Color", // Optional: String for title, defaults to empty in buildView
      "selectedColor": "#FF0000", // Optional: Initial color (hex or named color), defaults to clear in buildView
      "actionID": "colorpicker.action" // Optional: String for action identifier, triggers on color change
    }
@@ -46,7 +46,7 @@ struct ColorPicker: ActionUIViewConstruction {
     // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let initialColor = Self.initialValue(model) as? Color ?? Color.clear
-        let title = properties["title"] as? String ?? "Color"
+        let title = properties["title"] as? String ?? ""
         
         let colorBinding = Binding(
             get: { model.value as? Color ?? initialColor },
@@ -58,8 +58,8 @@ struct ColorPicker: ActionUIViewConstruction {
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
                     model.value = newValue
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
-                        ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    if let actionID = properties["actionID"] as? String {
+                        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 }
             }
