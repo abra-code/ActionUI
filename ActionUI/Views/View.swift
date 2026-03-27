@@ -68,6 +68,8 @@
      },
      "navigationSplitViewColumnWidth": 400.0, // Number – fixed column width
      "navigationTitle": "Detail",            // Optional: String for navigation title (for views navigated to)
+     "popoverArrowEdge": "top",             // Optional: Arrow edge for popover ("top", "bottom", "leading", "trailing"); defaults to "top". Only meaningful when "popover" subview is present.
+     "popoverActionID": "view.popover",     // Optional: String for action identifier triggered when the popover is shown. Only meaningful when "popover" subview is present.
      "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
                                             // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
                                             // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
@@ -553,6 +555,20 @@ struct View: ActionUIViewConstruction {
             validatedProperties["labelsHidden"] = nil
         }
 
+        // Validate popoverArrowEdge
+        if let popoverArrowEdge = properties["popoverArrowEdge"] {
+            if let edgeStr = popoverArrowEdge as? String {
+                let validEdges = ["top", "bottom", "leading", "trailing"]
+                if !validEdges.contains(edgeStr) {
+                    logger.log("Invalid popoverArrowEdge '\(edgeStr)'; expected one of \(validEdges), defaulting to 'top'", .warning)
+                    validatedProperties["popoverArrowEdge"] = "top"
+                }
+            } else {
+                logger.log("Invalid type for popoverArrowEdge: expected String, got \(type(of: popoverArrowEdge)), ignoring", .warning)
+                validatedProperties["popoverArrowEdge"] = nil
+            }
+        }
+
         if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
             var validatedValue: Any? = nil
             
@@ -837,7 +853,34 @@ struct View: ActionUIViewConstruction {
         if let accessibilityIdentifier = properties["accessibilityIdentifier"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityIdentifier(accessibilityIdentifier)
         }
-        
+
+        // Apply popover modifier if the element has a popover subview
+        if let popoverElement = element.subviews?["popover"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let parentModel = windowModel.viewModels[element.id],
+           let popoverModel = windowModel.viewModels[popoverElement.id] {
+            let arrowEdge: Edge = {
+                switch properties["popoverArrowEdge"] as? String {
+                case "bottom": return .bottom
+                case "leading": return .leading
+                case "trailing": return .trailing
+                default: return .top
+                }
+            }()
+            let popoverActionID = properties["popoverActionID"] as? String
+            return PopoverModifierView(
+                content: AnyView(modifiedView),
+                popoverElement: popoverElement,
+                popoverModel: popoverModel,
+                parentModel: parentModel,
+                windowUUID: windowUUID,
+                elementID: element.id,
+                arrowEdge: arrowEdge,
+                popoverActionID: popoverActionID,
+                addTapGesture: element.type != "Button"
+            )
+        }
+
         return modifiedView
     }
 }

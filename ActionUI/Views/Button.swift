@@ -123,9 +123,18 @@ struct Button: ActionUIViewConstruction {
             }
         }
         
-        let buttonView = SwiftUI.Button(
+        let hasPopover = element.subviews?["popover"] != nil
+        let popoverActionID = properties["popoverActionID"] as? String
+        return SwiftUI.Button(
             role: buttonRole,
             action: {
+                if hasPopover {
+                    let willShow = !(model.states["popoverVisible"] as? Bool ?? false)
+                    model.states["popoverVisible"] = willShow
+                    if willShow, let popoverActionID = popoverActionID {
+                        ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    }
+                }
                 if let actionID = actionID {
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }

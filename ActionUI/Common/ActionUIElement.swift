@@ -24,6 +24,9 @@
    "detail": {           // Optional: Single child view (for NavigationSplitView). Note: Handled as a top-level key in JSON but stored in subviews["detail"]
      "type": "Text", "properties": { "text": "Detail" }
    },
+   "popover": {          // Optional: Single child view for popover content (attachable to any view). Note: Handled as a top-level key in JSON but stored in subviews["popover"]
+     "type": "Text", "properties": { "text": "Popover content" }
+   },
    "destinations": []    // Optional: Array of destination elements to switch on their id in NavigationStack & NavigationSplitView detail pane. Note: Handled as a top-level key in JSON but stored in subviews["destinations"]
    "commands": [],       // Optional: Array of command elements. Note: Handled as a top-level key in JSON but stored in subviews["commands"]
  }
@@ -37,7 +40,7 @@ public protocol ActionUIElementBase: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
-    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "destinations"
+    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "popover", "destinations"
 }
 
 protocol ActionUIPropertyValidation {
@@ -86,7 +89,7 @@ public struct ActionUIElement: ActionUIElementBase {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, commands, destinations
+        case id, type, properties, children, rows, content, destination, sidebar, detail, popover, commands, destinations
     }
     
     public init(from decoder: Decoder) throws {
@@ -119,7 +122,7 @@ public struct ActionUIElement: ActionUIElementBase {
             subviews!["rows"] = rows
         }
         
-        for key in ["content", "destination", "sidebar", "detail"] {
+        for key in ["content", "destination", "sidebar", "detail", "popover"] {
             if let child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = child
@@ -158,6 +161,7 @@ public struct ActionUIElement: ActionUIElementBase {
             try container.encodeNil(forKey: .destination)
             try container.encodeNil(forKey: .sidebar)
             try container.encodeNil(forKey: .detail)
+            try container.encodeNil(forKey: .popover)
             return
         }
         
@@ -178,7 +182,7 @@ public struct ActionUIElement: ActionUIElementBase {
         }
         
         // Encode single child views
-        for key in ["content", "destination", "sidebar", "detail"] {
+        for key in ["content", "destination", "sidebar", "detail", "popover"] {
             if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -226,7 +230,7 @@ public struct ActionUIElement: ActionUIElementBase {
         
         // Decode single child views for navigation components
         // Note: JSON specifies "content", "destination", "sidebar", "detail" as top-level keys, but we move them to subviews
-        for key in ["content", "destination", "sidebar", "detail"] {
+        for key in ["content", "destination", "sidebar", "detail", "popover"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
                     let childElement = try ActionUIElement(from: childDict, logger: logger)
@@ -269,7 +273,7 @@ extension ActionUIElement: Equatable {
         }
         
         // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "commands", "destinations"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "popover", "commands", "destinations"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             
@@ -353,7 +357,7 @@ extension ActionUIElementBase {
             }
         }
         
-        // Search in single-child keys: "content", "destination", "sidebar", "detail"
+        // Search in single-child keys: "content", "destination", "sidebar", "detail", "popover"
         if let content = subviews["content"] as? any ActionUIElementBase,
            let found = content.findElement(by: viewID) {
             return found
@@ -368,6 +372,10 @@ extension ActionUIElementBase {
         }
         if let detail = subviews["detail"] as? any ActionUIElementBase,
            let found = detail.findElement(by: viewID) {
+            return found
+        }
+        if let popover = subviews["popover"] as? any ActionUIElementBase,
+           let found = popover.findElement(by: viewID) {
             return found
         }
         return nil

@@ -46,6 +46,8 @@
       "width": 1.0
     },
     "navigationTitle": "View",
+    "popoverArrowEdge": "top",
+    "popoverActionID": "view.popover",
     "destinationViewId": 2,
     "keyboardShortcut": {
       "key": "v",
