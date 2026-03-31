@@ -73,7 +73,7 @@
      },
      "navigationSplitViewColumnWidth": 400.0, // Number – fixed column width
      "navigationTitle": "Detail",            // Optional: String for navigation title (for views navigated to)
-     "scrollContentBackground": "visible", // Optional: "visible" or "hidden"; controls the default background of scrollable views (List, TextEditor, Form). Defaults to "visible".
+     "scrollContentBackground": "visible",   // Optional: "visible", "hidden" or "automatic"; controls the default background of scrollable views (List, TextEditor, Form). Defaults to "automatic".
      "popoverArrowEdge": "top",             // Optional: Arrow edge for popover ("top", "bottom", "leading", "trailing"); defaults to "top". Only meaningful when "popover" subview is present.
      "popoverActionID": "view.popover",     // Optional: String for action identifier triggered when the popover is shown. Only meaningful when "popover" subview is present.
      "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
@@ -578,7 +578,7 @@ struct View: ActionUIViewConstruction {
         // Validate scrollContentBackground
         if let scrollContentBackground = properties["scrollContentBackground"] {
             if let str = scrollContentBackground as? String {
-                let validValues = ["visible", "hidden"]
+                let validValues = ["visible", "hidden", "automatic"]
                 if !validValues.contains(str) {
                     logger.log("Invalid scrollContentBackground '\(str)'; expected one of \(validValues), ignoring", .warning)
                     validatedProperties["scrollContentBackground"] = nil
@@ -798,8 +798,12 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.labelsHidden()
         }
 
-        if let scrollContentBackground = properties["scrollContentBackground"] as? String, scrollContentBackground == "hidden" {
-            modifiedView = modifiedView.scrollContentBackground(.hidden)
+        if let scrollContentBackground = properties["scrollContentBackground"] as? String {
+            if scrollContentBackground == "hidden" {
+                modifiedView = modifiedView.scrollContentBackground(.hidden)
+            } else if scrollContentBackground == "visible" {
+                modifiedView = modifiedView.scrollContentBackground(.visible)
+            } // else: "automatic" - no modifier needed
         }
 
         if let shadow = properties["shadow"] as? [String: Any] {

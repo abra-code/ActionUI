@@ -6,13 +6,14 @@
    "id": 1,              // Required: Non-zero positive integer for runtime programmatic interaction and diffing
    "properties": {
      "columns": ["Name", "Action", "Icon"], // Required: Array of strings for column headers
+     "columnHeadersVisibility": "hidden",   // Optional: column headers visibility: "automatic", "hidden", "visible"
      "columnTypes": [                       // Optional: Per-column type config array. Defaults to all Text.
        { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"
        { "viewType": "Button",              // Columns without an entry default to Text.
          "actionContext": "rowIndex",       // "actionContext": "title"|"rowIndex"|"columnIndex"|"rowColumnIndex" (Button only)
          "actionID": "row.action" },        // "actionID": "..." (Button only — fires on button click) }
        { "viewType": "Image",
-         "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
+         "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image & Button)
      ],
      "widths": [100, 80, 40],               // Optional: Array of integers for ideal column widths (resizable; last column fills remaining space)
      "actionID": "table.selection.changed", // Optional: Fires on selection change (all cell types)
@@ -83,6 +84,12 @@ struct Table: ActionUIViewConstruction {
                     logger.log("Table columnTypes[\(i)].actionContext must be 'title', 'rowIndex', 'columnIndex', or 'rowColumnIndex' for Button; defaulting to title", .warning)
                     ct["actionContext"] = "title"
                 }
+                // Optional dataInterpretation for image-only buttons
+                if let di = ct["dataInterpretation"] as? String,
+                   !["path", "systemName", "assetName", "resourceName", "mixed"].contains(di) {
+                    logger.log("Table columnTypes[\(i)].dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for Button; ignoring", .warning)
+                    ct.removeValue(forKey: "dataInterpretation")
+                }
             }
             columnTypes[i] = ct
         }
@@ -99,6 +106,19 @@ struct Table: ActionUIViewConstruction {
         } else if properties["widths"] != nil {
             logger.log("Table widths must be an array of integers; ignoring", .warning)
             validatedProperties["widths"] = nil
+        }
+
+        if let columnHeadersVisibility = properties["columnHeadersVisibility"] {
+            if let str = columnHeadersVisibility as? String {
+                let validValues = ["visible", "hidden", "automatic"]
+                if !validValues.contains(str) {
+                    logger.log("Invalid columnHeadersVisibility '\(str)'; expected one of \(validValues), ignoring", .warning)
+                    validatedProperties["columnHeadersVisibility"] = nil
+                }
+            } else {
+                logger.log("Invalid type for columnHeadersVisibility: expected String, got \(type(of: columnHeadersVisibility)), ignoring", .warning)
+                validatedProperties["columnHeadersVisibility"] = nil
+            }
         }
 
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
@@ -128,17 +148,32 @@ struct Table: ActionUIViewConstruction {
         let idealWidths = (properties["widths"] as? [Int])?.map { CGFloat($0) }
         let lastVisibleIndex = columns.count - 1
 
+        var columnHeadersVisibility: SwiftUI.Visibility = .automatic
+        if let columnHeadersVisibilityString = properties["columnHeadersVisibility"] as? String {
+            if columnHeadersVisibilityString == "hidden" {
+                columnHeadersVisibility = .hidden
+            } else if columnHeadersVisibilityString == "visible" {
+                columnHeadersVisibility = .visible
+            }
+        }
+
+        // Find the column with the largest ideal width — it fills remaining space
+        let resolvedWidths = columns.indices.map { index in
+            idealWidths.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? CGFloat(100)
+        }
+        let maxIdeal = resolvedWidths.max() ?? 100
         let columnData = columns.enumerated().map { (index, name) in
-            let ideal: CGFloat? = idealWidths.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? 100
-            let isLast = (index == lastVisibleIndex)
+            let ideal = resolvedWidths[index]
+            let isFillColumn = (ideal == maxIdeal)
             return ColumnData(
                 id: index,
                 name: name,
-                minWidth: 40,
+                minWidth: Swift.min(ideal, 10),
                 idealWidth: ideal,
-                maxWidth: isLast ? .infinity : nil
+                maxWidth: isFillColumn ? .infinity : ideal
             )
         }
+        
         let rowData = rows.enumerated().map { (index, row) in
             TableRowData(id: "row-\(index)", values: row)
         }
@@ -188,14 +223,14 @@ struct Table: ActionUIViewConstruction {
                     let value = column.id < row.values.count ? row.values[column.id] : ""
                     let colType = column.id < columnTypes.count ? columnTypes[column.id] : ["viewType": "Text"]
                     let viewType = colType["viewType"] as? String ?? "Text"
-                    let dataInterpretation = colType["dataInterpretation"] as? String ?? "systemName"
+                    let dataInterpretation = colType["dataInterpretation"] as? String
                     let actionContext = colType["actionContext"] as? String ?? "title"
                     SwiftUI.Group {
                         switch viewType {
                         case "Text":
                             SwiftUI.Text(value)
                         case "Button":
-                            SwiftUI.Button(value) {
+                            SwiftUI.Button {
                                 if let buttonActionID = colType["actionID"] as? String {
                                     let context: Any = {
                                         switch actionContext {
@@ -207,9 +242,15 @@ struct Table: ActionUIViewConstruction {
                                     }()
                                     ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
                                 }
+                            } label: {
+                                if let dataInterpretation {
+                                    SwiftUI.Image(from: value, interpretation: dataInterpretation)
+                                } else {
+                                    SwiftUI.Text(value)
+                                }
                             }
                         case "Image":
-                            SwiftUI.Image(from: value, interpretation: dataInterpretation)
+                            SwiftUI.Image(from: value, interpretation: dataInterpretation ?? "mixed")
                         case "AsyncImage":
                             SwiftUI.AsyncImage(url: URL(string: value)) { image in
                                 image.resizable().scaledToFit()
@@ -224,6 +265,7 @@ struct Table: ActionUIViewConstruction {
                 .width(min: column.minWidth, ideal: column.idealWidth, max: column.maxWidth)
             }
         }
+        .tableColumnHeaders(columnHeadersVisibility)
         .onTapGesture(count: 2) {
             if let doubleClickActionID = properties["doubleClickActionID"] as? String,
                let selectedRow = model.value as? [String],
