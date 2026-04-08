@@ -12,3 +12,8 @@ ActionUIPython/build/
 ActionUIPython/dist/
 ActionUIPython/*.so
 build
+.claude
+.remember
+.swiftpm
+graphify-out
+CLAUDE.md
