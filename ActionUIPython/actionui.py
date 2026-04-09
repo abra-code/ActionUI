@@ -11,8 +11,8 @@ import _actionui
 import json
 import uuid
 from typing import Optional, Callable, Any, Dict, List
-from enum import IntEnum
-from dataclasses import dataclass
+from enum import IntEnum, Enum
+from dataclasses import dataclass, field
 
 
 class LogLevel(IntEnum):
@@ -22,6 +22,51 @@ class LogLevel(IntEnum):
     INFO    = _actionui.LOG_INFO
     DEBUG   = _actionui.LOG_DEBUG
     VERBOSE = _actionui.LOG_VERBOSE
+
+
+class ModalStyle(str, Enum):
+    """Presentation style for window-level modals."""
+    SHEET             = "sheet"
+    FULL_SCREEN_COVER = "fullScreenCover"
+
+
+class ButtonRole(str, Enum):
+    """Role for dialog / alert buttons."""
+    DEFAULT     = "default"       # Normal prominence (no special role)
+    CANCEL      = "cancel"        # Appears last; bold on iOS
+    DESTRUCTIVE = "destructive"   # Red tint
+
+
+@dataclass
+class DialogButton:
+    """A button descriptor for window-level alerts and confirmation dialogs.
+
+    Args:
+        title:     Button label text.
+        role:      ``ButtonRole.DEFAULT`` (or ``None``) for a plain button,
+                   ``ButtonRole.CANCEL`` to mark it as the cancel action, or
+                   ``ButtonRole.DESTRUCTIVE`` for a red-tinted destructive action.
+        action_id: ActionID fired when the button is tapped; ``None`` for
+                   dismiss-only buttons.
+
+    Example::
+
+        buttons = [
+            DialogButton("Delete", role=ButtonRole.DESTRUCTIVE, action_id="item.delete"),
+            DialogButton("Cancel", role=ButtonRole.CANCEL),
+        ]
+    """
+    title:     str
+    role:      Optional[ButtonRole] = None
+    action_id: Optional[str]        = None
+
+    def _to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"title": self.title}
+        if self.role is not None and self.role != ButtonRole.DEFAULT:
+            d["role"] = self.role.value
+        if self.action_id is not None:
+            d["actionID"] = self.action_id
+        return d
 
 
 class ActionUIError(Exception):
@@ -830,6 +875,123 @@ class Window:
         return {int(k): v for k, v in json.loads(raw).items()}
 
     # ------------------------------------------------------------------
+    # Modal presentation (window-level / Tier 2)
+    # ------------------------------------------------------------------
+
+    def present_modal(self,
+                      source: str,
+                      format: str = "json",
+                      style: ModalStyle = ModalStyle.SHEET,
+                      on_dismiss_action_id: Optional[str] = None):
+        """Present a window-level modal sheet or full-screen cover.
+
+        The modal's view hierarchy is loaded from *source*, which may be a
+        JSON/plist **string** or a filesystem **path** (converted to a string
+        automatically if it ends with ``.json`` or ``.plist``).
+
+        Args:
+            source:               JSON/plist string describing the modal UI.
+            format:               ``"json"`` (default) or ``"plist"``.
+            style:                :class:`ModalStyle` — ``SHEET`` (default) or
+                                  ``FULL_SCREEN_COVER``.
+            on_dismiss_action_id: Optional actionID fired when the modal is
+                                  dismissed (by swipe, button, or
+                                  :meth:`dismiss_modal`).
+
+        Raises:
+            RuntimeError: If the C layer reports an error (e.g., unknown
+                          window UUID or malformed JSON).
+
+        Example::
+
+            window.present_modal(
+                open("settings.json").read(),
+                style=ModalStyle.SHEET,
+                on_dismiss_action_id="settings.closed",
+            )
+        """
+        _actionui.present_modal(
+            self.uuid, source, format,
+            style.value if isinstance(style, ModalStyle) else style,
+            on_dismiss_action_id,
+        )
+
+    def dismiss_modal(self):
+        """Dismiss the active window-level modal (also fires onDismissActionID)."""
+        _actionui.dismiss_modal(self.uuid)
+
+    def present_alert(self,
+                      title: str,
+                      message: Optional[str] = None,
+                      buttons: Optional[List[DialogButton]] = None):
+        """Present a window-level alert dialog.
+
+        Args:
+            title:   Alert title.
+            message: Optional informative text below the title.
+            buttons: List of :class:`DialogButton`; defaults to a single
+                     OK/cancel button when ``None``.
+
+        Example::
+
+            window.present_alert(
+                "Connection Failed",
+                message="Please check your network connection.",
+            )
+
+            window.present_alert(
+                "Delete Item?",
+                message="This action cannot be undone.",
+                buttons=[
+                    DialogButton("Delete", role=ButtonRole.DESTRUCTIVE,
+                                 action_id="item.delete.confirmed"),
+                    DialogButton("Cancel", role=ButtonRole.CANCEL),
+                ],
+            )
+        """
+        buttons_json = (json.dumps([b._to_dict() for b in buttons])
+                        if buttons is not None else None)
+        _actionui.present_alert(self.uuid, title, message, buttons_json)
+
+    def present_confirmation_dialog(self,
+                                    title: str,
+                                    message: Optional[str] = None,
+                                    buttons: Optional[List[DialogButton]] = None):
+        """Present a window-level confirmation dialog (action sheet on macOS/iOS).
+
+        Args:
+            title:   Dialog title.
+            message: Optional informative text.
+            buttons: List of :class:`DialogButton`.  An empty list is used if
+                     ``None`` is passed.
+
+        Example::
+
+            window.present_confirmation_dialog(
+                "Save changes before closing?",
+                message="Unsaved changes will be lost.",
+                buttons=[
+                    DialogButton("Save",       action_id="doc.save"),
+                    DialogButton("Don't Save", role=ButtonRole.DESTRUCTIVE,
+                                 action_id="doc.discard"),
+                    DialogButton("Cancel",     role=ButtonRole.CANCEL),
+                ],
+            )
+        """
+        buttons_json = (json.dumps([b._to_dict() for b in buttons])
+                        if buttons is not None else None)
+        _actionui.present_confirmation_dialog(self.uuid, title, message, buttons_json)
+
+    def dismiss_dialog(self):
+        """Dismiss the active window-level alert or confirmation dialog.
+
+        SwiftUI dismisses dialogs automatically when a button is tapped;
+        call this only when you need to dismiss programmatically without
+        any button interaction.
+        """
+        _actionui.dismiss_dialog(self.uuid)
+
+    # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------
 
@@ -865,6 +1027,9 @@ __all__ = [
     'LogLevel',
     'Logger',
     'ActionUIError',
+    'ModalStyle',
+    'ButtonRole',
+    'DialogButton',
     'get_version',
     'get_last_error',
     'clear_error',

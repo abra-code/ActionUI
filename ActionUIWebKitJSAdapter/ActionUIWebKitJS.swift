@@ -147,6 +147,46 @@ import AppKit
 ///   - Description: Sets a structural property value for a view element by property name.
 ///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
 ///
+/// - `presentModal(windowUUID, jsonString, format, style, onDismissActionID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `jsonString`: String - JSON or plist string describing the modal's view hierarchy.
+///     - `format`: String - `"json"` or `"plist"`.
+///     - `style`: String - `"sheet"` or `"fullScreenCover"`.
+///     - `onDismissActionID`: String or null - actionID fired when the modal is dismissed.
+///   - Description: Presents a window-level modal sheet or full-screen cover from a JSON/plist string. Fire-and-forget; no return value.
+///   - Example: `ActionUI.presentModal("win-123", jsonStr, "json", "sheet", "settings.closed");`
+///
+/// - `dismissModal(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Dismisses the active window-level modal and fires onDismissActionID if set.
+///   - Example: `ActionUI.dismissModal("win-123");`
+///
+/// - `presentAlert(windowUUID, title, message, buttons)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `title`: String - Alert title.
+///     - `message`: String or null - Optional alert message.
+///     - `buttons`: Array or null - Optional array of button descriptors `[{title, role?, actionID?}]`; null defaults to single OK button.
+///   - Description: Presents a window-level alert dialog. Fire-and-forget.
+///   - Example: `ActionUI.presentAlert("win-123", "Delete?", null, [{title:"Delete",role:"destructive",actionID:"del"},{title:"Cancel",role:"cancel"}]);`
+///
+/// - `presentConfirmationDialog(windowUUID, title, message, buttons)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `title`: String - Dialog title.
+///     - `message`: String or null - Optional dialog message.
+///     - `buttons`: Array - Array of button descriptors `[{title, role?, actionID?}]`.
+///   - Description: Presents a window-level confirmation dialog (action sheet style on iOS). Fire-and-forget.
+///   - Example: `ActionUI.presentConfirmationDialog("win-123", "Save?", null, [{title:"Save",actionID:"save"},{title:"Cancel",role:"cancel"}]);`
+///
+/// - `dismissDialog(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Dismisses the active window-level alert or confirmation dialog. SwiftUI dismisses automatically on button tap.
+///   - Example: `ActionUI.dismissDialog("win-123");`
+///
 /// Design decision: APIs are asynchronous where returns are involved (e.g., getElementValue) due to the WebKit bridge's nature. Complex types (e.g., value in setElementValue) are serialized to JSON. Action handlers and logger are stored as global JavaScript functions and called from native code via evaluateJavaScript. The adapter uses a hidden WKWebView (offscreen) to execute JavaScript, enabling remote script loading while maintaining a native ActionUI experience.
 /// App Store compliance: WKWebView allows loading remote JavaScript as web content, which is permitted under App Store guidelines (Guideline 4.7) as long as the app provides substantial native functionality. Scripts can be bundled or fetched non-executably; avoid arbitrary code execution (e.g., eval of user input).
 
@@ -352,6 +392,22 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
         }
     }
     
+    // Parse an array of button descriptors from a JS-passed array ([Any]) into [ActionUI.DialogButton].
+    // Expected element shape: {"title": String, "role"?: String, "actionID"?: String}
+    private func parseDialogButtons(_ array: [Any]?) -> [ActionUI.DialogButton]? {
+        guard let array = array, !array.isEmpty else { return nil }
+        return array.compactMap { element -> ActionUI.DialogButton? in
+            guard let dict = element as? [String: Any],
+                  let title = dict["title"] as? String else { return nil }
+            let role: SwiftUI.ButtonRole? = switch dict["role"] as? String {
+                case "cancel": .cancel
+                case "destructive": .destructive
+                default: nil
+            }
+            return ActionUI.DialogButton(title: title, role: role, actionID: dict["actionID"] as? String)
+        }
+    }
+
     // Handle messages from JavaScript
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "consoleLog", let body = message.body as? [String: Any], let msg = body["message"] as? String {
@@ -540,6 +596,58 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 }
             } else {
                 print("Invalid arguments for getElementValueAsString: \(args)")
+            }
+        case "presentModal":
+            // args: [windowUUID, jsonString, format, style, onDismissActionID?]
+            if args.count >= 4,
+               let windowUUID   = args[0] as? String,
+               let jsonString   = args[1] as? String,
+               let format       = args[2] as? String,
+               let styleString  = args[3] as? String,
+               let data         = jsonString.data(using: .utf8) {
+                let style: ActionUI.ModalStyle = styleString == "fullScreenCover" ? .fullScreenCover : .sheet
+                let dismissID = args.count >= 5 ? args[4] as? String : nil
+                do {
+                    try ActionUIWebKitJS.model.presentModal(windowUUID: windowUUID, data: data, format: format, style: style, onDismissActionID: dismissID)
+                } catch {
+                    print("presentModal error: \(error)")
+                }
+            } else {
+                print("Invalid arguments for presentModal: \(args)")
+            }
+        case "dismissModal":
+            if args.count >= 1, let windowUUID = args[0] as? String {
+                ActionUIWebKitJS.model.dismissModal(windowUUID: windowUUID)
+            } else {
+                print("Invalid arguments for dismissModal: \(args)")
+            }
+        case "presentAlert":
+            // args: [windowUUID, title, message?, buttons?]
+            if args.count >= 2, let windowUUID = args[0] as? String, let title = args[1] as? String {
+                let message  = args.count >= 3 ? args[2] as? String : nil
+                let buttons  = args.count >= 4 ? parseDialogButtons(args[3] as? [Any]) : nil
+                if let buttons {
+                    ActionUIWebKitJS.model.presentAlert(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
+                } else {
+                    ActionUIWebKitJS.model.presentAlert(windowUUID: windowUUID, title: title, message: message)
+                }
+            } else {
+                print("Invalid arguments for presentAlert: \(args)")
+            }
+        case "presentConfirmationDialog":
+            // args: [windowUUID, title, message?, buttons]
+            if args.count >= 2, let windowUUID = args[0] as? String, let title = args[1] as? String {
+                let message  = args.count >= 3 ? args[2] as? String : nil
+                let buttons  = args.count >= 4 ? parseDialogButtons(args[3] as? [Any]) ?? [] : []
+                ActionUIWebKitJS.model.presentConfirmationDialog(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
+            } else {
+                print("Invalid arguments for presentConfirmationDialog: \(args)")
+            }
+        case "dismissDialog":
+            if args.count >= 1, let windowUUID = args[0] as? String {
+                ActionUIWebKitJS.model.dismissDialog(windowUUID: windowUUID)
+            } else {
+                print("Invalid arguments for dismissDialog: \(args)")
             }
         default:
             print("Unknown method: \(method)")

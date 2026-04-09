@@ -54,6 +54,11 @@ def test_module_api_surface():
         "app_load_menu_bar",
         "app_run_open_panel",
         "app_run_save_panel",
+        "present_modal",
+        "dismiss_modal",
+        "present_alert",
+        "present_confirmation_dialog",
+        "dismiss_dialog",
     ]
 
     for name in expected:

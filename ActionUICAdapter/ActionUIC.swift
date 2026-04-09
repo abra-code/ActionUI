@@ -1045,6 +1045,159 @@ public func actionUILoadViewFromJSON(
 }
 */
 
+// MARK: - Modal Presentation
+
+/// Parse a JSON array of button descriptors into [DialogButton].
+/// Expected JSON format: [{"title":"Delete","role":"destructive","actionID":"delete.confirmed"},...]
+/// "role" values: omit or "default" → nil, "cancel" → .cancel, "destructive" → .destructive
+/// "actionID" is optional; omit or null for dismiss-only buttons.
+private func parseDialogButtons(_ buttonsJSON: String?) -> [ActionUI.DialogButton]? {
+    guard let json = buttonsJSON,
+          let data = json.data(using: .utf8),
+          let array = (try? JSONSerialization.jsonObject(with: data, options: [.allowFragments])) as? [[String: Any]],
+          !array.isEmpty else { return nil }
+
+    return array.compactMap { dict -> ActionUI.DialogButton? in
+        guard let title = dict["title"] as? String else { return nil }
+        let role: SwiftUI.ButtonRole? = switch dict["role"] as? String {
+            case "cancel": .cancel
+            case "destructive": .destructive
+            default: nil
+        }
+        let actionID = dict["actionID"] as? String
+        return ActionUI.DialogButton(title: title, role: role, actionID: actionID)
+    }
+}
+
+/// Presents a window-level modal sheet or full-screen cover loaded from a JSON/plist string.
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - jsonString: Null-terminated UTF-8 string containing the JSON or plist UI description.
+///   - format: Null-terminated UTF-8 format string: "json" or "plist".
+///   - style: `ActionUIModalStyleSheet` (0) or `ActionUIModalStyleFullScreenCover` (1).
+///   - onDismissActionID: Optional null-terminated UTF-8 actionID fired on dismiss; pass NULL for none.
+/// - Returns: `true` on success; `false` on failure — call `actionUIGetLastError()` for details.
+@_cdecl("actionUIPresentModal")
+public func actionUIPresentModal(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ jsonString: UnsafePointer<CChar>,
+    _ format: UnsafePointer<CChar>,
+    _ style: ActionUIModalStyle,
+    _ onDismissActionID: UnsafePointer<CChar>?
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID   = String(cString: windowUUID)
+    let swiftJSONString   = String(cString: jsonString)
+    let swiftFormat       = String(cString: format)
+    let swiftDismissID    = onDismissActionID.map { String(cString: $0) }
+    let modalStyle: ActionUI.ModalStyle = style == ActionUIModalStyleFullScreenCover ? .fullScreenCover : .sheet
+
+    guard let data = swiftJSONString.data(using: .utf8) else {
+        setError("actionUIPresentModal: invalid UTF-8 in JSON string")
+        return false
+    }
+
+    var success = true
+    runOnMainActorSync {
+        do {
+            try ActionUIModel.shared.presentModal(
+                windowUUID: swiftWindowUUID,
+                data: data,
+                format: swiftFormat,
+                style: modalStyle,
+                onDismissActionID: swiftDismissID
+            )
+        } catch {
+            setError("actionUIPresentModal: \(error.localizedDescription)")
+            success = false
+        }
+    }
+    return success
+}
+
+/// Dismisses the active window-level modal for the given window.
+/// Also fires the `onDismissActionID` if one was registered on present.
+/// - Parameter windowUUID: Null-terminated UTF-8 window identifier.
+@_cdecl("actionUIDismissModal")
+public func actionUIDismissModal(_ windowUUID: UnsafePointer<CChar>) {
+    let swiftWindowUUID = String(cString: windowUUID)
+    runOnMainActorAsync {
+        ActionUIModel.shared.dismissModal(windowUUID: swiftWindowUUID)
+    }
+}
+
+/// Presents a window-level alert dialog.
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - title: Null-terminated UTF-8 alert title.
+///   - message: Optional null-terminated UTF-8 alert message; pass NULL to omit.
+///   - buttonsJSON: Optional null-terminated UTF-8 JSON array of button descriptors; pass NULL for a single default OK button.
+///     Format: `[{"title":"Delete","role":"destructive","actionID":"delete.confirmed"},{"title":"Cancel","role":"cancel"}]`
+/// - Returns: `true` on success.
+@_cdecl("actionUIPresentAlert")
+public func actionUIPresentAlert(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ title: UnsafePointer<CChar>,
+    _ message: UnsafePointer<CChar>?,
+    _ buttonsJSON: UnsafePointer<CChar>?
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftTitle      = String(cString: title)
+    let swiftMessage    = message.map { String(cString: $0) }
+    let swiftButtons    = parseDialogButtons(buttonsJSON.map { String(cString: $0) })
+
+    runOnMainActorAsync {
+        if let swiftButtons {
+            ActionUIModel.shared.presentAlert(windowUUID: swiftWindowUUID, title: swiftTitle, message: swiftMessage, buttons: swiftButtons)
+        } else {
+            ActionUIModel.shared.presentAlert(windowUUID: swiftWindowUUID, title: swiftTitle, message: swiftMessage)
+        }
+    }
+    return true
+}
+
+/// Presents a window-level confirmation dialog (action sheet style on iOS).
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - title: Null-terminated UTF-8 dialog title.
+///   - message: Optional null-terminated UTF-8 dialog message; pass NULL to omit.
+///   - buttonsJSON: Null-terminated UTF-8 JSON array of button descriptors.
+///     Format: `[{"title":"Save","actionID":"doc.save"},{"title":"Don't Save","role":"destructive","actionID":"doc.discard"},{"title":"Cancel","role":"cancel"}]`
+/// - Returns: `true` on success.
+@_cdecl("actionUIPresentConfirmationDialog")
+public func actionUIPresentConfirmationDialog(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ title: UnsafePointer<CChar>,
+    _ message: UnsafePointer<CChar>?,
+    _ buttonsJSON: UnsafePointer<CChar>
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftTitle      = String(cString: title)
+    let swiftMessage    = message.map { String(cString: $0) }
+    let swiftButtons    = parseDialogButtons(String(cString: buttonsJSON)) ?? []
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.presentConfirmationDialog(windowUUID: swiftWindowUUID, title: swiftTitle, message: swiftMessage, buttons: swiftButtons)
+    }
+    return true
+}
+
+/// Dismisses the active window-level alert or confirmation dialog for the given window.
+/// Normally SwiftUI dismisses dialogs automatically when a button is tapped.
+/// - Parameter windowUUID: Null-terminated UTF-8 window identifier.
+@_cdecl("actionUIDismissDialog")
+public func actionUIDismissDialog(_ windowUUID: UnsafePointer<CChar>) {
+    let swiftWindowUUID = String(cString: windowUUID)
+    runOnMainActorAsync {
+        ActionUIModel.shared.dismissDialog(windowUUID: swiftWindowUUID)
+    }
+}
+
 // MARK: - Memory Management
 
 @_cdecl("actionUIFreeString")

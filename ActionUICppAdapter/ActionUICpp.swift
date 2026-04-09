@@ -244,7 +244,56 @@ public struct ActionUICpp {
     @MainActor public static func removeDefaultActionHandler() {
         model.removeDefaultActionHandler()
     }
-    
+
+    // MARK: - Modal Presentation
+
+    /// Presents a window-level modal sheet or full-screen cover loaded from JSON/plist data.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - data: Encoded JSON or plist data describing the modal's view hierarchy.
+    ///   - format: `"json"` or `"plist"`.
+    ///   - style: `.sheet` or `.fullScreenCover`.
+    ///   - onDismissActionID: Optional actionID fired when the modal is dismissed.
+    @MainActor public static func presentModal(windowUUID: String, data: Data, format: String, style: ActionUI.ModalStyle, onDismissActionID: String? = nil) throws {
+        try model.presentModal(windowUUID: windowUUID, data: data, format: format, style: style, onDismissActionID: onDismissActionID)
+    }
+
+    /// Dismisses the active window-level modal for the given window.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor public static func dismissModal(windowUUID: String) {
+        model.dismissModal(windowUUID: windowUUID)
+    }
+
+    /// Presents a window-level alert dialog.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - title: Alert title.
+    ///   - message: Optional alert message.
+    ///   - buttons: Optional array of `DialogButton`; defaults to a single OK/cancel button if nil.
+    @MainActor public static func presentAlert(windowUUID: String, title: String, message: String? = nil, buttons: [ActionUI.DialogButton]? = nil) {
+        if let buttons {
+            model.presentAlert(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
+        } else {
+            model.presentAlert(windowUUID: windowUUID, title: title, message: message)
+        }
+    }
+
+    /// Presents a window-level confirmation dialog (action sheet style on iOS).
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - title: Dialog title.
+    ///   - message: Optional dialog message.
+    ///   - buttons: Array of `DialogButton` defining the available choices.
+    @MainActor public static func presentConfirmationDialog(windowUUID: String, title: String, message: String? = nil, buttons: [ActionUI.DialogButton]) {
+        model.presentConfirmationDialog(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
+    }
+
+    /// Dismisses the active window-level alert or confirmation dialog for the given window.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor public static func dismissDialog(windowUUID: String) {
+        model.dismissDialog(windowUUID: windowUUID)
+    }
+
     #if canImport(AppKit)
     /// Loads an NSView hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
     /// Available only on macOS.

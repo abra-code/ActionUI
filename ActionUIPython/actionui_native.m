@@ -756,6 +756,102 @@ static PyObject* py_get_element_info_json(PyObject* self, PyObject* args) {
     return result;
 }
 
+// MARK: - Python API: Modal Presentation
+
+/*
+ * present_modal(windowUUID, jsonString, format, style[, onDismissActionID])
+ *   windowUUID        : str  — window identifier
+ *   jsonString        : str  — JSON/plist UI description
+ *   format            : str  — "json" or "plist"
+ *   style             : str  — "sheet" or "fullScreenCover"
+ *   onDismissActionID : str|None — optional actionID fired on dismiss
+ * Returns True on success, raises RuntimeError on failure.
+ */
+static PyObject* py_present_modal(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    const char* jsonString;
+    const char* format;
+    const char* style;
+    const char* onDismissActionID = NULL;  /* optional */
+    if (PyArg_ParseTuple(args, "ssss|z",
+                         &windowUUID, &jsonString, &format, &style,
+                         &onDismissActionID) == 0)
+        return NULL;
+
+    ActionUIModalStyle modalStyle = (strcmp(style, "fullScreenCover") == 0)
+        ? ActionUIModalStyleFullScreenCover
+        : ActionUIModalStyleSheet;
+
+    bool ok = actionUIPresentModal(windowUUID, jsonString, format,
+                                   modalStyle, onDismissActionID);
+    if (!ok) {
+        char* err = actionUIGetLastError();
+        if (err != NULL) {
+            PyErr_SetString(PyExc_RuntimeError, err);
+            actionUIFreeString(err);
+        } else {
+            PyErr_SetString(PyExc_RuntimeError, "actionUIPresentModal failed");
+        }
+        return NULL;
+    }
+    Py_RETURN_TRUE;
+}
+
+/* dismiss_modal(windowUUID) */
+static PyObject* py_dismiss_modal(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
+    actionUIDismissModal(windowUUID);
+    Py_RETURN_NONE;
+}
+
+/*
+ * present_alert(windowUUID, title[, message[, buttonsJSON]])
+ *   message    : str|None
+ *   buttonsJSON: str|None — JSON array e.g. [{"title":"OK","role":"cancel"}]
+ * Returns True on success.
+ */
+static PyObject* py_present_alert(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    const char* title;
+    const char* message    = NULL;
+    const char* buttonsJSON = NULL;
+    if (PyArg_ParseTuple(args, "ss|zz",
+                         &windowUUID, &title, &message, &buttonsJSON) == 0)
+        return NULL;
+    (void)actionUIPresentAlert(windowUUID, title, message, buttonsJSON);
+    Py_RETURN_TRUE;
+}
+
+/*
+ * present_confirmation_dialog(windowUUID, title[, message[, buttonsJSON]])
+ *   buttonsJSON: str — JSON array of button descriptors (required for
+ *                confirmation dialogs; pass NULL to get an empty buttons list)
+ * Returns True on success.
+ */
+static PyObject* py_present_confirmation_dialog(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    const char* title;
+    const char* message    = NULL;
+    const char* buttonsJSON = NULL;
+    if (PyArg_ParseTuple(args, "ss|zz",
+                         &windowUUID, &title, &message, &buttonsJSON) == 0)
+        return NULL;
+    /* actionUIPresentConfirmationDialog requires a non-NULL buttonsJSON;
+       pass an empty array if the caller provided nothing. */
+    const char* effectiveButtons = (buttonsJSON != NULL) ? buttonsJSON : "[]";
+    (void)actionUIPresentConfirmationDialog(windowUUID, title, message, effectiveButtons);
+    Py_RETURN_TRUE;
+}
+
+/* dismiss_dialog(windowUUID) */
+static PyObject* py_dismiss_dialog(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
+    actionUIDismissDialog(windowUUID);
+    Py_RETURN_NONE;
+}
+
 // MARK: - Python API: UI Loading
 
 /*
@@ -842,6 +938,21 @@ static PyMethodDef ActionUIMethods[] = {
 
     /* Element info */
     {"get_element_info_json",       py_get_element_info_json,       METH_VARARGS, "get_element_info_json(windowUUID) -> str|None"},
+
+    /* Modal presentation */
+    {"present_modal",               py_present_modal,               METH_VARARGS,
+     "present_modal(windowUUID, jsonString, format, style[, onDismissActionID]) -> True\n"
+     "Presents a window-level modal sheet/fullScreenCover. style: 'sheet'|'fullScreenCover'."},
+    {"dismiss_modal",               py_dismiss_modal,               METH_VARARGS,
+     "dismiss_modal(windowUUID) — dismiss the active window-level modal."},
+    {"present_alert",               py_present_alert,               METH_VARARGS,
+     "present_alert(windowUUID, title[, message[, buttonsJSON]]) -> True\n"
+     "Presents a window-level alert. buttonsJSON: JSON array of {title,role?,actionID?}."},
+    {"present_confirmation_dialog", py_present_confirmation_dialog, METH_VARARGS,
+     "present_confirmation_dialog(windowUUID, title[, message[, buttonsJSON]]) -> True\n"
+     "Presents a window-level confirmation dialog. buttonsJSON: JSON array of {title,role?,actionID?}."},
+    {"dismiss_dialog",              py_dismiss_dialog,              METH_VARARGS,
+     "dismiss_dialog(windowUUID) — dismiss the active window-level alert or confirmation dialog."},
 
     /* UI loading */
     {"load_hosting_controller",     py_load_hosting_controller,     METH_VARARGS,

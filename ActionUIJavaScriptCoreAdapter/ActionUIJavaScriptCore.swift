@@ -147,6 +147,47 @@ import AppKit
 ///   - Description: Sets a structural property value for a view element by property name.
 ///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
 ///
+/// - `presentModal(windowUUID, jsonString, format, style, onDismissActionID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `jsonString`: String - JSON or plist string describing the modal's view hierarchy.
+///     - `format`: String - `"json"` or `"plist"`.
+///     - `style`: String - `"sheet"` or `"fullScreenCover"`.
+///     - `onDismissActionID`: String or null - actionID fired when the modal is dismissed.
+///   - Returns: Boolean - `true` on success, `false` on failure.
+///   - Description: Presents a window-level modal sheet or full-screen cover from a JSON/plist string.
+///   - Example: `ActionUI.presentModal("win-123", jsonStr, "json", "sheet", "settings.closed");`
+///
+/// - `dismissModal(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Dismisses the active window-level modal and fires onDismissActionID if set.
+///   - Example: `ActionUI.dismissModal("win-123");`
+///
+/// - `presentAlert(windowUUID, title, message, buttons)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `title`: String - Alert title.
+///     - `message`: String or null - Optional alert message.
+///     - `buttons`: Array or null - Optional array of button descriptors `[{title, role?, actionID?}]`; null defaults to single OK button. `role`: `"cancel"`, `"destructive"`, or omit for default.
+///   - Description: Presents a window-level alert dialog.
+///   - Example: `ActionUI.presentAlert("win-123", "Delete?", "Cannot undo.", [{title:"Delete",role:"destructive",actionID:"del"},{title:"Cancel",role:"cancel"}]);`
+///
+/// - `presentConfirmationDialog(windowUUID, title, message, buttons)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `title`: String - Dialog title.
+///     - `message`: String or null - Optional dialog message.
+///     - `buttons`: Array - Array of button descriptors `[{title, role?, actionID?}]`.
+///   - Description: Presents a window-level confirmation dialog (action sheet style on iOS).
+///   - Example: `ActionUI.presentConfirmationDialog("win-123", "Save?", null, [{title:"Save",actionID:"save"},{title:"Cancel",role:"cancel"}]);`
+///
+/// - `dismissDialog(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Dismisses the active window-level alert or confirmation dialog. SwiftUI does this automatically when a button is tapped.
+///   - Example: `ActionUI.dismissDialog("win-123");`
+///
 /// - `getElementState(windowUUID, viewID, key)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -234,6 +275,7 @@ public class ActionUIJavaScriptCore {
         setupLogger(actionUIObject: actionUIObject)
         setupElementValueMethods(actionUIObject: actionUIObject)
         setupActionHandlerMethods(actionUIObject: actionUIObject)
+        setupModalMethods(actionUIObject: actionUIObject)
         
         // Set the global ActionUI object
         context.setObject(actionUIObject, forKeyedSubscript: "ActionUI" as NSString)
@@ -406,8 +448,72 @@ public class ActionUIJavaScriptCore {
         actionUIObject.setValue(removeDefaultActionHandler, forProperty: "removeDefaultActionHandler")
     }
     
+    private func setupModalMethods(actionUIObject: JSValue) {
+        // Helper: convert a JSValue array of button descriptors to [ActionUI.DialogButton]
+        func parseButtons(_ jsButtons: JSValue) -> [ActionUI.DialogButton]? {
+            guard !jsButtons.isNull, !jsButtons.isUndefined,
+                  let array = jsButtons.toObject() as? [[String: Any]], !array.isEmpty else { return nil }
+            return array.compactMap { dict -> ActionUI.DialogButton? in
+                guard let title = dict["title"] as? String else { return nil }
+                let role: SwiftUI.ButtonRole? = switch dict["role"] as? String {
+                    case "cancel": .cancel
+                    case "destructive": .destructive
+                    default: nil
+                }
+                return ActionUI.DialogButton(title: title, role: role, actionID: dict["actionID"] as? String)
+            }
+        }
+
+        // presentModal(windowUUID, jsonString, format, style, onDismissActionID) -> Bool
+        let presentModal: @convention(block) (String, String, String, String, JSValue) -> Bool = { windowUUID, jsonString, format, style, jsDismissID in
+            guard let data = jsonString.data(using: .utf8) else { return false }
+            let modalStyle: ActionUI.ModalStyle = style == "fullScreenCover" ? .fullScreenCover : .sheet
+            let dismissID: String? = (!jsDismissID.isNull && !jsDismissID.isUndefined) ? jsDismissID.toString() : nil
+            do {
+                try ActionUIJavaScriptCore.model.presentModal(windowUUID: windowUUID, data: data, format: format, style: modalStyle, onDismissActionID: dismissID)
+                return true
+            } catch {
+                return false
+            }
+        }
+        actionUIObject.setValue(presentModal, forProperty: "presentModal")
+
+        // dismissModal(windowUUID)
+        let dismissModal: @convention(block) (String) -> Void = { windowUUID in
+            ActionUIJavaScriptCore.model.dismissModal(windowUUID: windowUUID)
+        }
+        actionUIObject.setValue(dismissModal, forProperty: "dismissModal")
+
+        // presentAlert(windowUUID, title, message, buttons) -> Bool
+        let presentAlert: @convention(block) (String, String, JSValue, JSValue) -> Bool = { windowUUID, title, jsMessage, jsButtons in
+            let message: String? = (!jsMessage.isNull && !jsMessage.isUndefined) ? jsMessage.toString() : nil
+            let buttons = parseButtons(jsButtons)
+            if let buttons {
+                ActionUIJavaScriptCore.model.presentAlert(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
+            } else {
+                ActionUIJavaScriptCore.model.presentAlert(windowUUID: windowUUID, title: title, message: message)
+            }
+            return true
+        }
+        actionUIObject.setValue(presentAlert, forProperty: "presentAlert")
+
+        // presentConfirmationDialog(windowUUID, title, message, buttons)
+        let presentConfirmationDialog: @convention(block) (String, String, JSValue, JSValue) -> Void = { windowUUID, title, jsMessage, jsButtons in
+            let message: String? = (!jsMessage.isNull && !jsMessage.isUndefined) ? jsMessage.toString() : nil
+            let buttons = parseButtons(jsButtons) ?? []
+            ActionUIJavaScriptCore.model.presentConfirmationDialog(windowUUID: windowUUID, title: title, message: message, buttons: buttons)
+        }
+        actionUIObject.setValue(presentConfirmationDialog, forProperty: "presentConfirmationDialog")
+
+        // dismissDialog(windowUUID)
+        let dismissDialog: @convention(block) (String) -> Void = { windowUUID in
+            ActionUIJavaScriptCore.model.dismissDialog(windowUUID: windowUUID)
+        }
+        actionUIObject.setValue(dismissDialog, forProperty: "dismissDialog")
+    }
+
     // MARK: - Swift-side Loading Methods (mirroring ActionUISwift)
-    
+
     /// Loads a SwiftUI view from a JSON or plist description at the given URL (local or remote).
     /// Design decision: Provided for Swift host code to load views after JavaScript has potentially interacted with the model (e.g., set values or handlers).
     public func loadView(from url: URL, windowUUID: String, isContentView: Bool) -> any SwiftUI.View {

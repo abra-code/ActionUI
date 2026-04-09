@@ -33,6 +33,37 @@ private class ObjCLoggerBridge: ActionUILogger {
     }
 }
 
+/// Modal presentation style for Objective-C. Maps to ActionUI.ModalStyle.
+@objc public enum ActionUIObjCModalStyle: NSInteger {
+    /// Standard sheet presentation.
+    case sheet = 0
+    /// Full-screen cover (iOS); falls back to sheet on macOS.
+    case fullScreenCover = 1
+}
+
+/// Button role for Objective-C dialog buttons. Maps to SwiftUI.ButtonRole.
+@objc public enum ActionUIObjCButtonRole: NSInteger {
+    /// Default (no special role).
+    case `default` = 0
+    /// Cancel action.
+    case cancel = 1
+    /// Destructive action.
+    case destructive = 2
+}
+
+/// An Objective-C-compatible dialog button descriptor. Maps to ActionUI.DialogButton.
+@objc public class ActionUIObjCDialogButton: NSObject {
+    @objc public let title: NSString
+    @objc public let role: ActionUIObjCButtonRole
+    @objc public let actionID: NSString?
+
+    @objc public init(title: NSString, role: ActionUIObjCButtonRole, actionID: NSString?) {
+        self.title = title
+        self.role = role
+        self.actionID = actionID
+    }
+}
+
 /// Action handler block type for Objective-C with explicit parameter names.
 /// Design decision: Named parameters improve readability in the generated Objective-C header.
 /// No @objc attribute, as Swift automatically bridges this closure type to an Objective-C block in @objc methods.
@@ -250,7 +281,81 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     @MainActor @objc public class func removeDefaultActionHandler() {
         model.removeDefaultActionHandler()
     }
-    
+
+    // MARK: - Modal Presentation
+
+    /// Presents a window-level modal sheet or full-screen cover loaded from JSON/plist data.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - data: Encoded JSON or plist data describing the modal's view hierarchy.
+    ///   - format: `"json"` or `"plist"`.
+    ///   - style: `.sheet` or `.fullScreenCover`.
+    ///   - onDismissActionID: Optional actionID fired when the modal is dismissed. Pass nil for none.
+    ///   - error: On failure, set to a non-nil NSError describing the problem.
+    /// - Returns: `YES` on success, `NO` on failure.
+    @MainActor @objc public class func presentModalWithWindowUUID(_ windowUUID: NSString, data: NSData, format: NSString, style: ActionUIObjCModalStyle, onDismissActionID: NSString?, error: NSErrorPointer) -> Bool {
+        let modalStyle: ActionUI.ModalStyle = style == .fullScreenCover ? .fullScreenCover : .sheet
+        do {
+            try model.presentModal(windowUUID: windowUUID as String, data: data as Data, format: format as String, style: modalStyle, onDismissActionID: onDismissActionID as String?)
+            return true
+        } catch let err as NSError {
+            error?.pointee = err
+            return false
+        }
+    }
+
+    /// Dismisses the active window-level modal for the given window.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor @objc public class func dismissModalWithWindowUUID(_ windowUUID: NSString) {
+        model.dismissModal(windowUUID: windowUUID as String)
+    }
+
+    /// Presents a window-level alert dialog.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - title: Alert title.
+    ///   - message: Optional alert message. Pass nil to omit.
+    ///   - buttons: Optional NSArray of `ActionUIObjCDialogButton`. Pass nil for a single default OK button.
+    @MainActor @objc public class func presentAlertWithWindowUUID(_ windowUUID: NSString, title: NSString, message: NSString?, buttons: NSArray?) {
+        let swiftButtons = dialogButtons(from: buttons)
+        if let swiftButtons {
+            model.presentAlert(windowUUID: windowUUID as String, title: title as String, message: message as String?, buttons: swiftButtons)
+        } else {
+            model.presentAlert(windowUUID: windowUUID as String, title: title as String, message: message as String?)
+        }
+    }
+
+    /// Presents a window-level confirmation dialog (action sheet style on iOS).
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - title: Dialog title.
+    ///   - message: Optional dialog message. Pass nil to omit.
+    ///   - buttons: NSArray of `ActionUIObjCDialogButton` defining the available choices.
+    @MainActor @objc public class func presentConfirmationDialogWithWindowUUID(_ windowUUID: NSString, title: NSString, message: NSString?, buttons: NSArray) {
+        let swiftButtons = dialogButtons(from: buttons) ?? []
+        model.presentConfirmationDialog(windowUUID: windowUUID as String, title: title as String, message: message as String?, buttons: swiftButtons)
+    }
+
+    /// Dismisses the active window-level alert or confirmation dialog for the given window.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor @objc public class func dismissDialogWithWindowUUID(_ windowUUID: NSString) {
+        model.dismissDialog(windowUUID: windowUUID as String)
+    }
+
+    /// Converts an NSArray of ActionUIObjCDialogButton to [ActionUI.DialogButton]. Returns nil if array is nil or empty.
+    private class func dialogButtons(from array: NSArray?) -> [ActionUI.DialogButton]? {
+        guard let array, array.count > 0 else { return nil }
+        return array.compactMap { element -> ActionUI.DialogButton? in
+            guard let btn = element as? ActionUIObjCDialogButton else { return nil }
+            let role: SwiftUI.ButtonRole? = switch btn.role {
+                case .cancel: .cancel
+                case .destructive: .destructive
+                default: nil
+            }
+            return ActionUI.DialogButton(title: btn.title as String, role: role, actionID: btn.actionID as String?)
+        }
+    }
+
     #if canImport(AppKit)
     /// Loads an NSView hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
     /// Available only on macOS.

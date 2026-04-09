@@ -60,6 +60,21 @@ typedef void (*ActionUIActionHandler)(const char* actionID,
                                       int64_t     viewPartID,
                                       const char* contextJSON);
 
+// MARK: - Modal Presentation
+
+/// Modal presentation style.
+typedef enum {
+    ActionUIModalStyleSheet           = 0,
+    ActionUIModalStyleFullScreenCover = 1
+} ActionUIModalStyle;
+
+/// Button role for dialog buttons.
+typedef enum {
+    ActionUIButtonRoleDefault     = 0,  ///< Normal prominence (no special role)
+    ActionUIButtonRoleCancel      = 1,  ///< Cancel action
+    ActionUIButtonRoleDestructive = 2   ///< Destructive action (red tint)
+} ActionUIButtonRole;
+
 #ifdef __cplusplus
 }
 #endif
