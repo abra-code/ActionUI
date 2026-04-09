@@ -1,0 +1,130 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Sheet & FullScreenCover",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Tier 1 (view-attached): declared as a subview key.",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "title": "Show Sheet (Button tap)",
+        "buttonStyle": "borderedProminent",
+        "sheetOnDismissActionID": "sheet.dismissed"
+      },
+      "sheet": {
+        "type": "VStack",
+        "properties": {
+          "padding": "default",
+          "spacing": 16.0
+        },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Sheet Content",
+              "font": "headline"
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Dismiss by swiping down or calling setElementState(key: \"sheetVisible\", value: false)."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": {
+        "title": "Show Full Screen Cover (Button tap)",
+        "buttonStyle": "bordered",
+        "fullScreenCoverOnDismissActionID": "cover.dismissed"
+      },
+      "fullScreenCover": {
+        "type": "VStack",
+        "properties": {
+          "padding": "default",
+          "spacing": 16.0,
+          "frame": { "maxWidth": 9999.0, "maxHeight": 9999.0 },
+          "background": "systemBackground"
+        },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Full Screen Cover",
+              "font": "largeTitle"
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "On iOS this fills the screen. On macOS it falls back to a sheet."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Tier 2 (window-level / detached): triggered programmatically from an action handler.",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 10,
+      "properties": {
+        "title": "Present Sheet (window-level)",
+        "buttonStyle": "borderedProminent",
+        "actionID": "sheet.demo.presentModal.sheet"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 11,
+      "properties": {
+        "title": "Present Full Screen Cover (window-level)",
+        "buttonStyle": "bordered",
+        "actionID": "sheet.demo.presentModal.cover"
+      }
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": {
+        "text": "Tap a button to see feedback here.",
+        "font": "footnote",
+        "foregroundStyle": "secondary"
+      }
+    }
+  ]
+}

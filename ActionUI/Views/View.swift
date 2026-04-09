@@ -76,6 +76,8 @@
      "scrollContentBackground": "visible",   // Optional: "visible", "hidden" or "automatic"; controls the default background of scrollable views (List, TextEditor, Form). Defaults to "automatic".
      "popoverArrowEdge": "top",             // Optional: Arrow edge for popover ("top", "bottom", "leading", "trailing"); defaults to "top". Only meaningful when "popover" subview is present.
      "popoverActionID": "view.popover",     // Optional: String for action identifier triggered when the popover is shown. Only meaningful when "popover" subview is present.
+     "sheetOnDismissActionID": "sheet.dismissed",         // Optional: String for action identifier triggered when the sheet is dismissed. Only meaningful when "sheet" subview is present.
+     "fullScreenCoverOnDismissActionID": "cover.dismissed", // Optional: String for action identifier triggered when the full-screen cover is dismissed. Only meaningful when "fullScreenCover" subview is present.
      "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
                                             // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
                                             // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
@@ -603,6 +605,18 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate sheetOnDismissActionID
+        if let sheetDismiss = properties["sheetOnDismissActionID"], !(sheetDismiss is String) {
+            logger.log("Invalid type for sheetOnDismissActionID: expected String, got \(type(of: sheetDismiss)), ignoring", .warning)
+            validatedProperties["sheetOnDismissActionID"] = nil
+        }
+
+        // Validate fullScreenCoverOnDismissActionID
+        if let coverDismiss = properties["fullScreenCoverOnDismissActionID"], !(coverDismiss is String) {
+            logger.log("Invalid type for fullScreenCoverOnDismissActionID: expected String, got \(type(of: coverDismiss)), ignoring", .warning)
+            validatedProperties["fullScreenCoverOnDismissActionID"] = nil
+        }
+
         if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
             var validatedValue: Any? = nil
             
@@ -909,6 +923,40 @@ struct View: ActionUIViewConstruction {
         
         if let accessibilityIdentifier = properties["accessibilityIdentifier"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityIdentifier(accessibilityIdentifier)
+        }
+
+        // Apply sheet modifier if the element has a sheet subview
+        if let sheetElement = element.subviews?["sheet"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let parentModel = windowModel.viewModels[element.id],
+           let sheetModel = windowModel.viewModels[sheetElement.id] {
+            let onDismissActionID = properties["sheetOnDismissActionID"] as? String
+            modifiedView = SheetModifierView(
+                content: AnyView(modifiedView),
+                sheetElement: sheetElement,
+                sheetModel: sheetModel,
+                parentModel: parentModel,
+                windowUUID: windowUUID,
+                elementID: element.id,
+                onDismissActionID: onDismissActionID
+            )
+        }
+
+        // Apply fullScreenCover modifier if the element has a fullScreenCover subview
+        if let coverElement = element.subviews?["fullScreenCover"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let parentModel = windowModel.viewModels[element.id],
+           let coverModel = windowModel.viewModels[coverElement.id] {
+            let onDismissActionID = properties["fullScreenCoverOnDismissActionID"] as? String
+            modifiedView = FullScreenCoverModifierView(
+                content: AnyView(modifiedView),
+                coverElement: coverElement,
+                coverModel: coverModel,
+                parentModel: parentModel,
+                windowUUID: windowUUID,
+                elementID: element.id,
+                onDismissActionID: onDismissActionID
+            )
         }
 
         // Apply popover modifier if the element has a popover subview

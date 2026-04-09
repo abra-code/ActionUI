@@ -211,6 +211,79 @@ struct ActionUISwiftTestApp: App {
             }
         }
 
+        // Sheet demo handlers
+        ActionUISwift.registerActionHandler(actionID: "sheet.dismissed") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Sheet dismissed.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "cover.dismissed") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Full screen cover dismissed.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "sheet.demo.presentModal.sheet") { _, windowUUID, _, _, _ in
+            guard let url = Bundle.main.url(forResource: "Sheet.modal", withExtension: "json"),
+                  let data = try? Data(contentsOf: url) else { return }
+            try? ActionUISwift.presentModal(
+                windowUUID: windowUUID, data: data, format: "json",
+                style: .sheet, onDismissActionID: "sheet.demo.tier2.dismissed"
+            )
+        }
+        ActionUISwift.registerActionHandler(actionID: "sheet.demo.presentModal.cover") { _, windowUUID, _, _, _ in
+            guard let url = Bundle.main.url(forResource: "Sheet.modal", withExtension: "json"),
+                  let data = try? Data(contentsOf: url) else { return }
+            try? ActionUISwift.presentModal(
+                windowUUID: windowUUID, data: data, format: "json",
+                style: .fullScreenCover, onDismissActionID: "sheet.demo.tier2.dismissed"
+            )
+        }
+        ActionUISwift.registerActionHandler(actionID: "sheet.demo.tier2.dismissed") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Window-level modal dismissed.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "modal.dismiss") { _, windowUUID, _, _, _ in
+            ActionUISwift.dismissModal(windowUUID: windowUUID)
+        }
+
+        // Alert demo handlers
+        ActionUISwift.registerActionHandler(actionID: "demo.showAlert") { _, windowUUID, _, _, _ in
+            ActionUISwift.presentAlert(
+                windowUUID: windowUUID,
+                title: "Hello",
+                message: "This is a window-level alert."
+            )
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.showAlertCustom") { _, windowUUID, _, _, _ in
+            let buttons: [ActionUI.DialogButton] = [
+                .init(title: "Delete", role: .destructive, actionID: "demo.delete.confirmed"),
+                .init(title: "Cancel", role: .cancel, actionID: nil)
+            ]
+            ActionUISwift.presentAlert(
+                windowUUID: windowUUID,
+                title: "Delete Item?",
+                message: "This action cannot be undone.",
+                buttons: buttons
+            )
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.showConfirmation") { _, windowUUID, _, _, _ in
+            let buttons: [ActionUI.DialogButton] = [
+                .init(title: "Save", role: nil, actionID: "demo.save.confirmed"),
+                .init(title: "Don't Save", role: .destructive, actionID: "demo.discard.confirmed"),
+                .init(title: "Cancel", role: .cancel, actionID: nil)
+            ]
+            ActionUISwift.presentConfirmationDialog(
+                windowUUID: windowUUID,
+                title: "Save changes?",
+                message: "Your changes will be lost if you don't save.",
+                buttons: buttons
+            )
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.delete.confirmed") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Deleted!")
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.save.confirmed") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Saved!")
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.discard.confirmed") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Discarded.")
+        }
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")

@@ -12,6 +12,10 @@ class WindowModel: ObservableObject {
     @Published var viewModels: [Int: ViewModel] = [:]
     /// Maps a LoadableView's element ID to set of child view IDs it loaded
     var loadedSubViewIDs: [Int: Set<Int>] = [:]
+    /// Active window-level modal (sheet or fullScreenCover). Set by ActionUIModel.presentModal.
+    @Published var windowModal: WindowModal? = nil
+    /// Active window-level dialog (alert or confirmationDialog). Set by ActionUIModel.presentAlert / presentConfirmationDialog.
+    @Published var windowDialog: WindowDialog? = nil
     let windowUUID: String
     private let logger: any ActionUILogger
 
@@ -152,7 +156,7 @@ class WindowModel: ObservableObject {
                 }
             }
             // Note: "template" is intentionally excluded — it is a stateless blueprint.
-            for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
+            for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover"] {
                 if let child = subviews[key] as? any ActionUIElementBase {
                     let childViewModels = populateViewModels(from: child)
                     for (id, viewModel) in childViewModels {
@@ -171,5 +175,32 @@ class WindowModel: ObservableObject {
         }
         
         return targetViewModels
+    }
+
+    // Decode JSON/plist for a window-level modal without touching the root element or loadedSubViewIDs.
+    // Merges the new ViewModels into the window's pool; IDs are tracked externally by WindowModal.loadedViewIDs
+    // so ActionUIModel.dismissModal can clean them up when the modal is dismissed.
+    func loadModalDescription(from data: Data, format: String) throws -> ActionUIElement {
+        let element: ActionUIElement
+        if format == "json" {
+            element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        } else if format == "plist" {
+            element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        } else {
+            logger.log("Unsupported format for modal: \(format)", .error)
+            throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
+        }
+        let newViewModels = populateViewModels(from: element)
+        var merged = self.viewModels
+        for (id, vm) in newViewModels {
+            if merged[id] == nil {
+                merged[id] = vm
+            } else {
+                logger.log("Modal ID conflict for element \(id); skipping merge", .error)
+            }
+        }
+        self.viewModels = merged
+        logger.log("Loaded modal description, element id: \(element.id)", .debug)
+        return element
     }
 }

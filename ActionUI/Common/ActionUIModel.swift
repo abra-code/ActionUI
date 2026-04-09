@@ -579,11 +579,111 @@ public class ActionUIModel: ObservableObject {
                 collectElementInfo(from: command, into: &result)
             }
         }
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover"] {
             if let child = subviews[key] as? any ActionUIElementBase {
                 collectElementInfo(from: child, into: &result)
             }
         }
+    }
+
+    // MARK: - Window-Level Modal (sheet / fullScreenCover)
+
+    /// Load JSON or plist data and present it as a sheet or full-screen cover in the specified window.
+    /// ViewModels for the modal content are registered in the window's pool and cleaned up on dismiss.
+    public func presentModal(
+        windowUUID: String,
+        data: Data,
+        format: String,
+        style: ModalStyle,
+        onDismissActionID: String? = nil
+    ) throws {
+        guard let windowModel = windowModels[windowUUID] else {
+            logger.log("presentModal: No WindowModel for windowUUID: \(windowUUID)", .error)
+            throw NSError(domain: "ActionUIModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "No WindowModel for windowUUID"])
+        }
+        let element = try windowModel.loadModalDescription(from: data, format: format)
+        let loadedIDs = collectAllElementIDs(from: element)
+        windowModel.windowModal = WindowModal(
+            element: element,
+            style: style,
+            onDismissActionID: onDismissActionID,
+            loadedViewIDs: loadedIDs
+        )
+        logger.log("presentModal: presenting \(style) for windowUUID: \(windowUUID)", .debug)
+    }
+
+    /// Dismiss the active sheet or fullScreenCover, remove its ViewModels, and fire onDismissActionID if set.
+    public func dismissModal(windowUUID: String) {
+        guard let windowModel = windowModels[windowUUID],
+              let modal = windowModel.windowModal else { return }
+        var updated = windowModel.viewModels
+        for id in modal.loadedViewIDs { updated.removeValue(forKey: id) }
+        windowModel.viewModels = updated
+        windowModel.windowModal = nil
+        if let actionID = modal.onDismissActionID {
+            actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0)
+        }
+        logger.log("dismissModal: windowUUID: \(windowUUID)", .debug)
+    }
+
+    // MARK: - Window-Level Dialog (alert / confirmationDialog)
+
+    /// Present a system alert attached to the window.
+    public func presentAlert(
+        windowUUID: String,
+        title: String,
+        message: String? = nil,
+        buttons: [DialogButton] = [DialogButton(title: "OK", role: .cancel, actionID: nil)]
+    ) {
+        guard let windowModel = windowModels[windowUUID] else {
+            logger.log("presentAlert: No WindowModel for windowUUID: \(windowUUID)", .error)
+            return
+        }
+        windowModel.windowDialog = WindowDialog(style: .alert, title: title, message: message, buttons: buttons)
+        logger.log("presentAlert: '\(title)' for windowUUID: \(windowUUID)", .debug)
+    }
+
+    /// Present a confirmation dialog (action sheet on iOS) attached to the window.
+    public func presentConfirmationDialog(
+        windowUUID: String,
+        title: String,
+        message: String? = nil,
+        buttons: [DialogButton]
+    ) {
+        guard let windowModel = windowModels[windowUUID] else {
+            logger.log("presentConfirmationDialog: No WindowModel for windowUUID: \(windowUUID)", .error)
+            return
+        }
+        windowModel.windowDialog = WindowDialog(style: .confirmationDialog, title: title, message: message, buttons: buttons)
+        logger.log("presentConfirmationDialog: '\(title)' for windowUUID: \(windowUUID)", .debug)
+    }
+
+    /// Dismiss the active alert or confirmationDialog without firing any action.
+    /// Normally SwiftUI calls this automatically via the binding when any button is tapped.
+    public func dismissDialog(windowUUID: String) {
+        guard let windowModel = windowModels[windowUUID] else { return }
+        windowModel.windowDialog = nil
+        logger.log("dismissDialog: windowUUID: \(windowUUID)", .debug)
+    }
+
+    // Recursively collect all element IDs from an element tree (used for modal ViewModel cleanup).
+    private func collectAllElementIDs(from element: any ActionUIElementBase) -> Set<Int> {
+        var ids: Set<Int> = [element.id]
+        guard let subviews = element.subviews else { return ids }
+        for key in ["children", "destinations"] {
+            if let children = subviews[key] as? [any ActionUIElementBase] {
+                for child in children { ids.formUnion(collectAllElementIDs(from: child)) }
+            }
+        }
+        if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
+            for row in rows { for child in row { ids.formUnion(collectAllElementIDs(from: child)) } }
+        }
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover"] {
+            if let child = subviews[key] as? any ActionUIElementBase {
+                ids.formUnion(collectAllElementIDs(from: child))
+            }
+        }
+        return ids
     }
 
     // Sets a property value for a view and re-validates it

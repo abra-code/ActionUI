@@ -113,6 +113,8 @@ struct Button: ActionUIViewConstruction {
         }
         
         let hasPopover = element.subviews?["popover"] != nil
+        let hasSheet = element.subviews?["sheet"] != nil
+        let hasFullScreenCover = element.subviews?["fullScreenCover"] != nil
         let popoverActionID = properties["popoverActionID"] as? String
         // Template-aware action dispatch: use parentID/rowIndex when rendering inside a template
         let actionViewID = model.templateContext?.parentID ?? element.id
@@ -126,6 +128,13 @@ struct Button: ActionUIViewConstruction {
                     if willShow, let popoverActionID = popoverActionID {
                         ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: 0)
                     }
+                }
+                // Sheets/covers are opened (not toggled) by a Button tap — dismissed via swipe or explicit setElementState
+                if hasSheet {
+                    model.states["sheetVisible"] = true
+                }
+                if hasFullScreenCover {
+                    model.states["fullScreenCoverVisible"] = true
                 }
                 if let actionID = actionID {
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: actionViewPartID)

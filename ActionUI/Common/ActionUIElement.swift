@@ -92,7 +92,7 @@ public struct ActionUIElement: ActionUIElementBase {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover
     }
     
     public init(from decoder: Decoder) throws {
@@ -125,7 +125,7 @@ public struct ActionUIElement: ActionUIElementBase {
             subviews!["rows"] = rows
         }
         
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover"] {
             if var child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if key == "template" {
                     child = ActionUIElement.normalizeTemplateIDs(child)
@@ -168,6 +168,8 @@ public struct ActionUIElement: ActionUIElementBase {
             try container.encodeNil(forKey: .sidebar)
             try container.encodeNil(forKey: .detail)
             try container.encodeNil(forKey: .popover)
+            try container.encodeNil(forKey: .sheet)
+            try container.encodeNil(forKey: .fullScreenCover)
             return
         }
         
@@ -188,7 +190,7 @@ public struct ActionUIElement: ActionUIElementBase {
         }
         
         // Encode single child views
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover"] {
             if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -236,7 +238,7 @@ public struct ActionUIElement: ActionUIElementBase {
         
         // Decode single child views for navigation components
         // Note: JSON specifies "content", "destination", "sidebar", "detail", "template" as top-level keys, but we move them to subviews
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
                     var childElement = try ActionUIElement(from: childDict, logger: logger)
@@ -336,7 +338,7 @@ extension ActionUIElement: Equatable {
         }
         
         // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations", "template"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations", "template", "sheet", "fullScreenCover"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             
@@ -443,6 +445,14 @@ extension ActionUIElementBase {
         }
         if let popover = subviews["popover"] as? any ActionUIElementBase,
            let found = popover.findElement(by: viewID) {
+            return found
+        }
+        if let sheet = subviews["sheet"] as? any ActionUIElementBase,
+           let found = sheet.findElement(by: viewID) {
+            return found
+        }
+        if let cover = subviews["fullScreenCover"] as? any ActionUIElementBase,
+           let found = cover.findElement(by: viewID) {
             return found
         }
         return nil

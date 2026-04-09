@@ -37,7 +37,14 @@ public struct RemoteLoadableView: SwiftUI.View {
         } else if let element = element,
                   let windowModel = ActionUIModel.shared.windowModels[windowUUID],
                   let viewModel = windowModel.viewModels[element.id] {
-            ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+            let coreView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
+            if isContentView {
+                // Window root: attach window-level sheet/fullScreenCover/alert/confirmationDialog
+                WindowModalView(windowModel: windowModel, content: AnyView(coreView), windowUUID: windowUUID)
+            } else {
+                // Sub-view instance (tab pane, detail view, etc.) — no window-level modifiers
+                coreView
+            }
         } else {
             SwiftUI.ProgressView()
                 .onAppear {

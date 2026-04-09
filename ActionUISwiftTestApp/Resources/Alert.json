@@ -1,0 +1,65 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Alert & ConfirmationDialog",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Window-level (Tier 2): always triggered programmatically via ActionUIModel. Use from any action handler — no anchor view needed.",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "title": "Show Alert",
+        "buttonStyle": "bordered",
+        "actionID": "demo.showAlert"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": {
+        "title": "Show Alert with Custom Buttons",
+        "buttonStyle": "bordered",
+        "actionID": "demo.showAlertCustom"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 3,
+      "properties": {
+        "title": "Show Confirmation Dialog",
+        "buttonStyle": "borderedProminent",
+        "role": "destructive",
+        "actionID": "demo.showConfirmation"
+      }
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": {
+        "text": "Tap a button to see feedback here.",
+        "font": "footnote",
+        "foregroundStyle": "secondary"
+      }
+    }
+  ]
+}

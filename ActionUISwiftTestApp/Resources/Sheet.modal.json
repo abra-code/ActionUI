@@ -1,0 +1,32 @@
+{
+  "type": "VStack",
+  "properties": {
+    "padding": "default",
+    "spacing": 16.0,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Window-Level Modal",
+        "font": "headline"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Presented programmatically via ActionUIModel.shared.presentModal(...).",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Button",
+      "properties": {
+        "title": "Close",
+        "buttonStyle": "bordered",
+        "actionID": "modal.dismiss"
+      }
+    }
+  ]
+}
