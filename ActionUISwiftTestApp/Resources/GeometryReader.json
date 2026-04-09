@@ -9,7 +9,7 @@
       "properties": {
         "text": "GeometryReader Demo",
         "font": "title2",
-        "padding": true
+        "padding": "default"
       }
     },
     {
@@ -47,7 +47,7 @@
         "text": "Below GeometryReader",
         "font": "caption",
         "foregroundColor": "#999999",
-        "padding": true
+        "padding": "default"
       }
     }
   ]

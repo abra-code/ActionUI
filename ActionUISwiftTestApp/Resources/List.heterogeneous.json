@@ -12,7 +12,7 @@
         "properties": {
           "text": "Selectable list (with actionID):",
           "font": "headline",
-          "padding": true
+          "padding": "default"
         }
       },
       {
@@ -54,7 +54,7 @@
         "properties": {
           "text": "Non-selectable list (no actionID):",
           "font": "headline",
-          "padding": true
+          "padding": "default"
         }
       },
       {
