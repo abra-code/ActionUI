@@ -33,9 +33,17 @@
         "id": 11,                            // Recommended: Set unique ID for selection support
         "properties": { "title": "Item 2" } 
       }
-    ]
+    ],
+    // Form 3: Data-driven list with template (replaces itemType with full ActionUI template)
+    "template": {                           // "template" presence activates data-driven template mode; "id" required
+      "type": "HStack",
+      "children": [
+        { "type": "Image", "properties": { "systemName": "$1" } }, // $1, $2, etc. are 1-based data column indexes
+        { "type": "Text",  "properties": { "text": "$2" } }
+      ]
+    }
   }
-    // Note: The List can operate in two modes:
+    // Note: The List can operate in three modes (Form 1, 2, and 3):
     //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) 
     //      specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. 
     //      The list-level actionID fires on selection change. Button items have their own actionID in itemType, 
@@ -64,6 +72,12 @@
     //      cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and
     //      applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
     //      The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
+    //   3. Template-based list: homogeneous rows of ActionUI views based on pre-declared template
+    //      Column text values are assigned to specific sub-view values by index
+    //      Column indexes are 1-based: $1 (col 0), $2 (col 1), $N (col N-1), $0 (all)
+    //      Data set via setElementRows/appendElementRows/clearElementRows.
+    //      Selection and doubleClickActionID work the same as Form 1.
+    //
     //    Performance: For homogeneous lists, child views are strongly typed to avoid AnyView overhead, 
     //    identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). 
     //    For heterogeneous lists, views are constructed dynamically. Image creation uses SwiftUI.Image extension, 
@@ -128,6 +142,68 @@ struct List: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        // Template mode: render one template instance per row in states["content"].
+        // Replaces itemType with full ActionUI template support for richer cell layouts.
+        if let template = element.subviews?["template"] as? any ActionUIElementBase {
+            let rows = (model.states["content"] as? [[String]]) ?? []
+            let parentID = element.id
+            let doubleClickActionID = properties["doubleClickActionID"] as? String
+            let rowViews: [AnyView] = rows.indices.map { rowIndex in
+                TemplateHelper.buildTemplateView(
+                    template: template, row: rows[rowIndex], rowIndex: rowIndex,
+                    parentID: parentID, windowUUID: windowUUID, logger: logger
+                )
+            }
+
+            // Selection binding: same index-based pattern as homogeneous list
+            let selectionBinding = Binding<Set<Int>>(
+                get: {
+                    guard let selectedRow = model.value as? [String],
+                          !selectedRow.isEmpty,
+                          let content = model.states["content"] as? [[String]],
+                          let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
+                        return Set<Int>()
+                    }
+                    return Set([selectedIndex])
+                },
+                set: { newSet in
+                    guard let newIndex = newSet.first else {
+                        if !(model.value as? [String] ?? []).isEmpty {
+                            DispatchQueue.main.async { model.value = [] }
+                        }
+                        return
+                    }
+                    guard let content = model.states["content"] as? [[String]],
+                          content.indices.contains(newIndex) else { return }
+                    let selectedRowValues = content[newIndex]
+                    guard (model.value as? [String]) != selectedRowValues else { return }
+                    DispatchQueue.main.async {
+                        model.value = selectedRowValues
+                        if let actionID = properties["actionID"] as? String {
+                            ActionUIModel.shared.actionHandler(
+                                actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0
+                            )
+                        }
+                    }
+                }
+            )
+
+            return SwiftUI.List(selection: selectionBinding) {
+                ForEach(rowViews.indices, id: \.self) { i in rowViews[i] }
+            }
+            #if canImport(AppKit)
+            .onTapGesture(count: 2) {
+                if let doubleClickActionID = doubleClickActionID,
+                   let selectedRow = model.value as? [String],
+                   !selectedRow.isEmpty,
+                   let content = model.states["content"] as? [[String]],
+                   let index = content.firstIndex(where: { $0 == selectedRow }) {
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+                }
+            }
+            #endif
+        }
+
         // Check for heterogeneous list (children array)
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         if !children.isEmpty {

@@ -123,6 +123,14 @@ class WindowModel: ObservableObject {
         viewModel.states = ActionUIRegistry.shared.getInitialStates(forElementType: element.type, model: viewModel)
         targetViewModels[element.id] = viewModel
         
+        // If this element has a template, initialize states["content"] for data-driven rendering.
+        // Do NOT recurse into template children — they are stateless blueprints, not live views.
+        if element.subviews?["template"] != nil {
+            if viewModel.states["content"] == nil {
+                viewModel.states["content"] = [[String]]()
+            }
+        }
+
         if let subviews = element.subviews {
             for key in ["children", "destinations"] {
                 if let children = subviews[key] as? [any ActionUIElementBase] {
@@ -134,7 +142,7 @@ class WindowModel: ObservableObject {
                     }
                 }
             }
-            
+
             if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
                 for row in rows.flatMap({ $0 }) {
                     let rowViewModels = populateViewModels(from: row)
@@ -143,6 +151,7 @@ class WindowModel: ObservableObject {
                     }
                 }
             }
+            // Note: "template" is intentionally excluded — it is a stateless blueprint.
             for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
                 if let child = subviews[key] as? any ActionUIElementBase {
                     let childViewModels = populateViewModels(from: child)

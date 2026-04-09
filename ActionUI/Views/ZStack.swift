@@ -7,11 +7,29 @@
    "properties": {
      "alignment": "center" // Optional: String ("topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing")
    },
-   "children": [
+   "children": [         // Static children — mutually exclusive with "template"
      { "type": "Text", "properties": { "text": "Background" } },
      { "type": "Text", "properties": { "text": "Foreground" } }
-   ]
-   // Note: The alignment property is specific to ZStack. Common SwiftUI.View properties (padding, hidden, foregroundColor, font, background, frame, offset, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) are inherited and applied via ActionUIRegistry.shared.applyModifiers (from View.applyModifiers).
+   ],
+   // OR data-driven mode
+   "template": {      // Presence of "template" activates data-driven rendering; "id" required for setElementRows
+     "type": "Text",
+     "properties": { "text": "$1" }
+   }
+   //
+   // Column reference syntax in template string properties:
+   //   $1  — column 0 (first column, 1-based)
+   //   $2  — column 1 (second column, 1-based)
+   //   $N  — column N-1
+   //   $0  — all columns joined with ", "
+   //
+   // Data is set at runtime via setElementRows(windowUUID:viewID:rows:).
+   // states["content"] ([[String]]) holds the current rows.
+   //
+   // Note: The alignment property is specific to ZStack. Baseline View properties (padding, hidden,
+   // foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and
+   // additional View protocol modifiers are inherited and applied via
+   // ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 */
 
@@ -55,14 +73,43 @@ struct ZStack: ActionUIViewConstruction {
             default: return .center
             }
         }()
-        
+
+        // Data-driven template container mode: render one template instance per row.
+        if let template = element.subviews?["template"] as? any ActionUIElementBase {
+            let rows = (model.states["content"] as? [[String]]) ?? []
+            let parentID = element.id
+            let rowViews: [AnyView] = rows.indices.map { rowIndex in
+                TemplateHelper.buildTemplateView(
+                    template: template, row: rows[rowIndex], rowIndex: rowIndex,
+                    parentID: parentID, windowUUID: windowUUID, logger: logger
+                )
+            }
+            return SwiftUI.ZStack(alignment: alignment) {
+                ForEach(rowViews.indices, id: \.self) { i in rowViews[i] }
+            }
+        }
+
+        // Children mode
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
-        
-        return SwiftUI.ZStack(alignment: alignment) {
-            let windowModel = ActionUIModel.shared.windowModels[windowUUID]
-            ForEach(children, id: \.id) { child in
-                if let childModel = windowModel?.viewModels[child.id] {
-                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+        if let tc = model.templateContext {
+            // Template child mode: this ZStack is inside a template, children are blueprints
+            let childViews: [AnyView] = children.map { child in
+                TemplateHelper.buildTemplateView(
+                    template: child, row: tc.row, rowIndex: tc.rowIndex,
+                    parentID: tc.parentID, windowUUID: windowUUID, logger: logger
+                )
+            }
+            return SwiftUI.ZStack(alignment: alignment) {
+                ForEach(childViews.indices, id: \.self) { i in childViews[i] }
+            }
+        } else {
+            // Normal mode: children have registered ViewModels
+            return SwiftUI.ZStack(alignment: alignment) {
+                let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    }
                 }
             }
         }

@@ -1,0 +1,88 @@
+{
+  "type": "List",
+  "properties": {
+    "sectionStyle": "automatic",
+    "selectionType": "single"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Template Demo - List",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        {
+          "type": "Button",
+          "properties": { "title": "Load", "actionID": "list.template.demo.load", "buttonStyle": "borderedProminent" }
+        },
+        {
+          "type": "Button",
+          "properties": { "title": "Append", "actionID": "list.template.demo.append", "buttonStyle": "bordered" }
+        },
+        {
+          "type": "Button",
+          "properties": { "title": "Clear", "actionID": "list.template.demo.clear", "buttonStyle": "bordered" }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "List + Label template:", "font": "headline" }
+    },
+    {
+      "type": "List",
+      "id": 11,
+      "properties": { "selectionType": "multiple", "frame": { "minHeight": 200 } },
+      "template": {
+        "type": "Label",
+        "properties": { "title": "$2", "systemImage": "$1" }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "List + HStack template (icon + name + action):", "font": "headline" }
+    },
+    {
+      "type": "List",
+      "id": 21,
+      "properties": { "selectionType": "single", "frame": { "minHeight": 240 } },
+      "template": {
+        "type": "HStack",
+        "properties": { "spacing": 10 },
+        "children": [
+          { "type": "Image",  "properties": { "systemName": "$1" } },
+          { "type": "Text",   "properties": { "text": "$2" } },
+          { "type": "Spacer" },
+          { "type": "Button", "properties": { "title": "Select", "actionID": "list.template.demo.select" } }
+        ]
+      }
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "List + Button template (selection):", "font": "headline" }
+    },
+    {
+      "type": "List",
+      "id": 31,
+      "properties": { "selectionType": "single", "frame": { "minHeight": 200 } },
+      "template": {
+        "type": "Button",
+        "properties": {
+          "title": "$1",
+          "actionID": "list.template.demo.chip",
+          "buttonStyle": "bordered"
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": { "text": "Tap a row or button to see the action here." }
+    }
+  ]
+}

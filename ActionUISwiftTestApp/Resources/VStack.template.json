@@ -1,0 +1,101 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Template Demo",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        {
+          "type": "Button",
+          "properties": { "title": "Load", "actionID": "vstack.template.demo.load", "buttonStyle": "borderedProminent" }
+        },
+        {
+          "type": "Button",
+          "properties": { "title": "Append", "actionID": "vstack.template.demo.append", "buttonStyle": "bordered" }
+        },
+        {
+          "type": "Button",
+          "properties": { "title": "Clear", "actionID": "vstack.template.demo.clear", "buttonStyle": "bordered" }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "VStack + Label template (icon + title):", "font": "headline" }
+    },
+    {
+      "type": "ScrollView",
+      "properties": { "frame": { "maxHeight": 200 } },
+      "content": {
+        "type": "VStack",
+        "id": 10,
+        "properties": { "alignment": "leading", "spacing": 6 },
+        "template": {
+          "type": "Label",
+          "properties": { "title": "$2", "systemImage": "$1" }
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "VStack + HStack template (icon + name + action):", "font": "headline" }
+    },
+    {
+      "type": "ScrollView",
+      "properties": { "frame": { "maxHeight": 240 } },
+      "content": {
+        "type": "VStack",
+        "id": 20,
+        "properties": { "alignment": "leading", "spacing": 4 },
+        "template": {
+          "type": "HStack",
+          "properties": { "spacing": 10 },
+          "children": [
+            { "type": "Image",  "properties": { "systemName": "$1" } },
+            { "type": "Text",   "properties": { "text": "$2" } },
+            { "type": "Spacer" },
+            { "type": "Button", "properties": { "title": "Select", "actionID": "vstack.template.demo.select" } }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "HStack + Button template (chip bar):", "font": "headline" }
+    },
+    {
+      "type": "ScrollView",
+      "properties": { "axis": "horizontal" },
+      "content": {
+        "type": "HStack",
+        "id": 30,
+        "properties": { "spacing": 8, "padding": 8 },
+        "template": {
+          "type": "Button",
+          "properties": {
+            "title": "$1",
+            "actionID": "vstack.template.demo.chip",
+            "buttonStyle": "bordered"
+          }
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": { "text": "Tap a row or chip to see the action here." }
+    }
+  ]
+}

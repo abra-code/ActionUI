@@ -101,6 +101,116 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: label)
         }
 
+        // VStack template demo handlers (VStack.template.json)
+        // IDs: 10 = VStack+Label, 20 = VStack+HStack, 30 = HStack chips, 99 = status label
+        let vstackTemplateRows: [[String]] = [
+            ["star.fill",       "Favorites"],
+            ["heart.fill",      "Liked"],
+            ["clock",           "Recent"],
+            ["bookmark.fill",   "Saved"],
+            ["bell.fill",       "Notifications"]
+        ]
+        var vstackTemplateAppendIndex = 0
+        let vstackTemplateExtraRows: [[String]] = [
+            ["archivebox.fill", "Archive"],
+            ["trash.fill",      "Trash"],
+            ["folder.fill",     "Folder"]
+        ]
+        let vstackChipRows: [[String]] = [
+            ["Swift"], ["Python"], ["Kotlin"], ["TypeScript"], ["Rust"]
+        ]
+
+        ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 10, rows: vstackTemplateRows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 20, rows: vstackTemplateRows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 30, rows: vstackChipRows)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Tap a row or chip to see the action here.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.append") { _, windowUUID, _, _, _ in
+            let row = vstackTemplateExtraRows[vstackTemplateAppendIndex % vstackTemplateExtraRows.count]
+            vstackTemplateAppendIndex += 1
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 10, rows: [row])
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 20, rows: [row])
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 30, rows: [[row[1]]])
+        }
+        ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.clear") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 10)
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 20)
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 30)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Cleared.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.select") { _, windowUUID, viewID, viewPartID, _ in
+            if let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID),
+               rows.indices.contains(viewPartID) {
+                let row = rows[viewPartID]
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99,
+                    value: "Selected row \(viewPartID): \(row.joined(separator: " / "))")
+            }
+        }
+        ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.chip") { _, windowUUID, viewID, viewPartID, _ in
+            if let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID),
+               rows.indices.contains(viewPartID) {
+                let chip = rows[viewPartID].first ?? "?"
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99,
+                    value: "Chip tapped: \(chip) (row \(viewPartID))")
+            }
+        }
+
+        // List template demo handlers (List.template.json)
+        // IDs: 11 = List+Label, 21 = List+HStack, 31 = List+Button, 99 = status label
+        let listTemplateRows: [[String]] = [
+            ["star.fill",       "Favorites"],
+            ["heart.fill",      "Liked"],
+            ["clock",           "Recent"],
+            ["bookmark.fill",   "Saved"],
+            ["bell.fill",       "Notifications"]
+        ]
+        var listTemplateAppendIndex = 0
+        let listTemplateExtraRows: [[String]] = [
+            ["archivebox.fill", "Archive"],
+            ["trash.fill",      "Trash"],
+            ["folder.fill",     "Folder"]
+        ]
+        let listChipRows: [[String]] = [
+            ["Swift"], ["Python"], ["Kotlin"], ["TypeScript"], ["Rust"]
+        ]
+
+        ActionUISwift.registerActionHandler(actionID: "list.template.demo.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 11, rows: listTemplateRows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 21, rows: listTemplateRows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 31, rows: listChipRows)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Tap a row or button to see the action here.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.template.demo.append") { _, windowUUID, _, _, _ in
+            let row = listTemplateExtraRows[listTemplateAppendIndex % listTemplateExtraRows.count]
+            listTemplateAppendIndex += 1
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 11, rows: [row])
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 21, rows: [row])
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 31, rows: [[row[1]]])
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.template.demo.clear") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 11)
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 21)
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 31)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Cleared.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.template.demo.select") { _, windowUUID, viewID, viewPartID, _ in
+            if let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID),
+               rows.indices.contains(viewPartID) {
+                let row = rows[viewPartID]
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99,
+                    value: "Selected row \(viewPartID): \(row.joined(separator: " / "))")
+            }
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.template.demo.chip") { _, windowUUID, viewID, viewPartID, _ in
+            if let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID),
+               rows.indices.contains(viewPartID) {
+                let chip = rows[viewPartID].first ?? "?"
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99,
+                    value: "Chip tapped: \(chip) (row \(viewPartID))")
+            }
+        }
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")

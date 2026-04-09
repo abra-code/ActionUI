@@ -114,6 +114,9 @@ struct Button: ActionUIViewConstruction {
         
         let hasPopover = element.subviews?["popover"] != nil
         let popoverActionID = properties["popoverActionID"] as? String
+        // Template-aware action dispatch: use parentID/rowIndex when rendering inside a template
+        let actionViewID = model.templateContext?.parentID ?? element.id
+        let actionViewPartID = model.templateContext?.rowIndex ?? 0
         return SwiftUI.Button(
             role: buttonRole,
             action: {
@@ -121,11 +124,11 @@ struct Button: ActionUIViewConstruction {
                     let willShow = !(model.states["popoverVisible"] as? Bool ?? false)
                     model.states["popoverVisible"] = willShow
                     if willShow, let popoverActionID = popoverActionID {
-                        ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                        ActionUIModel.shared.actionHandler(popoverActionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: 0)
                     }
                 }
                 if let actionID = actionID {
-                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
+                    ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: actionViewID, viewPartID: actionViewPartID)
                 }
             },
             label: {

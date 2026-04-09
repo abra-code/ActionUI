@@ -92,7 +92,7 @@ public struct ActionUIElement: ActionUIElementBase {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template
     }
     
     public init(from decoder: Decoder) throws {
@@ -125,13 +125,16 @@ public struct ActionUIElement: ActionUIElementBase {
             subviews!["rows"] = rows
         }
         
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
-            if let child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template"] {
+            if var child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
+                if key == "template" {
+                    child = ActionUIElement.normalizeTemplateIDs(child)
+                }
                 if subviews == nil { subviews = [:] }
                 subviews![key] = child
             }
         }
-        
+
         // Decode commands array for WindowGroup
         if let commandsArray = try container.decodeIfPresent([ActionUIElement].self, forKey: .commands) {
             if !commandsArray.isEmpty {
@@ -185,7 +188,7 @@ public struct ActionUIElement: ActionUIElementBase {
         }
         
         // Encode single child views
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template"] {
             if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -232,11 +235,14 @@ public struct ActionUIElement: ActionUIElementBase {
         }
         
         // Decode single child views for navigation components
-        // Note: JSON specifies "content", "destination", "sidebar", "detail" as top-level keys, but we move them to subviews
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
+        // Note: JSON specifies "content", "destination", "sidebar", "detail", "template" as top-level keys, but we move them to subviews
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
-                    let childElement = try ActionUIElement(from: childDict, logger: logger)
+                    var childElement = try ActionUIElement(from: childDict, logger: logger)
+                    if key == "template" {
+                        childElement = ActionUIElement.normalizeTemplateIDs(childElement)
+                    }
                     if subviews == nil { subviews = [:] }
                     subviews![key] = childElement
                 } catch {
@@ -258,6 +264,60 @@ public struct ActionUIElement: ActionUIElementBase {
     }
 }
 
+// Extension providing template ID normalization.
+// Template elements are stateless blueprints — they are never registered in ViewModels
+// and never addressed by host code. Their IDs only need to be self-consistent so that
+// two decodes of the same JSON produce equal results.
+//
+// Auto-generated live-view IDs count down from -1 toward Int.min. To make template IDs
+// visually and numerically distinct — and to guarantee they can never collide with any
+// live-view auto-generated ID in practice — normalized template IDs are placed at the
+// opposite end of the negative range, counting up from Int.min:
+//   template ordinal 1 → Int.min + 1
+//   template ordinal 2 → Int.min + 2
+//   ...
+// Positive (user-assigned) IDs are preserved unchanged.
+extension ActionUIElement {
+    // Sentinel base for normalized template IDs. Chosen to be unreachable by the
+    // auto-generated counter (which starts at -1 and decrements one per element per session).
+    static let templateIDBase = Int.min
+
+    static func normalizeTemplateIDs(_ root: ActionUIElement) -> ActionUIElement {
+        var counter = 1
+        return normalizeTemplateID(root, counter: &counter)
+    }
+
+    private static func normalizeTemplateID(_ element: ActionUIElement, counter: inout Int) -> ActionUIElement {
+        let normalizedID: Int
+        if element.id < 0 {
+            normalizedID = templateIDBase + counter
+            counter += 1
+        } else {
+            normalizedID = element.id
+        }
+
+        guard var subviews = element.subviews else {
+            return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, subviews: nil)
+        }
+
+        for key in ["children", "destinations"] {
+            if let children = subviews[key] as? [ActionUIElement] {
+                subviews[key] = children.map { normalizeTemplateID($0, counter: &counter) }
+            }
+        }
+        if let rows = subviews["rows"] as? [[ActionUIElement]] {
+            subviews["rows"] = rows.map { row in row.map { normalizeTemplateID($0, counter: &counter) } }
+        }
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover"] {
+            if let child = subviews[key] as? ActionUIElement {
+                subviews[key] = normalizeTemplateID(child, counter: &counter)
+            }
+        }
+
+        return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, subviews: subviews)
+    }
+}
+
 // Extension to make ActionUIElement Equatable
 extension ActionUIElement: Equatable {
     public static func == (lhs: ActionUIElement, rhs: ActionUIElement) -> Bool {
@@ -276,7 +336,7 @@ extension ActionUIElement: Equatable {
         }
         
         // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations", "template"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             

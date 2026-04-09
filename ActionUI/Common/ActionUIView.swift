@@ -58,7 +58,7 @@ public struct ActionUIView: SwiftUI.View /*, Equatable*/ {
             return false
         }
 
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "template"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
 
