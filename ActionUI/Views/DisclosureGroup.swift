@@ -10,13 +10,34 @@
    },
    "children": [
      { "type": "Text", "properties": { "text": "Content" } }
-   ]
-   // Note: These properties are specific to DisclosureGroup. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
+   ],
+   // OR data-driven mode
+   "template": {      // Presence of "template" activates data-driven rendering; "id" required for setElementRows
+     "type": "Text",
+     "properties": { "text": "$1" }
+   }
+   //
+   // Column reference syntax in template string properties:
+   //   $1  — column 0 (first column, 1-based)
+   //   $2  — column 1 (second column, 1-based)
+   //   $N  — column N-1
+   //   $0  — all columns joined with ", "
+   //
+   // Data is set at runtime via setElementRows(windowUUID:viewID:rows:).
+   // states["content"] ([[String]]) holds the current rows.
+   //
+   // Note: These properties are specific to DisclosureGroup. Baseline View properties (padding, hidden,
+   // foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and
+   // additional View protocol modifiers are inherited and applied via
+   // ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 
  Observable state (via getElementState / setElementState):
    states["isExpanded"] Bool          true when the group is expanded, false when collapsed.
                                       Reflects user interaction; write to expand/collapse programmatically.
+   states["content"]  [[String]]      All items in template mode; each inner array holds the item string and any optional
+                                      hidden-column data. Access via getElementRows / setElementRows /
+                                      appendElementRows / clearElementRows.
 */
 
 import SwiftUI
@@ -77,7 +98,25 @@ struct DisclosureGroup: ActionUIViewConstruction {
                 }
             }
         )
-        
+
+        // Template mode: render one template instance per row in states["content"]
+        if let template = element.subviews?["template"] as? any ActionUIElementBase {
+            let rows = (model.states["content"] as? [[String]]) ?? []
+            logger.log("DisclosureGroup(id:\(element.id)) template mode — template type: \(template.type), rows: \(rows.count)", .debug)
+            let parentID = element.id
+            let rowViews: [AnyView] = rows.indices.map { rowIndex in
+                TemplateHelper.buildTemplateView(
+                    template: template, row: rows[rowIndex], rowIndex: rowIndex,
+                    parentID: parentID, windowUUID: windowUUID, logger: logger
+                )
+            }
+            return SwiftUI.DisclosureGroup(title, isExpanded: expandedBinding) {
+                SwiftUI.VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rowViews.indices, id: \.self) { i in rowViews[i] }
+                }
+            }
+        }
+
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         
         return SwiftUI.DisclosureGroup(title, isExpanded: expandedBinding) {
