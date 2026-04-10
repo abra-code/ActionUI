@@ -13,25 +13,38 @@
         "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
       },
       "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
-      "doubleClickActionID": "list.double.click"  // Optional: String for double-click action (macOS only, context = row index)
+      "doubleClickActionID": "list.double.click",  // Optional: String for double-click action (macOS only, context = row index)
+      // List styling
+      "listStyle": "plain",                   // Optional: list style — platform availability below
+                                              //   "automatic"    — all platforms (system default)
+                                              //   "plain"        — all platforms
+                                              //   "inset"        — iOS, macOS, visionOS
+                                              //   "sidebar"      — iOS, macOS, visionOS
+                                              //   "grouped"      — iOS, tvOS, visionOS
+                                              //   "insetGrouped" — iOS, visionOS only
+      // Row styling — applied uniformly to all rows
+      "listRowBackground": "blue",            // Optional: Color string (e.g., "blue", "#FF0000") — all platforms
+      "listRowSeparator": "hidden",           // Optional: "visible"|"hidden"|"automatic" — iOS/macOS/visionOS only
+      "listRowSeparatorTint": "gray",         // Optional: Color string for separator tint — iOS/macOS/visionOS only
+      "listRowInsets": 16,                    // Optional: Number for uniform insets or {"top": 8, "leading": 16, "bottom": 8, "trailing": 16}
     },
     // Form 2: Heterogeneous list from embedded JSON
     "children": [                            // Optional: Array of child views for complex lists
-      { 
-        "type": "NavigationLink", 
+      {
+        "type": "NavigationLink",
         "id": 10,                            // Recommended: Set unique ID for selection support
-        "properties": { 
-          "title": "Item 1" 
+        "properties": {
+          "title": "Item 1"
         },
         "destination": {                   // Destination must be a full view element
           "type": "Text",
           "properties": { "title": "Item 1 Detail" }
         }
       },
-      { 
-        "type": "Button", 
+      {
+        "type": "Button",
         "id": 11,                            // Recommended: Set unique ID for selection support
-        "properties": { "title": "Item 2" } 
+        "properties": { "title": "Item 2" }
       }
     ],
     // Form 3: Data-driven list with template (replaces itemType with full ActionUI template)
@@ -44,10 +57,10 @@
     }
   }
     // Note: The List can operate in three modes (Form 1, 2, and 3):
-    //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage) 
-    //      specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id. 
-    //      The list-level actionID fires on selection change. Button items have their own actionID in itemType, 
-    //      fired on click — this cleanly separates selection events from button click events. On macOS, 
+    //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage)
+    //      specified by itemType.viewType. Selection is stored as [String] in state, using the item string or id.
+    //      The list-level actionID fires on selection change. Button items have their own actionID in itemType,
+    //      fired on click — this cleanly separates selection events from button click events. On macOS,
     //      double-click triggers doubleClickActionID with row index as context.
     //   2. Heterogeneous list: Shows a list of arbitrary views defined in the "children" array.
     //      Operates in two sub-modes depending on whether actionID is set:
@@ -59,12 +72,15 @@
     //         because List(selection:) intercepts taps on iOS.
     //         When used inside NavigationStack with destinations, NavigationStack detects this pattern
     //         and handles push navigation — see NavigationStack.swift.
+    //         Note: listRowBackground/listRowSeparator/listRowInsets are not applied in this sub-mode
+    //         because the List is constructed by SelectionListHelper.
     //
     //      b) Without actionID (no-selection mode): No selection binding. NavigationLinks handle
     //         their own taps. Action callbacks:
     //           - Button children: fire their own actionID on tap.
     //           - NavigationLink children: push destinations via NavigationStack.
     //           - Label/Text children: display-only; use Button if tap action is needed.
+    //         Row styling properties are applied to each child view.
     //
     //      Note: NavigationSplitView sidebar selection is handled by NavigationSplitView.buildSidebarList(),
     //      which constructs its own List(selection:) — it does not go through this List.buildView path.
@@ -78,10 +94,11 @@
     //      Data set via setElementRows/appendElementRows/clearElementRows.
     //      Selection and doubleClickActionID work the same as Form 1.
     //
-    //    Performance: For homogeneous lists, child views are strongly typed to avoid AnyView overhead, 
-    //    identified by stable indices in ForEach, optimizing SwiftUI diffing for large lists (e.g., 10,000 items). 
-    //    For heterogeneous lists, views are constructed dynamically. Image creation uses SwiftUI.Image extension, 
-    //    aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
+    //    Performance: Rows are identified by stable indices in ForEach, optimizing SwiftUI diffing for
+    //    large lists (e.g., 10,000 items). When row styling properties (listRowBackground, listRowSeparator,
+    //    listRowInsets) are set, rows are wrapped with AnyView to support modifier chaining. Without row
+    //    styling, this is a no-op wrapper with negligible overhead. Image creation uses SwiftUI.Image
+    //    extension, aligned with Image.swift. Ensure state updates are targeted to minimize re-renders.
 
   Observable state:
     value ([String])                   Selected item as a one-element string array (or empty when nothing selected).
@@ -94,13 +111,104 @@
 import SwiftUI
 
 struct List: ActionUIViewConstruction {
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
-
     static var valueType: Any.Type = [String].self // Value is the selected item as [String]
-    
+
+    // MARK: - Row modifier helpers
+
+    private static func hasRowModifiers(_ properties: [String: Any]) -> Bool {
+        return properties["listRowBackground"] != nil ||
+               properties["listRowSeparator"] != nil ||
+               properties["listRowSeparatorTint"] != nil ||
+               properties["listRowInsets"] != nil
+    }
+
+    /// Applies row-level list modifiers to a view. Returns the view wrapped in AnyView with any
+    /// configured modifiers applied. When no row modifiers are set, returns AnyView(view) unchanged.
+    private static func applyRowModifiers(_ view: some SwiftUI.View, properties: [String: Any]) -> AnyView {
+        guard hasRowModifiers(properties) else { return AnyView(view) }
+        var modified: any SwiftUI.View = view
+
+        if let bgStr = properties["listRowBackground"] as? String,
+           let color = ColorHelper.resolveColor(bgStr) {
+            modified = modified.listRowBackground(color)
+        }
+
+        #if os(iOS) || os(macOS) || os(visionOS)
+        if let sep = properties["listRowSeparator"] as? String {
+            let visibility: Visibility
+            switch sep {
+            case "hidden":  visibility = .hidden
+            case "visible": visibility = .visible
+            default:        visibility = .automatic
+            }
+            modified = modified.listRowSeparator(visibility)
+        }
+
+        if let tintStr = properties["listRowSeparatorTint"] as? String,
+           let color = ColorHelper.resolveColor(tintStr) {
+            modified = modified.listRowSeparatorTint(color)
+        }
+        #endif
+
+        if let insetsValue = properties["listRowInsets"] {
+            let edgeInsets: EdgeInsets?
+            if let n = insetsValue as? Double {
+                let f = CGFloat(n)
+                edgeInsets = EdgeInsets(top: f, leading: f, bottom: f, trailing: f)
+            } else if let n = insetsValue as? Int {
+                let f = CGFloat(n)
+                edgeInsets = EdgeInsets(top: f, leading: f, bottom: f, trailing: f)
+            } else if let dict = insetsValue as? [String: Any] {
+                edgeInsets = EdgeInsets(
+                    top: dict.cgFloat(forKey: "top") ?? 0,
+                    leading: dict.cgFloat(forKey: "leading") ?? 0,
+                    bottom: dict.cgFloat(forKey: "bottom") ?? 0,
+                    trailing: dict.cgFloat(forKey: "trailing") ?? 0
+                )
+            } else {
+                edgeInsets = nil
+            }
+            modified = modified.listRowInsets(edgeInsets)
+        }
+
+        return AnyView(modified)
+    }
+
+    /// Builds one row for homogeneous lists. Always returns AnyView so row modifiers can be uniformly
+    /// applied regardless of the underlying view type (Text, Button, Image, AsyncImage).
+    private static func buildHomogeneousRow(
+        item: String, index: Int, viewType: String,
+        dataInterpretation: String, buttonActionID: String?,
+        actionContext: String, windowUUID: String, elementID: Int
+    ) -> AnyView {
+        let row: any SwiftUI.View
+        switch viewType {
+        case "Button":
+            row = SwiftUI.Button(item) {
+                if let aid = buttonActionID {
+                    let ctx: Any = actionContext == "rowIndex" ? index : item
+                    ActionUIModel.shared.actionHandler(aid, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: ctx)
+                }
+            }
+        case "Image":
+            row = SwiftUI.Image(from: item, interpretation: dataInterpretation)
+        case "AsyncImage":
+            row = SwiftUI.AsyncImage(url: URL(string: item)) { image in
+                image.resizable().scaledToFit()
+            } placeholder: {
+                SwiftUI.ProgressView()
+            }
+        default: // "Text" and fallback
+            row = SwiftUI.Text(item)
+        }
+        return AnyView(row)
+    }
+
+    // MARK: - Protocol conformance
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
+
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
         if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
@@ -122,17 +230,70 @@ struct List: ActionUIViewConstruction {
             }
         }
         validatedProperties["itemType"] = itemType
-        
+
         if let doubleClickActionID = properties["doubleClickActionID"] as? String {
             validatedProperties["doubleClickActionID"] = doubleClickActionID
         } else if properties["doubleClickActionID"] != nil {
             logger.log("List doubleClickActionID must be a string; ignoring", .warning)
             validatedProperties["doubleClickActionID"] = nil
         }
-        
+
+        // Validate listStyle — allowed values are platform-specific
+        if let style = properties["listStyle"] as? String {
+            #if os(watchOS)
+            let validListStyles = ["automatic", "plain"]
+            #elseif os(tvOS)
+            let validListStyles = ["automatic", "plain", "grouped"]
+            #elseif os(macOS)
+            let validListStyles = ["automatic", "plain", "inset", "sidebar"]
+            #else // iOS, visionOS
+            let validListStyles = ["automatic", "plain", "inset", "sidebar", "grouped", "insetGrouped"]
+            #endif
+            if !validListStyles.contains(style) {
+                logger.log("List listStyle '\(style)' is not available on this platform; ignoring", .warning)
+                validatedProperties["listStyle"] = nil
+            }
+        } else if properties["listStyle"] != nil {
+            logger.log("List listStyle must be a String; ignoring", .warning)
+            validatedProperties["listStyle"] = nil
+        }
+
+        // Validate listRowBackground — must be a color string
+        if properties["listRowBackground"] != nil && !(properties["listRowBackground"] is String) {
+            logger.log("List listRowBackground must be a color string; ignoring", .warning)
+            validatedProperties["listRowBackground"] = nil
+        }
+
+        // Validate listRowSeparator
+        if let sep = properties["listRowSeparator"] as? String {
+            if !["visible", "hidden", "automatic"].contains(sep) {
+                logger.log("List listRowSeparator must be 'visible', 'hidden', or 'automatic'; ignoring", .warning)
+                validatedProperties["listRowSeparator"] = nil
+            }
+        } else if properties["listRowSeparator"] != nil {
+            logger.log("List listRowSeparator must be a String; ignoring", .warning)
+            validatedProperties["listRowSeparator"] = nil
+        }
+
+        // Validate listRowSeparatorTint — must be a color string
+        if properties["listRowSeparatorTint"] != nil && !(properties["listRowSeparatorTint"] is String) {
+            logger.log("List listRowSeparatorTint must be a color string; ignoring", .warning)
+            validatedProperties["listRowSeparatorTint"] = nil
+        }
+
+        // Validate listRowInsets — must be a number or a dictionary with numeric edge keys
+        if let insets = properties["listRowInsets"] {
+            let isNumber = insets is Double || insets is Int
+            let isDict = insets is [String: Any]
+            if !isNumber && !isDict {
+                logger.log("List listRowInsets must be a number or dictionary {top, leading, bottom, trailing}; ignoring", .warning)
+                validatedProperties["listRowInsets"] = nil
+            }
+        }
+
         return validatedProperties
     }
-    
+
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states: [String: Any] = model.states
         if states.isEmpty {
@@ -140,7 +301,7 @@ struct List: ActionUIViewConstruction {
         }
         return states
     }
-    
+
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Template mode: render one template instance per row in states["content"].
         // Replaces itemType with full ActionUI template support for richer cell layouts.
@@ -149,10 +310,11 @@ struct List: ActionUIViewConstruction {
             let parentID = element.id
             let doubleClickActionID = properties["doubleClickActionID"] as? String
             let rowViews: [AnyView] = rows.indices.map { rowIndex in
-                TemplateHelper.buildTemplateView(
+                let templateView = TemplateHelper.buildTemplateView(
                     template: template, row: rows[rowIndex], rowIndex: rowIndex,
                     parentID: parentID, windowUUID: windowUUID, logger: logger
                 )
+                return applyRowModifiers(templateView, properties: properties)
             }
 
             // Selection binding: same index-based pattern as homogeneous list
@@ -211,6 +373,8 @@ struct List: ActionUIViewConstruction {
                 // Selectable heterogeneous list mode: List(selection:) with child ID mapping.
                 // Same pattern as NavigationSplitView.buildSidebarList — Labels/Text are selectable,
                 // actionID fires on selection change with child element ID as context.
+                // Note: row styling properties (listRowBackground etc.) are not applied in this mode
+                // because the List is constructed inside SelectionListHelper.
                 let windowModel = ActionUIModel.shared.windowModels[windowUUID]
 
                 let selectionBinding = SelectionListHelper.makeHeterogeneousSelectionBinding(
@@ -232,10 +396,14 @@ struct List: ActionUIViewConstruction {
                 // No-selection heterogeneous list mode: NavigationLinks handle their own taps.
                 // No List(selection:) binding — on iOS, selection binding intercepts taps and
                 // prevents NavigationLink from activating.
+                // Row styling properties are applied to each child view.
                 return SwiftUI.List {
                     ForEach(children, id: \.id) { child in
                         if let childModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[child.id] {
-                            ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                            applyRowModifiers(
+                                ActionUIView(element: child, model: childModel, windowUUID: windowUUID),
+                                properties: properties
+                            )
                         }
                     }
                 }
@@ -250,7 +418,8 @@ struct List: ActionUIViewConstruction {
             let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
             let buttonActionID = itemType["actionID"] as? String
             let doubleClickActionID = properties["doubleClickActionID"] as? String
-            
+            let elementID = element.id
+
             // Indices are 0..<displayItems.count — stable even with duplicate display strings
             let selectionBinding = Binding<Set<Int>>(
                 get: {
@@ -268,59 +437,42 @@ struct List: ActionUIViewConstruction {
                         if !(model.value as? [String] ?? []).isEmpty {
                             DispatchQueue.main.async {
                                 model.value = []
-                                // optional: trigger valueChangeActionID if needed
                             }
                         }
                         return
                     }
-                    
+
                     guard let content = model.states["content"] as? [[String]],
                           content.indices.contains(newIndex) else { return }
-                    
+
                     let selectedRowValues = content[newIndex]
-                    
+
                     guard (model.value as? [String]) != selectedRowValues else { return }
-                    
+
                     DispatchQueue.main.async {
                         model.value = selectedRowValues
                         if let actionID = properties["actionID"] as? String {
                             ActionUIModel.shared.actionHandler(
                                 actionID,
                                 windowUUID: windowUUID,
-                                viewID: element.id,
+                                viewID: elementID,
                                 viewPartID: 0
                             )
                         }
                     }
                 }
             )
-            
+
             return SwiftUI.List(selection: selectionBinding) {
                 SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
-                    SwiftUI.Group {
-                        let item = displayItems[index]
-                        switch viewType {
-                        case "Text":
-                            SwiftUI.Text(item)
-                        case "Button":
-                            SwiftUI.Button(item) {
-                                if let buttonActionID = buttonActionID {
-                                    let context: Any = actionContext == "rowIndex" ? index : item
-                                    ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: context)
-                                }
-                            }
-                        case "Image":
-                            SwiftUI.Image(from: item, interpretation: dataInterpretation)
-                        case "AsyncImage":
-                            SwiftUI.AsyncImage(url: URL(string: item)) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                SwiftUI.ProgressView()
-                            }
-                        default:
-                            SwiftUI.Text(item)
-                        }
-                    }
+                    applyRowModifiers(
+                        buildHomogeneousRow(
+                            item: displayItems[index], index: index, viewType: viewType,
+                            dataInterpretation: dataInterpretation, buttonActionID: buttonActionID,
+                            actionContext: actionContext, windowUUID: windowUUID, elementID: elementID
+                        ),
+                        properties: properties
+                    )
                 }
             }
             #if canImport(AppKit)
@@ -329,13 +481,50 @@ struct List: ActionUIViewConstruction {
                    let selectedRow = model.value as? [String],
                    !selectedRow.isEmpty,
                    let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
-                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
+                    ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: index)
                 }
             }
             #endif
         }
     }
-    
+
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+        var modifiedView = view
+        if let style = properties["listStyle"] as? String {
+            switch style {
+            case "plain":
+                modifiedView = modifiedView.listStyle(.plain)
+            case "inset":
+                #if os(iOS) || os(macOS) || os(visionOS)
+                modifiedView = modifiedView.listStyle(.inset)
+                #else
+                logger.log("inset listStyle unavailable on this platform; ignoring", .warning)
+                #endif
+            case "sidebar":
+                #if os(iOS) || os(macOS) || os(visionOS)
+                modifiedView = modifiedView.listStyle(.sidebar)
+                #else
+                logger.log("sidebar listStyle unavailable on this platform; ignoring", .warning)
+                #endif
+            case "grouped":
+                #if os(iOS) || os(tvOS) || os(visionOS)
+                modifiedView = modifiedView.listStyle(.grouped)
+                #else
+                logger.log("grouped listStyle unavailable on this platform; ignoring", .warning)
+                #endif
+            case "insetGrouped":
+                #if os(iOS) || os(visionOS)
+                modifiedView = modifiedView.listStyle(.insetGrouped)
+                #else
+                logger.log("insetGrouped listStyle unavailable on this platform; ignoring", .warning)
+                #endif
+            default:
+                break // "automatic" and unknown values use the system default
+            }
+        }
+        return modifiedView
+    }
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? [String] {
             return initialValue

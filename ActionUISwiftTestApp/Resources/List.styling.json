@@ -1,0 +1,125 @@
+{
+  "type": "ScrollView",
+  "properties": {
+    "axes": "vertical",
+    "padding": "default"
+  },
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 20,
+      "alignment": "leading"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": { "text": "List Styling", "font": "largeTitle", "padding": "default" }
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Plain style — separators hidden, tight insets", "font": "headline", "foregroundStyle": "secondary" }
+      },
+      {
+        "type": "List",
+        "id": 1,
+        "properties": {
+          "actionID": "plain.list.selection.changed",
+          "listStyle": "plain",
+          "listRowSeparator": "hidden",
+          "listRowInsets": { "top": 6, "leading": 16, "bottom": 6, "trailing": 16 },
+          "frame": { "height": 180 }
+        },
+        "children": [
+          { "type": "Label", "id": 10, "properties": { "title": "Inbox",  "systemImage": "tray.fill"      } },
+          { "type": "Label", "id": 11, "properties": { "title": "Drafts", "systemImage": "pencil"         } },
+          { "type": "Label", "id": 12, "properties": { "title": "Sent",   "systemImage": "paperplane.fill"} },
+          { "type": "Label", "id": 13, "properties": { "title": "Trash",  "systemImage": "trash"          } }
+        ]
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Sidebar style", "font": "headline", "foregroundStyle": "secondary" }
+      },
+      {
+        "type": "List",
+        "id": 2,
+        "properties": {
+          "actionID": "sidebar.list.selection.changed",
+          "listStyle": "sidebar",
+          "frame": { "height": 150 }
+        },
+        "children": [
+          { "type": "Label", "id": 20, "properties": { "title": "Favorites", "systemImage": "star.fill"    } },
+          { "type": "Label", "id": 21, "properties": { "title": "Recent",    "systemImage": "clock"        } },
+          { "type": "Label", "id": 22, "properties": { "title": "Shared",    "systemImage": "person.2.fill"} }
+        ]
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Inset style — row background tint + blue separator tint", "font": "headline", "foregroundStyle": "secondary" }
+      },
+      {
+        "type": "List",
+        "id": 3,
+        "properties": {
+          "listStyle": "inset",
+          "listRowBackground": "#E8F4FD",
+          "listRowSeparatorTint": "blue",
+          "frame": { "height": 180 }
+        },
+        "children": [
+          { "type": "Text", "id": 30, "properties": { "text": "First Item"  } },
+          { "type": "Text", "id": 31, "properties": { "text": "Second Item" } },
+          { "type": "Text", "id": 32, "properties": { "text": "Third Item"  } },
+          { "type": "Text", "id": 33, "properties": { "text": "Fourth Item" } }
+        ]
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Plain + uniform row insets (number shorthand)", "font": "headline", "foregroundStyle": "secondary" }
+      },
+      {
+        "type": "List",
+        "id": 4,
+        "properties": {
+          "listStyle": "plain",
+          "listRowInsets": 20,
+          "frame": { "height": 150 }
+        },
+        "children": [
+          {
+            "type": "HStack",
+            "id": 40,
+            "properties": { "spacing": 10 },
+            "children": [
+              { "type": "Image", "properties": { "systemName": "circle.fill", "foregroundStyle": "orange" } },
+              { "type": "Text",  "properties": { "text": "Wide-inset row A" } }
+            ]
+          },
+          {
+            "type": "HStack",
+            "id": 41,
+            "properties": { "spacing": 10 },
+            "children": [
+              { "type": "Image", "properties": { "systemName": "circle.fill", "foregroundStyle": "teal" } },
+              { "type": "Text",  "properties": { "text": "Wide-inset row B" } }
+            ]
+          },
+          {
+            "type": "HStack",
+            "id": 42,
+            "properties": { "spacing": 10 },
+            "children": [
+              { "type": "Image", "properties": { "systemName": "circle.fill", "foregroundStyle": "indigo" } },
+              { "type": "Text",  "properties": { "text": "Wide-inset row C" } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
