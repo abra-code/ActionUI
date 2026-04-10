@@ -17,3 +17,5 @@ build
 .swiftpm
 graphify-out
 CLAUDE.md
+.graphify_python
+AGENTS.md
