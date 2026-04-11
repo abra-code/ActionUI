@@ -172,6 +172,18 @@ class WindowModel: ObservableObject {
                     }
                 }
             }
+            // Populate ViewModels for toolbar items and their content/children.
+            // Each ToolbarItem/ToolbarItemGroup gets its own ViewModel (captures validated placement).
+            // The recursive call handles "content" (ToolbarItem single view) and
+            // "children" (ToolbarItemGroup array) automatically via the standard subview traversal.
+            if let toolbarItems = subviews["toolbar"] as? [any ActionUIElementBase] {
+                for item in toolbarItems {
+                    let itemViewModels = populateViewModels(from: item)
+                    for (id, viewModel) in itemViewModels {
+                        targetViewModels[id] = viewModel
+                    }
+                }
+            }
         }
         
         return targetViewModels

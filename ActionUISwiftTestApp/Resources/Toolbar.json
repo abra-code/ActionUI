@@ -1,0 +1,95 @@
+{
+  "type": "NavigationStack",
+  "content": {
+    "type": "List",
+    "id": 1,
+    "properties": {
+      "navigationTitle": "Inbox",
+      "toolbarTitleDisplayMode": "large",
+      "actionID": "list.selection.changed"
+    },
+    "children": [
+      { "type": "Text", "properties": { "text": "Item 1" } },
+      { "type": "Text", "properties": { "text": "Item 2" } },
+      { "type": "Text", "properties": { "text": "Item 3" } }
+    ],
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "id": 10,
+        "properties": {
+          "placement": "topBarLeading"
+        },
+        "content": {
+          "type": "Button",
+          "id": 100,
+          "properties": {
+            "title": "Edit",
+            "actionID": "toolbar.edit"
+          }
+        }
+      },
+      {
+        "type": "ToolbarItemGroup",
+        "id": 11,
+        "properties": {
+          "placement": "topBarTrailing"
+        },
+        "children": [
+          {
+            "type": "Button",
+            "id": 110,
+            "properties": {
+              "systemImage": "line.3.horizontal.decrease.circle",
+              "actionID": "toolbar.filter"
+            }
+          },
+          {
+            "type": "Button",
+            "id": 111,
+            "properties": {
+              "systemImage": "square.and.pencil",
+              "actionID": "toolbar.compose"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ToolbarItem",
+        "id": 12,
+        "properties": {
+          "placement": "principal"
+        },
+        "content": {
+          "type": "HStack",
+          "id": 120,
+          "properties": {
+              "padding": {
+                  "leading": 10.0,
+                  "trailing": 10.0
+               },
+               "spacing": 6.0
+          },
+          "children": [
+            {
+              "type": "Image",
+              "id": 121,
+              "properties": {
+                "systemName": "envelope.fill",
+                "foregroundStyle": "accentColor"
+              }
+            },
+            {
+              "type": "Text",
+              "id": 122,
+              "properties": {
+                "text": "Inbox",
+                "font": "headline"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

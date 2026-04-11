@@ -43,7 +43,7 @@ public protocol ActionUIElementBase: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
-    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations"
+    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar"
 }
 
 protocol ActionUIPropertyValidation {
@@ -92,7 +92,7 @@ public struct ActionUIElement: ActionUIElementBase {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar
     }
     
     public init(from decoder: Decoder) throws {
@@ -113,7 +113,7 @@ public struct ActionUIElement: ActionUIElementBase {
         
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
-        for key in ["children", "destinations"] {
+        for key in ["children", "destinations", "toolbar"] {
             if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = children
@@ -170,11 +170,12 @@ public struct ActionUIElement: ActionUIElementBase {
             try container.encodeNil(forKey: .popover)
             try container.encodeNil(forKey: .sheet)
             try container.encodeNil(forKey: .fullScreenCover)
+            try container.encodeNil(forKey: .toolbar)
             return
         }
         
-        // Encode children
-        for key in ["children", "destinations"] {
+        // Encode children, destinations, and toolbar arrays
+        for key in ["children", "destinations", "toolbar"] {
             if let children = subviews[key] as? [ActionUIElement] {
                 try container.encodeIfPresent(children, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -215,9 +216,9 @@ public struct ActionUIElement: ActionUIElementBase {
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         var subviews: [String: Any]?
         
-        for key in ["children", "destinations"] {
+        for key in ["children", "destinations", "toolbar"] {
             let childrenArray = dictionary[key] as? [[String: Any]]
-            // Note: JSON specifies "children"/"destinations" as a top-level key, but we move it to subviews["children"/"destinations"]
+            // Note: JSON specifies "children"/"destinations"/"toolbar" as top-level keys, but we move them to subviews
             let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
             if children != nil {
                 if subviews == nil { subviews = [:] }
@@ -302,7 +303,7 @@ extension ActionUIElement {
             return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, subviews: nil)
         }
 
-        for key in ["children", "destinations"] {
+        for key in ["children", "destinations", "toolbar"] {
             if let children = subviews[key] as? [ActionUIElement] {
                 subviews[key] = children.map { normalizeTemplateID($0, counter: &counter) }
             }
@@ -338,7 +339,7 @@ extension ActionUIElement: Equatable {
         }
         
         // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations", "template", "sheet", "fullScreenCover"] {
+        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations", "template", "sheet", "fullScreenCover", "toolbar"] {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             
@@ -397,6 +398,15 @@ extension ActionUIElementBase {
         if let destinations = subviews["destinations"] as? [any ActionUIElementBase] {
             for child in destinations {
                 if let found = child.findElement(by: viewID) {
+                    return found
+                }
+            }
+        }
+
+        // Search in "toolbar" (array of ToolbarItem elements)
+        if let toolbarItems = subviews["toolbar"] as? [any ActionUIElementBase] {
+            for item in toolbarItems {
+                if let found = item.findElement(by: viewID) {
                     return found
                 }
             }

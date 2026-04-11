@@ -78,6 +78,11 @@
      "popoverActionID": "view.popover",     // Optional: String for action identifier triggered when the popover is shown. Only meaningful when "popover" subview is present.
      "sheetOnDismissActionID": "sheet.dismissed",         // Optional: String for action identifier triggered when the sheet is dismissed. Only meaningful when "sheet" subview is present.
      "fullScreenCoverOnDismissActionID": "cover.dismissed", // Optional: String for action identifier triggered when the full-screen cover is dismissed. Only meaningful when "fullScreenCover" subview is present.
+     "toolbarTitleDisplayMode": "automatic", // Optional: Navigation title display mode; "automatic", "inline", "large", "inlineLarge". Defaults to "automatic".
+                                            // "inline" renders a compact title in the navigation bar.
+                                            // "large" renders a large expandable title (iOS/iPadOS style).
+                                            // "inlineLarge" renders a large title that collapses when scrolling (iOS 17+).
+                                            // Meaningful when the view is inside a NavigationStack or NavigationSplitView.
      "destinationViewId": 10,               // Optional: Int linking this view to a destination in a navigation container.
                                             // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
                                             // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
@@ -617,6 +622,20 @@ struct View: ActionUIViewConstruction {
             validatedProperties["fullScreenCoverOnDismissActionID"] = nil
         }
 
+        // Validate toolbarTitleDisplayMode
+        if let titleDisplayMode = properties["toolbarTitleDisplayMode"] {
+            if let modeStr = titleDisplayMode as? String {
+                let validModes = ["automatic", "inline", "large", "inlineLarge"]
+                if !validModes.contains(modeStr) {
+                    logger.log("Invalid toolbarTitleDisplayMode '\(modeStr)'; expected one of \(validModes), ignoring", .warning)
+                    validatedProperties["toolbarTitleDisplayMode"] = nil
+                }
+            } else {
+                logger.log("Invalid type for toolbarTitleDisplayMode: expected String, got \(type(of: titleDisplayMode)), ignoring", .warning)
+                validatedProperties["toolbarTitleDisplayMode"] = nil
+            }
+        }
+
         if let columnWidthAny = properties["navigationSplitViewColumnWidth"] {
             var validatedValue: Any? = nil
             
@@ -908,7 +927,24 @@ struct View: ActionUIViewConstruction {
         if let navigationTitle = properties["navigationTitle"] as? String {
             modifiedView = modifiedView.navigationTitle(navigationTitle)
         }
-        
+
+        if let titleDisplayMode = properties["toolbarTitleDisplayMode"] as? String {
+            switch titleDisplayMode {
+            case "inline":
+                modifiedView = modifiedView.toolbarTitleDisplayMode(.inline)
+            case "large":
+#if !os(macOS)
+                modifiedView = modifiedView.toolbarTitleDisplayMode(.large)
+#endif
+            case "inlineLarge":
+#if !os(macOS)
+                modifiedView = modifiedView.toolbarTitleDisplayMode(.inlineLarge)
+#endif
+            default: // "automatic"
+                modifiedView = modifiedView.toolbarTitleDisplayMode(.automatic)
+            }
+        }
+
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityLabel(accessibilityLabel)
         }
@@ -923,6 +959,16 @@ struct View: ActionUIViewConstruction {
         
         if let accessibilityIdentifier = properties["accessibilityIdentifier"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityIdentifier(accessibilityIdentifier)
+        }
+
+        // Apply toolbar modifier if the element has a "toolbar" subview array with items
+        if let toolbarItems = element.subviews?["toolbar"] as? [any ActionUIElementBase],
+           !toolbarItems.isEmpty {
+            modifiedView = ToolbarModifierView(
+                content: AnyView(modifiedView),
+                toolbarItems: toolbarItems,
+                windowUUID: windowUUID
+            )
         }
 
         // Apply sheet modifier if the element has a sheet subview

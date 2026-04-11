@@ -91,6 +91,8 @@ public class ActionUIRegistry {
         registerView(TextEditor.self)
         registerView(TextField.self)
         registerView(Toggle.self)
+        registerView(ToolbarItem.self)
+        registerView(ToolbarItemGroup.self)
         registerView(VStack.self)
         registerView(VSplitView.self)
         registerView(VideoPlayer.self)
