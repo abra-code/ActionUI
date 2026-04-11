@@ -76,8 +76,8 @@ JSON schema and usage documentation for `List`.
     //         because List(selection:) intercepts taps on iOS.
     //         When used inside NavigationStack with destinations, NavigationStack detects this pattern
     //         and handles push navigation — see NavigationStack.swift.
-    //         Note: listRowBackground/listRowSeparator/listRowInsets are not applied in this sub-mode
-    //         because the List is constructed inside SelectionListHelper.
+    //         Row styling (listRowBackground/listRowSeparator/listRowInsets) is applied via
+    //         a rowModifier closure passed to SelectionListHelper.buildSelectableList.
     //
     //      b) Without actionID (no-selection mode): No selection binding. NavigationLinks handle
     //         their own taps. Action callbacks:

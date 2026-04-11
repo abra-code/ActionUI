@@ -72,8 +72,8 @@
     //         because List(selection:) intercepts taps on iOS.
     //         When used inside NavigationStack with destinations, NavigationStack detects this pattern
     //         and handles push navigation — see NavigationStack.swift.
-    //         Note: listRowBackground/listRowSeparator/listRowInsets are not applied in this sub-mode
-    //         because the List is constructed by SelectionListHelper.
+    //         Row styling (listRowBackground/listRowSeparator/listRowInsets) is applied via
+    //         a rowModifier closure passed to SelectionListHelper.buildSelectableList.
     //
     //      b) Without actionID (no-selection mode): No selection binding. NavigationLinks handle
     //         their own taps. Action callbacks:
@@ -373,8 +373,6 @@ struct List: ActionUIViewConstruction {
                 // Selectable heterogeneous list mode: List(selection:) with child ID mapping.
                 // Same pattern as NavigationSplitView.buildSidebarList — Labels/Text are selectable,
                 // actionID fires on selection change with child element ID as context.
-                // Note: row styling properties (listRowBackground etc.) are not applied in this mode
-                // because the List is constructed inside SelectionListHelper.
                 let windowModel = ActionUIModel.shared.windowModels[windowUUID]
 
                 let selectionBinding = SelectionListHelper.makeHeterogeneousSelectionBinding(
@@ -390,7 +388,8 @@ struct List: ActionUIViewConstruction {
                     listElement: element,
                     listModel: nil as ViewModel?,
                     windowModel: windowModel,
-                    windowUUID: windowUUID
+                    windowUUID: windowUUID,
+                    rowModifier: hasRowModifiers(properties) ? { view in applyRowModifiers(view, properties: properties) } : nil
                 )
             } else {
                 // No-selection heterogeneous list mode: NavigationLinks handle their own taps.

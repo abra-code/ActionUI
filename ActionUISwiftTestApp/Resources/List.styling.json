@@ -65,6 +65,7 @@
         "type": "List",
         "id": 3,
         "properties": {
+          "actionID": "inset.list.selection.changed",
           "listStyle": "inset",
           "listRowBackground": "#E8F4FD",
           "listRowSeparatorTint": "blue",
@@ -86,6 +87,7 @@
         "type": "List",
         "id": 4,
         "properties": {
+          "actionID": "plain+inset.list.selection.changed",
           "listStyle": "plain",
           "listRowInsets": 20,
           "frame": { "height": 150 }

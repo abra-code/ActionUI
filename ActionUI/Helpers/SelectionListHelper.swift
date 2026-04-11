@@ -26,6 +26,7 @@ struct SelectionListHelper {
 
     /// Builds a `List(selection:)` with a `ForEach` over heterogeneous children.
     /// When `listModel` is non-nil, the list element's view modifiers are applied to the result.
+    /// When `rowModifier` is non-nil, it is applied to each child row (e.g. for listRowBackground etc.).
     @ViewBuilder
     static func buildSelectableList(
         selection: Binding<Int?>,
@@ -33,12 +34,14 @@ struct SelectionListHelper {
         listElement: any ActionUIElementBase,
         listModel: ViewModel?,
         windowModel: WindowModel?,
-        windowUUID: String
+        windowUUID: String,
+        rowModifier: ((AnyView) -> AnyView)? = nil
     ) -> some SwiftUI.View {
         let listView = SwiftUI.List(selection: selection) {
             ForEach(children, id: \.id) { child in
                 if let childModel = windowModel?.viewModels[child.id] {
-                    ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    let childView = AnyView(ActionUIView(element: child, model: childModel, windowUUID: windowUUID))
+                    rowModifier?(childView) ?? childView
                 }
             }
         }
