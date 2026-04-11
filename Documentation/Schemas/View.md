@@ -44,6 +44,19 @@ JSON schema and usage documentation for `View`.
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
      "onAppearActionID": "view.onAppear", // Optional: String for action identifier triggered on view appear (via .onAppear modifier)
      "onDisappearActionID": "view.onDisappear", // Optional: String for action identifier triggered on view disappear (via .onDisappear modifier)
+     "onHoverActionID": "view.hovered", // Optional: String for action identifier triggered when the pointer enters or exits this view (via .onHover modifier).
+                           //   macOS primary; iPadOS with pointer. Silently ignored on other platforms.
+                           //   Context: { "isHovering": Bool }
+     "onDropTypes": ["public.utf8-plain-text"], // Optional: [String] of UTType identifiers this view accepts as a drop target. Required alongside onDropActionID.
+                           //   Must be a non-empty array of strings. Discarded otherwise.
+                           //   Common values: "public.utf8-plain-text", "public.plain-text", "public.url", "public.file-url"
+     "onDropActionID": "view.dropped", // Optional: String for action identifier triggered when a valid drop lands on this view.
+                           //   Requires onDropTypes to be set and non-empty; ignored without it.
+                           //   Items are extracted as UTF-8 text before firing; non-extractable items are omitted.
+                           //   Context: { "items": [String], "location": { "x": Double, "y": Double } }
+     "onDropTargetedActionID": "view.dropTargeted", // Optional: String for action identifier triggered when a drag enters or exits this drop zone.
+                           //   Use to drive visual feedback (border, scale) via setElementState.
+                           //   Context: { "isTargeted": Bool }
      "keyboardShortcut": { // Optional: Dictionary for keyboard shortcut, supports key with array of modifiers
        "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
        "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements

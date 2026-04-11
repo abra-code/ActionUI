@@ -1,0 +1,60 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 24,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Hover (macOS)",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "VStack",
+      "id": 1,
+      "properties": {
+        "spacing": 6,
+        "padding": 16,
+        "cornerRadius": 10,
+        "background": "background.secondary",
+        "frame": { "maxWidth": 500 },
+        "onHoverActionID": "demo.card.hovered"
+      },
+      "children": [
+        {
+          "type": "HStack",
+          "properties": {},
+          "children": [
+            {
+              "type": "Image",
+              "properties": {
+                "systemName": "cursorarrow.rays",
+                "foregroundStyle": "secondary"
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "Hover Card",
+                "font": "headline"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Text",
+          "id": 2,
+          "properties": {
+            "text": "Move the pointer over this card",
+            "font": "subheadline",
+            "foregroundStyle": "secondary"
+          }
+        }
+      ]
+    }
+  ]
+}

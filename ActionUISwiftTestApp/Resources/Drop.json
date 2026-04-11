@@ -1,0 +1,170 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 24,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Drop",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "TEXT DROP",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "ZStack",
+      "id": 3,
+      "properties": {
+        "frame": { "maxWidth": 500, "minHeight": 100 },
+        "cornerRadius": 10,
+        "background": "fill.quaternary",
+        "border": { "color": "separator", "width": 1 },
+        "onDropTypes": ["public.utf8-plain-text", "public.plain-text"],
+        "onDropActionID": "demo.drop.received",
+        "onDropTargetedActionID": "demo.drop.targeted"
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 6 },
+          "children": [
+            {
+              "type": "Image",
+              "properties": {
+                "systemName": "arrow.down.to.line",
+                "foregroundStyle": "secondary",
+                "font": { "size": 22 }
+              }
+            },
+            {
+              "type": "Text",
+              "id": 4,
+              "properties": {
+                "text": "Drop text here",
+                "font": "callout",
+                "foregroundStyle": "secondary"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 5,
+      "properties": {
+        "spacing": 4,
+        "padding": 12,
+        "cornerRadius": 8,
+        "background": "background.secondary",
+        "frame": { "maxWidth": 500 },
+        "hidden": true
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Last dropped text:",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 6,
+          "properties": {
+            "text": "",
+            "font": "body"
+          }
+        }
+      ]
+    },
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "FILE / FOLDER DROP (drag from Finder)",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "ZStack",
+      "id": 7,
+      "properties": {
+        "frame": { "maxWidth": 500, "minHeight": 100 },
+        "cornerRadius": 10,
+        "background": "fill.quaternary",
+        "border": { "color": "separator", "width": 1 },
+        "onDropTypes": ["public.file-url"],
+        "onDropActionID": "demo.file.drop.received",
+        "onDropTargetedActionID": "demo.file.drop.targeted"
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 6 },
+          "children": [
+            {
+              "type": "Image",
+              "properties": {
+                "systemName": "doc.badge.arrow.up",
+                "foregroundStyle": "secondary",
+                "font": { "size": 22 }
+              }
+            },
+            {
+              "type": "Text",
+              "id": 8,
+              "properties": {
+                "text": "Drop files or folders here",
+                "font": "callout",
+                "foregroundStyle": "secondary"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 9,
+      "properties": {
+        "spacing": 4,
+        "padding": 12,
+        "cornerRadius": 8,
+        "background": "background.secondary",
+        "frame": { "maxWidth": 500 },
+        "hidden": true
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Last dropped path(s):",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 10,
+          "properties": {
+            "text": "",
+            "font": "body"
+          }
+        }
+      ]
+    }
+  ]
+}

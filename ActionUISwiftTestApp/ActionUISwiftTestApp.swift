@@ -284,6 +284,69 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Discarded.")
         }
 
+        // HoverDrop demo handlers
+        // IDs: 1=hover card, 2=hover status text,
+        //      3=text drop zone, 4=text zone label, 5=text result panel, 6=text result content,
+        //      7=file drop zone, 8=file zone label, 9=file result panel, 10=file result content
+
+        ActionUISwift.registerActionHandler(actionID: "demo.card.hovered") { _, windowUUID, _, _, context in
+            let isHovering = (context as? [String: Any])?["isHovering"] as? Bool ?? false
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                value: isHovering ? "Pointer is over the card" : "Move the pointer over this card")
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 1,
+                propertyName: "background",
+                value: isHovering ? "fill.secondary" : "background.secondary")
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "demo.drop.targeted") { _, windowUUID, _, _, context in
+            let isTargeted = (context as? [String: Any])?["isTargeted"] as? Bool ?? false
+            let border: [String: Any] = isTargeted
+                ? ["color": "accentcolor", "width": 2.0]
+                : ["color": "separator", "width": 1.0]
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 3,
+                propertyName: "border", value: border)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 4,
+                value: isTargeted ? "Release to drop ↓" : "Drop text here")
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "demo.drop.received") { _, windowUUID, _, _, context in
+            let dict = context as? [String: Any]
+            let items = dict?["items"] as? [String] ?? []
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 5,
+                propertyName: "hidden", value: false)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 6,
+                value: items.first ?? "(no text content)")
+            // Reset drop zone appearance
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 3,
+                propertyName: "border", value: ["color": "separator", "width": 1.0] as [String: Any])
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 4, value: "Drop text here")
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "demo.file.drop.targeted") { _, windowUUID, _, _, context in
+            let isTargeted = (context as? [String: Any])?["isTargeted"] as? Bool ?? false
+            let border: [String: Any] = isTargeted
+                ? ["color": "accentcolor", "width": 2.0]
+                : ["color": "separator", "width": 1.0]
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 7,
+                propertyName: "border", value: border)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 8,
+                value: isTargeted ? "Release to drop ↓" : "Drop files or folders here")
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "demo.file.drop.received") { _, windowUUID, _, _, context in
+            let dict = context as? [String: Any]
+            let items = dict?["items"] as? [String] ?? []
+            print("[HoverDrop] file drop received — items: \(items), context: \(String(describing: context))")
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 9,
+                propertyName: "hidden", value: false)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 10,
+                value: items.isEmpty ? "(no items)" : items.joined(separator: "\n"))
+            // Reset drop zone appearance
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 7,
+                propertyName: "border", value: ["color": "separator", "width": 1.0] as [String: Any])
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 8, value: "Drop files or folders here")
+        }
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")

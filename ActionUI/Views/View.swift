@@ -40,6 +40,13 @@
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
      "onAppearActionID": "view.onAppear", // Optional: String for action identifier triggered on view appear (via .onAppear modifier)
      "onDisappearActionID": "view.onDisappear", // Optional: String for action identifier triggered on view disappear (via .onDisappear modifier)
+     "onHoverActionID": "view.hovered", // Optional: String for action triggered when pointer enters/exits (via .onHover). macOS primary.
+                           //   Context: { "isHovering": Bool }
+     "onDropTypes": ["public.utf8-plain-text"], // Optional: [String] of UTType identifiers accepted as a drop target. Required with onDropActionID.
+     "onDropActionID": "view.dropped", // Optional: String for action triggered when a valid drop lands. Requires onDropTypes.
+                           //   Context: { "items": [String], "location": { "x": Double, "y": Double } }
+     "onDropTargetedActionID": "view.dropTargeted", // Optional: String for action triggered when drag enters/exits the drop zone.
+                           //   Context: { "isTargeted": Bool }
      "keyboardShortcut": { // Optional: Dictionary for keyboard shortcut, supports key with array of modifiers
        "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
        "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
@@ -382,7 +389,35 @@ struct View: ActionUIViewConstruction {
             logger.log("Invalid type for onDisappearActionID: expected String, got \(type(of: onDisappearActionID)), ignoring", .warning)
             validatedProperties["onDisappearActionID"] = nil
         }
-        
+
+        // Validate onHoverActionID
+        if let onHoverActionID = properties["onHoverActionID"], !(onHoverActionID is String) {
+            logger.log("Invalid type for onHoverActionID: expected String, got \(type(of: onHoverActionID)), ignoring", .warning)
+            validatedProperties["onHoverActionID"] = nil
+        }
+
+        // Validate onDropActionID
+        if let onDropActionID = properties["onDropActionID"], !(onDropActionID is String) {
+            logger.log("Invalid type for onDropActionID: expected String, got \(type(of: onDropActionID)), ignoring", .warning)
+            validatedProperties["onDropActionID"] = nil
+        }
+
+        // Validate onDropTypes — must be a non-empty [String]
+        if let onDropTypes = properties["onDropTypes"] {
+            if let typesArray = onDropTypes as? [String], !typesArray.isEmpty {
+                validatedProperties["onDropTypes"] = typesArray
+            } else {
+                logger.log("Invalid type for onDropTypes: expected non-empty [String], got \(type(of: onDropTypes)), ignoring", .warning)
+                validatedProperties["onDropTypes"] = nil
+            }
+        }
+
+        // Validate onDropTargetedActionID
+        if let onDropTargetedActionID = properties["onDropTargetedActionID"], !(onDropTargetedActionID is String) {
+            logger.log("Invalid type for onDropTargetedActionID: expected String, got \(type(of: onDropTargetedActionID)), ignoring", .warning)
+            validatedProperties["onDropTargetedActionID"] = nil
+        }
+
         // Validate keyboardShortcut
         if let keyboardShortcut = properties["keyboardShortcut"] {
             if let shortcutDict = keyboardShortcut as? [String: Any] {
@@ -873,7 +908,18 @@ struct View: ActionUIViewConstruction {
                 }
             }
         }
-        
+
+        // Handle onHoverActionID with .onHover modifier (macOS; silent no-op elsewhere)
+#if os(macOS)
+        if let onHoverActionID = properties["onHoverActionID"] as? String {
+            modifiedView = modifiedView.onHover { isHovering in
+                Task { @MainActor in
+                    ActionUIModel.shared.actionHandler(onHoverActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: ["isHovering": isHovering])
+                }
+            }
+        }
+#endif
+
         if let columnWidth = properties["navigationSplitViewColumnWidth"] {
             if let dict = columnWidth as? [String: Any],
                let ideal = dict.cgFloat(forKey: "ideal"), ideal > 0 {
@@ -959,6 +1005,20 @@ struct View: ActionUIViewConstruction {
         
         if let accessibilityIdentifier = properties["accessibilityIdentifier"] as? String {
             modifiedView = AnyView(modifiedView).accessibilityIdentifier(accessibilityIdentifier)
+        }
+
+        // Handle onDrop — requires a wrapper view for the isTargeted Binding and @State
+        if let onDropActionID = properties["onDropActionID"] as? String,
+           let onDropTypes = properties["onDropTypes"] as? [String], !onDropTypes.isEmpty {
+            let onDropTargetedActionID = properties["onDropTargetedActionID"] as? String
+            modifiedView = DropModifierView(
+                content: AnyView(modifiedView),
+                onDropActionID: onDropActionID,
+                onDropTypes: onDropTypes,
+                onDropTargetedActionID: onDropTargetedActionID,
+                windowUUID: windowUUID,
+                elementID: element.id
+            )
         }
 
         // Apply toolbar modifier if the element has a "toolbar" subview array with items
