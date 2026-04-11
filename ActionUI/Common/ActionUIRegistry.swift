@@ -84,6 +84,7 @@ public class ActionUIRegistry {
         registerView(ShareLink.self)
         registerView(Slider.self)
         registerView(Spacer.self)
+        registerView(Stepper.self)
         registerView(Table.self)
         registerView(Tab.self)
         registerView(TabView.self)

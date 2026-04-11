@@ -1,0 +1,106 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16.0,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Stepper Variants",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Integer value (%.0f), range 0–10",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "Stepper",
+      "id": 1,
+      "properties": {
+        "value": 5.0,
+        "range": { "min": 0.0, "max": 10.0 },
+        "step": 1.0,
+        "labelFormat": "Quantity: %.0f",
+        "actionID": "stepper.quantity.changed"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Large step (10), range 0–100",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "Stepper",
+      "id": 2,
+      "properties": {
+        "value": 50.0,
+        "range": { "min": 0.0, "max": 100.0 },
+        "step": 10.0,
+        "labelFormat": "Volume: %.0f%%",
+        "actionID": "stepper.volume.changed"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Decimal step (0.5), one decimal place",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "Stepper",
+      "id": 3,
+      "properties": {
+        "value": 2.5,
+        "range": { "min": 0.0, "max": 5.0 },
+        "step": 0.5,
+        "labelFormat": "Rating: %.1f",
+        "actionID": "stepper.rating.changed"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Unbounded (no range), %g strips trailing zeros",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "Stepper",
+      "id": 4,
+      "properties": {
+        "value": 0.0,
+        "step": 1.0,
+        "labelFormat": "Count: %g",
+        "actionID": "stepper.count.changed"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Static label (no labelFormat)",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "Stepper",
+      "id": 5,
+      "properties": {
+        "value": 0.0,
+        "range": { "min": 0.0, "max": 20.0 },
+        "step": 1.0,
+        "label": "Adjust",
+        "actionID": "stepper.nolabel.changed"
+      }
+    }
+  ]
+}
