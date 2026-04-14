@@ -94,10 +94,16 @@ struct DropModifierView<Content: SwiftUI.View>: SwiftUI.View {
         //   • loadDataRepresentation → Data containing a UTF-8 "file://…" URL string
         //   • loadItem              → NSURL / URL object, or Data with the UTF-8 URL string
         // We try both paths and return whichever succeeds first.
-        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+        // Folders dragged from Finder conform to public.folder, not public.file-url, so check both.
+        let fileTypeID = provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+            ? UTType.fileURL.identifier
+            : provider.hasItemConformingToTypeIdentifier(UTType.folder.identifier)
+                ? UTType.folder.identifier
+                : nil
+        if let fileTypeID {
             // Path 1: loadDataRepresentation (most reliable on macOS Finder drags)
             let viaData: String? = await withCheckedContinuation { continuation in
-                provider.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
+                provider.loadDataRepresentation(forTypeIdentifier: fileTypeID) { data, _ in
                     guard let data else { continuation.resume(returning: nil); return }
                     let urlString = String(data: data, encoding: .utf8)?
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -108,7 +114,7 @@ struct DropModifierView<Content: SwiftUI.View>: SwiftUI.View {
 
             // Path 2: loadItem (returns NSURL on some systems, Data on others)
             return await withCheckedContinuation { continuation in
-                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                provider.loadItem(forTypeIdentifier: fileTypeID, options: nil) { item, _ in
                     switch item {
                     case let url as URL:
                         continuation.resume(returning: url.path)
