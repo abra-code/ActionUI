@@ -74,14 +74,14 @@ struct WindowModalView: SwiftUI.View {
     private var sheetBinding: Binding<WindowModal?> {
         Binding(
             get: { windowModel.windowModal?.style == .sheet ? windowModel.windowModal : nil },
-            set: { if $0 == nil { ActionUIModel.shared.dismissModal(windowUUID: windowUUID) } }
+            set: { if $0 == nil { DispatchQueue.main.async { ActionUIModel.shared.dismissModal(windowUUID: windowUUID) } } }
         )
     }
 
     private var fullCoverBinding: Binding<WindowModal?> {
         Binding(
             get: { windowModel.windowModal?.style == .fullScreenCover ? windowModel.windowModal : nil },
-            set: { if $0 == nil { ActionUIModel.shared.dismissModal(windowUUID: windowUUID) } }
+            set: { if $0 == nil { DispatchQueue.main.async { ActionUIModel.shared.dismissModal(windowUUID: windowUUID) } } }
         )
     }
 #else
@@ -89,7 +89,7 @@ struct WindowModalView: SwiftUI.View {
     private var anyModalBinding: Binding<WindowModal?> {
         Binding(
             get: { windowModel.windowModal },
-            set: { if $0 == nil { ActionUIModel.shared.dismissModal(windowUUID: windowUUID) } }
+            set: { if $0 == nil { DispatchQueue.main.async { ActionUIModel.shared.dismissModal(windowUUID: windowUUID) } } }
         )
     }
 #endif
@@ -107,14 +107,14 @@ struct WindowModalView: SwiftUI.View {
     private var alertBinding: Binding<Bool> {
         Binding(
             get: { windowModel.windowDialog?.style == .alert },
-            set: { if !$0 { ActionUIModel.shared.dismissDialog(windowUUID: windowUUID) } }
+            set: { if !$0 { DispatchQueue.main.async { ActionUIModel.shared.dismissDialog(windowUUID: windowUUID) } } }
         )
     }
 
     private var confirmationBinding: Binding<Bool> {
         Binding(
             get: { windowModel.windowDialog?.style == .confirmationDialog },
-            set: { if !$0 { ActionUIModel.shared.dismissDialog(windowUUID: windowUUID) } }
+            set: { if !$0 { DispatchQueue.main.async { ActionUIModel.shared.dismissDialog(windowUUID: windowUUID) } } }
         )
     }
 
