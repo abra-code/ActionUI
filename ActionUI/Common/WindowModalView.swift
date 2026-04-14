@@ -107,14 +107,14 @@ struct WindowModalView: SwiftUI.View {
     private var alertBinding: Binding<Bool> {
         Binding(
             get: { windowModel.windowDialog?.style == .alert },
-            set: { if !$0 { windowModel.windowDialog = nil } }
+            set: { if !$0 { ActionUIModel.shared.dismissDialog(windowUUID: windowUUID) } }
         )
     }
 
     private var confirmationBinding: Binding<Bool> {
         Binding(
             get: { windowModel.windowDialog?.style == .confirmationDialog },
-            set: { if !$0 { windowModel.windowDialog = nil } }
+            set: { if !$0 { ActionUIModel.shared.dismissDialog(windowUUID: windowUUID) } }
         )
     }
 

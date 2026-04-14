@@ -8,8 +8,8 @@ import Combine
 
 @MainActor
 class WindowModel: ObservableObject {
-    @Published var element: (any ActionUIElementBase)?
-    @Published var viewModels: [Int: ViewModel] = [:]
+    var element: (any ActionUIElementBase)?
+    var viewModels: [Int: ViewModel] = [:]
     /// Maps a LoadableView's element ID to set of child view IDs it loaded
     var loadedSubViewIDs: [Int: Set<Int>] = [:]
     /// Active window-level modal (sheet or fullScreenCover). Set by ActionUIModel.presentModal.
@@ -29,14 +29,14 @@ class WindowModel: ObservableObject {
         if format == "json" {
             let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             self.element = element
-            self.viewModels = populateViewModels(from: element) // Update self.viewModels
+            self.viewModels = populateViewModels(from: element)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
             let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
             self.element = element
-            self.viewModels = populateViewModels(from: element) // Update self.viewModels
+            self.viewModels = populateViewModels(from: element)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded plist description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
@@ -50,7 +50,7 @@ class WindowModel: ObservableObject {
     func loadDescription(from dict: [String: Any]) throws -> ActionUIElement {
         let element = try ActionUIElement(from: dict, logger: logger)
         self.element = element
-        self.viewModels = populateViewModels(from: element) // Update self.viewModels
+        self.viewModels = populateViewModels(from: element)
         self.loadedSubViewIDs = [:]
         return element
     }
@@ -88,7 +88,7 @@ class WindowModel: ObservableObject {
         }
 
         // Merge subViewModels into main viewModels, ensuring no ID conflicts.
-        // Build the merged dictionary first, then assign once to fire a single @Published notification.
+        // Build the merged dictionary first, then assign once.
         var merged = self.viewModels
         for (id, viewModel) in subViewModels {
             if merged[id] == nil {
