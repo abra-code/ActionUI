@@ -238,6 +238,7 @@
 				ActionUISwiftTestApp.xctestplan,
 				Resources/KeyframeAnimator.json,
 				Resources/PhaseAnimator.json,
+				Scripts/verify_json_resources.sh,
 			);
 			target = 1DB255EC2E6BADCE00544C2F /* ActionUISwiftTestApp */;
 		};
