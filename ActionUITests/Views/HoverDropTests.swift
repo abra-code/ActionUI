@@ -198,10 +198,15 @@ final class HoverDropTests: XCTestCase {
             return
         }
         let element = try ActionUIModel.shared.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
-        XCTAssertNil(element.properties["onHoverActionID"], "Invalid onHoverActionID should be discarded")
-        XCTAssertNil(element.properties["onDropActionID"], "Invalid onDropActionID should be discarded")
-        XCTAssertNil(element.properties["onDropTypes"], "Invalid onDropTypes should be discarded")
-        XCTAssertNil(element.properties["onDropTargetedActionID"], "Invalid onDropTargetedActionID should be discarded")
+        guard let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+        XCTAssertNil(viewModel.validatedProperties["onHoverActionID"], "Invalid onHoverActionID should be discarded")
+        XCTAssertNil(viewModel.validatedProperties["onDropActionID"], "Invalid onDropActionID should be discarded")
+        XCTAssertNil(viewModel.validatedProperties["onDropTypes"], "Invalid onDropTypes should be discarded")
+        XCTAssertNil(viewModel.validatedProperties["onDropTargetedActionID"], "Invalid onDropTargetedActionID should be discarded")
     }
 
     // MARK: - View construction
