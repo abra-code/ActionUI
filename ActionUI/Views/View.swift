@@ -35,6 +35,15 @@
      },
      "opacity": 1.0,       // Optional: Double (0.0 to 1.0) for view transparency
      "cornerRadius": 5.0,  // Optional: Double for rounded corners
+     "rotationEffect": 45.0, // Optional: Double — rotation angle in degrees (positive = clockwise). Negative values rotate counter-clockwise.
+     "scaleEffect": 1.5,   // Optional: Uniform scale factor (Double), or dictionary for non-uniform scaling:
+     "scaleEffect": {      // Optional: Dictionary form for per-axis scaling
+       "x": 1.5,           // Optional: Double for horizontal scale; defaults to 1.0
+       "y": 0.8,           // Optional: Double for vertical scale; defaults to 1.0
+       "anchor": "center"  // Optional: UnitPoint anchor for scaling origin; defaults to "center"
+                           //   Allowed: "center", "leading", "trailing", "top", "bottom",
+                           //            "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"
+     },
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
@@ -134,6 +143,20 @@
 import SwiftUI
 
 private func resolveAlignment(_ string: String?) -> Alignment {
+    switch string {
+    case "leading":       return .leading
+    case "trailing":      return .trailing
+    case "top":           return .top
+    case "bottom":        return .bottom
+    case "topLeading":    return .topLeading
+    case "topTrailing":   return .topTrailing
+    case "bottomLeading": return .bottomLeading
+    case "bottomTrailing":return .bottomTrailing
+    default:              return .center
+    }
+}
+
+private func resolveUnitPoint(_ string: String?) -> UnitPoint {
     switch string {
     case "leading":       return .leading
     case "trailing":      return .trailing
@@ -748,9 +771,58 @@ struct View: ActionUIViewConstruction {
             }
         }
         
+        // Validate rotationEffect
+        if let rotationEffect = properties["rotationEffect"] {
+            if properties.double(forKey: "rotationEffect") == nil {
+                logger.log("Invalid type for rotationEffect: expected numeric (degrees), got \(type(of: rotationEffect)), ignoring", .warning)
+                validatedProperties["rotationEffect"] = nil
+            }
+        }
+
+        // Validate scaleEffect
+        if let scaleEffect = properties["scaleEffect"] {
+            if let scaleDict = scaleEffect as? [String: Any] {
+                var validScale: [String: Any] = [:]
+                var isValid = true
+
+                if let x = scaleDict.double(forKey: "x") {
+                    validScale["x"] = x
+                } else if scaleDict["x"] != nil {
+                    logger.log("Invalid type for scaleEffect.x: expected numeric, got \(type(of: scaleDict["x"]!)), ignoring", .warning)
+                    isValid = false
+                }
+
+                if let y = scaleDict.double(forKey: "y") {
+                    validScale["y"] = y
+                } else if scaleDict["y"] != nil {
+                    logger.log("Invalid type for scaleEffect.y: expected numeric, got \(type(of: scaleDict["y"]!)), ignoring", .warning)
+                    isValid = false
+                }
+
+                if let anchor = scaleDict["anchor"] as? String {
+                    let validAnchors = ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
+                    if validAnchors.contains(anchor) {
+                        validScale["anchor"] = anchor
+                    } else {
+                        logger.log("Invalid scaleEffect.anchor '\(anchor)', expected one of \(validAnchors), ignoring anchor", .warning)
+                    }
+                }
+
+                if isValid && !validScale.isEmpty {
+                    validatedProperties["scaleEffect"] = validScale
+                } else {
+                    logger.log("Invalid scaleEffect dictionary, ignoring", .warning)
+                    validatedProperties["scaleEffect"] = nil
+                }
+            } else if properties.double(forKey: "scaleEffect") == nil {
+                logger.log("Invalid type for scaleEffect: expected numeric or [String: Any], got \(type(of: scaleEffect)), ignoring", .warning)
+                validatedProperties["scaleEffect"] = nil
+            }
+        }
+
         return validatedProperties
     }
-    
+
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         SwiftUI.EmptyView()
     }
@@ -865,7 +937,20 @@ struct View: ActionUIViewConstruction {
         if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
             modifiedView = modifiedView.cornerRadius(cornerRadius)
         }
-        
+
+        if let degrees = properties.double(forKey: "rotationEffect") {
+            modifiedView = modifiedView.rotationEffect(.degrees(degrees))
+        }
+
+        if let scaleEffect = properties["scaleEffect"] as? [String: Any] {
+            let x = scaleEffect.cgFloat(forKey: "x") ?? 1.0
+            let y = scaleEffect.cgFloat(forKey: "y") ?? 1.0
+            let anchor = resolveUnitPoint(scaleEffect["anchor"] as? String)
+            modifiedView = modifiedView.scaleEffect(x: x, y: y, anchor: anchor)
+        } else if let scale = properties.cgFloat(forKey: "scaleEffect") {
+            modifiedView = modifiedView.scaleEffect(scale)
+        }
+
         if let border = properties["border"] as? [String: Any] {
             let color = ColorHelper.resolveColor(border["color"] as? String) ?? .black
             let width = border.cgFloat(forKey: "width") ?? 1.0

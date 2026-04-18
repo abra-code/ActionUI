@@ -1,0 +1,100 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 24.0,
+    "padding": 20.0
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Transform Modifiers",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "rotationEffect: 45°",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Rectangle",
+      "properties": {
+        "foregroundStyle": "blue",
+        "frame": { "width": 80.0, "height": 80.0 },
+        "cornerRadius": 8.0,
+        "rotationEffect": 45.0
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "rotationEffect: -30°",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "RoundedRectangle",
+      "properties": {
+        "cornerRadius": 12.0,
+        "foregroundStyle": "orange",
+        "frame": { "width": 120.0, "height": 50.0 },
+        "rotationEffect": -30.0
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "scaleEffect: 1.5 (uniform)",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Circle",
+      "properties": {
+        "foregroundStyle": "green",
+        "frame": { "width": 60.0, "height": 60.0 },
+        "scaleEffect": 1.5
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "scaleEffect: x=2.0, y=0.5, anchor=center",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Capsule",
+      "properties": {
+        "foregroundStyle": "purple",
+        "frame": { "width": 100.0, "height": 40.0 },
+        "scaleEffect": { "x": 2.0, "y": 0.5, "anchor": "center" }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Combined: rotation + scale",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Rectangle",
+      "properties": {
+        "foregroundStyle": "red",
+        "frame": { "width": 80.0, "height": 80.0 },
+        "cornerRadius": 4.0,
+        "rotationEffect": 20.0,
+        "scaleEffect": { "x": 1.2, "y": 0.8 }
+      }
+    }
+  ]
+}

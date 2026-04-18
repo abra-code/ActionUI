@@ -1016,4 +1016,54 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(properties, logger)
         XCTAssertNil(validated["destinationViewId"], "destinationViewId should not be present when not provided")
     }
+
+    func testValidatePropertiesRotationEffectValid() throws {
+        let validated = View.validateProperties(["rotationEffect": 45.0], logger)
+        XCTAssertEqual(validated.double(forKey: "rotationEffect"), 45.0)
+    }
+
+    func testValidatePropertiesRotationEffectNegative() throws {
+        let validated = View.validateProperties(["rotationEffect": -90.0], logger)
+        XCTAssertEqual(validated.double(forKey: "rotationEffect"), -90.0)
+    }
+
+    func testValidatePropertiesRotationEffectInvalidType() throws {
+        let validated = View.validateProperties(["rotationEffect": "45"], logger)
+        XCTAssertNil(validated["rotationEffect"])
+    }
+
+    func testValidatePropertiesScaleEffectUniform() throws {
+        let validated = View.validateProperties(["scaleEffect": 1.5], logger)
+        XCTAssertEqual(validated.double(forKey: "scaleEffect"), 1.5)
+    }
+
+    func testValidatePropertiesScaleEffectDict() throws {
+        let validated = View.validateProperties(["scaleEffect": ["x": 2.0, "y": 0.5, "anchor": "topLeading"]], logger)
+        if let scale = validated["scaleEffect"] as? [String: Any] {
+            XCTAssertEqual(scale.double(forKey: "x"), 2.0)
+            XCTAssertEqual(scale.double(forKey: "y"), 0.5)
+            XCTAssertEqual(scale["anchor"] as? String, "topLeading")
+        } else {
+            XCTFail("scaleEffect should be a dictionary")
+        }
+    }
+
+    func testValidatePropertiesScaleEffectDictInvalidAnchor() throws {
+        let validated = View.validateProperties(["scaleEffect": ["x": 1.0, "y": 1.0, "anchor": "invalid"]], logger)
+        if let scale = validated["scaleEffect"] as? [String: Any] {
+            XCTAssertNil(scale["anchor"], "invalid anchor should be dropped")
+        } else {
+            XCTFail("scaleEffect should be a dictionary")
+        }
+    }
+
+    func testValidatePropertiesScaleEffectInvalidType() throws {
+        let validated = View.validateProperties(["scaleEffect": "big"], logger)
+        XCTAssertNil(validated["scaleEffect"])
+    }
+
+    func testValidatePropertiesScaleEffectDictInvalidX() throws {
+        let validated = View.validateProperties(["scaleEffect": ["x": "bad", "y": 1.0]], logger)
+        XCTAssertNil(validated["scaleEffect"])
+    }
 }
