@@ -85,6 +85,8 @@
      "popoverActionID": "view.popover",     // Optional: String for action identifier triggered when the popover is shown. Only meaningful when "popover" subview is present.
      "sheetOnDismissActionID": "sheet.dismissed",         // Optional: String for action identifier triggered when the sheet is dismissed. Only meaningful when "sheet" subview is present.
      "fullScreenCoverOnDismissActionID": "cover.dismissed", // Optional: String for action identifier triggered when the full-screen cover is dismissed. Only meaningful when "fullScreenCover" subview is present.
+     "overlayAlignment": "topTrailing",   // Optional: Alignment for the "overlay" subview ("center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"). Defaults to "center".
+     "backgroundAlignment": "center", // Optional: Alignment for the "backgroundView" subview. Same values as overlayAlignment. Defaults to "center".
      "toolbarTitleDisplayMode": "automatic", // Optional: Navigation title display mode; "automatic", "inline", "large", "inlineLarge". Defaults to "automatic".
                                             // "inline" renders a compact title in the navigation bar.
                                             // "large" renders a large expandable title (iOS/iPadOS style).
@@ -130,6 +132,20 @@
 */
 
 import SwiftUI
+
+private func resolveAlignment(_ string: String?) -> Alignment {
+    switch string {
+    case "leading":       return .leading
+    case "trailing":      return .trailing
+    case "top":           return .top
+    case "bottom":        return .bottom
+    case "topLeading":    return .topLeading
+    case "topTrailing":   return .topTrailing
+    case "bottomLeading": return .bottomLeading
+    case "bottomTrailing":return .bottomTrailing
+    default:              return .center
+    }
+}
 
 struct View: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -631,6 +647,22 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate overlayAlignment and backgroundAlignment
+        let validAlignments = ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
+        for key in ["overlayAlignment", "backgroundAlignment"] { // backgroundAlignment: alignment for the "background" subview
+            if let value = properties[key] {
+                if let str = value as? String, validAlignments.contains(str) {
+                    // valid
+                } else if value is String {
+                    logger.log("Invalid \(key) '\(value)'; expected one of \(validAlignments), defaulting to 'center'", .warning)
+                    validatedProperties[key] = "center"
+                } else {
+                    logger.log("Invalid type for \(key): expected String, got \(type(of: value)), ignoring", .warning)
+                    validatedProperties[key] = nil
+                }
+            }
+        }
+
         // Validate popoverArrowEdge
         if let popoverArrowEdge = properties["popoverArrowEdge"] {
             if let edgeStr = popoverArrowEdge as? String {
@@ -762,7 +794,17 @@ struct View: ActionUIViewConstruction {
         if let background = properties["background"] as? String, let style = ColorHelper.resolveShapeStyle(background) {
             modifiedView = modifiedView.background(style)
         }
-        
+
+        // Apply view-based backgroundView modifier
+        if let bgElement = element.subviews?["background"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let bgModel = windowModel.viewModels[bgElement.id] {
+            let alignment = resolveAlignment(properties["backgroundAlignment"] as? String)
+            modifiedView = modifiedView.background(alignment: alignment) {
+                ActionUIView(element: bgElement, model: bgModel, windowUUID: windowUUID)
+            }
+        }
+
         if let frame = properties["frame"] as? [String: Any] {
             let alignment = (frame["alignment"] as? String).flatMap { alignmentString -> Alignment? in
                 switch alignmentString {
@@ -828,6 +870,16 @@ struct View: ActionUIViewConstruction {
             let color = ColorHelper.resolveColor(border["color"] as? String) ?? .black
             let width = border.cgFloat(forKey: "width") ?? 1.0
             modifiedView = modifiedView.border(color, width: width)
+        }
+
+        // Apply overlay modifier
+        if let overlayElement = element.subviews?["overlay"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let overlayModel = windowModel.viewModels[overlayElement.id] {
+            let alignment = resolveAlignment(properties["overlayAlignment"] as? String)
+            modifiedView = modifiedView.overlay(alignment: alignment) {
+                ActionUIView(element: overlayElement, model: overlayModel, windowUUID: windowUUID)
+            }
         }
 
         if let buttonStyle = properties["buttonStyle"] as? String {

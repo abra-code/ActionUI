@@ -1,0 +1,351 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 28.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+
+      {
+        "type": "Text",
+        "properties": { "text": "overlay", "font": "title" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "The overlay subview key applies .overlay(alignment:) on any view.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Notification badges", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 40.0, "alignment": "center" },
+        "children": [
+          {
+            "type": "VStack",
+            "properties": { "spacing": 6.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Image",
+                "properties": {
+                  "systemName": "envelope.fill",
+                  "font": "largeTitle",
+                  "foregroundStyle": "blue",
+                  "overlayAlignment": "topTrailing"
+                },
+                "overlay": {
+                  "type": "ZStack",
+                  "properties": {},
+                  "children": [
+                    {
+                      "type": "Circle",
+                      "properties": { "fill": "red", "frame": { "width": 20.0, "height": 20.0 } }
+                    },
+                    {
+                      "type": "Text",
+                      "properties": {
+                        "text": "3",
+                        "font": "caption2",
+                        "foregroundStyle": "white"
+                      }
+                    }
+                  ]
+                }
+              },
+              { "type": "Text", "properties": { "text": "count badge", "font": "caption", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 6.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Image",
+                "properties": {
+                  "systemName": "bell.fill",
+                  "font": "largeTitle",
+                  "foregroundStyle": "orange",
+                  "overlayAlignment": "topTrailing"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": {
+                    "fill": "red",
+                    "frame": { "width": 12.0, "height": 12.0 },
+                    "offset": { "x": 2.0, "y": -2.0 }
+                  }
+                }
+              },
+              { "type": "Text", "properties": { "text": "dot badge", "font": "caption", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 6.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Image",
+                "properties": {
+                  "systemName": "cart.fill",
+                  "font": "largeTitle",
+                  "foregroundStyle": "green",
+                  "overlayAlignment": "bottomTrailing"
+                },
+                "overlay": {
+                  "type": "ZStack",
+                  "properties": {},
+                  "children": [
+                    {
+                      "type": "Circle",
+                      "properties": { "fill": "tint", "frame": { "width": 22.0, "height": 22.0 } }
+                    },
+                    {
+                      "type": "Text",
+                      "properties": { "text": "12", "font": "caption2", "foregroundStyle": "white" }
+                    }
+                  ]
+                }
+              },
+              { "type": "Text", "properties": { "text": "bottomTrailing", "font": "caption", "foregroundStyle": "secondary" } }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Alignment options", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "The same Circle overlay placed at each alignment corner of a fixed-size rectangle.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 20.0, "alignment": "center" },
+        "children": [
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Rectangle",
+                "properties": {
+                  "fill": "fill",
+                  "cornerRadius": 8.0,
+                  "frame": { "width": 60.0, "height": 60.0 },
+                  "overlayAlignment": "topLeading"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": { "fill": "blue", "frame": { "width": 16.0, "height": 16.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "topLeading", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Rectangle",
+                "properties": {
+                  "fill": "fill",
+                  "cornerRadius": 8.0,
+                  "frame": { "width": 60.0, "height": 60.0 },
+                  "overlayAlignment": "top"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": { "fill": "blue", "frame": { "width": 16.0, "height": 16.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "top", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Rectangle",
+                "properties": {
+                  "fill": "fill",
+                  "cornerRadius": 8.0,
+                  "frame": { "width": 60.0, "height": 60.0 },
+                  "overlayAlignment": "topTrailing"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": { "fill": "blue", "frame": { "width": 16.0, "height": 16.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "topTrailing", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Rectangle",
+                "properties": {
+                  "fill": "fill",
+                  "cornerRadius": 8.0,
+                  "frame": { "width": 60.0, "height": 60.0 },
+                  "overlayAlignment": "center"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": { "fill": "blue", "frame": { "width": 16.0, "height": 16.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "center", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Rectangle",
+                "properties": {
+                  "fill": "fill",
+                  "cornerRadius": 8.0,
+                  "frame": { "width": 60.0, "height": 60.0 },
+                  "overlayAlignment": "bottomLeading"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": { "fill": "blue", "frame": { "width": 16.0, "height": 16.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "bottomLeading", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Rectangle",
+                "properties": {
+                  "fill": "fill",
+                  "cornerRadius": 8.0,
+                  "frame": { "width": 60.0, "height": 60.0 },
+                  "overlayAlignment": "bottomTrailing"
+                },
+                "overlay": {
+                  "type": "Circle",
+                  "properties": { "fill": "blue", "frame": { "width": 16.0, "height": 16.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "bottomTrailing", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Caption bar over image", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "A semi-transparent bar overlaid at the bottom of a colored card.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "Rectangle",
+        "properties": {
+          "fill": "teal",
+          "cornerRadius": 14.0,
+          "frame": { "width": 260.0, "height": 150.0 },
+          "overlayAlignment": "bottom"
+        },
+        "overlay": {
+          "type": "ZStack",
+          "properties": { "alignment": "bottom" },
+          "children": [
+            {
+              "type": "Rectangle",
+              "properties": {
+                "fill": "black",
+                "opacity": 0.5,
+                "cornerRadius": 14.0,
+                "frame": { "width": 260.0, "height": 50.0 }
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "Caption text",
+                "font": "subheadline",
+                "foregroundStyle": "white",
+                "padding": { "bottom": 12.0 }
+              }
+            }
+          ]
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Watermark / icon overlay", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Semi-transparent icon centered over a card.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "Rectangle",
+        "properties": {
+          "fill": "indigo",
+          "cornerRadius": 16.0,
+          "frame": { "width": 200.0, "height": 120.0 },
+          "overlayAlignment": "center"
+        },
+        "overlay": {
+          "type": "Image",
+          "properties": {
+            "systemName": "star.fill",
+            "font": "largeTitle",
+            "foregroundStyle": "yellow",
+            "opacity": 0.5,
+            "frame": { "width": 60.0, "height": 60.0 }
+          }
+        }
+      }
+
+    ]
+  }
+}

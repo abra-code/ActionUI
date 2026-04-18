@@ -156,7 +156,7 @@ class WindowModel: ObservableObject {
                 }
             }
             // Note: "template" is intentionally excluded — it is a stateless blueprint.
-            for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover"] {
+            for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
                 if let child = subviews[key] as? any ActionUIElementBase {
                     let childViewModels = populateViewModels(from: child)
                     for (id, viewModel) in childViewModels {

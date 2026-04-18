@@ -1,0 +1,326 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 28.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+
+      {
+        "type": "Text",
+        "properties": { "text": "background", "font": "title" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "The background subview key applies .background(alignment:) on any view.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Capsule-backed labels", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 12.0, "alignment": "center" },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "New",
+              "font": "caption",
+              "foregroundStyle": "white",
+              "padding": { "leading": 10.0, "trailing": 10.0, "top": 5.0, "bottom": 5.0 }
+            },
+            "background": {
+              "type": "Capsule",
+              "properties": { "fill": "blue" }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Sale",
+              "font": "caption",
+              "foregroundStyle": "white",
+              "padding": { "leading": 10.0, "trailing": 10.0, "top": 5.0, "bottom": 5.0 }
+            },
+            "background": {
+              "type": "Capsule",
+              "properties": { "fill": "red" }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Beta",
+              "font": "caption",
+              "foregroundStyle": "white",
+              "padding": { "leading": 10.0, "trailing": 10.0, "top": 5.0, "bottom": 5.0 }
+            },
+            "background": {
+              "type": "Capsule",
+              "properties": { "fill": "purple" }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Free",
+              "font": "caption",
+              "foregroundStyle": "white",
+              "padding": { "leading": 10.0, "trailing": 10.0, "top": 5.0, "bottom": 5.0 }
+            },
+            "background": {
+              "type": "Capsule",
+              "properties": { "fill": "green" }
+            }
+          }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "RoundedRectangle backgrounds", "font": "headline" }
+      },
+      {
+        "type": "VStack",
+        "properties": { "spacing": 10.0, "alignment": "leading" },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Primary action",
+              "font": "subheadline",
+              "foregroundStyle": "white",
+              "padding": { "leading": 16.0, "trailing": 16.0, "top": 10.0, "bottom": 10.0 }
+            },
+            "background": {
+              "type": "RoundedRectangle",
+              "properties": { "cornerRadius": 10.0, "fill": "blue" }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Destructive action",
+              "font": "subheadline",
+              "foregroundStyle": "white",
+              "padding": { "leading": 16.0, "trailing": 16.0, "top": 10.0, "bottom": 10.0 }
+            },
+            "background": {
+              "type": "RoundedRectangle",
+              "properties": { "cornerRadius": 10.0, "fill": "red" }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Secondary action",
+              "font": "subheadline",
+              "foregroundStyle": "blue",
+              "padding": { "leading": 16.0, "trailing": 16.0, "top": 10.0, "bottom": 10.0 }
+            },
+            "background": {
+              "type": "RoundedRectangle",
+              "properties": { "cornerRadius": 10.0, "stroke": "blue", "strokeLineWidth": 1.5 }
+            }
+          }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Stroked outline backgrounds", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Shapes with stroke instead of fill give a bordered look.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 16.0, "alignment": "center" },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Outlined",
+              "font": "caption",
+              "foregroundStyle": "primary",
+              "padding": { "leading": 12.0, "trailing": 12.0, "top": 6.0, "bottom": 6.0 }
+            },
+            "background": {
+              "type": "Capsule",
+              "properties": { "stroke": "primary", "strokeLineWidth": 1.0 }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Rounded",
+              "font": "caption",
+              "foregroundStyle": "tint",
+              "padding": { "leading": 12.0, "trailing": 12.0, "top": 6.0, "bottom": 6.0 }
+            },
+            "background": {
+              "type": "RoundedRectangle",
+              "properties": { "cornerRadius": 8.0, "stroke": "tint", "strokeLineWidth": 1.5 }
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Circle",
+              "font": "caption2",
+              "foregroundStyle": "orange",
+              "frame": { "width": 52.0, "height": 52.0 }
+            },
+            "background": {
+              "type": "Circle",
+              "properties": { "stroke": "orange", "strokeLineWidth": 2.0 }
+            }
+          }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Alignment options", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "A larger Circle background placed at each alignment of the content view.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 20.0, "alignment": "center" },
+        "children": [
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Text",
+                "properties": {
+                  "text": "A",
+                  "font": "headline",
+                  "frame": { "width": 44.0, "height": 44.0 },
+                  "backgroundAlignment": "topLeading"
+                },
+                "background": {
+                  "type": "Circle",
+                  "properties": { "fill": "indigo", "frame": { "width": 56.0, "height": 56.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "topLeading", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Text",
+                "properties": {
+                  "text": "A",
+                  "font": "headline",
+                  "frame": { "width": 44.0, "height": 44.0 },
+                  "backgroundAlignment": "center"
+                },
+                "background": {
+                  "type": "Circle",
+                  "properties": { "fill": "indigo", "frame": { "width": 56.0, "height": 56.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "center", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 4.0, "alignment": "center" },
+            "children": [
+              {
+                "type": "Text",
+                "properties": {
+                  "text": "A",
+                  "font": "headline",
+                  "frame": { "width": 44.0, "height": 44.0 },
+                  "backgroundAlignment": "bottomTrailing"
+                },
+                "background": {
+                  "type": "Circle",
+                  "properties": { "fill": "indigo", "frame": { "width": 56.0, "height": 56.0 } }
+                }
+              },
+              { "type": "Text", "properties": { "text": "bottomTrailing", "font": "caption2", "foregroundStyle": "secondary" } }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Card backgrounds", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "A VStack of text content backed by a styled shape acting as a card.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "VStack",
+        "properties": {
+          "spacing": 4.0,
+          "alignment": "leading",
+          "padding": { "leading": 16.0, "trailing": 16.0, "top": 14.0, "bottom": 14.0 }
+        },
+        "children": [
+          {
+            "type": "Text",
+            "properties": { "text": "Card Title", "font": "headline" }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Supporting detail text for this card item.",
+              "font": "subheadline",
+              "foregroundStyle": "secondary"
+            }
+          }
+        ],
+        "background": {
+          "type": "RoundedRectangle",
+          "properties": { "cornerRadius": 12.0, "fill": "fill" }
+        }
+      }
+
+    ]
+  }
+}

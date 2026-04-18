@@ -43,7 +43,7 @@ public protocol ActionUIElementBase: Identifiable, Codable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
-    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar"
+    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "overlay", "background"
 }
 
 protocol ActionUIPropertyValidation {
@@ -92,7 +92,7 @@ public struct ActionUIElement: ActionUIElementBase {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background
     }
     
     public init(from decoder: Decoder) throws {
@@ -125,7 +125,7 @@ public struct ActionUIElement: ActionUIElementBase {
             subviews!["rows"] = rows
         }
         
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background"] {
             if var child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if key == "template" {
                     child = ActionUIElement.normalizeTemplateIDs(child)
@@ -171,6 +171,8 @@ public struct ActionUIElement: ActionUIElementBase {
             try container.encodeNil(forKey: .sheet)
             try container.encodeNil(forKey: .fullScreenCover)
             try container.encodeNil(forKey: .toolbar)
+            try container.encodeNil(forKey: .overlay)
+            try container.encodeNil(forKey: .background)
             return
         }
         
@@ -191,7 +193,7 @@ public struct ActionUIElement: ActionUIElementBase {
         }
         
         // Encode single child views
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background"] {
             if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -239,7 +241,7 @@ public struct ActionUIElement: ActionUIElementBase {
         
         // Decode single child views for navigation components
         // Note: JSON specifies "content", "destination", "sidebar", "detail", "template" as top-level keys, but we move them to subviews
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
                     var childElement = try ActionUIElement(from: childDict, logger: logger)
@@ -463,6 +465,14 @@ extension ActionUIElementBase {
         }
         if let cover = subviews["fullScreenCover"] as? any ActionUIElementBase,
            let found = cover.findElement(by: viewID) {
+            return found
+        }
+        if let overlay = subviews["overlay"] as? any ActionUIElementBase,
+           let found = overlay.findElement(by: viewID) {
+            return found
+        }
+        if let background = subviews["background"] as? any ActionUIElementBase,
+           let found = background.findElement(by: viewID) {
             return found
         }
         return nil
