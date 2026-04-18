@@ -1,0 +1,438 @@
+{
+  "type": "ScrollView",
+  "properties": {
+    "padding": "default"
+  },
+  "content": {
+      "type": "VStack",
+      "properties": {
+        "spacing": 24.0,
+        "alignment": "leading"
+      },
+      "children": [
+
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Shape Views",
+            "font": "title"
+          }
+        },
+
+        { "type": "Divider", "properties": {} },
+
+        {
+          "type": "Text",
+          "properties": { "text": "Rectangle", "font": "headline" }
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 12.0, "alignment": "center" },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Rectangle",
+                  "properties": {
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "bare", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Rectangle",
+                  "properties": {
+                    "fill": "blue",
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "fill", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Rectangle",
+                  "properties": {
+                    "stroke": "red",
+                    "strokeLineWidth": 3.0,
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "stroke", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Rectangle",
+                  "properties": {
+                    "fill": "tint",
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "tint", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Rectangle",
+                  "properties": {
+                    "fill": "primary",
+                    "opacity": 0.15,
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "primary 15%", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            }
+          ]
+        },
+
+        { "type": "Divider", "properties": {} },
+
+        {
+          "type": "Text",
+          "properties": { "text": "Circle", "font": "headline" }
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 12.0, "alignment": "center" },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Circle",
+                  "properties": {
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "bare", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Circle",
+                  "properties": {
+                    "fill": "green",
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "fill", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Circle",
+                  "properties": {
+                    "stroke": "orange",
+                    "strokeLineWidth": 4.0,
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "stroke", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Circle",
+                  "properties": {
+                    "fill": "tint",
+                    "frame": { "width": 60.0, "height": 60.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "tint", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            }
+          ]
+        },
+
+        { "type": "Divider", "properties": {} },
+
+        {
+          "type": "Text",
+          "properties": { "text": "RoundedRectangle", "font": "headline" }
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 12.0, "alignment": "center" },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "RoundedRectangle",
+                  "properties": {
+                    "cornerRadius": 12.0,
+                    "fill": "blue",
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "r=12 fill", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "RoundedRectangle",
+                  "properties": {
+                    "cornerRadius": 12.0,
+                    "cornerStyle": "continuous",
+                    "fill": "purple",
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "continuous", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "RoundedRectangle",
+                  "properties": {
+                    "cornerRadius": 12.0,
+                    "stroke": "blue",
+                    "strokeLineWidth": 2.0,
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "stroke", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "RoundedRectangle",
+                  "properties": {
+                    "cornerRadius": 24.0,
+                    "fill": "tint",
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "r=24 tint", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            }
+          ]
+        },
+
+        { "type": "Divider", "properties": {} },
+
+        {
+          "type": "Text",
+          "properties": { "text": "Capsule", "font": "headline" }
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 12.0, "alignment": "center" },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Capsule",
+                  "properties": {
+                    "fill": "green",
+                    "frame": { "width": 80.0, "height": 36.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "fill", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Capsule",
+                  "properties": {
+                    "style": "continuous",
+                    "fill": "tint",
+                    "frame": { "width": 80.0, "height": 36.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "continuous", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Capsule",
+                  "properties": {
+                    "stroke": "red",
+                    "strokeLineWidth": 2.0,
+                    "frame": { "width": 80.0, "height": 36.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "stroke", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Capsule",
+                  "properties": {
+                    "fill": "primary",
+                    "opacity": 0.12,
+                    "frame": { "width": 80.0, "height": 36.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "primary 12%", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            }
+          ]
+        },
+
+        { "type": "Divider", "properties": {} },
+
+        {
+          "type": "Text",
+          "properties": { "text": "Ellipse", "font": "headline" }
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 12.0, "alignment": "center" },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Ellipse",
+                  "properties": {
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "bare", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Ellipse",
+                  "properties": {
+                    "fill": "orange",
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "fill", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Ellipse",
+                  "properties": {
+                    "stroke": "purple",
+                    "strokeLineWidth": 3.0,
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "stroke", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4.0, "alignment": "center" },
+              "children": [
+                {
+                  "type": "Ellipse",
+                  "properties": {
+                    "fill": "tint",
+                    "frame": { "width": 80.0, "height": 50.0 }
+                  }
+                },
+                { "type": "Text", "properties": { "text": "tint", "font": "caption", "foregroundStyle": "secondary" } }
+              ]
+            }
+          ]
+        },
+
+        { "type": "Divider", "properties": {} },
+
+        {
+          "type": "Text",
+          "properties": { "text": "Shapes as Backgrounds", "font": "headline" }
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 12.0, "alignment": "center" },
+          "children": [
+            {
+              "type": "Text",
+              "properties": {
+                "text": "Capsule bg",
+                "font": "subheadline",
+                "foregroundStyle": "white",
+                "padding": { "top": 8.0, "bottom": 8.0, "leading": 16.0, "trailing": 16.0 },
+                "background": "blue",
+                "cornerRadius": 999.0
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "Rounded bg",
+                "font": "subheadline",
+                "foregroundStyle": "white",
+                "padding": { "top": 8.0, "bottom": 8.0, "leading": 16.0, "trailing": 16.0 },
+                "background": "green",
+                "cornerRadius": 12.0
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "Rect bg",
+                "font": "subheadline",
+                "foregroundStyle": "white",
+                "padding": { "top": 8.0, "bottom": 8.0, "leading": 16.0, "trailing": 16.0 },
+                "background": "purple"
+              }
+            }
+          ]
+        }
+
+      ]
+  }
+}
