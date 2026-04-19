@@ -347,6 +347,53 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 8, value: "Drop files or folders here")
         }
 
+        // Animation demo handlers
+        // IDs: 101=circle, 102=rectangle, 103=roundedRect, 104=capsule, 105=rectangle-rotate
+        var anim101Opacity = true
+        var anim101Scale   = true
+        var anim102Opacity = true
+        var anim102Scale   = true
+        var anim103Scale   = true
+        let anim104Colors  = ["purple", "orange", "teal", "pink", "indigo"]
+        var anim104ColorIndex = 0
+        var anim105Rotation: Double = 0
+
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.101.opacity") { _, windowUUID, _, _, _ in
+            anim101Opacity.toggle()
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 101,
+                propertyName: "opacity", value: anim101Opacity ? 1.0 : 0.25)
+        }
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.101.scale") { _, windowUUID, _, _, _ in
+            anim101Scale.toggle()
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 101,
+                propertyName: "scaleEffect", value: anim101Scale ? 1.0 : 0.5)
+        }
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.102.opacity") { _, windowUUID, _, _, _ in
+            anim102Opacity.toggle()
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 102,
+                propertyName: "opacity", value: anim102Opacity ? 1.0 : 0.2)
+        }
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.102.scale") { _, windowUUID, _, _, _ in
+            anim102Scale.toggle()
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 102,
+                propertyName: "scaleEffect", value: anim102Scale ? 1.0 : 1.4)
+        }
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.103.scale") { _, windowUUID, _, _, _ in
+            anim103Scale.toggle()
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 103,
+                propertyName: "scaleEffect", value: anim103Scale ? 0.5 : 1.0)
+        }
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.104.color") { _, windowUUID, _, _, _ in
+            anim104ColorIndex = (anim104ColorIndex + 1) % anim104Colors.count
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 104,
+                propertyName: "foregroundStyle", value: anim104Colors[anim104ColorIndex])
+        }
+        ActionUISwift.registerActionHandler(actionID: "anim.demo.105.rotate") { _, windowUUID, _, _, _ in
+            anim105Rotation += 90
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 105,
+                propertyName: "rotationEffect", value: anim105Rotation)
+        }
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")

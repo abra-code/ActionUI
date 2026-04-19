@@ -151,6 +151,7 @@ public class ActionUIModel: ObservableObject {
         }
         if let newRows = value as? [[String]] {
             viewModel.objectWillChange.send()
+            viewModel.mutationToken &+= 1
             viewModel.states["content"] = newRows
             if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
                 viewModel.value = [] as [String]
@@ -160,6 +161,7 @@ public class ActionUIModel: ObservableObject {
             // List: Convert [String] to [[String]] for consistency
             let newContent = newItems.map { [$0] }
             viewModel.objectWillChange.send()
+            viewModel.mutationToken &+= 1
             viewModel.states["content"] = newContent
             if let selectedRow = viewModel.value as? [String], !newContent.contains(where: { $0.first == selectedRow.first }) {
                 viewModel.value = [] as [String]
@@ -169,6 +171,8 @@ public class ActionUIModel: ObservableObject {
             logger.log("Updated List content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else {
             // Other views (e.g., Button, TextField, Toggle, Slider, ColorPicker, DatePicker)
+            viewModel.objectWillChange.send()
+            viewModel.mutationToken &+= 1
             viewModel.value = value
             logger.log("Set value for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         }
@@ -366,6 +370,7 @@ public class ActionUIModel: ObservableObject {
             }
         }
         viewModel.objectWillChange.send()
+        viewModel.mutationToken &+= 1
         viewModel.states[key] = value
         windowModel.viewModels[viewID] = viewModel
         logger.log("Set state '\(key)' for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
@@ -697,6 +702,7 @@ public class ActionUIModel: ObservableObject {
         // Notify SwiftUI before mutating the non-published validatedProperties,
         // matching the willSet contract expected by ObservableObject observers.
         viewModel.objectWillChange.send()
+        viewModel.mutationToken &+= 1
         viewModel.validatedProperties[propertyName] = value
         // Re-validate to ensure type safety and HIG compliance
         viewModel.validateProperties(viewModel.validatedProperties, elementType: viewModel.elementType, logger: logger)

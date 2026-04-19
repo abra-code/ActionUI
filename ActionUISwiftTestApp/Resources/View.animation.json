@@ -1,0 +1,241 @@
+{
+  "type": "ScrollView",
+  "properties": {
+    "padding": 20.0
+  },
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "padding": 20.0,
+      "spacing": 16.0,
+      "alignment": "leading"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "animation Modifier Demo",
+          "font": "title2",
+          "padding": { "bottom": 4.0 }
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Tap the buttons to mutate properties. Each shape animates the change using its configured curve.",
+          "font": "caption",
+          "foregroundStyle": "secondary",
+          "padding": { "bottom": 8.0 }
+        }
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "\"spring\"  —  any mutation", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 16.0 },
+        "children": [
+          {
+            "type": "Circle",
+            "id": 101,
+            "properties": {
+              "foregroundStyle": "blue",
+              "frame": { "width": 70.0, "height": 70.0 },
+              "opacity": 1.0,
+              "scaleEffect": 1.0,
+              "animation": "spring"
+            }
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 8.0, "alignment": "leading" },
+            "children": [
+              {
+                "type": "Button",
+                "properties": {
+                  "title": "Fade opacity",
+                  "buttonStyle": "bordered",
+                  "actionID": "anim.demo.101.opacity"
+                }
+              },
+              {
+                "type": "Button",
+                "properties": {
+                  "title": "Scale",
+                  "buttonStyle": "bordered",
+                  "actionID": "anim.demo.101.scale"
+                }
+              }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "\"easeInOut\", duration 0.5, watching \"opacity\"", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Scale button mutates scaleEffect — not watched, so not animated.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 16.0 },
+        "children": [
+          {
+            "type": "Rectangle",
+            "id": 102,
+            "properties": {
+              "foregroundStyle": "orange",
+              "frame": { "width": 70.0, "height": 70.0 },
+              "cornerRadius": 8.0,
+              "opacity": 1.0,
+              "scaleEffect": 1.0,
+              "animation": {
+                "curve": "easeInOut",
+                "duration": 0.5,
+                "value": "opacity"
+              }
+            }
+          },
+          {
+            "type": "VStack",
+            "properties": { "spacing": 8.0, "alignment": "leading" },
+            "children": [
+              {
+                "type": "Button",
+                "properties": {
+                  "title": "Fade opacity (animated)",
+                  "buttonStyle": "bordered",
+                  "actionID": "anim.demo.102.opacity"
+                }
+              },
+              {
+                "type": "Button",
+                "properties": {
+                  "title": "Scale (not animated)",
+                  "buttonStyle": "bordered",
+                  "actionID": "anim.demo.102.scale"
+                }
+              }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "\"bouncy\", watching \"scaleEffect\"", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 16.0 },
+        "children": [
+          {
+            "type": "RoundedRectangle",
+            "id": 103,
+            "properties": {
+              "cornerRadius": 12.0,
+              "foregroundStyle": "green",
+              "frame": { "width": 70.0, "height": 70.0 },
+              "scaleEffect": 1.0,
+              "animation": {
+                "curve": "bouncy",
+                "value": "scaleEffect"
+              }
+            }
+          },
+          {
+            "type": "Button",
+            "properties": {
+              "title": "Bounce scale",
+              "buttonStyle": "bordered",
+              "actionID": "anim.demo.103.scale"
+            }
+          }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "\"snappy\", delay 0.15, watching \"foregroundStyle\"", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 16.0 },
+        "children": [
+          {
+            "type": "Capsule",
+            "id": 104,
+            "properties": {
+              "foregroundStyle": "purple",
+              "frame": { "width": 120.0, "height": 50.0 },
+              "animation": {
+                "curve": "snappy",
+                "delay": 0.15,
+                "value": "foregroundStyle"
+              }
+            }
+          },
+          {
+            "type": "Button",
+            "properties": {
+              "title": "Change color",
+              "buttonStyle": "bordered",
+              "actionID": "anim.demo.104.color"
+            }
+          }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "\"linear\", duration 0.8 + rotationEffect", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 16.0 },
+        "children": [
+          {
+            "type": "Rectangle",
+            "id": 105,
+            "properties": {
+              "foregroundStyle": "red",
+              "frame": { "width": 60.0, "height": 60.0 },
+              "cornerRadius": 4.0,
+              "rotationEffect": 0.0,
+              "animation": {
+                "curve": "linear",
+                "duration": 0.8,
+                "value": "rotationEffect"
+              }
+            }
+          },
+          {
+            "type": "Button",
+            "properties": {
+              "title": "Rotate 90°",
+              "buttonStyle": "bordered",
+              "actionID": "anim.demo.105.rotate"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

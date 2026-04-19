@@ -1066,4 +1066,91 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(["scaleEffect": ["x": "bad", "y": 1.0]], logger)
         XCTAssertNil(validated["scaleEffect"])
     }
+
+    // MARK: - animation validation
+
+    func testValidatePropertiesAnimationStringShorthand() throws {
+        let validated = View.validateProperties(["animation": "spring"], logger)
+        if let anim = validated["animation"] as? [String: Any] {
+            XCTAssertEqual(anim["curve"] as? String, "spring")
+        } else {
+            XCTFail("animation should be normalized to dict")
+        }
+    }
+
+    func testValidatePropertiesAnimationStringAllCurves() throws {
+        let curves = ["default", "linear", "easeIn", "easeOut", "easeInOut",
+                      "spring", "bouncy", "smooth", "snappy", "interactiveSpring"]
+        for curve in curves {
+            let validated = View.validateProperties(["animation": curve], logger)
+            XCTAssertNotNil(validated["animation"], "curve '\(curve)' should be valid")
+        }
+    }
+
+    func testValidatePropertiesAnimationStringInvalidCurve() throws {
+        let validated = View.validateProperties(["animation": "bounce"], logger)
+        XCTAssertNil(validated["animation"])
+    }
+
+    func testValidatePropertiesAnimationDictFullForm() throws {
+        let props: [String: Any] = ["animation": [
+            "curve": "easeInOut",
+            "duration": 0.3,
+            "delay": 0.1,
+            "speed": 2.0,
+            "value": "opacity"
+        ]]
+        let validated = View.validateProperties(props, logger)
+        if let anim = validated["animation"] as? [String: Any] {
+            XCTAssertEqual(anim["curve"] as? String, "easeInOut")
+            XCTAssertEqual(anim.double(forKey: "duration"), 0.3)
+            XCTAssertEqual(anim.double(forKey: "delay"), 0.1)
+            XCTAssertEqual(anim.double(forKey: "speed"), 2.0)
+            XCTAssertEqual(anim["value"] as? String, "opacity")
+        } else {
+            XCTFail("animation should be a dict")
+        }
+    }
+
+    func testValidatePropertiesAnimationDictMissingCurve() throws {
+        let validated = View.validateProperties(["animation": ["duration": 0.3]], logger)
+        XCTAssertNil(validated["animation"])
+    }
+
+    func testValidatePropertiesAnimationDictInvalidCurve() throws {
+        let validated = View.validateProperties(["animation": ["curve": "warp"]], logger)
+        XCTAssertNil(validated["animation"])
+    }
+
+    func testValidatePropertiesAnimationDictNegativeDurationIgnored() throws {
+        let validated = View.validateProperties(["animation": ["curve": "spring", "duration": -1.0]], logger)
+        if let anim = validated["animation"] as? [String: Any] {
+            XCTAssertNil(anim["duration"], "negative duration should be dropped")
+        } else {
+            XCTFail("animation dict should still be valid without duration")
+        }
+    }
+
+    func testValidatePropertiesAnimationDictInvalidSpeedIgnored() throws {
+        let validated = View.validateProperties(["animation": ["curve": "linear", "speed": "fast"]], logger)
+        if let anim = validated["animation"] as? [String: Any] {
+            XCTAssertNil(anim["speed"], "invalid speed type should be dropped")
+        } else {
+            XCTFail("animation dict should still be valid without speed")
+        }
+    }
+
+    func testValidatePropertiesAnimationDictInvalidValueTypeIgnored() throws {
+        let validated = View.validateProperties(["animation": ["curve": "spring", "value": 42]], logger)
+        if let anim = validated["animation"] as? [String: Any] {
+            XCTAssertNil(anim["value"], "non-String value should be dropped")
+        } else {
+            XCTFail("animation dict should still be valid without value")
+        }
+    }
+
+    func testValidatePropertiesAnimationInvalidType() throws {
+        let validated = View.validateProperties(["animation": true], logger)
+        XCTAssertNil(validated["animation"])
+    }
 }

@@ -23,6 +23,7 @@ class ViewModel: ObservableObject {
     var validatedProperties: [String: Any] // Non-published cache
     var elementType: String // View type name (e.g. "TextField", "Slider")
     var templateContext: TemplateContext? // Set when rendering as a template instance
+    var mutationToken: Int = 0 // Incremented on every external property/state/value mutation
 
     init() {
         self.value = nil

@@ -44,6 +44,19 @@
                            //   Allowed: "center", "leading", "trailing", "top", "bottom",
                            //            "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"
      },
+     "animation": "spring", // Optional: String shorthand (curve name), or dictionary:
+     "animation": {        // Optional: Dictionary form for full control
+       "curve": "spring",  // Required: animation curve. Allowed: "default", "linear", "easeIn",
+                           //   "easeOut", "easeInOut", "spring", "bouncy", "smooth", "snappy",
+                           //   "interactiveSpring".
+       "duration": 0.3,    // Optional: positive Double — seconds. Applies to time-based curves.
+       "delay": 0.1,       // Optional: non-negative Double — seconds before animation starts.
+       "speed": 1.0,       // Optional: positive Double — speed multiplier.
+       "value": "opacity"  // Optional: String — property name or state key to watch.
+                           //   When set, animation fires only when that property/state changes.
+                           //   When omitted, animation fires on any mutation (setElementProperty,
+                           //   setElementState, setElementValue).
+     },
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
@@ -168,6 +181,45 @@ private func resolveUnitPoint(_ string: String?) -> UnitPoint {
     case "bottomTrailing":return .bottomTrailing
     default:              return .center
     }
+}
+
+private func resolveAnimation(_ config: [String: Any]) -> Animation {
+    let curve = config["curve"] as? String ?? "default"
+    let duration = config.double(forKey: "duration")
+    let delay = config.double(forKey: "delay") ?? 0.0
+    let speed = config.double(forKey: "speed") ?? 1.0
+
+    var animation: Animation
+    switch curve {
+    case "linear":            animation = duration != nil ? .linear(duration: duration!) : .linear
+    case "easeIn":            animation = duration != nil ? .easeIn(duration: duration!) : .easeIn
+    case "easeOut":           animation = duration != nil ? .easeOut(duration: duration!) : .easeOut
+    case "easeInOut":         animation = duration != nil ? .easeInOut(duration: duration!) : .easeInOut
+    case "spring":            animation = duration != nil ? .spring(duration: duration!) : .spring
+    case "bouncy":            animation = duration != nil ? .bouncy(duration: duration!) : .bouncy
+    case "smooth":            animation = duration != nil ? .smooth(duration: duration!) : .smooth
+    case "snappy":            animation = duration != nil ? .snappy(duration: duration!) : .snappy
+    case "interactiveSpring": animation = .interactiveSpring
+    default:                  animation = .default
+    }
+
+    if delay > 0 { animation = animation.delay(delay) }
+    if speed != 1.0 { animation = animation.speed(speed) }
+    return animation
+}
+
+private func resolveAnimationWatchedValue(
+    named target: String?,
+    mutationToken: Int,
+    validatedProperties: [String: Any],
+    states: [String: Any],
+    viewValue: Any?
+) -> AnyHashable {
+    guard let target else { return mutationToken }
+    if let v = validatedProperties[target] as? AnyHashable { return v }
+    if let v = states[target] as? AnyHashable { return v }
+    if target == "value", let v = viewValue as? AnyHashable { return v }
+    return AnyHashable(0)
 }
 
 struct View: ActionUIViewConstruction {
@@ -771,6 +823,56 @@ struct View: ActionUIViewConstruction {
             }
         }
         
+        // Validate animation
+        let validAnimCurves = ["default", "linear", "easeIn", "easeOut", "easeInOut",
+                               "spring", "bouncy", "smooth", "snappy", "interactiveSpring"]
+        if let animation = properties["animation"] {
+            if let curveString = animation as? String {
+                if validAnimCurves.contains(curveString) {
+                    validatedProperties["animation"] = ["curve": curveString]
+                } else {
+                    logger.log("Invalid animation curve '\(curveString)', expected one of \(validAnimCurves), ignoring", .warning)
+                    validatedProperties["animation"] = nil
+                }
+            } else if let animDict = animation as? [String: Any] {
+                if let curve = animDict["curve"] as? String, validAnimCurves.contains(curve) {
+                    var validAnim: [String: Any] = ["curve": curve]
+                    if let duration = animDict.double(forKey: "duration") {
+                        if duration > 0 {
+                            validAnim["duration"] = duration
+                        } else {
+                            logger.log("animation.duration must be positive, ignoring", .warning)
+                        }
+                    } else if animDict["duration"] != nil {
+                        logger.log("Invalid animation.duration: expected positive Double, ignoring", .warning)
+                    }
+                    if let delay = animDict.double(forKey: "delay"), delay >= 0 {
+                        validAnim["delay"] = delay
+                    } else if animDict["delay"] != nil {
+                        logger.log("Invalid animation.delay: expected non-negative Double, ignoring", .warning)
+                    }
+                    if let speed = animDict.double(forKey: "speed"), speed > 0 {
+                        validAnim["speed"] = speed
+                    } else if animDict["speed"] != nil {
+                        logger.log("Invalid animation.speed: expected positive Double, ignoring", .warning)
+                    }
+                    if let value = animDict["value"] as? String {
+                        validAnim["value"] = value
+                    } else if animDict["value"] != nil {
+                        logger.log("Invalid animation.value: expected String, ignoring", .warning)
+                    }
+                    validatedProperties["animation"] = validAnim
+                } else {
+                    let curveStr = animDict["curve"] as? String ?? "(missing)"
+                    logger.log("animation.curve '\(curveStr)' must be one of \(validAnimCurves), ignoring", .warning)
+                    validatedProperties["animation"] = nil
+                }
+            } else {
+                logger.log("Invalid type for animation: expected String or [String: Any], got \(type(of: animation)), ignoring", .warning)
+                validatedProperties["animation"] = nil
+            }
+        }
+
         // Validate rotationEffect
         if let rotationEffect = properties["rotationEffect"] {
             if properties.double(forKey: "rotationEffect") == nil {
@@ -1019,6 +1121,20 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.shadow(color: color, radius: radius, x: x, y: y)
         }
         
+        // Apply animation (after all decorative modifiers; before behavioral/structural wrappers)
+        if let animConfig = properties["animation"] as? [String: Any] {
+            let anim = resolveAnimation(animConfig)
+            let viewModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id]
+            let watched = resolveAnimationWatchedValue(
+                named: animConfig["value"] as? String,
+                mutationToken: viewModel?.mutationToken ?? 0,
+                validatedProperties: properties,
+                states: viewModel?.states ?? [:],
+                viewValue: viewModel?.value
+            )
+            modifiedView = modifiedView.animation(anim, value: watched)
+        }
+
         // Handle openURLActionID with .onOpenURL modifier
         if let openURLActionID = properties["openURLActionID"] as? String {
             modifiedView = modifiedView.onOpenURL { url in
