@@ -1,0 +1,30 @@
+{
+  "name": "actionui",
+  "version": "1.0.0",
+  "description": "Native Node.js addon for ActionUI — SwiftUI GUIs from JSON on macOS",
+  "main": "index.js",
+  "os": ["darwin"],
+  "cpu": ["x64", "arm64"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "install": "node-gyp-build",
+    "build": "node-gyp rebuild",
+    "prebuild": "prebuildify --napi --arch arm64 --strip && prebuildify --napi --arch x64 --strip",
+    "clean": "node-gyp clean && rm -rf prebuilds"
+  },
+  "dependencies": {
+    "node-gyp-build": "^4.8.4"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.0.0",
+    "prebuildify": "^6.0.1"
+  },
+  "keywords": ["actionui", "swiftui", "macos", "native", "gui", "napi"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abra-code/ActionUI"
+  }
+}
