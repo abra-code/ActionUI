@@ -118,6 +118,9 @@
                                             // Does not apply any modifier; the value is kept in validatedProperties for navigation logic.
                                             // Used by NavigationLink (Form 2) to identify the push target in NavigationStack,
                                             // and by sidebar List children in NavigationSplitView to select a destination view.
+     "textSelection": "enabled",            // Optional: "enabled" or "disabled". Controls whether the user can select text in this view.
+                                            // SwiftUI does not enable text selection by default; set "enabled" to allow it.
+                                            // Applies to Text and any container holding Text views.
    }
  }
 
@@ -922,6 +925,19 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate textSelection
+        if let textSelection = properties["textSelection"] {
+            if let str = textSelection as? String {
+                if !["enabled", "disabled"].contains(str) {
+                    logger.log("Invalid textSelection '\(str)'; expected 'enabled' or 'disabled', ignoring", .warning)
+                    validatedProperties["textSelection"] = nil
+                }
+            } else {
+                logger.log("Invalid type for textSelection: expected String, got \(type(of: textSelection)), ignoring", .warning)
+                validatedProperties["textSelection"] = nil
+            }
+        }
+
         return validatedProperties
     }
 
@@ -1038,6 +1054,17 @@ struct View: ActionUIViewConstruction {
         
         if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
             modifiedView = modifiedView.cornerRadius(cornerRadius)
+        }
+
+        if let textSelection = properties["textSelection"] as? String {
+            switch textSelection {
+            case "enabled":
+                modifiedView = modifiedView.textSelection(.enabled)
+            case "disabled":
+                modifiedView = modifiedView.textSelection(.disabled)
+            default:
+                break
+            }
         }
 
         if let degrees = properties.double(forKey: "rotationEffect") {

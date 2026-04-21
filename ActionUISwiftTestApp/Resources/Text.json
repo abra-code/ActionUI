@@ -24,6 +24,38 @@
         "font": "title",
         "foregroundStyle": "red"
       }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Selectable text — long-press or click to select",
+        "font": "body",
+        "textSelection": "enabled"
+      }
+    },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 4.0,
+        "padding": 8.0,
+        "background": "background.secondary",
+        "cornerRadius": 8.0,
+        "textSelection": "enabled"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "All text in this container is selectable"
+          }
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "because textSelection propagates to child Text views"
+          }
+        }
+      ]
     }
   ]
 }

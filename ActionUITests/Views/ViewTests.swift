@@ -1153,4 +1153,24 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(["animation": true], logger)
         XCTAssertNil(validated["animation"])
     }
+
+    func testTextSelectionEnabled() throws {
+        let validated = View.validateProperties(["textSelection": "enabled"], logger)
+        XCTAssertEqual(validated["textSelection"] as? String, "enabled")
+    }
+
+    func testTextSelectionDisabled() throws {
+        let validated = View.validateProperties(["textSelection": "disabled"], logger)
+        XCTAssertEqual(validated["textSelection"] as? String, "disabled")
+    }
+
+    func testTextSelectionInvalidValue() throws {
+        let validated = View.validateProperties(["textSelection": "yes"], logger)
+        XCTAssertNil(validated["textSelection"])
+    }
+
+    func testTextSelectionInvalidType() throws {
+        let validated = View.validateProperties(["textSelection": true], logger)
+        XCTAssertNil(validated["textSelection"])
+    }
 }
