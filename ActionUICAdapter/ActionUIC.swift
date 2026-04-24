@@ -1104,8 +1104,7 @@ public func actionUIPresentModal(
         return false
     }
 
-    var success = true
-    runOnMainActorSync {
+    let success = runOnMainActorSync {
         do {
             try ActionUIModel.shared.presentModal(
                 windowUUID: swiftWindowUUID,
@@ -1114,9 +1113,10 @@ public func actionUIPresentModal(
                 style: modalStyle,
                 onDismissActionID: swiftDismissID
             )
+            return true
         } catch {
             setError("actionUIPresentModal: \(error.localizedDescription)")
-            success = false
+            return false
         }
     }
     return success
