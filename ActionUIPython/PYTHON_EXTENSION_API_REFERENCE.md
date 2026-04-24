@@ -63,8 +63,8 @@ void actionUIRemoveDefaultActionHandler(void);
 ### Element value — JSON
 
 ```c
-bool  actionUISetElementValueJSON(const char* windowUUID, int64_t viewID,
-                                  const char* valueJSON,  int64_t viewPartID);
+bool  actionUISetElementValueJSON(const char* windowUUID, int64_t viewID,  int64_t viewPartID
+                                  const char* valueJSON);
 char* actionUIGetElementValueJSON(const char* windowUUID, int64_t viewID,
                                   int64_t viewPartID);
 ```
@@ -498,7 +498,7 @@ window.set_string(view_id, "Hello")
 value = window.get_string(view_id)       # -> str
 
 # Generic (auto-dispatch by Python type)
-window.set_value(view_id, {"key": "val"})
+window.set_value(view_id, 0, {"key": "val"})
 value = window.get_value(view_id)        # -> dict / list / str / int / float / bool
 
 # Table rows

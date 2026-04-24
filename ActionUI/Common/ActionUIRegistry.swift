@@ -173,6 +173,14 @@ public class ActionUIRegistry {
         return nil
     }
     
+    func getStringContentParser(forElementType type: String) -> ((String, String?, any ActionUILogger) -> Any?)? {
+        viewRegistrations[type]?.parseStringValue
+    }
+
+    func getStringContentSerializer(forElementType type: String) -> ((Any, String?, any ActionUILogger) -> String?)? {
+        viewRegistrations[type]?.serializeValueToString
+    }
+
     func getInitialStates(forElementType type: String, model: ViewModel) -> [String: Any] {
         if let constructionType = viewRegistrations[type] {
             return constructionType.initialStates(model)

@@ -143,7 +143,7 @@ public class ActionUIModel: ObservableObject {
     // For Table: Accepts [[String]], preserves all columns, pads rows for display if needed
     // For List: Accepts [String] or [[String]], converts [String] to [[String]] for consistency
     // For other views: Sets "value" directly
-    public func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
+    public func setElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0, value: Any) {
         guard let windowModel = windowModels[windowUUID],
               let viewModel = windowModel.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -181,13 +181,22 @@ public class ActionUIModel: ObservableObject {
     
     // Converts control value to a string representation for scripting
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
-    public func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
+    public func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0, contentType: String? = nil) -> String? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return nil
         }
+
+        // Dispatch to view-specific serializer when contentType is provided
+        if let contentType,
+           let serializer = ActionUIRegistry.shared.getStringContentSerializer(forElementType: viewModel.elementType),
+           let value = viewModel.value,
+           let result = serializer(value, contentType, logger) {
+            return result
+        }
+
         let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType)
-        
+
         if let _ = viewModel.states["content"] as? [[String]], let selectedRow = viewModel.value as? [String] {
             if viewPartID == 0 {
                 return selectedRow.joined(separator: "\t")
@@ -219,19 +228,30 @@ public class ActionUIModel: ObservableObject {
                 return stringArray.joined(separator: "\t")
             } else if valueType == [[String]].self, let stringTable = value as? [[String]] {
                 return stringTable.map { $0.joined(separator: "\t") }.joined(separator: "\n")
+            } else if let attributed = value as? AttributedString {
+                return String(attributed.characters)
             }
             return String(describing: value)
         }
         return nil
     }
-    
+
     // Converts a string to the view's value type and delegates to setElementValue
     // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
-    public func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
+    public func setElementValueFromString(windowUUID: String, viewID: Int, viewPartID: Int = 0, value: String, contentType: String? = nil) {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
             return
         }
+
+        // Dispatch to view-specific parser when contentType is provided
+        if let contentType,
+           let parser = ActionUIRegistry.shared.getStringContentParser(forElementType: viewModel.elementType),
+           let parsed = parser(value, contentType, logger) {
+            setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: parsed)
+            return
+        }
+
         let valueType = ActionUIRegistry.shared.getElementValueType(forElementType: viewModel.elementType)
         var convertedValue: Any?
         
@@ -313,7 +333,7 @@ public class ActionUIModel: ObservableObject {
         }
         
         if let convertedValue {
-            setElementValue(windowUUID: windowUUID, viewID: viewID, value: convertedValue, viewPartID: viewPartID)
+            setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: convertedValue)
         }
     }
 

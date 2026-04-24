@@ -37,7 +37,7 @@ try {
         console.log('[' + new Date().toISOString() + '] BusinessLogic.js: Button action: ' + actionID + ', Window: ' + windowUUID + ', ViewID: ' + viewID + ', Part: ' + viewPartID + ', Context: ' + JSON.stringify(context));
         // Set TextField value (ID 3)
         console.log('[' + new Date().toISOString() + '] BusinessLogic.js: Setting TextField value');
-        ActionUI.setElementValue(windowUUID, 3, "Button clicked!", 0);
+        ActionUI.setElementValue(windowUUID, 3, 0, "Button clicked!");
     });
     
     // Register action handler for TextField submission (text.submit)
@@ -55,7 +55,7 @@ try {
     
     // Set initial TextField value (ID 3)
     console.log('[' + new Date().toISOString() + '] BusinessLogic.js: Setting initial TextField value');
-    ActionUI.setElementValue("window-12345", 3, "Initial text", 0);
+    ActionUI.setElementValue("window-12345", 3, 0, "Initial text");
     
     // Test getting TextField value
     console.log('[' + new Date().toISOString() + '] BusinessLogic.js: Getting initial TextField value');

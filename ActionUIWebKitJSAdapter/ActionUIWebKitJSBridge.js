@@ -25,21 +25,21 @@
         defaultActionHandler: null,
         
         // Set element value
-        setElementValue: function(windowUUID, viewID, value, viewPartID = 0) {
+        setElementValue: function(windowUUID, viewID, viewPartID = 0, value) {
             window.webkit.messageHandlers.actionUI.postMessage({
                 method: 'setElementValue',
-                args: [windowUUID, viewID, value, viewPartID]
+                args: [windowUUID, viewID, viewPartID, value]
             });
         },
         
         // Set element value from string
-        setElementValueFromString: function(windowUUID, viewID, value, viewPartID = 0) {
+        setElementValueFromString: function(windowUUID, viewID, viewPartID = 0, value, contentType = null) {
             window.webkit.messageHandlers.actionUI.postMessage({
                 method: 'setElementValueFromString',
-                args: [windowUUID, viewID, value, viewPartID]
+                args: [windowUUID, viewID, viewPartID, value, contentType]
             });
         },
-        
+
         // Get element value (async)
         getElementValue: function(windowUUID, viewID, viewPartID = 0) {
             return new Promise(function(resolve, reject) {
@@ -59,7 +59,7 @@
         },
         
         // Get element value as string (async)
-        getElementValueAsString: function(windowUUID, viewID, viewPartID = 0) {
+        getElementValueAsString: function(windowUUID, viewID, viewPartID = 0, contentType = null) {
             return new Promise(function(resolve, reject) {
                 const id = Math.random().toString(36).substring(2);
                 window.addEventListener('message', function handler(event) {
@@ -71,11 +71,11 @@
                 window.webkit.messageHandlers.actionUI.postMessage({
                     method: 'getElementValueAsString',
                     id: id,
-                    args: [windowUUID, viewID, viewPartID]
+                    args: [windowUUID, viewID, viewPartID, contentType]
                 });
             });
         },
-        
+
         // Register action handler
         registerActionHandler: function(actionID, handlerFunction) {
             window.ActionUI.actionHandlers[actionID] = handlerFunction;

@@ -17,6 +17,8 @@ import SwiftUI
 
 struct Toggle: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
 
     static var valueType: Any.Type = Bool.self // Value is the toggle's on/off state
     

@@ -58,6 +58,11 @@ protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }
     static var initialValue: (ViewModel) -> Any? { get }
     static var initialStates: (ViewModel) -> [String: Any] { get }
+    // Optional content-type hooks for rich-text views.
+    // parseStringValue: convert a string + content-type token → typed value (nil = fall through to generic switch)
+    // serializeValueToString: convert a typed value + content-type token → string (nil = fall through to generic logic)
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? { get }
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? { get }
 }
 
 

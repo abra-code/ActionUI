@@ -27,6 +27,14 @@
         "placeholder": "With initial text",
         "border": { "color": "#80808060", "width": 1.0 }
       }
+    },
+    {
+      "type": "TextEditor",
+      "properties": {
+        "markdown": "Start with **bold** and _italic_ text (macOS 26+)",
+        "placeholder": "Attributed initial content",
+        "border": { "color": "#80808060", "width": 1.0 }
+      }
     }
   ]
 }

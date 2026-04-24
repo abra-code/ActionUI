@@ -35,10 +35,10 @@ public struct ActionUISwift {
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.
     ///   - viewID: Unique identifier for the view element.
-    ///   - value: The value to set, matching the view's expected type.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
-    public static func setElementValue(windowUUID: String, viewID: Int, value: Any, viewPartID: Int = 0) {
-        model.setElementValue(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
+    ///   - value: The value to set, matching the view's expected type.
+    public static func setElementValue(windowUUID: String, viewID: Int, viewPartID: Int = 0, value: Any) {
+        model.setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value)
     }
     
     /// Sets the value of a view element from a string representation, parsing it to the view's expected type.
@@ -47,11 +47,12 @@ public struct ActionUISwift {
     ///   - windowUUID: Unique identifier for the window.
     ///   - viewID: Unique identifier for the view element.
     ///   - value: String representation of the value.
+    ///   - contentType: Optional hint for parsing rich-text content ("plain", "markdown", "html", "rtf", "json"). Pass nil for default behavior.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
-    public static func setElementValueFromString(windowUUID: String, viewID: Int, value: String, viewPartID: Int = 0) {
-        model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
+    public static func setElementValueFromString(windowUUID: String, viewID: Int, viewPartID: Int = 0, value: String, contentType: String? = nil) {
+        model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value, contentType: contentType)
     }
-    
+
     /// Gets the value of a view element identified by viewID in the specified window.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.
@@ -67,12 +68,13 @@ public struct ActionUISwift {
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.
     ///   - viewID: Unique identifier for the view element.
+    ///   - contentType: Optional hint for serializing rich-text content ("plain", "json"). Pass nil for default behavior.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
     /// - Returns: String representation of the value, or nil if not found or invalid.
-    public static func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0) -> String? {
-        return model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID)
+    public static func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0, contentType: String? = nil) -> String? {
+        return model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, contentType: contentType)
     }
-    
+
     /// Returns the current value for a single state key of a view element.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.

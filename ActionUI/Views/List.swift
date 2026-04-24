@@ -112,6 +112,8 @@ import SwiftUI
 
 struct List: ActionUIViewConstruction {
     static var valueType: Any.Type = [String].self // Value is the selected item as [String]
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
 
     // MARK: - Row modifier helpers
 

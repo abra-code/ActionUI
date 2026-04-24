@@ -91,8 +91,8 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - viewID: Unique identifier for the view element.
     ///   - value: The value to set, matching the view's expected type.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
-    @MainActor @objc public class func setElementValueWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, value: Any, viewPartID: NSInteger) {
-        model.setElementValue(windowUUID: windowUUID as String, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
+    @MainActor @objc public class func setElementValueWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, viewPartID: NSInteger, value: Any) {
+        model.setElementValue(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value)
     }
     
     /// Sets the value of a view element from a string representation, parsing it to the view's expected type.
@@ -102,8 +102,8 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - viewID: Unique identifier for the view element.
     ///   - value: String representation of the value.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
-    @MainActor @objc public class func setElementValueFromStringWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, value: NSString, viewPartID: NSInteger) {
-        model.setElementValueFromString(windowUUID: windowUUID as String, viewID: Int(viewID), value: value as String, viewPartID: Int(viewPartID))
+    @MainActor @objc public class func setElementValueFromStringWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, viewPartID: NSInteger, value: NSString, contentType: NSString?) {
+        model.setElementValueFromString(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value as String, contentType: contentType as String?)
     }
     
     /// Gets the value of a view element identified by viewID in the specified window.
@@ -123,8 +123,8 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     ///   - viewID: Unique identifier for the view element.
     ///   - viewPartID: Optional part identifier (e.g., for multi-column tables; defaults to 0).
     /// - Returns: String representation of the value, or nil if not found or invalid.
-    @MainActor @objc public class func getElementValueAsStringWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, viewPartID: NSInteger) -> NSString? {
-        return model.getElementValueAsString(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID)) as NSString?
+    @MainActor @objc public class func getElementValueAsStringWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, viewPartID: NSInteger, contentType: NSString?) -> NSString? {
+        return model.getElementValueAsString(windowUUID: windowUUID as String, viewID: Int(viewID), viewPartID: Int(viewPartID), contentType: contentType as String?) as NSString?
     }
     
     /// Returns the current value for a single state key of a view element.

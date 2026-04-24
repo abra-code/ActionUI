@@ -40,8 +40,8 @@ def main():
         # In real app, you'd look up the window object
         # For now, we'll use the native API directly
         import _actionui
-        _actionui.set_int_value(window_uuid, 4, state['clicks'], 0)
-        _actionui.set_string_value(window_uuid, 7, f"Clicks: {state['clicks']}", 0)
+        _actionui.set_int_value(window_uuid, 4, 0, state['clicks'])
+        _actionui.set_string_value(window_uuid, 7, 0, f"Clicks: {state['clicks']}")
         
         print(f"  Total clicks: {state['clicks']}")
     
@@ -61,7 +61,7 @@ def main():
         else:
             greeting = "Enter your name above"
         
-        _actionui.set_string_value(ctx.window_uuid, 7, greeting, 0)
+        _actionui.set_string_value(ctx.window_uuid, 7, 0, greeting)
     
     @app.action("toggle.changed")
     def on_toggle_changed(ctx: actionui.ActionContext):
@@ -156,24 +156,24 @@ def main():
     print("API reachability check (no UI loaded — getters return None)")
     print("=" * 50)
 
-    window.set_int(100, 42)
-    print(f"set_int(100, 42)       -> get_int(100)    = {window.get_int(100)}")
+    window.set_int(100, 0, 42)
+    print(f"set_int(100, 0, 42)     -> get_int(100)    = {window.get_int(100)}")
 
-    window.set_double(101, 3.14159)
-    print(f"set_double(101, 3.14) -> get_double(101)  = {window.get_double(101)}")
+    window.set_double(101, 0, 3.14159)
+    print(f"set_double(101, 0, 3.14) -> get_double(101)  = {window.get_double(101)}")
 
-    window.set_bool(102, True)
-    print(f"set_bool(102, True)   -> get_bool(102)    = {window.get_bool(102)}")
+    window.set_bool(102, 0, True)
+    print(f"set_bool(102, 0, True)   -> get_bool(102)    = {window.get_bool(102)}")
 
-    window.set_string(103, "Hello, World!")
-    print(f"set_string(103, ...)  -> get_string(103)  = {window.get_string(103)}")
+    window.set_string(103, 0, "Hello, World!")
+    print(f"set_string(103, 0, ...)  -> get_string(103)  = {window.get_string(103)}")
 
-    window.set_value(104, 100)
-    window.set_value(105, 2.718)
-    window.set_value(106, False)
-    window.set_value(107, "Test")
-    window.set_value(108, {"key": "value", "num": 123})
-    window.set_value(109, [1, 2, 3, "four"])
+    window.set_value(104, 0, 100)
+    window.set_value(105, 0, 2.718)
+    window.set_value(106, 0, False)
+    window.set_value(107, 0, "Test")
+    window.set_value(108, 0, {"key": "value", "num": 123})
+    window.set_value(109, 0, [1, 2, 3, "four"])
     print(f"set_value / get_value (int):    {window.get_value(104)}")
     print(f"set_value / get_value (float):  {window.get_value(105)}")
     print(f"set_value / get_value (bool):   {window.get_value(106)}")

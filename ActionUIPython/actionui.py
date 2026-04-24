@@ -683,21 +683,41 @@ class Window:
     # Type-specific value setters
     # ------------------------------------------------------------------
 
-    def set_int(self, view_id: int, value: int, view_part_id: int = 0):
+    def set_int(self, view_id: int, value: int):
         """Set an integer value."""
-        _actionui.set_int_value(self.uuid, view_id, value, view_part_id)
+        _actionui.set_int_value(self.uuid, view_id, 0, value)
 
-    def set_double(self, view_id: int, value: float, view_part_id: int = 0):
+    def set_double(self, view_id: int, value: float):
         """Set a floating-point value."""
-        _actionui.set_double_value(self.uuid, view_id, value, view_part_id)
+        _actionui.set_double_value(self.uuid, view_id, 0, value)
 
-    def set_bool(self, view_id: int, value: bool, view_part_id: int = 0):
+    def set_bool(self, view_id: int, value: bool):
         """Set a boolean value."""
-        _actionui.set_bool_value(self.uuid, view_id, value, view_part_id)
+        _actionui.set_bool_value(self.uuid, view_id, 0, value)
 
-    def set_string(self, view_id: int, value: str, view_part_id: int = 0):
+    def set_string(self, view_id: int, value: str):
         """Set a string value."""
-        _actionui.set_string_value(self.uuid, view_id, value, view_part_id)
+        _actionui.set_string_value(self.uuid, view_id, 0, value)
+
+    # ------------------------------------------------------------------
+    # Type-specific value setters with view part id
+    # ------------------------------------------------------------------
+
+    def set_view_part_int(self, view_id: int, view_part_id: int, value: int):
+        """Set an integer value."""
+        _actionui.set_int_value(self.uuid, view_id, view_part_id, value)
+
+    def set_view_part_double(self, view_id: int, view_part_id: int, value: float):
+        """Set a floating-point value."""
+        _actionui.set_double_value(self.uuid, view_id, view_part_id, value)
+
+    def set_view_part_bool(self, view_id: int, view_part_id: int, value: bool):
+        """Set a boolean value."""
+        _actionui.set_bool_value(self.uuid, view_id, view_part_id, value)
+
+    def set_view_part_string(self, view_id: int, view_part_id: int, value: str):
+        """Set a string value."""
+        _actionui.set_string_value(self.uuid, view_id, view_part_id, value)
 
     # ------------------------------------------------------------------
     # Type-specific value getters
@@ -723,7 +743,7 @@ class Window:
     # Generic value access (auto-detects type)
     # ------------------------------------------------------------------
 
-    def set_value(self, view_id: int, value: Any, view_part_id: int = 0):
+    def set_value(self, view_id: int, view_part_id, value: Any):
         """
         Set a value with automatic type dispatch.
 
@@ -731,16 +751,16 @@ class Window:
         JSON-serialised and sent as a JSON string.
         """
         if isinstance(value, bool):
-            self.set_bool(view_id, value, view_part_id)
+            self.set_view_part_bool(view_id, view_part_id, value)
         elif isinstance(value, int):
-            self.set_int(view_id, value, view_part_id)
+            self.set_view_part_int(view_id, view_part_id, value)
         elif isinstance(value, float):
-            self.set_double(view_id, value, view_part_id)
+            self.set_view_part_double(view_id, view_part_id, value)
         elif isinstance(value, str):
-            self.set_string(view_id, value, view_part_id)
+            self.set_view_part_string(view_id, view_part_id, value)
         else:
-            _actionui.set_value_from_json(self.uuid, view_id,
-                                        json.dumps(value), view_part_id)
+            _actionui.set_value_from_json(self.uuid, view_id, view_part_id,
+                                         json.dumps(value))
 
     def get_value(self, view_id: int, view_part_id: int = 0) -> Optional[Any]:
         """
@@ -755,6 +775,31 @@ class Window:
             return json.loads(raw)
         except json.JSONDecodeError:
             return raw
+
+    # ------------------------------------------------------------------
+    # String value access with optional content-type
+    # ------------------------------------------------------------------
+
+    def set_value_from_string(self, view_id: int, view_part_id: int, value: str, content_type: Optional[str] = None) -> bool:
+        """
+        Set a view's value from a string with an optional content-type hint.
+
+        content_type may be "plain" (default), "markdown", "html", "rtf", or "json".
+        For a TextEditor with markdown content, "markdown" / "html" / "rtf" parse the
+        string into an AttributedString.
+        Returns True on success.
+        """
+        return _actionui.set_value_from_string(self.uuid, view_id, view_part_id, value, content_type)
+
+    def get_value_as_string(self, view_id: int, view_part_id: int, content_type: Optional[str] = None) -> Optional[str]:
+        """
+        Get a view's value as a string with an optional content-type hint.
+
+        content_type may be "plain" (default, extracts plain text) or "json"
+        (returns the JSON runs array for TextEditor with markdown content).
+        Returns None if the view is not found.
+        """
+        return _actionui.get_value_as_string(self.uuid, view_id, view_part_id, content_type)
 
     # ------------------------------------------------------------------
     # Element column count

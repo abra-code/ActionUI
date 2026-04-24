@@ -51,7 +51,7 @@ const actionui = require('./index.js');
 const native = actionui._native;
 
 const SAFETY_TIMEOUT_MS = 30000;
-const DISPLAY_MS        = 3000;   // leave time to visually inspect menus
+const DISPLAY_MS        = 10000;  // leave time to visually inspect menus (10s matches Python)
 
 const FIXTURE_JSON = path.normalize(
     path.join(__dirname, '..', 'ActionUIObjCTestApp', 'DefaultWindowContentView.json')

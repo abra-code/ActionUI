@@ -482,41 +482,41 @@ static PyObject* py_clear_error(PyObject* self, PyObject* args) {
 
 static PyObject* py_set_int_value(PyObject* self, PyObject* args) {
     const char* windowUUID;
-    long long viewID, value;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sLL|L", &windowUUID, &viewID, &value, &viewPartID) == 0)
+    long long viewID, value;
+    if (PyArg_ParseTuple(args, "sLLL", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetIntValue(windowUUID, viewID, value, viewPartID));
+    return PyBool_FromLong(actionUISetIntValue(windowUUID, viewID, viewPartID, value));
 }
 
 static PyObject* py_set_double_value(PyObject* self, PyObject* args) {
     const char* windowUUID;
     long long viewID;
-    double value;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sLd|L", &windowUUID, &viewID, &value, &viewPartID) == 0)
+    double value;
+    if (PyArg_ParseTuple(args, "sLLd", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetDoubleValue(windowUUID, viewID, value, viewPartID));
+    return PyBool_FromLong(actionUISetDoubleValue(windowUUID, viewID, viewPartID, value));
 }
 
 static PyObject* py_set_bool_value(PyObject* self, PyObject* args) {
     const char* windowUUID;
     long long viewID;
-    int value;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sLp|L", &windowUUID, &viewID, &value, &viewPartID) == 0)
+    int value;
+    if (PyArg_ParseTuple(args, "sLLp", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetBoolValue(windowUUID, viewID, value != 0, viewPartID));
+    return PyBool_FromLong(actionUISetBoolValue(windowUUID, viewID, viewPartID, value != 0));
 }
 
 static PyObject* py_set_string_value(PyObject* self, PyObject* args) {
     const char* windowUUID;
     long long viewID;
-    const char* value;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sLs|L", &windowUUID, &viewID, &value, &viewPartID) == 0)
+    const char* value;
+    if (PyArg_ParseTuple(args, "sLLs", &windowUUID, &viewID, &viewPartID, &value) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetStringValue(windowUUID, viewID, value, viewPartID));
+    return PyBool_FromLong(actionUISetStringValue(windowUUID, viewID, viewPartID, value));
 }
 
 // MARK: - Python API: Element Values — Type-specific Getters
@@ -575,20 +575,23 @@ static PyObject* py_get_string_value(PyObject* self, PyObject* args) {
 static PyObject* py_set_value_from_string(PyObject* self, PyObject* args) {
     const char* windowUUID;
     long long viewID;
-    const char* valueString;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sLs|L", &windowUUID, &viewID, &valueString, &viewPartID) == 0)
+    const char* valueString;
+    const char* contentType = NULL;
+    // sLLs|z — windowUUID, viewID, viewPartID, valueString, contentType (optional, defaults to NULL)
+    if (PyArg_ParseTuple(args, "sLLs|z", &windowUUID, &viewID, &viewPartID, &valueString, &contentType) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementValueString(windowUUID, viewID, valueString, viewPartID));
+    return PyBool_FromLong(actionUISetElementValueString(windowUUID, viewID, viewPartID, valueString, contentType));
 }
 
 static PyObject* py_get_value_as_string(PyObject* self, PyObject* args) {
     const char* windowUUID;
     long long viewID;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sL|L", &windowUUID, &viewID, &viewPartID) == 0)
+    const char* contentType = NULL;
+    if (PyArg_ParseTuple(args, "sL|Lz", &windowUUID, &viewID, &viewPartID, &contentType) == 0)
         return NULL;
-    char* val = actionUIGetElementValueString(windowUUID, viewID, viewPartID);
+    char* val = actionUIGetElementValueString(windowUUID, viewID, viewPartID, contentType);
     if (val == NULL) Py_RETURN_NONE;
     PyObject* result = PyUnicode_FromString(val);
     actionUIFreeString(val);
@@ -600,9 +603,9 @@ static PyObject* py_set_value_from_json(PyObject* self, PyObject* args) {
     long long viewID;
     const char* jsonString;
     long long viewPartID = 0;
-    if (PyArg_ParseTuple(args, "sLs|L", &windowUUID, &viewID, &jsonString, &viewPartID) == 0)
+    if (PyArg_ParseTuple(args, "sLLs", &windowUUID, &viewID, &viewPartID, &jsonString) == 0)
         return NULL;
-    return PyBool_FromLong(actionUISetElementValueJSON(windowUUID, viewID, jsonString, viewPartID));
+    return PyBool_FromLong(actionUISetElementValueJSON(windowUUID, viewID, viewPartID, jsonString));
 }
 
 static PyObject* py_get_value_as_json(PyObject* self, PyObject* args) {
@@ -900,10 +903,10 @@ static PyMethodDef ActionUIMethods[] = {
     {"set_default_action_handler",  py_set_default_action_handler,  METH_VARARGS, "set_default_action_handler(callback|None)"},
 
     /* Type-specific setters */
-    {"set_int_value",               py_set_int_value,               METH_VARARGS, "set_int_value(windowUUID, viewID, value[, viewPartID])"},
-    {"set_double_value",            py_set_double_value,            METH_VARARGS, "set_double_value(windowUUID, viewID, value[, viewPartID])"},
-    {"set_bool_value",              py_set_bool_value,              METH_VARARGS, "set_bool_value(windowUUID, viewID, value[, viewPartID])"},
-    {"set_string_value",            py_set_string_value,            METH_VARARGS, "set_string_value(windowUUID, viewID, value[, viewPartID])"},
+    {"set_int_value",               py_set_int_value,               METH_VARARGS, "set_int_value(windowUUID, viewID, viewPartID, value)"},
+    {"set_double_value",            py_set_double_value,            METH_VARARGS, "set_double_value(windowUUID, viewID, viewPartID, value)"},
+    {"set_bool_value",              py_set_bool_value,              METH_VARARGS, "set_bool_value(windowUUID, viewID, viewPartID, value)"},
+    {"set_string_value",            py_set_string_value,            METH_VARARGS, "set_string_value(windowUUID, viewID, viewPartID, value)"},
 
     /* Type-specific getters */
     {"get_int_value",               py_get_int_value,               METH_VARARGS, "get_int_value(windowUUID, viewID[, viewPartID]) -> int|None"},
@@ -912,9 +915,9 @@ static PyMethodDef ActionUIMethods[] = {
     {"get_string_value",            py_get_string_value,            METH_VARARGS, "get_string_value(windowUUID, viewID[, viewPartID]) -> str|None"},
 
     /* Generic value access */
-    {"set_value_from_string",       py_set_value_from_string,       METH_VARARGS, "set_value_from_string(windowUUID, viewID, value[, viewPartID])"},
-    {"get_value_as_string",         py_get_value_as_string,         METH_VARARGS, "get_value_as_string(windowUUID, viewID[, viewPartID]) -> str|None"},
-    {"set_value_from_json",         py_set_value_from_json,         METH_VARARGS, "set_value_from_json(windowUUID, viewID, jsonStr[, viewPartID])"},
+    {"set_value_from_string",       py_set_value_from_string,       METH_VARARGS, "set_value_from_string(windowUUID, viewID, viewPartID, value[, contentType]) -> bool"},
+    {"get_value_as_string",         py_get_value_as_string,         METH_VARARGS, "get_value_as_string(windowUUID, viewID[, viewPartID[, contentType]]) -> str|None"},
+    {"set_value_from_json",         py_set_value_from_json,         METH_VARARGS, "set_value_from_json(windowUUID, viewID, viewPartID, jsonStr)"},
     {"get_value_as_json",           py_get_value_as_json,           METH_VARARGS, "get_value_as_json(windowUUID, viewID[, viewPartID]) -> str|None"},
 
     /* Element column count */

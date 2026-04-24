@@ -30,23 +30,24 @@ import AppKit
 ///   - Description: Sets a custom logger function to handle debugging and error reporting. The function is stored globally and called from native via evaluateJavaScript.
 ///   - Example: `ActionUI.setLogger(function(message, level) { console.log("[Level " + level + "] " + message); });`
 ///
-/// - `setElementValue(windowUUID, viewID, value, viewPartID)`
+/// - `setElementValue(windowUUID, viewID, viewPartID, value)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
 ///     - `viewID`: Number - Unique identifier for the view element.
+///     - `viewPartID`: Number -  part identifier (e.g., for multi-column tables; defaults to 0).
 ///     - `value`: Any - The value to set, serialized to JSON (e.g., String, Number, Boolean, Object, Array).
-///     - `viewPartID`: Number - Optional part identifier (e.g., for multi-column tables; defaults to 0).
 ///   - Description: Sets the value of a view element by posting a message to native code.
-///   - Example: `ActionUI.setElementValue("window-12345", 2, "New text", 0);`
+///   - Example: `ActionUI.setElementValue("window-12345", 2, 0, "New text");`
 ///
-/// - `setElementValueFromString(windowUUID, viewID, value, viewPartID)`
+/// - `setElementValueFromString(windowUUID, viewID, viewPartID, value, contentType?)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
 ///     - `viewID`: Number - Unique identifier for the view element.
+///     - `viewPartID`: Number - Part identifier (e.g., for multi-column tables; pass 0 for default).
 ///     - `value`: String - The string representation of the value, parsed to the view's expected type (e.g., ISO 8601 for Date).
-///     - `viewPartID`: Number - Optional part identifier (e.g., for multi-column tables; defaults to 0).
+///     - `contentType`: String or null - Optional content-type hint: `"markdown"`, `"html"`, `"rtf"`, `"json"`, or null for default.
 ///   - Description: Sets the value of a view element from a string by posting a message to native code.
-///   - Example: `ActionUI.setElementValueFromString("window-12345", 2, "2023-10-05T12:00:00Z", 0);`
+///   - Example: `ActionUI.setElementValueFromString("window-12345", 2, 0, "2023-10-05T12:00:00Z");`
 ///
 /// - `getElementValue(windowUUID, viewID, viewPartID)`
 ///   - Parameters:
@@ -431,20 +432,21 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
         case "setElementValue":
             if args.count == 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
-               let viewPartID = numberAsInt(args[3]) {
-                let value = args[2]
-                print("setElementValue called with windowUUID: \(windowUUID), viewID: \(viewID), value: \(value), viewPartID: \(viewPartID)")
-                ActionUIWebKitJS.model.setElementValue(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
+               let viewPartID = numberAsInt(args[2]) {
+                let value = args[3]
+                print("setElementValue called with windowUUID: \(windowUUID), viewID: \(viewID), viewPartID: \(viewPartID), value: \(value)")
+                ActionUIWebKitJS.model.setElementValue(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value)
             } else {
                 print("Invalid arguments for setElementValue: \(args)")
             }
         case "setElementValueFromString":
-            if args.count == 4, let windowUUID = args[0] as? String,
+            // args: [windowUUID, viewID, viewPartID, value, contentType?]
+            if args.count >= 4, let windowUUID = args[0] as? String,
                let viewID = numberAsInt(args[1]),
-               let value = args[2] as? String,
-               let viewPartID = numberAsInt(args[3]) {
-                print("Calling setElementValueFromString: \(value)")
-                ActionUIWebKitJS.model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, value: value, viewPartID: viewPartID)
+               let viewPartID = numberAsInt(args[2]),
+               let value = args[3] as? String {
+                let contentType = args.count >= 5 ? args[4] as? String : nil
+                ActionUIWebKitJS.model.setElementValueFromString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, value: value, contentType: contentType)
             } else {
                 print("Invalid arguments for setElementValueFromString: \(args)")
             }
@@ -583,10 +585,12 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 print("Invalid arguments for getElementInfo: \(args)")
             }
         case "getElementValueAsString":
-            if args.count == 3, let windowUUID = args[0] as? String,
-               let viewID = numberAsInt(args[1]),
-               let viewPartID = numberAsInt(args[2]) {
-                let value = ActionUIWebKitJS.model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID) ?? ""
+            // args: [windowUUID, viewID, viewPartID?, contentType?]
+            if args.count >= 2, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]) {
+                let viewPartID = args.count >= 3 ? numberAsInt(args[2]) ?? 0 : 0
+                let contentType = args.count >= 4 ? args[3] as? String : nil
+                let value = ActionUIWebKitJS.model.getElementValueAsString(windowUUID: windowUUID, viewID: viewID, viewPartID: viewPartID, contentType: contentType) ?? ""
                 let escaped = value.jsonEscaped
                 let id = body["id"] as? String ?? ""
                 webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: '\(escaped)'})") { _, error in

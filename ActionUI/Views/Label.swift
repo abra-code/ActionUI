@@ -17,6 +17,8 @@ import SwiftUI
 
 struct Label: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
 
     // The mutable runtime value is the title string
     static var valueType: Any.Type = String.self

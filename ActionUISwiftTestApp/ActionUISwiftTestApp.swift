@@ -347,6 +347,33 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 8, value: "Drop files or folders here")
         }
 
+        // Text content type demo handlers (Text.contentType.json)
+        // IDs: 1 = TextEditor (read-only display), 2 = status label
+        let contentTypeRTF = "{\\rtf1\\ansi\\deff0 {\\fonttbl{\\f0 Helvetica;}} \\f0 {\\b Bold RTF} and {\\i italic} with {\\b\\i bold-italic} text.}"
+        let contentTypeHTML = "<html><body style=\"font-family: -apple-system\"><b>Bold HTML</b> and <i><span style=\"color: #CC0000\">red italic</span></i> text.</body></html>"
+        let contentTypeJSON = "[{\"text\":\"Bold JSON \",\"bold\":true},{\"text\":\"and \",\"italic\":true,\"color\":\"#0055CC\"},{\"text\":\"mixed\",\"bold\":true,\"italic\":true,\"underline\":true}]"
+
+        ActionUISwift.registerActionHandler(actionID: "text.contenttype.set.rtf") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: contentTypeRTF, contentType: "rtf")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Active content type: rtf")
+        }
+        ActionUISwift.registerActionHandler(actionID: "text.contenttype.set.html") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: contentTypeHTML, contentType: "html")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Active content type: html")
+        }
+        ActionUISwift.registerActionHandler(actionID: "text.contenttype.set.json") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: contentTypeJSON, contentType: "json")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Active content type: json")
+        }
+        ActionUISwift.registerActionHandler(actionID: "text.contenttype.get.json") { _, windowUUID, _, _, _ in
+            if let jsonStr = ActionUISwift.getElementValueAsString(windowUUID: windowUUID, viewID: 1, contentType: "json") {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 1, value: jsonStr)
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Showing raw JSON runs output")
+            } else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "No attributed content to serialize")
+            }
+        }
+
         // Animation demo handlers
         // IDs: 101=circle, 102=rectangle, 103=roundedRect, 104=capsule, 105=rectangle-rotate
         var anim101Opacity = true

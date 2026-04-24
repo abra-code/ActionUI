@@ -233,7 +233,7 @@ win.getInt(viewId, partId)
 ```js
 // Auto-dispatches by JS type (boolean → bool, integer → int, float → double,
 // string → string, object/array → JSON)
-win.setValue(viewId, { key: 'val' })
+win.setValue(viewId, 0, { key: 'val' })
 const val = win.getValue(viewId)   // parsed from JSON; null if not set
 ```
 
@@ -348,11 +348,11 @@ native.registerActionHandler(actionId, callback)
 native.unregisterActionHandler(actionId)
 native.setDefaultActionHandler(callback)
 
-// Type-specific setters (windowUuid, viewId, value, partId)
-native.setIntValue(uuid, viewId, value, partId)
-native.setDoubleValue(uuid, viewId, value, partId)
-native.setBoolValue(uuid, viewId, value, partId)
-native.setStringValue(uuid, viewId, value, partId)
+// Type-specific setters (windowUuid, viewId, partId, value)
+native.setIntValue(uuid, viewId, partId, value)
+native.setDoubleValue(uuid, viewId, partId, value)
+native.setBoolValue(uuid, viewId, partId, value)
+native.setStringValue(uuid, viewId, partId, value)
 
 // Type-specific getters → value or null
 native.getIntValue(uuid, viewId, partId)
@@ -361,9 +361,9 @@ native.getBoolValue(uuid, viewId, partId)
 native.getStringValue(uuid, viewId, partId)
 
 // Generic JSON access
-native.setValueFromJSON(uuid, viewId, jsonString, partId)
-native.getValueAsJSON(uuid, viewId, partId)          // JSON string or null
-native.setValueFromString(uuid, viewId, string, partId)
+native.setValueFromJSON(uuid, viewId, partId, jsonString)
+native.getValueAsJSON(uuid, viewId, partId)              // JSON string or null
+native.setValueFromString(uuid, viewId, partId, string)
 native.getValueAsString(uuid, viewId, partId)        // string or null
 
 // Element column count

@@ -142,7 +142,7 @@ final class GroupTests: XCTestCase {
         _ = actionUIView.body // Access the body to trigger view construction
 
         // Set TextField value
-        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Test Input", viewPartID: 0)
+        actionUIModel.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Test Input")
         XCTAssertEqual(actionUIModel.getElementValue(windowUUID: windowUUID, viewID: 2, viewPartID: 0) as? String, "Test Input", "TextField value should be set")
         
         // Reordered hierarchy

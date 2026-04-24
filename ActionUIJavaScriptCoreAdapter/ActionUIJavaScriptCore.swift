@@ -30,23 +30,24 @@ import AppKit
 ///   - Description: Sets a custom logger function to handle debugging and error reporting.
 ///   - Example: `ActionUI.setLogger(function(message, level) { console.log("[Level " + level + "] " + message); });`
 ///
-/// - `setElementValue(windowUUID, viewID, value, viewPartID)`
+/// - `setElementValue(windowUUID, viewID, viewPartID, value)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
 ///     - `viewID`: Number - Unique identifier for the view element.
+///     - `viewPartID`: Number - part identifier (e.g., for multi-column tables; defaults to 0).
 ///     - `value`: Any - The value to set, matching the view's expected type (e.g., String, Number, Boolean, Object, Array).
-///     - `viewPartID`: Number - Optional part identifier (e.g., for multi-column tables; defaults to 0).
 ///   - Description: Sets the value of a view element identified by `viewID` in the specified `windowUUID`.
-///   - Example: `ActionUI.setElementValue("window-12345", 2, "New text", 0);`
+///   - Example: `ActionUI.setElementValue("window-12345", 2, 0, "New text");`
 ///
-/// - `setElementValueFromString(windowUUID, viewID, value, viewPartID)`
+/// - `setElementValueFromString(windowUUID, viewID, viewPartID, value, contentType)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
 ///     - `viewID`: Number - Unique identifier for the view element.
-///     - `value`: String - The string representation of the value, parsed to the view's expected type (e.g., ISO 8601 for Date).
-///     - `viewPartID`: Number - Optional part identifier (e.g., for multi-column tables; defaults to 0).
+///     - `viewPartID`: Number - Part identifier (e.g., for multi-column tables; pass 0 for default).
+///     - `value`: String - The string representation of the value, parsed to the view's expected type.
+///     - `contentType`: String or null - Optional content-type hint: `"markdown"`, `"html"`, `"rtf"`, `"json"`, or null for default.
 ///   - Description: Sets the value of a view element from a string representation.
-///   - Example: `ActionUI.setElementValueFromString("window-12345", 2, "2023-10-05T12:00:00Z", 0);`
+///   - Example: `ActionUI.setElementValueFromString("window-12345", 2, 0, "**bold**", "markdown");`
 ///
 /// - `getElementValue(windowUUID, viewID, viewPartID)`
 ///   - Parameters:
@@ -57,14 +58,15 @@ import AppKit
 ///   - Description: Retrieves the value of a view element.
 ///   - Example: `let value = ActionUI.getElementValue("window-12345", 2, 0);`
 ///
-/// - `getElementValueAsString(windowUUID, viewID, viewPartID)`
+/// - `getElementValueAsString(windowUUID, viewID, viewPartID, contentType)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
 ///     - `viewID`: Number - Unique identifier for the view element.
 ///     - `viewPartID`: Number - Optional part identifier (e.g., for multi-column tables; defaults to 0).
-///   - Returns: String - The string representation of the view element's value (e.g., ISO 8601 for Date), or `undefined` if not found.
+///     - `contentType`: String or null - Optional content-type hint: `"markdown"`, `"html"`, `"rtf"`, `"json"`, or null for default.
+///   - Returns: String - The string representation of the view element's value, or `undefined` if not found.
 ///   - Description: Retrieves the string representation of a view element's value.
-///   - Example: `let stringValue = ActionUI.getElementValueAsString("window-12345", 2, 0);`
+///   - Example: `let md = ActionUI.getElementValueAsString("window-12345", 2, 0, "markdown");`
 ///
 /// - `registerActionHandler(actionID, handlerFunction)`
 ///   - Parameters:
@@ -295,31 +297,35 @@ public class ActionUIJavaScriptCore {
     }
     
     private func setupElementValueMethods(actionUIObject: JSValue) {
-        // setElementValue(windowUUID, viewID, value, viewPartID)
-        let setElementValue: @convention(block) (String, Double, JSValue, Double) -> Void = { windowUUID, viewID, jsValue, viewPartID in
+        // setElementValue(windowUUID, viewID, viewPartID, value)
+        let setElementValue: @convention(block) (String, Double, Double, JSValue) -> Void = { windowUUID, viewID, viewPartID, jsValue in
             // Design decision: Use JSValue.toObject() to convert JavaScript values to Swift objects (e.g., String, Double, NSDictionary).
             // Avoid toObjectOf(_:) as it requires an Objective-C class type, not suitable for generic Any conversion.
             let value = jsValue.toObject() ?? NSNull()
-            ActionUIJavaScriptCore.model.setElementValue(windowUUID: windowUUID, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
+            ActionUIJavaScriptCore.model.setElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value)
         }
         actionUIObject.setValue(setElementValue, forProperty: "setElementValue")
         
-        // setElementValueFromString(windowUUID, viewID, value, viewPartID)
-        let setElementValueFromString: @convention(block) (String, Double, String, Double) -> Void = { windowUUID, viewID, value, viewPartID in
-            ActionUIJavaScriptCore.model.setElementValueFromString(windowUUID: windowUUID, viewID: Int(viewID), value: value, viewPartID: Int(viewPartID))
+        // setElementValueFromString(windowUUID, viewID, viewPartID, value, contentType)
+        // contentType may be null/undefined; JSValue handles nullable strings
+        let setElementValueFromString: @convention(block) (String, Double, Double, String, JSValue) -> Void = { windowUUID, viewID, viewPartID, value, jsContentType in
+            let contentType: String? = jsContentType.isNull || jsContentType.isUndefined ? nil : jsContentType.toString()
+            ActionUIJavaScriptCore.model.setElementValueFromString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), value: value, contentType: contentType)
         }
         actionUIObject.setValue(setElementValueFromString, forProperty: "setElementValueFromString")
-        
+
         // getElementValue(windowUUID, viewID, viewPartID) -> value
         let getElementValue: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, viewPartID in
             let value = ActionUIJavaScriptCore.model.getElementValue(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
             return JSValue(object: value, in: self.context)
         }
         actionUIObject.setValue(getElementValue, forProperty: "getElementValue")
-        
-        // getElementValueAsString(windowUUID, viewID, viewPartID) -> string
-        let getElementValueAsString: @convention(block) (String, Double, Double) -> String? = { windowUUID, viewID, viewPartID in
-            return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID))
+
+        // getElementValueAsString(windowUUID, viewID, viewPartID, contentType) -> string
+        // contentType may be null/undefined; JSValue handles nullable strings
+        let getElementValueAsString: @convention(block) (String, Double, Double, JSValue) -> String? = { windowUUID, viewID, viewPartID, jsContentType in
+            let contentType: String? = jsContentType.isNull || jsContentType.isUndefined ? nil : jsContentType.toString()
+            return ActionUIJavaScriptCore.model.getElementValueAsString(windowUUID: windowUUID, viewID: Int(viewID), viewPartID: Int(viewPartID), contentType: contentType)
         }
         actionUIObject.setValue(getElementValueAsString, forProperty: "getElementValueAsString")
 

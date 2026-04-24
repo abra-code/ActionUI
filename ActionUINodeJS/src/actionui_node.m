@@ -433,12 +433,12 @@ static napi_value node_set_int_value(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     char uuid[128]; size_t len;
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
-    int64_t viewID = 0, value = 0, partID = 0;
+    int64_t viewID = 0, partID = 0, value = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_int64(env, argv[2], &value);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &partID);
+    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (argc >= 4) napi_get_value_int64(env, argv[3], &value);
     napi_value result;
-    napi_get_boolean(env, actionUISetIntValue(uuid, viewID, value, partID), &result);
+    napi_get_boolean(env, actionUISetIntValue(uuid, viewID, partID, value), &result);
     return result;
 }
 
@@ -449,10 +449,10 @@ static napi_value node_set_double_value(napi_env env, napi_callback_info info) {
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
     int64_t viewID = 0, partID = 0; double value = 0.0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_double(env, argv[2], &value);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &partID);
+    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (argc >= 4) napi_get_value_double(env, argv[3], &value);
     napi_value result;
-    napi_get_boolean(env, actionUISetDoubleValue(uuid, viewID, value, partID), &result);
+    napi_get_boolean(env, actionUISetDoubleValue(uuid, viewID, partID, value), &result);
     return result;
 }
 
@@ -463,10 +463,10 @@ static napi_value node_set_bool_value(napi_env env, napi_callback_info info) {
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
     int64_t viewID = 0, partID = 0; bool value = false;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_bool(env, argv[2], &value);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &partID);
+    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (argc >= 4) napi_get_value_bool(env, argv[3], &value);
     napi_value result;
-    napi_get_boolean(env, actionUISetBoolValue(uuid, viewID, value, partID), &result);
+    napi_get_boolean(env, actionUISetBoolValue(uuid, viewID, partID, value), &result);
     return result;
 }
 
@@ -477,11 +477,15 @@ static napi_value node_set_string_value(napi_env env, napi_callback_info info) {
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
+    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
     char value[4096];
-    napi_get_value_string_utf8(env, argv[2], value, sizeof(value), &len);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &partID);
+    if (argc >= 4) {
+        napi_get_value_string_utf8(env, argv[3], value, sizeof(value), &len);
+    } else {
+        value[0] = '\0';
+    }
     napi_value result;
-    napi_get_boolean(env, actionUISetStringValue(uuid, viewID, value, partID), &result);
+    napi_get_boolean(env, actionUISetStringValue(uuid, viewID, partID, value), &result);
     return result;
 }
 
@@ -551,28 +555,52 @@ static napi_value node_get_string_value(napi_env env, napi_callback_info info) {
 // MARK: - N-API: Generic Value Access
 
 static napi_value node_set_value_from_string(napi_env env, napi_callback_info info) {
-    size_t argc = 4; napi_value argv[4];
+    size_t argc = 5; napi_value argv[5];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-    char uuid[128], value[4096]; size_t len;
+    char uuid[128], value[65536]; size_t len;
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], value, sizeof(value), &len);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &partID);
+    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (argc >= 4) {
+        napi_get_value_string_utf8(env, argv[3], value, sizeof(value), &len);
+    } else {
+        value[0] = '\0';
+    }
+    const char* contentTypePtr = NULL;
+    char contentTypeBuf[64] = {0};
+    if (argc >= 5) {
+        napi_valuetype ct_type;
+        napi_typeof(env, argv[4], &ct_type);
+        if (ct_type == napi_string) {
+            napi_get_value_string_utf8(env, argv[4], contentTypeBuf, sizeof(contentTypeBuf), &len);
+            contentTypePtr = contentTypeBuf;
+        }
+    }
     napi_value result;
-    napi_get_boolean(env, actionUISetElementValueString(uuid, viewID, value, partID), &result);
+    napi_get_boolean(env, actionUISetElementValueString(uuid, viewID, partID, value, contentTypePtr), &result);
     return result;
 }
 
 static napi_value node_get_value_as_string(napi_env env, napi_callback_info info) {
-    size_t argc = 3; napi_value argv[3];
+    size_t argc = 4; napi_value argv[4];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     char uuid[128]; size_t len;
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
     if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
-    char* val = actionUIGetElementValueString(uuid, viewID, partID);
+    const char* contentTypePtr = NULL;
+    char contentTypeBuf[64] = {0};
+    if (argc >= 4) {
+        napi_valuetype ct_type;
+        napi_typeof(env, argv[3], &ct_type);
+        if (ct_type == napi_string) {
+            napi_get_value_string_utf8(env, argv[3], contentTypeBuf, sizeof(contentTypeBuf), &len);
+            contentTypePtr = contentTypeBuf;
+        }
+    }
+    char* val = actionUIGetElementValueString(uuid, viewID, partID, contentTypePtr);
     if (val == NULL) { napi_value n; napi_get_null(env, &n); return n; }
     napi_value result;
     napi_create_string_utf8(env, val, NAPI_AUTO_LENGTH, &result);
@@ -587,10 +615,14 @@ static napi_value node_set_value_from_json(napi_env env, napi_callback_info info
     napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
     int64_t viewID = 0, partID = 0;
     napi_get_value_int64(env, argv[1], &viewID);
-    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
-    if (argc >= 4) napi_get_value_int64(env, argv[3], &partID);
+    if (argc >= 3) napi_get_value_int64(env, argv[2], &partID);
+    if (argc >= 4) {
+        napi_get_value_string_utf8(env, argv[3], json, sizeof(json), &len);
+    } else {
+        json[0] = '\0';
+    }
     napi_value result;
-    napi_get_boolean(env, actionUISetElementValueJSON(uuid, viewID, json, partID), &result);
+    napi_get_boolean(env, actionUISetElementValueJSON(uuid, viewID, partID, json), &result);
     return result;
 }
 
@@ -1106,10 +1138,12 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "getStringValue",           node_get_string_value);
 
     /* Generic value access */
-    EXPORT_FN(exports, "setValueFromString",       node_set_value_from_string);
-    EXPORT_FN(exports, "getValueAsString",         node_get_value_as_string);
+    EXPORT_FN(exports, "setValueFromString",       node_set_value_from_string);   /* (uuid, viewID, partID, value, contentType=null) */
+    EXPORT_FN(exports, "getValueAsString",         node_get_value_as_string);    /* (uuid, viewID, partID=0, contentType=null) -> string|null */
     EXPORT_FN(exports, "setValueFromJSON",         node_set_value_from_json);
     EXPORT_FN(exports, "getValueAsJSON",           node_get_value_as_json);
+
+    /* Content-type aware value access */
 
     /* Element column count */
     EXPORT_FN(exports, "getElementColumnCount",    node_get_element_column_count);

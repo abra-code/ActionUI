@@ -323,8 +323,8 @@ private func jsonToValue(_ json: String) -> Any? {
 public func actionUISetElementValueJSON(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
-    _ valueJSON: UnsafePointer<CChar>,
-    _ viewPartID: Int64
+    _ viewPartID: Int64,
+    _ valueJSON: UnsafePointer<CChar>
 ) -> CBool {
     clearError()
     
@@ -339,8 +339,8 @@ public func actionUISetElementValueJSON(
         ActionUIModel.shared.setElementValue(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
-            value: value,
-            viewPartID: Int(viewPartID)
+            viewPartID: Int(viewPartID),
+            value: value
         )
     }
     
@@ -382,20 +382,23 @@ public func actionUIGetElementValueJSON(
 public func actionUISetElementValueString(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
+    _ viewPartID: Int64,
     _ valueString: UnsafePointer<CChar>,
-    _ viewPartID: Int64
+    _ contentType: UnsafePointer<CChar>?
 ) -> CBool {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
     let swiftValueString = String(cString: valueString)
+    let swiftContentType = contentType.map { String(cString: $0) }
     
     runOnMainActorAsync {
         ActionUIModel.shared.setElementValueFromString(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
+            viewPartID: Int(viewPartID),
             value: swiftValueString,
-            viewPartID: Int(viewPartID)
+            contentType: swiftContentType
         )
     }
     
@@ -406,17 +409,20 @@ public func actionUISetElementValueString(
 public func actionUIGetElementValueString(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
-    _ viewPartID: Int64
+    _ viewPartID: Int64,
+    _ contentType: UnsafePointer<CChar>?
 ) -> UnsafeMutablePointer<CChar>? {
     clearError()
     
     let swiftWindowUUID = String(cString: windowUUID)
-    
+    let swiftContentType = contentType.map { String(cString: $0) }
+
     let result = runOnMainActorSync {
         ActionUIModel.shared.getElementValueAsString(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
-            viewPartID: Int(viewPartID)
+            viewPartID: Int(viewPartID),
+            contentType: swiftContentType
         )
     }
     
@@ -741,8 +747,8 @@ public func actionUIGetElementInfoJSON(
 public func actionUISetIntValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
-    _ value: Int64,
-    _ viewPartID: Int64
+    _ viewPartID: Int64,
+    _ value: Int64
 ) -> CBool {
     clearError()
     
@@ -751,8 +757,8 @@ public func actionUISetIntValue(
         ActionUIModel.shared.setElementValue(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
-            value: Int(value),
-            viewPartID: Int(viewPartID)
+            viewPartID: Int(viewPartID),
+            value: Int(value)
         )
     }
     return true
@@ -762,8 +768,8 @@ public func actionUISetIntValue(
 public func actionUISetDoubleValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
-    _ value: Double,
-    _ viewPartID: Int64
+    _ viewPartID: Int64,
+    _ value: Double
 ) -> CBool {
     clearError()
     
@@ -772,8 +778,8 @@ public func actionUISetDoubleValue(
         ActionUIModel.shared.setElementValue(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
-            value: value,
-            viewPartID: Int(viewPartID)
+            viewPartID: Int(viewPartID),
+            value: value
         )
     }
     return true
@@ -783,8 +789,8 @@ public func actionUISetDoubleValue(
 public func actionUISetBoolValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
+    _ viewPartID: Int64,
     _ value: CBool,
-    _ viewPartID: Int64
 ) -> CBool {
     clearError()
 
@@ -793,8 +799,8 @@ public func actionUISetBoolValue(
         ActionUIModel.shared.setElementValue(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
-            value: value,
-            viewPartID: Int(viewPartID)
+            viewPartID: Int(viewPartID),
+            value: value
         )
     }
     return true
@@ -804,8 +810,8 @@ public func actionUISetBoolValue(
 public func actionUISetStringValue(
     _ windowUUID: UnsafePointer<CChar>,
     _ viewID: Int64,
-    _ value: UnsafePointer<CChar>,
-    _ viewPartID: Int64
+    _ viewPartID: Int64,
+    _ value: UnsafePointer<CChar>
 ) -> CBool {
     clearError()
     
@@ -815,8 +821,8 @@ public func actionUISetStringValue(
         ActionUIModel.shared.setElementValue(
             windowUUID: swiftWindowUUID,
             viewID: Int(viewID),
-            value: swiftValue,
-            viewPartID: Int(viewPartID)
+            viewPartID: Int(viewPartID),
+            value: swiftValue
         )
     }
     return true

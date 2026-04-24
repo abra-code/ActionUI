@@ -45,6 +45,27 @@ extension [String: Any] {
 struct Map: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    // Parses a JSON coordinate string {"latitude":…,"longitude":…} into CLLocationCoordinate2D.
+    // Only invoked when contentType is non-nil (e.g. "json"); nil contentType falls through to generic path.
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = { value, _, logger in
+        guard let data = value.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let lat = (dict["latitude"] as? NSNumber).map({ $0.doubleValue }),
+              let lon = (dict["longitude"] as? NSNumber).map({ $0.doubleValue }) else {
+            logger.log("Map: failed to parse coordinate JSON string", .warning)
+            return nil
+        }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = { value, _, logger in
+        guard let coord = value as? CLLocationCoordinate2D,
+              let data = try? JSONSerialization.data(
+                  withJSONObject: ["latitude": coord.latitude, "longitude": coord.longitude],
+                  options: [.sortedKeys]),
+              let str = String(data: data, encoding: .utf8) else { return nil }
+        return str
+    }
 
     // Design decision: Defines valueType as CLLocationCoordinate2D to reflect map's center coordinate for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type = CLLocationCoordinate2D.self

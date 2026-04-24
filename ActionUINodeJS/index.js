@@ -88,10 +88,10 @@ class Window {
     }
 
     // Type-specific setters
-    setInt(viewId, value, partId = 0)    { _actionui.setIntValue(this.uuid, viewId, value, partId); }
-    setDouble(viewId, value, partId = 0) { _actionui.setDoubleValue(this.uuid, viewId, value, partId); }
-    setBool(viewId, value, partId = 0)   { _actionui.setBoolValue(this.uuid, viewId, value, partId); }
-    setString(viewId, value, partId = 0) { _actionui.setStringValue(this.uuid, viewId, value, partId); }
+    setInt(viewId, partId = 0, value)    { _actionui.setIntValue(this.uuid, viewId, partId, value); }
+    setDouble(viewId, partId = 0, value) { _actionui.setDoubleValue(this.uuid, viewId, partId, value); }
+    setBool(viewId, partId = 0, value)   { _actionui.setBoolValue(this.uuid, viewId, partId, value); }
+    setString(viewId, partId = 0, value) { _actionui.setStringValue(this.uuid, viewId, partId, value); }
 
     // Type-specific getters
     getInt(viewId, partId = 0)    { return _actionui.getIntValue(this.uuid, viewId, partId); }
@@ -100,19 +100,19 @@ class Window {
     getString(viewId, partId = 0) { return _actionui.getStringValue(this.uuid, viewId, partId); }
 
     // Generic value access (JSON round-trip)
-    setValue(viewId, value, partId = 0) {
+    setValue(viewId, partId = 0, value) {
         if (typeof value === 'boolean') {
-            _actionui.setBoolValue(this.uuid, viewId, value, partId);
+            _actionui.setBoolValue(this.uuid, viewId, partId, value);
         } else if (typeof value === 'number') {
             if (Number.isInteger(value)) {
-                _actionui.setIntValue(this.uuid, viewId, value, partId);
+                _actionui.setIntValue(this.uuid, viewId, partId, value);
             } else {
-                _actionui.setDoubleValue(this.uuid, viewId, value, partId);
+                _actionui.setDoubleValue(this.uuid, viewId, partId, value);
             }
         } else if (typeof value === 'string') {
-            _actionui.setStringValue(this.uuid, viewId, value, partId);
+            _actionui.setStringValue(this.uuid, viewId, partId, value);
         } else {
-            _actionui.setValueFromJSON(this.uuid, viewId, JSON.stringify(value), partId);
+            _actionui.setValueFromJSON(this.uuid, viewId, partId, JSON.stringify(value));
         }
     }
 
@@ -120,6 +120,16 @@ class Window {
         const raw = _actionui.getValueAsJSON(this.uuid, viewId, partId);
         if (raw == null) return null;
         try { return JSON.parse(raw); } catch { return raw; }
+    }
+
+    // String value access with optional content-type
+    // contentType: "plain" (default), "markdown", "html", "rtf", or "json"
+    setValueFromString(viewId, partId = 0, value, contentType = null) {
+        return _actionui.setValueFromString(this.uuid, viewId, partId, value, contentType);
+    }
+
+    getValueAsString(viewId, partId = 0, contentType = null) {
+        return _actionui.getValueAsString(this.uuid, viewId, partId, contentType);
     }
 
     // Element column count

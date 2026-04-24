@@ -56,6 +56,19 @@
           }
         }
       ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "markdown": "**Bold**, _italic_, and `code` via markdown"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "markdown": "Visit [ActionUI](https://github.com/abra-code/ActionUI) or use ~~strikethrough~~ and **mixed _styles_**",
+        "font": "body"
+      }
     }
   ]
 }

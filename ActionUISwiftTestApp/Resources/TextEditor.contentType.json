@@ -1,0 +1,72 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12.0,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Content Type Demo",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "TextEditor",
+      "id": 1,
+      "properties": {
+        "markdown": "Tap a button below to set attributed content from RTF, HTML, or JSON runs.",
+        "readOnly": true,
+        "frame": { "height": 180.0 },
+        "border": { "color": "#80808060", "width": 1.0 }
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 8.0
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Set RTF",
+            "actionID": "text.contenttype.set.rtf"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Set HTML",
+            "actionID": "text.contenttype.set.html"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Set JSON",
+            "actionID": "text.contenttype.set.json"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Get as JSON",
+            "actionID": "text.contenttype.get.json"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "id": 2,
+      "properties": {
+        "text": "Active content type: —",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    }
+  ]
+}

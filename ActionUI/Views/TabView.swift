@@ -56,6 +56,8 @@ import SwiftUI
 
 struct TabView: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
 
     // Design decision: Defines valueType as Int to reflect selected tab index for type-safe state management
     static var valueType: Any.Type = Int.self
