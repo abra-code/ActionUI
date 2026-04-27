@@ -5,10 +5,12 @@
 # Usage:
 #   ./build_and_install.sh
 #   ./build_and_install.sh /path/to/frameworks   # custom frameworks output dir
+#   ./build_and_install.sh /path/to/frameworks Release
+#   ./build_and_install.sh /path/to/frameworks Debug
 #
 # What it does:
 #   1. Removes stale build/ and prebuilds/ directories
-#   2. Builds the ActionUIAppKitApplication scheme as Release universal
+#   2. Builds the ActionUIAppKitApplication scheme as Release (or Debug) universal
 #      (arm64 + x86_64), which also builds ActionUI and ActionUICAdapter
 #      as dependencies
 #   3. Runs prebuildify for arm64 and x64, producing:
@@ -22,7 +24,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# --- Determine frameworks output directory ---
+# --- Determine frameworks output directory and configuration ---
+CONFIG="${2:-Release}"
 if [ -n "${1:-}" ]; then
     FRAMEWORKS_DIR="$(mkdir -p "$1" && cd "$1" && pwd)"
 else
@@ -30,24 +33,30 @@ else
     mkdir -p "$FRAMEWORKS_DIR"
 fi
 
+# Prebuildify flag for debug builds
+PREBUILDIFY_CONFIG=""
+if [ "$CONFIG" = "Debug" ]; then
+    PREBUILDIFY_CONFIG="--debug"
+fi
+
 # --- Clean stale artifacts ---
 echo "Cleaning stale build artifacts..."
 rm -rf "$SCRIPT_DIR/build" "$SCRIPT_DIR/prebuilds"
 
 # --- Build frameworks with xcodebuild ---
-echo "Building ActionUIAppKitApplication Release universal (arm64 + x86_64)..."
+echo "Building ActionUIAppKitApplication $CONFIG universal (arm64 + x86_64)..."
 xcodebuild \
     -project "$PROJECT_DIR/ActionUI.xcodeproj" \
     -scheme ActionUIAppKitApplication \
     -destination 'platform=macOS' \
-    -configuration Release \
+    -configuration "$CONFIG" \
     BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
     ONLY_ACTIVE_ARCH=NO \
     SYMROOT="$FRAMEWORKS_DIR" \
     build 2>&1 | tail -3
 
-# xcodebuild places output under SYMROOT/Release/
-BUILT_DIR="$FRAMEWORKS_DIR/Release"
+# xcodebuild places output under SYMROOT/$CONFIG/
+BUILT_DIR="$FRAMEWORKS_DIR/$CONFIG"
 
 for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication; do
     if [ ! -d "$BUILT_DIR/${fw}.framework" ]; then
@@ -71,11 +80,11 @@ fi
 
 echo "Building prebuilt: arm64..."
 ACTIONUI_FRAMEWORKS_DIR="$BUILT_DIR" \
-    node_modules/.bin/prebuildify --napi --arch arm64 --strip
+    node_modules/.bin/prebuildify --napi --arch arm64 --strip $PREBUILDIFY_CONFIG
 
 echo "Building prebuilt: x64..."
 ACTIONUI_FRAMEWORKS_DIR="$BUILT_DIR" \
-    node_modules/.bin/prebuildify --napi --arch x64 --strip
+    node_modules/.bin/prebuildify --napi --arch x64 --strip $PREBUILDIFY_CONFIG
 
 echo ""
 echo "Prebuilt binaries:"
