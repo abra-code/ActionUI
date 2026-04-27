@@ -219,8 +219,10 @@ class Application {
         this._defaultHandler = null;
         this._windows        = new Map();   // uuid → Window
 
-        if (name != null) _actionui.appSetName(name);
-
+        if (name != null) {
+        	_actionui.appSetName(name);
+		}
+		
         if (icon != null) {
             _actionui.appSetIcon(path.resolve(icon));
         } else {

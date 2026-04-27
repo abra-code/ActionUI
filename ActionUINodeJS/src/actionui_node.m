@@ -14,26 +14,51 @@
  * The code itself is plain C — only the compilation mode is ObjC.
  *
  * Threading model:
- *   appRun() blocks the Node.js main thread inside [NSApp run].
- *   AppKit/Swift callbacks are dispatched on the main thread (@MainActor).
- *   Since that is the same thread V8 ran on, napi_call_function is safe
- *   inside callbacks — no napi_threadsafe_function needed.
- *   JS callbacks are stored as napi_ref (strong GC roots).
+ *   appRun() installs a CFRunLoopObserver, a CFRunLoopTimer, on the main CFRunLoop,
+ *   then calls actionUIAppRun() which blocks in [NSApp run].
+ *   The observer pumps libuv (uv_run NOWAIT) before every source pass and
+ *   before every sleep, arming the timer when libuv has a future deadline.
+ *   AppKit/Swift callbacks are dispatched on the main thread (@MainActor),
+ *   which is still V8's owning thread, so no napi_threadsafe_function is
+ *   needed.  JS lifecycle callbacks are invoked with napi_make_callback
+ *   (≡ node::MakeCallback) with a proper napi_async_context so that
+ *   process.nextTick and Promise microtask queues are drained on close.
  */
 
 #include <node_api.h>
+#include <uv.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 
+#import <CoreFoundation/CoreFoundation.h>
+#import <ApplicationServices/ApplicationServices.h>
 #import <ActionUICAdapter/ActionUICAdapter-Swift.h>
 #import <ActionUIAppKitApplication/ActionUIAppKitApplication-Swift.h>
+
+
+#define ACTIONUI_DIAGNOSTIC 0
+
+/* Verbosity level for [actionui:diag] logging:
+ *   0 = off
+ *   1 = errors only
+ *   2 = + detailed diagnostics */
+#ifndef ACTIONUI_LOG_LEVEL
+	#define ACTIONUI_LOG_LEVEL 1
+#endif
+
+#if ACTIONUI_LOG_LEVEL >= 2
+#define DIAGNOSTIC_LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define DIAGNOSTIC_LOG(...) ((void)0)
+#endif
 
 // MARK: - Addon State
 
 typedef struct {
-    napi_env env;
-    napi_ref logger_callback;
+    napi_env     env;
+    uv_loop_t*   uv_loop;
+    napi_ref     logger_callback;
     napi_ref action_handlers;       // JS plain object: actionID -> Function
     napi_ref default_handler;
     // App lifecycle
@@ -47,6 +72,13 @@ typedef struct {
     napi_ref app_should_terminate;
     napi_ref app_window_will_close;
     napi_ref app_window_will_present;
+    napi_async_context async_ctx;   /* proper scope for nextTick/microtask drain */
+#if ACTIONUI_DIAGNOSTIC
+    napi_ref drain_fn_ref;          /* no-op JS fn called after each uv_run(NOWAIT) */
+    napi_ref diag_nexttick_ref;     /* process.nextTick — for sentinel probe */
+    napi_ref diag_sentinel_ref;     /* C fn queued as nextTick inside noop to test drain */
+#endif
+    napi_ref process_tick_ref;      /* _tickCallback */
 } ActionUIAddonState;
 
 static ActionUIAddonState* g_state = NULL;
@@ -71,7 +103,18 @@ static void addon_state_finalizer(napi_env env, void* data, void* hint) {
     DELETE_REF(app_should_terminate)
     DELETE_REF(app_window_will_close)
     DELETE_REF(app_window_will_present)
+#if ACTIONUI_DIAGNOSTIC
+    DELETE_REF(drain_fn_ref)
+    DELETE_REF(diag_nexttick_ref)
+    DELETE_REF(diag_sentinel_ref)
+#endif
+    DELETE_REF(process_tick_ref)
 #undef DELETE_REF
+
+    if (state->async_ctx != NULL) {
+        napi_async_destroy(env, state->async_ctx);
+        state->async_ctx = NULL;
+    }
 
     free(state);
     g_state = NULL;
@@ -79,7 +122,15 @@ static void addon_state_finalizer(napi_env env, void* data, void* hint) {
 
 // MARK: - Callback helpers
 
-/* Call a no-arg JS callback stored as a napi_ref. */
+/* Call a no-arg JS callback stored as a napi_ref.
+ *
+ * napi_make_callback (≡ node::MakeCallback) is used instead of
+ * napi_call_function so that the process.nextTick and Promise microtask
+ * queues are drained before this function returns.  This matters because
+ * async APIs like fetch() / undici schedule their internal TCP connection
+ * setup via process.nextTick; if that queue is not drained immediately,
+ * no libuv handles are registered yet and uv_run(NOWAIT) has nothing to
+ * poll — the I/O never completes. */
 static void call_void_callback(napi_ref ref) {
     if (ref == NULL || g_state == NULL) return;
     napi_env env = g_state->env;
@@ -90,7 +141,9 @@ static void call_void_callback(napi_ref ref) {
     if (napi_get_reference_value(env, ref, &fn) == napi_ok) {
         napi_value global, result;
         napi_get_global(env, &global);
-        napi_call_function(env, global, fn, 0, NULL, &result);
+        __unused napi_status s = napi_make_callback(env, g_state->async_ctx, global, fn, 0, NULL, &result);
+        DIAGNOSTIC_LOG("[actionui:diag] call_void_callback: make_callback status=%d async_ctx=%p\n",
+                (int)s, (void*)g_state->async_ctx);
     }
 
     napi_close_handle_scope(env, scope);
@@ -108,7 +161,7 @@ static void call_string_callback(napi_ref ref, const char* str) {
         napi_value global, result, arg;
         napi_get_global(env, &global);
         napi_create_string_utf8(env, str ? str : "", NAPI_AUTO_LENGTH, &arg);
-        napi_call_function(env, global, fn, 1, &arg, &result);
+        napi_make_callback(env, g_state->async_ctx, global, fn, 1, &arg, &result);
     }
 
     napi_close_handle_scope(env, scope);
@@ -948,6 +1001,255 @@ static napi_value node_load_hosting_controller(napi_env env, napi_callback_info 
     return result;
 }
 
+// MARK: - CFRunLoop / libuv Integration
+//
+// [NSApp run] blocks the main thread inside CFRunLoop.  We install:
+//   1. A CFRunLoopObserver — pumps libuv before every source pass and before
+//      every sleep; arms the timer when libuv has a future timer deadline.
+//   2. A one-shot CFRunLoopTimer — fires at libuv's next timer deadline.
+//
+// Microtask / nextTick drain (Fix for the "5 s stall"):
+//   uv_run(NOWAIT) runs libuv callbacks but provides no InternalCallbackScope,
+//   so process.nextTick and Promise microtasks queued inside those callbacks
+//   (e.g. undici's TCP connect scheduled via nextTick) stagnate until the
+//   next callback that happens to open a scope.  After every uv_run we call
+//   a pre-stored no-op JS function through napi_make_callback; closing that
+//   scope drains both queues — the same drain Node.js's SpinEventLoop
+//   normally provides.  Wrapping uv_run itself in napi_open_callback_scope
+//   is NOT safe: libuv callbacks call napi_make_callback internally, which
+//   creates nested scopes that trigger assertions in Node.js internals.
+//   A NULL async_context in napi_make_callback produces a trivial scope that
+//   may skip the drain, so a real napi_async_context is required.
+//
+// uv_backend_timeout() returns:
+//   0   → work ready now → prevent CFRunLoop from sleeping
+//   N>0 → next timer in N ms → arm CFRunLoopTimer to that deadline
+//   -1  → active I/O handles, no timer → uv_backend_fd kqueue source wakes us
+
+static CFRunLoopObserverRef s_cf_observer = NULL;
+static CFRunLoopTimerRef    s_cf_timer    = NULL;
+/* Note: kqueue code disabled */
+#if KQUEUE_ENABLED
+static CFFileDescriptorRef  s_kq_fdref    = NULL;
+static CFRunLoopSourceRef   s_kq_src      = NULL;
+#endif // KQUEUE_ENABLED
+
+/* Queued via process.nextTick from inside noop_callback.
+ * If this fires before napi_make_callback returns to C, the drain works. */
+#if ACTIONUI_DIAGNOSTIC
+static napi_value diag_sentinel(napi_env env, napi_callback_info info) {
+    static uint32_t s_sentinel_count = 0;
+    DIAGNOSTIC_LOG("[actionui:diag] sentinel nextTick #%u RAN — tick drain IS working\n",
+            ++s_sentinel_count);
+    napi_value u; napi_get_undefined(env, &u); return u;
+}
+
+static napi_value noop_callback(napi_env env, napi_callback_info info) {
+    static uint32_t s_noop_count = 0;
+    uint32_t n = ++s_noop_count;
+    if (n <= 5 && g_state &&
+        g_state->diag_nexttick_ref != NULL && g_state->diag_sentinel_ref != NULL) {
+        napi_value nexttick, sentinel, global, result;
+        napi_get_reference_value(env, g_state->diag_nexttick_ref, &nexttick);
+        napi_get_reference_value(env, g_state->diag_sentinel_ref, &sentinel);
+        napi_get_global(env, &global);
+        napi_call_function(env, global, nexttick, 1, &sentinel, &result);
+        DIAGNOSTIC_LOG("[actionui:diag] noop#%u: queued sentinel via process.nextTick\n", n);
+    }
+
+    napi_value undefined;
+    napi_get_undefined(env, &undefined);
+    return undefined;
+}
+#endif // ACTIONUI_DIAGNOSTIC
+
+/* Pump one libuv iteration then drain nextTick + microtask queues. */
+static void uv_cf_pump(void) {
+    if (g_state == NULL || g_state->uv_loop == NULL) return;
+
+    int alive   = uv_loop_alive(g_state->uv_loop);
+    int timeout = uv_backend_timeout(g_state->uv_loop);
+    (void)alive; (void)timeout;  /* reserved for future debugging */
+
+    uv_run(g_state->uv_loop, UV_RUN_NOWAIT);
+
+    napi_env env = g_state->env;
+    bool has_exception = false;
+    napi_is_exception_pending(env, &has_exception);
+    if (has_exception) {
+        return;
+    }
+
+    napi_handle_scope hs;
+    if (napi_open_handle_scope(env, &hs) != napi_ok) {
+        return;
+    }
+
+    napi_value global;
+    napi_get_global(env, &global);
+
+    /* This is critical: call _tickCallback directly via napi_call_function. */
+    if (g_state->process_tick_ref != NULL) {
+        napi_value ptick, result;
+        napi_status s = napi_get_reference_value(env, g_state->process_tick_ref, &ptick);
+        if (s == napi_ok) {
+            napi_call_function(env, global, ptick, 0, NULL, &result);
+            bool exc = false;
+            napi_is_exception_pending(env, &exc);
+            if (exc) {
+                napi_value _ignored;
+                napi_get_and_clear_last_exception(env, &_ignored);
+            }
+        }
+    }
+
+#if ACTIONUI_DIAGNOSTIC
+    /* napi_make_callback with a no-op JS function to trigger drain. */
+    if (g_state->drain_fn_ref != NULL) {
+        napi_value fn, result;
+        if (napi_get_reference_value(env, g_state->drain_fn_ref, &fn) == napi_ok) {
+            napi_make_callback(env, g_state->async_ctx, global, fn, 0, NULL, &result);
+        }
+    }
+#endif // ACTIONUI_DIAGNOSTIC
+
+    napi_close_handle_scope(env, hs);
+}
+
+static void uv_cf_timer_cb(CFRunLoopTimerRef timer, void* info) {
+    uv_cf_pump();
+    /* Disarm: the kCFRunLoopBeforeWaiting observer will re-arm as needed. */
+    if (timer != NULL) {
+        CFRunLoopTimerSetNextFireDate(timer, CFAbsoluteTimeGetCurrent() + 1e10);
+    }
+}
+
+/* kqueue source callback: fires when libuv's backend fd is readable (I/O ready). */
+#if KQUEUE_ENABLED
+static void uv_kq_callback(CFFileDescriptorRef fdref,
+                           CFOptionFlags       callbackTypes,
+                           void*               info) {
+   uv_cf_pump();
+   /* Re-arm so CFRunLoop keeps watching for the next I/O readiness event.
+    * CFFileDescriptor callbacks are one-shot and must be re-enabled. */
+   CFFileDescriptorEnableCallBacks(fdref, kCFFileDescriptorReadCallBack);
+}
+#endif // KQUEUE_ENABLED
+
+static void uv_cf_observer_cb(CFRunLoopObserverRef obs,
+                               CFRunLoopActivity   activity,
+                               void*               info) {
+    uv_cf_pump();
+    if (g_state == NULL || g_state->uv_loop == NULL) return;
+    if (activity != kCFRunLoopBeforeWaiting) return;
+
+    int timeout_ms = uv_backend_timeout(g_state->uv_loop);
+    if (timeout_ms == 0) {
+        /* libuv has more work ready; prevent CFRunLoop from sleeping. */
+        CFRunLoopWakeUp(CFRunLoopGetMain());
+    } else if (timeout_ms > 0 && s_cf_timer != NULL) {
+        double secs = timeout_ms / 1000.0;
+        if (secs > 0.5) secs = 0.5;  /* cap: stay responsive to AppKit events */
+        CFRunLoopTimerSetNextFireDate(s_cf_timer,
+                                      CFAbsoluteTimeGetCurrent() + secs);
+    }
+    /* timeout_ms == -1: active I/O handles, no timer deadline.
+     * The observer fires on BeforeSources/AfterWaiting which is sufficient. */
+}
+
+static void uv_cf_setup(uv_loop_t* loop) {
+    /* CFRunLoopObserver: pumps libuv before sources, before waiting, and after waiting.
+     * This is sufficient to keep Node.js async work running interleaved with AppKit. */
+    CFRunLoopObserverContext obs_ctx = { 0, NULL, NULL, NULL, NULL };
+    s_cf_observer = CFRunLoopObserverCreate(
+        kCFAllocatorDefault,
+        kCFRunLoopBeforeSources | kCFRunLoopBeforeWaiting | kCFRunLoopAfterWaiting,
+        true,  /* repeats */
+        0,     /* order */
+        uv_cf_observer_cb, &obs_ctx);
+    CFRunLoopAddObserver(CFRunLoopGetMain(), s_cf_observer, kCFRunLoopCommonModes);
+
+    /* CFRunLoopTimer: fires at libuv's next timer deadline to wake CFRunLoop
+     * when libuv has pending timers. */
+    CFRunLoopTimerContext timer_ctx = { 0, NULL, NULL, NULL, NULL };
+    s_cf_timer = CFRunLoopTimerCreate(
+        kCFAllocatorDefault,
+        CFAbsoluteTimeGetCurrent() + 1e10,  /* disarmed initially */
+        0,     /* interval=0: one-shot, re-armed manually */
+        0, 0,
+        uv_cf_timer_cb, &timer_ctx);
+    CFRunLoopAddTimer(CFRunLoopGetMain(), s_cf_timer, kCFRunLoopCommonModes);
+
+    /* DISABLED: kqueue source for immediate I/O wakeup.
+     *
+     * Wrapping uv_backend_fd() (libuv's kqueue fd on macOS) as a
+     * CFFileDescriptor source was supposed to wake CFRunLoop immediately
+     * when any I/O is ready, replacing the ~50ms polling interval.
+     *
+     * HOWEVER, this causes spurious re-entrant uv_cf_pump() calls that
+     * interfere with AppKit's normal event delivery, specifically:
+     *   - TextField: pressing Return clears the text field
+     *   - Other text controls may exhibit similar glitches
+     *
+     * The problem is the kqueue callback fires on ANY kqueue activity,
+     * including internal libuv state changes, not just real I/O readiness.
+     * This causes uv_cf_pump() to run mid-delivery of AppKit events,
+     * corrupting the responder chain.
+     *
+     * The observer + timer combination is sufficient:
+     *   - Observer fires on BeforeSources/AfterWaiting, draining libuv regularly
+     *   - Timer wakes CFRunLoop when libuv has a pending timer deadline
+     *   - I/O completion is handled by libuv timers anyway (network, etc.)
+     *
+     * If you reinstate this, expect text edit fields to misbehave.
+     */
+
+#if KQUEUE_ENABLED
+    if (loop != NULL) {
+        int backend_fd = uv_backend_fd(loop);
+        fprintf(stderr, "[actionui:diag] uv_backend_fd=%d — kqueue source %s\n",
+                backend_fd, backend_fd >= 0 ? "WILL be installed" : "NOT available");
+        if (backend_fd >= 0) {
+            CFFileDescriptorContext kq_ctx = { 0, NULL, NULL, NULL, NULL };
+            s_kq_fdref = CFFileDescriptorCreate(
+                kCFAllocatorDefault, backend_fd, false, uv_kq_callback, &kq_ctx);
+            CFFileDescriptorEnableCallBacks(s_kq_fdref, kCFFileDescriptorReadCallBack);
+            s_kq_src = CFFileDescriptorCreateRunLoopSource(kCFAllocatorDefault, s_kq_fdref, 0);
+            CFRunLoopAddSource(CFRunLoopGetMain(), s_kq_src, kCFRunLoopCommonModes);
+        }
+    }
+#endif // KQUEUE_ENABLED
+}
+
+static void uv_cf_teardown(void) {
+
+#if KQUEUE_ENABLED
+    if (s_kq_src != NULL) {
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), s_kq_src, kCFRunLoopCommonModes);
+        CFRelease(s_kq_src);
+        s_kq_src = NULL;
+    }
+    if (s_kq_fdref != NULL) {
+        CFFileDescriptorInvalidate(s_kq_fdref);
+        CFRelease(s_kq_fdref);
+        s_kq_fdref = NULL;
+    }
+#endif // KQUEUE_ENABLED
+
+    if (s_cf_observer != NULL) {
+        CFRunLoopRemoveObserver(CFRunLoopGetMain(), s_cf_observer, kCFRunLoopCommonModes);
+        CFRelease(s_cf_observer);
+        s_cf_observer = NULL;
+    }
+    if (s_cf_timer != NULL) {
+        CFRunLoopRemoveTimer(CFRunLoopGetMain(), s_cf_timer, kCFRunLoopCommonModes);
+        CFRelease(s_cf_timer);
+        s_cf_timer = NULL;
+    }
+
+    if (g_state != NULL) g_state->uv_loop = NULL;
+}
+
 // MARK: - N-API: App Control
 
 static napi_value node_app_set_name(napi_env env, napi_callback_info info) {
@@ -969,8 +1271,12 @@ static napi_value node_app_set_icon(napi_env env, napi_callback_info info) {
 }
 
 static napi_value node_app_run(napi_env env, napi_callback_info info) {
-    /* Blocks main thread; AppKit run loop takes over. */
-    actionUIAppRun();
+    uv_loop_t* loop = NULL;
+    napi_get_uv_event_loop(env, &loop);
+    g_state->uv_loop = loop;
+    uv_cf_setup(loop);
+    actionUIAppRun();   /* blocks until NSApp terminates */
+    uv_cf_teardown();
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
@@ -1108,6 +1414,53 @@ static napi_value Init(napi_env env, napi_value exports) {
 
     napi_set_instance_data(env, state, addon_state_finalizer, NULL);
     if (g_state == NULL) g_state = state;
+
+    /* Async context for napi_make_callback — a proper context (not NULL)
+     * ensures Node.js creates a real InternalCallbackScope that drains
+     * process.nextTick and Promise microtask queues on close. */
+    napi_value async_resource, async_resource_name;
+    napi_create_object(env, &async_resource);
+    napi_create_string_utf8(env, "actionui:pump", NAPI_AUTO_LENGTH, &async_resource_name);
+    __unused napi_status ainit_status = napi_async_init(env, async_resource, async_resource_name, &state->async_ctx);
+    DIAGNOSTIC_LOG("[actionui:diag] napi_async_init status=%d async_ctx=%p\n",
+            (int)ainit_status, (void*)state->async_ctx);
+
+    /* No-op JS function invoked after each uv_run(NOWAIT) to trigger drain. */
+#if ACTIONUI_DIAGNOSTIC
+    napi_value drain_fn;
+    napi_create_function(env, "drain", NAPI_AUTO_LENGTH, noop_callback, NULL, &drain_fn);
+    napi_status dref_status = napi_create_reference(env, drain_fn, 1, &state->drain_fn_ref);
+    DIAGNOSTIC_LOG("[actionui:diag] drain_fn_ref=%p status=%d\n",
+            (void*)state->drain_fn_ref, (int)dref_status);
+#endif // ACTIONUI_DIAGNOSTIC
+
+    /* Diagnostic: store process.nextTick + sentinel fn so noop_callback can
+     * queue a sentinel nextTick and detect whether the drain actually runs it. */
+
+	napi_value global_val, process_val;
+    napi_get_global(env, &global_val);
+    napi_get_named_property(env, global_val, "process", &process_val);
+    
+#if ACTIONUI_DIAGNOSTIC
+    napi_value nexttick_val, sentinel_fn;
+    napi_get_named_property(env, process_val, "nextTick", &nexttick_val);
+    napi_create_reference(env, nexttick_val, 1, &state->diag_nexttick_ref);
+    napi_create_function(env, "sentinel", NAPI_AUTO_LENGTH, diag_sentinel, NULL, &sentinel_fn);
+    napi_create_reference(env, sentinel_fn, 1, &state->diag_sentinel_ref);
+#endif // ACTIONUI_DIAGNOSTIC
+
+    /* Setup process._tickCallback. This is key for functional uv runloop. 
+     * In Node.js 19+ this is the working tick drain mechanism. */
+    if (state->process_tick_ref == NULL) {
+        napi_value ptick;
+        napi_valuetype ptick_type;
+        if (napi_get_named_property(env, process_val, "_tickCallback", &ptick) == napi_ok) {
+            napi_typeof(env, ptick, &ptick_type);
+            if (ptick_type == napi_function) {
+                napi_create_reference(env, ptick, 1, &state->process_tick_ref);
+            }
+        }
+    }
 
     /* Version */
     EXPORT_FN(exports, "getVersion",               node_get_version);
