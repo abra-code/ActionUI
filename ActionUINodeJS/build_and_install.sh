@@ -53,19 +53,19 @@ xcodebuild \
     BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
     ONLY_ACTIVE_ARCH=NO \
     SYMROOT="$FRAMEWORKS_DIR" \
+    BUILT_PRODUCTS_DIR="$FRAMEWORKS_DIR/$CONFIG" \
     build 2>&1 | tail -3
 
-# xcodebuild places output under SYMROOT/$CONFIG/
-BUILT_DIR="$FRAMEWORKS_DIR/$CONFIG"
-
 for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication; do
-    if [ ! -d "$BUILT_DIR/${fw}.framework" ]; then
-        echo "Error: ${fw}.framework not found in $BUILT_DIR" >&2
+    if [ ! -d "$FRAMEWORKS_DIR/$CONFIG/${fw}.framework" ]; then
+        echo "Error: ${fw}.framework not found in $FRAMEWORKS_DIR/$CONFIG" >&2
         exit 1
     fi
 done
 
-echo "Frameworks directory: $BUILT_DIR"
+echo "Frameworks directory: $FRAMEWORKS_DIR/$CONFIG"
+
+export ACTIONUI_FRAMEWORKS_DIR="$FRAMEWORKS_DIR/$CONFIG"
 
 # --- Ensure devDependencies (prebuildify) are installed ---
 cd "$SCRIPT_DIR"
@@ -79,11 +79,9 @@ fi
 # pulls the correct slice for each target architecture.
 
 echo "Building prebuilt: arm64..."
-ACTIONUI_FRAMEWORKS_DIR="$BUILT_DIR" \
     node_modules/.bin/prebuildify --napi --arch arm64 --strip $PREBUILDIFY_CONFIG
 
 echo "Building prebuilt: x64..."
-ACTIONUI_FRAMEWORKS_DIR="$BUILT_DIR" \
     node_modules/.bin/prebuildify --napi --arch x64 --strip $PREBUILDIFY_CONFIG
 
 echo ""

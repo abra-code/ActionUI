@@ -5,7 +5,7 @@
     "conditions": [
       ["OS=='mac'", {
         "variables": {
-          "fw_dir": "<!(node -e \"process.stdout.write(process.env.ACTIONUI_FRAMEWORKS_DIR || 'frameworks')\")"
+          "fw_dir": "<!(node -p \"process.env.ACTIONUI_FRAMEWORKS_DIR || require('path').resolve('frameworks', 'Release')\")"
         },
         "xcode_settings": {
           "MACOSX_DEPLOYMENT_TARGET": "14.6",
