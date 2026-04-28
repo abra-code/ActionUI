@@ -8,6 +8,7 @@
      "padding": 10.0,      // Optional: Double for padding around the view, string "default" or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
      "hidden": false,      // Optional: Boolean to hide the view
      "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
+     "tint": "red",        // Optional: SwiftUI color for tinting interactive controls (buttons, toggles, sliders, etc.), resolved via tint
      "font": "body",       // Optional: String for named text style (e.g., "title", "body") or font name (e.g., "Menlo"),
                            //   or dictionary: { "name": "Menlo", "size": 12, "weight": "bold", "design": "monospaced" }
                            //   "name" (String, optional): font family name; omit for system font
@@ -274,6 +275,12 @@ struct View: ActionUIViewConstruction {
         if let foregroundStyle = properties["foregroundStyle"], !(foregroundStyle is String) {
             logger.log("Invalid type for foregroundStyle: expected String, got \(type(of: foregroundStyle)), ignoring", .warning)
             validatedProperties["foregroundStyle"] = nil
+        }
+        
+        // Validate tint
+        if let tint = properties["tint"], !(tint is String) {
+            logger.log("Invalid type for tint: expected String, got \(type(of: tint)), ignoring", .warning)
+            validatedProperties["tint"] = nil
         }
         
         // Validate font (String or Dictionary)
@@ -972,6 +979,11 @@ struct View: ActionUIViewConstruction {
         // Use foregroundStyle with resolveShapeStyle
         if let foregroundStyle = properties["foregroundStyle"] as? String, let style = ColorHelper.resolveShapeStyle(foregroundStyle) {
             modifiedView = modifiedView.foregroundStyle(style)
+        }
+        
+        // Use tint with resolveShapeStyle
+        if let tint = properties["tint"] as? String, let style = ColorHelper.resolveShapeStyle(tint) {
+            modifiedView = modifiedView.tint(style)
         }
         
         if let disabled = properties["disabled"] as? Bool {

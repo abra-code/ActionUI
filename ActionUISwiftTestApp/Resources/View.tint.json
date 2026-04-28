@@ -1,0 +1,138 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 24.0,
+    "padding": 20.0
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "tint Modifier",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Colors interactive controls (buttons, toggles, sliders) differently from foregroundStyle",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 12.0,
+        "padding": 16.0,
+        "background": "gray.opacity(0.1)",
+        "cornerRadius": 12.0
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Default tint",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Button",
+          "id": 101,
+          "properties": {
+            "title": "Plain Button",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "tint: blue",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Button",
+          "id": 102,
+          "properties": {
+            "title": "Blue Tinted",
+            "buttonStyle": "bordered",
+            "tint": "blue"
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "tint: purple",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Button",
+          "id": 103,
+          "properties": {
+            "title": "Purple Tinted",
+            "buttonStyle": "borderedProminent",
+            "tint": "purple"
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "tint: green (with Toggle)",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "HStack",
+          "properties": {
+            "spacing": 12.0
+          },
+          "children": [
+            {
+              "type": "Toggle",
+              "id": 104,
+              "properties": {
+                "label": "Enabled",
+                "tint": "green"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "tint: orange (with Slider)",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Slider",
+          "id": 105,
+          "properties": {
+            "min": 0.0,
+            "max": 100.0,
+            "tint": "orange"
+          }
+        }
+      ]
+    }
+  ]
+}

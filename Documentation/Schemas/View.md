@@ -12,6 +12,7 @@ JSON schema and usage documentation for `View`.
      "padding": 10.0,      // Optional: Double for padding around the view, string "default" or EdgeInsets dictionary {"top": 10, "bottom": 10, "leading": 5, "trailing": 5}
      "hidden": false,      // Optional: Boolean to hide the view
      "foregroundStyle": "blue", // Optional: SwiftUI color (e.g., "red", "blue") or semantic style for text/content tint, resolved via foregroundStyle
+     "tint": "red",        // Optional: SwiftUI color for tinting interactive controls (buttons, toggles, sliders, etc.), resolved via tint
      "font": "body",       // Optional: String for named text style (e.g., "title", "body") or font name (e.g., "Menlo"),
                            //   or dictionary: { "name": "Menlo", "size": 12, "weight": "bold", "design": "monospaced" }
                            //   "name" (String, optional): font family name; omit for system font
