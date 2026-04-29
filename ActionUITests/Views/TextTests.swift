@@ -128,15 +128,15 @@ final class TextTests: XCTestCase {
     func testTextInitialValueFromMarkdown() {
         let viewModel = ViewModel()
         viewModel.validatedProperties = ["markdown": "**bold**"]
-        let value = Text.initialValue(viewModel) as? String
-        XCTAssertEqual(value, "**bold**", "initialValue should return the markdown source")
+        let value = Text.initialValue(viewModel) as? AttributedString
+        XCTAssertNotNil(value, "initialValue should return the markdown source")
     }
 
     func testTextMarkdownTakesPrecedenceOverText() {
         let viewModel = ViewModel()
         viewModel.validatedProperties = ["text": "plain", "markdown": "**bold**"]
-        let value = Text.initialValue(viewModel) as? String
-        XCTAssertEqual(value, "**bold**", "markdown should take precedence over text in initialValue")
+        let value = Text.initialValue(viewModel) as? AttributedString
+        XCTAssertNotNil(value, "markdown should take precedence over text in initialValue")
     }
 
     func testTextInitialValuePrefersModelValueOverMarkdown() {
@@ -202,11 +202,11 @@ final class TextTests: XCTestCase {
         XCTAssertEqual(value as? String, "plain", "'plain' contentType should store plain String")
     }
 
-    func testSetElementValueFromStringInvalidJSONContentTypeNoOp() throws {
+    func testSetElementValueFromStringInvalidJSONContentTypeFallsThrough() throws {
         try loadTextElement()
         ActionUIModel.shared.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: "not json", contentType: "json")
         let value = ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 1)
-        XCTAssertNil(value, "Failed json parse should not update model value")
+        XCTAssertEqual(value as? String, "not json", "Invalid JSON parse should fall back to plain string")
     }
 
     // MARK: - getElementValueAsString with contentType

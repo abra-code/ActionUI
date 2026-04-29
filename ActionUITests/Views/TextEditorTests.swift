@@ -254,11 +254,11 @@ final class TextEditorTests: XCTestCase {
         XCTAssertEqual(value as? String, "plain", "'plain' contentType should store plain String in TextEditor")
     }
 
-    func testSetElementValueFromStringInvalidJSONContentTypeNoOp() throws {
+    func testSetElementValueFromStringInvalidJSONContentTypeFallsThrough() throws {
         try loadTextEditorElement()
         ActionUIModel.shared.setElementValueFromString(windowUUID: windowUUID, viewID: 1, value: "not json", contentType: "json")
         let value = ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 1)
-        XCTAssertNil(value, "Failed json parse should not update TextEditor model value")
+        XCTAssertEqual(value as? String, "not json", "Invalid JSON parse should fall back to plain string")
     }
 
     // MARK: - getElementValueAsString with contentType
