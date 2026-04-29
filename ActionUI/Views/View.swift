@@ -122,8 +122,10 @@
      "textSelection": "enabled",            // Optional: "enabled" or "disabled". Controls whether the user can select text in this view.
                                             // SwiftUI does not enable text selection by default; set "enabled" to allow it.
                                             // Applies to Text and any container holding Text views.
-   }
- }
+      "zIndex": 0.0,                        // Optional: Number for layer ordering within a container (e.g. ZStack)
+                                            // Higher values render in front of lower values. Defaults to 0.0.
+    }
+  }
 
  NOTE:
  Supported semantic styles for foregroundStyle/background:
@@ -947,6 +949,14 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate zIndex
+        if let zIndex = properties["zIndex"] {
+            if properties.double(forKey: "zIndex") == nil {
+                logger.log("Invalid type for zIndex: expected numeric, got \(type(of: zIndex)), ignoring", .warning)
+                validatedProperties["zIndex"] = nil
+            }
+        }
+
         return validatedProperties
     }
 
@@ -1092,6 +1102,10 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.scaleEffect(x: x, y: y, anchor: anchor)
         } else if let scale = properties.cgFloat(forKey: "scaleEffect") {
             modifiedView = modifiedView.scaleEffect(scale)
+        }
+
+        if let zIndex = properties.double(forKey: "zIndex") {
+            modifiedView = modifiedView.zIndex(zIndex)
         }
 
         if let border = properties["border"] as? [String: Any] {

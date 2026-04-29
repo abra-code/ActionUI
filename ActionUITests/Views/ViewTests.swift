@@ -1068,6 +1068,21 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["scaleEffect"])
     }
 
+    func testValidatePropertiesZIndexValid() throws {
+        let validated = View.validateProperties(["zIndex": 5.0], logger)
+        XCTAssertEqual(validated.double(forKey: "zIndex"), 5.0)
+    }
+
+    func testValidatePropertiesZIndexNegative() throws {
+        let validated = View.validateProperties(["zIndex": -10.0], logger)
+        XCTAssertEqual(validated.double(forKey: "zIndex"), -10.0)
+    }
+
+    func testValidatePropertiesZIndexInvalidType() throws {
+        let validated = View.validateProperties(["zIndex": "first"], logger)
+        XCTAssertNil(validated["zIndex"])
+    }
+
     func testValidatePropertiesScaleEffectDictInvalidX() throws {
         let validated = View.validateProperties(["scaleEffect": ["x": "bad", "y": 1.0]], logger)
         XCTAssertNil(validated["scaleEffect"])

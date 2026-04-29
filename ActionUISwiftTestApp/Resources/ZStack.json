@@ -51,6 +51,52 @@
           }
         }
       ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "zIndex Overrides Array Order"
+      }
+    },
+    {
+      "type": "ZStack",
+      "properties": {
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "Capsule",
+          "properties": {
+            "fill": "green",
+            "zIndex": 2.0,
+            "frame": {
+              "width": 60.0,
+              "height": 40.0
+            }
+          }
+        },
+        {
+          "type": "Circle",
+          "properties": {
+            "fill": "red",
+            "zIndex": 1.0,
+            "frame": {
+              "width": 80.0,
+              "height": 80.0
+            }
+          }
+        },
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "blue",
+            "frame": {
+              "width": 100.0,
+              "height": 100.0
+            }
+          }
+        }
+      ]
     }
   ]
 }
