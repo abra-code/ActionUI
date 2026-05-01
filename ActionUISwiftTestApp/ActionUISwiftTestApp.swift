@@ -591,6 +591,9 @@ struct ActionUISwiftTestApp: App {
             }
         }
         .handlesExternalEvents(matching: ["ActionUIContent-*"])
+        .commands {
+            SidebarCommands()
+        }
         
         LoadableWindowGroup.load(
             fromResource: "DefaultWindow",
