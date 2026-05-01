@@ -1175,6 +1175,75 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["animation"])
     }
 
+    // MARK: - clipShape validation
+
+    func testValidatePropertiesClipShapeCircle() throws {
+        let validated = View.validateProperties(["clipShape": "circle"], logger)
+        XCTAssertEqual(validated["clipShape"] as? String, "circle")
+    }
+
+    func testValidatePropertiesClipShapeCapsule() throws {
+        let validated = View.validateProperties(["clipShape": "capsule"], logger)
+        XCTAssertEqual(validated["clipShape"] as? String, "capsule")
+    }
+
+    func testValidatePropertiesClipShapeEllipse() throws {
+        let validated = View.validateProperties(["clipShape": "ellipse"], logger)
+        XCTAssertEqual(validated["clipShape"] as? String, "ellipse")
+    }
+
+    func testValidatePropertiesClipShapeRectangle() throws {
+        let validated = View.validateProperties(["clipShape": "rectangle"], logger)
+        XCTAssertEqual(validated["clipShape"] as? String, "rectangle")
+    }
+
+    func testValidatePropertiesClipShapeInvalidString() throws {
+        let validated = View.validateProperties(["clipShape": "square"], logger)
+        XCTAssertNil(validated["clipShape"])
+    }
+
+    func testValidatePropertiesClipShapeRoundedRectangleUniform() throws {
+        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle", "cornerRadius": 12] as [String: Any]], logger)
+        if let shape = validated["clipShape"] as? [String: Any] {
+            XCTAssertEqual(shape["type"] as? String, "roundedRectangle")
+            XCTAssertEqual(shape.cgFloat(forKey: "cornerRadius"), 12.0)
+        } else {
+            XCTFail("clipShape should be a dictionary")
+        }
+    }
+
+    func testValidatePropertiesClipShapeRoundedRectanglePerAxis() throws {
+        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle", "cornerRadiusX": 20, "cornerRadiusY": 8] as [String: Any]], logger)
+        if let shape = validated["clipShape"] as? [String: Any] {
+            XCTAssertEqual(shape["type"] as? String, "roundedRectangle")
+            XCTAssertEqual(shape.cgFloat(forKey: "cornerRadiusX"), 20.0)
+            XCTAssertEqual(shape.cgFloat(forKey: "cornerRadiusY"), 8.0)
+        } else {
+            XCTFail("clipShape should be a dictionary")
+        }
+    }
+
+    func testValidatePropertiesClipShapeRoundedRectangleMissingRadius() throws {
+        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle"] as [String: Any]], logger)
+        XCTAssertNil(validated["clipShape"])
+    }
+
+    func testValidatePropertiesClipShapeRoundedRectanglePartialPerAxis() throws {
+        // cornerRadiusX without cornerRadiusY should be rejected
+        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle", "cornerRadiusX": 12] as [String: Any]], logger)
+        XCTAssertNil(validated["clipShape"])
+    }
+
+    func testValidatePropertiesClipShapeUnsupportedDictType() throws {
+        let validated = View.validateProperties(["clipShape": ["type": "star"] as [String: Any]], logger)
+        XCTAssertNil(validated["clipShape"])
+    }
+
+    func testValidatePropertiesClipShapeInvalidType() throws {
+        let validated = View.validateProperties(["clipShape": 12], logger)
+        XCTAssertNil(validated["clipShape"])
+    }
+
     func testTextSelectionEnabled() throws {
         let validated = View.validateProperties(["textSelection": "enabled"], logger)
         XCTAssertEqual(validated["textSelection"] as? String, "enabled")

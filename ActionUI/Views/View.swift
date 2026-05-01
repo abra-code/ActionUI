@@ -36,6 +36,13 @@
      },
      "opacity": 1.0,       // Optional: Double (0.0 to 1.0) for view transparency
      "cornerRadius": 5.0,  // Optional: Double for rounded corners
+     "clipShape": "circle",    // Optional: clip view to named shape: "circle" | "capsule" | "rectangle" | "ellipse"
+     "clipShape": {            // Optional: dict form for rounded rectangle
+       "type": "roundedRectangle",  // Required: only "roundedRectangle" supported in dict form
+       "cornerRadius": 12.0,        // Uniform corner radius — OR use per-axis form:
+       "cornerRadiusX": 12.0,       // Horizontal radius (used together with cornerRadiusY)
+       "cornerRadiusY": 8.0         // Vertical radius
+     },
      "rotationEffect": 45.0, // Optional: Double — rotation angle in degrees (positive = clockwise). Negative values rotate counter-clockwise.
      "scaleEffect": 1.5,   // Optional: Uniform scale factor (Double), or dictionary for non-uniform scaling:
      "scaleEffect": {      // Optional: Dictionary form for per-axis scaling
@@ -465,7 +472,35 @@ struct View: ActionUIViewConstruction {
                 validatedProperties["cornerRadius"] = nil
             }
         }
-        
+
+        // Validate clipShape — string (named shape) or dict (roundedRectangle with radius)
+        if let clipShape = properties["clipShape"] {
+            if let shapeName = clipShape as? String {
+                let validShapes = ["circle", "capsule", "rectangle", "ellipse"]
+                if !validShapes.contains(shapeName) {
+                    logger.log("Invalid clipShape '\(shapeName)'; expected one of \(validShapes) or a roundedRectangle dictionary, ignoring", .warning)
+                    validatedProperties["clipShape"] = nil
+                }
+            } else if let shapeDict = clipShape as? [String: Any] {
+                let shapeType = shapeDict["type"] as? String ?? ""
+                if shapeType == "roundedRectangle" {
+                    let hasUniform = shapeDict.cgFloat(forKey: "cornerRadius") != nil
+                    let hasPerAxis = shapeDict.cgFloat(forKey: "cornerRadiusX") != nil
+                                  && shapeDict.cgFloat(forKey: "cornerRadiusY") != nil
+                    if !hasUniform && !hasPerAxis {
+                        logger.log("clipShape roundedRectangle requires 'cornerRadius' or both 'cornerRadiusX' and 'cornerRadiusY', ignoring", .warning)
+                        validatedProperties["clipShape"] = nil
+                    }
+                } else {
+                    logger.log("Invalid clipShape type '\(shapeType)'; only 'roundedRectangle' is supported in dict form, ignoring", .warning)
+                    validatedProperties["clipShape"] = nil
+                }
+            } else {
+                logger.log("Invalid type for clipShape: expected String or dictionary, got \(type(of: clipShape)), ignoring", .warning)
+                validatedProperties["clipShape"] = nil
+            }
+        }
+
         // Validate actionID
         if let actionID = properties["actionID"], !(actionID is String) {
             logger.log("Invalid type for actionID: expected String, got \(type(of: actionID)), ignoring", .warning)
@@ -1020,6 +1055,30 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // cornerRadius and clipShape apply before frame so rounding clips the background fill,
+        // not the layout container — the canonical SwiftUI pattern for rounded-background views.
+        if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
+            modifiedView = modifiedView.cornerRadius(cornerRadius)
+        }
+
+        if let clipShape = properties["clipShape"] {
+            if let shapeName = clipShape as? String {
+                switch shapeName {
+                case "circle":   modifiedView = modifiedView.clipShape(SwiftUI.Circle())
+                case "capsule":  modifiedView = modifiedView.clipShape(SwiftUI.Capsule())
+                case "ellipse":  modifiedView = modifiedView.clipShape(SwiftUI.Ellipse())
+                default:         modifiedView = modifiedView.clipShape(SwiftUI.Rectangle()) // "rectangle"
+                }
+            } else if let shapeDict = clipShape as? [String: Any] {
+                if let radius = shapeDict.cgFloat(forKey: "cornerRadius") {
+                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerRadius: radius))
+                } else if let rx = shapeDict.cgFloat(forKey: "cornerRadiusX"),
+                          let ry = shapeDict.cgFloat(forKey: "cornerRadiusY") {
+                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerSize: CGSize(width: rx, height: ry)))
+                }
+            }
+        }
+
         if let frame = properties["frame"] as? [String: Any] {
             let alignment = (frame["alignment"] as? String).flatMap { alignmentString -> Alignment? in
                 switch alignmentString {
@@ -1077,10 +1136,6 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.opacity(opacity)
         }
         
-        if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
-            modifiedView = modifiedView.cornerRadius(cornerRadius)
-        }
-
         if let textSelection = properties["textSelection"] as? String {
             switch textSelection {
             case "enabled":

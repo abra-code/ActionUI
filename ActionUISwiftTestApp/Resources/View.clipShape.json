@@ -1,0 +1,86 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 24.0,
+      "padding": 20.0
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": { "text": "clipShape", "font": "title2" }
+      },
+
+      { "type": "Text", "properties": { "text": "clipShape: circle (Image)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Image",
+        "properties": {
+          "systemName": "photo.fill",
+          "foregroundStyle": "white",
+          "background": "gray",
+          "frame": { "width": 120.0, "height": 120.0 },
+          "scaleMode": "fill",
+          "clipShape": "circle"
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "clipShape: capsule (Text with background)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Capsule Label",
+          "foregroundStyle": "white",
+          "background": "orange",
+          "padding": { "top": 8, "bottom": 8, "leading": 16, "trailing": 16 },
+          "clipShape": "capsule"
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "clipShape: ellipse (Canvas)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Canvas",
+        "properties": {
+          "background": "pink",
+          "frame": { "width": 120.0, "height": 60.0 },
+          "clipShape": "ellipse"
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "clipShape: roundedRectangle cornerRadius:20 (Text bubble)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Rounded bubble",
+          "foregroundStyle": "white",
+          "background": "blue",
+          "padding": "default",
+          "clipShape": { "type": "roundedRectangle", "cornerRadius": 20 },
+          "frame": { "maxWidth": 220 }
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "clipShape: roundedRectangle per-axis (cornerRadiusX:24 cornerRadiusY:8)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Asymmetric corners",
+          "foregroundStyle": "white",
+          "background": "purple",
+          "padding": "default",
+          "clipShape": { "type": "roundedRectangle", "cornerRadiusX": 24, "cornerRadiusY": 8 }
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "clipShape: rectangle (Canvas)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Canvas",
+        "properties": {
+          "background": "green",
+          "frame": { "width": 80.0, "height": 80.0 },
+          "clipShape": "rectangle"
+        }
+      }
+    ]
+  }
+}

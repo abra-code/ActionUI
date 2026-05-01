@@ -1,0 +1,63 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 24.0,
+      "padding": 20.0
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": { "text": "cornerRadius", "font": "title2" }
+      },
+
+      { "type": "Text", "properties": { "text": "cornerRadius on Rectangle", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Rectangle",
+        "properties": {
+          "foregroundStyle": "indigo",
+          "frame": { "width": 120.0, "height": 60.0 },
+          "cornerRadius": 16.0
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "cornerRadius on Canvas (background + shadow)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Canvas",
+        "properties": {
+          "background": "yellow",
+          "frame": { "width": 120.0, "height": 60.0 },
+          "cornerRadius": 12.0,
+          "shadow": { "radius": 4.0, "x": 0.0, "y": 2.0 }
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "cornerRadius on Text with background", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Tag",
+          "foregroundStyle": "white",
+          "background": "red",
+          "padding": { "top": 4, "bottom": 4, "leading": 10, "trailing": 10 },
+          "cornerRadius": 8.0
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "cornerRadius on Image (SF Symbol with background)", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "Image",
+        "properties": {
+          "systemName": "star.fill",
+          "foregroundStyle": "white",
+          "background": "orange",
+          "frame": { "width": 56.0, "height": 56.0 },
+          "scaleMode": "fill",
+          "cornerRadius": 14.0
+        }
+      }
+      
+    ]
+  }
+}
