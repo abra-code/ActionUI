@@ -22,6 +22,7 @@ struct AsyncImage: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     // The runtime value of an AsyncImage is its URL string.
     // Setting the value programmatically overrides the static "url" property.

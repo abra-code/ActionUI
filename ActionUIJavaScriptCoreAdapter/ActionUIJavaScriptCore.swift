@@ -278,7 +278,8 @@ public class ActionUIJavaScriptCore {
         setupElementValueMethods(actionUIObject: actionUIObject)
         setupActionHandlerMethods(actionUIObject: actionUIObject)
         setupModalMethods(actionUIObject: actionUIObject)
-        
+        setupStructuralMutationMethods(actionUIObject: actionUIObject)
+
         // Set the global ActionUI object
         context.setObject(actionUIObject, forKeyedSubscript: "ActionUI" as NSString)
     }
@@ -516,6 +517,56 @@ public class ActionUIJavaScriptCore {
             ActionUIJavaScriptCore.model.dismissDialog(windowUUID: windowUUID)
         }
         actionUIObject.setValue(dismissDialog, forProperty: "dismissDialog")
+    }
+
+    private func setupStructuralMutationMethods(actionUIObject: JSValue) {
+        // insertElement(windowUUID, parentID, json, container, position, positionParam) -> Int or -1
+        // position: 0=append, 1=prepend, 2=at(index), 3=before(siblingID), 4=after(siblingID)
+        // positionParam: index for position=2; siblingID for position=3/4; ignored for 0/1
+        let insertElement: @convention(block) (String, Double, String, JSValue, Double, Double) -> Int = { windowUUID, parentID, json, jsContainer, position, positionParam in
+            let container: String? = (!jsContainer.isNull && !jsContainer.isUndefined) ? jsContainer.toString() : nil
+            let swiftPosition = Self.swiftInsertPosition(Int(position), param: Int(positionParam))
+            do {
+                return try ActionUIJavaScriptCore.model.insertElement(windowUUID: windowUUID, parentID: Int(parentID), json: json, container: container, position: swiftPosition)
+            } catch {
+                return -1
+            }
+        }
+        actionUIObject.setValue(insertElement, forProperty: "insertElement")
+
+        // insertRow(windowUUID, parentID, json, container, position, positionIndex) -> [Int] or undefined
+        // position: 0=append, 1=prepend, 2=at(index). 3/4 are invalid for rows.
+        let insertRow: @convention(block) (String, Double, String, JSValue, Double, Double) -> JSValue = { windowUUID, parentID, json, jsContainer, position, positionIndex in
+            let container: String? = (!jsContainer.isNull && !jsContainer.isUndefined) ? jsContainer.toString() : nil
+            let swiftPosition = Self.swiftInsertPosition(Int(position), param: Int(positionIndex))
+            do {
+                let ids = try ActionUIJavaScriptCore.model.insertRow(windowUUID: windowUUID, parentID: Int(parentID), json: json, container: container, position: swiftPosition)
+                return JSValue(object: ids, in: self.context)
+            } catch {
+                return JSValue(undefinedIn: self.context)
+            }
+        }
+        actionUIObject.setValue(insertRow, forProperty: "insertRow")
+
+        // removeElement(windowUUID, viewID)
+        let removeElement: @convention(block) (String, Double) -> Void = { windowUUID, viewID in
+            do {
+                try ActionUIJavaScriptCore.model.removeElement(windowUUID: windowUUID, viewID: Int(viewID))
+            } catch {
+                print("ActionUI.removeElement error: \(error)")
+            }
+        }
+        actionUIObject.setValue(removeElement, forProperty: "removeElement")
+    }
+
+    private static func swiftInsertPosition(_ positionInt: Int, param: Int) -> ActionUI.InsertPosition {
+        switch positionInt {
+        case 1: return .prepend
+        case 2: return .at(param)
+        case 3: return .before(siblingID: param)
+        case 4: return .after(siblingID: param)
+        default: return .append
+        }
     }
 
     // MARK: - Swift-side Loading Methods (mirroring ActionUISwift)

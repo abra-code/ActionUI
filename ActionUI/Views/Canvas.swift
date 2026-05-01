@@ -181,6 +181,7 @@ struct Canvas: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     static var valueType: Any.Type = Void.self
     

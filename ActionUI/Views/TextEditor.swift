@@ -35,6 +35,7 @@ struct TextEditor: ActionUIViewConstruction {
         attributedStringSerializeContent(value, contentType: contentType, logger: logger)
     }
 
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     // Design decision: Defines valueType as String to reflect text input for type-safe string parsing in ActionUIModel.
     // When markdown is used, model.value holds AttributedString; getElementValueAsString extracts plain text.

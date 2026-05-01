@@ -10,7 +10,7 @@ serialisation, and GIL management — is handled in the C layer.
 import _actionui
 import json
 import uuid
-from typing import Optional, Callable, Any, Dict, List
+from typing import Optional, Callable, Any, Dict, List, Union
 from enum import IntEnum, Enum
 from dataclasses import dataclass, field
 
@@ -35,6 +35,20 @@ class ButtonRole(str, Enum):
     DEFAULT     = "default"       # Normal prominence (no special role)
     CANCEL      = "cancel"        # Appears last; bold on iOS
     DESTRUCTIVE = "destructive"   # Red tint
+
+
+class InsertPosition(IntEnum):
+    """Position for insertElement / insertRow structural mutations.
+
+    For AT, the associated index is passed as ``position_param`` /
+    ``position_index``.  For BEFORE / AFTER, it is the sibling view ID.
+    BEFORE and AFTER are invalid for Grid row containers.
+    """
+    APPEND  = 0   # Add after the last existing child
+    PREPEND = 1   # Add before the first existing child
+    AT      = 2   # Insert at a specific index (position_param = index)
+    BEFORE  = 3   # Insert before a sibling (position_param = sibling viewID)
+    AFTER   = 4   # Insert after a sibling  (position_param = sibling viewID)
 
 
 @dataclass
@@ -920,6 +934,86 @@ class Window:
         return {int(k): v for k, v in json.loads(raw).items()}
 
     # ------------------------------------------------------------------
+    # Runtime structural mutations
+    # ------------------------------------------------------------------
+
+    def insert_element(self,
+                       parent_id: int,
+                       element: Union[str, Dict[str, Any]],
+                       container: Optional[str] = None,
+                       position: InsertPosition = InsertPosition.APPEND,
+                       position_param: int = 0) -> int:
+        """Insert a new element into a flat container at runtime.
+
+        Args:
+            parent_id:       View ID of the container to insert into.
+            element:         JSON string or dict describing the new view.
+            container:            Container name (e.g. ``"children"``). If ``None``,
+                             auto-derived when the container has exactly one
+                             flat container.
+            position:        Insert position — 0=append (default), 1=prepend,
+                             2=at (``position_param`` is the target index),
+                             3=before (``position_param`` is sibling view ID),
+                             4=after  (``position_param`` is sibling view ID).
+            position_param:  Index or sibling view ID for positions 2–4.
+
+        Returns:
+            The newly assigned view ID of the inserted element.
+
+        Raises:
+            RuntimeError: If the C layer reports an error.
+        """
+        if isinstance(element, dict):
+            element = json.dumps(element)
+        return _actionui.insert_element(
+            self.uuid, parent_id, element, container, position, position_param
+        )
+
+    def insert_row(self,
+                   parent_id: int,
+                   cells: Union[str, List[Dict[str, Any]]],
+                   container: Optional[str] = None,
+                   position: InsertPosition = InsertPosition.APPEND,
+                   position_index: int = 0) -> List[int]:
+        """Insert a new row of cells into a Grid rows container at runtime.
+
+        Args:
+            parent_id:      View ID of the Grid container.
+            cells:          JSON string or list of dicts, each describing one
+                            cell in the new row.
+            container:           Container name (e.g. ``"rows"``). If ``None``,
+                            auto-derived when the container has exactly one
+                            rows container.
+            position:       Insert position — 0=append (default), 1=prepend,
+                            2=at (``position_index`` is the target row index).
+            position_index: Row index for position 2 (at).
+
+        Returns:
+            List of newly assigned view IDs for each cell in the row.
+
+        Raises:
+            RuntimeError: If the C layer reports an error.
+        """
+        if isinstance(cells, list):
+            cells = json.dumps(cells)
+        return _actionui.insert_row(
+            self.uuid, parent_id, cells, container, position, position_index
+        )
+
+    def remove_element(self, view_id: int):
+        """Remove a view from its parent container at runtime.
+
+        Also removes all descendant views (cascade cleanup).
+
+        Args:
+            view_id: ID of the view to remove.
+
+        Raises:
+            RuntimeError: If the C layer reports an error.
+        """
+        _actionui.remove_element(self.uuid, view_id)
+
+    # ------------------------------------------------------------------
     # Modal presentation (window-level / Tier 2)
     # ------------------------------------------------------------------
 
@@ -1074,6 +1168,7 @@ __all__ = [
     'ActionUIError',
     'ModalStyle',
     'ButtonRole',
+    'InsertPosition',
     'DialogButton',
     'get_version',
     'get_last_error',

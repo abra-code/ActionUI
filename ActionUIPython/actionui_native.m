@@ -759,6 +759,105 @@ static PyObject* py_get_element_info_json(PyObject* self, PyObject* args) {
     return result;
 }
 
+// MARK: - Python API: Runtime Structural Mutations
+
+/*
+ * insert_element(windowUUID, parentID, json[, container[, position[, positionParam]]])
+ *   windowUUID   : str  — window identifier
+ *   parentID     : int  — id of the container element
+ *   json         : str  — JSON object string for the new element
+ *   container         : str|None — container name; None to auto-derive
+ *   position     : int  — 0=append, 1=prepend, 2=at(index), 3=before(siblingID), 4=after(siblingID)
+ *   positionParam: int  — index for position=2; siblingID for 3/4; ignored otherwise
+ * Returns inserted element id (int), raises RuntimeError on failure.
+ */
+static PyObject* py_insert_element(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long parentID;
+    const char* json;
+    const char* container = NULL;
+    long long position = 0, positionParam = 0;
+    if (PyArg_ParseTuple(args, "sLs|zLL",
+                         &windowUUID, &parentID, &json,
+                         &container, &position, &positionParam) == 0)
+        return NULL;
+
+    int64_t inserted_id = actionUIInsertElement(windowUUID, (int64_t)parentID, json, container,
+                                                (ActionUIInsertPosition)position, (int64_t)positionParam);
+    if (inserted_id < 0) {
+        char* err = actionUIGetLastError();
+        if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
+        else              { PyErr_SetString(PyExc_RuntimeError, "actionUIInsertElement failed"); }
+        return NULL;
+    }
+    return PyLong_FromLongLong(inserted_id);
+}
+
+/*
+ * insert_row(windowUUID, parentID, json[, container[, position[, positionIndex]]])
+ *   windowUUID   : str  — window identifier
+ *   parentID     : int  — id of the Grid element
+ *   json         : str  — JSON array string of cell objects
+ *   container         : str|None — container name; None to auto-derive
+ *   position     : int  — 0=append, 1=prepend, 2=at(index). 3/4 invalid for rows.
+ *   positionIndex: int  — row index for position=2; ignored otherwise
+ * Returns list of inserted cell ids, raises RuntimeError on failure.
+ */
+static PyObject* py_insert_row(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long parentID;
+    const char* json;
+    const char* container = NULL;
+    long long position = 0, positionIndex = 0;
+    if (PyArg_ParseTuple(args, "sLs|zLL",
+                         &windowUUID, &parentID, &json,
+                         &container, &position, &positionIndex) == 0)
+        return NULL;
+
+    char* ids_json = actionUIInsertRow(windowUUID, (int64_t)parentID, json, container,
+                                       (ActionUIInsertPosition)position, (int64_t)positionIndex);
+    if (ids_json == NULL) {
+        char* err = actionUIGetLastError();
+        if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
+        else              { PyErr_SetString(PyExc_RuntimeError, "actionUIInsertRow failed"); }
+        return NULL;
+    }
+    /* Parse the JSON array "[5,6,...]" into a Python list of ints */
+    PyObject* result = PyList_New(0);
+    /* Simple parse: scan for numbers between '[', ',', ']' */
+    char* p = ids_json;
+    while (*p) {
+        if (*p >= '0' && *p <= '9') {
+            char* end; long long v = strtoll(p, &end, 10);
+            PyList_Append(result, PyLong_FromLongLong(v));
+            p = end;
+        } else { p++; }
+    }
+    actionUIFreeString(ids_json);
+    return result;
+}
+
+/*
+ * remove_element(windowUUID, viewID)
+ *   windowUUID: str — window identifier
+ *   viewID    : int — id of the element to remove
+ * Returns True on success, raises RuntimeError on failure.
+ */
+static PyObject* py_remove_element(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long viewID;
+    if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0) return NULL;
+
+    bool ok = actionUIRemoveElement(windowUUID, (int64_t)viewID);
+    if (!ok) {
+        char* err = actionUIGetLastError();
+        if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
+        else              { PyErr_SetString(PyExc_RuntimeError, "actionUIRemoveElement failed"); }
+        return NULL;
+    }
+    Py_RETURN_TRUE;
+}
+
 // MARK: - Python API: Modal Presentation
 
 /*
@@ -941,6 +1040,19 @@ static PyMethodDef ActionUIMethods[] = {
 
     /* Element info */
     {"get_element_info_json",       py_get_element_info_json,       METH_VARARGS, "get_element_info_json(windowUUID) -> str|None"},
+
+    /* Runtime structural mutations */
+    {"insert_element",  py_insert_element,  METH_VARARGS,
+     "insert_element(windowUUID, parentID, json[, container[, position[, positionParam]]]) -> int\n"
+     "Inserts a new element into a flat container container. Returns the new view's id.\n"
+     "position: 0=append, 1=prepend, 2=at(positionParam=index), 3=before(positionParam=siblingID), 4=after(positionParam=siblingID)."},
+    {"insert_row",      py_insert_row,      METH_VARARGS,
+     "insert_row(windowUUID, parentID, json[, container[, position[, positionIndex]]]) -> list\n"
+     "Inserts a new row of cells into a Grid rows container. Returns list of inserted cell ids.\n"
+     "position: 0=append, 1=prepend, 2=at(positionIndex=index)."},
+    {"remove_element",  py_remove_element,  METH_VARARGS,
+     "remove_element(windowUUID, viewID) -> True\n"
+     "Removes the element with viewID from its parent container (cascades to descendants)."},
 
     /* Modal presentation */
     {"present_modal",               py_present_modal,               METH_VARARGS,

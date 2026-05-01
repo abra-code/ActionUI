@@ -63,6 +63,10 @@ protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     // serializeValueToString: convert a typed value + content-type token → string (nil = fall through to generic logic)
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? { get }
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? { get }
+    // Containers that accept runtime insertions via ActionUIModel.insertElement / insertRow.
+    // Map from container key (e.g. "children", "destinations", "rows") to its shape.
+    // Default is empty — non-container types reject insertions.
+    static var insertableContainers: [String: ContainerShape]? { get }
 }
 
 

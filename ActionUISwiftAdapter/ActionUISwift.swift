@@ -219,6 +219,80 @@ public struct ActionUISwift {
         model.removeDefaultActionHandler()
     }
 
+    // MARK: - Runtime Structural Mutations
+
+    /// Inserts a new element into a flat container identified by parentID.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - parentID: The id of the container element that accepts insertions.
+    ///   - dict: Element definition as a `[String: Any]` dictionary (same shape as a JSON element object).
+    ///   - container: Container name (e.g. `"children"`, `"destinations"`). Omit when the container has exactly one flat container.
+    ///   - position: Where to place the new element. Defaults to `.append`.
+    /// - Returns: The inserted element's id.
+    /// - Throws: `InsertError` describing what went wrong.
+    @discardableResult
+    public static func insertElement(windowUUID: String, parentID: Int, dict: [String: Any], container: String? = nil, position: ActionUI.InsertPosition = .append) throws -> Int {
+        try model.insertElement(windowUUID: windowUUID, parentID: parentID, dict: dict, container: container, position: position)
+    }
+
+    /// JSON-string convenience wrapper around `insertElement(dict:)`.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - parentID: The id of the container element.
+    ///   - json: A JSON string encoding one element object (e.g. `{"id":5,"type":"Text",...}`).
+    ///   - container: Container name. Omit when the container has exactly one flat container.
+    ///   - position: Where to place the new element. Defaults to `.append`.
+    /// - Returns: The inserted element's id.
+    /// - Throws: `InsertError` describing what went wrong.
+    @discardableResult
+    public static func insertElement(windowUUID: String, parentID: Int, json: String, container: String? = nil, position: ActionUI.InsertPosition = .append) throws -> Int {
+        try model.insertElement(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: position)
+    }
+
+    /// Inserts a new row of cells into a Grid-style `rows` container identified by parentID.
+    /// Rows have no addressable identity — use `.append`, `.prepend`, or `.at(_:)` for position;
+    /// `.before`/`.after` are not valid for row containers.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - parentID: The id of the Grid element.
+    ///   - cells: Array of cell dictionaries, each defining one cell element.
+    ///   - container: Container name. Omit when the container has exactly one rows container.
+    ///   - position: Where to insert the row. Defaults to `.append`.
+    /// - Returns: The inserted cells' ids in order.
+    /// - Throws: `InsertError` describing what went wrong.
+    @discardableResult
+    public static func insertRow(windowUUID: String, parentID: Int, cells: [[String: Any]], container: String? = nil, position: ActionUI.InsertPosition = .append) throws -> [Int] {
+        try model.insertRow(windowUUID: windowUUID, parentID: parentID, cells: cells, container: container, position: position)
+    }
+
+    /// JSON-string convenience wrapper around `insertRow(cells:)`.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - parentID: The id of the Grid element.
+    ///   - json: A JSON string encoding an array of cell objects (e.g. `[{"id":5,"type":"Text",...}]`).
+    ///   - container: Container name. Omit when the container has exactly one rows container.
+    ///   - position: Where to insert the row. Defaults to `.append`.
+    /// - Returns: The inserted cells' ids in order.
+    /// - Throws: `InsertError` describing what went wrong.
+    @discardableResult
+    public static func insertRow(windowUUID: String, parentID: Int, json: String, container: String? = nil, position: ActionUI.InsertPosition = .append) throws -> [Int] {
+        try model.insertRow(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: position)
+    }
+
+    /// Removes the element with `viewID` from its parent container.
+    /// Refuses to remove the window's root element. Cascade-removes ViewModels for all descendants.
+    ///
+    /// Note on Grid rows: only individual cells (which carry ids) are addressable. A whole row
+    /// has no synthetic id and cannot be removed via this method — remove each cell individually,
+    /// or rebuild the parent.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: The id of the element to remove.
+    /// - Throws: `InsertError` describing what went wrong.
+    public static func removeElement(windowUUID: String, viewID: Int) throws {
+        try model.removeElement(windowUUID: windowUUID, viewID: viewID)
+    }
+
     // MARK: - Modal Presentation
 
     /// Presents a window-level modal sheet or full-screen cover loaded from JSON/plist data.

@@ -1,0 +1,69 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12.0,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Runtime Structural Mutations",
+        "font": "headline"
+      }
+    },
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Grid container (id: 2) — rows container",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+
+    {
+      "id": 2,
+      "type": "Grid",
+      "properties": {
+        "horizontalSpacing": 16.0,
+        "verticalSpacing": 8.0,
+        "padding": "default",
+        "frame": { "maxWidth": "infinity" }
+      },
+      "rows": [
+        [
+          { "id": 20, "type": "Text", "properties": { "text": "R0 C0", "font": "caption" } },
+          { "id": 21, "type": "Text", "properties": { "text": "R0 C1", "font": "caption" } }
+        ]
+      ]
+    },
+
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8.0 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Append Row",  "actionID": "insert.demo.appendRow",  "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "Prepend Row", "actionID": "insert.demo.prependRow", "buttonStyle": "bordered" } }
+      ]
+    },
+
+    {
+      "type": "Divider",
+      "properties": {}
+    },
+
+    {
+      "id": 99,
+      "type": "Text",
+      "properties": {
+        "text": "Tap a button to see results.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    }
+
+  ]
+}

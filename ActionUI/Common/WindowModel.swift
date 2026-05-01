@@ -12,6 +12,10 @@ class WindowModel: ObservableObject {
     var viewModels: [Int: ViewModel] = [:]
     /// Maps a LoadableView's element ID to set of child view IDs it loaded
     var loadedSubViewIDs: [Int: Set<Int>] = [:]
+    /// Maps a parentID to the set of view IDs inserted at runtime via insertElement / insertRow.
+    /// Used so the parent's bookkeeping survives subsequent removes and so a parent's removal
+    /// can cascade-clean its dynamic descendants.
+    var dynamicallyInsertedIDs: [Int: Set<Int>] = [:]
     /// Active window-level modal (sheet or fullScreenCover). Set by ActionUIModel.presentModal.
     @Published var windowModal: WindowModal? = nil
     /// Active window-level dialog (alert or confirmationDialog). Set by ActionUIModel.presentAlert / presentConfirmationDialog.
@@ -214,5 +218,301 @@ class WindowModel: ObservableObject {
         self.viewModels = merged
         logger.log("Loaded modal description, element id: \(element.id)", .debug)
         return element
+    }
+
+    // MARK: - Runtime structural mutations (insertElement / insertRow / removeElement)
+    //
+    // These mutate `viewModels[parentID].dynamicSubviews[container]` so that the next render of
+    // the parent (triggered via objectWillChange.send) sees a merged element with the new
+    // children list. The static element graph is left untouched — the merge happens in
+    // ActionUIRegistry.buildView via applyDynamicSubviews(to:from:).
+
+    /// Insert an element into a flat container. Returns the inserted element's id.
+    func insertElement(_ newElement: ActionUIElement, parentID: Int, container: String, position: InsertPosition) throws -> Int {
+        guard let parent = locateElement(byID: parentID) else {
+            throw InsertError.parentNotFound(parentID: parentID)
+        }
+        guard let parentModel = self.viewModels[parentID] else {
+            throw InsertError.parentNotFound(parentID: parentID)
+        }
+        var current = effectiveFlatContainer(for: parent, model: parentModel, container: container)
+        let index = try resolveFlatIndex(in: current, position: position, container: container)
+
+        let newIDs = collectAllElementIDs(in: newElement)
+        let conflicts = newIDs.intersection(Set(self.viewModels.keys))
+        if !conflicts.isEmpty {
+            throw InsertError.idConflict(ids: Array(conflicts).sorted())
+        }
+
+        current.insert(newElement, at: index)
+        setDynamicContainer(on: parentModel, container: container, value: current)
+
+        let newVMs = populateViewModels(from: newElement)
+        var merged = self.viewModels
+        for (id, vm) in newVMs { merged[id] = vm }
+        self.viewModels = merged
+
+        dynamicallyInsertedIDs[parentID, default: []].formUnion(Set(newVMs.keys))
+        parentModel.objectWillChange.send()
+        logger.log("Inserted element id \(newElement.id) into parent \(parentID).\(container) at index \(index)", .debug)
+        return newElement.id
+    }
+
+    /// Insert a row of cells into a `rows` container. Returns the cell ids in order.
+    func insertRow(_ cells: [ActionUIElement], parentID: Int, container: String, position: InsertPosition) throws -> [Int] {
+        switch position {
+        case .before, .after:
+            throw InsertError.unsupportedPositionForRowContainer(container: container)
+        default: break
+        }
+        guard let parent = locateElement(byID: parentID) else {
+            throw InsertError.parentNotFound(parentID: parentID)
+        }
+        guard let parentModel = self.viewModels[parentID] else {
+            throw InsertError.parentNotFound(parentID: parentID)
+        }
+        var current = effectiveRowsContainer(for: parent, model: parentModel, container: container)
+        let index = try resolveRowIndex(in: current, position: position)
+
+        var newIDs: Set<Int> = []
+        for cell in cells { newIDs.formUnion(collectAllElementIDs(in: cell)) }
+        let conflicts = newIDs.intersection(Set(self.viewModels.keys))
+        if !conflicts.isEmpty {
+            throw InsertError.idConflict(ids: Array(conflicts).sorted())
+        }
+
+        current.insert(cells, at: index)
+        setDynamicContainer(on: parentModel, container: container, value: current)
+
+        var merged = self.viewModels
+        var insertedIDs: Set<Int> = []
+        for cell in cells {
+            let cellVMs = populateViewModels(from: cell)
+            insertedIDs.formUnion(cellVMs.keys)
+            for (id, vm) in cellVMs { merged[id] = vm }
+        }
+        self.viewModels = merged
+
+        dynamicallyInsertedIDs[parentID, default: []].formUnion(insertedIDs)
+        parentModel.objectWillChange.send()
+        logger.log("Inserted row of \(cells.count) cells into parent \(parentID).\(container) at index \(index)", .debug)
+        return cells.map { $0.id }
+    }
+
+    /// Remove an element by viewID. Refuses to remove the root.
+    /// Note: For a Grid `rows` container, only individual cells (which carry ids) are addressable.
+    /// Whole rows have no synthetic id and cannot be removed by viewID.
+    func removeElement(viewID: Int) throws {
+        if viewID == self.element?.id {
+            throw InsertError.rootRemovalForbidden(rootID: viewID)
+        }
+        guard self.viewModels[viewID] != nil else {
+            throw InsertError.viewNotFound(viewID: viewID)
+        }
+        guard let location = locateParent(of: viewID) else {
+            throw InsertError.viewNotFound(viewID: viewID)
+        }
+        guard let parentModel = self.viewModels[location.parentID] else {
+            throw InsertError.parentNotFound(parentID: location.parentID)
+        }
+
+        switch location.shape {
+        case .flat:
+            var current = effectiveFlatContainer(for: location.parent, model: parentModel, container: location.container)
+            if let idx = current.firstIndex(where: { $0.id == viewID }) {
+                current.remove(at: idx)
+                setDynamicContainer(on: parentModel, container: location.container, value: current)
+            }
+        case .rows:
+            var current = effectiveRowsContainer(for: location.parent, model: parentModel, container: location.container)
+            if let r = location.rowIndex, let c = location.colIndex,
+               r < current.count, c < current[r].count, current[r][c].id == viewID {
+                current[r].remove(at: c)
+                setDynamicContainer(on: parentModel, container: location.container, value: current)
+            }
+        }
+
+        let descendantIDs = collectAllElementIDs(in: location.removedElement)
+        var updated = self.viewModels
+        for id in descendantIDs { updated.removeValue(forKey: id) }
+        self.viewModels = updated
+
+        dynamicallyInsertedIDs[location.parentID]?.subtract(descendantIDs)
+        if dynamicallyInsertedIDs[location.parentID]?.isEmpty == true {
+            dynamicallyInsertedIDs.removeValue(forKey: location.parentID)
+        }
+        for id in descendantIDs {
+            dynamicallyInsertedIDs.removeValue(forKey: id)
+            loadedSubViewIDs.removeValue(forKey: id)
+        }
+        parentModel.objectWillChange.send()
+        logger.log("Removed element id \(viewID) from parent \(location.parentID).\(location.container); cleaned \(descendantIDs.count) viewModels", .debug)
+    }
+
+    // MARK: - Effective tree helpers
+
+    private func setDynamicContainer(on model: ViewModel, container: String, value: Any) {
+        var dyn = model.dynamicSubviews ?? [:]
+        dyn[container] = value
+        model.dynamicSubviews = dyn
+    }
+
+    private func effectiveFlatContainer(for parent: any ActionUIElementBase, model: ViewModel, container: String) -> [ActionUIElement] {
+        if let dyn = model.dynamicSubviews?[container] as? [ActionUIElement] { return dyn }
+        if let stat = parent.subviews?[container] as? [ActionUIElement] { return stat }
+        if let stat = parent.subviews?[container] as? [any ActionUIElementBase] {
+            return stat.compactMap { $0 as? ActionUIElement }
+        }
+        return []
+    }
+
+    private func effectiveRowsContainer(for parent: any ActionUIElementBase, model: ViewModel, container: String) -> [[ActionUIElement]] {
+        if let dyn = model.dynamicSubviews?[container] as? [[ActionUIElement]] { return dyn }
+        if let stat = parent.subviews?[container] as? [[ActionUIElement]] { return stat }
+        if let stat = parent.subviews?[container] as? [[any ActionUIElementBase]] {
+            return stat.map { $0.compactMap { $0 as? ActionUIElement } }
+        }
+        return []
+    }
+
+    private func resolveFlatIndex(in arr: [ActionUIElement], position: InsertPosition, container: String) throws -> Int {
+        switch position {
+        case .append: return arr.count
+        case .prepend: return 0
+        case .at(let i):
+            if i < 0 || i > arr.count { throw InsertError.positionOutOfBounds(index: i, count: arr.count) }
+            return i
+        case .before(let id):
+            guard let idx = arr.firstIndex(where: { $0.id == id }) else {
+                throw InsertError.siblingNotFound(siblingID: id, container: container)
+            }
+            return idx
+        case .after(let id):
+            guard let idx = arr.firstIndex(where: { $0.id == id }) else {
+                throw InsertError.siblingNotFound(siblingID: id, container: container)
+            }
+            return idx + 1
+        }
+    }
+
+    private func resolveRowIndex(in rows: [[ActionUIElement]], position: InsertPosition) throws -> Int {
+        switch position {
+        case .append: return rows.count
+        case .prepend: return 0
+        case .at(let i):
+            if i < 0 || i > rows.count { throw InsertError.positionOutOfBounds(index: i, count: rows.count) }
+            return i
+        case .before, .after:
+            throw InsertError.unsupportedPositionForRowContainer(container: "rows")
+        }
+    }
+
+    // Collect ids from a freshly-decoded ActionUIElement subtree (used for conflict checks
+    // and cascade cleanup). Walks the same container keys as populateViewModels.
+    private func collectAllElementIDs(in element: ActionUIElement) -> Set<Int> {
+        var ids: Set<Int> = [element.id]
+        guard let subviews = element.subviews else { return ids }
+        for key in ["children", "destinations", "toolbar", "commands"] {
+            if let arr = subviews[key] as? [ActionUIElement] {
+                for child in arr { ids.formUnion(collectAllElementIDs(in: child)) }
+            }
+        }
+        if let rows = subviews["rows"] as? [[ActionUIElement]] {
+            for row in rows { for child in row { ids.formUnion(collectAllElementIDs(in: child)) } }
+        }
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
+            if let child = subviews[key] as? ActionUIElement {
+                ids.formUnion(collectAllElementIDs(in: child))
+            }
+        }
+        return ids
+    }
+
+    // Walks the effective tree (static + dynamicSubviews overrides per parent) to find
+    // an element by id.
+    private func locateElement(byID id: Int) -> ActionUIElement? {
+        guard let root = self.element as? ActionUIElement else { return nil }
+        return locateElementHelper(in: root, id: id)
+    }
+
+    private func locateElementHelper(in element: ActionUIElement, id: Int) -> ActionUIElement? {
+        if element.id == id { return element }
+        let subviews = effectiveSubviews(of: element)
+        for key in ["children", "destinations", "toolbar", "commands"] {
+            if let arr = subviews[key] as? [ActionUIElement] {
+                for child in arr {
+                    if let found = locateElementHelper(in: child, id: id) { return found }
+                }
+            }
+        }
+        if let rows = subviews["rows"] as? [[ActionUIElement]] {
+            for row in rows {
+                for child in row {
+                    if let found = locateElementHelper(in: child, id: id) { return found }
+                }
+            }
+        }
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
+            if let child = subviews[key] as? ActionUIElement,
+               let found = locateElementHelper(in: child, id: id) { return found }
+        }
+        return nil
+    }
+
+    private func effectiveSubviews(of element: ActionUIElement) -> [String: Any] {
+        var merged = element.subviews ?? [:]
+        if let dyn = self.viewModels[element.id]?.dynamicSubviews {
+            for (k, v) in dyn { merged[k] = v }
+        }
+        return merged
+    }
+
+    private struct ParentLocation {
+        let parent: ActionUIElement
+        let parentID: Int
+        let container: String
+        let shape: ContainerShape
+        let rowIndex: Int?
+        let colIndex: Int?
+        let removedElement: ActionUIElement
+    }
+
+    private func locateParent(of childID: Int) -> ParentLocation? {
+        guard let root = self.element as? ActionUIElement else { return nil }
+        return locateParentHelper(in: root, childID: childID)
+    }
+
+    private func locateParentHelper(in element: ActionUIElement, childID: Int) -> ParentLocation? {
+        let subviews = effectiveSubviews(of: element)
+        for key in ["children", "destinations", "toolbar", "commands"] {
+            if let arr = subviews[key] as? [ActionUIElement] {
+                for child in arr where child.id == childID {
+                    return ParentLocation(parent: element, parentID: element.id, container: key, shape: .flat, rowIndex: nil, colIndex: nil, removedElement: child)
+                }
+                for child in arr {
+                    if let found = locateParentHelper(in: child, childID: childID) { return found }
+                }
+            }
+        }
+        if let rows = subviews["rows"] as? [[ActionUIElement]] {
+            for r in rows.indices {
+                for c in rows[r].indices where rows[r][c].id == childID {
+                    return ParentLocation(parent: element, parentID: element.id, container: "rows", shape: .rows, rowIndex: r, colIndex: c, removedElement: rows[r][c])
+                }
+            }
+            for row in rows {
+                for child in row {
+                    if let found = locateParentHelper(in: child, childID: childID) { return found }
+                }
+            }
+        }
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
+            if let child = subviews[key] as? ActionUIElement {
+                // Single-element containers: child cannot be removed via removeElement (use setElementProperty / LoadableView swap).
+                if child.id == childID { return nil }
+                if let found = locateParentHelper(in: child, childID: childID) { return found }
+            }
+        }
+        return nil
     }
 }

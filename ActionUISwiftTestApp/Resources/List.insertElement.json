@@ -1,0 +1,77 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12.0,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "List Runtime Insertions",
+        "font": "headline"
+      }
+    },
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Heterogeneous List (id: 1) — children container",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+
+    {
+      "id": 1,
+      "type": "List",
+      "properties": {
+        "listStyle": "plain",
+        "frame": { "height": 200.0 },
+        "border": { "color": "gray", "width": 1.0 }
+      },
+      "children": [
+        {
+          "id": 10,
+          "type": "Label",
+          "properties": {
+            "title": "Item A (id: 10)",
+            "systemImage": "a.circle"
+          }
+        },
+        {
+          "id": 11,
+          "type": "Label",
+          "properties": {
+            "title": "Item B (id: 11)",
+            "systemImage": "b.circle"
+          }
+        }
+      ]
+    },
+
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8.0 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Append",      "actionID": "list.insert.demo.append",      "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "Prepend",     "actionID": "list.insert.demo.prepend",     "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "After A",     "actionID": "list.insert.demo.afterA",      "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "Remove Last", "actionID": "list.insert.demo.removeLast",  "buttonStyle": "bordered" } }
+      ]
+    },
+
+    {
+      "id": 99,
+      "type": "Text",
+      "properties": {
+        "text": "Tap a button to see results.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    }
+
+  ]
+}

@@ -872,6 +872,126 @@ static napi_value node_get_element_info_json(napi_env env, napi_callback_info in
     return result;
 }
 
+// MARK: - N-API: Runtime Structural Mutations
+
+/*
+ * insert_element(windowUUID, parentID, json, container, position, positionParam)
+ *   container         : string | null  — pass null to auto-derive
+ *   position     : int  — 0=append, 1=prepend, 2=at(index), 3=before(siblingID), 4=after(siblingID)
+ *   positionParam: int  — index for position=2; siblingID for position=3/4; ignored otherwise
+ * Returns: Number — inserted element id, or throws on failure.
+ */
+static napi_value node_insert_element(napi_env env, napi_callback_info info) {
+    size_t argc = 6; napi_value argv[6];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    if (argc < 3) { napi_throw_error(env, NULL, "insert_element requires (windowUUID, parentID, json[, container, position, positionParam])"); return NULL; }
+
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+
+    int64_t parentID;
+    napi_get_value_int64(env, argv[1], &parentID);
+
+    char json[65536];
+    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
+
+    const char* container_ptr = NULL; char container_buf[256];
+    if (argc >= 4) {
+        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
+        if (vtype == napi_string) { napi_get_value_string_utf8(env, argv[3], container_buf, sizeof(container_buf), &len); container_ptr = container_buf; }
+    }
+
+    int64_t position = 0, positionParam = 0;
+    if (argc >= 5) napi_get_value_int64(env, argv[4], &position);
+    if (argc >= 6) napi_get_value_int64(env, argv[5], &positionParam);
+
+    int64_t inserted_id = actionUIInsertElement(uuid, parentID, json, container_ptr,
+                                                (ActionUIInsertPosition)position, positionParam);
+    if (inserted_id < 0) {
+        char* err = actionUIGetLastError();
+        napi_throw_error(env, NULL, err ? err : "actionUIInsertElement failed");
+        if (err) actionUIFreeString(err);
+        return NULL;
+    }
+    napi_value result; napi_create_int64(env, inserted_id, &result); return result;
+}
+
+/*
+ * insert_row(windowUUID, parentID, json, container, position, positionIndex)
+ *   json         : string — JSON array of cell objects
+ *   container         : string | null
+ *   position     : int  — 0=append, 1=prepend, 2=at(index). 3/4 invalid for rows.
+ *   positionIndex: int  — row index for position=2; ignored otherwise
+ * Returns: Array<Number> — inserted cell ids, or throws on failure.
+ */
+static napi_value node_insert_row(napi_env env, napi_callback_info info) {
+    size_t argc = 6; napi_value argv[6];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    if (argc < 3) { napi_throw_error(env, NULL, "insert_row requires (windowUUID, parentID, json[, container, position, positionIndex])"); return NULL; }
+
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+
+    int64_t parentID;
+    napi_get_value_int64(env, argv[1], &parentID);
+
+    char json[65536];
+    napi_get_value_string_utf8(env, argv[2], json, sizeof(json), &len);
+
+    const char* container_ptr = NULL; char container_buf[256];
+    if (argc >= 4) {
+        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
+        if (vtype == napi_string) { napi_get_value_string_utf8(env, argv[3], container_buf, sizeof(container_buf), &len); container_ptr = container_buf; }
+    }
+
+    int64_t position = 0, positionIndex = 0;
+    if (argc >= 5) napi_get_value_int64(env, argv[4], &position);
+    if (argc >= 6) napi_get_value_int64(env, argv[5], &positionIndex);
+
+    char* ids_json = actionUIInsertRow(uuid, parentID, json, container_ptr,
+                                       (ActionUIInsertPosition)position, positionIndex);
+    if (ids_json == NULL) {
+        char* err = actionUIGetLastError();
+        napi_throw_error(env, NULL, err ? err : "actionUIInsertRow failed");
+        if (err) actionUIFreeString(err);
+        return NULL;
+    }
+    /* Parse the JSON array string "[5,6,...]" into a JS array */
+    napi_value global, json_obj, parse_fn, json_str, result;
+    napi_get_global(env, &global);
+    napi_get_named_property(env, global, "JSON", &json_obj);
+    napi_get_named_property(env, json_obj, "parse", &parse_fn);
+    napi_create_string_utf8(env, ids_json, NAPI_AUTO_LENGTH, &json_str);
+    actionUIFreeString(ids_json);
+    napi_call_function(env, json_obj, parse_fn, 1, &json_str, &result);
+    return result;
+}
+
+/*
+ * remove_element(windowUUID, viewID)
+ * Returns: true on success, or throws on failure.
+ */
+static napi_value node_remove_element(napi_env env, napi_callback_info info) {
+    size_t argc = 2; napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    if (argc < 2) { napi_throw_error(env, NULL, "remove_element requires (windowUUID, viewID)"); return NULL; }
+
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+
+    int64_t viewID;
+    napi_get_value_int64(env, argv[1], &viewID);
+
+    bool ok = actionUIRemoveElement(uuid, viewID);
+    if (!ok) {
+        char* err = actionUIGetLastError();
+        napi_throw_error(env, NULL, err ? err : "actionUIRemoveElement failed");
+        if (err) actionUIFreeString(err);
+        return NULL;
+    }
+    napi_value t; napi_get_boolean(env, true, &t); return t;
+}
+
 // MARK: - N-API: Modal Presentation
 
 static napi_value node_present_modal(napi_env env, napi_callback_info info) {
@@ -1519,6 +1639,11 @@ static napi_value Init(napi_env env, napi_value exports) {
 
     /* Element info */
     EXPORT_FN(exports, "getElementInfoJSON",       node_get_element_info_json);
+
+    /* Runtime structural mutations */
+    EXPORT_FN(exports, "insertElement",            node_insert_element);
+    EXPORT_FN(exports, "insertRow",                node_insert_row);
+    EXPORT_FN(exports, "removeElement",            node_remove_element);
 
     /* Modal presentation */
     EXPORT_FN(exports, "presentModal",             node_present_modal);

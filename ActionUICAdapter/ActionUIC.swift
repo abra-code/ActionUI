@@ -1051,6 +1051,143 @@ public func actionUILoadViewFromJSON(
 }
 */
 
+// MARK: - Runtime Structural Mutations
+
+/// Converts a C ActionUIInsertPosition + param to Swift ActionUI.InsertPosition.
+@inline(__always)
+private func swiftInsertPosition(_ position: ActionUIInsertPosition, param: Int) -> ActionUI.InsertPosition {
+    switch position {
+    case ActionUIInsertPositionPrepend: return .prepend
+    case ActionUIInsertPositionAt:      return .at(param)
+    case ActionUIInsertPositionBefore:  return .before(siblingID: param)
+    case ActionUIInsertPositionAfter:   return .after(siblingID: param)
+    default:                            return .append
+    }
+}
+
+/// Inserts a new element into a flat container identified by parentID.
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - parentID: The id of the container element that accepts insertions.
+///   - json: Null-terminated UTF-8 JSON string encoding one element object
+///     (e.g. `{"id":5,"type":"Text","properties":{"text":"hello"}}`).
+///   - container: Optional null-terminated UTF-8 container name (e.g. `"children"`). Pass NULL to
+///     auto-derive when the container has exactly one flat container.
+///   - position: Insert position type (`ActionUIInsertPosition`).
+///   - positionParam: Index for `ActionUIInsertPositionAt`; siblingID for
+///     `ActionUIInsertPositionBefore`/`After`; ignored for Append/Prepend.
+/// - Returns: The inserted element's id on success; `-1` on failure.
+///   Call `actionUIGetLastError()` for details on failure.
+@_cdecl("actionUIInsertElement")
+public func actionUIInsertElement(
+    _ windowUUID:     UnsafePointer<CChar>,
+    _ parentID:       Int64,
+    _ json:           UnsafePointer<CChar>,
+    _ container:           UnsafePointer<CChar>?,
+    _ position:       ActionUIInsertPosition,
+    _ positionParam:  Int64
+) -> Int64 {
+    clearError()
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftJSON       = String(cString: json)
+    let swiftContainer       = container.map { String(cString: $0) }
+    let swiftPosition   = swiftInsertPosition(position, param: Int(positionParam))
+
+    return runOnMainActorSync {
+        do {
+            let id = try ActionUIModel.shared.insertElement(
+                windowUUID: swiftWindowUUID,
+                parentID: Int(parentID),
+                json: swiftJSON,
+                container: swiftContainer,
+                position: swiftPosition
+            )
+            return Int64(id)
+        } catch {
+            setError("actionUIInsertElement: \(error)")
+            return -1
+        }
+    }
+}
+
+/// Inserts a new row of cells into a Grid-style `rows` container identified by parentID.
+/// Rows have no addressable identity — position must be Append, Prepend, or At;
+/// Before/After will fail and return NULL.
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - parentID: The id of the Grid element.
+///   - json: Null-terminated UTF-8 JSON string encoding an array of cell objects
+///     (e.g. `[{"id":5,"type":"Text","properties":{"text":"R0C0"}},...]`).
+///   - container: Optional null-terminated UTF-8 container name. Pass NULL to auto-derive.
+///   - position: Insert position type. Before/After are invalid for row containers.
+///   - positionParam: Row index for `ActionUIInsertPositionAt`; ignored otherwise.
+/// - Returns: Heap-allocated null-terminated JSON array of inserted cell ids (e.g. `[5,6]`).
+///   Caller must free with `actionUIFreeString`. Returns NULL on failure.
+@_cdecl("actionUIInsertRow")
+public func actionUIInsertRow(
+    _ windowUUID:     UnsafePointer<CChar>,
+    _ parentID:       Int64,
+    _ json:           UnsafePointer<CChar>,
+    _ container:           UnsafePointer<CChar>?,
+    _ position:       ActionUIInsertPosition,
+    _ positionParam:  Int64
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftJSON       = String(cString: json)
+    let swiftContainer       = container.map { String(cString: $0) }
+    let swiftPosition   = swiftInsertPosition(position, param: Int(positionParam))
+
+    return runOnMainActorSync {
+        do {
+            let ids = try ActionUIModel.shared.insertRow(
+                windowUUID: swiftWindowUUID,
+                parentID: Int(parentID),
+                json: swiftJSON,
+                container: swiftContainer,
+                position: swiftPosition
+            )
+            guard let data = try? JSONSerialization.data(withJSONObject: ids),
+                  let str = String(data: data, encoding: .utf8) else {
+                setError("actionUIInsertRow: failed to serialize inserted ids")
+                return nil
+            }
+            return actionStrdup(str)
+        } catch {
+            setError("actionUIInsertRow: \(error)")
+            return nil
+        }
+    }
+}
+
+/// Removes the element with viewID from its parent container.
+/// Refuses to remove the window's root element. Cascade-removes ViewModels for all descendants.
+///
+/// Note on Grid rows: only individual cells (which carry ids) are addressable.
+/// A whole row has no synthetic id — remove each cell individually, or rebuild the parent.
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - viewID: The id of the element to remove.
+/// - Returns: `true` on success; `false` on failure. Call `actionUIGetLastError()` for details.
+@_cdecl("actionUIRemoveElement")
+public func actionUIRemoveElement(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID:     Int64
+) -> CBool {
+    clearError()
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    return runOnMainActorSync {
+        do {
+            try ActionUIModel.shared.removeElement(windowUUID: swiftWindowUUID, viewID: Int(viewID))
+            return true
+        } catch {
+            setError("actionUIRemoveElement: \(error)")
+            return false
+        }
+    }
+}
+
 // MARK: - Modal Presentation
 
 /// Parse a JSON array of button descriptors into [DialogButton].

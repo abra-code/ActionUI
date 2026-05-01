@@ -31,6 +31,7 @@ struct Tab: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         return properties

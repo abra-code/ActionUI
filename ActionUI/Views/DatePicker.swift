@@ -20,6 +20,7 @@ struct DatePicker: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     // Design decision: Defines valueType as Date to support type-safe string parsing in ActionUIModel
     static var valueType: Any.Type = Date.self

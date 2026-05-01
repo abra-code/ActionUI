@@ -35,6 +35,14 @@ const ButtonRole = Object.freeze({
     DESTRUCTIVE: 'destructive',
 });
 
+const InsertPosition = Object.freeze({
+    APPEND:  0,   // Add after the last existing child
+    PREPEND: 1,   // Add before the first existing child
+    AT:      2,   // Insert at a specific index      (positionParam = index)
+    BEFORE:  3,   // Insert before a sibling         (positionParam = sibling viewID; flat containers only)
+    AFTER:   4,   // Insert after a sibling          (positionParam = sibling viewID; flat containers only)
+});
+
 // ---------------------------------------------------------------------------
 // ActionContext — passed to action handlers
 // ---------------------------------------------------------------------------
@@ -174,6 +182,45 @@ class Window {
         const result = {};
         for (const [k, v] of Object.entries(parsed)) result[Number(k)] = v;
         return result;
+    }
+
+    // Runtime structural mutations
+
+    /**
+     * Insert a new element into a flat container at runtime.
+     * @param {number} parentId - View ID of the container.
+     * @param {object|string} element - View descriptor dict or JSON string.
+     * @param {string|null} container - Container name, or null to auto-derive.
+     * @param {number} position - 0=append, 1=prepend, 2=at, 3=before, 4=after. Use InsertPosition enum
+     * @param {number} positionParam - Index or sibling viewID for positions 2–4.
+     * @returns {number} Newly assigned view ID, or -1 on failure.
+     */
+    insertElement(parentId, element, container = null, position = InsertPosition.APPEND, positionParam = 0) {
+        const json = typeof element === 'string' ? element : JSON.stringify(element);
+        return _actionui.insertElement(this.uuid, parentId, json, container, position, positionParam);
+    }
+
+    /**
+     * Insert a new row of cells into a Grid rows container at runtime.
+     * @param {number} parentId - View ID of the Grid container.
+     * @param {Array<object>|string} cells - Array of cell dicts or JSON string.
+     * @param {string|null} container - Container name, or null to auto-derive.
+     * @param {number} position - 0=append, 1=prepend, 2=at. Use InsertPosition enum
+     * @param {number} positionIndex - Row index for position 2 (at).
+     * @returns {number[]|null} Array of newly assigned cell view IDs, or null on failure.
+     */
+    insertRow(parentId, cells, container = null, position = InsertPosition.APPEND, positionIndex = 0) {
+        const json = typeof cells === 'string' ? cells : JSON.stringify(cells);
+        return _actionui.insertRow(this.uuid, parentId, json, container, position, positionIndex);
+    }
+
+    /**
+     * Remove a view (and all descendants) from its parent container at runtime.
+     * @param {number} viewId - ID of the view to remove.
+     * @returns {boolean} true on success.
+     */
+    removeElement(viewId) {
+        return _actionui.removeElement(this.uuid, viewId);
     }
 
     // Modal presentation
@@ -401,6 +448,7 @@ module.exports = {
     LogLevel,
     ModalStyle,
     ButtonRole,
+    InsertPosition,
     getVersion,
     getLastError,
     clearError,

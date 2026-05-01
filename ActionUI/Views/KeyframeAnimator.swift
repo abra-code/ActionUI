@@ -47,6 +47,7 @@ struct KeyframeAnimator: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     static var valueType: Any.Type = Void.self
     

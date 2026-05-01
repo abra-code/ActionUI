@@ -24,6 +24,13 @@ class ViewModel: ObservableObject {
     var elementType: String // View type name (e.g. "TextField", "Slider")
     var templateContext: TemplateContext? // Set when rendering as a template instance
     var mutationToken: Int = 0 // Incremented on every external property/state/value mutation
+    // Container-keyed override of the element's static `subviews`. When a key is present here,
+    // ActionUIRegistry.buildView merges it over the element's static container before passing
+    // the element to view-specific construction. Populated by insertElement / insertRow /
+    // removeElement so that runtime structural mutations are observed without rewriting
+    // the immutable element graph. Values are [ActionUIElement] for flat containers and
+    // [[ActionUIElement]] for row containers. nil while the parent has no dynamic mutations.
+    var dynamicSubviews: [String: Any]? = nil
 
     init() {
         self.value = nil

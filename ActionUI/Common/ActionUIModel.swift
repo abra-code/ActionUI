@@ -711,6 +711,136 @@ public class ActionUIModel: ObservableObject {
         return ids
     }
 
+    // MARK: - Runtime structural mutations (insert / remove)
+
+    // Inserts an element into a flat container ("children" / "destinations" / etc.)
+    // of the parent identified by parentID. If `container` is omitted and the parent has exactly
+    // one flat container, that container is used; otherwise an InsertError.containerRequired is thrown.
+    // Returns the inserted element's id.
+    public func insertElement(
+        windowUUID: String,
+        parentID: Int,
+        dict: [String: Any],
+        container: String? = nil,
+        position: InsertPosition = .append
+    ) throws -> Int {
+        guard let windowModel = windowModels[windowUUID] else {
+            throw InsertError.windowNotFound(windowUUID)
+        }
+        let resolvedContainer = try resolveContainer(parentID: parentID, windowModel: windowModel, requestedContainer: container, expectedShape: .flat)
+        let newElement = try ActionUIElement(from: dict, logger: logger)
+        return try windowModel.insertElement(newElement, parentID: parentID, container: resolvedContainer, position: position)
+    }
+
+    // JSON-string convenience wrapper around insertElement(dict:).
+    public func insertElement(
+        windowUUID: String,
+        parentID: Int,
+        json: String,
+        container: String? = nil,
+        position: InsertPosition = .append
+    ) throws -> Int {
+        guard let data = json.data(using: .utf8) else {
+            throw InsertError.invalidJSON("Could not encode JSON string as UTF-8")
+        }
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data, options: [])
+        } catch {
+            throw InsertError.invalidJSON("\(error)")
+        }
+        guard let dict = parsed as? [String: Any] else {
+            throw InsertError.invalidJSON("Expected JSON object describing one element")
+        }
+        return try insertElement(windowUUID: windowUUID, parentID: parentID, dict: dict, container: container, position: position)
+    }
+
+    // Inserts a row of cells into a Grid-style `rows` container. `cells` is the array of cell
+    // element dictionaries. Rows have no synthetic identity — `position` may not be
+    // .before/.after; use .append, .prepend, or .at(_:). Returns the inserted cells' ids.
+    public func insertRow(
+        windowUUID: String,
+        parentID: Int,
+        cells: [[String: Any]],
+        container: String? = nil,
+        position: InsertPosition = .append
+    ) throws -> [Int] {
+        guard let windowModel = windowModels[windowUUID] else {
+            throw InsertError.windowNotFound(windowUUID)
+        }
+        let resolvedContainer = try resolveContainer(parentID: parentID, windowModel: windowModel, requestedContainer: container, expectedShape: .rows)
+        let elements = try cells.map { try ActionUIElement(from: $0, logger: logger) }
+        return try windowModel.insertRow(elements, parentID: parentID, container: resolvedContainer, position: position)
+    }
+
+    // JSON-string convenience wrapper around insertRow(cells:). The JSON must encode an
+    // array of cell objects, e.g. `[{"type":"Text",...}, {"type":"Button",...}]`.
+    public func insertRow(
+        windowUUID: String,
+        parentID: Int,
+        json: String,
+        container: String? = nil,
+        position: InsertPosition = .append
+    ) throws -> [Int] {
+        guard let data = json.data(using: .utf8) else {
+            throw InsertError.invalidJSON("Could not encode JSON string as UTF-8")
+        }
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data, options: [])
+        } catch {
+            throw InsertError.invalidJSON("\(error)")
+        }
+        guard let arr = parsed as? [[String: Any]] else {
+            throw InsertError.invalidJSON("Expected JSON array of cell objects")
+        }
+        return try insertRow(windowUUID: windowUUID, parentID: parentID, cells: arr, container: container, position: position)
+    }
+
+    // Removes the element with viewID from its parent. Refuses to remove the window's root
+    // element. Cascade-removes ViewModels for all descendants.
+    //
+    // Note on Grid rows: only individual cells (which carry ids) are addressable. A whole
+    // row has no synthetic id and therefore cannot be removed via this method — remove
+    // each cell, or rebuild the parent.
+    public func removeElement(windowUUID: String, viewID: Int) throws {
+        guard let windowModel = windowModels[windowUUID] else {
+            throw InsertError.windowNotFound(windowUUID)
+        }
+        try windowModel.removeElement(viewID: viewID)
+    }
+
+    // Resolves which insertable container to use given the parent's element type and the
+    // requested container (or nil). Validates the container's shape matches what the caller's
+    // method expects (flat for insertElement, rows for insertRow).
+    private func resolveContainer(parentID: Int, windowModel: WindowModel, requestedContainer: String?, expectedShape: ContainerShape) throws -> String {
+        guard let parentVM = windowModel.viewModels[parentID] else {
+            throw InsertError.parentNotFound(parentID: parentID)
+        }
+        
+        guard let containers = ActionUIRegistry.shared.getInsertableContainers(forElementType: parentVM.elementType) else {
+            throw InsertError.notAContainer(type: parentVM.elementType)
+        }
+
+        if let requested = requestedContainer {
+            guard let shape = containers[requested] else {
+                throw InsertError.unknownContainer(container: requested, vaildContainers: Array(containers.keys).sorted())
+            }
+            if shape != expectedShape {
+                let methodName = expectedShape == .flat ? "insertElement" : "insertRow"
+                let altMethod = expectedShape == .flat ? "insertRow" : "insertElement"
+                throw InsertError.wrongMethod(container: requested, expectedShape: shape,
+                    message: "\(methodName) requires a \(expectedShape) container — use \(altMethod) for this container.")
+            }
+            return requested
+        }
+
+        // Auto-derive: pick the unique container matching the expected shape.
+        let matching = containers.filter { $0.value == expectedShape }.map { $0.key }
+        if matching.count == 1 { return matching[0] }
+        throw InsertError.containerRequired(vaildContainers: matching.sorted())
+    }
+
     // Sets a property value for a view and re-validates it
     // Design decision: Re-validates using ActionUIRegistry to ensure type safety and HIG compliance (e.g., 'disabled' must be Bool)
     // Updates validatedProperties to preserve runtime mutations and trigger SwiftUI refresh via viewModels

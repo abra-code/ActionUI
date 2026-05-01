@@ -188,6 +188,37 @@ import AppKit
 ///   - Description: Dismisses the active window-level alert or confirmation dialog. SwiftUI dismisses automatically on button tap.
 ///   - Example: `ActionUI.dismissDialog("win-123");`
 ///
+/// - `insertElement(windowUUID, parentID, json, container, position, positionParam)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `parentID`: Number - The id of the container element that accepts insertions.
+///     - `json`: String - JSON string encoding one element object (e.g. `{"id":5,"type":"Text","properties":{"text":"hi"}}`).
+///     - `container`: String or null - Container name (e.g. `"children"`). Pass null to auto-derive when the container has exactly one flat container.
+///     - `position`: Number - Insert position: 0=append, 1=prepend, 2=at(index), 3=before(siblingID), 4=after(siblingID).
+///     - `positionParam`: Number - Index for position=2; siblingID for position=3/4; ignored for 0/1.
+///   - Returns: Promise<Number> - The inserted element's id, or -1 on failure.
+///   - Description: Inserts a new element into a flat container container at runtime.
+///   - Example: `ActionUI.insertElement("window-12345", 1, '{"id":10,"type":"Text","properties":{"text":"hi"}}', null, 0, 0).then(id => console.log(id));`
+///
+/// - `insertRow(windowUUID, parentID, json, container, position, positionIndex)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `parentID`: Number - The id of the Grid element.
+///     - `json`: String - JSON string encoding an array of cell objects (e.g. `[{"id":5,"type":"Text",...}]`).
+///     - `container`: String or null - Container name. Pass null to auto-derive when the container has exactly one rows container.
+///     - `position`: Number - Insert position: 0=append, 1=prepend, 2=at(index). Positions 3 and 4 are invalid for rows.
+///     - `positionIndex`: Number - Row index for position=2; ignored for 0/1.
+///   - Returns: Promise<Array<Number>> - The inserted cell ids in order, or null on failure.
+///   - Description: Inserts a new row of cells into a Grid-style rows container at runtime.
+///   - Example: `ActionUI.insertRow("window-12345", 2, '[{"id":20,"type":"Text","properties":{"text":"R0C0"}},{"id":21,"type":"Text","properties":{"text":"R0C1"}}]', null, 0, 0).then(ids => console.log(ids));`
+///
+/// - `removeElement(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - The id of the element to remove.
+///   - Description: Removes the element with viewID from its parent. Refuses to remove the root element. Cascades ViewModels cleanup. Grid rows are not addressable by id — remove cells individually.
+///   - Example: `ActionUI.removeElement("window-12345", 10);`
+///
 /// Design decision: APIs are asynchronous where returns are involved (e.g., getElementValue) due to the WebKit bridge's nature. Complex types (e.g., value in setElementValue) are serialized to JSON. Action handlers and logger are stored as global JavaScript functions and called from native code via evaluateJavaScript. The adapter uses a hidden WKWebView (offscreen) to execute JavaScript, enabling remote script loading while maintaining a native ActionUI experience.
 /// App Store compliance: WKWebView allows loading remote JavaScript as web content, which is permitted under App Store guidelines (Guideline 4.7) as long as the app provides substantial native functionality. Scripts can be bundled or fetched non-executably; avoid arbitrary code execution (e.g., eval of user input).
 
@@ -653,13 +684,80 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             } else {
                 print("Invalid arguments for dismissDialog: \(args)")
             }
+        case "insertElement":
+            // args: [windowUUID, parentID, json, container?, position?, positionParam?]
+            if args.count >= 3, let windowUUID = args[0] as? String,
+               let parentID = numberAsInt(args[1]),
+               let json = args[2] as? String {
+                let container: String? = args.count >= 4 ? args[3] as? String : nil
+                let positionInt = args.count >= 5 ? (numberAsInt(args[4]) ?? 0) : 0
+                let positionParam = args.count >= 6 ? (numberAsInt(args[5]) ?? 0) : 0
+                let position = swiftInsertPosition(positionInt, param: positionParam)
+                let id = body["id"] as? String ?? ""
+                do {
+                    let insertedID = try ActionUIWebKitJS.model.insertElement(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: position)
+                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(insertedID)})") { _, error in
+                        if let error = error { print("insertElement response error: \(error)") }
+                    }
+                } catch {
+                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: -1})") { _, _ in }
+                    print("insertElement error: \(error)")
+                }
+            } else {
+                print("Invalid arguments for insertElement: \(args)")
+            }
+        case "insertRow":
+            // args: [windowUUID, parentID, json, container?, position?, positionIndex?]
+            if args.count >= 3, let windowUUID = args[0] as? String,
+               let parentID = numberAsInt(args[1]),
+               let json = args[2] as? String {
+                let container: String? = args.count >= 4 ? args[3] as? String : nil
+                let positionInt = args.count >= 5 ? (numberAsInt(args[4]) ?? 0) : 0
+                let positionIndex = args.count >= 6 ? (numberAsInt(args[5]) ?? 0) : 0
+                let position = swiftInsertPosition(positionInt, param: positionIndex)
+                let id = body["id"] as? String ?? ""
+                do {
+                    let ids = try ActionUIWebKitJS.model.insertRow(windowUUID: windowUUID, parentID: parentID, json: json, container: container, position: position)
+                    let idsJSON = (try? JSONSerialization.string(with: ids)) ?? "null"
+                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(idsJSON)})") { _, error in
+                        if let error = error { print("insertRow response error: \(error)") }
+                    }
+                } catch {
+                    webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: null})") { _, _ in }
+                    print("insertRow error: \(error)")
+                }
+            } else {
+                print("Invalid arguments for insertRow: \(args)")
+            }
+        case "removeElement":
+            // args: [windowUUID, viewID]
+            if args.count >= 2, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]) {
+                do {
+                    try ActionUIWebKitJS.model.removeElement(windowUUID: windowUUID, viewID: viewID)
+                } catch {
+                    print("removeElement error: \(error)")
+                }
+            } else {
+                print("Invalid arguments for removeElement: \(args)")
+            }
         default:
             print("Unknown method: \(method)")
         }
     }
     
+    private func swiftInsertPosition(_ positionInt: Int, param: Int) -> ActionUI.InsertPosition {
+        switch positionInt {
+        case 1: return .prepend
+        case 2: return .at(param)
+        case 3: return .before(siblingID: param)
+        case 4: return .after(siblingID: param)
+        default: return .append
+        }
+    }
+
     // MARK: - WKNavigationDelegate
-    
+
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         print("WebView navigation finished")
         testNativeToJS()

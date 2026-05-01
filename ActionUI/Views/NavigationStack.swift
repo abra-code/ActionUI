@@ -54,6 +54,7 @@ struct NavigationStack: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = ["children": .flat, "destinations": .flat]
 
 
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in

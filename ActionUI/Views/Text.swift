@@ -26,6 +26,16 @@ struct Text: ActionUIViewConstruction {
     // Defines valueType as String to reflect plain-text access; model.value may hold AttributedString.
     static var valueType: Any.Type = String.self
 
+    // Delegates to AttributedStringHelper for all content-type parsing and serialization.
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = { value, contentType, logger in
+        attributedStringParseContent(value, contentType: contentType, logger: logger)
+    }
+
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = { value, contentType, logger in
+        attributedStringSerializeContent(value, contentType: contentType, logger: logger)
+    }
+    static var insertableContainers: [String: ContainerShape]? = nil
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
         if properties["markdown"] != nil && !(properties["markdown"] is String) {
@@ -36,15 +46,6 @@ struct Text: ActionUIViewConstruction {
             logger.log("Text has both text and markdown; markdown takes precedence", .warning)
         }
         return validatedProperties
-    }
-
-    // Delegates to AttributedStringHelper for all content-type parsing and serialization.
-    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = { value, contentType, logger in
-        attributedStringParseContent(value, contentType: contentType, logger: logger)
-    }
-
-    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = { value, contentType, logger in
-        attributedStringSerializeContent(value, contentType: contentType, logger: logger)
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in

@@ -34,6 +34,7 @@ struct Image: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     // The runtime value of an Image is a string interpreted using "mixed" heuristics
     // (file path, SF Symbol name, or asset name).  Setting the value programmatically

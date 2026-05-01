@@ -75,6 +75,21 @@ typedef enum {
     ActionUIButtonRoleDestructive = 2   ///< Destructive action (red tint)
 } ActionUIButtonRole;
 
+// MARK: - Runtime Structural Mutations
+
+/// Insert position for actionUIInsertElement / actionUIInsertRow.
+/// Pass positionParam = 0 for Append and Prepend.
+/// For At, positionParam is the target index.
+/// For Before/After, positionParam is the sibling's viewID.
+/// Before and After are invalid for row containers — use Append, Prepend, or At.
+typedef enum {
+    ActionUIInsertPositionAppend  = 0,  ///< Append to the end of the container
+    ActionUIInsertPositionPrepend = 1,  ///< Prepend to the beginning of the container
+    ActionUIInsertPositionAt      = 2,  ///< Insert at positionParam index
+    ActionUIInsertPositionBefore  = 3,  ///< Insert before the sibling with positionParam id (flat containers only)
+    ActionUIInsertPositionAfter   = 4   ///< Insert after the sibling with positionParam id (flat containers only)
+} ActionUIInsertPosition;
+
 #ifdef __cplusplus
 }
 #endif

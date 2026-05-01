@@ -66,6 +66,7 @@ struct Map: ActionUIViewConstruction {
               let str = String(data: data, encoding: .utf8) else { return nil }
         return str
     }
+    static var insertableContainers: [String: ContainerShape]? = nil
 
     // Design decision: Defines valueType as CLLocationCoordinate2D to reflect map's center coordinate for type-safe string parsing in ActionUIModel
     static var valueType: Any.Type = CLLocationCoordinate2D.self

@@ -195,13 +195,34 @@ public class ActionUIRegistry {
         if model.validatedProperties.isEmpty {
             model.validatedProperties = validatedProperties
         }
-        
-        if let constructionType = viewRegistrations[element.type] {
-            return constructionType.buildView(element, model, windowUUID, validatedProperties, logger)
+
+        // Merge any runtime structural mutations (insertElement / removeElement) before
+        // passing the element to view-specific construction. The view-type closures still
+        // read element.subviews[container]; the merged element makes those reads see the live state.
+        let effectiveElement = applyDynamicSubviews(to: element, model: model)
+
+        if let constructionType = viewRegistrations[effectiveElement.type] {
+            return constructionType.buildView(effectiveElement, model, windowUUID, validatedProperties, logger)
         }
-        logger.log("No construction type found for element ID \(element.id) of type '\(element.type)' in window \(windowUUID), returning EmptyView", .warning)
-        
+        logger.log("No construction type found for element ID \(effectiveElement.id) of type '\(effectiveElement.type)' in window \(windowUUID), returning EmptyView", .warning)
+
         return SwiftUI.EmptyView()
+    }
+
+    // Returns a copy of the element with `model.dynamicSubviews` merged over its static subviews.
+    // Returns the original element unchanged when there are no dynamic mutations or when the
+    // element is not a concrete ActionUIElement (cannot rebuild non-concrete protocol values).
+    private func applyDynamicSubviews(to element: any ActionUIElementBase, model: ViewModel) -> any ActionUIElementBase {
+        guard let dynamic = model.dynamicSubviews, !dynamic.isEmpty else { return element }
+        guard let concrete = element as? ActionUIElement else { return element }
+        var merged = concrete.subviews ?? [:]
+        for (key, value) in dynamic { merged[key] = value }
+        return ActionUIElement(id: concrete.id, type: concrete.type, properties: concrete.properties, subviews: merged)
+    }
+
+    // Returns the insertable container map for a registered view type
+    func getInsertableContainers(forElementType type: String) -> [String: ContainerShape]? {
+        viewRegistrations[type]?.insertableContainers
     }
     
     // Applies modifiers to a view, using a ViewModel for dynamic updates

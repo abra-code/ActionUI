@@ -1,0 +1,94 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 0,
+    "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+  },
+  "children": [
+
+    {
+      "type": "ScrollView",
+      "properties": {
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      },
+      "content": {
+        "id": 1,
+        "type": "LazyVStack",
+        "properties": {
+          "alignment": "trailing",
+          "spacing": 8.0,
+          "padding": "default",
+          "frame": { "maxWidth": "infinity" }
+        },
+        "children": [
+          {
+            "type": "HStack",
+            "children": [
+              { "type": "Spacer" },
+              {
+                "type": "Text",
+                "properties": {
+                  "text": "Hello! 👋",
+                  "foregroundStyle": "white",
+                  "padding": "default",
+                  "background": "blue",
+                  "cornerRadius": 12,
+                  "frame": { "maxWidth": 260 }
+                }
+              }
+            ]
+          },
+          {
+            "type": "HStack",
+            "children": [
+              { "type": "Spacer" },
+              {
+                "type": "Text",
+                "properties": {
+                  "text": "Type a message and tap Send.",
+                  "foregroundStyle": "white",
+                  "padding": "default",
+                  "background": "blue",
+                  "cornerRadius": 12,
+                  "frame": { "maxWidth": 260 }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "type": "Divider"
+    },
+
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 8.0,
+        "padding": "default"
+      },
+      "children": [
+        {
+          "id": 2,
+          "type": "TextField",
+          "properties": {
+            "prompt": "Type a message…",
+            "actionID": "chat.demo.send",
+            "frame": { "maxWidth": "infinity" }
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Send",
+            "actionID": "chat.demo.send",
+            "buttonStyle": "borderedProminent"
+          }
+        }
+      ]
+    }
+
+  ]
+}

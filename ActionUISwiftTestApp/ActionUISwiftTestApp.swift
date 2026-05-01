@@ -421,6 +421,139 @@ struct ActionUISwiftTestApp: App {
                 propertyName: "rotationEffect", value: anim105Rotation)
         }
 
+        // InsertElement demo handlers (InsertElement.json)
+        // IDs: 2 = Grid container, 10 = Item A, 11 = Item B, 20/21 = initial Grid cells, 99 = status label
+        // Dynamically inserted grid cell pairs start at 200.
+
+        var insertGridCounter = 200
+        ActionUISwift.registerActionHandler(actionID: "insert.demo.appendRow") { _, windowUUID, _, _, _ in
+            let c0 = insertGridCounter; insertGridCounter += 1
+            let c1 = insertGridCounter; insertGridCounter += 1
+            do {
+                let rowNum = (insertGridCounter / 2) - 100
+                try ActionUISwift.insertRow(
+                    windowUUID: windowUUID, parentID: 2,
+                    json: "[{\"id\":\(c0),\"type\":\"Text\",\"properties\":{\"text\":\"R\(rowNum) C0\",\"font\":\"caption\"}},{\"id\":\(c1),\"type\":\"Text\",\"properties\":{\"text\":\"R\(rowNum) C1\",\"font\":\"caption\"}}]"
+                )
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Appended grid row (ids \(c0), \(c1))")
+            } catch {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Error: \(error)")
+            }
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "insert.demo.prependRow") { _, windowUUID, _, _, _ in
+            let c0 = insertGridCounter; insertGridCounter += 1
+            let c1 = insertGridCounter; insertGridCounter += 1
+            do {
+                let rowNum = (insertGridCounter / 2) - 100
+                try ActionUISwift.insertRow(
+                    windowUUID: windowUUID, parentID: 2,
+                    json: "[{\"id\":\(c0),\"type\":\"Text\",\"properties\":{\"text\":\"R\(rowNum) C0\",\"font\":\"caption\"}},{\"id\":\(c1),\"type\":\"Text\",\"properties\":{\"text\":\"R\(rowNum) C1\",\"font\":\"caption\"}}]",
+                    position: .prepend
+                )
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Prepended grid row (ids \(c0), \(c1))")
+            } catch {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Error: \(error)")
+            }
+        }
+
+        // List.insertElement demo handlers (List.insertElement.json)
+        // IDs: 1 = List container, 10 = Item A, 11 = Item B, 99 = status label
+        // Inserts Label elements with cycling SF Symbols.
+        let listInsertSymbols = ["star.fill", "heart.fill", "bolt.fill", "flame.fill", "leaf.fill", "drop.fill", "moon.fill", "sun.max.fill"]
+        var listInsertCounter = 100
+        var listInsertedIDs: [Int] = []
+
+        ActionUISwift.registerActionHandler(actionID: "list.insert.demo.append") { _, windowUUID, _, _, _ in
+            let id = listInsertCounter; listInsertCounter += 1
+            let sym = listInsertSymbols[id % listInsertSymbols.count]
+            do {
+                try ActionUISwift.insertElement(
+                    windowUUID: windowUUID, parentID: 1,
+                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"Appended (id: \#(id))","systemImage":"\#(sym)"}}"#
+                )
+                listInsertedIDs.append(id)
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Appended label id \(id)")
+            } catch {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Error: \(error)")
+            }
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "list.insert.demo.prepend") { _, windowUUID, _, _, _ in
+            let id = listInsertCounter; listInsertCounter += 1
+            let sym = listInsertSymbols[id % listInsertSymbols.count]
+            do {
+                try ActionUISwift.insertElement(
+                    windowUUID: windowUUID, parentID: 1,
+                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"Prepended (id: \#(id))","systemImage":"\#(sym)"}}"#,
+                    position: .prepend
+                )
+                listInsertedIDs.append(id)
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Prepended label id \(id)")
+            } catch {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Error: \(error)")
+            }
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "list.insert.demo.afterA") { _, windowUUID, _, _, _ in
+            let id = listInsertCounter; listInsertCounter += 1
+            let sym = listInsertSymbols[id % listInsertSymbols.count]
+            do {
+                try ActionUISwift.insertElement(
+                    windowUUID: windowUUID, parentID: 1,
+                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"After A (id: \#(id))","systemImage":"\#(sym)"}}"#,
+                    position: .after(siblingID: 10)
+                )
+                listInsertedIDs.append(id)
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Inserted after A, label id \(id)")
+            } catch {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Error: \(error)")
+            }
+        }
+
+        ActionUISwift.registerActionHandler(actionID: "list.insert.demo.removeLast") { _, windowUUID, _, _, _ in
+            guard let id = listInsertedIDs.popLast() else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Nothing to remove.")
+                return
+            }
+            do {
+                try ActionUISwift.removeElement(windowUUID: windowUUID, viewID: id)
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Removed label id \(id)")
+            } catch {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Error: \(error)")
+            }
+        }
+
+        // LazyVStack.insertElement chat demo handlers (LazyVStack.insertElement.json)
+        // IDs: 1 = LazyVStack container, 2 = TextField input
+        // Inserts a right-aligned chat bubble (HStack + Spacer + Text) for each sent message.
+        ActionUISwift.registerActionHandler(actionID: "chat.demo.send") { _, windowUUID, _, _, _ in
+            guard let text = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 2) as? String,
+                  !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            let bubbleDict: [String: Any] = [
+                "type": "HStack",
+                "children": [
+                    ["type": "Spacer"] as [String: Any],
+                    ["type": "Text", "properties": [
+                        "text": text,
+                        "foregroundStyle": "white",
+                        "padding": "default",
+                        "background": "blue",
+                        "clipShape": ["type": "roundedRectangle", "cornerRadius": 12] as [String: Any],
+                        "frame": ["maxWidth": 260]
+                    ] as [String: Any]] as [String: Any]
+                ]
+            ]
+            guard let data = try? JSONSerialization.data(withJSONObject: bubbleDict),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            do {
+                try ActionUISwift.insertElement(windowUUID: windowUUID, parentID: 1, json: json)
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "")
+            } catch {
+                print("[chat.demo.send] Error: \(error)")
+            }
+        }
+
         if shouldResetState {
             // Clear custom state
             UserDefaults.standard.removeObject(forKey: "openWindows")

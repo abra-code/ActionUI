@@ -33,6 +33,21 @@ private class ObjCLoggerBridge: ActionUILogger {
     }
 }
 
+/// Insert position for Objective-C. Maps to ActionUI.InsertPosition.
+/// Pass `positionParam` = 0 for `.append` and `.prepend`; index for `.at`; siblingID for `.before` / `.after`.
+@objc public enum ActionUIObjCInsertPosition: NSInteger {
+    /// Append to the end of the container.
+    case append = 0
+    /// Prepend to the beginning of the container.
+    case prepend = 1
+    /// Insert at the given `positionParam` index.
+    case at = 2
+    /// Insert before the sibling whose id equals `positionParam`.
+    case before = 3
+    /// Insert after the sibling whose id equals `positionParam`.
+    case after = 4
+}
+
 /// Modal presentation style for Objective-C. Maps to ActionUI.ModalStyle.
 @objc public enum ActionUIObjCModalStyle: NSInteger {
     /// Standard sheet presentation.
@@ -280,6 +295,102 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     /// Removes the default action handler.
     @MainActor @objc public class func removeDefaultActionHandler() {
         model.removeDefaultActionHandler()
+    }
+
+    // MARK: - Runtime Structural Mutations
+
+    /// Inserts a new element into a flat container. Returns the inserted element's id, or -1 on failure.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - parentID: The id of the container element that accepts insertions.
+    ///   - json: A JSON string encoding one element object (e.g. `{"id":5,"type":"Text",...}`).
+    ///   - container: Container name (e.g. `"children"`). Pass nil to auto-derive when the container has exactly one flat container.
+    ///   - position: Insert position type.
+    ///   - positionParam: Index for `.at`; siblingID for `.before`/`.after`; ignored for `.append`/`.prepend`.
+    ///   - error: On failure, set to a non-nil NSError describing the problem.
+    /// - Returns: The inserted element's id on success, -1 on failure.
+    @MainActor @objc public class func insertElementIntoWindowUUID(
+        _ windowUUID: NSString,
+        parentID: NSInteger,
+        json: NSString,
+        container: NSString?,
+        position: ActionUIObjCInsertPosition,
+        positionParam: NSInteger,
+        error: NSErrorPointer
+    ) -> NSInteger {
+        let swiftPosition = Self.swiftInsertPosition(position, param: positionParam)
+        do {
+            let id = try model.insertElement(windowUUID: windowUUID as String, parentID: parentID, json: json as String, container: container as String?, position: swiftPosition)
+            return id
+        } catch let err as NSError {
+            error?.pointee = err
+            return -1
+        }
+    }
+
+    /// Inserts a new row of cells into a Grid-style `rows` container. Returns cell ids on success, nil on failure.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - parentID: The id of the Grid element.
+    ///   - json: A JSON string encoding an array of cell objects (e.g. `[{"id":5,"type":"Text",...}]`).
+    ///   - container: Container name. Pass nil to auto-derive when the container has exactly one rows container.
+    ///   - position: Insert position. `.before` and `.after` are invalid for row containers and will fail.
+    ///   - positionIndex: Row index for `.at`; ignored for `.append`/`.prepend`.
+    ///   - error: On failure, set to a non-nil NSError describing the problem.
+    /// - Returns: NSArray of NSNumber containing the inserted cell ids, or nil on failure.
+    @MainActor @objc public class func insertRowIntoWindowUUID(
+        _ windowUUID: NSString,
+        parentID: NSInteger,
+        json: NSString,
+        container: NSString?,
+        position: ActionUIObjCInsertPosition,
+        positionIndex: NSInteger,
+        error: NSErrorPointer
+    ) -> NSArray? {
+        let swiftPosition = Self.swiftInsertPosition(position, param: positionIndex)
+        do {
+            let ids = try model.insertRow(windowUUID: windowUUID as String, parentID: parentID, json: json as String, container: container as String?, position: swiftPosition)
+            return ids.map { NSNumber(value: $0) } as NSArray
+        } catch let err as NSError {
+            error?.pointee = err
+            return nil
+        }
+    }
+
+    /// Removes the element with `viewID` from its parent container.
+    /// Refuses to remove the window's root element. Cascade-removes ViewModels for all descendants.
+    ///
+    /// Note on Grid rows: only individual cells (which carry ids) are addressable. A whole row
+    /// has no synthetic id — remove each cell individually, or rebuild the parent.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: The id of the element to remove.
+    ///   - error: On failure, set to a non-nil NSError describing the problem.
+    /// - Returns: YES on success, NO on failure.
+    @MainActor @objc public class func removeElementFromWindowUUID(
+        _ windowUUID: NSString,
+        viewID: NSInteger,
+        error: NSErrorPointer
+    ) -> Bool {
+        do {
+            try model.removeElement(windowUUID: windowUUID as String, viewID: viewID)
+            return true
+        } catch let err as NSError {
+            error?.pointee = err
+            return false
+        }
+    }
+
+    /// Converts an ObjC insert position + param to ActionUI.InsertPosition.
+    private class func swiftInsertPosition(_ position: ActionUIObjCInsertPosition, param: Int) -> ActionUI.InsertPosition {
+        switch position {
+        case .append:  return .append
+        case .prepend: return .prepend
+        case .at:      return .at(param)
+        case .before:  return .before(siblingID: param)
+        case .after:   return .after(siblingID: param)
+        @unknown default: return .append
+        }
     }
 
     // MARK: - Modal Presentation
