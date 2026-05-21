@@ -99,11 +99,11 @@ You can also put `actionID` directly on most view types to make them tappable.
 `List` shows a scrollable column of rows. `NavigationStack` adds navigation.
 
 ```json
-{ "type": "NavigationStack", "destinations": [
-  { "type": "List", "properties": {}, "children": [
+{ "type": "NavigationStack", "content": {
+  "type": "List", "properties": {}, "children": [
     { "type": "Text", "properties": { "text": "Row 1" } }
-  ]}
-]}
+  ]
+}}
 ```
 
 ### Alignment
@@ -123,5 +123,5 @@ Control how children align inside a stack:
 Wrap content in `ScrollView` to enable scrolling:
 
 ```json
-{ "type": "ScrollView", "properties": { "axes": "vertical" }, "children": [...] }
+{ "type": "ScrollView", "properties": { "axis": "vertical" }, "content": { "type": "VStack", "children": [...] } }
 ```
