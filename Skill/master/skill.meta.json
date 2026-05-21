@@ -1,0 +1,119 @@
+{
+  "name": "actionui",
+  "version": "1.2",
+  "description": "Generate and validate ActionUI JSON for macOS and iOS native UI. Use when the user asks to design, create, edit, fix, or verify ActionUI JSON files, or asks about ActionUI elements, properties, or layout.",
+
+  "flavors": {
+    "claude": {
+      "label": "Claude (Anthropic Claude Code skill)",
+      "notes": "Delivered via Claude Code SKILL.md protocol. Full prose, tables OK, Anthropic XML tags allowed. Assume strong SwiftUI knowledge. Levels 1+2. Rely on schemas/ for element detail. Agent can run local Python validator.",
+      "max_skill_tokens": 700,
+      "disclosure_levels": [1, 2],
+      "swiftui_aware": true,
+      "script_execution": true,
+      "format": "markdown-tables",
+      "triggers": []
+    },
+    "capable": {
+      "label": "Capable frontier models (Gemini, Grok, GPT-4o, Llama-3-70B+)",
+      "notes": "Delivered as system prompt or tool description. No Anthropic-specific skill protocol. Standard Markdown only, no XML tags. Assume SwiftUI knowledge. Levels 1+2. Script execution may not be available; validation section adapts. Targets the current broad frontier: Gemini 2.x, Grok 3+, GPT-4o, strong open-source models. Will drift up as models improve — reassess annually.",
+      "max_skill_tokens": 500,
+      "disclosure_levels": [1, 2],
+      "swiftui_aware": true,
+      "script_execution": false,
+      "format": "markdown-tables",
+      "triggers": []
+    },
+    "lite": {
+      "label": "Small / local models (Phi-3, Mistral-7B, Llama-3-8B class)",
+      "notes": "Delivered as system prompt. No SwiftUI knowledge assumed. Level 1 only. Under 300 tokens. Include SwiftUI crash course. Inline examples for few-shot prompting. Explicit keyword triggers in description. No table format.",
+      "max_skill_tokens": 300,
+      "disclosure_levels": [1],
+      "swiftui_aware": false,
+      "script_execution": false,
+      "format": "markdown",
+      "triggers": [
+        "actionui", "ActionUI", "ActionUI JSON", "native ui json",
+        "SwiftUI json", "json ui", "render ui from json"
+      ]
+    }
+  },
+
+  "content": [
+    {
+      "id": "core",
+      "file": "content/01-core.md",
+      "level": 1,
+      "flavors": ["claude", "capable", "lite"],
+      "description": "What ActionUI is + JSON structure + core generation rules"
+    },
+    {
+      "id": "swiftui-alignment",
+      "file": "content/02-swiftui-alignment.md",
+      "level": 1,
+      "flavors": ["claude", "capable"],
+      "description": "One-paragraph note for SwiftUI-aware models: property names match SwiftUI modifiers"
+    },
+    {
+      "id": "swiftui-crash-course",
+      "file": "content/03-swiftui-crash-course.md",
+      "level": 1,
+      "flavors": ["lite"],
+      "description": "SwiftUI layout fundamentals crash course for non-SwiftUI agents"
+    },
+    {
+      "id": "base-properties",
+      "file": "content/04-base-properties.md",
+      "level": 2,
+      "flavors": ["claude", "capable"],
+      "description": "Universal View base properties reference (layout, appearance, interaction)"
+    },
+    {
+      "id": "validation",
+      "file": "content/05-validation.md",
+      "level": 1,
+      "flavors": ["claude", "capable", "lite"],
+      "description": "How to run the validator and what to do with errors"
+    },
+    {
+      "id": "element-quick-ref",
+      "file": "content/06-element-quick-ref.md",
+      "level": 2,
+      "flavors": ["claude", "capable"],
+      "description": "One-liner per element type with key properties and container shape"
+    },
+    {
+      "id": "examples",
+      "file": "content/07-examples.md",
+      "level": 1,
+      "flavors": ["lite"],
+      "description": "Short inline examples for few-shot prompting in lite/local flavor"
+    },
+    {
+      "id": "patterns",
+      "file": "content/08-patterns.md",
+      "level": 2,
+      "flavors": ["claude", "capable"],
+      "description": "Real-world layout and interaction patterns extracted from production ActionUI apps"
+    },
+    {
+      "id": "reference-docs",
+      "file": "content/09-reference-docs.md",
+      "level": 1,
+      "flavors": ["claude", "capable", "lite"],
+      "description": "Pointer to the docs/ subfolder: per-element schema docs, templates, and the JSON guide"
+    }
+  ],
+
+  "build": {
+    "verifier_source": "Tools/verifier/",
+    "docs_source": "Documentation/",
+    "output_dir": "Skill/dist/",
+    "flavors_output": {
+      "claude":   "Skill/dist/claude/",
+      "capable":  "Skill/dist/capable/",
+      "lite":     "Skill/dist/lite/"
+    },
+    "master_skill_output": "Skill/SKILL.md"
+  }
+}

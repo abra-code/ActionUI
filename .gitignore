@@ -22,4 +22,5 @@ AGENTS.md
 ActionUINodeJS/frameworks
 ActionUINodeJS/prebuilds
 ActionUINodeJS/node_modules
+Skill/dist
 Tools/verifier/verifier/__pycache__
