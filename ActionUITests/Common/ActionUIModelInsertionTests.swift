@@ -124,26 +124,34 @@ final class ActionUIModelInsertionTests: XCTestCase {
         XCTAssertNotNil(model.windowModels[windowUUID]?.viewModels[20])
     }
 
-    // MARK: - insertElement — NavigationStack (two flat containers)
+    // MARK: - insertElement — NavigationStack (single flat container: destinations)
 
-    func testInsertElementNavigationStackRequiresContainer() throws {
+    func testInsertElementNavigationStackAutoSelectsDestinations() throws {
+        // NavigationStack has only one flat container ("destinations"), so the framework
+        // auto-selects it — no explicit container name required.
         let dict: [String: Any] = ["id": 1, "type": "NavigationStack", "properties": [:]]
         _ = try model.loadDescription(from: dict, windowUUID: windowUUID)
-
-        do {
-            _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 9))
-            XCTFail("Expected containerRequired error")
-        } catch InsertError.containerRequired(let containers) {
-            XCTAssertTrue(containers.contains("children"))
-            XCTAssertTrue(containers.contains("destinations"))
-        }
+        let id = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 9))
+        XCTAssertEqual(id, 9)
     }
 
     func testInsertElementNavigationStackWithExplicitContainer() throws {
         let dict: [String: Any] = ["id": 1, "type": "NavigationStack", "properties": [:]]
         _ = try model.loadDescription(from: dict, windowUUID: windowUUID)
-        let id = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 9), container: "children")
+        let id = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 9), container: "destinations")
         XCTAssertEqual(id, 9)
+    }
+
+    func testInsertElementNavigationStackUnknownContainer() throws {
+        let dict: [String: Any] = ["id": 1, "type": "NavigationStack", "properties": [:]]
+        _ = try model.loadDescription(from: dict, windowUUID: windowUUID)
+        XCTAssertThrowsError(try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 9), container: "children")) { error in
+            guard case InsertError.unknownContainer(let name, let valid) = error else {
+                return XCTFail("Expected unknownContainer, got \(error)")
+            }
+            XCTAssertEqual(name, "children")
+            XCTAssertEqual(valid, ["destinations"])
+        }
     }
 
     // MARK: - insertElement — error cases
