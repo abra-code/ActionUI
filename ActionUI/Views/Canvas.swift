@@ -1,4 +1,5 @@
 // Sources/Views/Canvas.swift
+// See Helpers/CanvasRenderer.swift for "operations" code
 /*
  Sample JSON for Canvas:
  {

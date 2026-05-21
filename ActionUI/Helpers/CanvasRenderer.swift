@@ -146,12 +146,14 @@ struct CanvasRenderer {
                 let frame = scaleRect(frameArr, size: size, coordMode: coordMode)
                 
                 let opacity = op.double(forKey: "opacity") ?? 1.0
-                
+                let blendMode = GraphicsContext.BlendMode.fromString(op["blendMode"] as? String ?? "normal")
+
                 if let subOps = op["operations"] as? [[String: Any]] {
                     context.drawLayer { subContext in
                         var subCtx = subContext
                         subCtx.translateBy(x: frame.origin.x, y: frame.origin.y)
                         subCtx.opacity = opacity
+                        subCtx.blendMode = blendMode
                         draw(subOps, into: &subCtx, size: frame.size, coordMode: coordMode, logger: logger)
                     }
                 }
