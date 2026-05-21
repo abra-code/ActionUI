@@ -5,7 +5,8 @@
    "type": "HStack",
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "spacing": 10.0      // Optional: Double for spacing between elements
+     "spacing": 10.0,     // Optional: Double for spacing between elements
+     "alignment": "center" // Optional: String vertical alignment — "top", "center", "bottom", "firstTextBaseline", "lastTextBaseline"; defaults to "center"
    },
    "children": [         // Static children — mutually exclusive with "template"
      { "type": "Text", "properties": { "text": "Item 1" } },
@@ -25,7 +26,7 @@
    //
    // Data is set at runtime via setElementRows(windowUUID:viewID:rows:).
    //
-   // Note: The spacing property is specific to HStack. Baseline View properties (padding, hidden,
+   // Note: The spacing and alignment properties are specific to HStack. Baseline View properties (padding, hidden,
    // foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and
    // additional View protocol modifiers are inherited and applied via
    // ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -45,17 +46,36 @@ struct HStack: ActionUIViewConstruction {
 
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
+
         if validatedProperties["spacing"] != nil, (validatedProperties.cgFloat(forKey:"spacing") == nil) {
             logger.log("HStack spacing must be a number; ignoring", .warning)
             validatedProperties["spacing"] = nil
         }
-        
+
+        let validAlignments = ["top", "center", "bottom", "firstTextBaseline", "lastTextBaseline"]
+        if let alignment = properties["alignment"] as? String {
+            if !validAlignments.contains(alignment) {
+                logger.log("HStack alignment '\(alignment)' invalid; ignoring", .warning)
+                validatedProperties["alignment"] = nil
+            }
+        } else if properties["alignment"] != nil {
+            logger.log("HStack alignment must be a String; ignoring", .warning)
+            validatedProperties["alignment"] = nil
+        }
+
         return validatedProperties
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let spacing = properties.cgFloat(forKey: "spacing")
+        let alignment: VerticalAlignment
+        switch properties["alignment"] as? String {
+        case "top":               alignment = .top
+        case "bottom":            alignment = .bottom
+        case "firstTextBaseline": alignment = .firstTextBaseline
+        case "lastTextBaseline":  alignment = .lastTextBaseline
+        default:                  alignment = .center
+        }
 
         // Data-driven template container mode: render one template instance per row.
         if let template = element.subviews?["template"] as? any ActionUIElementBase {
@@ -68,7 +88,7 @@ struct HStack: ActionUIViewConstruction {
                     parentID: parentID, windowUUID: windowUUID, logger: logger
                 )
             }
-            return SwiftUI.HStack(spacing: spacing) {
+            return SwiftUI.HStack(alignment: alignment, spacing: spacing) {
                 ForEach(rowViews.indices, id: \.self) { i in rowViews[i] }
             }
         }
@@ -83,12 +103,12 @@ struct HStack: ActionUIViewConstruction {
                     parentID: tc.parentID, windowUUID: windowUUID, logger: logger
                 )
             }
-            return SwiftUI.HStack(spacing: spacing) {
+            return SwiftUI.HStack(alignment: alignment, spacing: spacing) {
                 ForEach(childViews.indices, id: \.self) { i in childViews[i] }
             }
         } else {
             // Normal mode: children have registered ViewModels
-            return SwiftUI.HStack(spacing: spacing) {
+            return SwiftUI.HStack(alignment: alignment, spacing: spacing) {
                 let windowModel = ActionUIModel.shared.windowModels[windowUUID]
                 ForEach(children, id: \.id) { child in
                     if let childModel = windowModel?.viewModels[child.id] {

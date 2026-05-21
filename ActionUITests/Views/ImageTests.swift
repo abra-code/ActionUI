@@ -146,16 +146,52 @@ final class ImageTests: XCTestCase {
         let properties: [String: Any] = [
             "filePath": "/path/to/image.jpg",
             "resizable": false,
-            "scaleMode": "fill",
+            "contentMode": "fill",
             "imageScale": "small"
         ]
-        
+
         let validated = Image.validateProperties(properties, logger)
-        
+
         XCTAssertEqual(validated["filePath"] as? String, "/path/to/image.jpg", "Valid filePath should be preserved")
         XCTAssertEqual(validated["resizable"] as? Bool, false, "resizable should be preserved")
-        XCTAssertEqual(validated["scaleMode"] as? String, "fill", "scaleMode should be preserved")
+        XCTAssertEqual(validated["contentMode"] as? String, "fill", "contentMode should be preserved")
         XCTAssertEqual(validated["imageScale"] as? String, "small", "imageScale should be preserved")
+    }
+
+    func testImageContentModeValid() {
+        let fitProps: [String: Any] = ["systemName": "star", "contentMode": "fit"]
+        let validated = Image.validateProperties(fitProps, logger)
+        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode 'fit' should be preserved")
+
+        let fillProps: [String: Any] = ["systemName": "star", "contentMode": "fill"]
+        let validated2 = Image.validateProperties(fillProps, logger)
+        XCTAssertEqual(validated2["contentMode"] as? String, "fill", "contentMode 'fill' should be preserved")
+    }
+
+    func testImageContentModeInvalid() {
+        let properties: [String: Any] = ["systemName": "star", "contentMode": "stretch"]
+        let validated = Image.validateProperties(properties, logger)
+        XCTAssertNil(validated["contentMode"], "Invalid contentMode should be cleared")
+    }
+
+    func testImageContentModeTakesPrecedenceOverScaleMode() {
+        // When both are present, contentMode wins and scaleMode is cleared
+        let properties: [String: Any] = [
+            "systemName": "star",
+            "contentMode": "fit",
+            "scaleMode": "fill"
+        ]
+        let validated = Image.validateProperties(properties, logger)
+        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode should be kept")
+        XCTAssertNil(validated["scaleMode"], "scaleMode should be cleared when contentMode is set")
+    }
+
+    func testImageScaleModeBackwardCompat() {
+        // scaleMode still works when contentMode is absent (deprecated but functional)
+        let properties: [String: Any] = ["systemName": "star", "scaleMode": "fill"]
+        let validated = Image.validateProperties(properties, logger)
+        XCTAssertEqual(validated["scaleMode"] as? String, "fill", "scaleMode should pass through when contentMode is absent")
+        XCTAssertNil(validated["contentMode"], "contentMode should not be auto-set from scaleMode")
     }
     
     func testImageJSONDecodingWithImageScale() throws {

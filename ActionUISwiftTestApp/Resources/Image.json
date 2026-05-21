@@ -16,7 +16,7 @@
         "properties": {
           "assetName": "abracode",
           "resizable": true,
-          "scaleMode": "fit",
+          "contentMode": "fit",
           "frame": {
             "width": 100.0,
             "height": 100.0,
@@ -52,7 +52,7 @@
           "imageScale": "medium",
           "foregroundStyle": "red",
           "resizable": true,
-          "scaleMode": "fill",
+          "contentMode": "fill",
           "frame": {
             "width": 70.0,
             "height": 70.0,
@@ -71,7 +71,7 @@
           "imageScale": "small",
           "foregroundStyle": "blue",
           "resizable": true,
-          "scaleMode": "fit",
+          "contentMode": "fit",
           "opacity": 0.7,
           "frame": {
             "width": 80.0,
@@ -95,7 +95,7 @@
         "properties": {
           "resourceName": "ActionUI.icns",
           "resizable": true,
-          "scaleMode": "fit",
+          "contentMode": "fit",
           "frame": {
             "width": 180.0,
             "height": 100.0,
@@ -110,7 +110,7 @@
         "properties": {
           "resourceName": "abracadabra.png",
           "resizable": true,
-          "scaleMode": "fit",
+          "contentMode": "fit",
           "frame": {
             "width": 100.0,
             "height": 100.0,

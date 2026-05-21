@@ -1,9 +1,6 @@
 {
   "type": "List",
-  "properties": {
-    "sectionStyle": "automatic",
-    "selectionType": "single"
-  },
+  "properties": {},
   "children": [
     {
       "type": "Text",
@@ -37,7 +34,7 @@
     {
       "type": "List",
       "id": 11,
-      "properties": { "selectionType": "multiple", "frame": { "minHeight": 200 } },
+      "properties": { "frame": { "minHeight": 200 } },
       "template": {
         "type": "Label",
         "properties": { "title": "$2", "systemImage": "$1" }
@@ -50,7 +47,7 @@
     {
       "type": "List",
       "id": 21,
-      "properties": { "selectionType": "single", "frame": { "minHeight": 240 } },
+      "properties": { "frame": { "minHeight": 240 } },
       "template": {
         "type": "HStack",
         "properties": { "spacing": 10 },
@@ -69,7 +66,7 @@
     {
       "type": "List",
       "id": 31,
-      "properties": { "selectionType": "single", "frame": { "minHeight": 200 } },
+      "properties": { "frame": { "minHeight": 200 } },
       "template": {
         "type": "Button",
         "properties": {

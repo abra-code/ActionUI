@@ -9,8 +9,9 @@
      "assetName": "customImage",      // Optional: String for asset catalog image name
      "filePath": "/path/to/image.jpg", // Optional: String for local file path
      "resourceName": "yourImage.png",  Optional: String for bundle resource image name with extension
-     "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if scaleMode is specified
-     "scaleMode": "fit",         // Optional: String ("fit" or "fill") for scaling mode, defaults to "fit"
+     "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if contentMode is specified
+     "contentMode": "fit",       // Optional: String ("fit" or "fill") for aspect-ratio scaling mode, defaults to "fit"
+     "scaleMode": "fit",         // Deprecated: alias for contentMode; prefer contentMode
      "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
    }
    // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -81,11 +82,25 @@ struct Image: ActionUIViewConstruction {
             validatedProperties["resizable"] = nil
         }
         
-        // Validate scaleMode
+        // Validate contentMode (preferred); scaleMode is a deprecated alias
+        if let contentMode = properties["contentMode"] as? String {
+            if !["fit", "fill"].contains(contentMode) {
+                logger.log("Image contentMode '\(contentMode)' invalid; ignoring", .warning)
+                validatedProperties["contentMode"] = nil
+            }
+        } else if properties["contentMode"] != nil {
+            logger.log("Image contentMode must be a String; ignoring", .warning)
+            validatedProperties["contentMode"] = nil
+        }
         if let scaleMode = properties["scaleMode"] as? String {
             if !["fit", "fill"].contains(scaleMode) {
                 logger.log("Image scaleMode '\(scaleMode)' invalid; ignoring", .warning)
                 validatedProperties["scaleMode"] = nil
+            } else if validatedProperties["contentMode"] is String {
+                logger.log("Image: both contentMode and scaleMode set; using contentMode, cleared scaleMode", .info)
+                validatedProperties["scaleMode"] = nil
+            } else {
+                logger.log("Image scaleMode is deprecated; use contentMode instead", .info)
             }
         } else if properties["scaleMode"] != nil {
             logger.log("Image scaleMode must be a String; ignoring", .warning)
@@ -143,14 +158,13 @@ struct Image: ActionUIViewConstruction {
             image = SwiftUI.Image(systemName: "photo")
         }
 
-        let scaleMode = (properties["scaleMode"] as? String)
+        // contentMode is preferred; scaleMode is a deprecated alias
+        let contentMode = (properties["contentMode"] as? String) ?? (properties["scaleMode"] as? String)
 
-        // Apply resizable and scaleMode modifiers
-        // "scaleMode" implies "resizable" even if not explicitly declared
-        let resizable = properties["resizable"] as? Bool ?? (scaleMode != nil)
-        if resizable,
-           let scaleMode {
-            return image.resizable().aspectRatio(contentMode: scaleMode == "fit" ? .fit : .fill)
+        // contentMode (or deprecated scaleMode) implies "resizable" even if not explicitly declared
+        let resizable = properties["resizable"] as? Bool ?? (contentMode != nil)
+        if resizable, let contentMode {
+            return image.resizable().aspectRatio(contentMode: contentMode == "fit" ? .fit : .fill)
         }
 
         return image

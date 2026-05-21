@@ -1,110 +1,118 @@
 {
-  "type": "VStack",
-  "properties": {
-    "spacing": 10.0,
-    "alignment": "center",
-    "padding": "default"
-  },
-  "children": [
-    {
-      "type": "Text",
-      "properties": {
-        "text": "HStack Variants"
-      }
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 24.0,
+      "alignment": "leading",
+      "padding": "default"
     },
-    {
-      "type": "HStack",
-      "properties": {
-        "spacing": 10.0,
-        "padding": "default"
+    "children": [
+      {
+        "type": "Text",
+        "properties": { "text": "HStack", "font": "title" }
       },
-      "children": [
-        {
-          "type": "Text",
-          "properties": {
-            "text": "Item 1"
-          }
-        },
-        {
-            "type": "Divider",
-            "properties": {
-                "background": "gray"
-            }
-        },
-        {
-          "type": "Text",
-          "properties": {
-            "text": "Item 2"
-          }
-        },
-        {
-            "type": "Divider",
-            "properties": {
-                "background": "gray"
-            }
-        },
-        {
-          "type": "Text",
-          "properties": {
-            "text": "Item 3"
-          }
-        },
-        {
-            "type": "Divider",
-            "properties": {
-                "background": "gray"
-            }
-        },
-        {
-          "type": "Text",
-          "properties": {
-            "text": "Item 4"
-          }
-        }
-      ]
-    },
-    {
-        "type": "Divider",
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Spacing and default alignment", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 10.0 },
+        "children": [
+          { "type": "Text", "properties": { "text": "Item 1" } },
+          { "type": "Divider", "properties": { "background": "gray" } },
+          { "type": "Text", "properties": { "text": "Item 2" } },
+          { "type": "Divider", "properties": { "background": "gray" } },
+          { "type": "Text", "properties": { "text": "Item 3" } }
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Vertical alignment variants", "font": "headline" }
+      },
+      {
+        "type": "Text",
         "properties": {
-            "background": "gray"
+          "text": "Each row uses a different vertical alignment. Tall item (60 pt) mixed with short text.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
         }
-    },
-    {
-      "type": "HStack",
-      "properties": {
-        "spacing": 5.0,
-        "padding": "default"
       },
-      "children": [
-        {
-          "type": "Button",
-          "properties": {
-            "title": "Button 1",
-            "buttonStyle": "borderedProminent"
+      {
+        "type": "VStack",
+        "properties": { "spacing": 12.0, "alignment": "leading" },
+        "children": [
+          {
+            "type": "HStack",
+            "properties": { "spacing": 12.0, "alignment": "top" },
+            "children": [
+              { "type": "Rectangle", "properties": { "fill": "blue", "frame": { "width": 10.0, "height": 60.0 } } },
+              { "type": "Text", "properties": { "text": "top", "font": "caption", "foregroundStyle": "secondary" } },
+              { "type": "Text", "properties": { "text": "Aligned to top edge" } }
+            ]
+          },
+          {
+            "type": "HStack",
+            "properties": { "spacing": 12.0, "alignment": "center" },
+            "children": [
+              { "type": "Rectangle", "properties": { "fill": "green", "frame": { "width": 10.0, "height": 60.0 } } },
+              { "type": "Text", "properties": { "text": "center", "font": "caption", "foregroundStyle": "secondary" } },
+              { "type": "Text", "properties": { "text": "Aligned to center" } }
+            ]
+          },
+          {
+            "type": "HStack",
+            "properties": { "spacing": 12.0, "alignment": "bottom" },
+            "children": [
+              { "type": "Rectangle", "properties": { "fill": "orange", "frame": { "width": 10.0, "height": 60.0 } } },
+              { "type": "Text", "properties": { "text": "bottom", "font": "caption", "foregroundStyle": "secondary" } },
+              { "type": "Text", "properties": { "text": "Aligned to bottom edge" } }
+            ]
+          },
+          {
+            "type": "HStack",
+            "properties": { "spacing": 12.0, "alignment": "firstTextBaseline" },
+            "children": [
+              { "type": "Text", "properties": { "text": "Big", "font": "largeTitle" } },
+              { "type": "Text", "properties": { "text": "firstTextBaseline", "font": "caption", "foregroundStyle": "secondary" } },
+              { "type": "Text", "properties": { "text": "Small" } }
+            ]
+          },
+          {
+            "type": "HStack",
+            "properties": { "spacing": 12.0, "alignment": "lastTextBaseline" },
+            "children": [
+              { "type": "Text", "properties": { "text": "Big", "font": "largeTitle" } },
+              { "type": "Text", "properties": { "text": "lastTextBaseline", "font": "caption", "foregroundStyle": "secondary" } },
+              { "type": "Text", "properties": { "text": "Small" } }
+            ]
           }
-        },
-        {
-          "type": "Button",
-          "properties": {
-            "title": "Button 2",
-            "buttonStyle": "borderedProminent"
-          }
-        },
-        {
-          "type": "Button",
-          "properties": {
-            "title": "Button 3",
-            "buttonStyle": "borderedProminent"
-          }
-        },
-        {
-          "type": "Button",
-          "properties": {
-            "title": "Button 4",
-            "buttonStyle": "borderedProminent"
-          }
-        }
-      ]
-    }
-  ]
+        ]
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Button row", "font": "headline" }
+      },
+      {
+        "type": "HStack",
+        "properties": { "spacing": 8.0, "alignment": "center" },
+        "children": [
+          { "type": "Button", "properties": { "title": "Primary", "buttonStyle": "borderedProminent" } },
+          { "type": "Button", "properties": { "title": "Secondary", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Plain", "buttonStyle": "plain" } }
+        ]
+      }
+
+    ]
+  }
 }

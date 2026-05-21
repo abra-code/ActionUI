@@ -8,8 +8,7 @@
   "children": [
     {
       "type": "HStack",
-      "properties": { "spacing": 12 },
-      "padding": "default",
+      "properties": { "spacing": 12, "padding": "default" },
       "children": [
         {
           "type": "Button",

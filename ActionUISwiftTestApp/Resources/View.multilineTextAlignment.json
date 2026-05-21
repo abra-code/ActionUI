@@ -1,0 +1,100 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 24.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+
+      {
+        "type": "Text",
+        "properties": { "text": "multilineTextAlignment", "font": "title" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Controls how wrapped lines align within the text block.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "leading (default)", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "This is a longer text string that wraps across multiple lines so you can see how the alignment affects the layout of each line.",
+          "multilineTextAlignment": "leading",
+          "frame": { "maxWidth": "infinity" }
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "center", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "This is a longer text string that wraps across multiple lines so you can see how the alignment affects the layout of each line.",
+          "multilineTextAlignment": "center",
+          "frame": { "maxWidth": "infinity" }
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "trailing", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "This is a longer text string that wraps across multiple lines so you can see how the alignment affects the layout of each line.",
+          "multilineTextAlignment": "trailing",
+          "frame": { "maxWidth": "infinity" }
+        }
+      },
+
+      { "type": "Divider", "properties": {} },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Applied to containers", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "multilineTextAlignment propagates to child Text views when set on a container.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "VStack",
+        "properties": {
+          "spacing": 4.0,
+          "alignment": "leading",
+          "multilineTextAlignment": "center",
+          "frame": { "maxWidth": "infinity" }
+        },
+        "children": [
+          { "type": "Text", "properties": { "text": "Title centered via container", "font": "headline" } },
+          { "type": "Text", "properties": { "text": "Supporting text that is also centered because it inherits multilineTextAlignment from the VStack above.", "foregroundStyle": "secondary" } }
+        ]
+      }
+
+    ]
+  }
+}

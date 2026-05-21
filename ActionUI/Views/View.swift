@@ -129,6 +129,7 @@
      "textSelection": "enabled",            // Optional: "enabled" or "disabled". Controls whether the user can select text in this view.
                                             // SwiftUI does not enable text selection by default; set "enabled" to allow it.
                                             // Applies to Text and any container holding Text views.
+     "multilineTextAlignment": "center",   // Optional: "leading", "center", or "trailing". Controls text alignment for multi-line text.
       "zIndex": 0.0,                        // Optional: Number for layer ordering within a container (e.g. ZStack)
                                             // Higher values render in front of lower values. Defaults to 0.0.
     }
@@ -985,6 +986,17 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate multilineTextAlignment
+        if let mta = properties["multilineTextAlignment"] as? String {
+            if !["leading", "center", "trailing"].contains(mta) {
+                logger.log("Invalid multilineTextAlignment '\(mta)'; expected 'leading', 'center', or 'trailing', ignoring", .warning)
+                validatedProperties["multilineTextAlignment"] = nil
+            }
+        } else if properties["multilineTextAlignment"] != nil {
+            logger.log("Invalid type for multilineTextAlignment: expected String, ignoring", .warning)
+            validatedProperties["multilineTextAlignment"] = nil
+        }
+
         // Validate zIndex
         if let zIndex = properties["zIndex"] {
             if properties.double(forKey: "zIndex") == nil {
@@ -1158,6 +1170,14 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.scaleEffect(x: x, y: y, anchor: anchor)
         } else if let scale = properties.cgFloat(forKey: "scaleEffect") {
             modifiedView = modifiedView.scaleEffect(scale)
+        }
+
+        if let mta = properties["multilineTextAlignment"] as? String {
+            switch mta {
+            case "leading":  modifiedView = modifiedView.multilineTextAlignment(.leading)
+            case "trailing": modifiedView = modifiedView.multilineTextAlignment(.trailing)
+            default:         modifiedView = modifiedView.multilineTextAlignment(.center)
+            }
         }
 
         if let zIndex = properties.double(forKey: "zIndex") {

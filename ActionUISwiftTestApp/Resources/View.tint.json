@@ -106,7 +106,7 @@
               "type": "Toggle",
               "id": 104,
               "properties": {
-                "label": "Enabled",
+                "title": "Enabled",
                 "tint": "green"
               }
             }
@@ -127,8 +127,7 @@
           "type": "Slider",
           "id": 105,
           "properties": {
-            "min": 0.0,
-            "max": 100.0,
+            "range": { "min": 0.0, "max": 100.0 },
             "tint": "orange"
           }
         }

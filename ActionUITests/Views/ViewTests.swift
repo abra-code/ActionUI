@@ -1263,4 +1263,22 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(["textSelection": true], logger)
         XCTAssertNil(validated["textSelection"])
     }
+
+    func testMultilineTextAlignmentValid() throws {
+        for value in ["leading", "center", "trailing"] {
+            let validated = View.validateProperties(["multilineTextAlignment": value], logger)
+            XCTAssertEqual(validated["multilineTextAlignment"] as? String, value,
+                           "multilineTextAlignment '\(value)' should be preserved")
+        }
+    }
+
+    func testMultilineTextAlignmentInvalid() throws {
+        let validated = View.validateProperties(["multilineTextAlignment": "justify"], logger)
+        XCTAssertNil(validated["multilineTextAlignment"], "Invalid multilineTextAlignment should be cleared")
+    }
+
+    func testMultilineTextAlignmentInvalidType() throws {
+        let validated = View.validateProperties(["multilineTextAlignment": 1], logger)
+        XCTAssertNil(validated["multilineTextAlignment"], "Non-string multilineTextAlignment should be cleared")
+    }
 }

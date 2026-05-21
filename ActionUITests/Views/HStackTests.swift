@@ -125,6 +125,39 @@ final class HStackTests: XCTestCase {
         XCTAssertNil(validated.cgFloat(forKey: "spacing"), "Missing spacing should be nil")
     }
     
+    func testHStackValidateAlignmentValid() {
+        let validValues = ["top", "center", "bottom", "firstTextBaseline", "lastTextBaseline"]
+        for value in validValues {
+            let validated = HStack.validateProperties(["alignment": value], logger)
+            XCTAssertEqual(validated["alignment"] as? String, value, "alignment '\(value)' should be preserved")
+        }
+    }
+
+    func testHStackValidateAlignmentInvalid() {
+        let validated = HStack.validateProperties(["alignment": "leading"], logger)
+        XCTAssertNil(validated["alignment"], "Invalid alignment 'leading' (horizontal, not vertical) should be cleared")
+
+        let validated2 = HStack.validateProperties(["alignment": 42], logger)
+        XCTAssertNil(validated2["alignment"], "Non-string alignment should be cleared")
+    }
+
+    func testHStackConstructionWithAlignment() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "HStack",
+            "properties": ["spacing": 8.0, "alignment": "top"],
+            "children": [
+                ["type": "Text", "id": 2, "properties": ["text": "A"]],
+                ["type": "Text", "id": 3, "properties": ["text": "B"]]
+            ]
+        ]
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = HStack.validateProperties(element.properties, logger)
+        XCTAssertEqual(validatedProperties["alignment"] as? String, "top")
+        let viewModel = ViewModel()
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+    }
+
     func testHStackNilSpacing() throws {
         let elementDict: [String: Any] = [
             "id": 1,
