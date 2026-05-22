@@ -1,6 +1,6 @@
 ---
 id: examples
-level: 2
+level: 1
 flavors: [lite]
 ---
 

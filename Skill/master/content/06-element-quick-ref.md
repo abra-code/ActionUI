@@ -17,7 +17,7 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 | `ZStack` | `alignment` (topLeading, center, bottomTrailing, etc.) | `children` array |
 | `LazyVStack` | `spacing`, `alignment`, `pinnedViews` | `children` array |
 | `LazyHStack` | `spacing`, `alignment` | `children` array |
-| `ScrollView` | `axis` (vertical/horizontal/both), `showsIndicators` | `children` array |
+| `ScrollView` | `axis` (vertical/horizontal/both), `showsIndicators` | `content` (single view) |
 | `Group` | — | `children` array |
 | `GroupBox` | `title` | `children` array |
 | `GeometryReader` | — | `children` array |
@@ -44,8 +44,8 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 
 | Type | Key properties | Children |
 |------|---------------|----------|
-| `List` | `style`, `actionID` | `children` array or `template` |
-| `Form` | `style` | `children` array |
+| `List` | `listStyle`, `actionID`, `doubleClickActionID`, `itemType` | `children` array or `template` |
+| `Form` | — | `children` array |
 | `Section` | `header`, `footer` | `children` array |
 | `Table` | `columns` (array of column defs) | `rows` (2-D array of cell values) |
 | `DisclosureGroup` | `label`, `isExpanded`, `actionID` | `children` array |
@@ -92,7 +92,7 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 |------|-------|
 | `Link` | `url`, `title`, `actionID` |
 | `ShareLink` | `item`, `subject`, `message` |
-| `Menu` | `title`, `systemImage` | `children` (button list) |
+| `Menu` | `title` | `children` (button list); optional `label` top-level for a custom trigger view |
 | `ControlGroup` | `style` | `children` array |
 | `LabeledContent` | `label`, `value` |
 | `ScrollViewReader` | Wraps a ScrollView; `actionID` for scroll-to |
