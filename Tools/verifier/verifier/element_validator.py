@@ -24,8 +24,9 @@ class ElementValidator:
         self._known_types = loader.known_types()
         self._view_props = loader.view_schema().get("properties", {})
 
-    def validate(self, node: dict, path: str, seen_ids: set) -> list[ValidationIssue]:
+    def validate(self, node: dict, path: str, seen_ids: set, _is_root: bool = True) -> list[ValidationIssue]:
         issues = []
+        sep = ": " if _is_root else "."
 
         # ── type ──────────────────────────────────────────────────────────────
         element_type = node.get("type")
@@ -83,7 +84,7 @@ class ElementValidator:
         else:
             own_props = schema.get("ownProperties", {})
             issues += self._validate_properties(
-                properties, own_props, element_type, f"{path}.properties"
+                properties, own_props, element_type, f"{path}{sep}properties"
             )
 
         # ── recursive children / subviews ─────────────────────────────────────
@@ -91,21 +92,21 @@ class ElementValidator:
         for child_key, children in child_path_info:
             if isinstance(children, list):
                 for i, child in enumerate(children):
-                    child_path = f"{path}>{child_key}[{i}]"
+                    child_path = f"{path}{sep}{child_key}[{i}]"
                     if isinstance(child, dict):
-                        issues += self.validate(child, child_path, seen_ids)
+                        issues += self.validate(child, child_path, seen_ids, _is_root=False)
                     elif isinstance(child, list):
                         # 2D array (e.g. Grid rows): each inner list is a row of cell elements
                         for j, cell in enumerate(child):
                             cell_path = f"{child_path}[{j}]"
                             if isinstance(cell, dict):
-                                issues += self.validate(cell, cell_path, seen_ids)
+                                issues += self.validate(cell, cell_path, seen_ids, _is_root=False)
                             else:
                                 issues.append(ValidationIssue("error", cell_path, "cell must be an object"))
                     else:
                         issues.append(ValidationIssue("error", child_path, "child must be an object"))
             elif isinstance(children, dict):
-                issues += self.validate(children, f"{path}>{child_key}", seen_ids)
+                issues += self.validate(children, f"{path}{sep}{child_key}", seen_ids, _is_root=False)
 
         return issues
 
@@ -120,16 +121,16 @@ class ElementValidator:
         all_known = set(own_props) | set(self._view_props)
 
         for key, value in properties.items():
-            if key in _ANNOTATION_KEYS:
+            if key in own_props:
+                issues += validate_property(key, value, own_props[key], path)
+            elif key in self._view_props:
+                issues += validate_property(key, value, self._view_props[key], path)
+            elif key in _ANNOTATION_KEYS:
                 issues.append(ValidationIssue(
                     "info",
                     f"{path}.{key}",
                     f"'{key}' is an annotation key used as a JSON comment; ignored at runtime"
                 ))
-            elif key in own_props:
-                issues += validate_property(key, value, own_props[key], path)
-            elif key in self._view_props:
-                issues += validate_property(key, value, self._view_props[key], path)
             else:
                 issues.append(ValidationIssue(
                     "warning",
