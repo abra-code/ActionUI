@@ -7,7 +7,7 @@
     "claude": {
       "label": "Claude (Anthropic Claude Code skill)",
       "notes": "Delivered via Claude Code SKILL.md protocol. Full prose, tables OK, Anthropic XML tags allowed. Assume strong SwiftUI knowledge. Levels 1+2. Rely on schemas/ for element detail. Agent can run local Python validator.",
-      "max_skill_tokens": 700,
+      "max_skill_tokens": 4500,
       "disclosure_levels": [1, 2],
       "swiftui_aware": true,
       "script_execution": true,
@@ -17,7 +17,7 @@
     "capable": {
       "label": "Capable frontier models (Gemini, Grok, GPT-4o, Llama-3-70B+)",
       "notes": "Delivered as system prompt or tool description. No Anthropic-specific skill protocol. Standard Markdown only, no XML tags. Assume SwiftUI knowledge. Levels 1+2. Script execution may not be available; validation section adapts. Targets the current broad frontier: Gemini 2.x, Grok 3+, GPT-4o, strong open-source models. Will drift up as models improve — reassess annually.",
-      "max_skill_tokens": 500,
+      "max_skill_tokens": 4500,
       "disclosure_levels": [1, 2],
       "swiftui_aware": true,
       "script_execution": false,
@@ -26,8 +26,8 @@
     },
     "lite": {
       "label": "Small / local models (Phi-3, Mistral-7B, Llama-3-8B class)",
-      "notes": "Delivered as system prompt. No SwiftUI knowledge assumed. Level 1 only. Under 300 tokens. Include SwiftUI crash course. Inline examples for few-shot prompting. Explicit keyword triggers in description. No table format.",
-      "max_skill_tokens": 300,
+      "notes": "Delivered as system prompt. No SwiftUI knowledge assumed. Level 1 only. Includes SwiftUI crash course and inline examples for few-shot prompting. Explicit keyword triggers in description. Tables stripped — prose and JSON snippets only.",
+      "max_skill_tokens": 2000,
       "disclosure_levels": [1],
       "swiftui_aware": false,
       "script_execution": false,

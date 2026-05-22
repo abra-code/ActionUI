@@ -39,15 +39,20 @@ This produces a fully native SwiftUI form — no Swift code, no Xcode storyboard
 - **Runtime flexibility** — load UIs from JSON files or network without recompilation
 - **Python bridge** — build complete macOS apps in Python with `import actionui`
 - **Multi-window, menu bar, dialogs** — native macOS app features out of the box
-- **AI-first design** — predictable JSON schema that LLMs generate reliably
+- **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
 - **Cross-platform** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript
 
 ## Example Apps using ActionUI
 
+- [AppletBuilder.app](https://github.com/abra-code/OMC/tree/master/Distribution)
 - [TextUtil.app](https://github.com/abra-code/TextUtilApp)
 - [Sips.app](https://github.com/abra-code/SipsApp)
+- [AIChat.app](https://github.com/abra-code/AIChatApp)
+- [ICEdit.app](https://github.com/abra-code/ICEditApp)
 - [PillowUI Python applet](https://github.com/abra-code/PillowUI)
+- [NPMExplorer Node.js applet](https://github.com/abra-code/NPMExplorer)
+
 
 ## Python Example
 
