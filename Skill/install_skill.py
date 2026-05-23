@@ -12,20 +12,20 @@ If the requested flavor has not been built yet, build_skill.py is invoked automa
 
 Usage:
     # Install the claude flavor into the current project's .claude/skills/actionui/
-    python3 Tools/install_skill.py claude
+    python3 Skill/install_skill.py claude
 
     # Install the claude flavor at the user level (~/.claude/skills/actionui/)
-    python3 Tools/install_skill.py claude --user
+    python3 Skill/install_skill.py claude --user
 
     # Install the claude flavor into a specific Claude Code project
-    python3 Tools/install_skill.py claude --dest /path/to/project
+    python3 Skill/install_skill.py claude --dest /path/to/project
 
     # Write the capable / lite flavor SKILL.md to a file
-    python3 Tools/install_skill.py capable --out actionui-capable.md
-    python3 Tools/install_skill.py lite    --out actionui-lite.md
+    python3 Skill/install_skill.py capable --out actionui-capable.md
+    python3 Skill/install_skill.py lite    --out actionui-lite.md
 
     # Or print to stdout (for piping)
-    python3 Tools/install_skill.py capable --print
+    python3 Skill/install_skill.py capable --print
 """
 
 from __future__ import annotations
