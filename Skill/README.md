@@ -2,7 +2,7 @@
 
 A multi-flavor AI agent skill that teaches a model how to author and validate ActionUI JSON.
 
-`Skill/SKILL.md` is the committed `claude` flavor, generated from `master/`. Other flavors live under `dist/` and are gitignored — build them with `Tools/build_skill.py` before installing.
+`Skill/SKILL.md` is the committed `claude` flavor, generated from `master/`. Other flavors live under `dist/` and are gitignored — build them with `Skill/build_skill.py` before installing.
 
 ## Layout
 
@@ -42,9 +42,9 @@ The Python verifier in `Tools/verifier/` and the human reference material in `Do
 ## Build
 
 ```bash
-python3 Tools/build_skill.py                 # all flavors
-python3 Tools/build_skill.py --flavor claude # one flavor
-python3 Tools/build_skill.py --master-only   # regenerate Skill/SKILL.md only
+python3 Skill/build_skill.py                 # all flavors
+python3 Skill/build_skill.py --flavor claude # one flavor
+python3 Skill/build_skill.py --master-only   # regenerate Skill/SKILL.md only
 ```
 
 The build also refreshes the committed `Skill/SKILL.md` (claude flavor) so Claude Code picks it up without a build step in consuming repos.
@@ -53,17 +53,17 @@ The build also refreshes the committed `Skill/SKILL.md` (claude flavor) so Claud
 
 ```bash
 # Anthropic Claude Code, current project: drops into ./.claude/skills/actionui/
-python3 Tools/install_skill.py claude
+python3 Skill/install_skill.py claude
 
 # Or into a specific project / user level
-python3 Tools/install_skill.py claude --dest /path/to/project
-python3 Tools/install_skill.py claude --user
+python3 Skill/install_skill.py claude --dest /path/to/project
+python3 Skill/install_skill.py claude --user
 
 # Capable model: write the SKILL.md to a file to paste/attach
-python3 Tools/install_skill.py capable --out ~/Desktop/actionui-capable.md
+python3 Skill/install_skill.py capable --out ~/Desktop/actionui-capable.md
 
 # Lite (small/local): same; or pipe to stdout
-python3 Tools/install_skill.py lite --print | pbcopy
+python3 Skill/install_skill.py lite --print | pbcopy
 ```
 
 The installer auto-runs the build if the requested flavor isn't in `dist/` yet.
