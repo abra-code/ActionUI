@@ -38,7 +38,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DIST_DIR = REPO_ROOT / "Skill" / "dist"
-BUILD_SCRIPT = REPO_ROOT / "Tools" / "build_skill.py"
+BUILD_SCRIPT = REPO_ROOT / "Skill" / "build_skill.py"
 SKILL_NAME = "actionui"
 
 
