@@ -6,6 +6,7 @@ from __future__ import annotations
 from .errors import ValidationIssue
 from .schema_loader import SchemaLoader
 from .property_validator import validate_property
+from .platform_filter import ALL_PLATFORMS, split_platform_suffix, format_suffix_label
 
 
 # Top-level keys that are structural (never element-specific properties)
@@ -18,6 +19,34 @@ _UNIVERSAL_SUBVIEW_KEYS = {"overlay", "sheet", "popover", "fullScreenCover", "ba
 _ANNOTATION_KEYS = {"description", "note", "comment", "info"}
 
 
+def _expand_suffixed_keys(
+    obj: dict, path: str
+) -> tuple[dict[str, list[tuple[str | None, object]]], list[ValidationIssue]]:
+    """Group object keys by base, returning a `{base: [(suffix_or_None, value), ...]}`
+    map plus warnings for keys with unknown platform suffixes.
+
+    Keys with an unknown suffix are dropped from the result (matching runtime
+    behavior). Their full original key is named in the warning so authors can
+    locate the typo.
+    """
+    expanded: dict[str, list[tuple[str | None, object]]] = {}
+    warnings: list[ValidationIssue] = []
+    for key, value in obj.items():
+        base, suffix = split_platform_suffix(key)
+        if suffix is None:
+            expanded.setdefault(base, []).append((None, value))
+        elif suffix in ALL_PLATFORMS:
+            expanded.setdefault(base, []).append((suffix, value))
+        else:
+            warnings.append(ValidationIssue(
+                "warning", path,
+                f"unknown platform suffix in key '{key}' (suffix='{suffix}'); "
+                f"key will be dropped at runtime. Known platforms: "
+                f"{', '.join(sorted(ALL_PLATFORMS))}"
+            ))
+    return expanded, warnings
+
+
 class ElementValidator:
     def __init__(self, loader: SchemaLoader):
         self._loader = loader
@@ -25,89 +54,158 @@ class ElementValidator:
         self._view_props = loader.view_schema().get("properties", {})
 
     def validate(self, node: dict, path: str, seen_ids: set, _is_root: bool = True) -> list[ValidationIssue]:
-        issues = []
+        issues: list[ValidationIssue] = []
         sep = ": " if _is_root else "."
 
+        expanded, suffix_warnings = _expand_suffixed_keys(node, path)
+        issues += suffix_warnings
+
         # ── type ──────────────────────────────────────────────────────────────
-        element_type = node.get("type")
-        if not isinstance(element_type, str) or not element_type:
+        # `type` may appear unsuffixed or as `type:<platform>`. Each variant
+        # must be a known element type. For schema selection, prefer the
+        # unsuffixed variant, then any other valid one.
+        type_variants = expanded.get("type", [])
+        if not type_variants:
             issues.append(ValidationIssue("error", path, "missing or invalid 'type' field"))
-            return issues  # can't continue without a type
+            return issues
 
-        if element_type not in self._known_types:
-            issues.append(ValidationIssue(
-                "error", path,
-                f"unknown element type '{element_type}'; no schema found"
-            ))
-            # Continue to check id and children even for unknown types
+        # suffix -> validated type name (only types that exist as schemas)
+        type_by_suffix: dict[str | None, str] = {}
+        for suffix, value in type_variants:
+            label = format_suffix_label("type", suffix)
+            if not isinstance(value, str) or not value:
+                issues.append(ValidationIssue(
+                    "error", path, f"'{label}' must be a non-empty string"
+                ))
+                continue
+            if value not in self._known_types:
+                issues.append(ValidationIssue(
+                    "error", path,
+                    f"unknown element type '{value}' for '{label}'; no schema found"
+                ))
+                continue
+            type_by_suffix[suffix] = value
 
-        schema = self._loader.element_schema(element_type)
+        primary_type = type_by_suffix.get(None)
+        if primary_type is None and type_by_suffix:
+            primary_type = next(iter(type_by_suffix.values()))
+
+        if primary_type is None:
+            # No variant resolved to a known type — can't validate further.
+            return issues
 
         # ── id ────────────────────────────────────────────────────────────────
-        el_id = node.get("id")
-        # id is always optional — a negative id is auto-generated when absent.
-        # When explicitly set it must be a positive non-zero integer, unique in the tree.
-        if el_id is not None:
+        # id is always optional. When present it must be a positive non-zero
+        # integer, unique in the tree. Multiple platform variants of the same
+        # id value on a single node are de-duped (only counted once against
+        # seen_ids) since at runtime only one variant survives the filter.
+        seen_in_node: set = set()
+        for suffix, el_id in expanded.get("id", []):
+            label = format_suffix_label("id", suffix)
+            if el_id is None:
+                continue
             if isinstance(el_id, bool) or not isinstance(el_id, int):
-                issues.append(ValidationIssue("error", path, f"'id' must be an integer, got {type(el_id).__name__}"))
+                issues.append(ValidationIssue(
+                    "error", path,
+                    f"'{label}' must be an integer, got {type(el_id).__name__}"
+                ))
             elif el_id == 0:
-                issues.append(ValidationIssue("error", path, "'id' 0 is invalid — must be a positive non-zero integer"))
+                issues.append(ValidationIssue(
+                    "error", path, f"'{label}' 0 is invalid — must be a positive non-zero integer"
+                ))
             elif el_id < 0:
-                issues.append(ValidationIssue("error", path, f"'id' {el_id} is negative — negative IDs are auto-generated; do not set them manually"))
+                issues.append(ValidationIssue(
+                    "error", path,
+                    f"'{label}' {el_id} is negative — negative IDs are auto-generated; do not set them manually"
+                ))
+            elif el_id in seen_in_node:
+                continue  # same id repeated across platform variants on this node — fine
             elif el_id in seen_ids:
-                issues.append(ValidationIssue("error", path, f"duplicate 'id' {el_id} — IDs must be unique across the entire view tree"))
+                issues.append(ValidationIssue(
+                    "error", path,
+                    f"duplicate '{label}' {el_id} — IDs must be unique across the entire view tree"
+                ))
             else:
                 seen_ids.add(el_id)
+                seen_in_node.add(el_id)
+
+        # Collect schemas for every type variant so topLevelKeys / subviewKeys
+        # accept keys that are valid under any platform's chosen type.
+        type_schemas: list[dict] = []
+        seen_type_names: set[str] = set()
+        for t in type_by_suffix.values():
+            if t in seen_type_names:
+                continue
+            seen_type_names.add(t)
+            s = self._loader.element_schema(t)
+            if s:
+                type_schemas.append(s)
 
         # ── top-level keys ────────────────────────────────────────────────────
-        allowed_top = _STRUCTURAL_KEYS | _UNIVERSAL_SUBVIEW_KEYS
-        element_top_keys: set = set()
-        if schema:
-            element_top_keys = set(schema.get("topLevelKeys", []))
-            allowed_top |= element_top_keys
+        allowed_top = set(_STRUCTURAL_KEYS) | set(_UNIVERSAL_SUBVIEW_KEYS)
+        for s in type_schemas:
+            allowed_top |= set(s.get("topLevelKeys", []))
 
-        for key in node:
-            if key not in allowed_top:
+        for base in expanded:
+            if base not in allowed_top:
                 issues.append(ValidationIssue(
                     "warning", path,
-                    f"unexpected top-level key '{key}' for {element_type}"
+                    f"unexpected top-level key '{base}' for {primary_type}"
                 ))
 
-        if schema is None:
-            # Unknown type — skip property and children validation
+        primary_schema = self._loader.element_schema(primary_type)
+        if primary_schema is None:
             return issues
 
         # ── properties ────────────────────────────────────────────────────────
-        properties = node.get("properties", {})
-        if not isinstance(properties, dict):
-            issues.append(ValidationIssue("error", path, "'properties' must be an object"))
-        else:
-            own_props = schema.get("ownProperties", {})
+        # Each `properties:X` variant pairs with the matching `type:X` schema.
+        # `properties` (unsuffixed) pairs with `type` (unsuffixed) when present,
+        # otherwise the primary type's schema.
+        for suffix, props in expanded.get("properties", []):
+            label_path = f"{path}{sep}{format_suffix_label('properties', suffix)}"
+            if not isinstance(props, dict):
+                issues.append(ValidationIssue("error", label_path, "must be an object"))
+                continue
+            paired_type = type_by_suffix.get(suffix) or primary_type
+            paired_schema = self._loader.element_schema(paired_type)
+            paired_own_props = paired_schema.get("ownProperties", {}) if paired_schema else {}
             issues += self._validate_properties(
-                properties, own_props, element_type, f"{path}{sep}properties"
+                props, paired_own_props, paired_type, label_path
             )
 
         # ── recursive children / subviews ─────────────────────────────────────
-        child_path_info = self._collect_children(node, schema)
-        for child_key, children in child_path_info:
-            if isinstance(children, list):
-                for i, child in enumerate(children):
-                    child_path = f"{path}{sep}{child_key}[{i}]"
-                    if isinstance(child, dict):
-                        issues += self.validate(child, child_path, seen_ids, _is_root=False)
-                    elif isinstance(child, list):
-                        # 2D array (e.g. Grid rows): each inner list is a row of cell elements
-                        for j, cell in enumerate(child):
-                            cell_path = f"{child_path}[{j}]"
-                            if isinstance(cell, dict):
-                                issues += self.validate(cell, cell_path, seen_ids, _is_root=False)
-                            else:
-                                issues.append(ValidationIssue("error", cell_path, "cell must be an object"))
-                    else:
-                        issues.append(ValidationIssue("error", child_path, "child must be an object"))
-            elif isinstance(children, dict):
-                issues += self.validate(children, f"{path}{sep}{child_key}", seen_ids, _is_root=False)
+        # Subview keys allowed: union of every type variant's topLevelKeys plus
+        # the universal subview set.
+        all_subview_keys: set[str] = set(_UNIVERSAL_SUBVIEW_KEYS)
+        for s in type_schemas:
+            all_subview_keys |= set(s.get("topLevelKeys", []))
 
+        for child_key in all_subview_keys:
+            for suffix, children in expanded.get(child_key, []):
+                child_label = f"{path}{sep}{format_suffix_label(child_key, suffix)}"
+                issues += self._validate_subview_value(children, child_label, seen_ids)
+
+        return issues
+
+    def _validate_subview_value(self, val, child_path: str, seen_ids: set) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        if isinstance(val, list):
+            for i, child in enumerate(val):
+                ipath = f"{child_path}[{i}]"
+                if isinstance(child, dict):
+                    issues += self.validate(child, ipath, seen_ids, _is_root=False)
+                elif isinstance(child, list):
+                    # 2D array (e.g., Grid rows)
+                    for j, cell in enumerate(child):
+                        cpath = f"{ipath}[{j}]"
+                        if isinstance(cell, dict):
+                            issues += self.validate(cell, cpath, seen_ids, _is_root=False)
+                        else:
+                            issues.append(ValidationIssue("error", cpath, "cell must be an object"))
+                else:
+                    issues.append(ValidationIssue("error", ipath, "child must be an object"))
+        elif isinstance(val, dict):
+            issues += self.validate(val, child_path, seen_ids, _is_root=False)
         return issues
 
     def _validate_properties(
@@ -117,49 +215,36 @@ class ElementValidator:
         element_type: str,
         path: str,
     ) -> list[ValidationIssue]:
-        issues = []
-        all_known = set(own_props) | set(self._view_props)
+        issues: list[ValidationIssue] = []
+        expanded, suffix_warnings = _expand_suffixed_keys(properties, path)
+        issues += suffix_warnings
 
-        for key, value in properties.items():
-            if key in own_props:
-                issues += validate_property(key, value, own_props[key], path)
-            elif key in self._view_props:
-                issues += validate_property(key, value, self._view_props[key], path)
-            elif key in _ANNOTATION_KEYS:
-                issues.append(ValidationIssue(
-                    "info",
-                    f"{path}.{key}",
-                    f"'{key}' is an annotation key used as a JSON comment; ignored at runtime"
-                ))
-            else:
-                issues.append(ValidationIssue(
-                    "warning",
-                    f"{path}.{key}",
-                    f"'{key}' is not a known property for {element_type} or View base; possible typo"
-                ))
+        for base, variants in expanded.items():
+            for suffix, value in variants:
+                label = format_suffix_label(base, suffix)
+                if base in own_props:
+                    issues += validate_property(label, value, own_props[base], path)
+                elif base in self._view_props:
+                    issues += validate_property(label, value, self._view_props[base], path)
+                elif base in _ANNOTATION_KEYS:
+                    issues.append(ValidationIssue(
+                        "info",
+                        f"{path}.{label}",
+                        f"'{label}' is an annotation key used as a JSON comment; ignored at runtime"
+                    ))
+                else:
+                    issues.append(ValidationIssue(
+                        "warning",
+                        f"{path}.{label}",
+                        f"'{label}' is not a known property for {element_type} or View base; possible typo"
+                    ))
 
-        # Check required own properties
+        # Required own properties — satisfied if ANY variant (suffixed or not) is present.
         for key, spec in own_props.items():
-            if spec.get("required") and key not in properties:
+            if spec.get("required") and key not in expanded:
                 issues.append(ValidationIssue(
                     "error", f"{path}.{key}",
                     f"required property '{key}' is missing"
                 ))
 
         return issues
-
-    def _collect_children(self, node: dict, schema: dict) -> list[tuple[str, object]]:
-        """
-        Returns (path, value) pairs for all child elements that should be recursively validated.
-        Covers declared topLevelKeys and universal subview keys present in the node.
-        """
-        result = []
-        base_path = f"{node.get('type', '?')}(id={node.get('id', '-')})"
-
-        all_subview_keys = set(schema.get("topLevelKeys", [])) | _UNIVERSAL_SUBVIEW_KEYS
-        for key in all_subview_keys:
-            val = node.get(key)
-            if val is not None:
-                result.append((f"{key}", val))
-
-        return result

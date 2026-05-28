@@ -13,7 +13,7 @@ interface ActionUIElementBase {
 @Serializable
 data class ActionUIElement(
     override val id: Int = 0,
-    override val type: String,
+    override val type: String = "",
     override val properties: JsonObject? = null,
     override val children: List<ActionUIElement>? = null
 ) : ActionUIElementBase

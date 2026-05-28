@@ -1,0 +1,57 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12,
+    "padding": "default",
+    "frame": {
+      "maxWidth:macos": 600,
+      "maxWidth:ios": 400,
+      "maxHeight": 500
+    }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Platform-driven element type",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "(this element falls back if no platform variant matches)",
+        "text:macos": "Running on macOS — showing AppKit Table below",
+        "text:ios": "Running on iOS — showing SwiftUI List below",
+        "text:tvos": "Running on tvOS — no element rendered below",
+        "text:watchos": "Running on watchOS — no element rendered below",
+        "text:visionos": "Running on visionOS — no element rendered below",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type:macos": "Table",
+      "type:ios": "List",
+      "id": 1,
+      "properties:macos": {
+        "columns": ["Name", "Role"],
+        "widths": [200, 200],
+        "padding": "default"
+      },
+      "properties:ios": {
+        "itemType": { "viewType": "Text" },
+        "padding": "default"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "PlatformFilter resolves :<platform> suffixes before decode. On Mac, the element above is a Table; on iOS, a List; on other Apple platforms it has no `type` after filtering and the renderer skips it.",
+        "font": "footnote",
+        "foregroundStyle": "secondary",
+        "padding": "default"
+      }
+    }
+  ]
+}

@@ -17,5 +17,6 @@ object ActionUIRegistry {
         builders[type] = builder
     }
 
-    fun lookup(type: String): ActionUIViewConstruction? = builders[type]
+    fun lookup(type: String): ActionUIViewConstruction? =
+        if (type.isEmpty()) null else builders[type]
 }

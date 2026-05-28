@@ -3,15 +3,28 @@
   "properties": { "spacing": 8 },
   "children": [
     { "type": "Text", "properties": { "text": "Hello from ActionUI on Android" } },
-    { "type": "Text", "properties": { "text": "(Stage 1 — modifiers come next)" } },
     {
-      "type": "HStack",
+      "type": "Text",
+      "properties": {
+        "text": "(default — should be overridden)",
+        "text:android": "(running on Android)",
+        "text:ios": "(running on iOS — should NOT appear here)",
+        "text:apple": "(running on an Apple platform — should NOT appear here)"
+      }
+    },
+    {
+      "type:android": "HStack",
+      "type:ios": "VStack",
       "properties": { "spacing": 12 },
       "children": [
         { "type": "Text", "properties": { "text": "Left" } },
         { "type": "Text", "properties": { "text": "|" } },
         { "type": "Text", "properties": { "text": "Right" } }
       ]
+    },
+    {
+      "type:ios": "Text",
+      "properties": { "text": "iOS-only element (should NOT render on Android)" }
     }
   ]
 }

@@ -30,15 +30,16 @@ class WindowModel: ObservableObject {
 
     // Load description from JSON or plist data, populating viewModels
     func loadDescription(from data: Data, format: String) throws -> ActionUIElement {
+        let filtered = try applyPlatformFilter(data: data, format: format)
         if format == "json" {
-            let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
             self.element = element
             self.viewModels = populateViewModels(from: element)
             self.loadedSubViewIDs = [:]
             logger.log("Loaded JSON description for windowUUID: \(windowUUID), element id: \(element.id)", .verbose)
             return element
         } else if format == "plist" {
-            let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            let element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
             self.element = element
             self.viewModels = populateViewModels(from: element)
             self.loadedSubViewIDs = [:]
@@ -50,9 +51,31 @@ class WindowModel: ObservableObject {
         }
     }
 
+    // Applies PlatformFilter to raw JSON or plist data: parse -> filter -> re-serialize.
+    // Returns the filtered Data, ready for the typed decoder. Unsupported formats
+    // pass through unchanged (caller will fail on its own).
+    private func applyPlatformFilter(data: Data, format: String) throws -> Data {
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger)
+        switch format {
+        case "json":
+            let parsed = try JSONSerialization.jsonObject(with: data, options: [])
+            let filtered = filter.filter(parsed)
+            return try JSONSerialization.data(withJSONObject: filtered, options: [])
+        case "plist":
+            var plistFormat: PropertyListSerialization.PropertyListFormat = .xml
+            let parsed = try PropertyListSerialization.propertyList(from: data, options: [], format: &plistFormat)
+            let filtered = filter.filter(parsed)
+            return try PropertyListSerialization.data(fromPropertyList: filtered, format: plistFormat, options: 0)
+        default:
+            return data
+        }
+    }
+
     // Load description from dictionary, populating viewModels
     func loadDescription(from dict: [String: Any]) throws -> ActionUIElement {
-        let element = try ActionUIElement(from: dict, logger: logger)
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger)
+        let filtered = filter.filter(dict) as? [String: Any] ?? dict
+        let element = try ActionUIElement(from: filtered, logger: logger)
         self.element = element
         self.viewModels = populateViewModels(from: element)
         self.loadedSubViewIDs = [:]
@@ -75,11 +98,12 @@ class WindowModel: ObservableObject {
         }
 
         // Decode new element
+        let filtered = try applyPlatformFilter(data: data, format: format)
         let subElement: ActionUIElement
         if format == "json" {
-            subElement = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            subElement = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
         } else if format == "plist" {
-            subElement = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            subElement = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
         } else {
             logger.log("Unsupported format: \(format)", .error)
             throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
@@ -197,11 +221,12 @@ class WindowModel: ObservableObject {
     // Merges the new ViewModels into the window's pool; IDs are tracked externally by WindowModal.loadedViewIDs
     // so ActionUIModel.dismissModal can clean them up when the modal is dismissed.
     func loadModalDescription(from data: Data, format: String) throws -> ActionUIElement {
+        let filtered = try applyPlatformFilter(data: data, format: format)
         let element: ActionUIElement
         if format == "json" {
-            element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
         } else if format == "plist" {
-            element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+            element = try PropertyListDecoder(logger: logger).decode(ActionUIElement.self, from: filtered)
         } else {
             logger.log("Unsupported format for modal: \(format)", .error)
             throw NSError(domain: "WindowModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported format: \(format)"])
