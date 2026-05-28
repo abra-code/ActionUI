@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Hello from ActionUI on Android" } },
+    { "type": "Text", "properties": { "text": "(Stage 1 — modifiers come next)" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Text", "properties": { "text": "Left" } },
+        { "type": "Text", "properties": { "text": "|" } },
+        { "type": "Text", "properties": { "text": "Right" } }
+      ]
+    }
+  ]
+}
