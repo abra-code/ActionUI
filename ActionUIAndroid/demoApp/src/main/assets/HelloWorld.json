@@ -106,6 +106,16 @@
       ]
     },
     {
+      "type": "Button",
+      "id": 1,
+      "properties": { "title": "Tap me", "actionID": "button.tap" }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": { "title": "Delete", "role": "destructive", "actionID": "button.delete" }
+    },
+    {
       "type:ios": "Text",
       "properties": { "text": "iOS-only element (should NOT render on Android)" }
     }

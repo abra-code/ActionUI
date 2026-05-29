@@ -1,5 +1,6 @@
 package com.abracode.actionui.Common
 
+import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.VStack
@@ -11,6 +12,7 @@ object ActionUIRegistry {
         register("Text", Text)
         register("VStack", VStack)
         register("HStack", HStack)
+        register("Button", Button)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {
