@@ -1,5 +1,22 @@
 package com.abracode.actionui.Common
 
+import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.staticCompositionLocalOf
+
+/**
+ * CompositionLocal carrying the active [ActionUILogger] through the rendered
+ * tree. `ActionUI.Render` provides it; element builders read it via
+ * `LocalActionUILogger.current` to forward warnings (unknown colors, missing
+ * SwiftUI-only alignment equivalents, etc.) without threading an explicit
+ * logger parameter through every Composable signature.
+ *
+ * `staticCompositionLocalOf` because the logger rarely changes within a
+ * rendered tree — subtree overrides aren't expected and the value is read
+ * frequently.
+ */
+val LocalActionUILogger: ProvidableCompositionLocal<ActionUILogger> =
+    staticCompositionLocalOf { ConsoleLogger() }
+
 /**
  * Logger interface for the ActionUI library with leveled messages.
  *

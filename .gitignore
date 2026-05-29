@@ -24,3 +24,4 @@ ActionUINodeJS/prebuilds
 ActionUINodeJS/node_modules
 Skill/dist
 Tools/verifier/verifier/__pycache__
+Tools/verifier/__pycache__

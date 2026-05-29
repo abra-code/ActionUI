@@ -1,13 +1,16 @@
 package com.abracode.actionui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ConsoleLogger
+import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.PlatformFilter
+import com.abracode.actionui.Common.applyCommonProperties
 import kotlinx.serialization.json.Json
 
 object ActionUI {
@@ -32,7 +35,13 @@ object ActionUI {
         val raw = json.parseToJsonElement(jsonString)
         val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
         val element = json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
-        ActionUIRegistry.lookup(element.type)?.BuildView(element, modifier)
+        val builder = ActionUIRegistry.lookup(element.type) ?: return
+        CompositionLocalProvider(LocalActionUILogger provides logger) {
+            builder.BuildView(
+                element,
+                modifier.applyCommonProperties(element.properties, logger)
+            )
+        }
     }
 
     @Composable

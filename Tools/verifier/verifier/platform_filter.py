@@ -42,3 +42,28 @@ def split_platform_suffix(key: str) -> tuple[str, str | None]:
 def format_suffix_label(base: str, suffix: str | None) -> str:
     """Render `base[:suffix]` for use in error/warning messages."""
     return base if suffix is None else f"{base}:{suffix}"
+
+
+# Umbrella platform tokens and the concrete platforms they cover. A schema
+# `platforms` annotation or a `:suffix` may use either an umbrella ("apple") or
+# a concrete token ("ios"); matching expands umbrellas to their members.
+PLATFORM_FAMILIES: dict[str, frozenset[str]] = {
+    "apple":   frozenset({"apple", "ios", "macos", "tvos", "watchos", "visionos"}),
+    "android": frozenset({"android", "androidtv", "wear"}),
+    "desktop": frozenset({"desktop"}),
+    "web":     frozenset({"web"}),
+}
+
+
+def platform_matches(token: str, platform: str) -> bool:
+    """True if `token` (from a `:suffix` or a schema `platforms` entry) applies
+    to the concrete `platform`. An umbrella token matches any of its members."""
+    if token == platform:
+        return True
+    family = PLATFORM_FAMILIES.get(token)
+    return family is not None and platform in family
+
+
+def platforms_include(annotation: list[str], platform: str) -> bool:
+    """True if any entry in a schema `platforms` list applies to `platform`."""
+    return any(platform_matches(entry, platform) for entry in annotation)

@@ -6,7 +6,13 @@ from __future__ import annotations
 from .errors import ValidationIssue
 from .schema_loader import SchemaLoader
 from .property_validator import validate_property
-from .platform_filter import ALL_PLATFORMS, split_platform_suffix, format_suffix_label
+from .platform_filter import (
+    ALL_PLATFORMS,
+    split_platform_suffix,
+    format_suffix_label,
+    platform_matches,
+    platforms_include,
+)
 
 
 # Top-level keys that are structural (never element-specific properties)
@@ -48,10 +54,15 @@ def _expand_suffixed_keys(
 
 
 class ElementValidator:
-    def __init__(self, loader: SchemaLoader):
+    def __init__(self, loader: SchemaLoader, target_platform: str | None = None):
         self._loader = loader
         self._known_types = loader.known_types()
         self._view_props = loader.view_schema().get("properties", {})
+        # When set, validate as if the document were deployed to this single
+        # platform: variants suffixed for other platforms are dropped (as they
+        # are at runtime) and platform-restricted properties used here are
+        # flagged. When None, validate as a cross-platform authoring document.
+        self._target_platform = target_platform
 
     def validate(self, node: dict, path: str, seen_ids: set, _is_root: bool = True) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []
@@ -220,12 +231,26 @@ class ElementValidator:
         issues += suffix_warnings
 
         for base, variants in expanded.items():
+            if base in own_props:
+                spec = own_props[base]
+            elif base in self._view_props:
+                spec = self._view_props[base]
+            else:
+                spec = None
+
             for suffix, value in variants:
                 label = format_suffix_label(base, suffix)
-                if base in own_props:
-                    issues += validate_property(label, value, own_props[base], path)
-                elif base in self._view_props:
-                    issues += validate_property(label, value, self._view_props[base], path)
+
+                # In deployment mode, a variant suffixed for a different platform
+                # is dropped at runtime — skip it entirely (no schema or typo check).
+                if (self._target_platform is not None and suffix is not None
+                        and suffix in ALL_PLATFORMS
+                        and not platform_matches(suffix, self._target_platform)):
+                    continue
+
+                if spec is not None:
+                    issues += self._check_property_platform(base, suffix, spec, label, path)
+                    issues += validate_property(label, value, spec, path)
                 elif base in _ANNOTATION_KEYS:
                     issues.append(ValidationIssue(
                         "info",
@@ -248,3 +273,46 @@ class ElementValidator:
                 ))
 
         return issues
+
+    def _check_property_platform(
+        self, base: str, suffix: str | None, spec: dict, label: str, path: str
+    ) -> list[ValidationIssue]:
+        """Warn when a platform-restricted property is used outside its platforms.
+
+        A property whose schema has no `platforms` key is common (valid
+        everywhere) and never warns. For a restricted property:
+
+          - Deployment mode (target set): the variant is active for the target
+            (base key, or a suffix matching it). Warn if the property isn't
+            available there.
+          - Cross-platform mode (no target): warn if used as a base key (it will
+            be silently ignored on platforms that lack it — suffix it instead),
+            or if suffixed for a platform the property doesn't support.
+        """
+        plats = spec.get("platforms")
+        if plats is None:
+            return []
+
+        if self._target_platform is not None:
+            if not platforms_include(plats, self._target_platform):
+                return [ValidationIssue(
+                    "warning", f"{path}.{label}",
+                    f"'{label}': property '{base}' is not available on target "
+                    f"platform '{self._target_platform}' (available on: {plats})"
+                )]
+            return []
+
+        if suffix is None:
+            return [ValidationIssue(
+                "warning", f"{path}.{label}",
+                f"'{base}' is platform-specific (available on: {plats}); in a "
+                f"cross-platform document suffix it (e.g. '{base}:{plats[0]}') so it "
+                f"is applied only where supported"
+            )]
+        if suffix in ALL_PLATFORMS and not platforms_include(plats, suffix):
+            return [ValidationIssue(
+                "warning", f"{path}.{label}",
+                f"'{label}': property '{base}' is not available on '{suffix}' "
+                f"(available on: {plats})"
+            )]
+        return []

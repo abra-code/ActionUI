@@ -57,3 +57,63 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+// ── ActionUI JSON asset validation ───────────────────────────────────────────
+// Android counterpart of the Xcode "verify_json_resources" run-script phase
+// (ActionUISwiftTestApp/Scripts/verify_json_resources.sh). Runs the shared
+// Python validator over the demoApp assets, filtering platform-suffixed keys for
+// "android", and fails the build if any document is invalid. The equivalent
+// standalone / CI entry point is scripts/verify_json_resources.sh.
+fun isPythonAvailable(): Boolean = try {
+    ProcessBuilder("python3", "--version")
+        .redirectErrorStream(true)
+        .start()
+        .waitFor() == 0
+} catch (e: Exception) {
+    false
+}
+
+val verifyJsonResources by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Validate ActionUI JSON assets for the Android platform."
+
+    val repoRoot = rootProject.projectDir.parentFile
+    val validator = repoRoot.resolve("Tools/verifier/validate_actionui.py")
+    val assetsDir = layout.projectDirectory.dir("src/main/assets").asFile
+
+    // Incremental: only re-run when the assets or the validator change.
+    inputs.dir(assetsDir).withPropertyName("assets")
+    inputs.file(validator).withPropertyName("validator")
+    val marker = layout.buildDirectory.file("actionui/json-validation.ok")
+    outputs.file(marker)
+
+    workingDir = repoRoot
+    commandLine(
+        "python3", validator.path, assetsDir.path,
+        "--recursive", "--platform", "android",
+    )
+
+    // Don't break builds on machines without python3 (matches the shell script):
+    // warn and skip instead of failing.
+    doFirst {
+        if (!isPythonAvailable()) {
+            logger.warn("python3 not found on PATH — skipping ActionUI JSON validation")
+            throw StopExecutionException()
+        }
+        if (!validator.exists()) {
+            logger.warn("ActionUI validator not found at $validator — skipping")
+            throw StopExecutionException()
+        }
+    }
+    doLast {
+        marker.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
+}
+
+// Run before every build (CLI and Android Studio), like an Xcode build phase.
+tasks.named("preBuild") {
+    dependsOn(verifyJsonResources)
+}
