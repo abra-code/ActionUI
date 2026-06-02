@@ -20,7 +20,7 @@ import com.abracode.actionui.Helpers.warnUnsupportedCornerStyle
  * corner geometry; `cornerStyle: "continuous"` (squircle) has no Compose
  * equivalent and warn-and-downgrades to `circular`. `fill` / `stroke` /
  * `strokeLineWidth` resolve through the shared [ShapeView] / `ShapeStyleHelper`
- * seam. Needs an explicit `frame` to be visible — see [ShapeView].
+ * seam. Needs an explicit `frame` to be visible - see [ShapeView].
  *
  * Sample JSON:
  * ```

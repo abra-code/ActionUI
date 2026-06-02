@@ -4,20 +4,20 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * Color-string parsing for ActionUI Android. The Android counterpart of Apple's
- * `ActionUI/Helpers/ColorHelper.swift` — the single place that turns a JSON
+ * `ActionUI/Helpers/ColorHelper.swift` - the single place that turns a JSON
  * color string into a Compose [Color], used by the universal `background`
  * modifier and by the shape `fill`/`stroke` resolver.
  *
  * Accepts:
- *   * `#RRGGBB` — opaque
- *   * `#AARRGGBB` — with alpha
+ *   * `#RRGGBB` - opaque
+ *   * `#AARRGGBB` - with alpha
  *   * Named colors: `black`, `white`, `red`, `green`, `blue`, `yellow`, `cyan`,
  *     `magenta`, `gray`/`grey`, `lightgray`/`lightgrey`, `darkgray`/`darkgrey`,
  *     `orange`, `purple`, `pink`, `clear`/`transparent`. Case-insensitive.
  *
  * Returns `null` for any other input. Apple's `resolveShapeStyle` additionally
- * understands theme-derived **semantic** styles (`primary`, `tint`, …); those
- * are not resolved here yet (see `Private/Android_Porting_Notes.md` §11).
+ * understands theme-derived **semantic** styles (`primary`, `tint`, ...); those
+ * are not resolved here yet (see `Private/Android_Porting_Notes.md` section 11).
  */
 internal fun parseColor(name: String): Color? {
     val trimmed = name.trim()

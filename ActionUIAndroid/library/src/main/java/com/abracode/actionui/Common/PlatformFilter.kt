@@ -13,7 +13,7 @@ import kotlinx.serialization.json.JsonObject
  * "platform-normalized" JSON tree with no suffixed keys remaining.
  *
  * Any key whose `<suffix>` is not in [ALL_PLATFORMS] is treated the same as a
- * non-matching platform — the key is dropped and the configured [logger] is
+ * non-matching platform - the key is dropped and the configured [logger] is
  * invoked with a one-line warning at [LoggerLevel.warning]. This makes the
  * filter forward-compatible: JSON authored for a future platform token will
  * quietly disappear on today's builds until the token is added to
@@ -21,7 +21,7 @@ import kotlinx.serialization.json.JsonObject
  *
  * Mirror image of `PlatformFilter.swift` in ActionUI. Both filters must agree
  * on [ALL_PLATFORMS] so that a JSON file's "known platform tokens" don't
- * depend on which platform is reading it. See Stage 0 §Design notes in
+ * depend on which platform is reading it. See Stage 0 section Design notes in
  * Private/Android_Development_Plan.md.
  *
  * @param active Platform tokens active for this runtime (e.g., `{"android"}`).
@@ -77,7 +77,7 @@ class PlatformFilter(
     /**
      * Splits a key into (base, suffix-or-null). A key without `:` returns
      * (key, null). A key with `:` always returns the split, regardless of
-     * whether the suffix is a known platform — the caller decides what to do
+     * whether the suffix is a known platform - the caller decides what to do
      * with unknown suffixes.
      */
     private fun splitKey(key: String): Pair<String, String?> {
@@ -95,7 +95,7 @@ class PlatformFilter(
         /**
          * Every recognized platform token across Apple, Android, and (reserved)
          * cross-platform targets. Must match `PlatformFilter.allPlatforms` in
-         * the Swift port — both filters must agree on which suffixes are
+         * the Swift port - both filters must agree on which suffixes are
          * platform tokens vs unknown/typos.
          */
         val ALL_PLATFORMS: Set<String> = setOf(

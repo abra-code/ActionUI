@@ -10,12 +10,12 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Typed accessors for reading element `properties` out of a [JsonObject]. The
  * Android counterpart of Apple's `ActionUI/Helpers/Dictionary+Numeric.swift`
- * (`.double(forKey:)`, `.cgFloat(forKey:)`, …) — leaf utilities that the
+ * (`.double(forKey:)`, `.cgFloat(forKey:)`, ...) - leaf utilities that the
  * modifier pipeline and the element builders both lean on, so they live in
  * `Helpers`, not in the engine core.
  *
  * All return `null` for an absent key or a value of the wrong primitive kind, so
- * call sites can `?.let { … }` an optional property uniformly.
+ * call sites can `?.let { ... }` an optional property uniformly.
  */
 
 internal fun JsonObject.numberProperty(key: String): Double? =

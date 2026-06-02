@@ -7,13 +7,13 @@ package com.abracode.actionui.Common
  * used by `ActionUIModel` in `ActionUI/Common/ActionUIModel.swift`. The
  * parameters, in order:
  *
- *   * `actionID`   — the identifier that triggered the handler.
- *   * `windowUUID` — the window the action originated from. The Android port is
+ *   * `actionID`   - the identifier that triggered the handler.
+ *   * `windowUUID` - the window the action originated from. The Android port is
  *     currently single-window, so this is the empty string until multi-window
  *     support is ported; the parameter is kept so the contract matches Apple.
- *   * `viewID`     — the `id` of the element that fired the action (0 if none).
- *   * `viewPartID` — sub-element index (e.g. table row/column); 0 for simple controls.
- *   * `context`    — optional payload supplied by the firing element.
+ *   * `viewID`     - the `id` of the element that fired the action (0 if none).
+ *   * `viewPartID` - sub-element index (e.g. table row/column); 0 for simple controls.
+ *   * `context`    - optional payload supplied by the firing element.
  */
 typealias ActionUIActionHandler =
     (actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any?) -> Unit
@@ -31,7 +31,7 @@ typealias ActionUIActionHandler =
  * Implemented as a Kotlin `object` (singleton) to match Swift's
  * `ActionUIModel.shared`. The window/view state-management portions of the
  * Swift model (`windowModels`, `setElementValue`, structural insert/remove,
- * modal/dialog presentation) are **not** ported yet — the Android renderer is
+ * modal/dialog presentation) are **not** ported yet - the Android renderer is
  * still stateless. Only the action-dispatch contract is mirrored here so client
  * code can wire up button handlers identically to the Apple side.
  *

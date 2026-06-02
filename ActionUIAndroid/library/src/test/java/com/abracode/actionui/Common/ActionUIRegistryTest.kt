@@ -5,7 +5,7 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
- * Unit tests for [ActionUIRegistry]'s type → builder mapping. The builders'
+ * Unit tests for [ActionUIRegistry]'s type -> builder mapping. The builders'
  * `BuildView` is `@Composable` and exercised via instrumentation; here we only
  * assert that every shipped element type resolves (and unknown/empty types do
  * not), which needs no Compose runtime.

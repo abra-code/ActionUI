@@ -26,7 +26,7 @@ class PlatformFilterTest {
         }
     }
 
-    // Silent filters — most tests don't care about warnings.
+    // Silent filters - most tests don't care about warnings.
     // Tests that assert warnings use a CapturingLogger constructed inline.
     private val android = PlatformFilter(setOf("android"))
     private val ios     = PlatformFilter(setOf("ios", "apple"))
@@ -114,7 +114,7 @@ class PlatformFilterTest {
 
     @Test
     fun `typo in platform token logs warning and drops key`() {
-        // Capital 'A' — common typo. Should not silently pass through.
+        // Capital 'A' - common typo. Should not silently pass through.
         val logger = CapturingLogger()
         val filter = PlatformFilter(setOf("android"), logger)
         val result = filter.filter(parse("""{"tint:Android":"primary","tint":"gray"}"""))
@@ -155,7 +155,7 @@ class PlatformFilterTest {
 
     @Test
     fun `empty string after colon is treated as unknown suffix and dropped with warning`() {
-        // "x:" — empty after colon is not a known platform token.
+        // "x:" - empty after colon is not a known platform token.
         val logger = CapturingLogger()
         val filter = PlatformFilter(setOf("android"), logger)
         val result = filter.filter(parse("""{"x:":"value"}"""))
@@ -166,7 +166,7 @@ class PlatformFilterTest {
 
     @Test
     fun `known but inactive platform does NOT produce a warning`() {
-        // ios is a known platform but not in Android's active set —
+        // ios is a known platform but not in Android's active set -
         // it's a valid drop, not a typo/future-platform case.
         val logger = CapturingLogger()
         val filter = PlatformFilter(setOf("android"), logger)
@@ -236,7 +236,7 @@ class PlatformFilterTest {
     @Test
     fun `all platforms set covers documented tokens`() {
         // Sanity check: the canonical list includes every platform token referenced
-        // in the plan §Design notes.
+        // in the plan section Design notes.
         val expected = setOf(
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",

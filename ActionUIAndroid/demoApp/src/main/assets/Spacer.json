@@ -1,0 +1,16 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Spacer pushes siblings apart:" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Left" } },
+        { "type": "Spacer" },
+        { "type": "Text", "properties": { "text": "Right (pushed by Spacer)" } }
+      ]
+    }
+  ]
+}

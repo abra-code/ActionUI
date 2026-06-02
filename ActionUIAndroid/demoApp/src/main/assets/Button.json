@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Tap dispatches an actionID to the host (see toasts):" } },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": { "title": "Tap me", "actionID": "button.tap" }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": { "title": "Delete", "role": "destructive", "actionID": "button.delete" }
+    }
+  ]
+}

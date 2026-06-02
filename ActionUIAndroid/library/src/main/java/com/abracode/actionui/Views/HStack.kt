@@ -25,7 +25,7 @@ object HStack : ActionUIViewConstruction {
         val props = element.properties
         val logger = LocalActionUILogger.current
         val spacing = props?.get("spacing")?.jsonPrimitive?.doubleOrNull
-        // SwiftUI HStack default alignment is .center — match it so a single
+        // SwiftUI HStack default alignment is .center - match it so a single
         // JSON file behaves the same on both platforms when alignment is
         // omitted. Compose's own Row default is Top.
         val verticalAlignment = props?.get("alignment")?.jsonPrimitive?.contentOrNull

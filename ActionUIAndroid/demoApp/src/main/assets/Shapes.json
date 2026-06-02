@@ -1,0 +1,33 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Shapes (fill / stroke):" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        {
+          "type": "Rectangle",
+          "properties": { "fill": "#FFCDD2", "frame": { "width": 60, "height": 60 } }
+        },
+        {
+          "type": "RoundedRectangle",
+          "properties": { "cornerRadius": 12, "fill": "#90CAF9", "frame": { "width": 60, "height": 60 } }
+        },
+        {
+          "type": "Circle",
+          "properties": { "fill": "#A5D6A7", "frame": { "width": 60, "height": 60 } }
+        },
+        {
+          "type": "Ellipse",
+          "properties": { "stroke": "purple", "strokeLineWidth": 3, "frame": { "width": 90, "height": 60 } }
+        }
+      ]
+    },
+    {
+      "type": "Capsule",
+      "properties": { "fill": "orange", "frame": { "width": 160, "height": 32 } }
+    }
+  ]
+}

@@ -16,7 +16,7 @@ import java.io.IOException
 /**
  * Shared image-resolution seam for ActionUI Android. The single place that turns
  * an element's image-source properties into a Compose [Painter], so `Image`
- * (and, later, `Label` / `Button` image labels) converge on one contract —
+ * (and, later, `Label` / `Button` image labels) converge on one contract -
  * mirroring how the Apple side resolves images centrally.
  *
  * ## Apple image sources vs. Android
@@ -28,16 +28,16 @@ import java.io.IOException
  *
  * | Apple property | Means                  | Android mapping                 | Status   |
  * |----------------|------------------------|---------------------------------|----------|
- * | `filePath`     | filesystem path        | [File] → decode → [BitmapPainter] | **done** |
+ * | `filePath`     | filesystem path        | [File] -> decode -> [BitmapPainter] | **done** |
  * | `resourceName` | bundle file (name+ext) | `assets/<name>` via [Context.getAssets] | **done** |
  * | `assetName`    | asset-catalog image    | `res/drawable/`                 | deferred |
  * | `systemName`   | SF Symbol              | Material icon / vector glyph    | deferred |
  *
- * `assetName` (Android `res/drawable`) is deferred pending a name→resource
- * contract — runtime-by-name needs `resources.getIdentifier`, which is slow and
+ * `assetName` (Android `res/drawable`) is deferred pending a name->resource
+ * contract - runtime-by-name needs `resources.getIdentifier`, which is slow and
  * stripped by R8 unless kept, so the right shape is a client-supplied map; that
  * decision is open. `systemName` (SF Symbols) has no portable name lookup on
- * Android. Both are tracked in `Private/Android_Porting_Notes.md` §10. Authors
+ * Android. Both are tracked in `Private/Android_Porting_Notes.md` section 10. Authors
  * who need a bundled image on Android today should use `resourceName` (drop the
  * file in `assets/`) or a platform suffix (e.g. `resourceName:android`).
  *
@@ -56,7 +56,7 @@ import java.io.IOException
  * ignored here until symbol support lands.
  *
  * Unresolvable or invalid input is warned through the optional [ActionUILogger]
- * and skipped, consistent with the resolver's "unknown value → warn + skip"
+ * and skipped, consistent with the resolver's "unknown value -> warn + skip"
  * contract elsewhere.
  */
 
@@ -101,7 +101,7 @@ internal fun selectImageSource(
         assetName != null    -> {
             logger?.log(
                 "Image 'assetName' ('$assetName') maps to an Android res/drawable " +
-                    "resource, which is not supported yet (pending a name→resource " +
+                    "resource, which is not supported yet (pending a name->resource " +
                     "contract). Use 'resourceName' (assets/) or a platform suffix " +
                     "such as 'resourceName:android'. Nothing rendered.",
                 LoggerLevel.warning
@@ -129,8 +129,8 @@ internal fun selectImageSource(
  * Maps the `contentMode` property (`fit`/`fill`) to a Compose [ContentScale].
  * Defaults to [ContentScale.Fit] when unset or invalid. Pure / unit-testable.
  *
- *   * `"fit"`  → [ContentScale.Fit]  (aspect-fit; SwiftUI `.aspectRatio(.fit)`)
- *   * `"fill"` → [ContentScale.Crop] (aspect-fill with overflow cropped; `.fill`)
+ *   * `"fit"`  -> [ContentScale.Fit]  (aspect-fit; SwiftUI `.aspectRatio(.fit)`)
+ *   * `"fill"` -> [ContentScale.Crop] (aspect-fill with overflow cropped; `.fill`)
  */
 internal fun resolveContentScale(
     properties: JsonObject?,
@@ -155,7 +155,7 @@ internal fun resolveContentScale(
 /**
  * Decodes a resolved [ImageSource] into a Compose [Painter]. Needs the Android
  * [Context] for `assets/` access, so it is **not** unit-testable without
- * Robolectric — call it from the element builder inside a `remember` so the I/O
+ * Robolectric - call it from the element builder inside a `remember` so the I/O
  * and decode run once per source rather than per recomposition.
  *
  * @return a [BitmapPainter], or `null` if the asset/file is missing or fails to
@@ -213,7 +213,7 @@ private fun decodeFile(path: String, logger: ActionUILogger?): Painter? {
 /**
  * Reads a String source property; warns and returns null if present-but-not-a-String.
  * Checks [JsonPrimitive.isString] rather than [stringProperty] because the latter
- * stringifies a JSON number (`42` → `"42"`), which must not pass as a valid source.
+ * stringifies a JSON number (`42` -> `"42"`), which must not pass as a valid source.
  */
 private fun JsonObject.stringSource(key: String, logger: ActionUILogger?): String? {
     val element = this[key] ?: return null

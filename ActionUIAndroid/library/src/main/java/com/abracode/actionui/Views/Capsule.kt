@@ -10,14 +10,14 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Helpers.warnUnsupportedCornerStyle
 
 /**
- * Renders a capsule — a rectangle with fully-rounded ends.
+ * Renders a capsule - a rectangle with fully-rounded ends.
  *
  * Mirror of the Apple `Capsule` element (`ActionUI/Views/Capsule.swift`), which
  * wraps `SwiftUI.Capsule`. The corner radius is half the shorter side, so the
  * ends are always fully rounded regardless of frame; `style: "continuous"`
  * (squircle) has no Compose equivalent and warn-and-downgrades to `circular`.
  * `fill` / `stroke` / `strokeLineWidth` resolve through the shared [ShapeView] /
- * `ShapeStyleHelper` seam. Needs an explicit `frame` to be visible — see
+ * `ShapeStyleHelper` seam. Needs an explicit `frame` to be visible - see
  * [ShapeView].
  *
  * Sample JSON:

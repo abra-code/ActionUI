@@ -11,7 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * logger parameter through every Composable signature.
  *
  * `staticCompositionLocalOf` because the logger rarely changes within a
- * rendered tree — subtree overrides aren't expected and the value is read
+ * rendered tree - subtree overrides aren't expected and the value is read
  * frequently.
  */
 val LocalActionUILogger: ProvidableCompositionLocal<ActionUILogger> =

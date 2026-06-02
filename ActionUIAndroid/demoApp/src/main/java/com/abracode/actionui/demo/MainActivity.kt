@@ -6,11 +6,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.abracode.actionui.ActionUI
+import androidx.compose.ui.platform.LocalContext
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.demo.ui.theme.ActionUIAndroidTheme
 
@@ -21,7 +24,7 @@ class MainActivity : ComponentActivity() {
         // Demonstrate client-side action registration, mirroring how an Apple
         // host wires up ActionUIModel.shared handlers. The specific handler
         // fires for "button.tap"; everything else (e.g. "button.delete") falls
-        // through to the default handler.
+        // through to the default handler. Exercised by Button.json.
         ActionUIModel.registerActionHandler("button.tap") { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Handled '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }
@@ -32,15 +35,35 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ActionUIAndroidTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ActionUIScreen(modifier = Modifier.padding(innerPadding))
-                }
+                DemoApp()
             }
         }
     }
 }
 
+/**
+ * Top-level demo shell: a native JSON picker (start screen) that lists the
+ * bundled `.json` examples in `assets/` and renders the selected one. Mirrors the
+ * Swift test app's selector-then-view flow; see [JsonSelectorScreen]. ActionUI
+ * on Android has no navigation elements yet, so this routing lives in plain
+ * Compose rather than in an ActionUI document.
+ */
 @Composable
-fun ActionUIScreen(modifier: Modifier = Modifier) {
-    ActionUI.RenderAsset(assetPath = "HelloWorld.json", modifier = modifier)
+fun DemoApp() {
+    val context = LocalContext.current
+    val files = remember { listJsonAssets(context) }
+    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+
+    when (val current = selected) {
+        null -> JsonSelectorScreen(
+            files = files,
+            onSelect = { selected = it },
+            modifier = Modifier.fillMaxSize(),
+        )
+        else -> ExampleDetailScreen(
+            assetPath = current,
+            onBack = { selected = null },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }

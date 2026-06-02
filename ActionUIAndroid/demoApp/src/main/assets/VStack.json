@@ -1,0 +1,40 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "alignment: leading" } },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 4,
+        "alignment": "leading",
+        "padding": 8,
+        "frame": { "width": 240 },
+        "background": "#E1F5FE",
+        "cornerRadius": 6
+      },
+      "children": [
+        { "type": "Text", "properties": { "text": "Apple" } },
+        { "type": "Text", "properties": { "text": "Banana" } },
+        { "type": "Text", "properties": { "text": "Cherry" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "alignment: trailing" } },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 4,
+        "alignment": "trailing",
+        "padding": 8,
+        "frame": { "width": 240 },
+        "background": "#F1F8E9",
+        "cornerRadius": 6
+      },
+      "children": [
+        { "type": "Text", "properties": { "text": "Apple" } },
+        { "type": "Text", "properties": { "text": "Banana" } },
+        { "type": "Text", "properties": { "text": "Cherry" } }
+      ]
+    }
+  ]
+}

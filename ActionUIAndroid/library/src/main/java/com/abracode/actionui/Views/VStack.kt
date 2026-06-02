@@ -25,7 +25,7 @@ object VStack : ActionUIViewConstruction {
         val props = element.properties
         val logger = LocalActionUILogger.current
         val spacing = props?.get("spacing")?.jsonPrimitive?.doubleOrNull
-        // SwiftUI VStack default alignment is .center — match it; Compose's
+        // SwiftUI VStack default alignment is .center - match it; Compose's
         // own Column default is Start.
         val horizontalAlignment = props?.get("alignment")?.jsonPrimitive?.contentOrNull
             ?.let { parseColumnAlignment(it, logger) }

@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the pure parts of `ImageResolver.kt` — [selectImageSource] and
+ * Unit tests for the pure parts of `ImageResolver.kt` - [selectImageSource] and
  * [resolveContentScale]. The Android-dependent [loadImagePainter] (assets / file
  * decoding) is exercised via the demo / instrumentation, the same stance the
  * other resolver tests take for Composable-only code.
@@ -36,7 +36,7 @@ class ImageResolverTest {
         Json.parseToJsonElement(json).jsonObject
 
     // -----------------------------------------------------------------------
-    // selectImageSource — supported sources
+    // selectImageSource - supported sources
     // -----------------------------------------------------------------------
 
     @Test
@@ -56,7 +56,7 @@ class ImageResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // selectImageSource — Apple priority filePath > resourceName > assetName > systemName
+    // selectImageSource - Apple priority filePath > resourceName > assetName > systemName
     // -----------------------------------------------------------------------
 
     @Test
@@ -89,11 +89,11 @@ class ImageResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // selectImageSource — deferred sources warn and render nothing
+    // selectImageSource - deferred sources warn and render nothing
     // -----------------------------------------------------------------------
 
     @Test
-    fun `assetName alone is deferred — warns and returns null`() {
+    fun `assetName alone is deferred - warns and returns null`() {
         val log = CapturingLogger()
         val source = selectImageSource(props("""{ "assetName": "drawableName" }"""), log)
         assertNull(source)
@@ -102,7 +102,7 @@ class ImageResolverTest {
     }
 
     @Test
-    fun `systemName alone is deferred — warns and returns null`() {
+    fun `systemName alone is deferred - warns and returns null`() {
         val log = CapturingLogger()
         val source = selectImageSource(props("""{ "systemName": "star.fill" }"""), log)
         assertNull(source)
@@ -111,7 +111,7 @@ class ImageResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // selectImageSource — missing / mistyped
+    // selectImageSource - missing / mistyped
     // -----------------------------------------------------------------------
 
     @Test

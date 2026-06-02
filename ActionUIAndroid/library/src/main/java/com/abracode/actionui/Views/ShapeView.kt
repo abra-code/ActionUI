@@ -17,7 +17,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Helpers.resolveShapePaint
 
 /**
- * Shared rendering glue for the stateless shape elements — `Rectangle`,
+ * Shared rendering glue for the stateless shape elements - `Rectangle`,
  * `RoundedRectangle`, `Capsule`, `Circle`, `Ellipse` (each in its own file,
  * mirroring `ActionUI/Views/Rectangle.swift` and siblings).
  *
@@ -36,11 +36,11 @@ import com.abracode.actionui.Helpers.resolveShapePaint
  * ## Sizing caveat (documented divergence)
  *
  * A `Spacer` wraps to zero size with no constraints, whereas a SwiftUI shape is
- * *greedy* — it expands to fill the space offered by its parent. So on Android a
+ * *greedy* - it expands to fill the space offered by its parent. So on Android a
  * shape needs an explicit `frame` (or a parent that stretches it) to be visible;
  * a frameless shape renders nothing. This is the same "needs slack/size" class
- * of caveat already documented for per-child `align` (§1) and `Divider`/`Spacer`
- * (§9) in `Private/Android_Porting_Notes.md`; see §11 there.
+ * of caveat already documented for per-child `align` (section 1) and `Divider`/`Spacer`
+ * (section 9) in `Private/Android_Porting_Notes.md`; see section 11 there.
  */
 @Composable
 internal fun ShapeView(

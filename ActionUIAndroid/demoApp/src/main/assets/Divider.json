@@ -1,0 +1,19 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Above the divider" } },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Below the divider" } },
+    { "type": "Text", "properties": { "text": "Vertical divider inside an HStack:" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "frame": { "height": 40 } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Left" } },
+        { "type": "Divider" },
+        { "type": "Text", "properties": { "text": "Right" } }
+      ]
+    }
+  ]
+}

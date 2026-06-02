@@ -4,7 +4,7 @@ package com.abracode.actionui.Common
  * An [ActionUILogger] that prints to stderr/stdout, with a per-level filter.
  *
  * Mirror of Swift `ConsoleLogger` in `ActionUI/Common/ConsoleLogger.swift`.
- * Logs whose `level.rawValue` exceeds [maxLevel].rawValue are discarded —
+ * Logs whose `level.rawValue` exceeds [maxLevel].rawValue are discarded -
  * use this in performance-critical paths to drop noisy DEBUG/VERBOSE output.
  *
  * Errors and warnings go to `System.err`; INFO/DEBUG/VERBOSE go to `System.out`.

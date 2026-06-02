@@ -20,23 +20,23 @@ import com.abracode.actionui.Helpers.stringProperty
  * which wraps `SwiftUI.ProgressView`. The element is **determinate** when a valid
  * `value` is supplied (and `value <= total`), otherwise **indeterminate**:
  *
- *   * determinate   → Material3 [LinearProgressIndicator] (a bar), matching
+ *   * determinate   -> Material3 [LinearProgressIndicator] (a bar), matching
  *     SwiftUI's default `ProgressView(value:total:)` rendering.
- *   * indeterminate → Material3 [CircularProgressIndicator] (a spinner),
+ *   * indeterminate -> Material3 [CircularProgressIndicator] (a spinner),
  *     matching SwiftUI's `ProgressView()` / iOS `.progressViewStyle(.circular)`.
  *
  * **Supported properties.**
- *   * `value` — current progress, `0.0…total`. Omit (or supply an invalid /
+ *   * `value` - current progress, `0.0...total`. Omit (or supply an invalid /
  *     out-of-range value) for an indeterminate spinner.
- *   * `total` — maximum; defaults to `1.0` when `value` is present. Must be `> 0`.
- *   * `title` — optional label rendered above the indicator (in a [Column]).
- *   * `actionID` — dispatched through [ActionUIModel] on tap, like `Button`.
+ *   * `total` - maximum; defaults to `1.0` when `value` is present. Must be `> 0`.
+ *   * `title` - optional label rendered above the indicator (in a [Column]).
+ *   * `actionID` - dispatched through [ActionUIModel] on tap, like `Button`.
  *   * plus the universal modifiers resolved by `applyCommonProperties`, applied
  *     to the enclosing [Column] via [modifier].
  *
  * **Deferred vs. Apple.** Apple's `states["progress"]` runtime override is **not**
- * ported — Android has no `ViewModel`/state layer yet (see
- * `Private/Android_Porting_Notes.md` §6), so progress is taken from the static
+ * ported - Android has no `ViewModel`/state layer yet (see
+ * `Private/Android_Porting_Notes.md` section 6), so progress is taken from the static
  * JSON `value` only, the same Phase-1 stance `Image` takes for its runtime value.
  *
  * Sample JSON:
@@ -53,7 +53,7 @@ object ProgressView : ActionUIViewConstruction {
         val actionID = props?.stringProperty("actionID")
 
         // Determinate only when value is valid (>= 0), total (default 1.0) is
-        // positive, and value <= total — mirrors Apple's buildView guard.
+        // positive, and value <= total - mirrors Apple's buildView guard.
         val value = props?.numberProperty("value")
         val total = props?.numberProperty("total") ?: if (value != null) 1.0 else null
         val determinate = value != null && value >= 0.0 &&

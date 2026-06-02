@@ -38,7 +38,7 @@ class ModifierResolverTest {
         m.foldIn(0) { acc, _ -> acc + 1 }
 
     // -----------------------------------------------------------------------
-    // applyCommonProperties — pass-through cases
+    // applyCommonProperties - pass-through cases
     // -----------------------------------------------------------------------
 
     @Test
@@ -57,7 +57,7 @@ class ModifierResolverTest {
     @Test
     fun `unrecognized property keys are ignored silently`() {
         // 'spacing' and 'text' belong to element builders, not the modifier
-        // resolver — they must not log warnings or affect the chain.
+        // resolver - they must not log warnings or affect the chain.
         val logger = CapturingLogger()
         val base = Modifier
         val out = base.applyCommonProperties(
@@ -81,7 +81,7 @@ class ModifierResolverTest {
 
     @Test
     fun `frame width and height each add at least one element`() {
-        // Sizing uses the SwiftUI 'frame' object — { width, height } — not
+        // Sizing uses the SwiftUI 'frame' object - { width, height } - not
         // top-level width/height (which are not SwiftUI modifiers).
         val base = Modifier
         val widthOnly = base.applyCommonProperties(props("""{"frame":{"width":100}}"""))
@@ -163,7 +163,7 @@ class ModifierResolverTest {
                 """"cornerRadius":4,"opacity":0.8}"""
             )
         )
-        // Expect at least six additional element appends — one per recognized
+        // Expect at least six additional element appends - one per recognized
         // property. We use >= to remain robust to Compose internals layering
         // multiple Elements per public modifier function.
         assertTrue(
@@ -202,7 +202,7 @@ class ModifierResolverTest {
 
     @Test
     fun `non-numeric padding value is skipped without warning`() {
-        // doubleOrNull returns null for non-numbers — no spurious log noise.
+        // doubleOrNull returns null for non-numbers - no spurious log noise.
         val logger = CapturingLogger()
         val base = Modifier
         val out = base.applyCommonProperties(props("""{"padding":"big"}"""), logger)
@@ -236,7 +236,7 @@ class ModifierResolverTest {
     fun `existing modifier on the receiver is preserved`() {
         val base = Modifier.padding(4.dp)
         val out = base.applyCommonProperties(props("""{"background":"red"}"""))
-        // Result has more elements than base — appended, not discarded.
+        // Result has more elements than base - appended, not discarded.
         assertTrue(chainLength(out) > chainLength(base))
     }
 
@@ -311,7 +311,7 @@ class ModifierResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // parseRowAlignment — parent-level HStack alignment, with SwiftUI baseline
+    // parseRowAlignment - parent-level HStack alignment, with SwiftUI baseline
     // values handled gracefully.
     // -----------------------------------------------------------------------
 
@@ -330,7 +330,7 @@ class ModifierResolverTest {
 
     @Test
     fun `parseRowAlignment returns null for firstTextBaseline with warning`() {
-        // Baseline alignment has no Compose equivalent — caller's default
+        // Baseline alignment has no Compose equivalent - caller's default
         // applies. See Private/Android_Porting_Notes.md.
         val logger = CapturingLogger()
         val out = parseRowAlignment("firstTextBaseline", logger)
@@ -368,7 +368,7 @@ class ModifierResolverTest {
 
     @Test
     fun `parseRowAlignment rejects horizontal names with warning`() {
-        // start/end belong to Column/VStack, not Row/HStack — should be flagged
+        // start/end belong to Column/VStack, not Row/HStack - should be flagged
         // as unknown for the Row context.
         val logger = CapturingLogger()
         assertNull(parseRowAlignment("start", logger))
@@ -383,7 +383,7 @@ class ModifierResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // parseColumnAlignment — parent-level VStack alignment.
+    // parseColumnAlignment - parent-level VStack alignment.
     // -----------------------------------------------------------------------
 
     @Test
@@ -422,7 +422,7 @@ class ModifierResolverTest {
 
     @Test
     fun `parseColumnAlignment does not silently translate baseline names`() {
-        // VStack has no baseline alignment in SwiftUI either — these should
+        // VStack has no baseline alignment in SwiftUI either - these should
         // be flagged as unknown rather than fall back.
         val logger = CapturingLogger()
         assertNull(parseColumnAlignment("firstTextBaseline", logger))

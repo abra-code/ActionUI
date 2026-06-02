@@ -28,7 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Translates an [ActionUIElement]'s `properties` JSON into a Compose [Modifier]
  * chain. Mirrors the role of `View.swift`'s shared modifier pipeline on the
- * Apple side — properties common to every element type are resolved once here
+ * Apple side - properties common to every element type are resolved once here
  * so individual element builders stay focused on their type-specific Composable.
  *
  * Compose has no inheritance equivalent to SwiftUI's `View` base class; instead,
@@ -37,16 +37,16 @@ import kotlinx.serialization.json.jsonPrimitive
  * `RowScope`/`ColumnScope`, `align` is scope-specific). The resolver mirrors
  * that split:
  *
- *   * [applyCommonProperties] — extension on [Modifier], callable anywhere.
- *     Handles `frame` (SwiftUI sizing — `{width,height}`), `opacity`,
+ *   * [applyCommonProperties] - extension on [Modifier], callable anywhere.
+ *     Handles `frame` (SwiftUI sizing - `{width,height}`), `opacity`,
  *     `cornerRadius`, `background`, `padding`.
- *   * [buildChildModifier] — overloads on each layout scope receiver, applied
+ *   * [buildChildModifier] - overloads on each layout scope receiver, applied
  *     inside the container's content lambda where `weight`/`align` are in
  *     scope. They additionally chain in [applyCommonProperties].
  *
  * **Chain order** (universal). Modifiers earlier in the chain are outer for
  * layout, later are inner. Picked to make the most common combination behave
- * intuitively — a "card" with a background, rounded corners, and inner content
+ * intuitively - a "card" with a background, rounded corners, and inner content
  * padding:
  *
  * ```
@@ -61,7 +61,7 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * Unknown values (e.g. `background: "not-a-color"`, `align: "wat"`) are skipped
  * and a warning is sent through the optional [logger]. Unrecognized property
- * names are ignored silently — they may be element-specific (e.g. `text` on
+ * names are ignored silently - they may be element-specific (e.g. `text` on
  * `Text`, `spacing` on `VStack`) and the element's own builder will pick them
  * up.
  */
@@ -178,7 +178,7 @@ fun BoxScope.buildChildModifier(
 
 /**
  * Applies one axis of a SwiftUI `frame` to the Modifier. `frame` is ActionUI's
- * canonical, SwiftUI-named sizing property — `{ "width": N, "height": M }` —
+ * canonical, SwiftUI-named sizing property - `{ "width": N, "height": M }` -
  * mapped to `.frame(width:height:)` on Apple and to Compose `width`/`height`
  * here. There is deliberately no top-level `width`/`height` property; that is
  * not a SwiftUI modifier. The `"infinity"` sentinel fills the available axis.
@@ -230,7 +230,7 @@ internal fun parseHorizontalAlignment(name: String): Alignment.Horizontal? =
  *   * `bottom`                                 -> [Alignment.Bottom]
  *   * `firstTextBaseline` / `lastTextBaseline` -> `null` (no direct Compose
  *     equivalent) + warning through [logger]. The caller's default alignment
- *     applies — matches "ignore unrecognized" semantics and avoids visually
+ *     applies - matches "ignore unrecognized" semantics and avoids visually
  *     misleading the reader with an artificial Top fallback that doesn't
  *     reflect the SwiftUI intent.
  *
@@ -263,8 +263,8 @@ internal fun parseRowAlignment(
 
 /**
  * Resolves a Column/VStack parent-level alignment name. SwiftUI's
- * `HorizontalAlignment` only has `.leading` / `.center` / `.trailing` —
- * no baseline variants — so this is a thin wrapper that adds logging on
+ * `HorizontalAlignment` only has `.leading` / `.center` / `.trailing` -
+ * no baseline variants - so this is a thin wrapper that adds logging on
  * unknown values.
  *
  * Accepts: `start` / `leading`, `center` / `centerHorizontally`,

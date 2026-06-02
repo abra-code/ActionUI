@@ -17,7 +17,7 @@ import org.junit.Test
  * framework), so they cover the fill/stroke fall-through and the squircle
  * warning here; the `DrawScope` geometry in the per-shape `Views` builders
  * only manifests at draw time and is left to the demo + instrumentation (the
- * stance §9/§10 take for framework-bound code).
+ * stance section 9/section 10 take for framework-bound code).
  */
 class ShapeStyleHelperTest {
 

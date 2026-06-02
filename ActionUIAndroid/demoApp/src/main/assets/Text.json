@@ -1,0 +1,39 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Hello from ActionUI on Android" } },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "(default - should be overridden)",
+        "text:android": "(running on Android)",
+        "text:ios": "(running on iOS - should NOT appear here)",
+        "text:apple": "(running on an Apple platform - should NOT appear here)"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Padded with rounded gray background",
+        "padding": 12,
+        "background": "lightgray",
+        "cornerRadius": 8
+      }
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "50% opacity", "opacity": 0.5 }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Fixed width 200dp, hex background",
+        "frame": { "width": 200 },
+        "background": "#FFE0B2",
+        "padding": 8,
+        "cornerRadius": 4
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Determinate:" } },
+    {
+      "type": "ProgressView",
+      "properties": { "value": 0.7, "total": 1.0, "title": "Downloading...", "frame": { "width": 220 } }
+    },
+    { "type": "Text", "properties": { "text": "Indeterminate:" } },
+    { "type": "ProgressView" }
+  ]
+}

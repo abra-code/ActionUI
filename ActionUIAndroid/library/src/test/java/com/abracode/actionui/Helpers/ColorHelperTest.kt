@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Unit tests for [parseColor] in `ColorHelper.kt` — the named-color and hex
+ * Unit tests for [parseColor] in `ColorHelper.kt` - the named-color and hex
  * vocabulary shared by the universal `background` modifier and the shape
  * `fill`/`stroke` resolver. The Android counterpart of Apple's
  * `ColorHelperTests.swift`.

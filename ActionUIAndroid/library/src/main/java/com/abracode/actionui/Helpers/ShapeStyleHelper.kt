@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonObject
  * (`Rectangle`, `RoundedRectangle`, `Capsule`, `Circle`, `Ellipse`). The single
  * place that turns a shape's `fill` / `stroke` / `strokeLineWidth` properties
  * into a concrete paint, so each shape builder only has to describe its
- * *geometry* (the `DrawScope` call) and converge on one color contract —
+ * *geometry* (the `DrawScope` call) and converge on one color contract -
  * mirroring how the Apple side resolves shape styling through
  * `ColorHelper.resolveShapeStyle`.
  *
@@ -19,22 +19,22 @@ import kotlinx.serialization.json.JsonObject
  * Apple's shape builders (`ActionUI/Views/Rectangle.swift` et al.) resolve in
  * this order: a resolvable `fill` wins; otherwise a resolvable `stroke` is used;
  * otherwise the bare shape is rendered, which SwiftUI fills with its foreground
- * style (`.primary`). [resolveShapePaint] reproduces that fall-through exactly —
+ * style (`.primary`). [resolveShapePaint] reproduces that fall-through exactly -
  * including the subtle case where a *present-but-unresolvable* `fill` falls
  * through to `stroke` (Apple only enters the fill branch when the color
  * resolves).
  *
  * ## Color vocabulary (Phase 1)
  *
- * Colors resolve through [parseColor] — named colors and `#RRGGBB` / `#AARRGGBB`
+ * Colors resolve through [parseColor] - named colors and `#RRGGBB` / `#AARRGGBB`
  * hex, the same vocabulary the universal `background` modifier accepts. Apple's
  * `resolveShapeStyle` additionally understands **semantic** styles (`primary`,
- * `secondary`, `tint`, `fill`, `separator`, …) that are theme-derived; those are
- * **not** resolved here yet — they warn-and-skip and the [defaultColor]
+ * `secondary`, `tint`, `fill`, `separator`, ...) that are theme-derived; those are
+ * **not** resolved here yet - they warn-and-skip and the [defaultColor]
  * (supplied by the builder as the theme's foreground analog) is used instead.
  * Because that default is the `.primary` analog, a `"fill": "primary"` still
  * renders the visually-correct color; only the other semantic styles diverge.
- * Tracked in `Private/Android_Porting_Notes.md` §11.
+ * Tracked in `Private/Android_Porting_Notes.md` section 11.
  */
 
 /** A resolved shape paint: a [color] applied either as a fill or as a stroke. */
@@ -49,7 +49,7 @@ internal data class ShapePaint(
  * fill-then-stroke-then-foreground fall-through (see file header).
  *
  * @param defaultColor the color used for a bare shape (no `fill`/`stroke`) or
- *   when a provided color string can't be parsed — the builder passes the
+ *   when a provided color string can't be parsed - the builder passes the
  *   theme's foreground analog (e.g. `MaterialTheme.colorScheme.onSurface`),
  *   matching SwiftUI's `.primary` default for an unstyled shape.
  */

@@ -17,7 +17,7 @@ import com.abracode.actionui.Helpers.stringProperty
  * Renders a tappable button that dispatches an action through [ActionUIModel].
  *
  * Mirror of the Apple `Button` element (`ActionUI/Views/Button.swift`). Like
- * the Swift side, a Button carries no stateful value — it only triggers
+ * the Swift side, a Button carries no stateful value - it only triggers
  * actions. On tap, if the element declares an `actionID`, it is dispatched via
  * [ActionUIModel.actionHandler] with the element's `id` as the `viewID`, which
  * routes to the client's registered handler (or the default handler).
@@ -41,7 +41,7 @@ import com.abracode.actionui.Helpers.stringProperty
  *
  * **Deferred vs. Apple.** SwiftUI's `systemImage` (SF Symbols), `assetImage`,
  * and `imageScale` have no direct Compose/Android equivalent and are not ported
- * yet — they are ignored here (consistent with the resolver's "unrecognized
+ * yet - they are ignored here (consistent with the resolver's "unrecognized
  * property names are ignored silently" rule). `role: "destructive"` maps to an
  * error-colored button; `role: "cancel"` has no distinct Material styling (it
  * is meaningful only inside dialogs on Apple) and renders as a normal button.

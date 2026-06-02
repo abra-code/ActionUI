@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Image from assets/ (resourceName), fit:" } },
+    {
+      "type": "Image",
+      "properties": {
+        "resourceName": "sample_image.png",
+        "contentMode": "fit",
+        "frame": { "height": 100 },
+        "accessibilityLabel": "Sample gradient image"
+      }
+    },
+    { "type": "Text", "properties": { "text": "Same image, fill + rounded corners:" } },
+    {
+      "type": "Image",
+      "properties": {
+        "resourceName": "sample_image.png",
+        "contentMode": "fill",
+        "frame": { "width": 200, "height": 60 },
+        "cornerRadius": 8
+      }
+    },
+    { "type": "Text", "properties": { "text": "Cross-platform source: SF Symbol on iOS, assets/ image on Android:" } },
+    {
+      "type": "Image",
+      "properties": {
+        "systemName": "star.fill",
+        "resourceName": "sample_image.png",
+        "contentMode": "fit",
+        "frame": { "height": 60 }
+      }
+    }
+  ]
+}

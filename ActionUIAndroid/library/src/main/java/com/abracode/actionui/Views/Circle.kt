@@ -10,10 +10,10 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
  *
  * Mirror of the Apple `Circle` element (`ActionUI/Views/Circle.swift`), which
  * wraps `SwiftUI.Circle`. Drawn with `drawCircle(radius = minDimension/2)` so it
- * stays a true circle on a non-square frame — Compose's `CircleShape` would
+ * stays a true circle on a non-square frame - Compose's `CircleShape` would
  * degenerate to a capsule there. `fill` / `stroke` / `strokeLineWidth` resolve
  * through the shared [ShapeView] / `ShapeStyleHelper` seam. Needs an explicit
- * `frame` to be visible — see [ShapeView].
+ * `frame` to be visible - see [ShapeView].
  *
  * Sample JSON:
  * ```
@@ -24,7 +24,7 @@ object Circle : ActionUIViewConstruction {
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         ShapeView(element, modifier) { color, style ->
-            // Inscribed circle, centered — matches SwiftUI `Circle`.
+            // Inscribed circle, centered - matches SwiftUI `Circle`.
             drawCircle(color = color, radius = size.minDimension / 2f, style = style)
         }
     }

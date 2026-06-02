@@ -24,13 +24,13 @@ import com.abracode.actionui.Helpers.stringProperty
  * later.
  *
  * **Supported sources (Phase 1, no new dependencies).**
- *   * `resourceName` → a file in `assets/` (e.g. `"logo.png"`), decoded as a raster.
- *   * `filePath`     → an absolute filesystem path to a raster image.
+ *   * `resourceName` -> a file in `assets/` (e.g. `"logo.png"`), decoded as a raster.
+ *   * `filePath`     -> an absolute filesystem path to a raster image.
  *
- * **Deferred vs. Apple** (warn-and-skip, not silent — an Image with an
+ * **Deferred vs. Apple** (warn-and-skip, not silent - an Image with an
  * unresolvable source renders nothing):
- *   * `assetName`  → Android `res/drawable`; pending a name→resource contract.
- *   * `systemName` → SF Symbol; no portable Android name lookup.
+ *   * `assetName`  -> Android `res/drawable`; pending a name->resource contract.
+ *   * `systemName` -> SF Symbol; no portable Android name lookup.
  *
  * **Scaling.** `contentMode` (`fit`/`fill`) maps
  * to a Compose `ContentScale` via [resolveContentScale]; default is fit.
@@ -58,7 +58,7 @@ object Image : ActionUIViewConstruction {
             source?.let { loadImagePainter(it, context, logger) }
         }
 
-        // Unresolvable source → render nothing (the warning was already logged).
+        // Unresolvable source -> render nothing (the warning was already logged).
         // Diverges from Apple, which falls back to an SF-Symbol "photo"
         // placeholder; Android has no built-in equivalent drawable.
         if (painter == null) return
