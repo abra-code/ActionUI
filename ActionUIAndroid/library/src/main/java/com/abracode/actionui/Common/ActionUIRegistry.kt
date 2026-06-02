@@ -3,6 +3,7 @@ package com.abracode.actionui.Common
 import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.HStack
+import com.abracode.actionui.Views.Image
 import com.abracode.actionui.Views.Spacer
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.VStack
@@ -17,6 +18,7 @@ object ActionUIRegistry {
         register("Button", Button)
         register("Divider", Divider)
         register("Spacer", Spacer)
+        register("Image", Image)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

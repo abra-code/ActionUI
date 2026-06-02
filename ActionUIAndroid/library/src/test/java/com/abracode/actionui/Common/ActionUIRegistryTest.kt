@@ -20,6 +20,7 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.Button, ActionUIRegistry.lookup("Button"))
         assertSame(com.abracode.actionui.Views.Divider, ActionUIRegistry.lookup("Divider"))
         assertSame(com.abracode.actionui.Views.Spacer, ActionUIRegistry.lookup("Spacer"))
+        assertSame(com.abracode.actionui.Views.Image, ActionUIRegistry.lookup("Image"))
     }
 
     @Test
