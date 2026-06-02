@@ -105,6 +105,16 @@
         { "type": "Text", "properties": { "text": "Right" } }
       ]
     },
+    { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Text", "properties": { "text": "Left" } },
+        { "type": "Spacer" },
+        { "type": "Text", "properties": { "text": "Right (pushed by Spacer)" } }
+      ]
+    },
     {
       "type": "Button",
       "id": 1,
