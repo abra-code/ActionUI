@@ -1,9 +1,15 @@
 package com.abracode.actionui.Common
 
 import com.abracode.actionui.Views.Button
+import com.abracode.actionui.Views.Capsule
+import com.abracode.actionui.Views.Circle
 import com.abracode.actionui.Views.Divider
+import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
+import com.abracode.actionui.Views.ProgressView
+import com.abracode.actionui.Views.Rectangle
+import com.abracode.actionui.Views.RoundedRectangle
 import com.abracode.actionui.Views.Spacer
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.VStack
@@ -19,6 +25,12 @@ object ActionUIRegistry {
         register("Divider", Divider)
         register("Spacer", Spacer)
         register("Image", Image)
+        register("Rectangle", Rectangle)
+        register("RoundedRectangle", RoundedRectangle)
+        register("Capsule", Capsule)
+        register("Circle", Circle)
+        register("Ellipse", Ellipse)
+        register("ProgressView", ProgressView)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

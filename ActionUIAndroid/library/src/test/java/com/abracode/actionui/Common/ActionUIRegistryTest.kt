@@ -21,6 +21,12 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.Divider, ActionUIRegistry.lookup("Divider"))
         assertSame(com.abracode.actionui.Views.Spacer, ActionUIRegistry.lookup("Spacer"))
         assertSame(com.abracode.actionui.Views.Image, ActionUIRegistry.lookup("Image"))
+        assertSame(com.abracode.actionui.Views.Rectangle, ActionUIRegistry.lookup("Rectangle"))
+        assertSame(com.abracode.actionui.Views.RoundedRectangle, ActionUIRegistry.lookup("RoundedRectangle"))
+        assertSame(com.abracode.actionui.Views.Capsule, ActionUIRegistry.lookup("Capsule"))
+        assertSame(com.abracode.actionui.Views.Circle, ActionUIRegistry.lookup("Circle"))
+        assertSame(com.abracode.actionui.Views.Ellipse, ActionUIRegistry.lookup("Ellipse"))
+        assertSame(com.abracode.actionui.Views.ProgressView, ActionUIRegistry.lookup("ProgressView"))
     }
 
     @Test

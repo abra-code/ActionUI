@@ -11,7 +11,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Common.stringProperty
+import com.abracode.actionui.Helpers.stringProperty
 
 /**
  * Renders a tappable button that dispatches an action through [ActionUIModel].

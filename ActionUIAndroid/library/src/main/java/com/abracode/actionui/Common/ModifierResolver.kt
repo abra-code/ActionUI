@@ -14,8 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.abracode.actionui.Helpers.dpProperty
+import com.abracode.actionui.Helpers.floatProperty
+import com.abracode.actionui.Helpers.parseColor
+import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -169,19 +172,9 @@ fun BoxScope.buildChildModifier(
 
 // ---------------------------------------------------------------------------
 // Parsing helpers (internal so unit tests in the same package can reach them).
+// Generic JSON accessors and color parsing live in `Helpers` (JsonProperty.kt,
+// ColorHelper.kt); what stays here is the modifier-pipeline-specific parsing.
 // ---------------------------------------------------------------------------
-
-internal fun JsonObject.numberProperty(key: String): Double? =
-    get(key)?.jsonPrimitive?.doubleOrNull
-
-internal fun JsonObject.stringProperty(key: String): String? =
-    get(key)?.jsonPrimitive?.contentOrNull
-
-internal fun JsonObject.dpProperty(key: String): androidx.compose.ui.unit.Dp? =
-    numberProperty(key)?.let { it.toFloat().dp }
-
-internal fun JsonObject.floatProperty(key: String): Float? =
-    numberProperty(key)?.toFloat()
 
 /**
  * Applies one axis of a SwiftUI `frame` to the Modifier. `frame` is ActionUI's
@@ -210,52 +203,6 @@ internal fun Modifier.applySizeAxis(
         LoggerLevel.warning
     )
     return this
-}
-
-/**
- * Parses a color string. Accepts:
- *   * `#RRGGBB` — opaque
- *   * `#AARRGGBB` — with alpha
- *   * Named colors: `black`, `white`, `red`, `green`, `blue`, `yellow`, `cyan`,
- *     `magenta`, `gray`/`grey`, `lightgray`/`lightgrey`, `darkgray`/`darkgrey`,
- *     `orange`, `purple`, `pink`, `clear`/`transparent`. Case-insensitive.
- *
- * Returns `null` for any other input.
- */
-internal fun parseColor(name: String): Color? {
-    val trimmed = name.trim()
-    if (trimmed.startsWith("#")) return parseHexColor(trimmed)
-    return when (trimmed.lowercase()) {
-        "black"                  -> Color.Black
-        "white"                  -> Color.White
-        "red"                    -> Color.Red
-        "green"                  -> Color.Green
-        "blue"                   -> Color.Blue
-        "yellow"                 -> Color.Yellow
-        "cyan"                   -> Color.Cyan
-        "magenta"                -> Color.Magenta
-        "gray", "grey"           -> Color.Gray
-        "lightgray", "lightgrey" -> Color.LightGray
-        "darkgray", "darkgrey"   -> Color.DarkGray
-        "clear", "transparent"   -> Color.Transparent
-        "orange"                 -> Color(0xFFFFA500.toInt())
-        "purple"                 -> Color(0xFF800080.toInt())
-        "pink"                   -> Color(0xFFFFC0CB.toInt())
-        else                     -> null
-    }
-}
-
-private fun parseHexColor(hex: String): Color? {
-    val h = hex.removePrefix("#")
-    return try {
-        when (h.length) {
-            6 -> Color(0xFF000000.toInt() or h.toLong(16).toInt())     // #RRGGBB
-            8 -> Color(h.toLong(16).toInt())                            // #AARRGGBB
-            else -> null
-        }
-    } catch (e: NumberFormatException) {
-        null
-    }
 }
 
 internal fun parseVerticalAlignment(name: String): Alignment.Vertical? =

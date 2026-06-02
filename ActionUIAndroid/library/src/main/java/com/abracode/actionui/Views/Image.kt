@@ -8,10 +8,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
-import com.abracode.actionui.Common.loadImagePainter
-import com.abracode.actionui.Common.resolveContentScale
-import com.abracode.actionui.Common.selectImageSource
-import com.abracode.actionui.Common.stringProperty
+import com.abracode.actionui.Helpers.loadImagePainter
+import com.abracode.actionui.Helpers.resolveContentScale
+import com.abracode.actionui.Helpers.selectImageSource
+import com.abracode.actionui.Helpers.stringProperty
 
 /**
  * Renders a bundled image from the app's `assets/` directory or a filesystem
