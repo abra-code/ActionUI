@@ -11,7 +11,6 @@
      "resourceName": "yourImage.png",  Optional: String for bundle resource image name with extension
      "resizable": true,          // Optional: Boolean to make image resizable, defaults to true if contentMode is specified
      "contentMode": "fit",       // Optional: String ("fit" or "fill") for aspect-ratio scaling mode, defaults to "fit"
-     "scaleMode": "fit",         // Deprecated: alias for contentMode; prefer contentMode
      "imageScale": "large"       // Optional: String ("small", "medium", "large") for image scale, applies to SF Symbols, no default
    }
    // Note: These properties are specific to Image. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled, accessibilityLabel, accessibilityHint, accessibilityHidden, accessibilityIdentifier, shadow) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
@@ -161,7 +160,7 @@ struct Image: ActionUIViewConstruction {
         // contentMode is preferred; scaleMode is a deprecated alias
         let contentMode = (properties["contentMode"] as? String) ?? (properties["scaleMode"] as? String)
 
-        // contentMode (or deprecated scaleMode) implies "resizable" even if not explicitly declared
+        // contentMode implies "resizable" even if not explicitly declared
         let resizable = properties["resizable"] as? Bool ?? (contentMode != nil)
         if resizable, let contentMode {
             return image.resizable().aspectRatio(contentMode: contentMode == "fit" ? .fit : .fill)

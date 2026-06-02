@@ -40,7 +40,7 @@ final class ImageTests: XCTestCase {
             "properties": [
                 "systemName": "star.fill",
                 "resizable": true,
-                "scaleMode": "fit",
+                "contentMode": "fit",
                 "padding": 10.0
             ]
         ]
@@ -62,7 +62,7 @@ final class ImageTests: XCTestCase {
             "properties": {
                 "systemName": "star.fill",
                 "resizable": true,
-                "scaleMode": "fit",
+                "contentMode": "fit",
                 "padding": 10.0,
                 "offset": {"x": 5.0, "y": -5.0}
             }
@@ -82,7 +82,7 @@ final class ImageTests: XCTestCase {
         XCTAssertEqual(element.type, "Image", "Element type should be Image")
         XCTAssertEqual(element.properties["systemName"] as? String, "star.fill", "systemName should be star.fill")
         XCTAssertEqual(element.properties["resizable"] as? Bool, true, "resizable should be true")
-        XCTAssertEqual(element.properties["scaleMode"] as? String, "fit", "scaleMode should be fit")
+        XCTAssertEqual(element.properties["contentMode"] as? String, "fit", "contentMode should be fit")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 5.0, "offset.x should be 5.0")
@@ -96,7 +96,7 @@ final class ImageTests: XCTestCase {
         let properties: [String: Any] = [
             "systemName": "star.fill",
             "resizable": true,
-            "scaleMode": "fit",
+            "contentMode": "fit",
             "imageScale": "large",
             "padding": 10.0
         ]
@@ -105,7 +105,7 @@ final class ImageTests: XCTestCase {
         
         XCTAssertEqual(validated["systemName"] as? String, "star.fill", "systemName should be preserved")
         XCTAssertEqual(validated["resizable"] as? Bool, true, "resizable should be preserved")
-        XCTAssertEqual(validated["scaleMode"] as? String, "fit", "scaleMode should be preserved")
+        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode should be preserved")
         XCTAssertEqual(validated["imageScale"] as? String, "large", "imageScale should be preserved")
         XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
     }
@@ -114,7 +114,7 @@ final class ImageTests: XCTestCase {
         let properties: [String: Any] = [
             "systemName": 123,
             "resizable": "true",
-            "scaleMode": "invalid",
+            "contentMode": "invalid",
             "imageScale": "huge",
             "filePath": "/path/to/doc.txt"
         ]
@@ -123,7 +123,7 @@ final class ImageTests: XCTestCase {
         
         XCTAssertNil(validated["systemName"], "Invalid systemName should be nil")
         XCTAssertNil(validated["resizable"], "Invalid resizable should be nil")
-        XCTAssertNil(validated["scaleMode"], "Invalid scaleMode should be nil")
+        XCTAssertNil(validated["contentMode"], "Invalid contentMode should be nil")
         XCTAssertNil(validated["imageScale"], "Invalid imageScale should be nil")
         XCTAssertNil(validated["filePath"], "Invalid filePath should be nil")
     }
@@ -138,7 +138,7 @@ final class ImageTests: XCTestCase {
         XCTAssertNil(validated["name"], "Missing name should be nil")
         XCTAssertNil(validated["filePath"], "Missing filePath should be nil")
         XCTAssertNil(validated["resizable"], "Missing resizable should be nil")
-        XCTAssertNil(validated["scaleMode"], "Missing scaleMode should be nil")
+        XCTAssertNil(validated["contentMode"], "Missing contentMode should be nil")
         XCTAssertNil(validated["imageScale"], "Missing imageScale should be nil")
     }
     

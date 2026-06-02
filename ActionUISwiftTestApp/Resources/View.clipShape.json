@@ -20,7 +20,7 @@
           "foregroundStyle": "white",
           "background": "gray",
           "frame": { "width": 120.0, "height": 120.0 },
-          "scaleMode": "fill",
+          "contentMode": "fill",
           "clipShape": "circle"
         }
       },

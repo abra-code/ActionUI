@@ -53,7 +53,7 @@
           "foregroundStyle": "white",
           "background": "orange",
           "frame": { "width": 56.0, "height": 56.0 },
-          "scaleMode": "fill",
+          "contentMode": "fill",
           "cornerRadius": 14.0
         }
       }
