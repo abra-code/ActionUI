@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Stepped slider (0..100, step 1) - host reads/writes it by id:" } },
+    {
+      "type": "Slider",
+      "id": 1,
+      "properties": {
+        "value": 25,
+        "range": { "min": 0, "max": 100 },
+        "step": 1,
+        "frame": { "width": "infinity" }
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Button", "id": 2, "properties": { "title": "Read", "actionID": "slider.read" } },
+        { "type": "Button", "id": 3, "properties": { "title": "Set to 75", "actionID": "slider.set" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Continuous slider (0..1):" } },
+    {
+      "type": "Slider",
+      "id": 4,
+      "properties": {
+        "value": 0.5,
+        "range": { "min": 0, "max": 1 },
+        "frame": { "width": "infinity" }
+      }
+    }
+  ]
+}

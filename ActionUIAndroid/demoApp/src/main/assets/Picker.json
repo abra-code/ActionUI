@@ -1,0 +1,53 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Menu style (default), with a section header + divider:" } },
+    {
+      "type": "Picker",
+      "id": 1,
+      "properties": {
+        "title": "Language",
+        "options": [
+          { "section": "Popular" },
+          { "title": "Kotlin", "tag": "kt" },
+          { "title": "Swift", "tag": "sw" },
+          { "divider": true },
+          { "title": "Other", "tag": "other" }
+        ],
+        "actionID": "picker.changed",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Segmented style (simple array, auto-tagged 1..n):" } },
+    {
+      "type": "Picker",
+      "id": 2,
+      "properties": {
+        "options": ["Day", "Week", "Month"],
+        "pickerStyle": "segmented",
+        "actionID": "picker.changed"
+      }
+    },
+    { "type": "Text", "properties": { "text": "Radio group style:" } },
+    {
+      "type": "Picker",
+      "id": 3,
+      "properties": {
+        "title": "Size",
+        "options": [
+          { "title": "Small", "tag": "s" },
+          { "title": "Medium", "tag": "m" },
+          { "title": "Large", "tag": "l" }
+        ],
+        "pickerStyle": "radioGroup",
+        "actionID": "picker.changed"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 4,
+      "properties": { "title": "Read Language selection", "actionID": "picker.read" }
+    }
+  ]
+}

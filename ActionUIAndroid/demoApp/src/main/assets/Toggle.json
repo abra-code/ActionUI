@@ -1,0 +1,24 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Switch (default), fires actionID with the new value as context:" } },
+    {
+      "type": "Toggle",
+      "id": 1,
+      "properties": { "title": "Enable feature", "isOn": false, "actionID": "toggle.changed" }
+    },
+    { "type": "Text", "properties": { "text": "Pre-on switch:" } },
+    {
+      "type": "Toggle",
+      "id": 2,
+      "properties": { "title": "Notifications", "isOn": true }
+    },
+    { "type": "Text", "properties": { "text": "Checkbox style:" } },
+    {
+      "type": "Toggle",
+      "id": 3,
+      "properties": { "title": "I agree", "style": "checkbox" }
+    }
+  ]
+}

@@ -41,6 +41,33 @@ class MainActivity : ComponentActivity() {
             ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 1, value = "Filled by host")
         }
 
+        // Toggle.json dispatches "toggle.changed" on every flip, passing the new
+        // Boolean as the action context - shows a value-bearing control routing
+        // its value through the action layer.
+        ActionUIModel.registerActionHandler("toggle.changed") { _, _, viewID, _, context ->
+            Toast.makeText(this, "Toggle $viewID is now $context", Toast.LENGTH_SHORT).show()
+        }
+
+        // Slider.json: read the live Double position on demand, and write it from
+        // the host - the slider snaps to the new value because it is ViewModel state.
+        ActionUIModel.registerActionHandler("slider.read") { _, windowUUID, _, _, _ ->
+            val value = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Slider value: $value", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("slider.set") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 1, value = "75")
+        }
+
+        // Picker.json: each picker passes its selected tag as the action context;
+        // "picker.read" reads the menu picker's (id 1) current tag on demand.
+        ActionUIModel.registerActionHandler("picker.changed") { _, _, viewID, _, context ->
+            Toast.makeText(this, "Picker $viewID selected '$context'", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("picker.read") { _, windowUUID, _, _, _ ->
+            val tag = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Language tag: '$tag'", Toast.LENGTH_SHORT).show()
+        }
+
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Default handler: '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }

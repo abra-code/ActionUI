@@ -9,14 +9,17 @@ import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
 import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
+import com.abracode.actionui.Views.Picker
 import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
 import com.abracode.actionui.Views.RoundedRectangle
 import com.abracode.actionui.Views.SecureField
+import com.abracode.actionui.Views.Slider
 import com.abracode.actionui.Views.Spacer
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.TextEditor
 import com.abracode.actionui.Views.TextField
+import com.abracode.actionui.Views.Toggle
 import com.abracode.actionui.Views.VStack
 import com.abracode.actionui.Views.ZStack
 
@@ -43,6 +46,9 @@ object ActionUIRegistry {
         register("TextField", TextField)
         register("SecureField", SecureField)
         register("TextEditor", TextEditor)
+        register("Toggle", Toggle)
+        register("Slider", Slider)
+        register("Picker", Picker)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {
