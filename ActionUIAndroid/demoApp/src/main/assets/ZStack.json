@@ -1,0 +1,49 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "ZStack (default center): label over a shape" } },
+    {
+      "type": "ZStack",
+      "properties": { "frame": { "width": "infinity", "height": 120 } },
+      "children": [
+        {
+          "type": "RoundedRectangle",
+          "properties": { "cornerRadius": 16, "fill": "#90CAF9", "frame": { "width": "infinity", "height": 120 } }
+        },
+        { "type": "Text", "properties": { "text": "Centered label" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "ZStack alignment bottomTrailing:" } },
+    {
+      "type": "ZStack",
+      "properties": { "alignment": "bottomTrailing", "frame": { "width": "infinity", "height": 120 } },
+      "children": [
+        {
+          "type": "Rectangle",
+          "properties": { "fill": "#E0E0E0", "frame": { "width": "infinity", "height": 120 } }
+        },
+        {
+          "type": "Text",
+          "properties": { "text": "badge", "padding": 8, "background": "orange", "cornerRadius": 8 }
+        }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Three overlapping shapes (back-to-front):" } },
+    {
+      "type": "ZStack",
+      "properties": { "alignment": "center", "frame": { "width": "infinity", "height": 120 } },
+      "children": [
+        {
+          "type": "Circle",
+          "properties": { "fill": "#A5D6A7", "frame": { "width": 110, "height": 110 } }
+        },
+        {
+          "type": "Circle",
+          "properties": { "fill": "#66BB6A", "frame": { "width": 70, "height": 70 } }
+        },
+        { "type": "Text", "properties": { "text": "on top" } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "LazyHStack: scroll horizontally; only visible tiles are built. Width fills the parent." } },
+    {
+      "type": "LazyHStack",
+      "properties": { "spacing": 12, "alignment": "center", "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#FFCDD2", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#F8BBD0", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#E1BEE7", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#D1C4E9", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#C5CAE9", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#BBDEFB", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#B3E5FC", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#B2EBF2", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#B2DFDB", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#C8E6C9", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#DCEDC8", "frame": { "width": 80, "height": 80 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 12, "fill": "#FFF9C4", "frame": { "width": 80, "height": 80 } } }
+      ]
+    }
+  ]
+}

@@ -7,6 +7,8 @@ import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
+import com.abracode.actionui.Views.LazyHStack
+import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
 import com.abracode.actionui.Views.RoundedRectangle
@@ -16,6 +18,7 @@ import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.TextEditor
 import com.abracode.actionui.Views.TextField
 import com.abracode.actionui.Views.VStack
+import com.abracode.actionui.Views.ZStack
 
 object ActionUIRegistry {
     private val builders = mutableMapOf<String, ActionUIViewConstruction>()
@@ -24,6 +27,9 @@ object ActionUIRegistry {
         register("Text", Text)
         register("VStack", VStack)
         register("HStack", HStack)
+        register("ZStack", ZStack)
+        register("LazyVStack", LazyVStack)
+        register("LazyHStack", LazyHStack)
         register("Button", Button)
         register("Divider", Divider)
         register("Spacer", Spacer)
