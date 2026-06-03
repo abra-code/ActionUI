@@ -10,8 +10,11 @@ import com.abracode.actionui.Views.Image
 import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
 import com.abracode.actionui.Views.RoundedRectangle
+import com.abracode.actionui.Views.SecureField
 import com.abracode.actionui.Views.Spacer
 import com.abracode.actionui.Views.Text
+import com.abracode.actionui.Views.TextEditor
+import com.abracode.actionui.Views.TextField
 import com.abracode.actionui.Views.VStack
 
 object ActionUIRegistry {
@@ -31,6 +34,9 @@ object ActionUIRegistry {
         register("Circle", Circle)
         register("Ellipse", Ellipse)
         register("ProgressView", ProgressView)
+        register("TextField", TextField)
+        register("SecureField", SecureField)
+        register("TextEditor", TextEditor)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

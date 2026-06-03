@@ -1,0 +1,39 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Password (masked, submit action):" } },
+    {
+      "type": "SecureField",
+      "id": 1,
+      "properties": {
+        "title": "Password",
+        "prompt": "Enter password",
+        "textContentType": "password",
+        "actionID": "secure.submit",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "New password:" } },
+    {
+      "type": "SecureField",
+      "id": 2,
+      "properties": {
+        "title": "New password",
+        "prompt": "Choose a new password",
+        "textContentType": "newPassword",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Pre-filled (text is masked):" } },
+    {
+      "type": "SecureField",
+      "id": 3,
+      "properties": {
+        "title": "Secret",
+        "text": "secret",
+        "frame": { "width": "infinity" }
+      }
+    }
+  ]
+}

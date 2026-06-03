@@ -3,6 +3,7 @@ package com.abracode.actionui.Helpers
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -29,3 +30,6 @@ internal fun JsonObject.dpProperty(key: String): Dp? =
 
 internal fun JsonObject.floatProperty(key: String): Float? =
     numberProperty(key)?.toFloat()
+
+internal fun JsonObject.booleanProperty(key: String): Boolean? =
+    get(key)?.jsonPrimitive?.booleanOrNull

@@ -1,0 +1,38 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Basic (prompt + submit action):" } },
+    {
+      "type": "TextField",
+      "id": 1,
+      "properties": {
+        "prompt": "Enter username",
+        "actionID": "text.submit",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Labelled, pre-filled, change action:" } },
+    {
+      "type": "TextField",
+      "id": 2,
+      "properties": {
+        "title": "Display name",
+        "text": "Ada Lovelace",
+        "valueChangeActionID": "text.changed",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Multi-line (axis vertical, lineLimit 3..6):" } },
+    {
+      "type": "TextField",
+      "id": 3,
+      "properties": {
+        "prompt": "Enter a description...",
+        "axis": "vertical",
+        "lineLimit": { "min": 3, "max": 6 },
+        "frame": { "width": "infinity" }
+      }
+    }
+  ]
+}

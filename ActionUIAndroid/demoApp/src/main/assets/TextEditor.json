@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Empty with placeholder (default height, scrolls):" } },
+    {
+      "type": "TextEditor",
+      "id": 1,
+      "properties": {
+        "placeholder": "Enter notes here...",
+        "valueChangeActionID": "editor.changed",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Pre-filled, fixed height 120 (scrolls past it):" } },
+    {
+      "type": "TextEditor",
+      "id": 2,
+      "properties": {
+        "text": "This editor has initial content.\nIt supports multiple lines.\nType more to see it scroll inside its fixed height.",
+        "frame": { "width": "infinity", "height": 120 }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Read-only (selectable + scrollable, not editable):" } },
+    {
+      "type": "TextEditor",
+      "id": 3,
+      "properties": {
+        "text": "Read-only content.\nYou can select and scroll, but not edit.",
+        "readOnly": true,
+        "frame": { "width": "infinity", "height": 100 }
+      }
+    }
+  ]
+}

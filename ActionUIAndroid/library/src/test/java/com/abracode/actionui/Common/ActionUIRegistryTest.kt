@@ -27,6 +27,9 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.Circle, ActionUIRegistry.lookup("Circle"))
         assertSame(com.abracode.actionui.Views.Ellipse, ActionUIRegistry.lookup("Ellipse"))
         assertSame(com.abracode.actionui.Views.ProgressView, ActionUIRegistry.lookup("ProgressView"))
+        assertSame(com.abracode.actionui.Views.TextField, ActionUIRegistry.lookup("TextField"))
+        assertSame(com.abracode.actionui.Views.SecureField, ActionUIRegistry.lookup("SecureField"))
+        assertSame(com.abracode.actionui.Views.TextEditor, ActionUIRegistry.lookup("TextEditor"))
     }
 
     @Test
