@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonElement
@@ -54,12 +55,15 @@ internal enum class TextInputKind { Plain, Secure }
  * `lineLimit` (exact `N` or `{min?, max?}`); [Secure] is always single-line and
  * masks input with a [PasswordVisualTransformation].
  *
- * **State.** The current value is held in local [rememberSaveable] state keyed by
- * the element id, so it survives recomposition and configuration changes. Apple's
- * programmatic `getElementValue`/`setElementValue` runtime bridge is not ported
- * yet (Android has no `ViewModel`/state layer - see
- * `Private/Android_Porting_Notes.md` section 6), so the value lives only in the
- * composition for now, the same Phase-1 stance `ProgressView`/`Image` take.
+ * **State.** When a [com.abracode.actionui.Common.WindowModel] is in scope (the
+ * normal case under `ActionUI.Render`), the value is owned by this element's
+ * [com.abracode.actionui.Common.ViewModel], looked up via [LocalWindowModel] by
+ * element id. That ViewModel value is Compose snapshot state, so a host
+ * `ActionUIModel.setElementValue(...)` recomposes the field, and an edit writes
+ * back so `getElementValue(...)` reads the live text - the bidirectional bridge
+ * Apple exposes. Host binding requires the element to carry a positive `id`.
+ * Absent a window (e.g. a control rendered standalone), the value falls back to
+ * local [rememberSaveable] state, preserving the earlier Phase-1 behavior.
  *
  * **Deferred vs. Apple.** For [Plain], numeric `format`/`fractionLength`/
  * `currencyCode` (Apple's `NumberFormatHelper`) are not ported; such a field
@@ -82,12 +86,7 @@ internal fun TextInputField(
     val actionID = props?.stringProperty("actionID")
     val valueChangeActionID = props?.stringProperty("valueChangeActionID")
 
-    // Initial value: "text" wins; for plain fields a stringified "value" is the
-    // fallback so format-authored JSON still shows its number (formatting itself
-    // is deferred). Secure fields only honor "text".
-    val initialValue = props?.stringProperty("text")
-        ?: (props?.get("value")?.jsonPrimitive?.contentOrNull?.takeIf { kind == TextInputKind.Plain })
-        ?: ""
+    val initialValue = textInputInitialValue(props, kind)
 
     // textContentType is an iOS autofill hint with no portable Compose mapping;
     // validate the Secure vocabulary (parity with the Apple side) then ignore.
@@ -118,7 +117,13 @@ internal fun TextInputField(
     val (minLines, maxLines) =
         if (isVertical) parseLineLimit(props?.get("lineLimit")) else 1 to 1
 
-    var text by rememberSaveable(element.id) { mutableStateOf(initialValue) }
+    // Bind to this element's ViewModel value when a window is in scope (enables
+    // the host get/setElementValue bridge); otherwise hold the value locally.
+    // rememberSaveable is called unconditionally (hook rule) and only read on the
+    // fallback path; the model was seeded with the same initial value at populate.
+    val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+    var localText by rememberSaveable(element.id) { mutableStateOf(initialValue) }
+    val text = if (viewModel != null) (viewModel.value as? String) ?: "" else localText
 
     val keyboardType = if (kind == TextInputKind.Secure) KeyboardType.Password else KeyboardType.Text
     val visualTransformation =
@@ -132,7 +137,7 @@ internal fun TextInputField(
         value = text,
         onValueChange = { new ->
             if (new != text) {
-                text = new
+                if (viewModel != null) viewModel.value = new else localText = new
                 dispatch(valueChangeActionID)
             }
         },
@@ -150,6 +155,19 @@ internal fun TextInputField(
         keyboardActions = KeyboardActions(onDone = { dispatch(actionID) }),
     )
 }
+
+/**
+ * The initial string value for a text-input element, used both to seed the
+ * element's [com.abracode.actionui.Common.ViewModel] at window populate time and
+ * as the local-fallback value. `text` wins; for [TextInputKind.Plain] a
+ * stringified `value` is the fallback so format-authored JSON still shows its
+ * number (numeric formatting itself is deferred). [TextInputKind.Secure] only
+ * honors `text`.
+ */
+internal fun textInputInitialValue(props: JsonObject?, kind: TextInputKind): String =
+    props?.stringProperty("text")
+        ?: (props?.get("value")?.jsonPrimitive?.contentOrNull?.takeIf { kind == TextInputKind.Plain })
+        ?: ""
 
 /**
  * Resolves a `lineLimit` property into Compose `(minLines, maxLines)`.

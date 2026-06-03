@@ -3,6 +3,7 @@ package com.abracode.actionui.Views
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 
 /**
@@ -29,6 +30,11 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
  * ```
  */
 object SecureField : ActionUIViewConstruction {
+    override val valueType = ActionUIValueType.STRING
+
+    override fun initialValue(element: ActionUIElement): Any? =
+        textInputInitialValue(element.properties, TextInputKind.Secure)
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         TextInputField(element, modifier, TextInputKind.Secure)

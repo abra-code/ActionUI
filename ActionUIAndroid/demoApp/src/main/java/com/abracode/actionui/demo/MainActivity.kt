@@ -28,6 +28,19 @@ class MainActivity : ComponentActivity() {
         ActionUIModel.registerActionHandler("button.tap") { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Handled '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }
+
+        // Demonstrate the host-side value bridge (StateBinding.json). "field.echo"
+        // reads the TextField (viewID 1) out-of-band; "field.fill" writes it, and
+        // because the value is the element's ViewModel state the field recomposes.
+        // The windowUUID forwarded to the handler is the one the button fired from.
+        ActionUIModel.registerActionHandler("field.echo") { _, windowUUID, _, _, _ ->
+            val value = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Field value: \"$value\"", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("field.fill") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 1, value = "Filled by host")
+        }
+
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Default handler: '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }

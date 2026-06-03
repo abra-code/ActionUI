@@ -29,14 +29,25 @@ typealias ActionUIActionHandler =
  * default.
  *
  * Implemented as a Kotlin `object` (singleton) to match Swift's
- * `ActionUIModel.shared`. The window/view state-management portions of the
- * Swift model (`windowModels`, `setElementValue`, structural insert/remove,
- * modal/dialog presentation) are **not** ported yet - the Android renderer is
- * still stateless. Only the action-dispatch contract is mirrored here so client
- * code can wire up button handlers identically to the Apple side.
+ * `ActionUIModel.shared`. Beyond action dispatch, this object owns the
+ * per-window [WindowModel] pool ([windowModels]) and the programmatic value /
+ * state bridge (`get/setElementValue[FromString]`,
+ * `get/setElementState[FromString]`) - the Android port of the corresponding
+ * Swift surface. `ActionUI.Render` registers a window via [loadDescription];
+ * host code then reads and writes control values out-of-band (typically from an
+ * action handler), and because [ViewModel] fields are Compose snapshot state
+ * those writes recompose the affected control automatically.
  *
- * Handlers fire from Compose `onClick` callbacks on the main thread; this
- * object performs no synchronization of its own.
+ * Still **not** ported (with the features that drive them): runtime structural
+ * mutation (`insertElement` / `removeElement` / `insertRow`), modal/dialog
+ * presentation (`presentModal` / `presentAlert` / ...), the List/Table rows API
+ * (`setElementRows` / `getElementColumnCount` / ...), and the property API
+ * (`get/setElementProperty`, which awaits a validation stage). See
+ * `Private/Android_Porting_Notes.md`.
+ *
+ * Handlers and the value/state API run on the main thread (Compose `onClick`
+ * callbacks and host handlers); this object performs no synchronization of its
+ * own.
  */
 object ActionUIModel {
 
@@ -113,5 +124,227 @@ object ActionUIModel {
                 )
             }
         }
+    }
+
+    // MARK: - Window registry
+
+    /**
+     * The per-window [WindowModel] pool, keyed by `windowUUID`. Android is
+     * single-window today, so in practice this holds one entry under the empty
+     * string (see the [ActionUIActionHandler] note on `windowUUID`).
+     */
+    internal val windowModels = mutableMapOf<String, WindowModel>()
+
+    /**
+     * Adopts [root] as the description for [windowUUID]: builds (or rebuilds) the
+     * window's [WindowModel] and [ViewModel] pool and registers it so the value /
+     * state API can resolve element ids. Mirrors the Swift
+     * `loadDescription(from:windowUUID:)`. `ActionUI.Render` calls this once per
+     * document. Returns the populated [WindowModel].
+     */
+    fun loadDescription(
+        root: ActionUIElement,
+        windowUUID: String = "",
+        logger: ActionUILogger = this.logger,
+    ): WindowModel {
+        val windowModel = WindowModel(windowUUID, logger)
+        windowModel.loadDescription(root)
+        windowModels[windowUUID] = windowModel
+        return windowModel
+    }
+
+    /**
+     * Removes [windowUUID]'s [WindowModel] from the pool. Called when a rendered
+     * window leaves the composition. The optional [expected] guard avoids
+     * evicting a newer window that replaced this one under the same id.
+     */
+    fun unregisterWindow(windowUUID: String, expected: WindowModel? = null) {
+        if (expected != null && windowModels[windowUUID] !== expected) return
+        windowModels.remove(windowUUID)
+    }
+
+    // MARK: - Element Value API
+
+    /** Resolves a [ViewModel], logging a warning and returning null if absent. */
+    private fun viewModel(windowUUID: String, viewID: Int): ViewModel? {
+        val viewModel = windowModels[windowUUID]?.viewModels?.get(viewID)
+        if (viewModel == null) {
+            logger.log("No ViewModel found for windowUUID: $windowUUID, viewID: $viewID", LoggerLevel.warning)
+        }
+        return viewModel
+    }
+
+    /**
+     * Returns the current value of the element [viewID] in [windowUUID], or null
+     * if the element is unknown. [viewPartID] is accepted for parity with the
+     * Apple multi-column (Table/List) path, which is not ported; for the scalar
+     * controls that exist today the value is returned directly.
+     */
+    fun getElementValue(windowUUID: String = "", viewID: Int, viewPartID: Int = 0): Any? =
+        viewModel(windowUUID, viewID)?.value
+
+    /**
+     * Sets the value of element [viewID] in [windowUUID]. Because [ViewModel.value]
+     * is Compose snapshot state, a bound control recomposes to reflect the new
+     * value. The Apple `[[String]]` / `[String]` Table/List content branches are
+     * deferred with those elements; this is the scalar path.
+     */
+    fun setElementValue(windowUUID: String = "", viewID: Int, viewPartID: Int = 0, value: Any) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        viewModel.value = value
+        logger.log("Set value for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * Returns the element's value as a string for scripting, formatted by the
+     * element's declared [ActionUIValueType]. String values are returned directly;
+     * other types use their natural string form; null value yields null. Mirrors
+     * the Swift `getElementValueAsString` (the Apple-only Color/Date/coordinate
+     * and Table/List joins are deferred with their value types).
+     */
+    fun getElementValueAsString(windowUUID: String = "", viewID: Int, viewPartID: Int = 0): String? {
+        val viewModel = viewModel(windowUUID, viewID) ?: return null
+        val value = viewModel.value ?: return null
+        val valueType = ActionUIRegistry.lookup(viewModel.elementType)?.valueType ?: ActionUIValueType.NONE
+        return when {
+            value is String -> value
+            valueType == ActionUIValueType.BOOLEAN && value is Boolean -> value.toString()
+            valueType == ActionUIValueType.INT && value is Int -> value.toString()
+            valueType == ActionUIValueType.DOUBLE && value is Double -> value.toString()
+            else -> value.toString()
+        }
+    }
+
+    /**
+     * Parses [value] into the element's declared [ActionUIValueType] and delegates
+     * to [setElementValue]. Warns and does nothing on a malformed string, on a
+     * [ActionUIValueType.NONE] (valueless) element, or on an unknown element.
+     * Mirrors the Swift `setElementValueFromString`.
+     */
+    fun setElementValueFromString(windowUUID: String = "", viewID: Int, viewPartID: Int = 0, value: String) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        val valueType = ActionUIRegistry.lookup(viewModel.elementType)?.valueType ?: ActionUIValueType.NONE
+        val converted: Any = when (valueType) {
+            ActionUIValueType.STRING -> value
+            ActionUIValueType.BOOLEAN -> when (value.lowercase()) {
+                "true" -> true
+                "false" -> false
+                else -> {
+                    logger.log("Invalid string for Boolean value: $value for viewID: $viewID", LoggerLevel.warning)
+                    return
+                }
+            }
+            ActionUIValueType.INT -> value.toIntOrNull() ?: run {
+                logger.log("Invalid string for Int value: $value for viewID: $viewID", LoggerLevel.warning)
+                return
+            }
+            ActionUIValueType.DOUBLE -> value.toDoubleOrNull() ?: run {
+                logger.log("Invalid string for Double value: $value for viewID: $viewID", LoggerLevel.warning)
+                return
+            }
+            ActionUIValueType.NONE -> {
+                logger.log(
+                    "Element of type ${viewModel.elementType} has no value and does not support " +
+                        "setElementValueFromString (viewID: $viewID)",
+                    LoggerLevel.warning
+                )
+                return
+            }
+        }
+        setElementValue(windowUUID = windowUUID, viewID = viewID, viewPartID = viewPartID, value = converted)
+    }
+
+    // MARK: - Element State API
+
+    /** Returns the value for state [key] on [viewID], or null if absent. */
+    fun getElementState(windowUUID: String = "", viewID: Int, key: String): Any? {
+        val viewModel = viewModel(windowUUID, viewID) ?: return null
+        val value = viewModel.states[key]
+        if (value == null) {
+            logger.log("State key '$key' not found for viewID: $viewID", LoggerLevel.warning)
+        }
+        return value
+    }
+
+    /** Returns the string form of state [key] on [viewID], or null if absent. */
+    fun getElementStateAsString(windowUUID: String = "", viewID: Int, key: String): String? {
+        val viewModel = viewModel(windowUUID, viewID) ?: return null
+        val value = viewModel.states[key]
+        if (value == null) {
+            logger.log("State key '$key' not found for viewID: $viewID", LoggerLevel.warning)
+            return null
+        }
+        return when (value) {
+            is Boolean -> value.toString()
+            is Double -> value.toString()
+            is Float -> value.toString()
+            is Int -> value.toString()
+            is String -> value
+            else -> value.toString()
+        }
+    }
+
+    /**
+     * Sets state [key] on [viewID] to [value]. Rejects a change that would alter
+     * the type of an existing key (logs an error) so [setElementStateFromString]'s
+     * type-guided parsing stays sound. Mirrors the Swift `setElementState`.
+     */
+    fun setElementState(windowUUID: String = "", viewID: Int, key: String, value: Any) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        val existing = viewModel.states[key]
+        if (existing != null && existing::class != value::class) {
+            logger.log(
+                "Type mismatch for state key '$key' on viewID: $viewID; expected " +
+                    "${existing::class.simpleName}, got ${value::class.simpleName}",
+                LoggerLevel.error
+            )
+            return
+        }
+        viewModel.states[key] = value
+        logger.log("Set state '$key' for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * Parses [value] into the type of the existing state [key] and stores it. If
+     * the key does not exist yet the string is stored as-is. Mirrors the Swift
+     * `setElementStateFromString`; the Apple new-key JSON type inference
+     * (`looksLikeJSONFragment` / `normalizedJSONValue`) is deferred - new keys
+     * land as plain strings until a typed setter establishes their type.
+     */
+    fun setElementStateFromString(windowUUID: String = "", viewID: Int, key: String, value: String) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        val converted: Any = when (val existing = viewModel.states[key]) {
+            null -> value // New key: store as-is (JSON type inference deferred).
+            is Boolean -> when (value.lowercase()) {
+                "true" -> true
+                "false" -> false
+                else -> {
+                    logger.log("Invalid string for Boolean state key '$key': $value", LoggerLevel.warning)
+                    return
+                }
+            }
+            is Double -> value.toDoubleOrNull() ?: run {
+                logger.log("Invalid string for Double state key '$key': $value", LoggerLevel.warning)
+                return
+            }
+            is Float -> value.toFloatOrNull() ?: run {
+                logger.log("Invalid string for Float state key '$key': $value", LoggerLevel.warning)
+                return
+            }
+            is Int -> value.toIntOrNull() ?: run {
+                logger.log("Invalid string for Int state key '$key': $value", LoggerLevel.warning)
+                return
+            }
+            is String -> value
+            else -> {
+                logger.log(
+                    "Unsupported state type ${existing::class.simpleName} for key '$key' on viewID: $viewID",
+                    LoggerLevel.warning
+                )
+                return
+            }
+        }
+        viewModel.states[key] = converted
+        logger.log("Set state '$key' from string for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 }

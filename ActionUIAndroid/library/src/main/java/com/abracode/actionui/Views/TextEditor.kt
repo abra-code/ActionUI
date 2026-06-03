@@ -12,8 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -41,16 +43,23 @@ import kotlinx.serialization.json.JsonObject
  *   * plus the universal modifiers resolved by `applyCommonProperties` (applied
  *     via [modifier]) - notably `frame.height` to size the editor.
  *
- * **State.** Held in local [rememberSaveable] keyed by element id, the same
- * Phase-1 stance [TextField]/[SecureField] take; the programmatic
- * `get/setElementValue` bridge is deferred until the `ViewModel` layer lands
- * (see `Private/Android_Porting_Notes.md` sections 6 and 14).
+ * **State.** When a [com.abracode.actionui.Common.WindowModel] is in scope, the
+ * value is owned by this element's [com.abracode.actionui.Common.ViewModel]
+ * (looked up via [LocalWindowModel] by id), enabling the host
+ * `get/setElementValue` bridge - the same binding [TextField]/[SecureField] use.
+ * Absent a window it falls back to local [rememberSaveable] state. Host binding
+ * requires a positive element `id`.
  *
  * **Deferred vs. Apple.** `markdown` (attributed editing, macOS/iOS 26+) has no
  * Compose equivalent: when supplied without `text`, its raw string is shown as
  * plain editable text and a warning is logged. There is no rich/attributed value.
  */
 object TextEditor : ActionUIViewConstruction {
+    override val valueType = ActionUIValueType.STRING
+
+    override fun initialValue(element: ActionUIElement): Any? =
+        textEditorInitialValue(element.properties)
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
@@ -63,7 +72,7 @@ object TextEditor : ActionUIViewConstruction {
         // Initial content: "text" wins. A "markdown" string (attributed editing
         // is unsupported on Android) is shown as raw plain text, with a warning.
         val markdown = props?.stringProperty("markdown")
-        val initialValue = props?.stringProperty("text") ?: markdown ?: ""
+        val initialValue = textEditorInitialValue(props)
         if (markdown != null) {
             logger.log(
                 "TextEditor 'markdown' (attributed editing) is not supported on Android; " +
@@ -78,13 +87,16 @@ object TextEditor : ActionUIViewConstruction {
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
         val editorModifier = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_HEIGHT)
 
-        var text by rememberSaveable(element.id) { mutableStateOf(initialValue) }
+        // Bind to the ViewModel value when a window is in scope; else local state.
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        var localText by rememberSaveable(element.id) { mutableStateOf(initialValue) }
+        val text = if (viewModel != null) (viewModel.value as? String) ?: "" else localText
 
         OutlinedTextField(
             value = text,
             onValueChange = { new ->
                 if (new != text) {
-                    text = new
+                    if (viewModel != null) viewModel.value = new else localText = new
                     if (valueChangeActionID != null) {
                         ActionUIModel.actionHandler(valueChangeActionID, viewID = element.id, viewPartID = 0)
                     }
@@ -100,3 +112,12 @@ object TextEditor : ActionUIViewConstruction {
     /** Default editor height when JSON supplies no `frame.height` (room for a few lines). */
     private val DEFAULT_HEIGHT = 140.dp
 }
+
+/**
+ * The initial string content for a [TextEditor], used to seed the element's
+ * [com.abracode.actionui.Common.ViewModel] and as the local fallback. `text`
+ * wins; a `markdown` string is shown as raw plain text (attributed editing is
+ * unsupported on Android - the builder logs a warning when it renders one).
+ */
+private fun textEditorInitialValue(props: JsonObject?): String =
+    props?.stringProperty("text") ?: props?.stringProperty("markdown") ?: ""
