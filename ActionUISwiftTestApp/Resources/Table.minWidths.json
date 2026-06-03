@@ -1,0 +1,59 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 8,
+    "padding": "default",
+    "frame": { "maxWidth": 600, "maxHeight": 500 }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Drag the column dividers: each column refuses to shrink below its minWidth.",
+        "font": "subheadline",
+        "foregroundColor": "secondary"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "padding": "default" },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Load Data",
+            "actionID": "table.demo.load",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Append Row",
+            "actionID": "table.demo.append",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Clear",
+            "actionID": "table.demo.clear",
+            "buttonStyle": "bordered"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Table",
+      "id": 1,
+      "properties": {
+        "columns": ["Name", "Role", "Department"],
+        "widths": [160, 130, 150],
+        "minWidths": [120, 90, 110],
+        "padding": "default",
+        "actionID": "table.demo.selection.changed"
+      }
+    }
+  ]
+}

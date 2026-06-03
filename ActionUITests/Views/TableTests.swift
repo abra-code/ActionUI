@@ -42,6 +42,7 @@ final class TableTests: XCTestCase {
             "properties": {
                 "columns": ["Name", "Action"],
                 "widths": [100, 80],
+                "minWidths": [60, 40],
                 "actionID": "table.action",
                 "padding": 10.0
             }
@@ -78,6 +79,7 @@ final class TableTests: XCTestCase {
         }
         XCTAssertEqual((element.properties["columns"] as? [String])?.count, 2, "Columns should have 2 elements")
         XCTAssertEqual((element.properties["widths"] as? [Int])?.count, 2, "Widths should have 2 elements")
+        XCTAssertEqual(validatedProperties["minWidths"] as? [Int], [60, 40], "minWidths should be preserved")
         XCTAssertEqual(element.properties["actionID"] as? String, "table.action", "ActionID should be table.action")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
@@ -91,6 +93,7 @@ final class TableTests: XCTestCase {
             ],
             "columns": 123,
             "widths": ["100"],
+            "minWidths": ["60"],
             "doubleClickActionID": 789
         ]
 
@@ -104,7 +107,20 @@ final class TableTests: XCTestCase {
         }
         XCTAssertEqual(validated["columns"] as? [String], [], "Invalid columns should default to []")
         XCTAssertNil(validated["widths"], "Invalid widths should be nil")
+        XCTAssertNil(validated["minWidths"], "Invalid minWidths should be nil")
         XCTAssertNil(validated["doubleClickActionID"], "Invalid doubleClickActionID should be nil")
+    }
+
+    func testTableValidatePropertiesMinWidths() {
+        let properties: [String: Any] = [
+            "columns": ["Name", "Action", "Icon"],
+            "widths": [100, 80, 40],
+            "minWidths": [80, 60, 30]
+        ]
+
+        let validated = Table.validateProperties(properties, logger)
+
+        XCTAssertEqual(validated["minWidths"] as? [Int], [80, 60, 30], "Valid minWidths should be preserved")
     }
 
     func testTableValidatePropertiesMissing() {
@@ -119,6 +135,7 @@ final class TableTests: XCTestCase {
         }
         XCTAssertEqual(validated["columns"] as? [String], [], "Missing columns should default to []")
         XCTAssertNil(validated["widths"], "Missing widths should be nil")
+        XCTAssertNil(validated["minWidths"], "Missing minWidths should be nil")
         XCTAssertNil(validated["doubleClickActionID"], "Missing doubleClickActionID should be nil")
     }
 

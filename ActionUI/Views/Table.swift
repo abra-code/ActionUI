@@ -16,6 +16,7 @@
          "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image & Button)
      ],
      "widths": [100, 80, 40],               // Optional: Array of integers for ideal column widths (resizable; last column fills remaining space)
+     "minWidths": [80, 60, 30],             // Optional: Array of integers for minimum column widths in points; columns cannot be resized below these. Missing entries default to 10.
      "actionID": "table.selection.changed", // Optional: Fires on selection change (all cell types)
      "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
@@ -111,6 +112,13 @@ struct Table: ActionUIViewConstruction {
             validatedProperties["widths"] = nil
         }
 
+        if let minWidths = properties["minWidths"] as? [Int] {
+            validatedProperties["minWidths"] = minWidths
+        } else if properties["minWidths"] != nil {
+            logger.log("Table minWidths must be an array of integers; ignoring", .warning)
+            validatedProperties["minWidths"] = nil
+        }
+
         if let columnHeadersVisibility = properties["columnHeadersVisibility"] {
             if let str = columnHeadersVisibility as? String {
                 let validValues = ["visible", "hidden", "automatic"]
@@ -149,6 +157,7 @@ struct Table: ActionUIViewConstruction {
         let columns = (properties["columns"] as? [String]) ?? []
         let rows = (model.states["content"] as? [[String]]) ?? []
         let idealWidths = (properties["widths"] as? [Int])?.map { CGFloat($0) }
+        let minWidths = (properties["minWidths"] as? [Int])?.map { CGFloat($0) }
         let lastVisibleIndex = columns.count - 1
 
         var columnHeadersVisibility: SwiftUI.Visibility = .automatic
@@ -168,12 +177,17 @@ struct Table: ActionUIViewConstruction {
         let columnData = columns.enumerated().map { (index, name) in
             let ideal = resolvedWidths[index]
             let isFillColumn = (ideal == maxIdeal)
+            // Resolved minimum width: an explicit minWidths entry, else the legacy default of min(ideal, 10).
+            let resolvedMin = minWidths.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? Swift.min(ideal, 10)
+            // Honor the minimum: ideal (and a non-fill column's max) can never fall below it,
+            // keeping min <= ideal <= max as SwiftUI's .width(min:ideal:max:) requires.
+            let clampedIdeal = Swift.max(ideal, resolvedMin)
             return ColumnData(
                 id: index,
                 name: name,
-                minWidth: Swift.min(ideal, 10),
-                idealWidth: ideal,
-                maxWidth: isFillColumn ? .infinity : ideal
+                minWidth: resolvedMin,
+                idealWidth: clampedIdeal,
+                maxWidth: isFillColumn ? .infinity : clampedIdeal
             )
         }
         
