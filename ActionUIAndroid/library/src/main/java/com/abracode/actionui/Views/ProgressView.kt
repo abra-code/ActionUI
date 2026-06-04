@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -68,10 +69,18 @@ object ProgressView : ActionUIViewConstruction {
             modifier
         }
 
+        // SwiftUI `.tint` colors the progress indicator; an inherited tint maps
+        // to the bar's / spinner's color.
+        val tint = LocalActionUITint.current
+
         Column(modifier = rootModifier) {
             if (title != null) M3Text(text = title)
-            if (determinate) LinearProgressIndicator(progress = { fraction })
-            else CircularProgressIndicator()
+            when {
+                determinate && tint != null -> LinearProgressIndicator(progress = { fraction }, color = tint)
+                determinate -> LinearProgressIndicator(progress = { fraction })
+                tint != null -> CircularProgressIndicator(color = tint)
+                else -> CircularProgressIndicator()
+            }
         }
     }
 }

@@ -11,6 +11,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Common.parseAlignment
+import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -63,7 +64,9 @@ object ZStack : ActionUIViewConstruction {
         Box(modifier = modifier, contentAlignment = alignment) {
             element.children.orEmpty().forEach { child ->
                 val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
-                builder.BuildView(child, buildChildModifier(child.properties, logger))
+                ProvideTextStyleEnvironment(child.properties, logger) {
+                    builder.BuildView(child, buildChildModifier(child.properties, logger))
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.abracode.actionui.Views
 
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +16,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
@@ -74,6 +76,15 @@ object Slider : ActionUIViewConstruction {
 
         val stepCount = sliderStepCount(config.min, config.max, config.step)
 
+        // SwiftUI `.tint` colors the slider's thumb and the filled (active) part
+        // of the track; an inherited tint maps to both.
+        val tint = LocalActionUITint.current
+        val colors = if (tint != null) {
+            SliderDefaults.colors(thumbColor = tint, activeTrackColor = tint)
+        } else {
+            SliderDefaults.colors()
+        }
+
         Slider(
             value = current.coerceIn(config.min, config.max).toFloat(),
             onValueChange = { new ->
@@ -88,6 +99,7 @@ object Slider : ActionUIViewConstruction {
             modifier = modifier,
             valueRange = config.min.toFloat()..config.max.toFloat(),
             steps = stepCount,
+            colors = colors,
         )
     }
 }

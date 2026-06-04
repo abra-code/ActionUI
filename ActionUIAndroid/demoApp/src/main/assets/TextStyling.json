@@ -1,0 +1,61 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "padding": 16,
+    "alignment": "leading",
+    "foregroundStyle": "#37474F"
+  },
+  "children": [
+    { "type": "Text", "properties": { "text": "Inherited color (dark slate)" } },
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Named font: largeTitle",
+        "font": "largeTitle"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Named font: headline",
+        "font": "headline"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Per-element override (red, monospaced 18 bold)",
+        "foregroundStyle": "red",
+        "font": { "size": 18, "weight": "bold", "design": "monospaced" }
+      }
+    },
+
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 4,
+        "alignment": "leading",
+        "foregroundStyle": "blue",
+        "font": "title3"
+      },
+      "children": [
+        { "type": "Text", "properties": { "text": "Container propagates blue + title3" } },
+        { "type": "Text", "properties": { "text": "Both children inherit it" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "tint propagates to controls" } },
+    {
+      "type": "VStack",
+      "properties": { "spacing": 12, "alignment": "leading", "tint": "purple" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Tinted Button", "actionID": "demo.tap" } },
+        { "type": "Toggle", "properties": { "title": "Tinted Switch", "isOn": true } },
+        { "type": "Slider", "properties": { "value": 0.6, "range": { "min": 0, "max": 1 } } },
+        { "type": "ProgressView", "properties": { "value": 0.6, "total": 1.0 } }
+      ]
+    }
+  ]
+}

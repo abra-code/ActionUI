@@ -11,6 +11,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -68,13 +69,17 @@ object Button : ActionUIViewConstruction {
         val actionID = props?.stringProperty("actionID")
         val viewID = element.id
 
-        val colors = if (role == "destructive") {
-            ButtonDefaults.buttonColors(
+        // SwiftUI `.tint` colors the button's accent (its filled background). An
+        // inherited tint applies unless a `role` already dictates the color
+        // (destructive -> error), matching that an explicit role wins.
+        val tint = LocalActionUITint.current
+        val colors = when {
+            role == "destructive" -> ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = MaterialTheme.colorScheme.onError
             )
-        } else {
-            ButtonDefaults.buttonColors()
+            tint != null -> ButtonDefaults.buttonColors(containerColor = tint)
+            else -> ButtonDefaults.buttonColors()
         }
 
         M3Button(

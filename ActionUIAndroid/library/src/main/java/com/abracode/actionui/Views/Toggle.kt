@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,6 +24,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -85,14 +88,34 @@ object Toggle : ActionUIViewConstruction {
             }
         }
 
+        // SwiftUI `.tint` colors the toggle's "on" state; an inherited tint maps
+        // to the switch's checked track / the checkbox's checked box.
+        val tint = LocalActionUITint.current
+
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
             if (title.isNotEmpty()) {
                 M3Text(title)
                 Spacer(Modifier.width(8.dp))
             }
             when (style) {
-                ToggleStyle.Checkbox -> Checkbox(checked = checked, onCheckedChange = onChange)
-                ToggleStyle.Switch -> Switch(checked = checked, onCheckedChange = onChange)
+                ToggleStyle.Checkbox -> Checkbox(
+                    checked = checked,
+                    onCheckedChange = onChange,
+                    colors = if (tint != null) {
+                        CheckboxDefaults.colors(checkedColor = tint)
+                    } else {
+                        CheckboxDefaults.colors()
+                    }
+                )
+                ToggleStyle.Switch -> Switch(
+                    checked = checked,
+                    onCheckedChange = onChange,
+                    colors = if (tint != null) {
+                        SwitchDefaults.colors(checkedTrackColor = tint)
+                    } else {
+                        SwitchDefaults.colors()
+                    }
+                )
             }
         }
     }

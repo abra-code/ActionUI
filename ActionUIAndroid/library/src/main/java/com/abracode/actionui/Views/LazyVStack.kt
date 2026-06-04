@@ -17,6 +17,7 @@ import com.abracode.actionui.Common.LocalStackAxis
 import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Common.parseColumnAlignment
+import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -87,7 +88,9 @@ object LazyVStack : ActionUIViewConstruction {
             ) {
                 items(element.children.orEmpty()) { child ->
                     val builder = ActionUIRegistry.lookup(child.type) ?: return@items
-                    builder.BuildView(child, Modifier.applyCommonProperties(child.properties, logger))
+                    ProvideTextStyleEnvironment(child.properties, logger) {
+                        builder.BuildView(child, Modifier.applyCommonProperties(child.properties, logger))
+                    }
                 }
             }
         }

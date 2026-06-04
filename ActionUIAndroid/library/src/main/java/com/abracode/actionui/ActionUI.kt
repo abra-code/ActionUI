@@ -15,6 +15,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.PlatformFilter
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import kotlinx.serialization.json.Json
 
 object ActionUI {
@@ -74,10 +75,12 @@ object ActionUI {
             LocalActionUILogger provides logger,
             LocalWindowModel provides windowModel,
         ) {
-            builder.BuildView(
-                element,
-                modifier.applyCommonProperties(element.properties, logger)
-            )
+            ProvideTextStyleEnvironment(element.properties, logger) {
+                builder.BuildView(
+                    element,
+                    modifier.applyCommonProperties(element.properties, logger)
+                )
+            }
         }
     }
 

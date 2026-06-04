@@ -15,6 +15,7 @@ import com.abracode.actionui.Common.LocalStackAxis
 import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Common.parseRowAlignment
+import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -45,7 +46,9 @@ object HStack : ActionUIViewConstruction {
                     // RowScope-restricted, so the container applies it here (see Spacer.kt).
                     val childModifier = buildChildModifier(child.properties, logger)
                         .let { if (child.type == "Spacer") it.weight(1f) else it }
-                    builder.BuildView(child, childModifier)
+                    ProvideTextStyleEnvironment(child.properties, logger) {
+                        builder.BuildView(child, childModifier)
+                    }
                 }
             }
         }
