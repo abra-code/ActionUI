@@ -30,10 +30,12 @@ class ListTest {
     }
 
     @Test
-    fun `canonical List resolves to ListView and carries no value`() {
+    fun `canonical List resolves to ListView and exposes the selection value`() {
         assertSame(ListView, ActionUIRegistry.lookup("List"))
-        // Selection ([String] value) is deferred to the value-bridge track (B6).
-        assertEquals(ActionUIValueType.NONE, ListView.valueType)
+        // Selection is the Apple-parity [String] value (B6 value-bridge type).
+        assertEquals(ActionUIValueType.STRING_LIST, ListView.valueType)
+        // Nothing selected initially.
+        assertEquals(emptyList<String>(), ListView.initialValue(ActionUIElement(id = 1, type = "List")))
     }
 
     @Test

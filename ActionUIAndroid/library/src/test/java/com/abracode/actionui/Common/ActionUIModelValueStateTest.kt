@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -61,6 +62,9 @@ class ActionUIModelValueStateTest {
                 ActionUIElement(id = 3, type = "FakeInt"),
                 ActionUIElement(id = 4, type = "FakeDouble"),
                 ActionUIElement(id = 5, type = "Text"),
+                ActionUIElement(id = 6, type = "DatePicker", properties = buildJsonObject { put("selectedDate", "2024-07-16") }),
+                ActionUIElement(id = 7, type = "ColorPicker", properties = buildJsonObject { put("selectedColor", "#FF8800") }),
+                ActionUIElement(id = 8, type = "List"),
             )
         )
         ActionUIModel.loadDescription(root, windowUUID = "")
@@ -121,6 +125,62 @@ class ActionUIModelValueStateTest {
     fun `value API on an unknown view warns and returns null`() {
         assertNull(ActionUIModel.getElementValue(viewID = 999))
         assertTrue(logger.warnings.any { it.contains("999") })
+    }
+
+    // MARK: - Value API (B6 value-bridge types)
+
+    @Test
+    fun `DATE value seeds from selectedDate and serializes ISO`() {
+        assertEquals(LocalDate.of(2024, 7, 16), ActionUIModel.getElementValue(viewID = 6))
+        assertEquals("2024-07-16", ActionUIModel.getElementValueAsString(viewID = 6))
+    }
+
+    @Test
+    fun `setElementValueFromString parses an ISO date`() {
+        ActionUIModel.setElementValueFromString(viewID = 6, value = "2025-01-02")
+        assertEquals(LocalDate.of(2025, 1, 2), ActionUIModel.getElementValue(viewID = 6))
+        assertEquals("2025-01-02", ActionUIModel.getElementValueAsString(viewID = 6))
+    }
+
+    @Test
+    fun `setElementValueFromString warns and skips on a malformed date`() {
+        ActionUIModel.setElementValueFromString(viewID = 6, value = "not-a-date")
+        assertEquals(LocalDate.of(2024, 7, 16), ActionUIModel.getElementValue(viewID = 6)) // unchanged
+        assertTrue(logger.warnings.any { it.contains("date") })
+    }
+
+    @Test
+    fun `COLOR value seeds from selectedColor and serializes hex`() {
+        assertEquals("#FF8800", ActionUIModel.getElementValueAsString(viewID = 7))
+    }
+
+    @Test
+    fun `setElementValueFromString parses hex and named colors and serializes back`() {
+        ActionUIModel.setElementValueFromString(viewID = 7, value = "#00FF00")
+        assertEquals("#00FF00", ActionUIModel.getElementValueAsString(viewID = 7))
+        ActionUIModel.setElementValueFromString(viewID = 7, value = "red")
+        assertEquals("#FF0000", ActionUIModel.getElementValueAsString(viewID = 7))
+    }
+
+    @Test
+    fun `setElementValueFromString warns and skips on a malformed color`() {
+        ActionUIModel.setElementValueFromString(viewID = 7, value = "notacolor")
+        assertEquals("#FF8800", ActionUIModel.getElementValueAsString(viewID = 7)) // unchanged
+        assertTrue(logger.warnings.any { it.contains("color") })
+    }
+
+    @Test
+    fun `STRING_LIST seeds empty and round-trips tab-separated`() {
+        assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 8))
+        ActionUIModel.setElementValueFromString(viewID = 8, value = "a\tb\tc")
+        assertEquals(listOf("a", "b", "c"), ActionUIModel.getElementValue(viewID = 8))
+        assertEquals("a\tb\tc", ActionUIModel.getElementValueAsString(viewID = 8))
+    }
+
+    @Test
+    fun `STRING_LIST drops empty fields like Apple's split`() {
+        ActionUIModel.setElementValueFromString(viewID = 8, value = "")
+        assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 8))
     }
 
     // MARK: - State API

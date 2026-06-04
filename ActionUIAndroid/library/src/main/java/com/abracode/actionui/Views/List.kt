@@ -1,20 +1,28 @@
 package com.abracode.actionui.Views
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button as M3Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
@@ -47,12 +55,24 @@ import kotlinx.serialization.json.JsonObject
  * The rows are seeded empty via [initialStates] so a host can address them by id
  * before data arrives (the element needs a positive `id`, as on Apple).
  *
+ * **Selection (value bridge, B6).** Like Apple, the selected row is exposed as the
+ * element's [ActionUIValueType.STRING_LIST] `value` - the selected row's columns
+ * (empty when nothing is selected) - so a host reads it with
+ * `ActionUIModel.getElementValueAsString` (tab-joined) and writes it with
+ * `setElementValueFromString`. Selection is **interactive only when a list-level
+ * `actionID` is present** (Apple's selectable mode): in the data-row modes
+ * (template / homogeneous) a tap selects the row, stores it as the value,
+ * highlights it, and fires `actionID` with the row as `context`. Single-selection
+ * only. Per-row `Button` actions still fire independently (the inner control
+ * consumes its own tap).
+ *
  * **Deferred vs. Apple (documented).**
- *   * **Selection / value.** Swift exposes the selected row as a `[String]`
- *     `value` and fires the list-level `actionID` on selection change. The
- *     `[String]` value type is the value-bridge extension track (B6), so list
- *     selection - and the list-level `actionID` - are not wired yet; per-row
- *     `Button` actions (template and homogeneous) work today.
+ *   * **Children-mode selection.** Heterogeneous `children` are arbitrary,
+ *     possibly-interactive views, so wrapping each in a selection surface would
+ *     fight their own taps (the conflict Apple sidesteps by requiring Label/Text
+ *     children under `List(selection:)`). Children mode keeps its children
+ *     interactive and is not row-selectable; the value bridge is still live, so a
+ *     host can set/read the selection programmatically.
  *   * **`listStyle`** and the `listRow*` styling (background / separator / insets)
  *     are accepted in the schema but not honored here (no portable Compose
  *     `List` styling surface); they are ignored silently.
@@ -61,6 +81,12 @@ import kotlinx.serialization.json.JsonObject
  * across the `Views` package; it is registered under the canonical string `"List"`.
  */
 object ListView : ActionUIViewConstruction {
+
+    /** The selected row, as the Apple-parity `[String]` selection value. */
+    override val valueType = ActionUIValueType.STRING_LIST
+
+    /** Nothing selected initially (matches Apple's empty `[String]` default). */
+    override fun initialValue(element: ActionUIElement): Any? = emptyList<String>()
 
     override fun initialStates(element: ActionUIElement): Map<String, Any> =
         mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())
@@ -78,14 +104,32 @@ object ListView : ActionUIViewConstruction {
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
         val listModifier = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
 
+        // Selection (value bridge): interactive only when a list-level actionID is
+        // present (Apple's selectable mode). The selected row is the element value.
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        val actionID = props?.stringProperty("actionID")
+        val selectable = actionID != null
+        @Suppress("UNCHECKED_CAST")
+        val selection: List<String> = (viewModel?.value as? List<String>) ?: emptyList()
+        val onSelect: (Int, List<String>) -> Unit = { index, row ->
+            if (selection != row) {
+                viewModel?.value = row
+                actionID?.let {
+                    ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = index, context = row)
+                }
+            }
+        }
+
         when {
             template != null -> {
                 val rows = templateRows(element.id)
                 LazyColumn(modifier = listModifier) {
                     itemsIndexed(rows) { index, row ->
-                        TemplateHelper.BuildTemplateRow(
-                            template = template, row = row, parentID = element.id, rowIndex = index,
-                        )
+                        SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
+                            TemplateHelper.BuildTemplateRow(
+                                template = template, row = row, parentID = element.id, rowIndex = index,
+                            )
+                        }
                     }
                 }
             }
@@ -106,7 +150,9 @@ object ListView : ActionUIViewConstruction {
                 val itemType = resolveItemType(props, logger)
                 LazyColumn(modifier = listModifier) {
                     itemsIndexed(rows) { index, row ->
-                        HomogeneousRow(itemType, row.firstOrNull().orEmpty(), index, element.id)
+                        SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
+                            HomogeneousRow(itemType, row.firstOrNull().orEmpty(), index, element.id)
+                        }
                     }
                 }
             }
@@ -115,6 +161,30 @@ object ListView : ActionUIViewConstruction {
 
     /** Default scroll-viewport height when JSON supplies no `frame.height`. */
     private val DEFAULT_MAIN_EXTENT = 320.dp
+}
+
+/**
+ * Wraps a data row so it can be selected. When [selectable] is false the [content]
+ * renders bare (no selection affordance); otherwise it is wrapped in a
+ * full-width, tappable surface that highlights when [selected]. An inner control
+ * (e.g. a `Button` cell) consumes its own tap, so per-row actions and row
+ * selection coexist.
+ */
+@Composable
+private fun SelectableRow(
+    selectable: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    if (!selectable) {
+        content()
+        return
+    }
+    val background = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    Box(Modifier.fillMaxWidth().background(background).clickable(onClick = onClick)) {
+        content()
+    }
 }
 
 /**

@@ -3,7 +3,9 @@ package com.abracode.actionui.Common
 import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
+import com.abracode.actionui.Views.ColorPicker
 import com.abracode.actionui.Views.ContentUnavailableView
+import com.abracode.actionui.Views.DatePicker
 import com.abracode.actionui.Views.DisclosureGroup
 import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
@@ -77,6 +79,8 @@ object ActionUIRegistry {
         register("Section", Section)
         register("Form", Form)
         register("Table", Table)
+        register("DatePicker", DatePicker)
+        register("ColorPicker", ColorPicker)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

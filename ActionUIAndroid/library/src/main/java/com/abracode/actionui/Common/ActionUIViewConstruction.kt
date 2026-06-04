@@ -14,12 +14,24 @@ import androidx.compose.ui.Modifier
  * no value (Text, the stacks, the shapes, Image). Only elements that declare a
  * non-[NONE] type get a seeded initial value and can be read/written by string.
  *
- * Today only [STRING] has live consumers (TextField / SecureField / TextEditor).
- * [BOOLEAN]/[INT]/[DOUBLE] are defined ahead of Toggle / Slider / Stepper, the
- * controls the porting notes name as the next to land on this same bridge (see
- * `Private/Android_Porting_Notes.md`). The Apple-specific value types (Color,
- * Date, CLLocationCoordinate2D) and the List/Table content types ([String] /
- * [[String]]) are deferred with their elements.
+ * Live consumers: [STRING] (TextField / SecureField / TextEditor /
+ * ContentUnavailableView), [BOOLEAN] (Toggle), [INT]/[DOUBLE] (Slider / Stepper),
+ * and the value-bridge-extension (B6) types below.
+ *
+ * The B6 types add the Apple value types that several controls need:
+ *   * [DATE] - `DatePicker`. Carried as a `java.time.LocalDate` (date-only,
+ *     timezone-free, matching Apple's `.withFullDate` serialization); see
+ *     `Helpers/DateHelper.kt`.
+ *   * [COLOR] - `ColorPicker`. Carried as a Compose
+ *     `androidx.compose.ui.graphics.Color`; parsed/serialized by
+ *     `Helpers/ColorHelper.kt`.
+ *   * [STRING_LIST] - the `List` (and, on Apple, `Table`) **selection** value:
+ *     the selected row's columns as a `List<String>` (empty when nothing is
+ *     selected). Mirrors Apple's `[String]`.
+ *
+ * Apple's `CLLocationCoordinate2D` (Map) and the `[[String]]` Table-content value
+ * have no live Android consumer yet (Map is unported; `Table` is a macOS-only
+ * no-op) and are deferred with those elements.
  */
 enum class ActionUIValueType {
     NONE,
@@ -27,6 +39,9 @@ enum class ActionUIValueType {
     BOOLEAN,
     INT,
     DOUBLE,
+    DATE,
+    COLOR,
+    STRING_LIST,
 }
 
 interface ActionUIViewConstruction {

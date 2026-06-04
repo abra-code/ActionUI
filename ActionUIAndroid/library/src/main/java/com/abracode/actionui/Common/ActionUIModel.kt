@@ -1,5 +1,11 @@
 package com.abracode.actionui.Common
 
+import androidx.compose.ui.graphics.Color
+import com.abracode.actionui.Helpers.DateHelper
+import com.abracode.actionui.Helpers.colorToHex
+import com.abracode.actionui.Helpers.parseColor
+import java.time.LocalDate
+
 /**
  * Signature of an ActionUI action handler.
  *
@@ -206,9 +212,11 @@ object ActionUIModel {
     /**
      * Returns the element's value as a string for scripting, formatted by the
      * element's declared [ActionUIValueType]. String values are returned directly;
-     * other types use their natural string form; null value yields null. Mirrors
-     * the Swift `getElementValueAsString` (the Apple-only Color/Date/coordinate
-     * and Table/List joins are deferred with their value types).
+     * other types use their canonical string form (a [ActionUIValueType.DATE] as
+     * ISO `yyyy-MM-dd`, a [ActionUIValueType.COLOR] as `#RRGGBB`/`#RRGGBBAA`, a
+     * [ActionUIValueType.STRING_LIST] tab-joined); null value yields null. Mirrors
+     * the Swift `getElementValueAsString` (the Apple-only coordinate and the
+     * `[[String]]` Table join are deferred with those value types).
      */
     fun getElementValueAsString(windowUUID: String = "", viewID: Int, viewPartID: Int = 0): String? {
         val viewModel = viewModel(windowUUID, viewID) ?: return null
@@ -219,6 +227,10 @@ object ActionUIModel {
             valueType == ActionUIValueType.BOOLEAN && value is Boolean -> value.toString()
             valueType == ActionUIValueType.INT && value is Int -> value.toString()
             valueType == ActionUIValueType.DOUBLE && value is Double -> value.toString()
+            valueType == ActionUIValueType.DATE && value is LocalDate -> DateHelper.formatDate(value)
+            valueType == ActionUIValueType.COLOR && value is Color -> colorToHex(value)
+            valueType == ActionUIValueType.STRING_LIST && value is List<*> ->
+                value.joinToString("\t") { it?.toString() ?: "" }
             else -> value.toString()
         }
     }
@@ -250,6 +262,16 @@ object ActionUIModel {
                 logger.log("Invalid string for Double value: $value for viewID: $viewID", LoggerLevel.warning)
                 return
             }
+            ActionUIValueType.DATE -> DateHelper.parseDate(value) ?: run {
+                logger.log("Invalid ISO 8601 date string: $value for viewID: $viewID", LoggerLevel.warning)
+                return
+            }
+            ActionUIValueType.COLOR -> parseColor(value) ?: run {
+                logger.log("Invalid color string: $value for viewID: $viewID", LoggerLevel.warning)
+                return
+            }
+            // Tab-separated, matching Apple's `[String]` parse (empty fields dropped).
+            ActionUIValueType.STRING_LIST -> value.split("\t").filter { it.isNotEmpty() }
             ActionUIValueType.NONE -> {
                 logger.log(
                     "Element of type ${viewModel.elementType} has no value and does not support " +

@@ -6,10 +6,11 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Unit tests for [parseColor] in `ColorHelper.kt` - the named-color and hex
- * vocabulary shared by the universal `background` modifier and the shape
- * `fill`/`stroke` resolver. The Android counterpart of Apple's
- * `ColorHelperTests.swift`.
+ * Unit tests for [parseColor] / [colorToHex] in `ColorHelper.kt` - the named-color
+ * and hex vocabulary shared by the universal `background` modifier, the shape
+ * `fill`/`stroke` resolver, and the `ColorPicker` / `COLOR` value bridge. The
+ * Android counterpart of Apple's `ColorHelperTests.swift`. Hex is the canonical
+ * Apple byte order (`#RRGGBBAA`, alpha last).
  */
 class ColorHelperTest {
 
@@ -27,6 +28,14 @@ class ColorHelperTest {
         assertEquals(Color.Transparent, parseColor("transparent"))
         assertEquals(Color.Transparent, parseColor("clear"))
         assertEquals(Color.Yellow, parseColor("yellow"))
+    }
+
+    @Test
+    fun `parseColor recognizes the canonical Apple named colors`() {
+        assertEquals(Color(0xFF3EB489.toInt()), parseColor("mint"))
+        assertEquals(Color(0xFF008080.toInt()), parseColor("teal"))
+        assertEquals(Color(0xFF4B0082.toInt()), parseColor("indigo"))
+        assertEquals(Color(0xFFA52A2A.toInt()), parseColor("brown"))
     }
 
     @Test
@@ -49,9 +58,27 @@ class ColorHelperTest {
     }
 
     @Test
-    fun `parseColor handles AARRGGBB hex including transparency`() {
-        assertEquals(Color(0x80FF0000.toInt()), parseColor("#80FF0000"))
+    fun `parseColor handles RRGGBBAA hex with alpha last`() {
+        // Canonical Apple order: red=80, green=FF, blue=00, alpha=00 (fully transparent).
+        assertEquals(Color(red = 0x80, green = 0xFF, blue = 0x00, alpha = 0x00), parseColor("#80FF0000"))
+        assertEquals(Color(red = 0xFF, green = 0x00, blue = 0x00, alpha = 0x80), parseColor("#FF000080"))
         assertEquals(Color(0x00000000), parseColor("#00000000"))
+    }
+
+    @Test
+    fun `parseColor handles 3 and 4 digit shorthand hex`() {
+        assertEquals(Color(0xFFFF0000.toInt()), parseColor("#F00"))           // #RGB -> #FF0000
+        assertEquals(Color(0xFF00FF00.toInt()), parseColor("#0F0"))
+        assertEquals(Color(red = 0xFF, green = 0x00, blue = 0x00, alpha = 0xFF), parseColor("#F00F")) // #RGBA, opaque
+        assertEquals(Color(red = 0xFF, green = 0x00, blue = 0x00, alpha = 0x00), parseColor("#F000")) // #RGBA, transparent
+    }
+
+    @Test
+    fun `colorToHex round-trips through parseColor`() {
+        assertEquals("#FF0000", colorToHex(Color.Red))
+        assertEquals("#00FF00", colorToHex(Color.Green))
+        assertEquals("#FF000080", colorToHex(Color(red = 0xFF, green = 0x00, blue = 0x00, alpha = 0x80)))
+        assertEquals(parseColor("#1A2B3C"), parseColor(colorToHex(parseColor("#1A2B3C")!!)))
     }
 
     @Test
@@ -62,8 +89,8 @@ class ColorHelperTest {
 
     @Test
     fun `parseColor returns null for malformed hex`() {
-        assertNull(parseColor("#XYZ"))
-        assertNull(parseColor("#12345"))   // 5 chars
+        assertNull(parseColor("#XYZ"))      // 3 chars but non-hex
+        assertNull(parseColor("#12345"))    // 5 chars
         assertNull(parseColor("#1234567"))  // 7 chars
         assertNull(parseColor("#"))
     }

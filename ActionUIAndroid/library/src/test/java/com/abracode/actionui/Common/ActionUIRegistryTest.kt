@@ -49,6 +49,8 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.Section, ActionUIRegistry.lookup("Section"))
         assertSame(com.abracode.actionui.Views.Form, ActionUIRegistry.lookup("Form"))
         assertSame(com.abracode.actionui.Views.Table, ActionUIRegistry.lookup("Table"))
+        assertSame(com.abracode.actionui.Views.DatePicker, ActionUIRegistry.lookup("DatePicker"))
+        assertSame(com.abracode.actionui.Views.ColorPicker, ActionUIRegistry.lookup("ColorPicker"))
     }
 
     @Test

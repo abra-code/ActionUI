@@ -1,0 +1,20 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "DatePicker - the compact field opens a calendar dialog:" } },
+    { "type": "DatePicker", "id": 1, "properties": { "title": "Birthday", "selectedDate": "2024-07-16" } },
+    { "type": "Text", "properties": { "text": "With a selectable range and a change action:" } },
+    {
+      "type": "DatePicker",
+      "id": 2,
+      "properties": {
+        "title": "Appointment",
+        "selectedDate": "2025-03-10",
+        "displayStyle": "compact",
+        "range": { "start": "2025-01-01", "end": "2025-12-31" },
+        "valueChangeActionID": "date.changed"
+      }
+    }
+  ]
+}

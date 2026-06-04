@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Handled '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }
 
-        // Demonstrate the host-side value bridge (StateBinding.json). "field.echo"
+        // Demonstrate the host-side value bridge (View.stateBinding.json). "field.echo"
         // reads the TextField (viewID 1) out-of-band; "field.fill" writes it, and
         // because the value is the element's ViewModel state the field recomposes.
         // The windowUUID forwarded to the handler is the one the button fired from.
@@ -66,6 +66,39 @@ class MainActivity : ComponentActivity() {
         ActionUIModel.registerActionHandler("picker.read") { _, windowUUID, _, _, _ ->
             val tag = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
             Toast.makeText(this, "Language tag: '$tag'", Toast.LENGTH_SHORT).show()
+        }
+
+        // List.selection.json - mirrors the Swift test app's List demo. Load/Append/
+        // Clear drive the rows API on the List (viewID 1); tapping a row fires the
+        // selection handler, which toasts the selected item. (The Android demo
+        // surfaces value feedback with toasts, as the Slider/Picker demos do; the
+        // Swift app updates an in-document label instead, which needs a value-bound
+        // Text - not yet ported.)
+        val listExtraItems = listOf("Haskell", "Elixir", "Julia", "Zig", "Dart")
+        var listAppendIndex = 0
+        ActionUIModel.registerActionHandler("list.demo.load") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementRows(
+                windowUUID = windowUUID, viewID = 1,
+                rows = listOf(
+                    listOf("Swift"), listOf("Python"), listOf("Kotlin"),
+                    listOf("TypeScript"), listOf("Rust"), listOf("Go"),
+                ),
+            )
+            ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 1, value = emptyList<String>())
+        }
+        ActionUIModel.registerActionHandler("list.demo.append") { _, windowUUID, _, _, _ ->
+            val item = listExtraItems[listAppendIndex % listExtraItems.size]
+            listAppendIndex += 1
+            ActionUIModel.appendElementRows(windowUUID = windowUUID, viewID = 1, rows = listOf(listOf(item)))
+        }
+        ActionUIModel.registerActionHandler("list.demo.clear") { _, windowUUID, _, _, _ ->
+            ActionUIModel.clearElementRows(windowUUID = windowUUID, viewID = 1)
+            ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 1, value = emptyList<String>())
+        }
+        ActionUIModel.registerActionHandler("list.demo.selection.changed") { _, windowUUID, _, _, _ ->
+            val selected = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            val label = if (selected.isNullOrEmpty()) "(none)" else selected
+            Toast.makeText(this, "Selected: $label", Toast.LENGTH_SHORT).show()
         }
 
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->
