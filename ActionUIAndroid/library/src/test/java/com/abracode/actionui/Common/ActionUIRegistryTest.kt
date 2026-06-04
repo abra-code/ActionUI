@@ -35,6 +35,7 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.TextEditor, ActionUIRegistry.lookup("TextEditor"))
         assertSame(com.abracode.actionui.Views.Stepper, ActionUIRegistry.lookup("Stepper"))
         assertSame(com.abracode.actionui.Views.Group, ActionUIRegistry.lookup("Group"))
+        assertSame(com.abracode.actionui.Views.ScrollView, ActionUIRegistry.lookup("ScrollView"))
     }
 
     @Test

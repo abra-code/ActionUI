@@ -14,6 +14,7 @@ import com.abracode.actionui.Views.Picker
 import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
 import com.abracode.actionui.Views.RoundedRectangle
+import com.abracode.actionui.Views.ScrollView
 import com.abracode.actionui.Views.SecureField
 import com.abracode.actionui.Views.Slider
 import com.abracode.actionui.Views.Spacer
@@ -53,6 +54,7 @@ object ActionUIRegistry {
         register("Picker", Picker)
         register("Stepper", Stepper)
         register("Group", Group)
+        register("ScrollView", ScrollView)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

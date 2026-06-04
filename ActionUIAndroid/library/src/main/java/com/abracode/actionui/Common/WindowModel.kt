@@ -21,11 +21,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * The Swift model also performs JSON/plist decoding, sub-view and modal loading,
  * and runtime structural mutation (`insertElement` / `insertRow` /
  * `removeElement`) by walking many named subview containers. None of that is
- * ported: Android decodes JSON in `ActionUI.Render`, has no modal/template
- * layer, and its [ActionUIElement] models only a flat `children` list (no
- * `rows` / `sidebar` / `detail` / ... containers). So [populateViewModels] is a
- * plain recursion over `children`. Those features land with the elements that
- * need them.
+ * ported: Android decodes JSON in `ActionUI.Render` and has no modal/template
+ * layer. [populateViewModels] recurses over [ActionUIElement.subElements], which
+ * flattens every named container the model supports today (`children` and the
+ * single-child `content`); the remaining containers (`rows` / `sidebar` /
+ * `detail` / ...) land with the elements that need them.
  */
 class WindowModel(
     val windowUUID: String,
@@ -56,11 +56,12 @@ class WindowModel(
     }
 
     /**
-     * Recursively creates a [ViewModel] for [element] and every descendant in
-     * its `children`, seeding the initial value for value-bearing elements from
-     * the registered builder. Elements with no explicit `id` share id 0 (last
-     * one wins); the value/state API is only meaningful for elements that carry
-     * a positive, unique id, as on the Apple side.
+     * Recursively creates a [ViewModel] for [element] and every descendant across
+     * its named containers ([ActionUIElement.subElements]: `children` and the
+     * single-child `content`), seeding the initial value for value-bearing
+     * elements from the registered builder. Elements with no explicit `id` share
+     * id 0 (last one wins); the value/state API is only meaningful for elements
+     * that carry a positive, unique id, as on the Apple side.
      */
     private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>) {
         val viewModel = ViewModel()
@@ -71,7 +72,7 @@ class WindowModel(
         }
         into[element.id] = viewModel
 
-        element.children?.forEach { populateViewModels(it, into) }
+        element.subElements().forEach { populateViewModels(it, into) }
     }
 }
 

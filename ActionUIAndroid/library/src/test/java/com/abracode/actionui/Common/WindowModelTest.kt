@@ -78,6 +78,26 @@ class WindowModelTest {
     }
 
     @Test
+    fun `descends into the single-child content container`() {
+        // A value-bearing control nested under `content` (e.g. inside a
+        // ScrollView) must be registered and seeded, just like one under
+        // `children`, so the host can address it by id.
+        val root = ActionUIElement(
+            id = 1, type = "ScrollView",
+            content = ActionUIElement(
+                id = 2, type = "TextField",
+                properties = buildJsonObject { put("text", "scrolled") }
+            )
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals(2, window.viewModels.size)
+        assertEquals("ScrollView", window.viewModels[1]?.elementType)
+        assertEquals("scrolled", window.viewModels[2]?.value)
+    }
+
+    @Test
     fun `reloading rebuilds the pool from the new element`() {
         val window = model()
         window.loadDescription(
