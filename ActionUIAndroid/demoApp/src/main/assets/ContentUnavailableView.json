@@ -1,0 +1,27 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 24, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Empty-state placeholder (title + description):" } },
+    {
+      "type": "ContentUnavailableView",
+      "id": 1,
+      "properties": {
+        "title": "No Results",
+        "description": "Try a different search term.",
+        "systemImage": "magnifyingglass",
+        "frame": { "width": "infinity" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Search variant (uses the query):" } },
+    {
+      "type": "ContentUnavailableView",
+      "id": 2,
+      "properties": {
+        "search": true,
+        "query": "planets",
+        "frame": { "width": "infinity" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "A Link opens its URL in the system handler (browser):" } },
+    {
+      "type": "Link",
+      "id": 1,
+      "properties": { "title": "Visit example.com", "url": "https://example.com" }
+    },
+    { "type": "Text", "properties": { "text": "Default title when none is given:" } },
+    {
+      "type": "Link",
+      "id": 2,
+      "properties": { "url": "https://www.swift.org" }
+    }
+  ]
+}

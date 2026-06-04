@@ -39,6 +39,10 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.GroupBox, ActionUIRegistry.lookup("GroupBox"))
         assertSame(com.abracode.actionui.Views.LabeledContent, ActionUIRegistry.lookup("LabeledContent"))
         assertSame(com.abracode.actionui.Views.DisclosureGroup, ActionUIRegistry.lookup("DisclosureGroup"))
+        assertSame(com.abracode.actionui.Views.Link, ActionUIRegistry.lookup("Link"))
+        assertSame(com.abracode.actionui.Views.ShareLink, ActionUIRegistry.lookup("ShareLink"))
+        assertSame(com.abracode.actionui.Views.ContentUnavailableView, ActionUIRegistry.lookup("ContentUnavailableView"))
+        assertSame(com.abracode.actionui.Views.EmptyView, ActionUIRegistry.lookup("EmptyView"))
     }
 
     @Test

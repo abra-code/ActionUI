@@ -1,0 +1,9 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "An EmptyView renders nothing - the line below it is an EmptyView:" } },
+    { "type": "EmptyView" },
+    { "type": "Text", "properties": { "text": "...and this text follows immediately, with no gap." } }
+  ]
+}
