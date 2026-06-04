@@ -1,0 +1,23 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "A GroupBox draws a titled, bordered box around its children:" } },
+    {
+      "type": "GroupBox",
+      "properties": { "title": "Account", "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Signed in as tom@example.com" } },
+        { "type": "Toggle", "id": 1, "properties": { "title": "Receive newsletter", "isOn": true } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Title is optional:" } },
+    {
+      "type": "GroupBox",
+      "properties": { "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "An untitled group box" } }
+      ]
+    }
+  ]
+}

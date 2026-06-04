@@ -59,16 +59,20 @@ class WindowModel(
      * Recursively creates a [ViewModel] for [element] and every descendant across
      * its named containers ([ActionUIElement.subElements]: `children` and the
      * single-child `content`), seeding the initial value for value-bearing
-     * elements from the registered builder. Elements with no explicit `id` share
-     * id 0 (last one wins); the value/state API is only meaningful for elements
-     * that carry a positive, unique id, as on the Apple side.
+     * elements and the initial [ViewModel.states] (e.g. a `DisclosureGroup`'s
+     * `isExpanded`) from the registered builder. Elements with no explicit `id`
+     * share id 0 (last one wins); the value/state API is only meaningful for
+     * elements that carry a positive, unique id, as on the Apple side.
      */
     private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>) {
         val viewModel = ViewModel()
         viewModel.elementType = element.type
         val builder = ActionUIRegistry.lookup(element.type)
-        if (builder != null && builder.valueType != ActionUIValueType.NONE) {
-            viewModel.value = builder.initialValue(element)
+        if (builder != null) {
+            if (builder.valueType != ActionUIValueType.NONE) {
+                viewModel.value = builder.initialValue(element)
+            }
+            viewModel.states.putAll(builder.initialStates(element))
         }
         into[element.id] = viewModel
 

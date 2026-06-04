@@ -50,4 +50,15 @@ interface ActionUIViewConstruction {
      * [ActionUIValueType.NONE].
      */
     fun initialValue(element: ActionUIElement): Any? = null
+
+    /**
+     * The view-specific state to seed into the element's [ViewModel.states] when
+     * the window is first populated, derived from the element's JSON properties.
+     * The Android analog of Swift's `ActionUIElementConstruction.initialStates`.
+     * Default empty; elements with observable state override it (e.g.
+     * `DisclosureGroup` returns its initial `isExpanded`). Seeded by
+     * [WindowModel.populateViewModels] so the state is host-addressable through
+     * the element state API before any user interaction.
+     */
+    fun initialStates(element: ActionUIElement): Map<String, Any> = emptyMap()
 }

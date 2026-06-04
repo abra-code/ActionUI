@@ -98,6 +98,20 @@ class WindowModelTest {
     }
 
     @Test
+    fun `seeds initial states from the builder`() {
+        // DisclosureGroup seeds states["isExpanded"] via initialStates, so the
+        // state is host-addressable before any interaction.
+        val root = ActionUIElement(
+            id = 1, type = "DisclosureGroup",
+            properties = buildJsonObject { put("isExpanded", true) }
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals(true, window.viewModels[1]?.states?.get("isExpanded"))
+    }
+
+    @Test
     fun `reloading rebuilds the pool from the new element`() {
         val window = model()
         window.loadDescription(

@@ -1,0 +1,25 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Tap a header to expand or collapse. The host can read/drive isExpanded by id." } },
+    {
+      "type": "DisclosureGroup",
+      "id": 1,
+      "properties": { "title": "Advanced settings", "isExpanded": false, "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Hidden until expanded - line 1" } },
+        { "type": "Text", "properties": { "text": "Hidden until expanded - line 2" } },
+        { "type": "Toggle", "id": 2, "properties": { "title": "Enable experiments" } }
+      ]
+    },
+    {
+      "type": "DisclosureGroup",
+      "id": 3,
+      "properties": { "title": "Initially expanded", "isExpanded": true, "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Visible on first render" } }
+      ]
+    }
+  ]
+}

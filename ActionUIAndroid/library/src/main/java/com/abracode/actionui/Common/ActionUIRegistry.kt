@@ -3,11 +3,14 @@ package com.abracode.actionui.Common
 import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
+import com.abracode.actionui.Views.DisclosureGroup
 import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.Group
+import com.abracode.actionui.Views.GroupBox
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
+import com.abracode.actionui.Views.LabeledContent
 import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Picker
@@ -55,6 +58,9 @@ object ActionUIRegistry {
         register("Stepper", Stepper)
         register("Group", Group)
         register("ScrollView", ScrollView)
+        register("GroupBox", GroupBox)
+        register("LabeledContent", LabeledContent)
+        register("DisclosureGroup", DisclosureGroup)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

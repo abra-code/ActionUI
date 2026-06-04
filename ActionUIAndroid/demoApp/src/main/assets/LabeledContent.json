@@ -1,0 +1,21 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "LabeledContent pairs a leading title with trailing content:" } },
+    {
+      "type": "LabeledContent",
+      "properties": { "title": "Version", "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "1.4.0" } }
+      ]
+    },
+    {
+      "type": "LabeledContent",
+      "properties": { "title": "Notifications", "frame": { "width": "infinity" } },
+      "children": [
+        { "type": "Toggle", "id": 1, "properties": { "title": "", "isOn": true } }
+      ]
+    }
+  ]
+}
