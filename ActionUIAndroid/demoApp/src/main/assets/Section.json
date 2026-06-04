@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "A Section groups rows under a header:" } },
+    {
+      "type": "Section",
+      "id": 1,
+      "properties": { "header": "Account" },
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "Signed in as ada@example.com" } },
+        { "type": "Toggle", "id": 11, "properties": { "title": "Two-factor auth", "isOn": true } },
+        { "type": "Button", "id": 12, "properties": { "title": "Sign out", "role": "destructive", "actionID": "account.signout" } }
+      ]
+    }
+  ]
+}

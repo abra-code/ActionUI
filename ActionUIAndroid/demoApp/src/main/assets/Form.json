@@ -1,0 +1,25 @@
+{
+  "type": "Form",
+  "id": 1,
+  "properties": { "padding": 16 },
+  "children": [
+    {
+      "type": "Section",
+      "id": 2,
+      "properties": { "header": "Profile" },
+      "children": [
+        { "type": "TextField", "id": 10, "properties": { "title": "Display name", "text": "Ada Lovelace", "frame": { "width": "infinity" } } },
+        { "type": "Toggle", "id": 11, "properties": { "title": "Public profile", "isOn": false } }
+      ]
+    },
+    {
+      "type": "Section",
+      "id": 3,
+      "properties": { "header": "Notifications" },
+      "children": [
+        { "type": "Toggle", "id": 12, "properties": { "title": "Email", "isOn": true } },
+        { "type": "Toggle", "id": 13, "properties": { "title": "Push", "isOn": false } }
+      ]
+    }
+  ]
+}

@@ -38,11 +38,12 @@ typealias ActionUIActionHandler =
  * action handler), and because [ViewModel] fields are Compose snapshot state
  * those writes recompose the affected control automatically.
  *
- * Still **not** ported (with the features that drive them): runtime structural
- * mutation (`insertElement` / `removeElement` / `insertRow`), modal/dialog
- * presentation (`presentModal` / `presentAlert` / ...), the List/Table rows API
- * (`setElementRows` / `getElementColumnCount` / ...), and the property API
- * (`get/setElementProperty`, which awaits a validation stage). See
+ * The data-driven rows API (`get/set/append/clearElementRows`,
+ * `getElementColumnCount`) is ported (it drives `List` / `Section` template
+ * mode). Still **not** ported (with the features that drive them): runtime
+ * structural mutation (`insertElement` / `removeElement` / `insertRow`),
+ * modal/dialog presentation (`presentModal` / `presentAlert` / ...), and the
+ * property API (`get/setElementProperty`, which awaits a validation stage). See
  * `Private/Android_Porting_Notes.md`.
  *
  * Handlers and the value/state API run on the main thread (Compose `onClick`
@@ -50,6 +51,13 @@ typealias ActionUIActionHandler =
  * own.
  */
 object ActionUIModel {
+
+    /**
+     * The `states` key under which the data-driven containers (`List`, `Section`)
+     * hold their rows, as `List<List<String>>`. Matches the Swift
+     * `states["content"]` convention so the rows API and the renderers agree.
+     */
+    const val ROWS_STATE_KEY = "content"
 
     /** Registered handlers for specific actionIDs. */
     private val actionHandlers = mutableMapOf<String, ActionUIActionHandler>()
@@ -347,4 +355,53 @@ object ActionUIModel {
         viewModel.states[key] = converted
         logger.log("Set state '$key' from string for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
+
+    // MARK: - Element Rows API (data-driven List / Section)
+
+    /**
+     * Reads element [viewID]'s rows from `states[`[ROWS_STATE_KEY]`]` as
+     * `List<List<String>>`, or an empty list when unset or of an unexpected
+     * shape. Mirrors the Swift `getElementRows`. The rows back `List` / `Section`
+     * template (and `List` homogeneous) mode; because [ViewModel.states] is
+     * Compose snapshot state, a renderer reading these rows recomposes when they
+     * change.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun getElementRows(windowUUID: String = "", viewID: Int): List<List<String>> {
+        val viewModel = viewModel(windowUUID, viewID) ?: return emptyList()
+        return (viewModel.states[ROWS_STATE_KEY] as? List<List<String>>) ?: emptyList()
+    }
+
+    /**
+     * Replaces element [viewID]'s rows. Writes straight to the snapshot-state map
+     * (not via [setElementState], whose type guard is for scalar state), so a
+     * bound `List` / `Section` recomposes. Mirrors the Swift `setElementRows`.
+     */
+    fun setElementRows(windowUUID: String = "", viewID: Int, rows: List<List<String>>) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        viewModel.states[ROWS_STATE_KEY] = rows
+        logger.log("Set ${rows.size} row(s) for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /** Appends [rows] after element [viewID]'s existing rows. Mirrors `appendElementRows`. */
+    @Suppress("UNCHECKED_CAST")
+    fun appendElementRows(windowUUID: String = "", viewID: Int, rows: List<List<String>>) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        val existing = (viewModel.states[ROWS_STATE_KEY] as? List<List<String>>) ?: emptyList()
+        viewModel.states[ROWS_STATE_KEY] = existing + rows
+        logger.log("Appended ${rows.size} row(s) for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /** Clears element [viewID]'s rows (sets them to empty). Mirrors `clearElementRows`. */
+    fun clearElementRows(windowUUID: String = "", viewID: Int) {
+        setElementRows(windowUUID, viewID, emptyList())
+    }
+
+    /**
+     * Returns the widest row's column count for element [viewID] (0 when empty).
+     * Mirrors the Swift `getElementColumnCount`; templates reference columns
+     * 1-based (`$1`..`$N`).
+     */
+    fun getElementColumnCount(windowUUID: String = "", viewID: Int): Int =
+        getElementRows(windowUUID, viewID).maxOfOrNull { it.size } ?: 0
 }

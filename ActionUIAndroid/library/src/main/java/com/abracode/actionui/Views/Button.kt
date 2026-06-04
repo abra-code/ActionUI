@@ -12,6 +12,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUITint
+import com.abracode.actionui.Helpers.LocalTemplateContext
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -21,7 +22,10 @@ import com.abracode.actionui.Helpers.stringProperty
  * the Swift side, a Button carries no stateful value - it only triggers
  * actions. On tap, if the element declares an `actionID`, it is dispatched via
  * [ActionUIModel.actionHandler] with the element's `id` as the `viewID`, which
- * routes to the client's registered handler (or the default handler).
+ * routes to the client's registered handler (or the default handler). Inside a
+ * data-driven template row (see `Helpers/TemplateHelper.kt`) it instead
+ * dispatches with the owning `List`/`Section` id as `viewID` and the row index
+ * as `viewPartID`, read from [com.abracode.actionui.Helpers.LocalTemplateContext].
  *
  * Sample JSON:
  * ```
@@ -67,7 +71,12 @@ object Button : ActionUIViewConstruction {
         }
 
         val actionID = props?.stringProperty("actionID")
-        val viewID = element.id
+        // Inside a template row, a Button dispatches with the owning List/Section
+        // id as viewID and the row index as viewPartID (Swift's convention);
+        // outside a template it uses its own id with viewPartID 0.
+        val templateContext = LocalTemplateContext.current
+        val dispatchViewID = templateContext?.parentID ?: element.id
+        val dispatchPartID = templateContext?.rowIndex ?: 0
 
         // SwiftUI `.tint` colors the button's accent (its filled background). An
         // inherited tint applies unless a `role` already dictates the color
@@ -85,7 +94,7 @@ object Button : ActionUIViewConstruction {
         M3Button(
             onClick = {
                 if (actionID != null) {
-                    ActionUIModel.actionHandler(actionID, viewID = viewID, viewPartID = 0)
+                    ActionUIModel.actionHandler(actionID, viewID = dispatchViewID, viewPartID = dispatchPartID)
                 }
             },
             modifier = modifier,

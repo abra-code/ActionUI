@@ -1,0 +1,16 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Table is macOS-only. On Android it renders nothing - use a List for tabular data:" } },
+    {
+      "type": "Table",
+      "id": 1,
+      "properties": {
+        "columns": ["Name", "Type"],
+        "columnTypes": [ { "viewType": "Text" }, { "viewType": "Text" } ]
+      }
+    },
+    { "type": "Text", "properties": { "text": "(Nothing renders between these two lines on Android.)" } }
+  ]
+}

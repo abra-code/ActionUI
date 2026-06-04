@@ -112,6 +112,30 @@ class WindowModelTest {
     }
 
     @Test
+    fun `template container is not registered in the view model pool`() {
+        // Template instances are per-row throw-aways; their elements must not be
+        // seeded into the window pool (subElements excludes template).
+        val root = ActionUIElement(
+            id = 1, type = "List",
+            template = ActionUIElement(id = 99, type = "Text"),
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals(1, window.viewModels.size)
+        assertTrue(window.viewModels.containsKey(1))
+        assertNull(window.viewModels[99])
+    }
+
+    @Test
+    fun `List seeds empty rows in its content state`() {
+        val window = model()
+        window.loadDescription(ActionUIElement(id = 1, type = "List"))
+
+        assertEquals(emptyList<List<String>>(), window.viewModels[1]?.states?.get("content"))
+    }
+
+    @Test
     fun `reloading rebuilds the pool from the new element`() {
         val window = model()
         window.loadDescription(

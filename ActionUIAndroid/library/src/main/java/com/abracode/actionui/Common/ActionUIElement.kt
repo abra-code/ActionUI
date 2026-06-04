@@ -26,13 +26,21 @@ import kotlinx.serialization.json.JsonObject
  * Implemented so far:
  *   * [children] - the array container (stacks, Group, ...).
  *   * [content]  - the first **single-child** container (ScrollView, and the
- *     coming GroupBox / LabeledContent / DisclosureGroup family). A single child,
+ *     GroupBox / LabeledContent / DisclosureGroup family). A single child,
  *     never an array on Android: author multiple children by wrapping them in a
  *     `VStack` / `Group`.
+ *   * [template] - the data-driven repeater container (`List`, `Section`): a
+ *     single element rendered once per data row, with `$1`/`$2`/`$0` column
+ *     substitution (see `Helpers/TemplateHelper.kt`). Unlike [children] /
+ *     [content] it is **excluded from [subElements]**: a template is instanced
+ *     per row through throw-away rendering, not registered once in the window's
+ *     [ViewModel] pool, so its own id (and its descendants') must not collide
+ *     with the rest of the tree. Mirrors Swift, where template instances use
+ *     throw-away `ViewModel`s rather than the window pool.
  *
  * Any traversal of the element tree (id registration, etc.) should iterate
  * [subElements] so it automatically covers every named container as more are
- * added.
+ * added (the per-row [template] excepted, by design).
  */
 interface ActionUIElementBase {
     val id: Int
@@ -40,6 +48,7 @@ interface ActionUIElementBase {
     val properties: JsonObject?
     val children: List<ActionUIElement>?
     val content: ActionUIElement?
+    val template: ActionUIElement?
 }
 
 @Serializable
@@ -48,14 +57,16 @@ data class ActionUIElement(
     override val type: String = "",
     override val properties: JsonObject? = null,
     override val children: List<ActionUIElement>? = null,
-    override val content: ActionUIElement? = null
+    override val content: ActionUIElement? = null,
+    override val template: ActionUIElement? = null
 ) : ActionUIElementBase
 
 /**
  * Every directly-contained child element, flattened across all named containers
  * in a stable order, for tree traversal (e.g. seeding view models by id). Add
  * each new single-child / array container here so existing walks pick it up
- * without change.
+ * without change. The [template] container is intentionally **not** included:
+ * its instances are rendered per row and never registered in the window pool.
  */
 fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     children?.let { addAll(it) }

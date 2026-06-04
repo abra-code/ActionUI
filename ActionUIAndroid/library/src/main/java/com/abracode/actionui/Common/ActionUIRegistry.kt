@@ -8,6 +8,7 @@ import com.abracode.actionui.Views.DisclosureGroup
 import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.EmptyView
+import com.abracode.actionui.Views.Form
 import com.abracode.actionui.Views.Group
 import com.abracode.actionui.Views.GroupBox
 import com.abracode.actionui.Views.HStack
@@ -16,16 +17,19 @@ import com.abracode.actionui.Views.LabeledContent
 import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
+import com.abracode.actionui.Views.ListView
 import com.abracode.actionui.Views.Picker
 import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
 import com.abracode.actionui.Views.RoundedRectangle
 import com.abracode.actionui.Views.ScrollView
+import com.abracode.actionui.Views.Section
 import com.abracode.actionui.Views.SecureField
 import com.abracode.actionui.Views.ShareLink
 import com.abracode.actionui.Views.Slider
 import com.abracode.actionui.Views.Spacer
 import com.abracode.actionui.Views.Stepper
+import com.abracode.actionui.Views.Table
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.TextEditor
 import com.abracode.actionui.Views.TextField
@@ -69,6 +73,10 @@ object ActionUIRegistry {
         register("ShareLink", ShareLink)
         register("ContentUnavailableView", ContentUnavailableView)
         register("EmptyView", EmptyView)
+        register("List", ListView)
+        register("Section", Section)
+        register("Form", Form)
+        register("Table", Table)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

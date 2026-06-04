@@ -96,4 +96,32 @@ class ActionUIElementTest {
     fun `subElements is empty for a leaf element`() {
         assertTrue(ActionUIElement(id = 1, type = "Text").subElements().isEmpty())
     }
+
+    @Test
+    fun `decodes the single-child template container`() {
+        val element = decode(
+            """
+            { "type": "List", "id": 1,
+              "template": { "type": "Text", "id": 9, "properties": { "text": "${'$'}1" } } }
+            """.trimIndent()
+        )
+
+        assertEquals("List", element.type)
+        assertNull(element.children)
+        assertEquals("Text", element.template?.type)
+        assertEquals(9, element.template?.id)
+    }
+
+    @Test
+    fun `template is excluded from subElements`() {
+        // A template is instanced per row, not registered once in the window pool,
+        // so tree traversal (subElements) must skip it - even when children exist.
+        val element = ActionUIElement(
+            id = 1, type = "List",
+            children = listOf(ActionUIElement(id = 2, type = "Text")),
+            template = ActionUIElement(id = 3, type = "Text"),
+        )
+
+        assertEquals(listOf(2), element.subElements().map { it.id })
+    }
 }

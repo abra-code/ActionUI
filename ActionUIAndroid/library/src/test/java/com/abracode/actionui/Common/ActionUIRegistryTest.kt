@@ -43,6 +43,12 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.ShareLink, ActionUIRegistry.lookup("ShareLink"))
         assertSame(com.abracode.actionui.Views.ContentUnavailableView, ActionUIRegistry.lookup("ContentUnavailableView"))
         assertSame(com.abracode.actionui.Views.EmptyView, ActionUIRegistry.lookup("EmptyView"))
+        // Canonical type string "List" maps to the ListView object (named to avoid
+        // shadowing kotlin.collections.List across the Views package).
+        assertSame(com.abracode.actionui.Views.ListView, ActionUIRegistry.lookup("List"))
+        assertSame(com.abracode.actionui.Views.Section, ActionUIRegistry.lookup("Section"))
+        assertSame(com.abracode.actionui.Views.Form, ActionUIRegistry.lookup("Form"))
+        assertSame(com.abracode.actionui.Views.Table, ActionUIRegistry.lookup("Table"))
     }
 
     @Test

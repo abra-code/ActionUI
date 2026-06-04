@@ -1,0 +1,18 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "A List in heterogeneous (children) mode - rows are arbitrary views inside a scrolling viewport:" } },
+    {
+      "type": "List",
+      "id": 1,
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "Plain text row" } },
+        { "type": "Button", "id": 11, "properties": { "title": "Button row", "actionID": "list.row.tap" } },
+        { "type": "Toggle", "id": 12, "properties": { "title": "Toggle row", "isOn": true } },
+        { "type": "Text", "id": 13, "properties": { "text": "Another text row" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Template (repeater) and homogeneous modes render rows the host supplies at runtime via setElementRows." } }
+  ]
+}
