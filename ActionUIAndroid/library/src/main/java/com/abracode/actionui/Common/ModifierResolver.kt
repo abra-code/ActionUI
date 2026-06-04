@@ -1,26 +1,47 @@
 package com.abracode.actionui.Common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.dpProperty
 import com.abracode.actionui.Helpers.floatProperty
+import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -38,8 +59,11 @@ import kotlinx.serialization.json.jsonPrimitive
  * that split:
  *
  *   * [applyCommonProperties] - extension on [Modifier], callable anywhere.
- *     Handles `frame` (SwiftUI sizing - `{width,height}`), `opacity`,
- *     `cornerRadius`, `background`, `padding`.
+ *     Handles `zIndex`, `rotationEffect`, `scaleEffect`, `offset`, `frame`
+ *     (SwiftUI sizing - fixed `{width,height}` or flexible `{minWidth,maxWidth,
+ *     ...}` plus `alignment`), `opacity`, `hidden`, `shadow`, `border`,
+ *     `clipShape`, `cornerRadius`, `background`, and `padding`
+ *     (number / EdgeInsets `{top,leading,bottom,trailing}` / `"default"`).
  *   * [buildChildModifier] - overloads on each layout scope receiver, applied
  *     inside the container's content lambda where `weight`/`align` are in
  *     scope. They additionally chain in [applyCommonProperties].
@@ -47,17 +71,31 @@ import kotlinx.serialization.json.jsonPrimitive
  * **Chain order** (universal). Modifiers earlier in the chain are outer for
  * layout, later are inner. Picked to make the most common combination behave
  * intuitively - a "card" with a background, rounded corners, and inner content
- * padding:
+ * padding. The existing core (`frame -> opacity -> clip -> background ->
+ * padding`) is preserved; the new transforms wrap it on the outside and the
+ * decoration modifiers slot in just before the clip/background:
  *
  * ```
- *   frame.width  ->  frame.height  ->  opacity  ->  clip(cornerRadius)
- *                ->  background  ->  padding
+ *   zIndex -> rotationEffect -> scaleEffect -> offset
+ *          -> frame -> opacity -> hidden
+ *          -> shadow -> border -> clipShape -> cornerRadius
+ *          -> background -> padding
  * ```
  *
- * Opacity sits between size and clip so it fades the entire visual subtree
- * (including the background), not just inner content. Padding is innermost so
- * the background fills the full size and the inner element sits in a padded
- * area inside the colored region.
+ * Opacity (and `hidden`, which is `alpha(0)`) sit outside the decoration so they
+ * fade the entire visual subtree including the background, not just inner
+ * content. Padding is innermost so the background fills the full size and the
+ * inner element sits in a padded area inside the colored region. `border` is
+ * outside `clipShape` because SwiftUI's `.border` is a rectangular stroke that
+ * is not clipped by a later `.clipShape`.
+ *
+ * **Known divergences from SwiftUI** (Compose has no direct equivalent):
+ *   * `shadow` maps to Compose's elevation shadow - `radius` becomes elevation
+ *     and `color` becomes the ambient/spot color; the `x`/`y` offset is ignored.
+ *   * `frame` `idealWidth`/`idealHeight` (SwiftUI's preferred size) is ignored
+ *     with a warning - Compose has no preferred-size constraint, only min/max.
+ *   * `clipShape` per-axis `cornerRadiusX`/`cornerRadiusY` (elliptical corners)
+ *     is approximated with a single circular radius.
  *
  * Unknown values (e.g. `background: "not-a-color"`, `align: "wat"`) are skipped
  * and a warning is sent through the optional [logger]. Unrecognized property
@@ -72,11 +110,27 @@ fun Modifier.applyCommonProperties(
     if (properties == null) return this
     var m: Modifier = this
 
-    (properties["frame"] as? JsonObject)?.let { frame ->
-        m = m.applySizeAxis(frame["width"], horizontal = true, logger)
-        m = m.applySizeAxis(frame["height"], horizontal = false, logger)
+    // ---- Outer wrappers: draw ordering, transforms, position ----
+    properties.numberProperty("zIndex")?.let { m = m.zIndex(it.toFloat()) }
+    properties.numberProperty("rotationEffect")?.let { m = m.rotate(it.toFloat()) }
+    m = m.applyScaleEffect(properties)
+    (properties["offset"] as? JsonObject)?.let { offset ->
+        val x = offset.numberProperty("x")?.toFloat() ?: 0f
+        val y = offset.numberProperty("y")?.toFloat() ?: 0f
+        m = m.offset(x = x.dp, y = y.dp)
     }
+
+    // ---- Sizing ----
+    (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger) }
+
+    // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
     properties.floatProperty("opacity")?.let { m = m.alpha(it) }
+    if (properties.booleanProperty("hidden") == true) m = m.alpha(0f)
+
+    // ---- Decoration: shadow, border, clip, background ----
+    m = m.applyShadow(properties)
+    m = m.applyBorder(properties)
+    m = m.applyClipShape(properties, logger)
     properties.dpProperty("cornerRadius")?.let { m = m.clip(RoundedCornerShape(it)) }
     properties.stringProperty("background")?.let { name ->
         val c = parseColor(name)
@@ -86,7 +140,9 @@ fun Modifier.applyCommonProperties(
             LoggerLevel.warning
         )
     }
-    properties.dpProperty("padding")?.let { m = m.padding(it) }
+
+    // ---- Padding (innermost) ----
+    m = m.applyPadding(properties)
     return m
 }
 
@@ -204,6 +260,250 @@ internal fun Modifier.applySizeAxis(
     )
     return this
 }
+
+/**
+ * SwiftUI's `.padding()` with no argument uses a system-adaptive default
+ * (roughly 16pt on iOS). Compose has no equivalent constant, so the `"default"`
+ * string maps to this fixed approximation.
+ */
+private val DEFAULT_PADDING: Dp = 16.dp
+
+/** A full-bounds oval, the Compose `Shape` analog of SwiftUI's `Ellipse`. */
+private val EllipseShape: Shape = GenericShape { size, _ ->
+    addOval(Rect(0f, 0f, size.width, size.height))
+}
+
+/**
+ * `scaleEffect` - uniform `Number` or `{ x, y, anchor }`. The uniform form uses
+ * Compose's `scale` (center anchor); the dict form goes through `graphicsLayer`
+ * so the `anchor` maps to a [TransformOrigin].
+ */
+private fun Modifier.applyScaleEffect(properties: JsonObject): Modifier {
+    (properties["scaleEffect"] as? JsonObject)?.let { obj ->
+        val sx = obj.numberProperty("x")?.toFloat() ?: 1f
+        val sy = obj.numberProperty("y")?.toFloat() ?: 1f
+        val origin = parseTransformOrigin(obj.stringProperty("anchor"))
+        return this.graphicsLayer {
+            scaleX = sx
+            scaleY = sy
+            transformOrigin = origin
+        }
+    }
+    properties.numberProperty("scaleEffect")?.let { return this.scale(it.toFloat()) }
+    return this
+}
+
+/**
+ * `frame` - SwiftUI sizing. Two mutually exclusive forms plus optional
+ * `alignment`:
+ *   * Fixed: `{ width, height }` (each a number or the `"infinity"` sentinel).
+ *   * Flexible: `{ minWidth, idealWidth, maxWidth, minHeight, idealHeight,
+ *     maxHeight }` mapped to Compose `widthIn`/`heightIn` (ideal ignored - see
+ *     the file header divergence note); `maxWidth/maxHeight: "infinity"` fills
+ *     the axis.
+ * `alignment` positions content within the resolved size via `wrapContentSize`;
+ * it only takes effect when a size is also given.
+ */
+private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Modifier {
+    var m: Modifier = this
+    val hasFixed = frame["width"] != null || frame["height"] != null
+    val flexKeys = listOf(
+        "minWidth", "idealWidth", "maxWidth",
+        "minHeight", "idealHeight", "maxHeight"
+    )
+    val hasFlexible = flexKeys.any { frame[it] != null }
+
+    if (hasFixed) {
+        m = m.applySizeAxis(frame["width"], horizontal = true, logger)
+        m = m.applySizeAxis(frame["height"], horizontal = false, logger)
+    } else if (hasFlexible) {
+        m = m.applyFlexibleAxis(frame, horizontal = true, logger)
+        m = m.applyFlexibleAxis(frame, horizontal = false, logger)
+    }
+
+    if (hasFixed || hasFlexible) {
+        frame.stringProperty("alignment")?.let { name ->
+            parseFrameAlignment(name, logger)?.let { m = m.wrapContentSize(it) }
+        }
+    }
+    return m
+}
+
+/** One axis of the flexible `frame` form - `min`/`max` to `widthIn`/`heightIn`. */
+private fun Modifier.applyFlexibleAxis(
+    frame: JsonObject,
+    horizontal: Boolean,
+    logger: ActionUILogger?
+): Modifier {
+    val minKey = if (horizontal) "minWidth" else "minHeight"
+    val idealKey = if (horizontal) "idealWidth" else "idealHeight"
+    val maxKey = if (horizontal) "maxWidth" else "maxHeight"
+
+    if (frame[idealKey] != null) {
+        logger?.log(
+            "frame.$idealKey has no direct Compose equivalent (no preferred-size " +
+                "constraint); ignored. Use min/max.",
+            LoggerLevel.warning
+        )
+    }
+
+    val minDp = frame.numberProperty(minKey)?.toFloat()?.dp
+    val maxPrim = frame[maxKey]?.jsonPrimitive
+    val maxInfinity = maxPrim?.contentOrNull == "infinity"
+    val maxDp = maxPrim?.doubleOrNull?.toFloat()?.dp
+
+    var m: Modifier = this
+    if (minDp != null || maxDp != null) {
+        m = if (horizontal) {
+            m.widthIn(min = minDp ?: Dp.Unspecified, max = maxDp ?: Dp.Unspecified)
+        } else {
+            m.heightIn(min = minDp ?: Dp.Unspecified, max = maxDp ?: Dp.Unspecified)
+        }
+    }
+    if (maxInfinity) {
+        m = if (horizontal) m.fillMaxWidth() else m.fillMaxHeight()
+    }
+    return m
+}
+
+/**
+ * `shadow` - `{ color, radius, x, y }`. Maps to Compose's elevation shadow:
+ * `radius` -> elevation, `color` -> ambient/spot color. The `x`/`y` offset has
+ * no elevation-shadow equivalent and is ignored (see file header divergences).
+ */
+private fun Modifier.applyShadow(properties: JsonObject): Modifier {
+    val shadow = properties["shadow"] as? JsonObject ?: return this
+    val radius = (shadow.numberProperty("radius") ?: 0.0).toFloat()
+    val color = shadow.stringProperty("color")?.let { parseColor(it) } ?: Color.Black
+    return this.shadow(
+        elevation = radius.dp,
+        shape = RectangleShape,
+        clip = false,
+        ambientColor = color,
+        spotColor = color
+    )
+}
+
+/**
+ * `border` - `{ color, width }`. SwiftUI's `.border` is a rectangular stroke, so
+ * the Compose mapping uses [RectangleShape] regardless of any `clipShape`.
+ */
+private fun Modifier.applyBorder(properties: JsonObject): Modifier {
+    val border = properties["border"] as? JsonObject ?: return this
+    val color = border.stringProperty("color")?.let { parseColor(it) } ?: Color.Black
+    val width = (border.numberProperty("width") ?: 1.0).toFloat()
+    return this.border(width.dp, color, RectangleShape)
+}
+
+/** `clipShape` - named shape string or a `{ type: "roundedRectangle", ... }` dict. */
+private fun Modifier.applyClipShape(properties: JsonObject, logger: ActionUILogger?): Modifier {
+    val element = properties["clipShape"] ?: return this
+    val shape = parseClipShape(element, logger) ?: return this
+    return this.clip(shape)
+}
+
+/** `padding` - uniform `Number`, EdgeInsets `{top,leading,bottom,trailing}`, or `"default"`. */
+private fun Modifier.applyPadding(properties: JsonObject): Modifier {
+    (properties["padding"] as? JsonObject)?.let { insets ->
+        return this.padding(
+            start = (insets.numberProperty("leading") ?: 0.0).toFloat().dp,
+            top = (insets.numberProperty("top") ?: 0.0).toFloat().dp,
+            end = (insets.numberProperty("trailing") ?: 0.0).toFloat().dp,
+            bottom = (insets.numberProperty("bottom") ?: 0.0).toFloat().dp
+        )
+    }
+    properties.dpProperty("padding")?.let { return this.padding(it) }
+    if (properties.stringProperty("padding")?.lowercase() == "default") {
+        return this.padding(DEFAULT_PADDING)
+    }
+    return this
+}
+
+/**
+ * Resolves a SwiftUI `frame` alignment name into a Compose 2D [Alignment].
+ * SwiftUI's edge names (`leading`/`trailing`/`top`/`bottom`) center on the other
+ * axis, matching `.frame(alignment:)` semantics.
+ */
+internal fun parseFrameAlignment(name: String, logger: ActionUILogger? = null): Alignment? =
+    when (name) {
+        "leading"        -> Alignment.CenterStart
+        "trailing"       -> Alignment.CenterEnd
+        "top"            -> Alignment.TopCenter
+        "bottom"         -> Alignment.BottomCenter
+        "center"         -> Alignment.Center
+        "topLeading"     -> Alignment.TopStart
+        "topTrailing"    -> Alignment.TopEnd
+        "bottomLeading"  -> Alignment.BottomStart
+        "bottomTrailing" -> Alignment.BottomEnd
+        else -> {
+            logger?.log(
+                "Unknown frame alignment '$name'. Property ignored.",
+                LoggerLevel.warning
+            )
+            null
+        }
+    }
+
+/**
+ * Resolves a `clipShape` value into a Compose [Shape]. String form accepts
+ * `circle`/`capsule`/`ellipse`/`rectangle`; dict form accepts
+ * `{ type: "roundedRectangle", cornerRadius }` or per-axis
+ * `cornerRadiusX`/`cornerRadiusY` (approximated - see file header divergences).
+ * Returns `null` (with a warning) for unrecognized input.
+ */
+internal fun parseClipShape(element: JsonElement, logger: ActionUILogger? = null): Shape? {
+    (element as? JsonPrimitive)?.let { prim ->
+        if (prim.isString) {
+            return when (prim.content.lowercase()) {
+                "circle"    -> CircleShape
+                "capsule"   -> RoundedCornerShape(percent = 50)
+                "ellipse"   -> EllipseShape
+                "rectangle" -> RectangleShape
+                else -> {
+                    logger?.log(
+                        "Unknown clipShape '${prim.content}'. Property ignored.",
+                        LoggerLevel.warning
+                    )
+                    null
+                }
+            }
+        }
+    }
+    (element as? JsonObject)?.let { obj ->
+        if (obj.stringProperty("type") == "roundedRectangle") {
+            obj.numberProperty("cornerRadius")?.let {
+                return RoundedCornerShape(it.toFloat().dp)
+            }
+            val rx = obj.numberProperty("cornerRadiusX")
+            val ry = obj.numberProperty("cornerRadiusY")
+            if (rx != null && ry != null) {
+                logger?.log(
+                    "clipShape per-axis cornerRadiusX/cornerRadiusY (elliptical " +
+                        "corners) is approximated with a single radius on Android.",
+                    LoggerLevel.warning
+                )
+                return RoundedCornerShape(rx.toFloat().dp)
+            }
+        }
+        logger?.log("Unsupported clipShape object. Property ignored.", LoggerLevel.warning)
+        return null
+    }
+    return null
+}
+
+/** Maps a SwiftUI `scaleEffect` anchor name to a Compose [TransformOrigin]; defaults to center. */
+internal fun parseTransformOrigin(name: String?): TransformOrigin =
+    when (name) {
+        "leading"        -> TransformOrigin(0f, 0.5f)
+        "trailing"       -> TransformOrigin(1f, 0.5f)
+        "top"            -> TransformOrigin(0.5f, 0f)
+        "bottom"         -> TransformOrigin(0.5f, 1f)
+        "topLeading"     -> TransformOrigin(0f, 0f)
+        "topTrailing"    -> TransformOrigin(1f, 0f)
+        "bottomLeading"  -> TransformOrigin(0f, 1f)
+        "bottomTrailing" -> TransformOrigin(1f, 1f)
+        else             -> TransformOrigin.Center
+    }
 
 internal fun parseVerticalAlignment(name: String): Alignment.Vertical? =
     when (name.lowercase()) {

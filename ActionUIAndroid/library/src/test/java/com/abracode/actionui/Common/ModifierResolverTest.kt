@@ -1,14 +1,19 @@
 package com.abracode.actionui.Common
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -428,5 +433,255 @@ class ModifierResolverTest {
         assertNull(parseColumnAlignment("firstTextBaseline", logger))
         assertEquals(1, logger.warnings.size)
         assertTrue(logger.warnings[0].contains("Unknown alignment"))
+    }
+
+    // -----------------------------------------------------------------------
+    // Transform / geometry modifiers: offset, rotationEffect, scaleEffect
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `offset object adds an element to the chain`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"offset":{"x":10,"y":-5}}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `offset that is not an object is ignored`() {
+        val logger = CapturingLogger()
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"offset":5}"""), logger)
+        assertEquals(chainLength(base), chainLength(out))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `rotationEffect adds an element to the chain`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"rotationEffect":45}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `scaleEffect uniform number adds an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"scaleEffect":1.5}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `scaleEffect object with anchor adds an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(
+            props("""{"scaleEffect":{"x":1.5,"y":0.8,"anchor":"topLeading"}}""")
+        )
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `zIndex adds an element to the chain`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"zIndex":3}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `hidden true fades the view via an alpha element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"hidden":true}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `hidden false adds nothing`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"hidden":false}"""))
+        assertEquals(chainLength(base), chainLength(out))
+    }
+
+    // -----------------------------------------------------------------------
+    // Decoration modifiers: shadow, border, clipShape
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `shadow object adds an element to the chain`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(
+            props("""{"shadow":{"color":"black","radius":5,"x":0,"y":2}}""")
+        )
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `shadow with unknown color still applies using the default color`() {
+        // Color falls back to black (matching Swift's `?? .black`); no warning,
+        // the shadow is still added.
+        val logger = CapturingLogger()
+        val base = Modifier
+        val out = base.applyCommonProperties(
+            props("""{"shadow":{"color":"not-a-color","radius":4}}"""), logger
+        )
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `border object adds an element to the chain`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"border":{"color":"blue","width":2}}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `clipShape named shape adds an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"clipShape":"circle"}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `clipShape rounded rectangle dict adds an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(
+            props("""{"clipShape":{"type":"roundedRectangle","cornerRadius":12}}""")
+        )
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `clipShape unknown name logs warning and skips`() {
+        val logger = CapturingLogger()
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"clipShape":"triangle"}"""), logger)
+        assertEquals(chainLength(base), chainLength(out))
+        assertEquals(1, logger.warnings.size)
+        assertTrue(logger.warnings[0].contains("triangle"))
+    }
+
+    // -----------------------------------------------------------------------
+    // Flexible frame: min/ideal/max + alignment
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `flexible frame min and max add an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(
+            props("""{"frame":{"minWidth":50,"maxWidth":200}}""")
+        )
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `flexible frame maxWidth infinity fills the axis`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"frame":{"maxWidth":"infinity"}}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `flexible frame idealWidth is ignored with a warning`() {
+        // Compose has no preferred-size constraint, so idealWidth warns and skips.
+        val logger = CapturingLogger()
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"frame":{"idealWidth":100}}"""), logger)
+        assertEquals(chainLength(base), chainLength(out))
+        assertEquals(1, logger.warnings.size)
+        assertTrue(logger.warnings[0].contains("idealWidth"))
+    }
+
+    @Test
+    fun `fixed frame with alignment adds size and wrapContentSize elements`() {
+        val base = Modifier
+        val sized = base.applyCommonProperties(props("""{"frame":{"width":100,"height":40}}"""))
+        val aligned = base.applyCommonProperties(
+            props("""{"frame":{"width":100,"height":40,"alignment":"topLeading"}}""")
+        )
+        assertTrue(chainLength(aligned) > chainLength(sized))
+    }
+
+    // -----------------------------------------------------------------------
+    // Padding: EdgeInsets dict and "default"
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `padding EdgeInsets dict adds an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(
+            props("""{"padding":{"top":10,"leading":5,"bottom":10,"trailing":5}}""")
+        )
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    @Test
+    fun `padding default string adds an element`() {
+        val base = Modifier
+        val out = base.applyCommonProperties(props("""{"padding":"default"}"""))
+        assertTrue(chainLength(out) > chainLength(base))
+    }
+
+    // -----------------------------------------------------------------------
+    // parseFrameAlignment / parseClipShape / parseTransformOrigin
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `parseFrameAlignment maps SwiftUI edge names with centered cross-axis`() {
+        assertEquals(Alignment.CenterStart, parseFrameAlignment("leading"))
+        assertEquals(Alignment.CenterEnd, parseFrameAlignment("trailing"))
+        assertEquals(Alignment.TopCenter, parseFrameAlignment("top"))
+        assertEquals(Alignment.BottomCenter, parseFrameAlignment("bottom"))
+        assertEquals(Alignment.Center, parseFrameAlignment("center"))
+        assertEquals(Alignment.TopStart, parseFrameAlignment("topLeading"))
+        assertEquals(Alignment.BottomEnd, parseFrameAlignment("bottomTrailing"))
+    }
+
+    @Test
+    fun `parseFrameAlignment returns null and warns for unknown name`() {
+        val logger = CapturingLogger()
+        assertNull(parseFrameAlignment("sideways", logger))
+        assertEquals(1, logger.warnings.size)
+    }
+
+    @Test
+    fun `parseClipShape resolves named shapes`() {
+        assertEquals(CircleShape, parseClipShape(Json.parseToJsonElement(""""circle"""")))
+        assertEquals(RectangleShape, parseClipShape(Json.parseToJsonElement(""""rectangle"""")))
+        // capsule and ellipse have no shared singleton to compare against - assert
+        // they resolve to a non-null shape.
+        assertNotNull(parseClipShape(Json.parseToJsonElement(""""capsule"""")))
+        assertNotNull(parseClipShape(Json.parseToJsonElement(""""ellipse"""")))
+    }
+
+    @Test
+    fun `parseClipShape resolves rounded rectangle with cornerRadius`() {
+        assertEquals(
+            RoundedCornerShape(12.dp),
+            parseClipShape(props("""{"type":"roundedRectangle","cornerRadius":12}"""))
+        )
+    }
+
+    @Test
+    fun `parseClipShape per-axis corners warn and approximate`() {
+        val logger = CapturingLogger()
+        val shape = parseClipShape(
+            props("""{"type":"roundedRectangle","cornerRadiusX":12,"cornerRadiusY":8}"""),
+            logger
+        )
+        assertNotNull(shape)
+        assertEquals(1, logger.warnings.size)
+    }
+
+    @Test
+    fun `parseClipShape returns null for unknown string`() {
+        val logger = CapturingLogger()
+        assertNull(parseClipShape(Json.parseToJsonElement(""""hexagon""""), logger))
+        assertEquals(1, logger.warnings.size)
+    }
+
+    @Test
+    fun `parseTransformOrigin maps anchors and defaults to center`() {
+        assertEquals(TransformOrigin(0f, 0f), parseTransformOrigin("topLeading"))
+        assertEquals(TransformOrigin(1f, 0.5f), parseTransformOrigin("trailing"))
+        assertEquals(TransformOrigin(0.5f, 1f), parseTransformOrigin("bottom"))
+        assertEquals(TransformOrigin.Center, parseTransformOrigin(null))
+        assertEquals(TransformOrigin.Center, parseTransformOrigin("nonsense"))
     }
 }

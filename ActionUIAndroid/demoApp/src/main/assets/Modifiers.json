@@ -1,0 +1,124 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "border + clipShape" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "#90CAF9",
+            "frame": { "width": 64, "height": 64 },
+            "border": { "color": "blue", "width": 3 }
+          }
+        },
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "#A5D6A7",
+            "frame": { "width": 64, "height": 64 },
+            "clipShape": "circle"
+          }
+        },
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "#FFCC80",
+            "frame": { "width": 90, "height": 64 },
+            "clipShape": { "type": "roundedRectangle", "cornerRadius": 16 }
+          }
+        }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "shadow" } },
+    {
+      "type": "Rectangle",
+      "properties": {
+        "fill": "white",
+        "frame": { "width": 160, "height": 48 },
+        "cornerRadius": 8,
+        "shadow": { "color": "gray", "radius": 8 }
+      }
+    },
+
+    { "type": "Text", "properties": { "text": "rotationEffect + scaleEffect" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 32, "padding": 8 },
+      "children": [
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "#CE93D8",
+            "frame": { "width": 56, "height": 56 },
+            "rotationEffect": 45
+          }
+        },
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "#80CBC4",
+            "frame": { "width": 56, "height": 56 },
+            "scaleEffect": { "x": 1.4, "y": 0.7, "anchor": "center" }
+          }
+        }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "offset (red nudged +20,-8)" } },
+    {
+      "type": "ZStack",
+      "properties": { "frame": { "width": 120, "height": 64 } },
+      "children": [
+        {
+          "type": "Rectangle",
+          "properties": { "fill": "#BDBDBD", "frame": { "width": 120, "height": 64 } }
+        },
+        {
+          "type": "Rectangle",
+          "properties": {
+            "fill": "red",
+            "frame": { "width": 48, "height": 48 },
+            "offset": { "x": 20, "y": -8 }
+          }
+        }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "padding EdgeInsets + flexible frame" } },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "maxWidth infinity, asymmetric padding",
+        "background": "#E1F5FE",
+        "cornerRadius": 6,
+        "padding": { "top": 8, "leading": 24, "bottom": 8, "trailing": 24 },
+        "frame": { "maxWidth": "infinity" }
+      }
+    },
+
+    { "type": "Text", "properties": { "text": "hidden (placeholder keeps its space)" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        {
+          "type": "Rectangle",
+          "properties": { "fill": "#EF9A9A", "frame": { "width": 48, "height": 32 } }
+        },
+        {
+          "type": "Rectangle",
+          "properties": { "fill": "#EF9A9A", "frame": { "width": 48, "height": 32 }, "hidden": true }
+        },
+        {
+          "type": "Rectangle",
+          "properties": { "fill": "#EF9A9A", "frame": { "width": 48, "height": 32 } }
+        }
+      ]
+    }
+  ]
+}
