@@ -33,6 +33,8 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.TextField, ActionUIRegistry.lookup("TextField"))
         assertSame(com.abracode.actionui.Views.SecureField, ActionUIRegistry.lookup("SecureField"))
         assertSame(com.abracode.actionui.Views.TextEditor, ActionUIRegistry.lookup("TextEditor"))
+        assertSame(com.abracode.actionui.Views.Stepper, ActionUIRegistry.lookup("Stepper"))
+        assertSame(com.abracode.actionui.Views.Group, ActionUIRegistry.lookup("Group"))
     }
 
     @Test

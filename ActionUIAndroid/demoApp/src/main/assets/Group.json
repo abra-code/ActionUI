@@ -1,0 +1,23 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "A Group adds no layout - its children are laid out by this VStack inline:" } },
+    {
+      "type": "Group",
+      "children": [
+        { "type": "Text", "properties": { "text": "First grouped line" } },
+        { "type": "Text", "properties": { "text": "Second grouped line" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "A Group's modifiers apply to each child (here: red foreground):" } },
+    {
+      "type": "Group",
+      "properties": { "foregroundStyle": "red" },
+      "children": [
+        { "type": "Text", "properties": { "text": "Grouped item A" } },
+        { "type": "Text", "properties": { "text": "Grouped item B" } }
+      ]
+    }
+  ]
+}

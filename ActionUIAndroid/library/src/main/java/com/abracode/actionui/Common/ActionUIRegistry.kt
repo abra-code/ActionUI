@@ -5,6 +5,7 @@ import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
 import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
+import com.abracode.actionui.Views.Group
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
 import com.abracode.actionui.Views.LazyHStack
@@ -16,6 +17,7 @@ import com.abracode.actionui.Views.RoundedRectangle
 import com.abracode.actionui.Views.SecureField
 import com.abracode.actionui.Views.Slider
 import com.abracode.actionui.Views.Spacer
+import com.abracode.actionui.Views.Stepper
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.TextEditor
 import com.abracode.actionui.Views.TextField
@@ -49,6 +51,8 @@ object ActionUIRegistry {
         register("Toggle", Toggle)
         register("Slider", Slider)
         register("Picker", Picker)
+        register("Stepper", Stepper)
+        register("Group", Group)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

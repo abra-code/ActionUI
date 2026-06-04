@@ -1,0 +1,41 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Bounded stepper (0..10, step 1) - host reads/writes it by id:" } },
+    {
+      "type": "Stepper",
+      "id": 1,
+      "properties": {
+        "value": 5,
+        "range": { "min": 0, "max": 10 },
+        "step": 1,
+        "labelFormat": "Quantity: %.0f",
+        "actionID": "stepper.changed"
+      }
+    },
+    { "type": "Text", "properties": { "text": "Stepped by 0.5, static label:" } },
+    {
+      "type": "Stepper",
+      "id": 2,
+      "properties": {
+        "value": 2.5,
+        "range": { "min": 0, "max": 5 },
+        "step": 0.5,
+        "label": "Rating"
+      }
+    },
+    { "type": "Text", "properties": { "text": "Unbounded (no range), tinted +/-:" } },
+    {
+      "type": "VStack",
+      "properties": { "tint": "purple", "alignment": "leading" },
+      "children": [
+        {
+          "type": "Stepper",
+          "id": 3,
+          "properties": { "value": 0, "step": 1, "labelFormat": "Offset: %g" }
+        }
+      ]
+    }
+  ]
+}
