@@ -31,8 +31,9 @@ import com.abracode.actionui.Views.MenuChild
  *
  * SwiftUI's `.toolbar` attaches to a view and the navigation chrome renders it.
  * Android has no per-view toolbar modifier - the native home is a screen-level
- * `Scaffold` - so a `toolbar` is consumed by the navigation screen (this slice:
- * `NavigationStack`'s `RenderNavChild`), not applied as a `Modifier`.
+ * `Scaffold` - so a `toolbar` is consumed by a screen-level host: a
+ * `NavigationStack` screen (`RenderNavChild`), or the document root itself when a
+ * top-level `VStack` / `List` / etc. carries a `toolbar` (`ActionUI.Render`).
  */
 
 /** Where a toolbar item lands in the Android Scaffold chrome. */
@@ -44,6 +45,16 @@ internal enum class ToolbarSlot { Leading, Principal, Trailing, Overflow, Bottom
  * menu; `keyboard` and the macOS-only placements (`navigation`/`status`) are
  * unsupported. Unknown values fall back to trailing (Apple's `automatic`). Pure.
  */
+/**
+ * True when [element] should be wrapped in a [ToolbarHost] as a screen of its own:
+ * it declares a `toolbar` or a `navigationTitle`. A `NavigationStack` is excluded -
+ * it owns a `ToolbarHost` per navigation screen already (its chrome lives on the
+ * `content` / `destinations` it renders, not on the stack element). Pure.
+ */
+internal fun hasRootToolbarChrome(element: ActionUIElement): Boolean =
+    element.type != "NavigationStack" &&
+        (element.toolbar != null || element.properties?.stringProperty("navigationTitle") != null)
+
 internal fun resolveToolbarSlot(placement: String?): ToolbarSlot = when (placement) {
     null, "automatic", "topBarTrailing", "confirmationAction",
     "destructiveAction", "primaryAction" -> ToolbarSlot.Trailing
@@ -97,14 +108,25 @@ internal fun resolveToolbar(element: ActionUIElement, logger: ActionUILogger): T
  * render [element]'s `toolbar` and `navigationTitle`. This slice uses the small
  * `TopAppBar`; `LargeTopAppBar` (for `toolbarTitleDisplayMode: large`) is a
  * follow-up. [body] receives the Scaffold inset padding.
+ *
+ * [modifier] is applied to the `Scaffold`. A `NavigationStack` screen leaves it at
+ * the default (the `NavHost` bounds it); the document root passes a height-bounding
+ * modifier, since a `Scaffold` fills its parent and would otherwise have no finite
+ * height under a scrolling host (see [[android-bounded-height-scroll]]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ToolbarHost(element: ActionUIElement, logger: ActionUILogger, body: @Composable (PaddingValues) -> Unit) {
+fun ToolbarHost(
+    element: ActionUIElement,
+    logger: ActionUILogger,
+    modifier: Modifier = Modifier,
+    body: @Composable (PaddingValues) -> Unit,
+) {
     val buckets = remember(element) { resolveToolbar(element, logger) }
     val title = element.properties?.stringProperty("navigationTitle")
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {

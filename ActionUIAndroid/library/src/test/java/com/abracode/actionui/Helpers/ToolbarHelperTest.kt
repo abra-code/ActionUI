@@ -6,6 +6,7 @@ import com.abracode.actionui.Common.LoggerLevel
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -93,6 +94,40 @@ class ToolbarHelperTest {
         assertTrue(
             buckets.leading.isEmpty() && buckets.principal.isEmpty() && buckets.trailing.isEmpty() &&
                 buckets.overflow.isEmpty() && buckets.bottom.isEmpty(),
+        )
+    }
+
+    @Test
+    fun `hasRootToolbarChrome detects a root toolbar or navigationTitle`() {
+        // A plain root view with a toolbar -> wrapped as a screen.
+        assertTrue(
+            hasRootToolbarChrome(
+                ActionUIElement(id = 1, type = "List", toolbar = listOf(toolbarItem("topBarLeading", 1))),
+            ),
+        )
+        // navigationTitle alone is enough (renders as the bar title).
+        assertTrue(
+            hasRootToolbarChrome(
+                ActionUIElement(
+                    id = 1, type = "VStack",
+                    properties = buildJsonObject { put("navigationTitle", "Inbox") },
+                ),
+            ),
+        )
+        // No chrome -> rendered bare.
+        assertFalse(hasRootToolbarChrome(ActionUIElement(id = 1, type = "VStack")))
+    }
+
+    @Test
+    fun `hasRootToolbarChrome excludes NavigationStack (owns its own per-screen host)`() {
+        assertFalse(
+            hasRootToolbarChrome(
+                ActionUIElement(
+                    id = 1, type = "NavigationStack",
+                    properties = buildJsonObject { put("navigationTitle", "Inbox") },
+                    toolbar = listOf(toolbarItem("topBarLeading", 1)),
+                ),
+            ),
         )
     }
 }

@@ -1,0 +1,40 @@
+{
+  "type": "List",
+  "id": 1,
+  "properties": { "frame": { "height": 480 }, "navigationTitle": "Reminders" },
+  "toolbar": [
+    {
+      "type": "ToolbarItem",
+      "properties": { "placement": "topBarLeading" },
+      "content": { "type": "Button", "properties": { "title": "Cancel", "actionID": "toolbar.cancel" } }
+    },
+    {
+      "type": "ToolbarItem",
+      "properties": { "placement": "topBarTrailing" },
+      "content": { "type": "Button", "properties": { "title": "Add", "actionID": "toolbar.add" } }
+    },
+    {
+      "type": "ToolbarItem",
+      "properties": { "placement": "secondaryAction" },
+      "content": { "type": "Button", "properties": { "title": "Sort", "actionID": "toolbar.sort" } }
+    },
+    {
+      "type": "ToolbarItem",
+      "properties": { "placement": "secondaryAction" },
+      "content": { "type": "Button", "properties": { "title": "Select All", "actionID": "toolbar.selectall" } }
+    },
+    {
+      "type": "ToolbarItem",
+      "properties": { "placement": "bottomBar" },
+      "content": { "type": "Button", "properties": { "title": "Edit", "actionID": "toolbar.edit" } }
+    }
+  ],
+  "children": [
+    { "type": "Text", "properties": { "text": "A top-level List (no NavigationStack) with a real top bar: Cancel (leading), Add (trailing), a More overflow, and a bottom Edit bar." } },
+    { "type": "Text", "properties": { "text": "Buy groceries" } },
+    { "type": "Text", "properties": { "text": "Call the dentist" } },
+    { "type": "Text", "properties": { "text": "Renew library books" } },
+    { "type": "Text", "properties": { "text": "Water the plants" } },
+    { "type": "Text", "properties": { "text": "Plan weekend trip" } }
+  ]
+}
