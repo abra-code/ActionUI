@@ -1,9 +1,7 @@
 package com.abracode.actionui.Views
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -11,7 +9,6 @@ import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -27,6 +24,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.ToolbarHost
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -182,24 +180,23 @@ private fun currentDestinationPath(navController: NavController): List<Int> =
 
 /**
  * Renders one navigation child (root content or a destination) through the normal
- * pipeline, prefixing a `navigationTitle` header when present (a minimal stand-in
- * for the navigation bar, which lands with the toolbar track).
+ * pipeline. When the element declares a `toolbar` or a `navigationTitle`, the body
+ * is wrapped in a [ToolbarHost] (a `Scaffold` + `TopAppBar` / `BottomAppBar`); see
+ * `Helpers/ToolbarHelper.kt`. Otherwise it renders bare.
  */
 @Composable
 private fun RenderNavChild(element: ActionUIElement?, logger: ActionUILogger) {
     if (element == null) return
     val builder = ActionUIRegistry.lookup(element.type) ?: return
-    val title = element.properties?.stringProperty("navigationTitle")
     val body: @Composable () -> Unit = {
         ProvideTextStyleEnvironment(element.properties, logger) {
             builder.BuildView(element, Modifier.applyCommonProperties(element.properties, logger))
         }
     }
-    if (title != null) {
-        Column {
-            M3Text(text = title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(16.dp))
-            body()
-        }
+    val hasChrome = element.toolbar != null ||
+        element.properties?.stringProperty("navigationTitle") != null
+    if (hasChrome) {
+        ToolbarHost(element, logger) { inner -> Box(Modifier.padding(inner)) { body() } }
     } else {
         body()
     }

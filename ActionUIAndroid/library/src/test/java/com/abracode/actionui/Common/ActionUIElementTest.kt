@@ -96,7 +96,7 @@ class ActionUIElementTest {
     }
 
     @Test
-    fun `subElements includes destination and destinations after children and content`() {
+    fun `subElements includes destination, destinations, then toolbar`() {
         val element = ActionUIElement(
             id = 1, type = "NavigationStack",
             children = listOf(ActionUIElement(id = 2, type = "Text")),
@@ -106,9 +106,28 @@ class ActionUIElementTest {
                 ActionUIElement(id = 5, type = "Text"),
                 ActionUIElement(id = 6, type = "Text"),
             ),
+            toolbar = listOf(ActionUIElement(id = 7, type = "ToolbarItem")),
         )
 
-        assertEquals(listOf(2, 3, 4, 5, 6), element.subElements().map { it.id })
+        assertEquals(listOf(2, 3, 4, 5, 6, 7), element.subElements().map { it.id })
+    }
+
+    @Test
+    fun `decodes the toolbar array container`() {
+        val element = decode(
+            """
+            { "type": "VStack",
+              "toolbar": [
+                { "type": "ToolbarItem", "id": 10, "properties": { "placement": "topBarTrailing" },
+                  "content": { "type": "Button", "id": 11 } }
+              ],
+              "children": [ { "type": "Text", "id": 3 } ] }
+            """.trimIndent()
+        )
+
+        assertEquals(1, element.toolbar?.size)
+        assertEquals("ToolbarItem", element.toolbar?.first()?.type)
+        assertEquals(11, element.toolbar?.first()?.content?.id)
     }
 
     @Test

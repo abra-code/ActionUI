@@ -42,6 +42,10 @@ import kotlinx.serialization.json.JsonObject
  *     addressed by its `id` via a link/row's `destinationViewId`. Both
  *     navigation containers are registered (included in [subElements]) so their
  *     descendants get [ViewModel]s and are host-addressable.
+ *   * [toolbar] - the array of `ToolbarItem`/`ToolbarItemGroup` declared on any
+ *     element; consumed by the navigation screen's `ToolbarHost` (Scaffold top/
+ *     bottom bar), not rendered inline. Registered (in [subElements]) so each
+ *     item's `content`/`children` get [ViewModel]s.
  *
  * Any traversal of the element tree (id registration, etc.) should iterate
  * [subElements] so it automatically covers every named container as more are
@@ -56,6 +60,7 @@ interface ActionUIElementBase {
     val template: ActionUIElement?
     val destination: ActionUIElement?
     val destinations: List<ActionUIElement>?
+    val toolbar: List<ActionUIElement>?
 }
 
 @Serializable
@@ -67,7 +72,8 @@ data class ActionUIElement(
     override val content: ActionUIElement? = null,
     override val template: ActionUIElement? = null,
     override val destination: ActionUIElement? = null,
-    override val destinations: List<ActionUIElement>? = null
+    override val destinations: List<ActionUIElement>? = null,
+    override val toolbar: List<ActionUIElement>? = null
 ) : ActionUIElementBase
 
 /**
@@ -82,4 +88,5 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     content?.let { add(it) }
     destination?.let { add(it) }
     destinations?.let { addAll(it) }
+    toolbar?.let { addAll(it) }
 }

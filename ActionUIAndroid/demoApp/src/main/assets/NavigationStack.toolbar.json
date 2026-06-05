@@ -1,0 +1,43 @@
+{
+  "type": "NavigationStack",
+  "id": 1,
+  "properties": { "frame": { "height": 480 } },
+  "content": {
+    "type": "VStack",
+    "id": 2,
+    "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "navigationTitle": "Inbox" },
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "properties": { "placement": "topBarLeading" },
+        "content": { "type": "Button", "properties": { "title": "Cancel", "actionID": "toolbar.cancel" } }
+      },
+      {
+        "type": "ToolbarItemGroup",
+        "properties": { "placement": "topBarTrailing" },
+        "children": [
+          { "type": "Button", "properties": { "title": "Edit", "actionID": "toolbar.edit" } },
+          { "type": "Button", "properties": { "title": "Add", "actionID": "toolbar.add" } }
+        ]
+      },
+      {
+        "type": "ToolbarItem",
+        "properties": { "placement": "secondaryAction" },
+        "content": { "type": "Button", "properties": { "title": "Archive", "actionID": "toolbar.archive" } }
+      },
+      {
+        "type": "ToolbarItem",
+        "properties": { "placement": "secondaryAction" },
+        "content": { "type": "Button", "properties": { "title": "Mark all read", "actionID": "toolbar.markread" } }
+      },
+      {
+        "type": "ToolbarItem",
+        "properties": { "placement": "bottomBar" },
+        "content": { "type": "Button", "properties": { "title": "Refresh", "actionID": "toolbar.refresh" } }
+      }
+    ],
+    "children": [
+      { "type": "Text", "properties": { "text": "A navigation screen with a real top bar: Cancel (leading), Edit/Add (trailing), a More overflow (secondaryAction), and a bottom Refresh bar." } }
+    ]
+  }
+}

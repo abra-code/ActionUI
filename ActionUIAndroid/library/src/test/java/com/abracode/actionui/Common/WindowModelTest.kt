@@ -174,6 +174,28 @@ class WindowModelTest {
     }
 
     @Test
+    fun `descends into toolbar item content and group children`() {
+        // Toolbar items are consumed by the chrome, but their content/children must
+        // register so a host can address a toolbar control by id.
+        val root = ActionUIElement(
+            id = 1, type = "VStack",
+            toolbar = listOf(
+                ActionUIElement(id = 2, type = "ToolbarItem",
+                    content = ActionUIElement(id = 3, type = "TextField",
+                        properties = buildJsonObject { put("text", "item") })),
+                ActionUIElement(id = 4, type = "ToolbarItemGroup",
+                    children = listOf(ActionUIElement(id = 5, type = "TextField",
+                        properties = buildJsonObject { put("text", "grp") }))),
+            ),
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals("item", window.viewModels[3]?.value)
+        assertEquals("grp", window.viewModels[5]?.value)
+    }
+
+    @Test
     fun `NavigationStack seeds an empty navigation path state`() {
         val window = model()
         window.loadDescription(ActionUIElement(id = 1, type = "NavigationStack"))

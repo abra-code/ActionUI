@@ -39,6 +39,8 @@ import com.abracode.actionui.Views.TabView
 import com.abracode.actionui.Views.Table
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.TextEditor
+import com.abracode.actionui.Views.ToolbarItem
+import com.abracode.actionui.Views.ToolbarItemGroup
 import com.abracode.actionui.Views.TextField
 import com.abracode.actionui.Views.Toggle
 import com.abracode.actionui.Views.VStack
@@ -91,6 +93,8 @@ object ActionUIRegistry {
         register("TabView", TabView)
         register("Tab", Tab)
         register("Menu", Menu)
+        register("ToolbarItem", ToolbarItem)
+        register("ToolbarItemGroup", ToolbarItemGroup)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

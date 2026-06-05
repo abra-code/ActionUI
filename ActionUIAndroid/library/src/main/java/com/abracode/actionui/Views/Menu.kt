@@ -72,9 +72,12 @@ internal fun menuItemKind(child: ActionUIElement): MenuItemKind = when (child.ty
     else -> MenuItemKind.Other
 }
 
-/** Renders one menu child as item(s); [dismiss] closes the menu after an action. */
+/**
+ * Renders one menu child as item(s); [dismiss] closes the menu after an action.
+ * Internal so the toolbar `secondaryAction` overflow can reuse it.
+ */
 @Composable
-private fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: () -> Unit) {
+internal fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: () -> Unit) {
     when (menuItemKind(child)) {
         MenuItemKind.Action -> {
             val label = child.properties?.stringProperty("title").orEmpty()
