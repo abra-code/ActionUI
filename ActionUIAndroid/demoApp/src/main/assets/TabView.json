@@ -1,0 +1,37 @@
+{
+  "type": "TabView",
+  "id": 1,
+  "properties": { "selection": 0, "actionID": "tab.changed", "frame": { "height": 420 } },
+  "children": [
+    {
+      "type": "Tab",
+      "properties": { "title": "Home", "systemImage": "house" },
+      "content": {
+        "type": "VStack",
+        "properties": { "spacing": 8, "padding": 16, "alignment": "leading" },
+        "children": [ { "type": "Text", "properties": { "text": "Home tab content." } } ]
+      }
+    },
+    {
+      "type": "Tab",
+      "properties": { "title": "Search", "systemImage": "magnifyingglass" },
+      "content": {
+        "type": "VStack",
+        "properties": { "spacing": 8, "padding": 16, "alignment": "leading" },
+        "children": [
+          { "type": "Text", "properties": { "text": "Search tab content." } },
+          { "type": "TextField", "id": 10, "properties": { "title": "Query", "text": "" } }
+        ]
+      }
+    },
+    {
+      "type": "Tab",
+      "properties": { "title": "Settings", "systemImage": "gear" },
+      "content": {
+        "type": "VStack",
+        "properties": { "spacing": 8, "padding": 16, "alignment": "leading" },
+        "children": [ { "type": "Toggle", "id": 11, "properties": { "title": "Notifications", "isOn": true } } ]
+      }
+    }
+  ]
+}

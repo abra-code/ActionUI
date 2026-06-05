@@ -152,6 +152,28 @@ class WindowModelTest {
     }
 
     @Test
+    fun `descends into TabView tab content`() {
+        // A TabView's tabs (children) and each tab's content must register so the
+        // host can address controls inside a tab by id.
+        val root = ActionUIElement(
+            id = 1, type = "TabView",
+            children = listOf(
+                ActionUIElement(
+                    id = 2, type = "Tab",
+                    content = ActionUIElement(id = 3, type = "TextField",
+                        properties = buildJsonObject { put("text", "tabbed") }),
+                ),
+            ),
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals("tabbed", window.viewModels[3]?.value)
+        // TabView is INT-valued: its selection is seeded.
+        assertEquals(0, window.viewModels[1]?.value)
+    }
+
+    @Test
     fun `NavigationStack seeds an empty navigation path state`() {
         val window = model()
         window.loadDescription(ActionUIElement(id = 1, type = "NavigationStack"))

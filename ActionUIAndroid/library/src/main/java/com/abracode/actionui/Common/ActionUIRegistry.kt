@@ -33,6 +33,8 @@ import com.abracode.actionui.Views.ShareLink
 import com.abracode.actionui.Views.Slider
 import com.abracode.actionui.Views.Spacer
 import com.abracode.actionui.Views.Stepper
+import com.abracode.actionui.Views.Tab
+import com.abracode.actionui.Views.TabView
 import com.abracode.actionui.Views.Table
 import com.abracode.actionui.Views.Text
 import com.abracode.actionui.Views.TextEditor
@@ -85,6 +87,8 @@ object ActionUIRegistry {
         register("ColorPicker", ColorPicker)
         register("NavigationStack", NavigationStack)
         register("NavigationLink", NavigationLink)
+        register("TabView", TabView)
+        register("Tab", Tab)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

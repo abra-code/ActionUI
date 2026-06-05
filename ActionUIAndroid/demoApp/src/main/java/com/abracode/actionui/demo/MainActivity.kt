@@ -101,6 +101,11 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Selected: $label", Toast.LENGTH_SHORT).show()
         }
 
+        // TabView.json: each tab switch passes the new 0-based index as context.
+        ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
+            Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()
+        }
+
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Default handler: '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }
