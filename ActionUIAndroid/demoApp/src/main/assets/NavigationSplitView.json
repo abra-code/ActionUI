@@ -1,0 +1,42 @@
+{
+  "type": "NavigationSplitView",
+  "id": 1,
+  "properties": { "frame": { "height": 480 }, "actionID": "split.selection.changed" },
+  "sidebar": {
+    "type": "List",
+    "id": 2,
+    "children": [
+      { "type": "Text", "id": 100, "properties": { "text": "Inbox", "destinationViewId": 10 } },
+      { "type": "Text", "id": 101, "properties": { "text": "Drafts", "destinationViewId": 11 } },
+      { "type": "Text", "id": 102, "properties": { "text": "Sent", "destinationViewId": 12 } }
+    ]
+  },
+  "detail": {
+    "type": "VStack",
+    "id": 3,
+    "properties": { "padding": 16 },
+    "children": [
+      { "type": "Text", "properties": { "text": "Select an item from the list. On a wide window (tablet / foldable) both panes show side by side; on a phone the detail replaces the list and Back returns to it." } }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Inbox" },
+      "children": [ { "type": "Text", "properties": { "text": "Inbox: 3 unread messages." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 11,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Drafts" },
+      "children": [ { "type": "Text", "properties": { "text": "Drafts: 1 saved draft." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 12,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Sent" },
+      "children": [ { "type": "Text", "properties": { "text": "Sent: 42 messages." } } ]
+    }
+  ]
+}

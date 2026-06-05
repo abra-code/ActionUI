@@ -22,6 +22,7 @@ import com.abracode.actionui.Views.Link
 import com.abracode.actionui.Views.Menu
 import com.abracode.actionui.Views.ListView
 import com.abracode.actionui.Views.NavigationLink
+import com.abracode.actionui.Views.NavigationSplitView
 import com.abracode.actionui.Views.NavigationStack
 import com.abracode.actionui.Views.Picker
 import com.abracode.actionui.Views.ProgressView
@@ -90,6 +91,7 @@ object ActionUIRegistry {
         register("ColorPicker", ColorPicker)
         register("NavigationStack", NavigationStack)
         register("NavigationLink", NavigationLink)
+        register("NavigationSplitView", NavigationSplitView)
         register("TabView", TabView)
         register("Tab", Tab)
         register("Menu", Menu)

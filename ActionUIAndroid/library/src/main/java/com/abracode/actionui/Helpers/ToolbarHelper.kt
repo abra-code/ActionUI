@@ -50,12 +50,13 @@ internal enum class ToolbarSlot { Leading, Principal, Trailing, Overflow, Bottom
  */
 /**
  * True when [element] should be wrapped in a [ToolbarHost] as a screen of its own:
- * it declares a `toolbar` or a `navigationTitle`. A `NavigationStack` is excluded -
- * it owns a `ToolbarHost` per navigation screen already (its chrome lives on the
- * `content` / `destinations` it renders, not on the stack element). Pure.
+ * it declares a `toolbar` or a `navigationTitle`. The multi-screen navigation
+ * containers are excluded - a `NavigationStack` owns a `ToolbarHost` per navigation
+ * screen, and a `NavigationSplitView` manages its own per-pane chrome - so their
+ * chrome lives on the views they render, not on the container element. Pure.
  */
 internal fun hasRootToolbarChrome(element: ActionUIElement): Boolean =
-    element.type != "NavigationStack" &&
+    element.type != "NavigationStack" && element.type != "NavigationSplitView" &&
         (element.toolbar != null || element.properties?.stringProperty("navigationTitle") != null)
 
 internal fun resolveToolbarSlot(placement: String?): ToolbarSlot = when (placement) {

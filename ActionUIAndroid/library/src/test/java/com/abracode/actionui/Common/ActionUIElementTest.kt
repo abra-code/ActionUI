@@ -65,16 +65,33 @@ class ActionUIElementTest {
     @Test
     fun `unknown top-level keys are ignored`() {
         // ignoreUnknownKeys mirrors ActionUI.Render: a container key not yet
-        // modeled on Android (e.g. Swift's `sidebar`) is dropped, not fatal.
+        // modeled on Android (e.g. Swift's `overlay`) is dropped, not fatal.
         val element = decode(
             """
-            { "type": "NavigationSplitView",
-              "sidebar": { "type": "Text" },
+            { "type": "ZStack",
+              "overlay": { "type": "Text" },
               "content": { "type": "Text", "id": 3 } }
             """.trimIndent()
         )
 
         assertEquals(3, element.content?.id)
+    }
+
+    @Test
+    fun `decodes the NavigationSplitView sidebar and detail panes`() {
+        val element = decode(
+            """
+            { "type": "NavigationSplitView", "id": 1,
+              "sidebar": { "type": "List", "id": 2 },
+              "detail": { "type": "Text", "id": 3 },
+              "destinations": [ { "type": "VStack", "id": 10 } ] }
+            """.trimIndent()
+        )
+
+        assertEquals("List", element.sidebar?.type)
+        assertEquals(2, element.sidebar?.id)
+        assertEquals(3, element.detail?.id)
+        assertEquals(listOf(10), element.destinations?.map { it.id })
     }
 
     @Test
@@ -96,7 +113,7 @@ class ActionUIElementTest {
     }
 
     @Test
-    fun `subElements includes destination, destinations, then toolbar`() {
+    fun `subElements flattens destination, destinations, sidebar, detail, then toolbar`() {
         val element = ActionUIElement(
             id = 1, type = "NavigationStack",
             children = listOf(ActionUIElement(id = 2, type = "Text")),
@@ -106,10 +123,12 @@ class ActionUIElementTest {
                 ActionUIElement(id = 5, type = "Text"),
                 ActionUIElement(id = 6, type = "Text"),
             ),
-            toolbar = listOf(ActionUIElement(id = 7, type = "ToolbarItem")),
+            sidebar = ActionUIElement(id = 7, type = "List"),
+            detail = ActionUIElement(id = 8, type = "Text"),
+            toolbar = listOf(ActionUIElement(id = 9, type = "ToolbarItem")),
         )
 
-        assertEquals(listOf(2, 3, 4, 5, 6, 7), element.subElements().map { it.id })
+        assertEquals(listOf(2, 3, 4, 5, 6, 7, 8, 9), element.subElements().map { it.id })
     }
 
     @Test

@@ -53,6 +53,7 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.ColorPicker, ActionUIRegistry.lookup("ColorPicker"))
         assertSame(com.abracode.actionui.Views.NavigationStack, ActionUIRegistry.lookup("NavigationStack"))
         assertSame(com.abracode.actionui.Views.NavigationLink, ActionUIRegistry.lookup("NavigationLink"))
+        assertSame(com.abracode.actionui.Views.NavigationSplitView, ActionUIRegistry.lookup("NavigationSplitView"))
         assertSame(com.abracode.actionui.Views.TabView, ActionUIRegistry.lookup("TabView"))
         assertSame(com.abracode.actionui.Views.Tab, ActionUIRegistry.lookup("Tab"))
         assertSame(com.abracode.actionui.Views.Menu, ActionUIRegistry.lookup("Menu"))
