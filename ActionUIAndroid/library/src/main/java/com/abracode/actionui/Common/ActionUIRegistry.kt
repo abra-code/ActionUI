@@ -19,6 +19,7 @@ import com.abracode.actionui.Views.LabeledContent
 import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
+import com.abracode.actionui.Views.Menu
 import com.abracode.actionui.Views.ListView
 import com.abracode.actionui.Views.NavigationLink
 import com.abracode.actionui.Views.NavigationStack
@@ -89,6 +90,7 @@ object ActionUIRegistry {
         register("NavigationLink", NavigationLink)
         register("TabView", TabView)
         register("Tab", Tab)
+        register("Menu", Menu)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

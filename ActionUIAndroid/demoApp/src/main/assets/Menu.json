@@ -1,0 +1,24 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Tap the menu to open a dropdown:" } },
+    {
+      "type": "Menu",
+      "id": 1,
+      "properties": { "title": "Options" },
+      "children": [
+        { "type": "Button", "properties": { "title": "New", "actionID": "menu.new" } },
+        { "type": "Button", "properties": { "title": "Open", "actionID": "menu.open" } },
+        { "type": "Divider" },
+        {
+          "type": "Section",
+          "properties": { "header": "Danger" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Delete", "actionID": "menu.delete" } }
+          ]
+        }
+      ]
+    }
+  ]
+}
