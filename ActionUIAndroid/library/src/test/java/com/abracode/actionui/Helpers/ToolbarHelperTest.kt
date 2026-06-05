@@ -40,6 +40,15 @@ class ToolbarHelperTest {
         assertEquals(ToolbarSlot.Trailing, resolveToolbarSlot("madeUp"))
     }
 
+    @Test
+    fun `resolveToolbarTitleSize maps the display mode to a bar size`() {
+        assertEquals(ToolbarTitleSize.Large, resolveToolbarTitleSize("large"))
+        assertEquals(ToolbarTitleSize.Medium, resolveToolbarTitleSize("inlineLarge"))
+        // inline / automatic / null / unknown all keep the compact small bar.
+        listOf("inline", "automatic", null, "madeUp")
+            .forEach { assertEquals(ToolbarTitleSize.Small, resolveToolbarTitleSize(it)) }
+    }
+
     private fun toolbarItem(placement: String, contentId: Int) = ActionUIElement(
         type = "ToolbarItem",
         properties = buildJsonObject { put("placement", placement) },

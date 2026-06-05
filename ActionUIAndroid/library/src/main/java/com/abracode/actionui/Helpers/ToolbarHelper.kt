@@ -3,9 +3,12 @@ package com.abracode.actionui.Helpers
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton
@@ -66,6 +69,24 @@ internal fun resolveToolbarSlot(placement: String?): ToolbarSlot = when (placeme
     else -> ToolbarSlot.Trailing
 }
 
+/** Which Material3 top-bar size renders a SwiftUI `toolbarTitleDisplayMode`. */
+internal enum class ToolbarTitleSize { Small, Medium, Large }
+
+/**
+ * Maps SwiftUI's `toolbarTitleDisplayMode` to a Material3 top-bar size: `large` ->
+ * `LargeTopAppBar`, `inlineLarge` -> `MediumTopAppBar` (the "between" size), and
+ * `inline` / `automatic` / null / unknown -> the small `TopAppBar`. Pure.
+ *
+ * `automatic` maps to small for a predictable, context-free result: iOS resolves it
+ * to a large title at a navigation root, which we can't infer here, so a large title
+ * must be requested explicitly with `large`.
+ */
+internal fun resolveToolbarTitleSize(displayMode: String?): ToolbarTitleSize = when (displayMode) {
+    "large" -> ToolbarTitleSize.Large
+    "inlineLarge" -> ToolbarTitleSize.Medium
+    else -> ToolbarTitleSize.Small
+}
+
 /** The toolbar items grouped by where they render. */
 internal data class ToolbarBuckets(
     val leading: List<ActionUIElement> = emptyList(),
@@ -104,10 +125,11 @@ internal fun resolveToolbar(element: ActionUIElement, logger: ActionUILogger): T
 }
 
 /**
- * Wraps [body] in a `Scaffold` whose `TopAppBar` (and `BottomAppBar`, if any)
- * render [element]'s `toolbar` and `navigationTitle`. This slice uses the small
- * `TopAppBar`; `LargeTopAppBar` (for `toolbarTitleDisplayMode: large`) is a
- * follow-up. [body] receives the Scaffold inset padding.
+ * Wraps [body] in a `Scaffold` whose top app bar (and `BottomAppBar`, if any)
+ * render [element]'s `toolbar` and `navigationTitle`. The top-bar size follows the
+ * canonical `toolbarTitleDisplayMode` (see [resolveToolbarTitleSize]): `large` ->
+ * `LargeTopAppBar`, `inlineLarge` -> `MediumTopAppBar`, otherwise the small
+ * `TopAppBar`. [body] receives the Scaffold inset padding.
  *
  * [modifier] is applied to the `Scaffold`. A `NavigationStack` screen leaves it at
  * the default (the `NavHost` bounds it); the document root passes a height-bounding
@@ -128,19 +150,25 @@ fun ToolbarHost(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    val principal = buckets.principal.firstOrNull()
-                    if (principal != null) RenderChrome(principal, logger) else M3Text(title ?: "")
-                },
-                navigationIcon = {
-                    Row { buckets.leading.forEach { RenderChrome(it, logger) } }
-                },
-                actions = {
-                    buckets.trailing.forEach { RenderChrome(it, logger) }
-                    if (buckets.overflow.isNotEmpty()) OverflowMenu(buckets.overflow, logger)
-                },
-            )
+            val titleSlot: @Composable () -> Unit = {
+                val principal = buckets.principal.firstOrNull()
+                if (principal != null) RenderChrome(principal, logger) else M3Text(title ?: "")
+            }
+            val navSlot: @Composable () -> Unit = {
+                Row { buckets.leading.forEach { RenderChrome(it, logger) } }
+            }
+            val actionsSlot: @Composable RowScope.() -> Unit = {
+                buckets.trailing.forEach { RenderChrome(it, logger) }
+                if (buckets.overflow.isNotEmpty()) OverflowMenu(buckets.overflow, logger)
+            }
+            when (resolveToolbarTitleSize(element.properties?.stringProperty("toolbarTitleDisplayMode"))) {
+                ToolbarTitleSize.Large ->
+                    LargeTopAppBar(title = titleSlot, navigationIcon = navSlot, actions = actionsSlot)
+                ToolbarTitleSize.Medium ->
+                    MediumTopAppBar(title = titleSlot, navigationIcon = navSlot, actions = actionsSlot)
+                ToolbarTitleSize.Small ->
+                    TopAppBar(title = titleSlot, navigationIcon = navSlot, actions = actionsSlot)
+            }
         },
         bottomBar = {
             if (buckets.bottom.isNotEmpty()) {

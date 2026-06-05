@@ -1,0 +1,43 @@
+{
+  "type": "NavigationStack",
+  "id": 1,
+  "properties": { "frame": { "height": 560 } },
+  "content": {
+    "type": "List",
+    "id": 2,
+    "properties": { "navigationTitle": "Large Title", "toolbarTitleDisplayMode": "large" },
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "properties": { "placement": "topBarTrailing" },
+        "content": { "type": "Button", "properties": { "title": "Add", "actionID": "toolbar.add" } }
+      }
+    ],
+    "children": [
+      { "type": "Text", "properties": { "text": "toolbarTitleDisplayMode 'large' renders a LargeTopAppBar. Tap a row to compare the other modes (each screen sets its own)." } },
+      { "type": "NavigationLink", "id": 3, "properties": { "title": "inlineLarge -> MediumTopAppBar", "destinationViewId": 10 } },
+      { "type": "NavigationLink", "id": 4, "properties": { "title": "inline -> small TopAppBar", "destinationViewId": 11 } },
+      { "type": "NavigationLink", "id": 5, "properties": { "title": "automatic -> small TopAppBar", "destinationViewId": 12 } }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Medium Title", "toolbarTitleDisplayMode": "inlineLarge" },
+      "children": [ { "type": "Text", "properties": { "text": "'inlineLarge' maps to a MediumTopAppBar (the size between small and large)." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 11,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Inline", "toolbarTitleDisplayMode": "inline" },
+      "children": [ { "type": "Text", "properties": { "text": "'inline' keeps the compact small TopAppBar." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 12,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Automatic", "toolbarTitleDisplayMode": "automatic" },
+      "children": [ { "type": "Text", "properties": { "text": "'automatic' resolves to the small TopAppBar here; set 'large' explicitly for a large title." } } ]
+    }
+  ]
+}
