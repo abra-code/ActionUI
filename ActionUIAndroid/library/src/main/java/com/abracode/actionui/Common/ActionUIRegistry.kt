@@ -20,6 +20,8 @@ import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
 import com.abracode.actionui.Views.ListView
+import com.abracode.actionui.Views.NavigationLink
+import com.abracode.actionui.Views.NavigationStack
 import com.abracode.actionui.Views.Picker
 import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
@@ -81,6 +83,8 @@ object ActionUIRegistry {
         register("Table", Table)
         register("DatePicker", DatePicker)
         register("ColorPicker", ColorPicker)
+        register("NavigationStack", NavigationStack)
+        register("NavigationLink", NavigationLink)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

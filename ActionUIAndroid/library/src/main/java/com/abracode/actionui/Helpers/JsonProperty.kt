@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -33,3 +34,6 @@ internal fun JsonObject.floatProperty(key: String): Float? =
 
 internal fun JsonObject.booleanProperty(key: String): Boolean? =
     get(key)?.jsonPrimitive?.booleanOrNull
+
+internal fun JsonObject.intProperty(key: String): Int? =
+    get(key)?.jsonPrimitive?.intOrNull

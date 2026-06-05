@@ -1,0 +1,41 @@
+{
+  "type": "NavigationStack",
+  "id": 1,
+  "properties": { "frame": { "height": 400 } },
+  "content": {
+    "type": "VStack",
+    "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "navigationTitle": "Home" },
+    "children": [
+      { "type": "Text", "properties": { "text": "Tap a link to push a destination; press Back to pop:" } },
+      { "type": "NavigationLink", "id": 2, "properties": { "title": "By reference: Detail A", "destinationViewId": 10 } },
+      { "type": "NavigationLink", "id": 3, "properties": { "title": "By reference: Detail B", "destinationViewId": 11 } },
+      {
+        "type": "NavigationLink",
+        "id": 4,
+        "properties": { "title": "Inline destination" },
+        "destination": {
+          "type": "VStack",
+          "id": 12,
+          "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Inline" },
+          "children": [
+            { "type": "Text", "properties": { "text": "This screen was declared inline on the link (hoisted to a route by id)." } }
+          ]
+        }
+      }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Detail A" },
+      "children": [ { "type": "Text", "properties": { "text": "Detail A content." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 11,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Detail B" },
+      "children": [ { "type": "Text", "properties": { "text": "Detail B content." } } ]
+    }
+  ]
+}

@@ -65,16 +65,50 @@ class ActionUIElementTest {
     @Test
     fun `unknown top-level keys are ignored`() {
         // ignoreUnknownKeys mirrors ActionUI.Render: a container key not yet
-        // modeled on Android (e.g. Swift's `destination`) is dropped, not fatal.
+        // modeled on Android (e.g. Swift's `sidebar`) is dropped, not fatal.
         val element = decode(
             """
-            { "type": "NavigationLink",
-              "destination": { "type": "Text" },
+            { "type": "NavigationSplitView",
+              "sidebar": { "type": "Text" },
               "content": { "type": "Text", "id": 3 } }
             """.trimIndent()
         )
 
         assertEquals(3, element.content?.id)
+    }
+
+    @Test
+    fun `decodes the navigation destination and destinations containers`() {
+        val element = decode(
+            """
+            { "type": "NavigationStack", "id": 1,
+              "content": { "type": "NavigationLink", "id": 2,
+                "destination": { "type": "Text", "id": 9 } },
+              "destinations": [
+                { "type": "Text", "id": 10 },
+                { "type": "Text", "id": 11 }
+              ] }
+            """.trimIndent()
+        )
+
+        assertEquals(9, element.content?.destination?.id)
+        assertEquals(listOf(10, 11), element.destinations?.map { it.id })
+    }
+
+    @Test
+    fun `subElements includes destination and destinations after children and content`() {
+        val element = ActionUIElement(
+            id = 1, type = "NavigationStack",
+            children = listOf(ActionUIElement(id = 2, type = "Text")),
+            content = ActionUIElement(id = 3, type = "Text"),
+            destination = ActionUIElement(id = 4, type = "Text"),
+            destinations = listOf(
+                ActionUIElement(id = 5, type = "Text"),
+                ActionUIElement(id = 6, type = "Text"),
+            ),
+        )
+
+        assertEquals(listOf(2, 3, 4, 5, 6), element.subElements().map { it.id })
     }
 
     @Test

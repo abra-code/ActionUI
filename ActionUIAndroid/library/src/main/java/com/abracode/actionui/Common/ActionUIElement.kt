@@ -37,6 +37,11 @@ import kotlinx.serialization.json.JsonObject
  *     [ViewModel] pool, so its own id (and its descendants') must not collide
  *     with the rest of the tree. Mirrors Swift, where template instances use
  *     throw-away `ViewModel`s rather than the window pool.
+ *   * [destination] - a `NavigationLink`'s inline push target (a single view).
+ *   * [destinations] - a `NavigationStack`'s array of push targets, each
+ *     addressed by its `id` via a link/row's `destinationViewId`. Both
+ *     navigation containers are registered (included in [subElements]) so their
+ *     descendants get [ViewModel]s and are host-addressable.
  *
  * Any traversal of the element tree (id registration, etc.) should iterate
  * [subElements] so it automatically covers every named container as more are
@@ -49,6 +54,8 @@ interface ActionUIElementBase {
     val children: List<ActionUIElement>?
     val content: ActionUIElement?
     val template: ActionUIElement?
+    val destination: ActionUIElement?
+    val destinations: List<ActionUIElement>?
 }
 
 @Serializable
@@ -58,7 +65,9 @@ data class ActionUIElement(
     override val properties: JsonObject? = null,
     override val children: List<ActionUIElement>? = null,
     override val content: ActionUIElement? = null,
-    override val template: ActionUIElement? = null
+    override val template: ActionUIElement? = null,
+    override val destination: ActionUIElement? = null,
+    override val destinations: List<ActionUIElement>? = null
 ) : ActionUIElementBase
 
 /**
@@ -71,4 +80,6 @@ data class ActionUIElement(
 fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     children?.let { addAll(it) }
     content?.let { add(it) }
+    destination?.let { add(it) }
+    destinations?.let { addAll(it) }
 }

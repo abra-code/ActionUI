@@ -128,6 +128,38 @@ class WindowModelTest {
     }
 
     @Test
+    fun `descends into the navigation destination and destinations containers`() {
+        // A NavigationStack's destinations (and a link's inline destination) must
+        // be registered so their controls are host-addressable by id.
+        val root = ActionUIElement(
+            id = 1, type = "NavigationStack",
+            content = ActionUIElement(
+                id = 2, type = "NavigationLink",
+                destination = ActionUIElement(id = 3, type = "TextField",
+                    properties = buildJsonObject { put("text", "inline") }),
+            ),
+            destinations = listOf(
+                ActionUIElement(id = 10, type = "TextField",
+                    properties = buildJsonObject { put("text", "dest") }),
+            ),
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals(4, window.viewModels.size)
+        assertEquals("inline", window.viewModels[3]?.value)
+        assertEquals("dest", window.viewModels[10]?.value)
+    }
+
+    @Test
+    fun `NavigationStack seeds an empty navigation path state`() {
+        val window = model()
+        window.loadDescription(ActionUIElement(id = 1, type = "NavigationStack"))
+
+        assertEquals(emptyList<Int>(), window.viewModels[1]?.states?.get("navigationPath"))
+    }
+
+    @Test
     fun `List seeds empty rows in its content state`() {
         val window = model()
         window.loadDescription(ActionUIElement(id = 1, type = "List"))
