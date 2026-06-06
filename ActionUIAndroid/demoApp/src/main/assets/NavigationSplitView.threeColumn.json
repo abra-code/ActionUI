@@ -1,0 +1,51 @@
+{
+  "type": "NavigationSplitView",
+  "id": 1,
+  "properties": { "frame": { "height": 520 }, "columnVisibility": "all", "style": "balanced", "actionID": "split.threecol.selection" },
+  "sidebar": {
+    "type": "List",
+    "id": 2,
+    "children": [
+      { "type": "Text", "id": 100, "properties": { "text": "Inbox", "destinationViewId": 10 } },
+      { "type": "Text", "id": 101, "properties": { "text": "Drafts", "destinationViewId": 11 } },
+      { "type": "Text", "id": 102, "properties": { "text": "Archive", "destinationViewId": 12 } }
+    ]
+  },
+  "content": {
+    "type": "VStack",
+    "id": 3,
+    "properties": { "spacing": 8, "padding": 16 },
+    "children": [
+      { "type": "Text", "properties": { "text": "Messages" } },
+      { "type": "Text", "properties": { "text": "The middle column. On a wide window (tablet / unfolded foldable) the sidebar, this content column, and the detail show together; narrower windows page between them." } }
+    ]
+  },
+  "detail": {
+    "type": "VStack",
+    "id": 4,
+    "properties": { "padding": 16 },
+    "children": [
+      { "type": "Text", "properties": { "text": "Select a mailbox to see its detail here." } }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Inbox" },
+      "children": [ { "type": "Text", "properties": { "text": "Inbox detail: 3 unread messages." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 11,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Drafts" },
+      "children": [ { "type": "Text", "properties": { "text": "Drafts detail: 1 saved draft." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 12,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Archive" },
+      "children": [ { "type": "Text", "properties": { "text": "Archive detail: 128 messages." } } ]
+    }
+  ]
+}

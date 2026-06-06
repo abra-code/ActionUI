@@ -2,6 +2,8 @@ package com.abracode.actionui.Views
 
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIRegistry
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -9,10 +11,11 @@ import org.junit.Test
 
 /**
  * Unit tests for [NavigationSplitView] - registry resolution, the
- * `selectedDestination` state seed, and the pure [navigationSplitDestinations]
- * (detail targets keyed by id, id-0 skipped). The `@Composable`
- * `NavigableListDetailPaneScaffold` / pane / selection surfaces are exercised by
- * the app (it needs a window size class to lay out).
+ * `selectedDestination` / `columnVisibility` state seeds, the pure
+ * [navigationSplitDestinations] (detail targets keyed by id, id-0 skipped), and the
+ * pure [resolveSplitColumnVisibility] / [resolveSplitStyle] property maps. The
+ * `@Composable` `NavigableListDetailPaneScaffold` / pane / selection surfaces are
+ * exercised by the app (it needs a window size class to lay out).
  */
 class NavigationSplitViewTest {
 
@@ -22,11 +25,39 @@ class NavigationSplitViewTest {
     }
 
     @Test
-    fun `seeds selectedDestination to none`() {
+    fun `seeds selectedDestination and columnVisibility to defaults`() {
         assertEquals(
-            mapOf("selectedDestination" to 0),
+            mapOf("selectedDestination" to 0, "columnVisibility" to "all"),
             NavigationSplitView.initialStates(ActionUIElement(id = 1, type = "NavigationSplitView")),
         )
+    }
+
+    @Test
+    fun `seeds columnVisibility from the author property`() {
+        val element = ActionUIElement(
+            id = 1, type = "NavigationSplitView",
+            properties = buildJsonObject { put("columnVisibility", "detail") },
+        )
+        assertEquals("detail", NavigationSplitView.initialStates(element)["columnVisibility"])
+    }
+
+    @Test
+    fun `resolveSplitColumnVisibility maps known values and defaults to all`() {
+        assertEquals(SplitColumnVisibility.Automatic, resolveSplitColumnVisibility("automatic"))
+        assertEquals(SplitColumnVisibility.DoubleColumn, resolveSplitColumnVisibility("doubleColumn"))
+        assertEquals(SplitColumnVisibility.Detail, resolveSplitColumnVisibility("detail"))
+        assertEquals(SplitColumnVisibility.All, resolveSplitColumnVisibility("all"))
+        assertEquals(SplitColumnVisibility.All, resolveSplitColumnVisibility(null))
+        assertEquals(SplitColumnVisibility.All, resolveSplitColumnVisibility("bogus"))
+    }
+
+    @Test
+    fun `resolveSplitStyle maps known values and defaults to automatic`() {
+        assertEquals(SplitStyle.Balanced, resolveSplitStyle("balanced"))
+        assertEquals(SplitStyle.ProminentDetail, resolveSplitStyle("prominentDetail"))
+        assertEquals(SplitStyle.Automatic, resolveSplitStyle("automatic"))
+        assertEquals(SplitStyle.Automatic, resolveSplitStyle(null))
+        assertEquals(SplitStyle.Automatic, resolveSplitStyle("bogus"))
     }
 
     @Test
