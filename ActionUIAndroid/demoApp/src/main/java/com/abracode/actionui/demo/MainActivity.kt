@@ -129,7 +129,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DemoApp() {
     val context = LocalContext.current
-    val files = remember { listJsonAssets(context) }
+    // The synthetic RenderSource entry leads; the bundled assets follow (sorted).
+    val files = remember { listOf(RENDER_SOURCE_DEMO_LABEL) + listJsonAssets(context) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
 
     when (val current = selected) {

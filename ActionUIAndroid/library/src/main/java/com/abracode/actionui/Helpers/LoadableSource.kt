@@ -35,9 +35,8 @@ internal sealed interface LoadableSource {
     data class FilePath(val path: String, val format: LoadableFormat) : LoadableSource
 
     /**
-     * Remote `http(s)` [url]. Deferred on Android (the synchronous local-source
-     * chunk ships first; remote async loading lands with `RemoteLoadableView`),
-     * so the renderer warn-and-skips this case.
+     * Remote `http(s)` [url], fetched asynchronously off the main thread (see
+     * [loadRemoteDescription]). Requires the `INTERNET` permission.
      */
     data class Remote(val url: String, val format: LoadableFormat) : LoadableSource
 }

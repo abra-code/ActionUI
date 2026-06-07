@@ -36,7 +36,19 @@ import com.abracode.actionui.ActionUI
  * document with
  * [ActionUI.RenderAsset] inside a scroll container (ActionUI has no `ScrollView`
  * element yet) and offers a back affordance (top bar + system back).
+ *
+ * The list also carries one synthetic entry, [RENDER_SOURCE_DEMO_LABEL], that is
+ * not a bundled file: it renders a remote document as the window *root* via
+ * [ActionUI.RenderSource] (the Android counterpart of Apple's `LoadableWindowGroup`
+ * / `isContentView == true`), to demonstrate root-replacement loading.
  */
+
+/**
+ * Synthetic selector entry (not an asset file): renders a remote document as the
+ * window root via [ActionUI.RenderSource], demonstrating async root replacement.
+ */
+const val RENDER_SOURCE_DEMO_LABEL: String = "RenderSource (remote root)"
+private const val RENDER_SOURCE_DEMO_URL: String = "https://abracode.com/ActionUI/HelloWorld.json"
 
 /** Lists the bundled example documents: top-level `.json` files in `assets/`, sorted. */
 fun listJsonAssets(context: Context): List<String> =
@@ -106,7 +118,13 @@ fun ExampleDetailScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            ActionUI.RenderAsset(assetPath = assetPath, modifier = Modifier.fillMaxWidth())
+            if (assetPath == RENDER_SOURCE_DEMO_LABEL) {
+                // Root-replacement loadable: fetch a remote document and render it
+                // as the window root (spinner while loading, error text on failure).
+                ActionUI.RenderSource(source = RENDER_SOURCE_DEMO_URL, modifier = Modifier.fillMaxWidth())
+            } else {
+                ActionUI.RenderAsset(assetPath = assetPath, modifier = Modifier.fillMaxWidth())
+            }
         }
     }
 }
