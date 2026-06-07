@@ -181,6 +181,61 @@ internal fun selectImageSource(
 }
 
 /**
+ * Picks the icon an image-label element (`Label` / `Button`) should draw from its
+ * [properties], or `null` when it carries no icon (title-only - not an error,
+ * unlike [selectImageSource]). Reuses the glyph [ImageSource] kinds so the render
+ * path is shared with `Image` (`SymbolIcon.kt`).
+ *
+ * Mirrors Image's `materialName` > `systemName` priority, but reads the SF name
+ * from `systemImage` - the Apple `Label`/`Button` spelling of `systemName`. The
+ * asset-catalog source (`imageName` on Label, `assetImage` on Button, named via
+ * [assetCatalogKey]) is the analog of Image's `assetName`: still deferred, so it
+ * warns-and-skips here. Pure (no Android framework) so it is unit-testable; the
+ * codepoint + per-row tuning come from the render seam at draw time.
+ */
+internal fun selectLabelIcon(
+    properties: JsonObject?,
+    assetCatalogKey: String,
+    elementName: String,
+    logger: ActionUILogger? = null,
+): ImageSource? {
+    if (properties == null) return null
+    val materialName = properties.stringSource("materialName", logger)
+    val systemImage = properties.stringSource("systemImage", logger)
+    val assetImage = properties.stringSource(assetCatalogKey, logger)
+    return when {
+        materialName != null -> ImageSource.MaterialSymbol(
+            name = materialName,
+            weight = (properties.intProperty("materialWeight") ?: MATERIAL_WEIGHT_DEFAULT)
+                .coerceIn(MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX),
+            fill = (properties.materialFillValue() ?: MATERIAL_FILL_DEFAULT)
+                .coerceIn(MATERIAL_FILL_MIN, MATERIAL_FILL_MAX),
+            grade = (properties.intProperty("materialGrade") ?: MATERIAL_GRADE_DEFAULT)
+                .coerceIn(MATERIAL_GRADE_MIN, MATERIAL_GRADE_MAX),
+            explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
+        )
+        systemImage != null -> ImageSource.SystemSymbol(
+            name = systemImage,
+            explicitWeight = properties.intProperty("materialWeight"),
+            explicitFill = properties.materialFillValue(),
+            explicitGrade = properties.intProperty("materialGrade"),
+            explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
+        )
+        assetImage != null -> {
+            logger?.log(
+                "$elementName '$assetCatalogKey' ('$assetImage') maps to an Android " +
+                    "res/drawable resource, which is not supported yet (pending a " +
+                    "name->resource contract). Use 'systemImage' (SF Symbol) or " +
+                    "'materialName:android' (Material Symbol). No icon rendered.",
+                LoggerLevel.warning
+            )
+            null
+        }
+        else -> null
+    }
+}
+
+/**
  * Reads the `materialFill` axis, which accepts either a number in 0..1 or a
  * boolean (`true` -> 1, `false` -> 0; SF's `.fill` variant is the binary case).
  * Returns `null` if absent or an unusable type.

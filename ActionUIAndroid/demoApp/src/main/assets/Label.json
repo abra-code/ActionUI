@@ -1,0 +1,87 @@
+{
+  "type": "VStack",
+  "properties": {
+    "alignment": "leading",
+    "spacing": 18,
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Label = title + leading icon (SF Symbol -> Material glyph)", "font": "headline" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Favorites", "systemImage": "heart.fill", "foregroundStyle": "pink" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Starred", "systemImage": "star.fill", "foregroundStyle": "orange" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Settings", "systemImage": "gearshape" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Delete", "systemImage": "trash", "foregroundStyle": "red" }
+    },
+
+    {
+      "type": "Text",
+      "properties": { "text": "title-only (no image -> collapses like SwiftUI .titleOnly)", "font": "headline" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "No icon here" }
+    },
+
+    {
+      "type": "Text",
+      "properties": { "text": "imageScale + foregroundStyle", "font": "headline" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Small", "systemImage": "bell.fill", "imageScale": "small", "foregroundStyle": "purple" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Large", "systemImage": "bell.fill", "imageScale": "large", "foregroundStyle": "purple" }
+    },
+
+    {
+      "type": "Text",
+      "properties": { "text": "escape hatch: explicit Material glyph + axis overrides (:android)", "font": "headline" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Material glyph", "materialName:android": "favorite", "materialFill:android": 1, "foregroundStyle": "teal" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Bold weight", "systemImage": "person", "materialWeight:android": 700, "materialSize:android": 28 }
+    },
+
+    {
+      "type": "Text",
+      "properties": { "text": "cross-platform: same JSON renders on Apple (SF) and Android (Material)", "font": "headline" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Home", "systemImage": "house", "foregroundStyle": "indigo" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Mail", "systemImage": "envelope", "foregroundStyle": "blue" }
+    },
+
+    {
+      "type": "Text",
+      "properties": { "text": "deferred: imageName (asset catalog) -> title-only + one warning", "font": "headline" }
+    },
+    {
+      "type": "Label",
+      "properties": { "title": "Asset image (not wired yet)", "imageName": "CustomIcon" }
+    }
+  ]
+}

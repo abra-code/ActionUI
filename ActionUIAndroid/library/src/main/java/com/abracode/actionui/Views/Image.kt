@@ -1,40 +1,30 @@
 package com.abracode.actionui.Views
 
 import androidx.compose.foundation.Image as FoundationImage
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.TextUnitType
-import androidx.compose.ui.unit.sp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ImageSource
-import com.abracode.actionui.Helpers.MaterialSymbolGlyph
+import com.abracode.actionui.Helpers.MaterialNameIcon
+import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.loadImagePainter
-import com.abracode.actionui.Helpers.materialCodepoint
 import com.abracode.actionui.Helpers.resolveContentScale
-import com.abracode.actionui.Helpers.resolveSymbolFill
-import com.abracode.actionui.Helpers.resolveSymbolGrade
-import com.abracode.actionui.Helpers.resolveSymbolSizeSp
-import com.abracode.actionui.Helpers.resolveSymbolWeight
 import com.abracode.actionui.Helpers.selectImageSource
 import com.abracode.actionui.Helpers.stringProperty
-import com.abracode.actionui.Helpers.systemSymbol
-import kotlinx.serialization.json.JsonObject
 
 /**
  * Renders a bundled raster image, a filesystem image, or a Material Symbol icon.
  *
  * Mirror of the Apple `Image` element (`ActionUI/Views/Image.swift`). Source
- * selection, scaling, axis resolution, and decoding live in the shared
- * `ImageResolver` seam (`Helpers/ImageResolver.kt`); the actual glyph draw lives
- * in `Helpers/MaterialSymbolFont.kt`. This builder stays thin and routes to the
- * right renderer.
+ * selection, scaling, and axis resolution live in the shared `ImageResolver` seam
+ * (`Helpers/ImageResolver.kt`); the glyph draw lives in the shared `SymbolIcon`
+ * seam (`Helpers/SymbolIcon.kt`), which `Label` and Button image-labels reuse.
+ * This builder stays thin and routes to the right renderer.
  *
  * **Supported sources.**
  *   * `resourceName`        -> a file in `assets/` (e.g. `"logo.png"`), raster.
@@ -83,17 +73,27 @@ object Image : ActionUIViewConstruction {
 
         // Source selection (+ its warnings) runs once per properties change.
         val source = remember(props) { selectImageSource(props, logger) }
+        val imageScale = props?.stringProperty("imageScale")
+        val contentDescription = props?.stringProperty("accessibilityLabel")
 
         when (source) {
             null -> return
 
             is ImageSource.MaterialSymbol -> {
-                // materialName: name -> codepoint via the Material codepoints table;
+                // materialName -> codepoint + glyph via the shared SymbolIcon seam;
                 // axes were already resolved + clamped in selectImageSource.
-                val codepoint = remember(source, context) {
-                    materialCodepoint(source.name, context.assets, logger)
-                }
-                if (codepoint == null) {
+                val rendered = MaterialNameIcon(
+                    name = source.name,
+                    weight = source.weight,
+                    fill = source.fill,
+                    grade = source.grade,
+                    explicitSizeSp = source.explicitSizeSp,
+                    imageScale = imageScale,
+                    contentDescription = contentDescription,
+                    modifier = modifier,
+                    logger = logger,
+                )
+                if (!rendered) {
                     // Unknown name -> render nothing, warned once per source.
                     remember(source) {
                         logger?.log(
@@ -102,26 +102,24 @@ object Image : ActionUIViewConstruction {
                             LoggerLevel.warning
                         )
                     }
-                    return
                 }
-                SymbolGlyph(
-                    codepoint = codepoint,
-                    weight = source.weight,
-                    fill = source.fill,
-                    grade = source.grade,
-                    explicitSizeSp = source.explicitSizeSp,
-                    props = props,
-                    modifier = modifier,
-                )
             }
 
             is ImageSource.SystemSymbol -> {
-                // systemName: SF name -> (codepoint, per-row fill/weight) via the
-                // SF->Material map. Explicit :android knobs override the map's tuning.
-                val entry = remember(source, context) {
-                    systemSymbol(source.name, context.assets, logger)
-                }
-                if (entry == null) {
+                // systemName -> SF->Material map -> glyph via the shared SymbolIcon
+                // seam. Explicit :android knobs override the map's per-row tuning.
+                val rendered = SystemSymbolIcon(
+                    name = source.name,
+                    explicitWeight = source.explicitWeight,
+                    explicitFill = source.explicitFill,
+                    explicitGrade = source.explicitGrade,
+                    explicitSizeSp = source.explicitSizeSp,
+                    imageScale = imageScale,
+                    contentDescription = contentDescription,
+                    modifier = modifier,
+                    logger = logger,
+                )
+                if (!rendered) {
                     remember(source) {
                         logger?.log(
                             "Image systemName '${source.name}' has no SF->Material mapping " +
@@ -130,17 +128,7 @@ object Image : ActionUIViewConstruction {
                             LoggerLevel.warning
                         )
                     }
-                    return
                 }
-                SymbolGlyph(
-                    codepoint = entry.codepoint,
-                    weight = resolveSymbolWeight(source.explicitWeight, entry.weight),
-                    fill = resolveSymbolFill(source.explicitFill, entry.fill),
-                    grade = resolveSymbolGrade(source.explicitGrade),
-                    explicitSizeSp = source.explicitSizeSp,
-                    props = props,
-                    modifier = modifier,
-                )
             }
 
             else -> {
@@ -155,47 +143,11 @@ object Image : ActionUIViewConstruction {
 
                 FoundationImage(
                     painter = painter,
-                    contentDescription = props?.stringProperty("accessibilityLabel"),
+                    contentDescription = contentDescription,
                     modifier = modifier,
                     contentScale = resolveContentScale(props, logger),
                 )
             }
         }
     }
-}
-
-/**
- * Draws a resolved symbol glyph (Material or SF), the shared tail of both icon
- * branches. Size mirrors SF Symbol image sizing - relative to the ambient font,
- * scaled by `imageScale` (cross-platform), or the `materialSize:android` override;
- * tint is the inherited `foregroundStyle` ([LocalContentColor]). The codepoint and
- * axes are already resolved by the caller.
- */
-@Composable
-private fun SymbolGlyph(
-    codepoint: Int,
-    weight: Int,
-    fill: Float,
-    grade: Int,
-    explicitSizeSp: Float?,
-    props: JsonObject?,
-    modifier: Modifier,
-) {
-    val ambientFontSizeSp = LocalTextStyle.current.fontSize
-        .let { if (it.type == TextUnitType.Sp) it.value else null }
-    val sizeSp = resolveSymbolSizeSp(
-        explicitSizeSp = explicitSizeSp,
-        imageScale = props?.stringProperty("imageScale"),
-        inheritedFontSizeSp = ambientFontSizeSp,
-    )
-    MaterialSymbolGlyph(
-        codepoint = codepoint,
-        sizeSp = sizeSp.sp,
-        tint = LocalContentColor.current,
-        weight = weight,
-        fill = fill,
-        grade = grade,
-        contentDescription = props?.stringProperty("accessibilityLabel"),
-        modifier = modifier,
-    )
 }

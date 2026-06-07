@@ -15,6 +15,7 @@ import com.abracode.actionui.Views.Group
 import com.abracode.actionui.Views.GroupBox
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
+import com.abracode.actionui.Views.Label
 import com.abracode.actionui.Views.LabeledContent
 import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
@@ -52,6 +53,7 @@ object ActionUIRegistry {
 
     init {
         register("Text", Text)
+        register("Label", Label)
         register("VStack", VStack)
         register("HStack", HStack)
         register("ZStack", ZStack)
