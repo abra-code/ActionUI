@@ -1,0 +1,2981 @@
+# SF Symbols -> Material Symbols, compiled by Tools/material_symbols/build_sf_material_map.py
+# Format: <sf_name> <codepoint_hex> [<fill>] [<weight>] - trailing integers
+# are axis overrides by range: 1 => FILL 1, 100..700 => wght.
+# Generated artifact - do not edit by hand; regenerate from the glyphsvg mapping.
+0.circle f785
+0.circle.fill f785 1
+1.calendar e935
+1.circle f784
+1.circle.fill f784 1
+1.magnifyingglass ef7a
+10.calendar e935
+11.calendar e935
+12.calendar e935
+13.calendar e935
+14.calendar e935
+15.calendar e935
+16.calendar e935
+17.calendar e935
+18.calendar e935
+19.calendar e935
+2.calendar e935
+2.circle f783
+2.circle.fill f783 1
+20.calendar e935
+21.calendar e935
+22.calendar e935
+23.calendar e935
+24.calendar e935
+25.calendar e935
+26.calendar e935
+27.calendar e935
+28.calendar e935
+29.calendar e935
+3.calendar e935
+3.circle f782
+3.circle.fill f782 1
+30.calendar e935
+31.calendar e935
+4.calendar e935
+4.circle f781
+4.circle.fill f781 1
+4k.tv e072
+4k.tv.fill e072 1
+5.calendar e935
+5.circle f780
+5.circle.fill f780 1
+6.calendar e935
+6.circle f77f
+6.circle.fill f77f 1
+7.calendar e935
+7.circle f77e
+7.circle.fill f77e 1
+8.calendar e935
+8.circle f77d
+8.circle.fill f77d 1
+9.calendar e935
+9.circle f77c
+9.circle.fill f77c 1
+accessibility e84e
+accessibility.fill e84e 1
+air.car.side eff7
+air.car.side.fill eff7 1
+air.conditioner eb3b
+air.purifier e97e
+air.purifier.fill e97e 1
+airplane e539
+airplane.arrival e539
+airplane.circle e539
+airplane.circle.fill e539 1
+airplane.cloud e539
+airplane.departure e539
+airplane.landed e539
+airplane.path.dotted e539
+airplane.ticket efd9
+airplane.ticket.fill efd9 1
+airplane.up.forward e539
+airplane.up.right e539
+airplaneseat e7cb
+airplay.audio e055
+airplay.audio.circle e055
+airplay.audio.circle.fill e055 1
+airplay.video e055
+airplay.video.circle e055
+airplay.video.circle.fill e055 1
+airpods f324
+airpods.chargingcase f327
+airpods.chargingcase.fill f327 1
+airpods.gen3 f324
+airpods.gen4 f324
+airpods.max f01f
+airport.express e328
+airport.extreme e328
+alarm e855
+alarm.fill e855 1
+align.horizontal.center e00f
+align.horizontal.center.fill e00f 1
+align.horizontal.left e00d
+align.horizontal.left.fill e00d 1
+align.horizontal.right e010
+align.horizontal.right.fill e010 1
+align.vertical.bottom e015
+align.vertical.bottom.fill e015 1
+align.vertical.center e011
+align.vertical.center.fill e011 1
+align.vertical.top e00c
+align.vertical.top.fill e00c 1
+alt eae8
+american.football ea29
+american.football.circle ea29
+american.football.circle.fill ea29 1
+american.football.fill ea29 1
+american.football.professional ea29
+american.football.professional.circle ea29
+american.football.professional.circle.fill ea29 1
+american.football.professional.fill ea29 1
+amplifier f5d3
+antenna.radiowaves.left.and.right e8bf
+antenna.radiowaves.left.and.right.circle e8bf
+antenna.radiowaves.left.and.right.circle.fill e8bf 1
+app eb36
+app.badge.checkmark f1fe
+app.badge.checkmark.fill f1fe 1
+app.fill eb36 1
+app.grid e9b0
+app.shadow e9df
+apple.books.pages e02f
+apple.books.pages.fill e02f 1
+apple.haptics.and.music.note e405
+apple.haptics.and.music.note.slash e440
+apple.image.playground e3f4
+apple.image.playground.fill e3f4 1
+apple.meditate ea78
+apple.meditate.circle ea78
+apple.meditate.circle.fill ea78 1
+apple.podcasts.pages f048
+apple.podcasts.pages.fill f048 1
+apple.terminal eb8e
+apple.terminal.circle eb8e
+apple.terminal.circle.fill eb8e 1
+apple.terminal.fill eb8e 1
+apple.terminal.on.rectangle eb8e
+apple.terminal.on.rectangle.fill eb8e 1
+applepencil f604 1 100
+applepencil.adapter.usb.c e1e0
+applepencil.adapter.usb.c.fill e1e0 1
+applepencil.and.scribble f603 1 100
+applepencil.gen1 f604 1 100
+applepencil.gen2 f604 1 100
+applepencil.tip f362 1 100
+appletvremote.gen1 f5d9 100
+appletvremote.gen1.fill f5d9 1 100
+appletvremote.gen2 f5d9 100
+appletvremote.gen2.fill f5d9 1 100
+appletvremote.gen3 e83e 100
+appletvremote.gen3.fill e83e 1 100
+appletvremote.gen4 e83e 100
+appletvremote.gen4.fill e83e 1 100
+applewatch e334
+applewatch.case.sizes e334
+applewatch.side.right e334
+applewatch.slash eae3
+applewatch.watchface e334
+apps.ipad e5c3
+apps.iphone e7ba
+apps.iphone.landscape e7ba
+appwindow.swipe.rectangle e9ec
+aqi.medium.gauge.open e9e4
+arcade.stick eed5
+archivebox e149
+archivebox.circle e149
+archivebox.circle.fill e149 1
+archivebox.fill e149 1
+arrow.2.squarepath e040
+arrow.3.trianglepath e760
+arrow.backward e5c4
+arrow.backward.circle eaa7
+arrow.backward.circle.dotted eaa7
+arrow.backward.circle.fill eaa7 1
+arrow.backward.square e5c4
+arrow.backward.square.fill e5c4 1
+arrow.backward.to.line f818
+arrow.backward.to.line.circle f818
+arrow.backward.to.line.circle.fill f818 1
+arrow.backward.to.line.compact f818
+arrow.backward.to.line.square f818
+arrow.backward.to.line.square.fill f818 1
+arrow.clockwise e5d5
+arrow.clockwise.circle e5d5
+arrow.clockwise.circle.fill e5d5 1
+arrow.clockwise.square e5d5
+arrow.clockwise.square.fill e5d5 1
+arrow.counterclockwise e042
+arrow.counterclockwise.circle e042
+arrow.counterclockwise.circle.fill e042 1
+arrow.counterclockwise.square e042
+arrow.counterclockwise.square.fill e042 1
+arrow.down e5db
+arrow.down.app e5db
+arrow.down.applewatch fffcf
+arrow.down.backward f1e5
+arrow.down.backward.and.arrow.up.forward f1ce
+arrow.down.backward.circle f1e5
+arrow.down.backward.circle.fill f1e5 1
+arrow.down.circle f181
+arrow.down.circle.dotted f181
+arrow.down.circle.fill f181 1
+arrow.down.forward f1e4
+arrow.down.forward.and.arrow.up.backward f1cf
+arrow.down.forward.circle f1e4
+arrow.down.forward.circle.fill f1e4 1
+arrow.down.heart.fill e87e 1
+arrow.down.left f1e5
+arrow.down.left.and.arrow.up.right f1ce
+arrow.down.left.arrow.up.right f1ce
+arrow.down.left.circle f1e5
+arrow.down.left.circle.fill f1e5 1
+arrow.down.left.video e04b
+arrow.down.left.video.fill e04b 1
+arrow.down.message e0c9
+arrow.down.message.fill e0c9 1
+arrow.down.right f1e4
+arrow.down.right.and.arrow.up.left e5d1
+arrow.down.right.and.arrow.up.left.circle e5d1
+arrow.down.right.and.arrow.up.left.circle.fill e5d1 1
+arrow.down.right.and.arrow.up.left.rectangle e5d1
+arrow.down.right.and.arrow.up.left.rectangle.fill e5d1 1
+arrow.down.right.and.arrow.up.left.square e5d1
+arrow.down.right.and.arrow.up.left.square.fill e5d1 1
+arrow.down.right.circle f1e4
+arrow.down.right.circle.fill f1e4 1
+arrow.down.square e5db
+arrow.down.square.fill e5db 1
+arrow.down.to.line e258
+arrow.down.to.line.compact e258
+arrow.forward e5c8
+arrow.forward.circle f6f5
+arrow.forward.circle.fill f6f5 1
+arrow.forward.to.line f81d
+arrow.forward.to.line.compact f81d
+arrow.left e5c4
+arrow.left.and.right.circle eee4
+arrow.left.and.right.circle.fill eee4 1
+arrow.left.arrow.right e8d4
+arrow.left.arrow.right.circle eee4
+arrow.left.arrow.right.circle.fill eee4 1
+arrow.left.circle eaa7
+arrow.left.circle.dotted eaa7
+arrow.left.circle.fill eaa7 1
+arrow.left.square f1e6
+arrow.left.square.fill f1e6 1
+arrow.left.to.line f818
+arrow.left.to.line.compact f818
+arrow.right e5c8
+arrow.right.circle eaaa
+arrow.right.circle.dotted eaaa
+arrow.right.circle.fill eaaa 1
+arrow.right.filled.filter.arrow.right f3d1
+arrow.right.page.on.clipboard ea8e
+arrow.right.square f1df
+arrow.right.square.fill f1df 1
+arrow.right.to.line f81d
+arrow.right.to.line.compact f81d
+arrow.trianglehead.2.clockwise e863
+arrow.trianglehead.2.clockwise.rotate.90 e863
+arrow.trianglehead.2.clockwise.rotate.90.camera efeb
+arrow.trianglehead.2.clockwise.rotate.90.camera.fill efeb 1
+arrow.trianglehead.2.clockwise.rotate.90.circle e627
+arrow.trianglehead.2.clockwise.rotate.90.circle.fill e627 1
+arrow.trianglehead.2.clockwise.rotate.90.icloud eb5a
+arrow.trianglehead.2.clockwise.rotate.90.icloud.fill eb5a 1
+arrow.trianglehead.2.counterclockwise e863
+arrow.trianglehead.2.counterclockwise.rotate.90 e863
+arrow.trianglehead.bottomleft.capsulepath.clockwise e5d5
+arrow.trianglehead.clockwise e5d5
+arrow.trianglehead.clockwise.icloud eb5a
+arrow.trianglehead.clockwise.icloud.fill eb5a 1
+arrow.trianglehead.clockwise.rotate.90 e5d5
+arrow.trianglehead.counterclockwise e042
+arrow.trianglehead.counterclockwise.icloud eb5a
+arrow.trianglehead.counterclockwise.icloud.fill eb5a 1
+arrow.trianglehead.counterclockwise.rotate.90 e418
+arrow.trianglehead.merge eb98
+arrow.trianglehead.rectanglepath e040
+arrow.trianglehead.topright.capsulepath.clockwise e5d5
+arrow.turn.down.left e5d9
+arrow.turn.down.right e5da
+arrow.up e5d8
+arrow.up.and.down ea16
+arrow.up.and.down.and.arrow.left.and.right e89f
+arrow.up.and.down.circle eee3
+arrow.up.and.down.circle.fill eee3 1
+arrow.up.and.down.text.horizontal e240
+arrow.up.and.line.horizontal.and.arrow.down e5d7
+arrow.up.arrow.down e8d5
+arrow.up.arrow.down.circle eee3
+arrow.up.arrow.down.circle.fill eee3 1
+arrow.up.backward f1e2
+arrow.up.backward.and.arrow.down.forward f1ce
+arrow.up.backward.circle f1e2
+arrow.up.backward.circle.fill f1e2 1
+arrow.up.bin e938
+arrow.up.bin.fill e938 1
+arrow.up.circle f182
+arrow.up.circle.badge.clock f381
+arrow.up.circle.fill f182 1
+arrow.up.document e9fc
+arrow.up.document.fill e9fc 1
+arrow.up.folder e9a3
+arrow.up.folder.fill e9a3 1
+arrow.up.forward f1e1
+arrow.up.forward.and.arrow.down.backward f1ce
+arrow.up.forward.app e89e
+arrow.up.forward.app.fill e89e 1
+arrow.up.heart.fill e87e 1
+arrow.up.left f1e2
+arrow.up.left.and.arrow.down.right f1ce
+arrow.up.left.and.arrow.down.right.circle f1ce
+arrow.up.left.and.arrow.down.right.circle.fill f1ce 1
+arrow.up.left.and.arrow.down.right.rectangle f1ce
+arrow.up.left.and.arrow.down.right.rectangle.fill f1ce 1
+arrow.up.left.and.arrow.down.right.square f1ce
+arrow.up.left.and.arrow.down.right.square.fill f1ce 1
+arrow.up.left.and.down.right.and.arrow.up.right.and.down.left f1ce
+arrow.up.left.arrow.down.right f1ce
+arrow.up.left.circle f1e2
+arrow.up.left.circle.fill f1e2 1
+arrow.up.message e0c9
+arrow.up.message.fill e0c9 1
+arrow.up.right f1e1
+arrow.up.right.and.arrow.down.left f1ce
+arrow.up.right.bottomleft.rectangle e89e
+arrow.up.right.bottomleft.rectangle.fill e89e 1
+arrow.up.right.circle f1e1
+arrow.up.right.circle.fill f1e1 1
+arrow.up.right.square e89e
+arrow.up.right.square.fill e89e 1
+arrow.up.square e5d8
+arrow.up.square.fill e5d8 1
+arrow.up.to.line e25a
+arrow.up.to.line.compact e25a
+arrow.up.trash e938
+arrow.up.trash.fill e938 1
+arrow.uturn.backward e166
+arrow.uturn.backward.circle e166
+arrow.uturn.backward.circle.badge.ellipsis e166
+arrow.uturn.backward.circle.fill e166 1
+arrow.uturn.forward e15a
+arrow.uturn.forward.circle e15a
+arrow.uturn.forward.circle.fill e15a 1
+arrow.uturn.left e166
+arrow.uturn.left.circle e166
+arrow.uturn.left.circle.fill e166 1
+arrow.uturn.right e15a
+arrow.uturn.right.circle e15a
+arrow.uturn.right.circle.fill e15a 1
+arrowkeys.left.filled f1e6
+arrowshape.backward e5c4
+arrowshape.backward.circle eaa7
+arrowshape.backward.circle.fill eaa7 1
+arrowshape.backward.fill e5c4 1
+arrowshape.down e5db
+arrowshape.down.circle f181
+arrowshape.down.circle.fill f181 1
+arrowshape.down.fill e5db 1
+arrowshape.forward e5c8
+arrowshape.forward.fill e5c8 1
+arrowshape.left f1e6
+arrowshape.left.arrowshape.right e8d4
+arrowshape.left.arrowshape.right.fill e8d4 1
+arrowshape.left.circle eaa7
+arrowshape.left.circle.fill eaa7 1
+arrowshape.left.fill f1e6 1
+arrowshape.right f1df
+arrowshape.right.circle eaaa
+arrowshape.right.circle.fill eaaa 1
+arrowshape.right.fill f1df 1
+arrowshape.turn.up.backward e15e
+arrowshape.turn.up.backward.2 e15f
+arrowshape.turn.up.backward.2.circle e15f
+arrowshape.turn.up.backward.2.circle.fill e15f 1
+arrowshape.turn.up.backward.2.fill e15f 1
+arrowshape.turn.up.backward.circle e15e
+arrowshape.turn.up.backward.circle.fill e15e 1
+arrowshape.turn.up.backward.fill e15e 1
+arrowshape.turn.up.left e15e
+arrowshape.turn.up.left.2 e15f
+arrowshape.turn.up.left.2.circle e15f
+arrowshape.turn.up.left.2.circle.fill e15f 1
+arrowshape.turn.up.left.2.fill e15f 1
+arrowshape.turn.up.left.circle e15e
+arrowshape.turn.up.left.circle.fill e15e 1
+arrowshape.turn.up.left.fill e15e 1
+arrowshape.turn.up.right f57a
+arrowshape.turn.up.right.fill f57a 1
+arrowshape.up e5d8
+arrowshape.up.circle f182
+arrowshape.up.circle.fill f182 1
+arrowshape.up.fill e5d8 1
+arrowtriangle.backward e5de
+arrowtriangle.backward.fill e5de 1
+arrowtriangle.down e5c5
+arrowtriangle.down.circle e5c6
+arrowtriangle.down.circle.fill e5c6 1
+arrowtriangle.down.fill e5c5 1
+arrowtriangle.forward e037
+arrowtriangle.forward.circle e1c4
+arrowtriangle.forward.circle.fill e1c4 1
+arrowtriangle.forward.fill e037 1
+arrowtriangle.left f1e6
+arrowtriangle.left.fill f1e6 1
+arrowtriangle.right e5df
+arrowtriangle.right.circle e1c4
+arrowtriangle.right.circle.fill e1c4 1
+arrowtriangle.right.fill e5df 1
+arrowtriangle.up e5c7
+arrowtriangle.up.fill e5c7 1
+aspectratio e85b
+aspectratio.fill e85b 1
+asterisk f525
+asterisk.circle f525
+asterisk.circle.fill f525 1
+at e0e6
+at.badge.minus e0e6
+at.badge.plus e0e6
+at.circle e0e6
+at.circle.fill e0e6 1
+atom ea4b
+australian.football ea29
+australian.football.circle ea29
+australian.football.circle.fill ea29 1
+australian.football.fill ea29 1
+australiandollarsign.bank.building e84f
+australiandollarsign.bank.building.fill e84f 1
+australsign.bank.building e84f
+australsign.bank.building.fill e84f 1
+av.remote e8c7
+av.remote.fill e8c7 1
+b.circle eee2
+b.circle.fill eee2 1
+backpack f19c
+backpack.circle f19c
+backpack.circle.fill f19c 1
+backpack.fill f19c 1
+backpack.sensor.tag.radiowaves.left.and.right f19c
+backpack.sensor.tag.radiowaves.left.and.right.fill f19c 1
+backward e020
+backward.circle e020
+backward.circle.fill e020 1
+backward.end e045
+backward.end.alt e045
+backward.end.alt.fill e045 1
+backward.end.circle e045
+backward.end.circle.fill e045 1
+backward.end.fill e045 1
+backward.fill e020 1
+backward.frame e045
+backward.frame.fill e045 1
+bag f1cc
+bag.circle f1cc
+bag.circle.fill f1cc 1
+bag.fill f1cc 1
+bag.fill.badge.minus f1cc
+bag.fill.badge.plus f1cc
+bahtsign.bank.building e84f
+bahtsign.bank.building.fill e84f 1
+bandage e3f3
+bandage.fill e3f3 1
+banknote e57d
+banknote.fill ef63 1
+barcode e70b
+barcode.viewfinder e70b
+baseball ea51
+baseball.circle ea51
+baseball.circle.fill ea51 1
+baseball.fill ea51 1
+basket e8cb
+basket.fill e8cb 1
+basketball ea26
+basketball.circle ea26
+basketball.circle.fill ea26 1
+basketball.fill ea26 1
+bathtub ea41
+bathtub.fill ea41 1
+battery.100percent e1a5
+battery.100percent.bolt e1a3
+beach.umbrella eb3e
+beach.umbrella.fill eb3e 1
+beats.earphones f003
+beats.headphones f01f
+bed.double efdf
+bed.double.badge.checkmark ea45
+bed.double.badge.checkmark.fill ea45 1
+bed.double.circle ea45
+bed.double.circle.fill ea45 1
+bed.double.fill efdf 1
+bell e7f5
+bell.and.waves.left.and.right e7f7
+bell.and.waves.left.and.right.fill e7f7 1
+bell.badge e7f7
+bell.badge.circle e994
+bell.badge.circle.fill e994 1
+bell.badge.fill e7f5 1
+bell.badge.slash e7f6
+bell.badge.slash.fill e7f6 1
+bell.badge.waveform e7f7
+bell.badge.waveform.fill e7f7 1
+bell.badge.waveform.slash e7f6
+bell.badge.waveform.slash.fill e7f6 1
+bell.circle e7f5
+bell.circle.fill e7f5 1
+bell.fill e7f5 1
+bell.slash e7f6
+bell.slash.circle e7f6
+bell.slash.circle.fill e7f6 1
+bell.slash.fill e7f6 1
+bell.square e7f5
+bell.square.fill e7f5 1
+bicycle e52f
+bicycle.circle e52f
+bicycle.circle.fill e52f 1
+bicycle.sensor.tag.radiowaves.left.and.right e52f
+bicycle.sensor.tag.radiowaves.left.and.right.fill e52f 1
+bird f555
+bird.circle f555
+bird.fill f555 1
+birthday.cake e7e9
+birthday.cake.fill e7e9 1
+bitcoinsign ebc5
+bitcoinsign.bank.building e84f
+bitcoinsign.bank.building.fill e84f 1
+blinds.horizontal.closed ec1f
+blinds.horizontal.open e286
+blinds.vertical.closed ec0d
+blinds.vertical.open e286
+blood.pressure.cuff e097
+blood.pressure.cuff.badge.gauge.with.needle e097
+blood.pressure.cuff.badge.gauge.with.needle.fill e097 1
+blood.pressure.cuff.fill e097 1
+bold e238
+bolt ea0b
+bolt.badge.automatic e3e5
+bolt.badge.automatic.fill e3e5 1
+bolt.batteryblock e1a3
+bolt.batteryblock.fill e1a3 1
+bolt.car eb1c
+bolt.car.circle eb1c
+bolt.car.circle.fill eb1c 1
+bolt.car.fill eb1c 1
+bolt.circle ea0b
+bolt.circle.fill ea0b 1
+bolt.fill e3e7 1
+bolt.horizontal ea0b
+bolt.horizontal.fill ea0b 1
+bolt.slash e3e6
+bolt.slash.circle e3e6
+bolt.slash.circle.fill e3e6 1
+bolt.slash.fill e3e6 1
+bolt.square ea0b
+bolt.square.fill ea0b 1
+book ea19
+book.circle ea19
+book.circle.fill ea19 1
+book.closed e86e
+book.closed.circle e86e
+book.closed.circle.fill e86e 1
+book.closed.fill e86e 1
+book.fill ea19 1
+book.pages ea19
+book.pages.fill ea19 1
+bookmark e8e7
+bookmark.circle e8e7
+bookmark.circle.fill e8e7 1
+bookmark.fill e8e7 1
+bookmark.slash e59a
+bookmark.slash.fill e59a 1
+bookmark.square e8e7
+bookmark.square.fill e8e7 1
+books.vertical e02f
+books.vertical.circle e02f
+books.vertical.circle.fill e02f 1
+books.vertical.fill e02f 1
+brain ea4a
+brain.fill ea4a 1
+brain.filled.head.profile ea4a
+brain.head.profile ea4a
+brain.head.profile.fill ea4a 1
+brazilianrealsign.bank.building e84f
+brazilianrealsign.bank.building.fill e84f 1
+briefcase eb3f
+briefcase.circle eb3f
+briefcase.circle.fill eb3f 1
+briefcase.fill eb3f 1
+briefcase.sensor.tag.radiowaves.left.and.right eb3f
+briefcase.sensor.tag.radiowaves.left.and.right.fill eb3f 1
+bubble e0cb
+bubble.and.pencil e560
+bubble.fill e0cb 1
+bubble.left e0c9
+bubble.left.and.bubble.right e8af
+bubble.left.and.bubble.right.fill e8af 1
+bubble.left.and.exclamationmark.bubble.right e8af
+bubble.left.and.exclamationmark.bubble.right.fill e8af 1
+bubble.left.and.text.bubble.right e8af
+bubble.left.and.text.bubble.right.fill e8af 1
+bubble.left.fill e0cb 1
+bubble.middle.bottom e0cb
+bubble.middle.bottom.fill e0cb 1
+bubble.middle.top e0cb
+bubble.middle.top.fill e0cb 1
+bubble.right e0c9
+bubble.right.fill e0cb 1
+bubbles.and.sparkles e65f
+bubbles.and.sparkles.fill e65f 1
+building ea40
+building.2 e7f1
+building.2.crop.circle e7f1
+building.2.crop.circle.fill e7f1 1
+building.2.fill e7f1 1
+building.columns e84f
+building.columns.circle e84f
+building.columns.circle.fill e84f 1
+building.columns.fill e84f 1
+building.fill ea40 1
+bus eff6
+bus.doubledecker eff6
+bus.doubledecker.fill eff6 1
+bus.fill eff6 1
+cabinet e210
+cabinet.fill e210 1
+cable.coaxial efe6
+cable.connector efe6
+cable.connector.horizontal efe6
+cable.connector.slash efe6
+cable.connector.video efe6
+cablecar f479 100
+cablecar.fill f479 1 100
+calendar ebcc
+calendar.and.person e8a3
+calendar.badge e878
+calendar.badge.checkmark e614
+calendar.badge.clock f540
+calendar.badge.lock f242
+calendar.badge.minus e615
+calendar.badge.plus ef85
+calendar.circle e878
+calendar.circle.fill e878 1
+calendar.day.timeline.leading e936
+calendar.day.timeline.left e936
+calendar.day.timeline.trailing e936
+camera e412
+camera.aperture e3af
+camera.badge.ellipsis e412
+camera.badge.ellipsis.fill e412 1
+camera.circle e412
+camera.circle.fill e412 1
+camera.fill e412 1
+camera.filters e412
+camera.macro e412
+camera.macro.circle e412
+camera.macro.circle.fill e412 1
+camera.macro.slash f8d2
+camera.metering.center.weighted e412
+camera.metering.center.weighted.average e412
+camera.metering.matrix e412
+camera.metering.multispot e412
+camera.metering.none e412
+camera.metering.partial e412
+camera.metering.spot e412
+camera.metering.unknown e412
+camera.on.rectangle e412
+camera.viewfinder e3b5
+camera.viewfinder.badge.automatic e3b5
+capslock e318
+capslock.fill e318 1
+capsule e11f
+capsule.fill e11f 1
+car eff7
+car.circle eff7
+car.circle.fill eff7 1
+car.ferry eff5
+car.ferry.fill eff5 1
+car.fill eff7 1
+car.rear eff7
+car.rear.fill eff7 1
+car.side eff7
+car.side.fill eff7 1
+cart e8cc
+cart.badge.clock e8cc
+cart.badge.clock.fill e8cc 1
+cart.badge.minus e928
+cart.badge.plus e854
+cart.circle e8cc
+cart.circle.fill e8cc 1
+cart.fill e8cc 1
+cart.fill.badge.minus e928
+cart.fill.badge.plus e854
+cart.fill.badge.questionmark e8cc
+cedisign.bank.building e84f
+cedisign.bank.building.fill e84f 1
+cellularbars ef06
+centsign.bank.building e84f
+centsign.bank.building.fill e84f 1
+chair efed
+chair.fill efed 1
+chair.lounge efed
+chair.lounge.fill efed 1
+character e262
+character.circle e262
+character.circle.fill e262 1
+character.cursor.ibeam e262
+character.textbox e262
+characters.lowercase f48a
+characters.uppercase f488
+chart.bar e26b
+chart.bar.fill e26b 1
+chart.bar.xaxis e26b
+chart.bar.xaxis.ascending e26b
+chart.bar.xaxis.ascending.badge.clock e26b
+chart.bar.xaxis.descending e26b
+chart.bar.yaxis e26b
+chart.dots.scatter e268
+chart.line.downtrend.xyaxis e8e3
+chart.line.flattrend.xyaxis e8e4
+chart.line.uptrend.xyaxis e8e5
+chart.line.uptrend.xyaxis.circle e8e5
+chart.line.uptrend.xyaxis.circle.fill e8e5 1
+chart.pie f0da
+chart.pie.fill f0da 1
+chart.xyaxis.line e6e1
+checklist e6b1
+checklist.checked e6b1
+checklist.unchecked e6b1
+checkmark e668
+checkmark.app f1fe
+checkmark.app.fill f1fe 1
+checkmark.arrow.trianglehead.clockwise f232
+checkmark.arrow.trianglehead.counterclockwise f232
+checkmark.bubble f18b
+checkmark.bubble.fill f18b 1
+checkmark.circle f0be
+checkmark.circle.badge.airplane f0be
+checkmark.circle.badge.airplane.fill f0be 1
+checkmark.circle.badge.questionmark f0be
+checkmark.circle.badge.questionmark.fill f0be 1
+checkmark.circle.badge.xmark f0be
+checkmark.circle.badge.xmark.fill f0be 1
+checkmark.circle.dotted f0be
+checkmark.circle.fill f0be 1
+checkmark.circle.trianglebadge.exclamationmark f0be
+checkmark.circle.trianglebadge.exclamationmark.fill f0be 1
+checkmark.icloud e2bf
+checkmark.icloud.fill e2bf 1
+checkmark.message f18b
+checkmark.message.fill f18b 1
+checkmark.seal ef76
+checkmark.seal.fill ef76 1
+checkmark.shield f013
+checkmark.shield.fill f013 1
+checkmark.square f1fe
+checkmark.square.fill f1fe 1
+chevron.backward f46b
+chevron.backward.2 eac3
+chevron.compact.backward f46b
+chevron.compact.down e5cf
+chevron.compact.forward e5cc
+chevron.compact.left e5cb
+chevron.compact.left.chevron.compact.right e86f
+chevron.compact.right e5cc
+chevron.compact.up e5ce
+chevron.compact.up.chevron.compact.down e5d7
+chevron.down e5cf
+chevron.down.2 ead0
+chevron.down.circle e7cd
+chevron.down.circle.fill e7cd 1
+chevron.forward e5cc
+chevron.forward.2 e5cc
+chevron.forward.circle f6f5
+chevron.forward.circle.fill f6f5 1
+chevron.left e5cb
+chevron.left.2 eac3
+chevron.left.forwardslash.chevron.right e86f
+chevron.left.to.line e5dc
+chevron.right e5cc
+chevron.right.2 eac9
+chevron.right.to.line e5dd
+chevron.up e5ce
+chevron.up.2 eacf
+chevron.up.chevron.down e5d7
+chevron.up.circle f5d2
+chevron.up.circle.fill f5d2 1
+chineseyuanrenminbisign eaf9
+chineseyuanrenminbisign.bank.building e84f
+chineseyuanrenminbisign.bank.building.fill e84f 1
+circle ef4a
+circle.badge.minus f08f
+circle.badge.minus.fill f08f 1
+circle.badge.plus e990
+circle.badge.plus.fill e990 1
+circle.badge.questionmark e8fd
+circle.badge.questionmark.fill e8fd 1
+circle.badge.xmark e888
+circle.badge.xmark.fill e888 1
+circle.bottomhalf.filled eb37
+circle.bottomhalf.filled.inverse eb37
+circle.circle eee1
+circle.fill ef4a 1
+circle.grid.3x3 e5c3
+circle.grid.3x3.fill e5c3 1
+circle.lefthalf.filled eb37
+circle.lefthalf.filled.inverse eb37
+circle.on.square e602
+circle.on.square.merge eb98
+circle.righthalf.filled eb37
+circle.righthalf.filled.inverse eb37
+circle.tophalf.filled eb37
+circle.tophalf.filled.inverse eb37
+circlebadge ef4a 500
+circlebadge.fill ef4a 1
+clear e5cd
+clear.fill e5cd 1
+clipboard e85d
+clipboard.fill e85d 1
+clock efd6
+clock.arrow.trianglehead.2.counterclockwise.rotate.90 e8b3
+clock.arrow.trianglehead.clockwise.rotate.90.path.dotted e923
+clock.arrow.trianglehead.counterclockwise.rotate.90 e8b3
+clock.badge efd6
+clock.badge.fill efd6 1
+clock.circle efd6
+clock.circle.fill efd6 1
+clock.fill efd6 1
+cloud f15c
+cloud.bolt ebdb
+cloud.bolt.circle ebdb
+cloud.bolt.circle.fill ebdb 1
+cloud.bolt.fill ebdb 1
+cloud.bolt.rain ebdb
+cloud.bolt.rain.circle ebdb
+cloud.bolt.rain.circle.fill ebdb 1
+cloud.bolt.rain.fill ebdb 1
+cloud.circle e2be
+cloud.circle.fill e2be 1
+cloud.drizzle f15c
+cloud.drizzle.fill f15c 1
+cloud.fill f15c 1
+cloud.fog f15c
+cloud.fog.fill f15c 1
+cloud.hail f67f
+cloud.hail.fill f67f 1
+cloud.heavyrain f15c
+cloud.heavyrain.fill f15c 1
+cloud.moon f174
+cloud.moon.fill f174 1
+cloud.rain f176
+cloud.rain.fill f176 1
+cloud.sleet f15c
+cloud.sleet.fill f15c 1
+cloud.snow e2cd
+cloud.snow.circle e2cd
+cloud.snow.circle.fill e2cd 1
+cloud.snow.fill e2cd 1
+cloud.sun f172
+cloud.sun.fill f172 1
+coloncurrencysign.bank.building e84f
+coloncurrencysign.bank.building.fill e84f 1
+command eae7
+command.circle eae7
+command.circle.fill eae7 1
+compass.drawing ea3b
+computermouse e323
+computermouse.fill e323 1
+contact.sensor e28a
+contact.sensor.fill e28a 1
+cooktop f544
+cooktop.fill f544 1
+cpu e322
+cpu.fill e322 1
+creditcard e8a1
+creditcard.and.numbers e8a1
+creditcard.circle e8a1
+creditcard.circle.fill e8a1 1
+creditcard.fill e8a1 1
+creditcard.rewards e8a1
+creditcard.rewards.fill e8a1 1
+creditcard.trianglebadge.exclamationmark e8a1
+creditcard.trianglebadge.exclamationmark.fill e8a1 1
+creditcard.viewfinder e8a1
+cricket.ball ea27
+cricket.ball.circle ea27
+cricket.ball.circle.fill ea27 1
+cricket.ball.fill ea27 1
+crop e3be
+crop.rotate e437
+cross f2c3
+cross.case f109
+cross.case.circle f109
+cross.case.circle.fill f109 1
+cross.case.fill f109 1
+cross.circle f2c3
+cross.circle.fill f2c3 1
+cross.fill f2c3 1
+crown ecb3
+crown.fill ecb3 1
+cruzeirosign.bank.building e84f
+cruzeirosign.bank.building.fill e84f 1
+cube f720
+cube.fill f720 1
+cup.and.heat.waves eb44
+cup.and.heat.waves.fill eb44 1
+cup.and.saucer efef
+cup.and.saucer.fill efef 1
+curlybraces ead3
+curtains.closed ec1d
+curtains.open ec1e
+danishkronesign.bank.building e84f
+danishkronesign.bank.building.fill e84f 1
+decrease.indent e23d
+decrease.quotelevel e23d
+delete.backward e92e
+delete.backward.fill e92e 1
+delete.left e14a
+delete.left.fill e14a 1
+deskclock e855
+deskclock.fill e855 1
+desktopcomputer e31e
+desktopcomputer.and.arrow.down eb71
+desktopcomputer.and.macbook e31e
+diamond ead5
+diamond.bottomhalf.filled ead5
+diamond.circle ead5
+diamond.circle.fill ead5 1
+diamond.fill ead5 1
+diamond.lefthalf.filled ead5
+diamond.righthalf.filled ead5
+diamond.tophalf.filled ead5
+dice eb40
+dice.fill eb40 1
+die.face.1 eb40
+die.face.1.fill eb40 1
+die.face.2 eb40
+die.face.2.fill eb40 1
+die.face.3 eb40
+die.face.3.fill eb40 1
+die.face.4 eb40
+die.face.4.fill eb40 1
+die.face.5 eb40
+die.face.5.fill eb40 1
+die.face.6 eb40
+die.face.6.fill eb40 1
+directcurrent e336
+dishwasher e9a0
+dishwasher.circle e9a0
+dishwasher.circle.fill e9a0 1
+dishwasher.fill e9a0 1
+display ef5b
+display.2 ef5b
+display.and.screwdriver eb97
+distribute.horizontal e014
+distribute.horizontal.center e014
+distribute.horizontal.center.fill e014 1
+distribute.horizontal.fill e014 1
+distribute.horizontal.left e00d
+distribute.horizontal.left.fill e00d 1
+distribute.vertical e076
+distribute.vertical.fill e076 1
+dock.rectangle f2e0
+document e674
+document.badge.arrow.up e9fc
+document.badge.arrow.up.fill e9fc 1
+document.badge.plus e89c
+document.badge.plus.fill e89c 1
+document.fill e674 1
+document.on.clipboard e14f
+document.on.clipboard.fill e14f 1
+document.on.document e14d
+document.on.document.fill e14d 1
+document.viewfinder e5fa
+document.viewfinder.fill e5fa 1
+dollarsign e227
+dollarsign.arrow.trianglehead.counterclockwise.rotate.90 eb70
+dollarsign.bank.building e84f
+dollarsign.bank.building.fill e84f 1
+dollarsign.circle e263
+dollarsign.circle.fill e263 1
+dollarsign.square e227
+dollarsign.square.fill e227 1
+dongsign.bank.building e84f
+dongsign.bank.building.fill e84f 1
+door.french.open e77c
+door.garage.closed e714
+door.garage.double.bay.closed e714
+door.garage.double.bay.open fff77
+door.garage.open fff77
+door.sliding.left.hand.open effe
+door.sliding.right.hand.closed effe
+door.sliding.right.hand.open effe
+dot.circle.viewfinder e3b4
+dot.crosshair e55c
+dot.radiowaves.left.and.right e51e
+dot.scope.display ef5b
+dot.scope.laptopcomputer e31e
+dot.viewfinder e3b4
+dpad e30f
+dpad.fill e30f 1
+drone f25a
+drone.fill f25a 1
+drop e798
+drop.circle e798
+drop.circle.fill e798 1
+drop.fill e798 1
+drop.halffull e798
+dryer e54a
+dryer.fill e54a 1
+dumbbell eb43
+dumbbell.fill eb43 1
+ear e023
+ear.badge.waveform e023
+ear.fill e023 1
+earbud.left f326
+earbud.right f325
+earbuds f003
+earbuds.bone.conduction f003
+earbuds.case f327
+earbuds.case.fill f327 1
+earbuds.in.ear f003
+earbuds.stemless f003
+earpods f324
+eject e8fb
+eject.circle e8fb
+eject.circle.fill e8fb 1
+eject.fill e8fb 1
+electronic.toll.collection e8e0
+electronic.toll.collection.rectangle e8e0
+electronic.toll.collection.rectangle.fill e8e0 1
+ellipsis e5d3
+ellipsis.bubble e0c9
+ellipsis.bubble.fill e0c9 1
+ellipsis.circle ef64
+ellipsis.circle.badge ef64
+ellipsis.circle.badge.fill ef64 1
+ellipsis.circle.fill ef64 1
+ellipsis.message e0c9
+ellipsis.message.fill e0c9 1
+ellipsis.rectangle ef64
+ellipsis.rectangle.fill ef64 1
+envelope e159
+envelope.badge e159
+envelope.badge.fill e159 1
+envelope.badge.person.crop e0d0
+envelope.badge.person.crop.fill e0d0 1
+envelope.fill e159 1
+envelope.front e159
+envelope.front.fill e159 1
+envelope.open e151
+envelope.open.badge.clock e151
+envelope.open.badge.clock.fill e151 1
+envelope.open.fill e151 1
+environments e564 100
+equal f77b
+equal.circle f77b
+equal.circle.fill f77b 1
+equal.square f77b
+equal.square.fill f77b 1
+eraser e6d0
+eraser.fill e6d0 1
+eraser.slash e7e3
+eraser.slash.fill e7e3 1
+eurosign ea15
+eurosign.bank.building e84f
+eurosign.bank.building.fill e84f 1
+eurosign.circle ea15
+eurosign.circle.fill ea15 1
+eurosign.ring ea15
+eurosign.square ea15
+eurosign.square.fill ea15 1
+eurozonesign.bank.building e84f
+eurozonesign.bank.building.fill e84f 1
+ev.charger e56d
+ev.charger.arrowtriangle.left e56d
+ev.charger.arrowtriangle.left.fill e56d 1
+ev.charger.fill e56d 1
+exclamationmark efb4
+exclamationmark.bubble e87f
+exclamationmark.bubble.circle e87f
+exclamationmark.bubble.circle.fill e87f 1
+exclamationmark.bubble.fill e87f 1
+exclamationmark.circle f8b6
+exclamationmark.circle.fill f8b6 1
+exclamationmark.icloud f3cc
+exclamationmark.icloud.fill f3cc 1
+exclamationmark.message e87f
+exclamationmark.message.fill e87f 1
+exclamationmark.octagon f052
+exclamationmark.octagon.fill f052 1
+exclamationmark.shield f014
+exclamationmark.shield.fill f014 1
+exclamationmark.triangle f083
+exclamationmark.triangle.fill f083 1
+externaldrive f80e
+externaldrive.badge.checkmark f80e
+externaldrive.badge.exclamationmark f80e
+externaldrive.badge.icloud f80e
+externaldrive.badge.minus f80e
+externaldrive.badge.person.crop f80e
+externaldrive.badge.plus f80e
+externaldrive.badge.questionmark f80e
+externaldrive.badge.timemachine f80e
+externaldrive.badge.wifi f80e
+externaldrive.badge.xmark f80e
+externaldrive.connected.to.line.below f80e
+externaldrive.connected.to.line.below.fill f80e 1
+externaldrive.fill f80e 1
+externaldrive.fill.badge.checkmark f80e
+externaldrive.fill.badge.exclamationmark f80e
+externaldrive.fill.badge.icloud f80e
+externaldrive.fill.badge.minus f80e
+externaldrive.fill.badge.person.crop f80e
+externaldrive.fill.badge.plus f80e
+externaldrive.fill.badge.questionmark f80e
+externaldrive.fill.badge.timemachine f80e
+externaldrive.fill.badge.wifi f80e
+externaldrive.fill.badge.xmark f80e
+externaldrive.fill.trianglebadge.exclamationmark f80e
+externaldrive.trianglebadge.exclamationmark f80e
+eye e8f4
+eye.circle e8f4
+eye.circle.fill e8f4 1
+eye.fill e8f4 1
+eye.half.closed e8f4
+eye.half.closed.fill e8f4 1
+eye.slash e8f5
+eye.slash.circle e8f5
+eye.slash.circle.fill e8f5 1
+eye.slash.fill e8f5 1
+eye.square e8f4
+eye.square.fill e8f4 1
+eyebrow eeb3
+eyedropper e3b8
+eyedropper.full e3b8
+eyedropper.halffull e3b8
+eyeglasses f6ee
+f.cursive f74c
+face.dashed f008
+face.dashed.fill f008 1
+face.smiling f008
+face.smiling.inverse f008
+faceid f008
+facemask f218
+facemask.fill f218 1
+fan f168
+fan.badge.arrow.up.and.down.and.arrow.left.and.right f168
+fan.badge.arrow.up.and.down.and.arrow.left.and.right.fill f168 1
+fan.badge.automatic f168
+fan.badge.automatic.fill f168 1
+fan.ceiling f168
+fan.ceiling.fill f168 1
+fan.circle f168
+fan.circle.fill f168 1
+fan.desk f168
+fan.desk.fill f168 1
+fan.fill f168 1
+fan.floor f168
+fan.floor.fill f168 1
+fan.oscillation f168
+fan.oscillation.fill f168 1
+fan.slash ec17
+fan.slash.fill ec17 1
+faxmachine ead8
+faxmachine.fill ead8 1
+ferry eff5
+ferry.fill eff5 1
+field.of.view.wide e40f
+field.of.view.wide.fill e40f 1
+figure f0d3
+figure.2 ea21
+figure.2.and.child.holdinghands ea21
+figure.2.arms.open ea21
+figure.2.circle ea21
+figure.2.circle.fill ea21 1
+figure.and.child.holdinghands f1ac
+figure.badminton f2a8
+figure.badminton.circle f2a8
+figure.badminton.circle.fill f2a8 1
+figure.disc.sports ea30
+figure.gymnastics ebc4
+figure.handball ea33
+figure.hiking e50a
+figure.hiking.circle e50a
+figure.hiking.circle.fill e50a 1
+figure.ice.skating e50b
+figure.ice.skating.circle e50b
+figure.ice.skating.circle.fill e50b 1
+figure.indoor.rowing e921
+figure.indoor.rowing.circle e921
+figure.indoor.rowing.circle.fill e921 1
+figure.martial.arts eae9
+figure.mind.and.body ea78
+figure.open.water.swim eb48
+figure.outdoor.rowing e921
+figure.outdoor.rowing.circle e921
+figure.outdoor.rowing.circle.fill e921 1
+figure.pickleball f2a6
+figure.pickleball.circle f2a6
+figure.pickleball.circle.fill f2a6 1
+figure.pool.swim eb48
+figure.pool.swim.circle eb48
+figure.pool.swim.circle.fill eb48 1
+figure.roll e914
+figure.run e566
+figure.run.circle ef6f
+figure.run.circle.fill ef6f 1
+figure.run.treadmill e566
+figure.run.treadmill.circle ef6f
+figure.run.treadmill.circle.fill ef6f 1
+figure.sailing e502
+figure.sailing.circle e502
+figure.sailing.circle.fill e502 1
+figure.seated.seatbelt e637
+figure.seated.side.left.fan f33e
+figure.seated.side.left.windshield.front.and.heat.waves f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.lower f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.middle f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.middle.and.lower f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.upper f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.upper.and.lower f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.upper.and.middle f328
+figure.seated.side.left.windshield.front.and.heat.waves.air.distribution.upper.and.middle.and.lower f328
+figure.seated.side.right e637
+figure.seated.side.right.fan f33c
+figure.seated.side.right.windshield.front.and.heat.waves f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.lower f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.middle f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.middle.and.lower f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper.and.lower f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper.and.middle f328
+figure.seated.side.right.windshield.front.and.heat.waves.air.distribution.upper.and.middle.and.lower f328
+figure.skateboarding e511
+figure.skateboarding.circle e511
+figure.skateboarding.circle.fill e511 1
+figure.skiing.crosscountry e509
+figure.skiing.downhill e509
+figure.skiing.downhill.circle e509
+figure.skiing.downhill.circle.fill e509 1
+figure.snowboarding e513
+figure.snowboarding.circle e513
+figure.snowboarding.circle.fill e513 1
+figure.stairs f1a9
+figure.stairs.circle f1a9
+figure.stairs.circle.fill f1a9 1
+figure.stand.line.dotted.figure.stand e1cb
+figure.strengthtraining.traditional eb43
+figure.surfing e515
+figure.surfing.circle e515
+figure.surfing.circle.fill e515 1
+figure.walk e536
+figure.walk.arrival e536
+figure.walk.circle e536
+figure.walk.circle.fill e536 1
+figure.walk.departure e536
+figure.walk.diamond e536
+figure.walk.diamond.fill e536 1
+figure.walk.motion e536
+figure.walk.motion.trianglebadge.exclamationmark e536
+figure.walk.suitcase.rolling e536
+figure.walk.suitcase.rolling.circle e536
+figure.walk.treadmill e536
+figure.walk.treadmill.circle e536
+figure.walk.triangle e536
+figure.walk.triangle.fill e536 1
+figure.wrestling ea34
+figure.yoga ea78
+film e8da
+film.fill e8da 1
+fire.extinguisher f1d8
+fire.extinguisher.fill f1d8 1
+fireplace ea43
+fireplace.fill ea43 1
+fireworks ea65
+flag f0c6
+flag.circle eaf8
+flag.circle.fill eaf8 1
+flag.fill f0c6 1
+flag.pattern.checkered f06e
+flag.pattern.checkered.2.crossed f06e
+flag.pattern.checkered.circle f06e
+flag.pattern.checkered.circle.fill f06e 1
+flag.pattern.checkered.lc f06e
+flame f16a
+flame.circle e80e
+flame.circle.fill e80e 1
+flame.fill f16a 1
+flashlight.off.circle f00a
+flashlight.off.circle.fill f00a 1
+flashlight.off.fill f00a 1
+flashlight.on.circle f00b
+flashlight.on.circle.fill f00b 1
+flashlight.on.fill f00b 1
+flashlight.slash f00a
+flashlight.slash.circle f00a
+flashlight.slash.circle.fill f00a 1
+flask ea4b
+flask.fill ea4b 1
+florinsign.bank.building e84f
+florinsign.bank.building.fill e84f 1
+flowchart f38d
+flowchart.fill f38d 1
+fluid.batteryblock e483
+fluid.brakesignal e483
+fluid.coolant e483
+fluid.transmission e483
+folder e2c7
+folder.badge.gearshape f775
+folder.badge.person.crop e2c9
+folder.badge.plus e2cc
+folder.circle e2c7
+folder.circle.fill e2c7 1
+folder.fill e2c7 1
+folder.fill.badge.gearshape f775
+folder.fill.badge.person.crop e2c9
+folder.fill.badge.plus e2cc
+fork.knife e56c
+fork.knife.circle e56c
+fork.knife.circle.fill e56c 1
+formfitting.gamecontroller ea28
+formfitting.gamecontroller.fill ea28 1
+forward e01f
+forward.circle e01f
+forward.circle.fill e01f 1
+forward.end e044
+forward.end.alt e044
+forward.end.alt.fill e044 1
+forward.end.fill e044 1
+forward.fill e01f 1
+forward.frame e01f
+forward.frame.fill e01f 1
+francsign eafa
+francsign.bank.building e84f
+francsign.bank.building.fill e84f 1
+frying.pan f543
+frying.pan.fill f543 1
+fuelpump e546
+fuelpump.circle e546
+fuelpump.circle.fill e546 1
+fuelpump.fill e546 1
+fuelpump.slash e546
+fuelpump.slash.fill e546 1
+function f866
+fx f866
+gamecontroller ea28
+gamecontroller.circle ea28
+gamecontroller.circle.fill ea28 1
+gamecontroller.fill ea28 1
+gauge.chart.lefthalf.righthalf e9e4
+gauge.chart.leftthird.topthird.rightthird e9e4
+gauge.open e9e4
+gauge.open.righthalf.dotted.with.needle.and.arrow.trianglehead.backward e9e4
+gauge.open.with.lines.needle.33percent e9e4
+gauge.open.with.lines.needle.33percent.and.arrow.trianglehead.from.0percent.to.50percent e9e4
+gauge.open.with.lines.needle.33percent.and.arrowtriangle e9e4
+gauge.open.with.lines.needle.67percent.and.arrowtriangle e9e4
+gauge.open.with.lines.needle.67percent.and.arrowtriangle.and.car e9e4
+gauge.open.with.lines.needle.84percent.exclamation e9e4
+gauge.with.dots.needle.0percent e9e4
+gauge.with.dots.needle.100percent e9e4
+gauge.with.dots.needle.33percent e9e4
+gauge.with.dots.needle.50percent e9e4
+gauge.with.dots.needle.67percent e9e4
+gauge.with.dots.needle.bottom.0percent e9e4
+gauge.with.dots.needle.bottom.100percent e9e4
+gauge.with.dots.needle.bottom.50percent e9e4
+gauge.with.dots.needle.bottom.50percent.badge.minus f57d
+gauge.with.dots.needle.bottom.50percent.badge.plus f57e
+gauge.with.needle e9e4
+gauge.with.needle.fill e9e4 1
+gear e8b8
+gear.badge e8b8
+gear.circle e8b8
+gear.circle.fill e8b8 1
+gearshape e8b8
+gearshape.2 e8b8
+gearshape.2.fill e8b8 1
+gearshape.circle e8b8
+gearshape.circle.fill e8b8 1
+gearshape.fill e8b8 1
+gift ef91
+gift.circle e8f6
+gift.circle.fill e8f6 1
+gift.fill e8f6 1
+giftcard e8f6
+giftcard.fill e8f6 1
+globe e80b
+globe.americas e80b
+globe.americas.fill e80b 1
+globe.asia.australia e80b
+globe.asia.australia.fill e80b 1
+globe.badge.chevron.backward e80b
+globe.central.south.asia e80b
+globe.central.south.asia.fill e80b 1
+globe.desk e80b
+globe.desk.fill e80b 1
+globe.europe.africa e80b
+globe.europe.africa.fill e80b 1
+globe.fill e80b 1
+graduationcap e80c
+graduationcap.circle e80c
+graduationcap.circle.fill e80c 1
+graduationcap.fill e80c 1
+greaterthan e5cc
+grid e3ec
+grid.circle e3ec
+grid.circle.fill e3ec 1
+guaranisign.bank.building e84f
+guaranisign.bank.building.fill e84f 1
+hammer f10b
+hammer.circle ea59
+hammer.circle.fill ea59 1
+hammer.fill ea59 1
+hand.draw e746
+hand.draw.fill e746 1
+hand.palm.facing e769
+hand.palm.facing.fill e769 1
+hand.pinch eb38
+hand.pinch.fill eb38 1
+hand.raised e769
+hand.raised.app e769
+hand.raised.app.fill e769 1
+hand.raised.brakesignal e769
+hand.raised.circle e769
+hand.raised.circle.fill e769 1
+hand.raised.fill e769 1
+hand.raised.fingers.spread e769
+hand.raised.fingers.spread.fill e769 1
+hand.raised.palm.facing e769
+hand.raised.palm.facing.fill e769 1
+hand.raised.slash e769
+hand.raised.slash.fill e769 1
+hand.raised.square e769
+hand.raised.square.fill e769 1
+hand.rays e769
+hand.rays.fill e769 1
+hand.tap e913
+hand.tap.fill e913 1
+hand.thumbsdown f578
+hand.thumbsdown.circle f578
+hand.thumbsdown.circle.fill f578 1
+hand.thumbsdown.fill f578 1
+hand.thumbsdown.filled.hand.thumbsup e8dd
+hand.thumbsdown.hand.thumbsup e8dd
+hand.thumbsdown.hand.thumbsup.fill e8dd 1
+hand.thumbsdown.hand.thumbsup.filled e8dd
+hand.thumbsdown.slash f578
+hand.thumbsdown.slash.fill f578 1
+hand.thumbsup f577
+hand.thumbsup.circle f577
+hand.thumbsup.circle.fill f577 1
+hand.thumbsup.fill f577 1
+hand.thumbsup.slash f577
+hand.thumbsup.slash.fill f577 1
+hand.wave e766
+hand.wave.fill e766 1
+handbag e54c
+handbag.circle e54c
+handbag.circle.fill e54c 1
+handbag.fill e54c 1
+hands.and.sparkles e65f
+hands.and.sparkles.fill e65f 1
+hanger f19e
+headphones f01f
+headphones.circle f01f
+headphones.circle.fill f01f 1
+headphones.dots f01f
+headphones.over.ear f01f
+headphones.slash f01f
+headset f01f
+headset.circle f01f
+headset.circle.fill f01f 1
+hearingdevice.ear e023
+hearingdevice.ear.fill e023 1
+heart e87e
+heart.circle e87e
+heart.circle.fill e87e 1
+heart.fill e87e 1
+heart.rectangle e87e
+heart.rectangle.fill e87e 1
+heart.slash.circle eac2
+heart.slash.circle.fill eac2 1
+heart.slash.fill eac2 1
+heart.square e87e
+heart.square.fill e87e 1
+heat.element.windshield f328
+heat.waves f537
+heat.waves.circle f537
+heat.waves.circle.fill f537 1
+helmet ea2d
+helmet.fill ea2d 1
+hexagon eb39
+hexagon.bottomhalf.filled eb39
+hexagon.fill eb39 1
+hexagon.lefthalf.filled eb39
+hexagon.righthalf.filled eb39
+hexagon.tophalf.filled eb39
+hifireceiver f5d3
+hifireceiver.fill f5d3 1
+hifispeaker e32d
+hifispeaker.2 e32e
+hifispeaker.2.fill e32e 1
+hifispeaker.and.homepod e32d
+hifispeaker.and.homepod.fill e32d 1
+hifispeaker.and.homepod.mini e32d
+hifispeaker.and.homepod.mini.fill e32d 1
+hifispeaker.fill e32d 1
+highlighter e6d1
+homepod e32d
+homepod.2 e32d
+homepod.2.fill e32d 1
+homepod.and.homepod.mini e32d
+homepod.and.homepod.mini.fill e32d 1
+homepod.fill e32d 1
+homepod.mini e32d
+homepod.mini.2 e32d
+homepod.mini.2.fill e32d 1
+homepod.mini.fill e32d 1
+hourglass ebff
+hourglass.bottomhalf.filled ebff
+hourglass.circle ebff
+hourglass.circle.fill ebff 1
+hourglass.tophalf.filled ebff
+house ea44
+house.and.flag e9b2
+house.and.flag.circle e9b2
+house.and.flag.circle.fill e9b2 1
+house.and.flag.fill e9b2 1
+house.badge.exclamationmark e9b2
+house.badge.exclamationmark.fill e9b2 1
+house.badge.wifi e9b2
+house.badge.wifi.fill e9b2 1
+house.circle e9b2
+house.circle.fill e9b2 1
+house.fill ea44 1
+house.lodge e587
+house.lodge.circle e587
+house.lodge.circle.fill e587 1
+house.lodge.fill e587 1
+hryvniasign.bank.building e84f
+hryvniasign.bank.building.fill e84f 1
+humidity f87e
+humidity.fill f87e 1
+hurricane ebd5
+hurricane.circle ebd5
+hurricane.circle.fill ebd5 1
+icloud f15c
+icloud.and.arrow.down e2c0
+icloud.and.arrow.down.fill e2c0 1
+icloud.and.arrow.up e2c3
+icloud.and.arrow.up.fill e2c3 1
+icloud.circle e2be
+icloud.circle.fill e2be 1
+icloud.fill f15c 1
+icloud.slash e2c1
+icloud.slash.fill e2c1 1
+increase.indent e23e
+increase.quotelevel e23e
+indianrupeesign eaf7
+indianrupeesign.bank.building e84f
+indianrupeesign.bank.building.fill e84f 1
+indianrupeesign.circle f460
+indianrupeesign.circle.fill f460 1
+infinity eb3d
+infinity.circle eb3d
+infinity.circle.fill eb3d 1
+info f59b
+info.circle e88e
+info.circle.fill e88e 1
+info.square e88e
+info.square.fill e88e 1
+inset.filled.applewatch.case e334
+inset.filled.diamond ead5
+inset.filled.rectangle.and.person.filled e851
+inset.filled.tv e63b
+internaldrive e1db
+internaldrive.fill e1db 1
+ipad e331
+ipad.gen1 e331
+ipad.gen1.sizes e331
+ipad.gen2 e331
+ipad.gen2.sizes e331
+ipad.sizes e331
+iphone e7ba
+iphone.circle e7ba
+iphone.circle.fill e7ba 1
+iphone.gen1 e7ba
+iphone.gen1.circle e7ba
+iphone.gen1.circle.fill e7ba 1
+iphone.gen1.radiowaves.left.and.right f2cb
+iphone.gen1.sizes e7ba
+iphone.gen2 e7ba
+iphone.gen2.circle e7ba
+iphone.gen2.circle.fill e7ba 1
+iphone.gen2.radiowaves.left.and.right f2cb
+iphone.gen2.sizes e7ba
+iphone.gen3 e7ba
+iphone.gen3.circle e7ba
+iphone.gen3.circle.fill e7ba 1
+iphone.gen3.radiowaves.left.and.right f2cb
+iphone.gen3.sizes e7ba
+iphone.radiowaves.left.and.right f2cb
+iphone.sizes e7ba
+italic e23f
+jacket ef7b
+jacket.fill ef7b 1
+key f51a
+key.2.on.ring e0da
+key.2.on.ring.fill e0da 1
+key.circle e0da
+key.circle.fill e0da 1
+key.fill e0da 1
+key.horizontal e73c
+key.horizontal.fill e0da 1
+key.radiowaves.forward e0da
+key.radiowaves.forward.fill e0da 1
+key.radiowaves.forward.slash eb7a
+key.radiowaves.forward.slash.fill eb7a 1
+key.slash eb7a
+key.slash.fill eb7a 1
+keyboard e312
+keyboard.badge.ellipsis e312
+keyboard.badge.ellipsis.fill e312 1
+keyboard.badge.eye e312
+keyboard.badge.eye.fill e312 1
+keyboard.chevron.compact.down e31a
+keyboard.chevron.compact.down.fill e31a 1
+keyboard.fill e312 1
+keyboard.macwindow e312
+kipsign.bank.building e84f
+kipsign.bank.building.fill e84f 1
+l.button.roundedbottom.horizontal eee0
+l.button.roundedbottom.horizontal.fill eee0 1
+l.joystick f5ee
+l.joystick.fill f5ee 1
+l.joystick.press.down f5ee
+l.joystick.press.down.fill f5ee 1
+l.joystick.tilt.down f5ee
+l.joystick.tilt.down.fill f5ee 1
+l.joystick.tilt.left f5ee
+l.joystick.tilt.left.fill f5ee 1
+l.joystick.tilt.right f5ee
+l.joystick.tilt.right.fill f5ee 1
+l.joystick.tilt.up f5ee
+l.joystick.tilt.up.fill f5ee 1
+l1.button.roundedbottom.horizontal eedd
+l1.button.roundedbottom.horizontal.fill eedd 1
+l1.circle eedd
+l1.circle.fill eedd 1
+l2.button.angledtop.vertical.left eedc
+l2.button.angledtop.vertical.left.fill eedc 1
+l2.button.roundedtop.horizontal eedc
+l2.button.roundedtop.horizontal.fill eedc 1
+l2.circle eedc
+l2.circle.fill eedc 1
+ladybug ea1c
+ladybug.circle ea1c
+ladybug.circle.fill ea1c 1
+ladybug.fill ea1c 1
+lamp.desk e1f2
+lamp.desk.fill e1f2 1
+lamp.floor e21e
+lamp.floor.fill e21e 1
+lamp.table e1f2
+lamp.table.fill e1f2 1
+lanyardcard e85e
+lanyardcard.fill e85e 1
+laptopcomputer e31e
+laptopcomputer.and.arrow.down e31e
+laptopcomputer.slash e31e
+larisign.bank.building e84f
+larisign.bank.building.fill e84f 1
+lasso eb03
+laurel.leading.laurel.trailing e7af
+lb.button.roundedbottom.horizontal eee0
+lb.button.roundedbottom.horizontal.fill eee0 1
+leaf ea35
+leaf.arrow.trianglehead.clockwise e761
+leaf.circle ea35
+leaf.circle.fill ea35 1
+leaf.fill ea35 1
+left f1e6
+left.circle eaa7
+left.circle.fill eaa7 1
+lessthan e5cb
+lightbulb e79a
+lightbulb.2 e79a
+lightbulb.2.fill e79a 1
+lightbulb.circle e79a
+lightbulb.circle.fill e79a 1
+lightbulb.fill e79a 1
+lightbulb.led e79a
+lightbulb.led.fill e79a 1
+lightbulb.led.wide e79a
+lightbulb.led.wide.fill e79a 1
+lightbulb.max e79a
+lightbulb.max.fill e79a 1
+lightbulb.min e79a
+lightbulb.min.badge.exclamationmark e79a
+lightbulb.min.fill e79a 1
+lightrail e571
+lightrail.fill e571 1
+lightswitch.off fff6f
+lightswitch.off.fill fff6f 1
+lightswitch.on e1f4
+lightswitch.on.fill e1f4 1
+line.2.horizontal.decrease.circle ef4f
+line.2.horizontal.decrease.circle.fill ef4f 1
+line.3.horizontal e5d2
+line.3.horizontal.decrease e152
+line.3.horizontal.decrease.circle e152
+line.3.horizontal.decrease.circle.fill e152 1
+line.diagonal f41e
+line.diagonal.trianglehead.up.right f1e1
+lines.measurement.horizontal e41c
+lineweight e91a
+link e250
+link.badge.plus e178
+link.circle e250
+link.circle.fill e250 1
+lirasign.bank.building e84f
+lirasign.bank.building.fill e84f 1
+list.bullet e241
+list.bullet.badge.ellipsis e241
+list.bullet.below.rectangle e241
+list.bullet.circle e241
+list.bullet.circle.fill e241 1
+list.bullet.clipboard e241
+list.bullet.clipboard.fill e241 1
+list.bullet.indent e241
+list.bullet.rectangle e241
+list.bullet.rectangle.fill e241 1
+list.bullet.rectangle.portrait e241
+list.bullet.rectangle.portrait.fill e241 1
+list.clipboard e896
+list.clipboard.fill e896 1
+list.dash e896
+list.number e242
+list.number.badge.ellipsis e242
+livephoto.badge.automatic f03a
+livephoto.play e9c1
+location e569
+location.app e569
+location.app.fill e569 1
+location.circle e569
+location.circle.fill e569 1
+location.fill e569 1
+location.fill.viewfinder e55c
+location.north e569
+location.north.circle e569
+location.north.circle.fill e569 1
+location.north.fill e569 1
+location.north.line e569
+location.north.line.fill e569 1
+location.slash e0c7
+location.slash.circle e0c7
+location.slash.circle.fill e0c7 1
+location.slash.fill e0c7 1
+location.square e569
+location.viewfinder e55c
+lock e899
+lock.applewatch eee9
+lock.badge.clock ef57
+lock.badge.clock.fill ef57 1
+lock.circle e899
+lock.circle.fill e899 1
+lock.fill e899 1
+lock.icloud f386
+lock.icloud.fill f386 1
+lock.iphone f2be
+lock.open e898
+lock.open.fill e898 1
+lock.open.rotation f2d6
+lock.rectangle e899
+lock.rectangle.fill e899 1
+lock.rotation eade
+lock.shield f148
+lock.shield.fill e593 1
+lock.slash f03f
+lock.slash.fill f03f 1
+lock.square e899
+lock.square.fill e899 1
+long.text.page.and.pencil f88c
+long.text.page.and.pencil.fill f88c 1
+loupe e402
+lungs e124
+lungs.fill e124 1
+macbook e320
+macbook.and.ipad e326
+macbook.gen1 e320
+macbook.gen1.sizes e320
+macbook.gen2 e320
+macbook.gen2.sizes e320
+macbook.sizes e320
+magazine eb81
+magazine.fill eb81 1
+magnifyingglass ef7a
+magnifyingglass.circle ef7a
+magnifyingglass.circle.fill ef7a 1
+mail e159
+mail.fill e159 1
+malaysianringgitsign.bank.building e84f
+malaysianringgitsign.bank.building.fill e84f 1
+manatsign.bank.building e84f
+manatsign.bank.building.fill e84f 1
+map e55b
+map.circle e55b
+map.circle.fill e55b 1
+map.fill e55b 1
+mappin f1db
+mappin.and.ellipse f1db
+mappin.and.ellipse.circle f1db
+mappin.and.ellipse.circle.fill f1db 1
+mappin.circle f1db
+mappin.circle.fill f1db 1
+mappin.slash e0c7
+mappin.slash.circle e0c7
+mappin.slash.circle.fill e0c7 1
+matter.logo e907
+medal ea3f
+medal.fill ea3f 1
+medal.star ea3f
+medal.star.fill ea3f 1
+medical.thermometer e846
+medical.thermometer.fill e846 1
+megaphone ef49
+megaphone.fill ef49 1
+memorychip e322
+memorychip.fill e322 1
+menubar.dock.rectangle f2e0
+message e0cb
+message.badge f189
+message.badge.fill f189 1
+message.badge.filled.fill e0c9 1
+message.circle e0c9
+message.circle.fill e0c9 1
+message.fill e0cb 1
+microbe f221
+microbe.circle f221
+microbe.circle.fill f221 1
+microbe.fill f221 1
+microphone e31d
+microphone.and.signal.meter e31d
+microphone.and.signal.meter.fill e31d 1
+microphone.badge.ellipsis e31d
+microphone.badge.ellipsis.fill e31d 1
+microphone.circle e31d
+microphone.circle.fill e31d 1
+microphone.fill e31d 1
+microphone.slash e02b
+microphone.slash.circle e02b
+microphone.slash.circle.fill e02b 1
+microphone.slash.fill e02b 1
+microphone.square e31d
+microphone.square.fill e31d 1
+microwave f204
+microwave.fill f204 1
+millsign.bank.building e84f
+millsign.bank.building.fill e84f 1
+minus e15b
+minus.circle f08f
+minus.circle.fill f08f 1
+minus.forwardslash.plus e3f6
+minus.magnifyingglass e900
+minus.square e909
+minus.square.fill e909 1
+moon e51c
+moon.circle f159
+moon.circle.fill f159 1
+moon.dust.circle f159
+moon.dust.circle.fill f159 1
+moon.dust.fill f159 1
+moon.fill e51c 1
+moon.haze f159
+moon.haze.circle f159
+moon.haze.circle.fill f159 1
+moon.haze.fill f159 1
+moon.stars f34f
+moon.stars.circle f34f
+moon.stars.circle.fill f34f 1
+moon.stars.fill f34f 1
+moon.zzz f159
+moon.zzz.fill f159 1
+moonphase.waning.crescent e51c
+moonphase.waning.crescent.inverse e51c
+moonphase.waxing.crescent e51c
+moonphase.waxing.crescent.inverse e51c
+moped eb28
+moped.fill eb28 1
+mosaic e660
+mosaic.fill e660 1
+motorcycle e91b
+motorcycle.fill e91b 1
+mountain.2 e564
+mountain.2.circle e564
+mountain.2.circle.fill e564 1
+mountain.2.fill e564 1
+mug efef
+mug.fill efef 1
+multiply e5cd
+multiply.circle e888
+multiply.circle.fill e888 1
+music.note e405
+music.note.list e03d
+music.note.slash e440
+music.note.square.stack e030
+music.note.square.stack.fill e030 1
+music.note.tv e063
+music.note.tv.fill e063 1
+nairasign.bank.building e84f
+nairasign.bank.building.fill e84f 1
+network e9f4
+newspaper eb81
+newspaper.circle eb81
+newspaper.circle.fill eb81 1
+newspaper.fill eb81 1
+norwegiankronesign.bank.building e84f
+norwegiankronesign.bank.building.fill e84f 1
+nosign f08d
+nosign.app f08d
+nosign.app.fill f08d 1
+number e9ef
+number.circle e9ef
+number.circle.fill e9ef 1
+number.square e9ef
+number.square.fill e9ef 1
+numbers eac7
+numbers.rectangle eac7
+numbers.rectangle.fill eac7 1
+oar.2.crossed e921
+opticaldisc e019
+opticaldisc.fill e019 1
+option eae8
+oval.portrait e851
+oval.portrait.fill e851 1
+oven e9c7
+oven.fill e9c7 1
+paint.bucket.classic e23a
+paintbrush e3ae
+paintbrush.fill e3ae 1
+paintbrush.pointed e3ae
+paintbrush.pointed.fill e3ae 1
+pano f082
+pano.fill f082 1
+paperclip e226
+paperclip.badge.ellipsis e2bc
+paperclip.circle e2bc
+paperclip.circle.fill e2bc 1
+paperplane e163
+paperplane.circle e163
+paperplane.circle.fill e163 1
+paperplane.fill e163 1
+parkingsign e54f
+parkingsign.brakesignal e54f
+parkingsign.circle e54f
+parkingsign.circle.fill e54f 1
+parkingsign.square e54f
+parkingsign.square.fill e54f 1
+party.popper ea65
+party.popper.fill ea65 1
+pause e034
+pause.circle e1a2
+pause.circle.fill e1a2 1
+pause.fill e034 1
+pause.rectangle e034
+pause.rectangle.fill e034 1
+pawprint e91d
+pawprint.circle e91d
+pawprint.circle.fill e91d 1
+pawprint.fill e91d 1
+pc e31e
+pedestrian.gate.closed e277
+pedestrian.gate.open e277
+pencil f097
+pencil.and.outline f097
+pencil.and.ruler f10a
+pencil.and.ruler.fill f10a 1
+pencil.and.scribble e746
+pencil.circle f097
+pencil.circle.fill f097 1
+pencil.line e22b
+pencil.slash e950
+pentagon eb50
+pentagon.bottomhalf.filled eb50
+pentagon.fill eb50 1
+pentagon.lefthalf.filled eb50
+pentagon.righthalf.filled eb50
+pentagon.tophalf.filled eb50
+percent eb58
+person f0d3
+person.2 ea21
+person.2.badge ea21
+person.2.badge.fill ea21 1
+person.2.badge.minus e7ad
+person.2.badge.minus.fill e7ad 1
+person.2.badge.plus e7f0
+person.2.badge.plus.fill e7f0 1
+person.2.circle ea21
+person.2.circle.fill ea21 1
+person.2.fill ea21 1
+person.2.slash e747
+person.2.slash.fill e747 1
+person.3 f233
+person.3.fill f233 1
+person.and.background.dotted f0d3
+person.and.background.striped.horizontal f0d3
+person.badge.minus ef66
+person.badge.plus ea4d
+person.bust f0d3
+person.bust.circle f20b
+person.bust.circle.fill f20b 1
+person.bust.fill f0d3 1
+person.circle f20b
+person.circle.fill f20b 1
+person.crop.artframe e851
+person.crop.badge.magnifyingglass f106
+person.crop.badge.magnifyingglass.fill f106 1
+person.crop.circle f20b
+person.crop.circle.badge f20b
+person.crop.circle.badge.checkmark e174
+person.crop.circle.badge.fill e3be 1
+person.crop.circle.badge.minus ef66
+person.crop.circle.badge.plus ea4d
+person.crop.circle.badge.xmark f566
+person.crop.circle.fill f20b 1
+person.crop.circle.fill.badge.checkmark e174
+person.crop.circle.fill.badge.minus ef66
+person.crop.circle.fill.badge.plus ea4d
+person.crop.circle.fill.badge.xmark f566
+person.crop.rectangle e851
+person.crop.rectangle.fill e851 1
+person.crop.square e851
+person.crop.square.fill e851 1
+person.crop.square.filled.and.at.rectangle e0d0
+person.crop.square.filled.and.at.rectangle.fill e0d0 1
+person.fill f0d3 1
+person.fill.badge.minus ef66
+person.fill.badge.plus ea4d
+person.fill.checkmark e174
+person.fill.turn.down f0d3
+person.line.dotted.person f223
+person.line.dotted.person.fill f223 1
+person.slash e510
+person.slash.fill e510 1
+person.text.rectangle ea67
+person.text.rectangle.fill ea67 1
+person.wave.2 e91f
+person.wave.2.fill e91f 1
+personalhotspot e1e2
+personalhotspot.circle e1e2
+personalhotspot.circle.fill e1e2 1
+personalhotspot.slash f087
+peruviansolessign.bank.building e84f
+peruviansolessign.bank.building.fill e84f 1
+pesetasign.bank.building e84f
+pesetasign.bank.building.fill e84f 1
+pesosign.bank.building e84f
+pesosign.bank.building.fill e84f 1
+phone f0d4
+phone.arrow.down.left e0b5
+phone.arrow.down.left.fill e0b5 1
+phone.arrow.right e61c
+phone.arrow.right.fill e61c 1
+phone.arrow.up.right e0b2
+phone.arrow.up.right.circle e0b2
+phone.arrow.up.right.circle.fill e0b2 1
+phone.arrow.up.right.fill e0b2 1
+phone.badge.plus f0b7
+phone.badge.waveform e61d
+phone.badge.waveform.fill e61d 1
+phone.circle f0d4
+phone.circle.fill f0d4 1
+phone.down f0bc
+phone.down.circle f0bc
+phone.down.circle.fill f0bc 1
+phone.down.fill f0bc 1
+phone.down.waves.left.and.right f0bc
+phone.fill f0d4 1
+phone.fill.badge.plus f0b7
+phone.pause e620
+phone.pause.circle e1a2
+phone.pause.circle.fill e1a2 1
+phone.pause.fill e620 1
+photo e3f4
+photo.artframe e3f4
+photo.badge.magnifyingglass e43f
+photo.badge.magnifyingglass.fill e43f 1
+photo.badge.plus e43e
+photo.badge.plus.fill e43e 1
+photo.circle e3f4
+photo.circle.fill e3f4 1
+photo.fill e3f4 1
+photo.fill.on.rectangle.fill e413 1
+photo.on.rectangle e413
+photo.on.rectangle.angled e413
+photo.on.rectangle.angled.fill e413 1
+photo.stack e3d3
+photo.stack.fill e3d3 1
+pill e11f
+pill.circle e11f
+pill.circle.fill e11f 1
+pill.fill e11f 1
+pills f033
+pills.circle f033
+pills.circle.fill f033 1
+pills.fill f033 1
+pin f10d
+pin.circle f10d
+pin.circle.fill f10d 1
+pin.fill f10d 1
+pin.slash f10d
+pin.square f10d
+pin.square.fill f10d 1
+pip f64d
+pip.enter f64d
+pip.exit f70d
+pip.fill f64d 1
+pip.remove f70d
+pip.swap f64d
+play e037
+play.circle e1c4
+play.circle.fill e1c4 1
+play.fill e037 1
+play.rectangle e63a
+play.rectangle.fill e63a 1
+play.rectangle.on.rectangle e04a
+play.rectangle.on.rectangle.fill e04a 1
+play.slash ef6a
+play.slash.fill ef6a 1
+play.square e63a
+play.square.fill e63a 1
+play.square.stack e04a
+play.square.stack.fill e04a 1
+play.tv e63a
+play.tv.fill e63a 1
+plus e145
+plus.app e146
+plus.app.fill e146 1
+plus.bubble e266
+plus.bubble.fill e266 1
+plus.circle e990
+plus.circle.dashed e990
+plus.circle.fill e990 1
+plus.diamond f49c
+plus.diamond.fill f49c 1
+plus.forwardslash.minus e3f6
+plus.magnifyingglass e8ff
+plus.message e266
+plus.message.fill e266 1
+plus.rectangle e05c
+plus.rectangle.fill e05c 1
+plus.rectangle.on.rectangle e03c
+plus.square e146
+plus.square.fill e146 1
+plus.square.fill.on.square.fill e03c 1
+plus.square.on.square e03c
+pointer.arrow f82f
+pointer.arrow.click e762
+pointer.arrow.click.2 e762
+pointer.arrow.ipad f82f
+pointer.arrow.motionlines.click e762
+polishzlotysign.bank.building e84f
+polishzlotysign.bank.building.fill e84f 1
+power e63c
+power.circle f8c7
+power.circle.fill f8c7 1
+power.dotted e63c
+poweroutlet.type.a f1d4
+poweroutlet.type.a.fill f1d4 1
+poweroutlet.type.a.square f1d4
+poweroutlet.type.a.square.fill f1d4 1
+poweroutlet.type.b f1d4
+poweroutlet.type.b.fill f1d4 1
+poweroutlet.type.b.square f1d4
+poweroutlet.type.b.square.fill f1d4 1
+poweroutlet.type.c f1d4
+poweroutlet.type.c.fill f1d4 1
+poweroutlet.type.c.square f1d4
+poweroutlet.type.c.square.fill f1d4 1
+poweroutlet.type.d f1d4
+poweroutlet.type.d.fill f1d4 1
+poweroutlet.type.d.square f1d4
+poweroutlet.type.d.square.fill f1d4 1
+poweroutlet.type.e f1d4
+poweroutlet.type.e.fill f1d4 1
+poweroutlet.type.e.square f1d4
+poweroutlet.type.e.square.fill f1d4 1
+poweroutlet.type.f f1d4
+poweroutlet.type.f.fill f1d4 1
+poweroutlet.type.f.square f1d4
+poweroutlet.type.f.square.fill f1d4 1
+poweroutlet.type.g f1d4
+poweroutlet.type.g.fill f1d4 1
+poweroutlet.type.g.square f1d4
+poweroutlet.type.g.square.fill f1d4 1
+poweroutlet.type.h f1d4
+poweroutlet.type.h.fill f1d4 1
+poweroutlet.type.h.square f1d4
+poweroutlet.type.h.square.fill f1d4 1
+poweroutlet.type.i f1d4
+poweroutlet.type.i.fill f1d4 1
+poweroutlet.type.i.square f1d4
+poweroutlet.type.i.square.fill f1d4 1
+poweroutlet.type.j f1d4
+poweroutlet.type.j.fill f1d4 1
+poweroutlet.type.j.square f1d4
+poweroutlet.type.j.square.fill f1d4 1
+poweroutlet.type.k f1d4
+poweroutlet.type.k.fill f1d4 1
+poweroutlet.type.k.square f1d4
+poweroutlet.type.k.square.fill f1d4 1
+poweroutlet.type.l f1d4
+poweroutlet.type.l.fill f1d4 1
+poweroutlet.type.l.square f1d4
+poweroutlet.type.l.square.fill f1d4 1
+poweroutlet.type.m f1d4
+poweroutlet.type.m.fill f1d4 1
+poweroutlet.type.m.square f1d4
+poweroutlet.type.m.square.fill f1d4 1
+poweroutlet.type.n f1d4
+poweroutlet.type.n.fill f1d4 1
+poweroutlet.type.n.square f1d4
+poweroutlet.type.n.square.fill f1d4 1
+poweroutlet.type.o f1d4
+poweroutlet.type.o.fill f1d4 1
+poweroutlet.type.o.square f1d4
+poweroutlet.type.o.square.fill f1d4 1
+powerplug e63c
+powerplug.fill e63c 1
+powerplug.portrait e63c
+powerplug.portrait.fill e63c 1
+printer e8ad
+printer.dotmatrix e8ad
+printer.dotmatrix.fill e8ad 1
+printer.dotmatrix.filled.and.paper e8ad
+printer.dotmatrix.filled.and.paper.inverse e8ad
+printer.dotmatrix.inverse e8ad
+printer.fill e8ad 1
+printer.filled.and.paper e8ad
+printer.filled.and.paper.inverse e8ad
+printer.inverse e8ad
+progress.indicator e9d0
+puzzlepiece.extension e87b
+puzzlepiece.extension.fill e87b 1
+qrcode ef6b
+qrcode.viewfinder f206
+questionmark e8fd
+questionmark.bubble e94c
+questionmark.bubble.fill e94c 1
+questionmark.circle e8fd
+questionmark.circle.dashed e8fd
+questionmark.circle.fill e8fd 1
+questionmark.message e94c
+questionmark.message.fill e94c 1
+questionmark.square e8fd
+questionmark.square.dashed e8fd
+questionmark.square.fill e8fd 1
+quote.bubble e0c9
+quote.closing e244
+quote.opening e244
+r.button.roundedbottom.horizontal eedf
+r.button.roundedbottom.horizontal.fill eedf 1
+r.joystick f5ee
+r.joystick.fill f5ee 1
+r.joystick.press.down f5ee
+r.joystick.press.down.fill f5ee 1
+r.joystick.tilt.down f5ee
+r.joystick.tilt.down.fill f5ee 1
+r.joystick.tilt.left f5ee
+r.joystick.tilt.left.fill f5ee 1
+r.joystick.tilt.right f5ee
+r.joystick.tilt.right.fill f5ee 1
+r.joystick.tilt.up f5ee
+r.joystick.tilt.up.fill f5ee 1
+r1.button.roundedbottom.horizontal eeda
+r1.button.roundedbottom.horizontal.fill eeda 1
+r1.circle eeda
+r1.circle.fill eeda 1
+r2.button.angledtop.vertical.right eed9
+r2.button.angledtop.vertical.right.fill eed9 1
+r2.button.roundedtop.horizontal eed9
+r2.button.roundedtop.horizontal.fill eed9 1
+r2.circle eed9
+r2.circle.fill eed9 1
+radio e03e
+radio.fill e03e 1
+rainbow e3fc
+rb.button.roundedbottom.horizontal eedf
+rb.button.roundedbottom.horizontal.fill eedf 1
+receipt e8b0
+receipt.fill e8b0 1
+record.circle e837
+record.circle.fill e837 1
+rectangle.2.swap e8d4
+rectangle.3.group e871
+rectangle.3.group.fill e871 1
+rectangle.and.arrow.up.right.and.arrow.down.left e5d0
+rectangle.and.paperclip e2bc
+rectangle.arrowtriangle.2.inward f1cf
+rectangle.arrowtriangle.2.outward f1ce
+rectangle.badge.person.crop e851
+rectangle.badge.plus e05c
+rectangle.badge.sparkles e65f
+rectangle.compress.vertical e94d
+rectangle.dashed.and.paperclip e2bc
+rectangle.expand.diagonal e94f
+rectangle.expand.vertical e94f
+rectangle.fill.badge.person.crop e851
+rectangle.fill.badge.plus e05c
+rectangle.fill.on.rectangle.angled.fill e3e0 1
+rectangle.grid.1x2.fill e871 1
+rectangle.grid.2x2 e9b0
+rectangle.grid.2x2.fill e9b0 1
+rectangle.grid.3x2 e9b0
+rectangle.grid.3x2.fill e9b0 1
+rectangle.grid.3x3 f015
+rectangle.grid.3x3.fill f015 1
+rectangle.on.rectangle.angled e3e0
+rectangle.on.rectangle.badge.gearshape eb97
+rectangle.pattern.checkered f043
+rectangle.portrait e851
+rectangle.portrait.and.arrow.forward e9ba
+rectangle.portrait.and.arrow.forward.fill e9ba 1
+rectangle.portrait.and.arrow.right e9ba
+rectangle.portrait.and.arrow.right.fill e9ba 1
+rectangle.portrait.bottomhalf.filled e851
+rectangle.portrait.fill e851 1
+rectangle.portrait.lefthalf.filled e851
+rectangle.portrait.righthalf.filled e851
+rectangle.portrait.split.2x1 e949
+rectangle.portrait.split.2x1.fill e949 1
+rectangle.portrait.tophalf.filled e851
+rectangle.ratio.16.to.9 e3bc
+rectangle.ratio.16.to.9.fill e3bc 1
+rectangle.ratio.3.to.4 e85b
+rectangle.ratio.3.to.4.fill e85b 1
+rectangle.ratio.4.to.3 e85b
+rectangle.ratio.4.to.3.fill e85b 1
+rectangle.split.1x2 e949
+rectangle.split.1x2.fill e949 1
+rectangle.split.2x1 e949
+rectangle.split.2x1.fill e949 1
+rectangle.split.2x2 e9b0
+rectangle.split.2x2.fill e9b0 1
+rectangle.split.3x3 f015
+rectangle.split.3x3.fill f015 1
+rectangle.stack f609
+rectangle.stack.badge.play e04a
+rectangle.stack.badge.play.fill e04a 1
+rectangle.stack.badge.plus e03c
+rectangle.stack.fill f609 1
+rectangle.stack.fill.badge.plus e03c
+rectangle.stack.slash f608
+rectangle.stack.slash.fill f608 1
+refrigerator eb47
+refrigerator.fill eb47 1
+repeat e040
+repeat.1 e040
+repeat.1.circle e040
+repeat.1.circle.fill e040 1
+repeat.circle e040
+repeat.circle.fill e040 1
+restart f053
+restart.circle f053
+restart.circle.fill f053 1
+return e31b
+return.left f1e6
+rhombus ead5
+rhombus.fill ead5 1
+richtext.page ef87
+richtext.page.fill ef87 1
+right e941
+right.circle eaaa
+right.circle.fill eaaa 1
+road.lane.arrowtriangle.2.inward f472
+road.lane.arrowtriangle.2.outward f472
+road.lanes f472
+robotic.vacuum efc5
+robotic.vacuum.and.ellipsis efc5
+robotic.vacuum.and.ellipsis.fill efc5 1
+robotic.vacuum.fill efc5 1
+roller.shade.closed ec11
+roller.shade.open ec12
+roman.shade.closed ec1f
+roman.shade.open e286
+rosette e7af
+rotate.3d ed38
+rotate.3d.circle ed38
+rotate.3d.circle.fill e2e7 1
+rotate.3d.fill ed38 1
+rotate.left e419
+rotate.left.fill e419 1
+rotate.right e41a
+rotate.right.fill e41a 1
+rublesign.bank.building e84f
+rublesign.bank.building.fill e84f 1
+ruler e41c
+ruler.fill e41c 1
+rupeesign.bank.building e84f
+rupeesign.bank.building.fill e84f 1
+sailboat e502
+sailboat.circle eff5
+sailboat.circle.fill eff5 1
+sailboat.fill eff5 1
+scanner e329
+scanner.fill e329 1
+scissors e14e
+scissors.badge.ellipsis e14e
+scissors.circle e14e
+scissors.circle.fill e14e 1
+scooter eb1f
+scope e3b4
+screwdriver f10b
+scribble e155
+scroll ea3e
+scroll.fill ea3e 1
+sdcard e623
+sdcard.fill e623 1
+seal ef76
+seal.fill ef76 1
+sensor e51e
+sensor.fill e51e 1
+server.rack e875
+shadow e9df
+shekelsign.bank.building e84f
+shekelsign.bank.building.fill e84f 1
+shield e9e0
+shield.fill e9e0 1
+shield.lefthalf.filled e9e0
+shield.lefthalf.filled.badge.checkmark f013
+shield.lefthalf.filled.trianglebadge.exclamationmark f014
+shield.righthalf.filled e9e0
+shield.slash e9d4
+shield.slash.fill e9d4 1
+shift e5f2
+shift.fill e5f2 1
+shippingbox e1a1
+shippingbox.circle e1a1
+shippingbox.circle.fill e1a1 1
+shippingbox.fill e1a1 1
+shoeprints.fill f6da 1
+shower f061
+shower.fill f061 1
+shower.handheld f061
+shower.handheld.fill f061 1
+shower.sidejet f061
+shower.sidejet.fill f061 1
+shuffle e043
+shuffle.circle e043
+shuffle.circle.fill e043 1
+sidebar.leading f716
+sidebar.left f716
+sidebar.right f704
+sidebar.squares.leading f716
+sidebar.squares.left f716
+sidebar.squares.right f704
+sidebar.squares.trailing f704
+sidebar.trailing f704
+signature f74c
+signpost.and.arrowtriangle.up eb91
+signpost.and.arrowtriangle.up.circle eb91
+signpost.and.arrowtriangle.up.circle.fill eb91 1
+signpost.and.arrowtriangle.up.fill eb91 1
+signpost.left eb91
+signpost.left.circle eb91
+signpost.left.circle.fill eb91 1
+signpost.left.fill eb91 1
+signpost.right eb91
+signpost.right.and.left eb91
+signpost.right.and.left.fill eb91 1
+signpost.right.circle eb91
+signpost.right.circle.fill eb91 1
+signpost.right.fill eb91 1
+simcard e32b
+simcard.2 e32b
+simcard.2.fill e32b 1
+simcard.fill e32b 1
+singaporedollarsign.bank.building e84f
+singaporedollarsign.bank.building.fill e84f 1
+skateboard e511
+skateboard.fill e511 1
+sleep e213
+sleep.circle e213
+sleep.circle.fill e213 1
+slider.horizontal.2.square e429
+slider.horizontal.3 e429
+slider.vertical.3 e429
+smallcircle.filled.circle e57b
+smallcircle.filled.circle.fill e57b 1
+smartphone e7ba
+snowflake eb3b
+snowflake.circle eb3b
+snowflake.circle.fill eb3b 1
+sofa e16b
+sofa.fill e16b 1
+sos ebf7
+sos.circle ebf7
+sos.circle.fill ebf7 1
+space e256
+sparkle e65f
+sparkle.magnifyingglass ef7a
+sparkles e65f
+sparkles.2 e65f
+sparkles.rectangle.stack e65f
+sparkles.rectangle.stack.fill e661 1
+sparkles.square.filled.on.square e661
+spatial.capture f727
+speaker e04e
+speaker.circle e32d
+speaker.circle.fill e32d 1
+speaker.fill e04e 1
+speaker.minus e04d
+speaker.minus.fill e04d 1
+speaker.plus e050
+speaker.plus.fill e050 1
+speaker.slash e04f
+speaker.slash.circle e04f
+speaker.slash.circle.fill e04f 1
+speaker.slash.fill e04f 1
+speaker.square e32d
+speaker.square.fill e32d 1
+speaker.wave.1 e04d
+speaker.wave.1.arrowtriangles.up.right.down.left e049
+speaker.wave.1.fill e04d 1
+speaker.wave.2 e050
+speaker.wave.2.circle e32d
+speaker.wave.2.circle.fill e32d 1
+speaker.wave.2.fill e050 1
+speaker.wave.3 e050
+speaker.wave.3.fill e050 1
+spigot e278
+spigot.fill e278 1
+sprinkler e29a
+sprinkler.and.droplets e29a
+sprinkler.and.droplets.fill e29a 1
+sprinkler.fill e29a 1
+square.2.layers.3d e53b
+square.2.layers.3d.bottom.filled e53b
+square.2.layers.3d.fill e53b 1
+square.2.layers.3d.top.filled e53b
+square.3.layers.3d e53b
+square.3.layers.3d.bottom.filled e53b
+square.3.layers.3d.down.forward e53b
+square.3.layers.3d.middle.filled e53b
+square.3.layers.3d.slash e53c
+square.3.layers.3d.top.filled e53b
+square.and.arrow.down f090
+square.and.arrow.down.badge.checkmark f090
+square.and.arrow.down.badge.checkmark.fill f090 1
+square.and.arrow.down.fill f090 1
+square.and.arrow.down.on.square f090
+square.and.arrow.down.on.square.fill f090 1
+square.and.arrow.up e6b8
+square.and.arrow.up.badge.checkmark e6b8
+square.and.arrow.up.badge.checkmark.fill e6b8 1
+square.and.arrow.up.badge.clock e6b8
+square.and.arrow.up.badge.clock.fill e6b8 1
+square.and.arrow.up.circle e6b8
+square.and.arrow.up.circle.fill e6b8 1
+square.and.arrow.up.fill e6b8 1
+square.and.arrow.up.on.square e6b8
+square.and.arrow.up.on.square.fill e6b8 1
+square.and.arrow.up.trianglebadge.exclamationmark e6b8
+square.and.arrow.up.trianglebadge.exclamationmark.fill e6b8 1
+square.and.at.rectangle e0e6
+square.and.at.rectangle.fill e0e6 1
+square.and.pencil f88d
+square.and.pencil.circle f88d
+square.and.pencil.circle.fill f88d 1
+square.arrowtriangle.4.outward f1ce
+square.badge.plus e146
+square.badge.plus.fill e146 1
+square.filled.on.square e3e0
+square.grid.2x2 e9b0
+square.grid.2x2.fill e9b0 1
+square.grid.3x2 e9b0
+square.grid.3x2.fill e9b0 1
+square.grid.3x3 f015
+square.grid.3x3.bottomleft.filled f015
+square.grid.3x3.bottommiddle.filled f015
+square.grid.3x3.bottomright.filled f015
+square.grid.3x3.fill f015 1
+square.grid.3x3.middle.filled f015
+square.grid.3x3.middleleft.filled f015
+square.grid.3x3.middleright.filled f015
+square.grid.3x3.square f015
+square.grid.3x3.square.badge.ellipsis f015
+square.grid.3x3.topleft.filled f015
+square.grid.3x3.topmiddle.filled f015
+square.grid.3x3.topright.filled f015
+square.grid.4x3.fill f016 1
+square.on.square.intersection.dashed eaf4
+square.resize f707
+square.split.1x2 e949
+square.split.1x2.fill e949 1
+square.split.2x1 e949
+square.split.2x1.fill e949 1
+square.split.2x2 e9b0
+square.split.2x2.fill e9b0 1
+square.stack f609
+square.stack.3d.down.forward f609
+square.stack.3d.down.forward.fill f609 1
+square.stack.3d.forward.dottedline f609
+square.stack.3d.up e53b
+square.stack.3d.up.fill e53b 1
+square.stack.3d.up.slash f608
+square.stack.3d.up.slash.fill f608 1
+square.stack.fill f609 1
+squareshape.split.2x2 e9b0
+squareshape.split.3x3 f015
+stairs f1a9
+star f09a
+star.bubble f07c
+star.bubble.fill f07c 1
+star.circle e8d0
+star.circle.fill e8d0 1
+star.fill f09a 1
+star.leadinghalf.filled e839
+staroflife.shield e1d5
+staroflife.shield.fill e1d5 1
+sterlingsign.bank.building e84f
+sterlingsign.bank.building.fill e84f 1
+stethoscope f805
+stethoscope.circle f805
+stethoscope.circle.fill f805 1
+stop e047
+stop.circle ef71
+stop.circle.fill ef71 1
+stop.fill e047 1
+stopwatch e01b
+stopwatch.fill e01b 1
+storefront ea12
+storefront.circle ea12
+storefront.circle.fill ea12 1
+storefront.fill ea12 1
+strikethrough e257
+strikethrough.double e246
+stroke.line.diagonal f41e
+stroke.line.diagonal.slash f41e
+stroller f1ae
+stroller.fill f1ae 1
+suit.diamond ead5
+suit.diamond.fill ead5 1
+suit.heart e87e
+suit.heart.fill e87e 1
+suitcase f235
+suitcase.cart f235
+suitcase.cart.fill f235 1
+suitcase.circle f235
+suitcase.circle.fill f235 1
+suitcase.fill f235 1
+suitcase.rolling f235
+suitcase.rolling.and.suitcase f235
+suitcase.rolling.and.suitcase.fill f235 1
+suitcase.rolling.fill f235 1
+sum e24a
+sun.horizon e1c6
+sun.horizon.fill e1c6 1
+sun.max e518
+sun.max.circle e430
+sun.max.circle.fill e430 1
+sun.max.fill e430 1
+sunglasses f6ee
+sunglasses.fill f6ee 1
+sunrise e1c6
+sunrise.circle e1c6
+sunrise.circle.fill e1c6 1
+sunrise.fill e1c6 1
+sunset e1c6
+sunset.circle e1c6
+sunset.circle.fill e1c6 1
+sunset.fill e1c6 1
+swedishkronasign.bank.building e84f
+swedishkronasign.bank.building.fill e84f 1
+switch.2 e1f4
+switch.programmable e1f4
+switch.programmable.fill e1f4 1
+switch.programmable.square e1f4
+switch.programmable.square.fill e1f4 1
+syringe e133
+syringe.fill e138 1
+table.furniture f191
+table.furniture.fill f191 1
+tachometer e9e4
+tag f05b
+tag.circle f05b
+tag.circle.fill f05b 1
+tag.fill f05b 1
+tag.slash e9b6
+tag.slash.fill e9b6 1
+tag.square f05b
+tag.square.fill f05b 1
+takeoutbag.and.cup.and.straw ea74
+takeoutbag.and.cup.and.straw.fill ea74 1
+target e719
+teletype f1aa
+teletype.circle f1aa
+teletype.circle.fill f1aa 1
+tengesign.bank.building e84f
+tengesign.bank.building.fill e84f 1
+tennis.racket ea32
+tennis.racket.circle ea32
+tennis.racket.circle.fill ea32 1
+tent f8a2
+tent.2 f8a2
+tent.2.circle f8a2
+tent.2.circle.fill f8a2 1
+tent.2.fill f8a2 1
+tent.circle f8a2
+tent.circle.fill f8a2 1
+tent.fill f8a2 1
+text.aligncenter e234
+text.alignleft e236
+text.alignright e237
+text.and.command.macwindow eb8e
+text.badge.checkmark f0c5
+text.badge.plus ea20
+text.book.closed ea19
+text.book.closed.fill ea19 1
+text.bubble e0c9
+text.bubble.badge.clock e0c9
+text.bubble.badge.clock.fill e0c9 1
+text.bubble.fill e0c9 1
+text.document e873
+text.document.fill e873 1
+text.insert f827
+text.justify e235
+text.justify.leading e235
+text.justify.left e236
+text.justify.right e237
+text.justify.trailing e235
+text.line.2.summary f071
+text.line.3.summary f071
+text.magnifyingglass f02f
+text.page ef87
+text.page.badge.magnifyingglass e880
+text.page.fill ef87 1
+text.quote e244
+text.viewfinder e5fa
+text.word.spacing f616
+textformat e165
+textformat.alt e165
+textformat.characters e165
+textformat.numbers eac7
+textformat.size e245
+textformat.size.larger e245
+textformat.size.smaller e245
+textformat.subscript f111
+textformat.superscript f112
+thermometer.and.ellipsis e846
+thermometer.and.liquid.waves e846
+thermometer.high e1ff
+thermometer.low e1ff
+thermometer.medium f076
+thermometer.variable e1ff
+ticket e638
+ticket.circle e638
+ticket.circle.fill e638 1
+ticket.fill e638 1
+timelapse e422
+timeline.selection e922
+timer e425
+timer.circle e425
+timer.circle.fill e425 1
+timer.square e425
+tire ebc8
+toilet e63d
+toilet.fill e63d 1
+tornado e199
+tornado.circle e199
+tornado.circle.fill e199 1
+touchid e90d
+tow.hitch e71e
+tow.hitch.fill e71e 1
+train.side.front.car e570
+train.side.middle.car e570
+train.side.rear.car e570
+tram e571
+tram.card e571
+tram.card.fill e571 1
+tram.circle e571
+tram.circle.fill e571 1
+tram.fill e571 1
+tram.fill.tunnel e571
+translate e8e2
+transmission f53f
+trash e92e
+trash.circle e92e
+trash.circle.fill e92e 1
+trash.fill e92e 1
+trash.square e92e
+trash.square.fill e92e 1
+tray e156
+tray.2 e156
+tray.2.fill e156 1
+tray.and.arrow.down e168
+tray.and.arrow.down.fill e168 1
+tray.and.arrow.up ef5f
+tray.and.arrow.up.fill ef5f 1
+tray.badge e156
+tray.badge.fill e156 1
+tray.circle e156
+tray.circle.fill e156 1
+tray.fill e156 1
+tray.full e156
+tray.full.fill e156 1
+tree ea63
+tree.circle ea63
+tree.circle.fill ea63 1
+tree.fill ea63 1
+triangle e86b
+triangle.circle eec6
+triangle.circle.fill eec6 1
+triangle.fill e3c8 1
+trophy ea23
+trophy.circle ea23
+trophy.circle.fill ea23 1
+trophy.fill ea23 1
+truck.box e558
+truck.box.badge.clock e558
+truck.box.badge.clock.fill e558 1
+truck.box.fill e558 1
+truck.pickup.side e558
+truck.pickup.side.fill e558 1
+tugriksign.bank.building e84f
+tugriksign.bank.building.fill e84f 1
+turkishlirasign.bank.building e84f
+turkishlirasign.bank.building.fill e84f 1
+tv e63b
+tv.and.hifispeaker.fill e715 1
+tv.and.mediabox e63b
+tv.and.mediabox.fill e63b 1
+tv.badge.wifi e998
+tv.badge.wifi.fill e998 1
+tv.circle e63b
+tv.circle.fill e63b 1
+tv.fill e63b 1
+tv.slash e647
+tv.slash.fill e647 1
+uiwindow.split.2x1 f06d
+umbrella f1ad
+umbrella.circle eb3e
+umbrella.circle.fill eb3e 1
+umbrella.fill eb3e 1
+umbrella.sensor.tag.radiowaves.left.and.right eb3e
+umbrella.sensor.tag.radiowaves.left.and.right.fill eb3e 1
+underline e249
+underline.double e249
+video e04b
+video.badge.ellipsis e04b
+video.badge.plus e070
+video.badge.waveform e04b
+video.badge.waveform.fill e04b 1
+video.bubble f8a0
+video.bubble.fill f8a0 1
+video.circle e04b
+video.circle.fill e04b 1
+video.doorbell efff
+video.doorbell.fill efff 1
+video.fill e04b 1
+video.fill.badge.ellipsis e04b
+video.fill.badge.plus e070
+video.slash e04c
+video.slash.circle e04c
+video.slash.circle.fill e04c 1
+video.slash.fill e04c 1
+video.square e04b
+video.square.fill e04b 1
+view.2d ef37
+view.3d ed38
+viewfinder e3c2
+viewfinder.circle e3c2
+viewfinder.circle.fill e3c2 1
+voiceover f58c
+volleyball ea31
+volleyball.circle ea31
+volleyball.circle.fill ea31 1
+volleyball.fill ea31 1
+wallet.bifold f8ff
+wallet.bifold.fill f8ff 1
+wallet.pass f2e4
+wallet.pass.fill f2e4 1
+wallet.sensor.tag.radiowaves.left.and.right e850
+wallet.sensor.tag.radiowaves.left.and.right.fill e850 1
+wand.and.outline e664
+wand.and.outline.inverse e664
+wand.and.rays e663
+wand.and.rays.inverse e663
+wand.and.sparkles e65f
+wand.and.sparkles.inverse e65f
+washer e54a
+washer.circle e54a
+washer.circle.fill e54a 1
+washer.fill e54a 1
+watch.analog e334
+watchface.applewatch.case e334
+water.waves e176
+waveform e1b8
+waveform.and.person.filled e91f
+waveform.badge.microphone e31d
+waveform.circle e1b8
+waveform.circle.fill e1b8 1
+waveform.path.ecg e650
+waveform.path.ecg.rectangle eaa2
+waveform.path.ecg.rectangle.fill eaa2 1
+waveform.path.ecg.text f80f
+web.camera e04b
+wheelchair e914
+widget.medium f3ba
+widget.small f3b9
+wifi e63e
+wifi.badge.lock e1e1
+wifi.circle e63e
+wifi.circle.fill e63e 1
+wifi.router e328
+wifi.router.fill e328 1
+wifi.slash e648
+wifi.square e63e
+wifi.square.fill e63e 1
+wind efd8
+wind.circle ec0c
+window.awning f088
+window.awning.closed e77e
+window.casement f088
+window.casement.closed e77e
+window.ceiling f088
+window.ceiling.closed e77e
+window.horizontal f088
+window.horizontal.closed e77e
+window.shade.closed e77e
+window.shade.open e78c
+window.vertical.closed ec0d
+window.vertical.open ec0e
+windshield.front.and.fluid.and.spray f32a
+windshield.front.and.heat.waves f328
+windshield.rear.and.heat.waves f329
+wineglass f1e8
+wineglass.fill f1e8 1
+wonsign.bank.building e84f
+wonsign.bank.building.fill e84f 1
+wrench.adjustable f8cd
+wrench.adjustable.fill f8cd 1
+wrench.and.screwdriver f10b
+wrench.and.screwdriver.fill f10b 1
+x.circle e349
+x.circle.fill e349 1
+xmark e5cd
+xmark.app f230
+xmark.app.fill f230 1
+xmark.bin e92e
+xmark.bin.circle e92e
+xmark.bin.circle.fill e92e 1
+xmark.bin.fill e92e 1
+xmark.circle e888
+xmark.circle.fill e888 1
+xmark.icloud e2c1
+xmark.icloud.fill e2c1 1
+xmark.octagon e99a
+xmark.octagon.fill e99a 1
+xmark.rectangle e0e9
+xmark.rectangle.fill e0e9 1
+xmark.seal f236
+xmark.seal.fill f236 1
+xmark.shield f012
+xmark.shield.fill f012 1
+xmark.square e888
+xmark.square.fill e888 1
+y.circle eec5
+y.circle.fill eec5 1
+yensign.bank.building e84f
+yensign.bank.building.fill e84f 1
+zl.button.roundedtop.horizontal eed8
+zl.button.roundedtop.horizontal.fill eed8 1
+zr.button.roundedtop.horizontal eed7
+zr.button.roundedtop.horizontal.fill eed7 1
+zzz e046

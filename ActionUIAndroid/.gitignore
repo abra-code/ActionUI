@@ -25,9 +25,8 @@ local.properties
 # assets/symbols/ next to the SF->Material map (both are lookup tables).
 /library/src/main/assets/symbols/MaterialSymbolsRounded.codepoints
 
-# SF Symbols -> Material Symbols embedded map (compiled by
-# Tools/material_symbols/build_sf_material_map.py from the glyphsvg mapping).
-# Ignored while the mapping is in development and the systemName path is unwired.
-# When the mapping is finalized: regenerate, remove this line, and COMMIT the map
-# (unlike the font it is not publicly downloadable, so the library needs it tracked).
-/library/src/main/assets/symbols/sf_to_material.map
+# NB: the SF Symbols -> Material Symbols embedded map
+# (assets/symbols/sf_to_material.map, compiled by
+# Tools/material_symbols/build_sf_material_map.py from the glyphsvg mapping) is now
+# finalized and TRACKED - it is derived from the private mapping, not publicly
+# downloadable like the font, so the library needs it committed to build standalone.

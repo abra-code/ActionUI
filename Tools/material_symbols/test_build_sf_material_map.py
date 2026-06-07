@@ -23,6 +23,7 @@ from build_sf_material_map import (  # noqa: E402
     build_entries,
     format_lines,
     Entry,
+    DEFAULT_MIN_SCORE,
 )
 
 # A tiny stand-in for MaterialSymbolsRounded.codepoints.
@@ -91,6 +92,17 @@ class BuildEntriesTest(unittest.TestCase):
         }
         entries, stats, _ = build_entries(_wrap(rows), _CODEPOINTS, min_score=80)
         self.assertEqual(["good"], [e.sf_name for e in entries])
+        self.assertEqual(1, stats.skipped_below_score)
+
+    def test_default_floor_is_60_and_boundary_is_inclusive(self):
+        # Product policy: keep score >= DEFAULT_MIN_SCORE, drop 59 and below.
+        self.assertEqual(60, DEFAULT_MIN_SCORE)
+        rows = {
+            "at_floor":    {"material": "search", "score": 60},   # kept
+            "below_floor": {"material": "delete", "score": 59},   # dropped
+        }
+        entries, stats, _ = build_entries(_wrap(rows), _CODEPOINTS, min_score=DEFAULT_MIN_SCORE)
+        self.assertEqual(["at_floor"], [e.sf_name for e in entries])
         self.assertEqual(1, stats.skipped_below_score)
 
     def test_unresolved_material_name_is_skipped_and_sampled(self):

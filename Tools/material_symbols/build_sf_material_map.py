@@ -5,7 +5,9 @@ into the compact table embedded in ActionUIAndroid.
 
 Input  (from the glyphsvg mapping system):
   sf_to_material.json   { "_meta": {...}, "map": { "<sf_name>": { "material",
-                          "fill", "score", "alternatives", "note" }, ... } }
+                          "fill", "weight", "score", "alternatives", "note" }, ... } }
+                        'fill' (default false) and 'weight' (default 400) are both
+                        optional and omitted at their defaults.
   MaterialSymbolsRounded.codepoints   "<material_name> <hexcodepoint>" per line.
 
 Output (embedded in the library, read at runtime by the systemName path):
@@ -19,9 +21,9 @@ Output (embedded in the library, read at runtime by the systemName path):
   - axis overrides are BARE integers after the codepoint (no key= prefix),
     disambiguated by range because the value sets are disjoint:
       1          -> FILL axis = 1 (SF's '.fill' variants; omitted means FILL 0).
-      100..700   -> wght axis override (omitted means the default, 400). Read here
-                    so the format is ready for it, though the current source has no
-                    weight field.
+      100..700   -> wght axis override (omitted means the default, 400). The source
+                    carries a per-match 'weight' for the rows whose stroke is best
+                    matched lighter/heavier than 400 (e.g. applepencil -> wght 100).
     The hex codepoint always begins e/f (Material PUA), so it never collides with a
     decimal axis token. NB: this disjoint-range scheme only holds for fill+weight; a
     future third axis (e.g. GRAD -50..200) overlaps weight and would need a prefix.
@@ -42,7 +44,8 @@ Usage:
       --mapping     /path/to/sf_to_material.json \
       --codepoints  ActionUIAndroid/.../symbols/MaterialSymbolsRounded.codepoints \
       --out         ActionUIAndroid/.../symbols/sf_to_material.map \
-      [--min-score N]    drop matches scored below N (0-100); default 0 (keep all)
+      [--min-score N]    drop matches scored below N (0-100); default 60
+                         (pass 0 to keep the full lower-confidence tail)
 
 Exit codes: 0 on success; 2 on bad input / unreadable files.
 """
@@ -60,6 +63,13 @@ from typing import Optional
 # (the runtime clamps too, but we keep the embedded table honest).
 WEIGHT_MIN = 100
 WEIGHT_MAX = 700
+
+# Default visual-similarity floor for the embedded map: keep matches scored >= 60,
+# drop 59 and below. The score is a 0..100 vision-pass judgement; below ~60 the
+# Material glyph is a weak stand-in that tends to mislead more than help, so we let
+# those systemName lookups degrade honestly to no-icon rather than embed them.
+# Override per-run with --min-score (0 keeps the full lower-confidence tail).
+DEFAULT_MIN_SCORE = 60
 
 
 @dataclass(frozen=True)
@@ -208,8 +218,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--mapping", required=True, help="glyphsvg sf_to_material.json")
     ap.add_argument("--codepoints", required=True, help="MaterialSymbolsRounded.codepoints")
     ap.add_argument("--out", required=True, help="output sf_to_material.map")
-    ap.add_argument("--min-score", type=int, default=0,
-                    help="drop matches scored below this (0-100); default 0")
+    ap.add_argument("--min-score", type=int, default=DEFAULT_MIN_SCORE,
+                    help=f"drop matches scored below this (0-100); default "
+                         f"{DEFAULT_MIN_SCORE} (pass 0 to keep all)")
     args = ap.parse_args(argv)
 
     try:
