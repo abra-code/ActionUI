@@ -10,6 +10,8 @@ import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
 import java.io.File
 import java.io.IOException
 
@@ -21,60 +23,102 @@ import java.io.IOException
  *
  * ## Apple image sources vs. Android
  *
- * The shared JSON can carry four kinds of image source (names mirror
- * `ActionUI/Views/Image.swift`). Only the two "bundled raster" kinds are wired
- * up today; the other two are deferred with an honest warn-and-skip rather than
- * a silent no-op:
+ * The shared JSON can carry several kinds of image source (names mirror
+ * `ActionUI/Views/Image.swift`, plus the Android-only `materialName`). The
+ * unsupported kinds are deferred with an honest warn-and-skip rather than a
+ * silent no-op:
  *
- * | Apple property | Means                  | Android mapping                 | Status   |
- * |----------------|------------------------|---------------------------------|----------|
- * | `filePath`     | filesystem path        | [File] -> decode -> [BitmapPainter] | **done** |
- * | `resourceName` | bundle file (name+ext) | `assets/<name>` via [Context.getAssets] | **done** |
- * | `assetName`    | asset-catalog image    | `res/drawable/`                 | deferred |
- * | `systemName`   | SF Symbol              | Material icon / vector glyph    | deferred |
+ * | Property            | Means                  | Android mapping                          | Status   |
+ * |---------------------|------------------------|------------------------------------------|----------|
+ * | `filePath`          | filesystem path        | [File] -> decode -> [BitmapPainter]      | **done** |
+ * | `resourceName`      | bundle file (name+ext) | `assets/<name>` via [Context.getAssets]  | **done** |
+ * | `materialName`      | Material Symbol name   | variable-font glyph ([MaterialSymbolGlyph]) | **done** |
+ * | `systemName`        | SF Symbol              | SF->Material map -> glyph ([systemSymbol]) | **done** |
+ * | `assetName`         | asset-catalog image    | `res/drawable/`                          | deferred |
  *
- * `assetName` (Android `res/drawable`) is deferred pending a name->resource
- * contract - runtime-by-name needs `resources.getIdentifier`, which is slow and
- * stripped by R8 unless kept, so the right shape is a client-supplied map; that
- * decision is open. `systemName` (SF Symbols) has no portable name lookup on
- * Android. Both are tracked in `Private/Android_Porting_Notes.md` section 10. Authors
- * who need a bundled image on Android today should use `resourceName` (drop the
- * file in `assets/`) or a platform suffix (e.g. `resourceName:android`).
+ * `materialName` is Android-only; authors write it as `materialName:android` and
+ * `PlatformFilter` normalizes it to `materialName` here. Both `materialName` and
+ * `systemName` render a Material glyph: a cross-platform JSON can carry `systemName`
+ * (Apple) alongside `materialName:android` (Android), and the explicit Android
+ * source wins on Android (see priority below). `systemName` resolves through the
+ * bundled SF->Material map ([systemSymbol]); when a row carries fill/weight tuning
+ * the author gets the right look for free, still overridable by an explicit
+ * `:android` axis knob.
+ *
+ * `assetName` (Android `res/drawable`) is the one still-deferred source, pending a
+ * name->resource contract - runtime-by-name needs `resources.getIdentifier`, which
+ * is slow and stripped by R8 unless kept, so the right shape is a client-supplied
+ * map; that decision is open. Tracked in `Private/Android_Porting_Notes.md`.
  *
  * ## Source priority
  *
- * When several source properties are present, the highest-priority one wins,
- * matching the Apple mutual-exclusivity order: `filePath` > `resourceName` >
- * `assetName` > `systemName`. Because the two supported kinds outrank the two
- * deferred kinds, a cross-platform JSON that supplies both (e.g. `systemName`
- * for Apple and `resourceName` for Android) resolves correctly on Android.
+ * When several source properties are present, the highest-priority one wins:
+ * `filePath` > `resourceName` > `materialName` > `systemName` > `assetName`. The
+ * Apple raster order (`filePath` > `resourceName`) is preserved; the Android-only
+ * `materialName` outranks `systemName` so an explicit Android glyph beats the
+ * SF-derived one in shared JSON; and the still-deferred `assetName` ranks last
+ * (the "supported outranks deferred" rule).
  *
  * ## Scaling
  *
  * [resolveContentScale] maps Apple's `contentMode` (`fit`/`fill`) to a Compose
- * [ContentScale]. `imageScale` (Apple) only affects SF Symbols, so it is
- * ignored here until symbol support lands.
+ * [ContentScale] for raster sources. `imageScale` sizes symbol glyphs (Material and
+ * SF) via [resolveSymbolSizeSp] in the `Image` builder.
  *
  * Unresolvable or invalid input is warned through the optional [ActionUILogger]
  * and skipped, consistent with the resolver's "unknown value -> warn + skip"
  * contract elsewhere.
  */
 
-/** A concrete, supported image source ready to be decoded into a [Painter]. */
+/** A concrete, supported image source ready to be rendered. */
 internal sealed interface ImageSource {
     /** A bundle resource loaded from the app's `assets/` directory (e.g. `"logo.png"`). */
     data class Asset(val name: String) : ImageSource
 
     /** A raster/PDF-less image at an absolute filesystem path. */
     data class FilePath(val path: String) : ImageSource
+
+    /**
+     * A Material Symbol icon, rendered as a variable-font glyph rather than a
+     * [Painter] (see [MaterialSymbolGlyph]). [name] is a Material Symbol name
+     * (resolved to a codepoint by [materialCodepoint]); the axis values are
+     * pre-resolved and clamped here. [explicitSizeSp] is the `materialSize`
+     * override in sp, or `null` to size automatically from `imageScale` + the
+     * inherited font size (see [resolveSymbolSizeSp]).
+     */
+    data class MaterialSymbol(
+        val name: String,
+        val weight: Int,
+        val fill: Float,
+        val grade: Int,
+        val explicitSizeSp: Float?,
+    ) : ImageSource
+
+    /**
+     * An SF Symbol, resolved on Android to a Material glyph via the bundled
+     * SF->Material map ([systemSymbol]) - the Android analog of `Image(systemName:)`.
+     * The codepoint and any per-symbol fill/weight tuning come from the map at
+     * render time (it needs the [android.content.res.AssetManager]); the values
+     * here are the optional explicit `:android` axis *overrides* (each `null` when
+     * absent), which win over the map's per-row tuning. [explicitSizeSp] is the
+     * `materialSize` override in sp, else automatic sizing (see [resolveSymbolSizeSp]).
+     */
+    data class SystemSymbol(
+        val name: String,
+        val explicitWeight: Int?,
+        val explicitFill: Float?,
+        val explicitGrade: Int?,
+        val explicitSizeSp: Float?,
+    ) : ImageSource
 }
 
 /**
- * Picks the image source to render from [properties], honoring the Apple
- * priority `filePath` > `resourceName` > `assetName` > `systemName` and warning
- * on the deferred / missing / mistyped cases. Pure (no Android framework / no
- * decoding) so it is unit-testable; [loadImagePainter] performs the actual
- * decode.
+ * Picks the image source to render from [properties], honoring the priority
+ * `filePath` > `resourceName` > `materialName` > `systemName` > `assetName` and
+ * warning on the deferred / missing / mistyped cases. Pure (no Android framework /
+ * no asset access) so it is unit-testable; the codepoint + per-row tuning for a
+ * `systemName` come from [systemSymbol] in the `Image` builder, and raster
+ * decoding from [loadImagePainter].
  *
  * @return the chosen [ImageSource], or `null` when nothing renderable is
  *   present (a warning is emitted in that case).
@@ -92,28 +136,39 @@ internal fun selectImageSource(
     // value is warned and treated as absent (mirrors Apple's per-field check).
     val filePath = properties.stringSource("filePath", logger)
     val resourceName = properties.stringSource("resourceName", logger)
+    val materialName = properties.stringSource("materialName", logger)
     val assetName = properties.stringSource("assetName", logger)
     val systemName = properties.stringSource("systemName", logger)
 
     return when {
         filePath != null     -> ImageSource.FilePath(filePath)
         resourceName != null -> ImageSource.Asset(resourceName)
+        materialName != null -> ImageSource.MaterialSymbol(
+            name = materialName,
+            weight = (properties.intProperty("materialWeight") ?: MATERIAL_WEIGHT_DEFAULT)
+                .coerceIn(MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX),
+            fill = (properties.materialFillValue() ?: MATERIAL_FILL_DEFAULT)
+                .coerceIn(MATERIAL_FILL_MIN, MATERIAL_FILL_MAX),
+            grade = (properties.intProperty("materialGrade") ?: MATERIAL_GRADE_DEFAULT)
+                .coerceIn(MATERIAL_GRADE_MIN, MATERIAL_GRADE_MAX),
+            explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
+        )
+        systemName != null   -> ImageSource.SystemSymbol(
+            // Codepoint + per-row fill/weight are resolved from the SF->Material map
+            // at render time; these are the optional explicit overrides (or null).
+            name = systemName,
+            explicitWeight = properties.intProperty("materialWeight"),
+            explicitFill = properties.materialFillValue(),
+            explicitGrade = properties.intProperty("materialGrade"),
+            explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
+        )
         assetName != null    -> {
             logger?.log(
                 "Image 'assetName' ('$assetName') maps to an Android res/drawable " +
                     "resource, which is not supported yet (pending a name->resource " +
-                    "contract). Use 'resourceName' (assets/) or a platform suffix " +
-                    "such as 'resourceName:android'. Nothing rendered.",
-                LoggerLevel.warning
-            )
-            null
-        }
-        systemName != null   -> {
-            logger?.log(
-                "Image 'systemName' ('$systemName') is an SF Symbol, which has no " +
-                    "portable Android equivalent and is not supported yet. Use " +
-                    "'resourceName'/'filePath' or a platform suffix such as " +
-                    "'resourceName:android'. Nothing rendered.",
+                    "contract). Use 'resourceName' (assets/), 'materialName:android', " +
+                    "'systemName', or a platform suffix such as 'resourceName:android'. " +
+                    "Nothing rendered.",
                 LoggerLevel.warning
             )
             null
@@ -123,6 +178,68 @@ internal fun selectImageSource(
             null
         }
     }
+}
+
+/**
+ * Reads the `materialFill` axis, which accepts either a number in 0..1 or a
+ * boolean (`true` -> 1, `false` -> 0; SF's `.fill` variant is the binary case).
+ * Returns `null` if absent or an unusable type.
+ */
+private fun JsonObject.materialFillValue(): Float? {
+    val primitive = this["materialFill"] as? JsonPrimitive ?: return null
+    primitive.booleanOrNull?.let { return if (it) 1f else 0f }
+    primitive.doubleOrNull?.let { return it.toFloat() }
+    return null
+}
+
+/**
+ * Finalizes a symbol's axis values for a `systemName`, applying the precedence
+ * **explicit `:android` override > per-row map tuning > hard default**, then
+ * clamping to the font's range. Pure / unit-testable. (`materialName` axes are
+ * resolved inline in [selectImageSource] since it has no per-row map tuning.)
+ */
+internal fun resolveSymbolWeight(explicit: Int?, mapWeight: Int?): Int =
+    (explicit ?: mapWeight ?: MATERIAL_WEIGHT_DEFAULT)
+        .coerceIn(MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX)
+
+internal fun resolveSymbolFill(explicit: Float?, mapFill: Boolean): Float =
+    (explicit ?: if (mapFill) 1f else MATERIAL_FILL_DEFAULT)
+        .coerceIn(MATERIAL_FILL_MIN, MATERIAL_FILL_MAX)
+
+internal fun resolveSymbolGrade(explicit: Int?): Int =
+    (explicit ?: MATERIAL_GRADE_DEFAULT)
+        .coerceIn(MATERIAL_GRADE_MIN, MATERIAL_GRADE_MAX)
+
+/** Default symbol size (sp) when neither `materialSize` nor an inherited font size applies. */
+internal const val DEFAULT_SYMBOL_SIZE_SP = 20f
+
+/** `imageScale` multipliers, approximating SF Symbol small/medium/large scaling. */
+internal const val IMAGE_SCALE_SMALL_FACTOR = 0.85f
+internal const val IMAGE_SCALE_LARGE_FACTOR = 1.15f
+
+/**
+ * Resolves the rendered glyph size (sp), mirroring how an SF Symbol image is
+ * sized: relative to the surrounding font, scaled by `imageScale`. Pure /
+ * unit-testable.
+ *
+ *   1. base = [explicitSizeSp] (the `materialSize:android` override) if set,
+ *      else [inheritedFontSizeSp] (the ambient `font` size), else
+ *      [DEFAULT_SYMBOL_SIZE_SP].
+ *   2. multiplied by the `imageScale` factor (`small`/`large`; `medium`, `null`,
+ *      or an invalid value leave it unscaled).
+ */
+internal fun resolveSymbolSizeSp(
+    explicitSizeSp: Float?,
+    imageScale: String?,
+    inheritedFontSizeSp: Float?,
+): Float {
+    val base = explicitSizeSp ?: inheritedFontSizeSp ?: DEFAULT_SYMBOL_SIZE_SP
+    val factor = when (imageScale?.lowercase()) {
+        "small" -> IMAGE_SCALE_SMALL_FACTOR
+        "large" -> IMAGE_SCALE_LARGE_FACTOR
+        else    -> 1f
+    }
+    return base * factor
 }
 
 /**
@@ -166,8 +283,12 @@ internal fun loadImagePainter(
     context: Context,
     logger: ActionUILogger? = null
 ): Painter? = when (source) {
-    is ImageSource.Asset    -> decodeAsset(source.name, context, logger)
-    is ImageSource.FilePath -> decodeFile(source.path, logger)
+    is ImageSource.Asset          -> decodeAsset(source.name, context, logger)
+    is ImageSource.FilePath       -> decodeFile(source.path, logger)
+    // Symbol sources are glyphs, not raster painters; the Image builder renders
+    // them via MaterialSymbolGlyph and never routes them here.
+    is ImageSource.MaterialSymbol -> null
+    is ImageSource.SystemSymbol   -> null
 }
 
 private fun decodeAsset(name: String, context: Context, logger: ActionUILogger?): Painter? =
@@ -228,8 +349,9 @@ private fun JsonObject.stringSource(key: String, logger: ActionUILogger?): Strin
 private fun warnNoSource(logger: ActionUILogger?) {
     logger?.log(
         "Image requires an image source. Android supports 'resourceName' " +
-            "(assets/) and 'filePath' today; 'assetName' (res/drawable) and " +
-            "'systemName' (SF Symbols) are not supported yet. Nothing rendered.",
+            "(assets/), 'filePath', 'materialName:android' (Material Symbol), and " +
+            "'systemName' (SF Symbol, via the bundled SF->Material map) today; " +
+            "'assetName' (res/drawable) is not supported yet. Nothing rendered.",
         LoggerLevel.warning
     )
 }

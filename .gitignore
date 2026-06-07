@@ -25,4 +25,5 @@ ActionUINodeJS/node_modules
 Skill/dist
 Tools/verifier/verifier/__pycache__
 Tools/verifier/__pycache__
+Tools/material_symbols/__pycache__
 ActionUIAndroid/.idea/androidTestResultsUserPreferences.xml

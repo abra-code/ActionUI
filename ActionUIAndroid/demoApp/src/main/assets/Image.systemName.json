@@ -1,0 +1,84 @@
+{
+  "type": "VStack",
+  "properties": {
+    "alignment": "leading",
+    "spacing": 20,
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "systemName (SF Symbol -> Material glyph, high-score matches)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 20 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "magnifyingglass", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "plus", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "checkmark", "imageScale": "large", "foregroundStyle": "green" } },
+        { "type": "Image", "properties": { "systemName": "xmark", "imageScale": "large", "foregroundStyle": "red" } },
+        { "type": "Image", "properties": { "systemName": "line.3.horizontal", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "chevron.right", "imageScale": "large" } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "filled variants - FILL baked into the map (no :android keys)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 20 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "heart.fill", "imageScale": "large", "foregroundStyle": "pink" } },
+        { "type": "Image", "properties": { "systemName": "star.fill", "imageScale": "large", "foregroundStyle": "orange" } },
+        { "type": "Image", "properties": { "systemName": "bell.fill", "imageScale": "large", "foregroundStyle": "purple" } },
+        { "type": "Image", "properties": { "systemName": "bookmark.fill", "imageScale": "large", "foregroundStyle": "blue" } },
+        { "type": "Image", "properties": { "systemName": "folder.fill", "imageScale": "large", "foregroundStyle": "teal" } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "outline vs fill (same SF family, one map row apart)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 20 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "heart", "imageScale": "large", "foregroundStyle": "pink" } },
+        { "type": "Image", "properties": { "systemName": "heart.fill", "imageScale": "large", "foregroundStyle": "pink" } },
+        { "type": "Image", "properties": { "systemName": "star", "imageScale": "large", "foregroundStyle": "orange" } },
+        { "type": "Image", "properties": { "systemName": "star.fill", "imageScale": "large", "foregroundStyle": "orange" } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "cross-platform: same JSON renders on Apple (SF) and Android (Material)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 20 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "house", "imageScale": "large", "foregroundStyle": "indigo" } },
+        { "type": "Image", "properties": { "systemName": "trash", "imageScale": "large", "foregroundStyle": "red" } },
+        { "type": "Image", "properties": { "systemName": "gearshape", "imageScale": "large" } },
+        { "type": "Image", "properties": { "systemName": "envelope", "imageScale": "large", "foregroundStyle": "blue" } },
+        { "type": "Image", "properties": { "systemName": "person", "imageScale": "large" } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "escape hatch: optional :android axis overrides", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 20 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "star", "materialSize:android": 44, "foregroundStyle": "orange" } },
+        { "type": "Image", "properties": { "systemName": "star", "materialFill:android": 1, "materialSize:android": 44, "foregroundStyle": "orange" } },
+        { "type": "Image", "properties": { "systemName": "gearshape", "materialWeight:android": 200, "materialSize:android": 44 } },
+        { "type": "Image", "properties": { "systemName": "gearshape", "materialWeight:android": 700, "materialSize:android": 44 } }
+      ]
+    }
+  ]
+}

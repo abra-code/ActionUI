@@ -1,0 +1,62 @@
+{
+  "type": "VStack",
+  "properties": {
+    "alignment": "leading",
+    "spacing": 20,
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "materialName:android (tinted, imageScale)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 24 },
+      "children": [
+        { "type": "Image", "properties": { "materialName:android": "home", "foregroundStyle": "blue" } },
+        { "type": "Image", "properties": { "materialName:android": "search" } },
+        { "type": "Image", "properties": { "materialName:android": "settings", "imageScale": "large" } },
+        { "type": "Image", "properties": { "materialName:android": "favorite", "materialFill:android": 1, "foregroundStyle": "red" } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "weight axis (200 / 400 / 700)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 24 },
+      "children": [
+        { "type": "Image", "properties": { "materialName:android": "star", "materialWeight:android": 200, "materialSize:android": 40 } },
+        { "type": "Image", "properties": { "materialName:android": "star", "materialWeight:android": 400, "materialSize:android": 40 } },
+        { "type": "Image", "properties": { "materialName:android": "star", "materialWeight:android": 700, "materialSize:android": 40 } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "fill axis (0 -> 1)", "font": "headline" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 24 },
+      "children": [
+        { "type": "Image", "properties": { "materialName:android": "favorite", "materialFill:android": 0, "materialSize:android": 40, "foregroundStyle": "red" } },
+        { "type": "Image", "properties": { "materialName:android": "favorite", "materialFill:android": 1, "materialSize:android": 40, "foregroundStyle": "red" } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "cross-platform: systemName (Apple) + materialName:android", "font": "headline" }
+    },
+    {
+      "type": "Image",
+      "properties": {
+        "systemName": "trash",
+        "materialName:android": "delete",
+        "imageScale": "large",
+        "foregroundStyle": "red"
+      }
+    }
+  ]
+}
