@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -16,8 +17,9 @@ import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
-import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.booleanProperty
+import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -39,8 +41,10 @@ import com.abracode.actionui.Helpers.stringProperty
  *     [contentUnavailableSearchText]; `title`/`description` are then ignored.
  *   * `query` - the search term shown in the search message (also settable via
  *     the runtime value).
- *   * `systemImage` - **not rendered on Android** (SF Symbol; gated on the
- *     image/icon-resolution track, B2). Text-first, matching the inventory plan.
+ *   * `systemImage` - a large hero SF Symbol above the title, drawn through the
+ *     shared `SymbolIcon` seam ([LabelIcon]); `materialName:android` is the
+ *     explicit-glyph escape hatch. Ignored in the `search` variant (matching
+ *     Apple). Tinted `onSurfaceVariant` to read as the secondary empty-state icon.
  *   * plus the universal modifiers resolved by `applyCommonProperties` (via
  *     [modifier]).
  *
@@ -49,6 +53,9 @@ import com.abracode.actionui.Helpers.stringProperty
  */
 object ContentUnavailableView : ActionUIViewConstruction {
     override val valueType = ActionUIValueType.STRING
+
+    /** Hero symbol size (sp) when JSON gives no explicit `materialSize`. */
+    private const val HERO_ICON_SIZE_SP = 48f
 
     override fun initialValue(element: ActionUIElement): Any? {
         val props = element.properties
@@ -66,13 +73,6 @@ object ContentUnavailableView : ActionUIViewConstruction {
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val runtimeValue = viewModel?.value as? String
 
-        if (props?.stringProperty("systemImage") != null) {
-            logger.log(
-                "ContentUnavailableView systemImage is not supported on Android; rendering text only",
-                LoggerLevel.debug
-            )
-        }
-
         val isSearch = props?.booleanProperty("search") == true
         val title: String
         val description: String?
@@ -84,11 +84,28 @@ object ContentUnavailableView : ActionUIViewConstruction {
             description = props?.stringProperty("description")
         }
 
+        // Hero icon (custom variant only; the search variant has no icon on Apple).
+        val imageScale = props?.stringProperty("imageScale")
+        val contentDescription = props?.stringProperty("accessibilityLabel")
+        val iconSource = remember(props) {
+            if (isSearch) null else selectLabelIcon(props, "imageName", "ContentUnavailableView", logger)
+        }
+
         Column(
             modifier = modifier.fillMaxWidth().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // Large secondary symbol above the message (sized for a hero, not a font run).
+            LabelIcon(
+                source = iconSource,
+                imageScale = imageScale,
+                contentDescription = contentDescription,
+                elementName = "ContentUnavailableView",
+                defaultSizeSp = HERO_ICON_SIZE_SP,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                logger = logger,
+            )
             M3Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
             if (!description.isNullOrEmpty()) {
                 M3Text(

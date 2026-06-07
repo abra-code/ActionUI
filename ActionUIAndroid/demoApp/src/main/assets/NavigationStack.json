@@ -7,12 +7,12 @@
     "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "navigationTitle": "Home" },
     "children": [
       { "type": "Text", "properties": { "text": "Tap a link to push a destination; press Back to pop:" } },
-      { "type": "NavigationLink", "id": 2, "properties": { "title": "By reference: Detail A", "destinationViewId": 10 } },
-      { "type": "NavigationLink", "id": 3, "properties": { "title": "By reference: Detail B", "destinationViewId": 11 } },
+      { "type": "NavigationLink", "id": 2, "properties": { "title": "By reference: Detail A", "systemImage": "folder", "destinationViewId": 10 } },
+      { "type": "NavigationLink", "id": 3, "properties": { "title": "By reference: Detail B", "systemImage": "info.circle", "destinationViewId": 11 } },
       {
         "type": "NavigationLink",
         "id": 4,
-        "properties": { "title": "Inline destination" },
+        "properties": { "title": "Inline destination", "systemImage": "square.and.pencil" },
         "destination": {
           "type": "VStack",
           "id": 12,

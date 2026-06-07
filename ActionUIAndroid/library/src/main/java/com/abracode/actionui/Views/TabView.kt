@@ -10,6 +10,7 @@ import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -23,8 +24,10 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.intProperty
+import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
 
@@ -46,10 +49,12 @@ import kotlinx.serialization.json.JsonObject
  * bottom (a `weight` content area over it); an inherited `frame.height` wins, else
  * [DEFAULT_TAB_EXTENT] keeps an unbounded parent from breaking the `weight`.
  *
- * **Degrades vs. Apple (documented).** Tab `systemImage`/`assetImage` icons and
- * `badge`s are not shown (text-only labels; icons are the B2 track) - the item
- * icon slot is empty until then. The `style` property (`page`, `sidebarAdaptable`,
- * ...) is accepted but not honored; the NavigationBar is always used.
+ * **Tab icons.** A Tab's `systemImage` (SF Symbol) / `materialName:android` is drawn
+ * in the item icon slot via the shared `SymbolIcon` seam ([LabelIcon]), sized for a
+ * nav-bar item and tinted by selection. `assetImage` (asset catalog) and `badge`
+ * stay deferred (the same `res/drawable` contract `Image`'s `assetName` waits on).
+ * The `style` property (`page`, `sidebarAdaptable`, ...) is accepted but not
+ * honored; the NavigationBar is always used.
  */
 object TabView : ActionUIViewConstruction {
     override val valueType = ActionUIValueType.INT
@@ -91,11 +96,23 @@ object TabView : ActionUIViewConstruction {
             }
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
+                    // The tab's SF Symbol / Material glyph, sized for a nav-bar item;
+                    // NavigationBarItem tints it by selection via LocalContentColor.
+                    val tabIcon = remember(tab) { selectLabelIcon(tab.properties, "assetImage", "Tab", logger) }
+                    val tabImageScale = tab.properties?.stringProperty("imageScale")
                     NavigationBarItem(
                         selected = index == selected,
                         onClick = { onSelect(index) },
-                        // Icon slot empty until the image/icon contract (B2); label-only.
-                        icon = {},
+                        icon = {
+                            LabelIcon(
+                                source = tabIcon,
+                                imageScale = tabImageScale,
+                                contentDescription = tab.properties?.stringProperty("accessibilityLabel"),
+                                elementName = "Tab",
+                                defaultSizeSp = NAV_ICON_SIZE_SP,
+                                logger = logger,
+                            )
+                        },
                         label = { M3Text(tabTitle(tab)) },
                         alwaysShowLabel = true,
                     )
@@ -106,6 +123,9 @@ object TabView : ActionUIViewConstruction {
 
     /** Content-area height when JSON supplies no `frame.height`. */
     private val DEFAULT_TAB_EXTENT = 360.dp
+
+    /** Nav-bar item icon size (sp); a tab glyph is fixed, not font-relative. */
+    private const val NAV_ICON_SIZE_SP = 24f
 }
 
 /** Renders a tab's `content` through the normal pipeline (or nothing if absent). */

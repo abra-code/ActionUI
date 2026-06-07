@@ -11,10 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
-import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Helpers.ImageSource
-import com.abracode.actionui.Helpers.MaterialNameIcon
-import com.abracode.actionui.Helpers.SystemSymbolIcon
+import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -75,55 +72,15 @@ object Label : ActionUIViewConstruction {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(IconGap),
         ) {
-            when (iconSource) {
-                is ImageSource.MaterialSymbol -> {
-                    val rendered = MaterialNameIcon(
-                        name = iconSource.name,
-                        weight = iconSource.weight,
-                        fill = iconSource.fill,
-                        grade = iconSource.grade,
-                        explicitSizeSp = iconSource.explicitSizeSp,
-                        imageScale = imageScale,
-                        contentDescription = contentDescription,
-                        logger = logger,
-                    )
-                    if (!rendered) {
-                        remember(iconSource) {
-                            logger?.log(
-                                "Label materialName '${iconSource.name}' is not a known " +
-                                    "Material Symbol in the bundled font. Icon omitted.",
-                                LoggerLevel.warning
-                            )
-                        }
-                    }
-                }
-
-                is ImageSource.SystemSymbol -> {
-                    val rendered = SystemSymbolIcon(
-                        name = iconSource.name,
-                        explicitWeight = iconSource.explicitWeight,
-                        explicitFill = iconSource.explicitFill,
-                        explicitGrade = iconSource.explicitGrade,
-                        explicitSizeSp = iconSource.explicitSizeSp,
-                        imageScale = imageScale,
-                        contentDescription = contentDescription,
-                        logger = logger,
-                    )
-                    if (!rendered) {
-                        remember(iconSource) {
-                            logger?.log(
-                                "Label systemImage '${iconSource.name}' has no SF->Material " +
-                                    "mapping (or the map asset is absent). Icon omitted; add " +
-                                    "'materialName:android' for an explicit Android glyph.",
-                                LoggerLevel.warning
-                            )
-                        }
-                    }
-                }
-
-                // null -> title-only; raster kinds are never produced for a Label.
-                else -> {}
-            }
+            // Shared glyph seam: draws nothing (and warns) on an unknown name, and
+            // composes no node when there is no icon, so spacedBy adds no phantom gap.
+            LabelIcon(
+                source = iconSource,
+                imageScale = imageScale,
+                contentDescription = contentDescription,
+                elementName = "Label",
+                logger = logger,
+            )
 
             if (title.isNotEmpty()) {
                 M3Text(text = title)

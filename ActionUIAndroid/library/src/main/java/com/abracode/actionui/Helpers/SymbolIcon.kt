@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.sp
+import com.abracode.actionui.Common.LoggerLevel
 
 /**
  * Shared symbol-glyph rendering for ActionUI Android - the convergence point the
@@ -138,4 +139,88 @@ internal fun MaterialNameIcon(
         modifier = modifier,
     )
     return true
+}
+
+/**
+ * Draws the leading / standalone icon for an image-label control (`Label`,
+ * `Button`, `NavigationLink`, `Tab`, `ContentUnavailableView`) from an
+ * already-picked [source] ([selectLabelIcon]). The single place the whole
+ * `systemImage` family converges, so each element is one call rather than its own
+ * copy of the `when` + warn-on-unknown-name block. (`Image` keeps its own branches
+ * - its source keys are `systemName` / `materialName`, not `systemImage`.)
+ *
+ * [defaultSizeSp] sizes the glyph when the JSON gives no explicit `materialSize`,
+ * for a context that should not track a surrounding font (a nav-bar item, a
+ * hero icon). `null` keeps the ambient-font sizing inline labels use.
+ *
+ * Returns `true` iff a glyph was actually drawn - an unknown name warns (deduped
+ * by `remember`) and draws nothing, `null`/raster draws nothing - so the caller
+ * can place inter-element spacing only when there is really an icon.
+ */
+@Composable
+internal fun LabelIcon(
+    source: ImageSource?,
+    imageScale: String?,
+    contentDescription: String?,
+    elementName: String,
+    defaultSizeSp: Float? = null,
+    tint: Color = LocalContentColor.current,
+    modifier: Modifier = Modifier,
+    logger: com.abracode.actionui.Common.ActionUILogger? = null,
+): Boolean {
+    when (source) {
+        is ImageSource.MaterialSymbol -> {
+            val rendered = MaterialNameIcon(
+                name = source.name,
+                weight = source.weight,
+                fill = source.fill,
+                grade = source.grade,
+                explicitSizeSp = source.explicitSizeSp ?: defaultSizeSp,
+                imageScale = imageScale,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = modifier,
+                logger = logger,
+            )
+            if (!rendered) {
+                remember(source, elementName) {
+                    logger?.log(
+                        "$elementName materialName '${source.name}' is not a known " +
+                            "Material Symbol in the bundled font. Icon omitted.",
+                        LoggerLevel.warning,
+                    )
+                }
+            }
+            return rendered
+        }
+
+        is ImageSource.SystemSymbol -> {
+            val rendered = SystemSymbolIcon(
+                name = source.name,
+                explicitWeight = source.explicitWeight,
+                explicitFill = source.explicitFill,
+                explicitGrade = source.explicitGrade,
+                explicitSizeSp = source.explicitSizeSp ?: defaultSizeSp,
+                imageScale = imageScale,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = modifier,
+                logger = logger,
+            )
+            if (!rendered) {
+                remember(source, elementName) {
+                    logger?.log(
+                        "$elementName systemImage '${source.name}' has no SF->Material " +
+                            "mapping (or the map asset is absent). Icon omitted; add " +
+                            "'materialName:android' for an explicit Android glyph.",
+                        LoggerLevel.warning,
+                    )
+                }
+            }
+            return rendered
+        }
+
+        // null -> title-only; raster kinds are never produced by selectLabelIcon.
+        else -> return false
+    }
 }

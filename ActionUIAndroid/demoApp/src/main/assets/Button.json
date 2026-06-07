@@ -12,6 +12,44 @@
       "type": "Button",
       "id": 2,
       "properties": { "title": "Delete", "role": "destructive", "actionID": "button.delete" }
+    },
+
+    { "type": "Text", "properties": { "text": "Image label: SF Symbol icon + title (SF -> Material glyph)", "font": "headline" } },
+    {
+      "type": "Button",
+      "id": 3,
+      "properties": { "title": "Add", "systemImage": "plus", "actionID": "button.tap" }
+    },
+    {
+      "type": "Button",
+      "id": 4,
+      "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "button.tap" }
+    },
+    {
+      "type": "Button",
+      "id": 5,
+      "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "actionID": "button.delete" }
+    },
+
+    { "type": "Text", "properties": { "text": "Icon-only (empty title collapses to the glyph)", "font": "headline" } },
+    {
+      "type": "Button",
+      "id": 6,
+      "properties": { "systemImage": "star.fill", "imageScale": "large", "actionID": "button.tap" }
+    },
+
+    { "type": "Text", "properties": { "text": "escape hatch: explicit Material glyph (:android)", "font": "headline" } },
+    {
+      "type": "Button",
+      "id": 7,
+      "properties": { "title": "Confirm", "materialName:android": "check_circle", "materialFill:android": 1, "actionID": "button.tap" }
+    },
+
+    { "type": "Text", "properties": { "text": "deferred: assetImage (asset catalog) -> title-only + one warning", "font": "headline" } },
+    {
+      "type": "Button",
+      "id": 8,
+      "properties": { "title": "Asset icon (not wired yet)", "assetImage": "CustomIcon", "actionID": "button.tap" }
     }
   ]
 }

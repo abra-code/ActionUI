@@ -129,4 +129,26 @@ class LabelIconResolverTest {
         assertEquals(ImageSource.SystemSymbol("star", null, null, null, null), icon)
         assertTrue(log.warnings.isEmpty())
     }
+
+    // -----------------------------------------------------------------------
+    // Button uses the same picker with its own asset-catalog key ("assetImage")
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `Button systemImage resolves to a SystemSymbol (assetImage key untouched)`() {
+        val log = CapturingLogger()
+        val icon = selectLabelIcon(props("""{ "title": "Add", "systemImage": "plus" }"""), "assetImage", "Button", log)
+        assertEquals(ImageSource.SystemSymbol("plus", null, null, null, null), icon)
+        assertTrue(log.warnings.isEmpty())
+    }
+
+    @Test
+    fun `Button materialName wins over systemImage`() {
+        val icon = selectLabelIcon(
+            props("""{ "title": "Confirm", "materialName": "check_circle", "systemImage": "checkmark" }"""),
+            "assetImage", "Button",
+        )
+        assertTrue(icon is ImageSource.MaterialSymbol)
+        assertEquals("check_circle", (icon as ImageSource.MaterialSymbol).name)
+    }
 }
