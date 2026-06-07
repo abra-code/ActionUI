@@ -1,0 +1,15 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "LoadableView fetches a remote JSON description over the network and renders it inline (a spinner shows while loading):", "font": "headline" } },
+    {
+      "type": "LoadableView",
+      "id": 1,
+      "properties": {
+        "url": "https://abracode.com/ActionUI/HelloWorld.json",
+        "padding": "default"
+      }
+    }
+  ]
+}
