@@ -56,6 +56,28 @@ class WindowModel(
     }
 
     /**
+     * Merges [subRoot] and its descendants into this window's existing [ViewModel]
+     * pool **without clearing it** - the registration path for a sub-tree loaded at
+     * runtime (a [com.abracode.actionui.Views.LoadableView]'s content), so the
+     * value / state API reaches the loaded controls by id *within the same window*.
+     * Mirrors the Swift `loadSubViewDescription`.
+     *
+     * Ids must be unique across the combined tree (Apple documents the same
+     * assumption); a collision overwrites the existing entry - last one wins, as in
+     * [populateViewModels]. Unlike [loadDescription] it does not touch [element]
+     * (the window root stays the originally-loaded document). Returns [subRoot].
+     */
+    fun loadSubDescription(subRoot: ActionUIElement): ActionUIElement {
+        populateViewModels(subRoot, into = viewModels)
+        logger.log(
+            "Merged sub-description into windowUUID: $windowUUID, sub-root id: ${subRoot.id}, " +
+                "pool now ${viewModels.size} view model(s)",
+            LoggerLevel.verbose
+        )
+        return subRoot
+    }
+
+    /**
      * Recursively creates a [ViewModel] for [element] and every descendant across
      * its named containers ([ActionUIElement.subElements]: `children` and the
      * single-child `content`), seeding the initial value for value-bearing

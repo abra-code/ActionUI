@@ -20,6 +20,7 @@ import com.abracode.actionui.Views.LabeledContent
 import com.abracode.actionui.Views.LazyHStack
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
+import com.abracode.actionui.Views.LoadableView
 import com.abracode.actionui.Views.Menu
 import com.abracode.actionui.Views.ListView
 import com.abracode.actionui.Views.NavigationLink
@@ -82,6 +83,7 @@ object ActionUIRegistry {
         register("LabeledContent", LabeledContent)
         register("DisclosureGroup", DisclosureGroup)
         register("Link", Link)
+        register("LoadableView", LoadableView)
         register("ShareLink", ShareLink)
         register("ContentUnavailableView", ContentUnavailableView)
         register("EmptyView", EmptyView)

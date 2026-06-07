@@ -1,0 +1,8 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "background": "#E8F5E9", "cornerRadius": 12 },
+  "children": [
+    { "type": "Label", "properties": { "title": "Loaded view", "systemImage": "checkmark.circle", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "This entire card was declared in a separate JSON file and pulled in by LoadableView at runtime." } }
+  ]
+}

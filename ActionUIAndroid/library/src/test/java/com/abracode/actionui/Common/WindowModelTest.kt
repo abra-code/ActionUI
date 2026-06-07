@@ -212,6 +212,40 @@ class WindowModelTest {
     }
 
     @Test
+    fun `loadSubDescription merges into the pool without clearing it`() {
+        // A LoadableView's loaded sub-tree registers into the SAME window so the
+        // value API reaches its controls by id; the original pool stays intact.
+        val window = model()
+        window.loadDescription(
+            ActionUIElement(
+                id = 1, type = "VStack",
+                children = listOf(
+                    ActionUIElement(id = 2, type = "LoadableView",
+                        properties = buildJsonObject { put("name", "Sub.json") }),
+                ),
+            )
+        )
+        assertEquals(2, window.viewModels.size)
+
+        window.loadSubDescription(
+            ActionUIElement(
+                id = 10, type = "VStack",
+                children = listOf(
+                    ActionUIElement(id = 11, type = "TextField",
+                        properties = buildJsonObject { put("text", "loaded") }),
+                ),
+            )
+        )
+
+        // Original ids survive; the merged sub-tree's controls are addressable.
+        assertEquals(4, window.viewModels.size)
+        assertEquals("LoadableView", window.viewModels[2]?.elementType)
+        assertEquals("loaded", window.viewModels[11]?.value)
+        // The window root is unchanged (still the original document).
+        assertEquals(1, window.element?.id)
+    }
+
+    @Test
     fun `reloading rebuilds the pool from the new element`() {
         val window = model()
         window.loadDescription(

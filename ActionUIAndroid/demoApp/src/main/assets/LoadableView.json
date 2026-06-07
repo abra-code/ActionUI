@@ -1,0 +1,10 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "LoadableView loads another JSON description by name and renders it inline:", "font": "headline" } },
+    { "type": "LoadableView", "id": 1, "properties": { "name": "LoadableView.payload.json" } },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "The card above was loaded at runtime from LoadableView.payload.json. Remote 'url' loading is deferred on Android." } }
+  ]
+}
