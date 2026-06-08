@@ -1,17 +1,18 @@
 # ActionUI vs React Native
 
-A comparison of ActionUI with React Native, focusing on architecture, philosophy, and trade-offs — setting aside the obvious difference that ActionUI targets only Apple platforms while React Native is cross-platform (iOS, Android, Web).
+A comparison of ActionUI with React Native, focusing on architecture, philosophy, and trade-offs. ActionUI targets iOS, macOS, and Android (the Android renderer uses Jetpack Compose and shares the same JSON schema). React Native additionally targets Web and has broader community-maintained platform coverage (Windows, Linux). The two frameworks are now direct cross-platform competitors for iOS + Android mobile, with different architecture trade-offs.
 
 ## Architectural Differences
 
 | Aspect | ActionUI | React Native |
 |--------|----------|--------------|
-| Runtime | None — JSON parsed directly into SwiftUI | JavaScript engine (Hermes/JSC) with native bridge |
-| UI definition | Pure data (JSON) | Code (JSX) that produces virtual DOM |
-| Rendering | SwiftUI views directly | Bridge to UIKit/AppKit (New Architecture: Fabric) |
+| Runtime | None — iOS/macOS: JSON → SwiftUI directly; Android: JSON → Jetpack Compose renderer | JavaScript engine (Hermes/JSC) with native bridge |
+| UI definition | Pure data (JSON) — same schema on all platforms | Code (JSX) that produces virtual DOM |
+| Rendering | iOS/macOS: SwiftUI views directly; Android: Jetpack Compose views | Bridge to UIKit/AppKit/Android (New Architecture: Fabric) |
+| Cross-platform keys | `:android` / `:ios` suffix for per-platform overrides (rare) | `Platform.select()`, platform-specific file extensions |
 | State | Flat set/get by view ID | useState, useReducer, Redux, Context API, etc. |
-| Diffing | None — SwiftUI handles updates | Virtual DOM reconciliation |
-| Build toolchain | Xcode, static frameworks | Node.js, Metro bundler, Babel/TypeScript, CocoaPods/Gradle |
+| Diffing | None — SwiftUI/Compose handles updates | Virtual DOM reconciliation |
+| Build toolchain | Xcode + Swift (iOS/macOS), Android Studio + Gradle (Android) | Node.js, Metro bundler, Babel/TypeScript, CocoaPods/Gradle |
 | Client language | Any (Python, C, Swift, ObjC, JS, C++) | JavaScript/TypeScript |
 
 ## Where ActionUI Excels
@@ -21,10 +22,10 @@ ActionUI has no runtime, no virtual DOM, no reconciliation, no bridge. JSON goes
 
 React Native requires understanding JSX, component lifecycle, hooks (useState, useEffect, useMemo, useCallback), the bridge architecture, and typically a state management library. The mental model is significantly more complex.
 
-### True Native SwiftUI
-ActionUI produces actual SwiftUI views with full modifier support. It doesn't abstract away the platform — it embraces it. NavigationSplitView, Table, Gauge, Map, DisclosureGroup, and 50+ other components are real SwiftUI views with native behavior.
+### True Native Rendering
+ActionUI produces actual native views with full platform behavior on every target — SwiftUI on iOS and macOS, Jetpack Compose on Android. It doesn't abstract away the platform; it embraces each one. The same JSON key drives a `NavigationBar` on Android and a `TabView` on iOS without any client code change. Where platforms genuinely differ (e.g. a macOS-only Table or an Android-specific Material style), ActionUI lets JSON express that with a `:android` / `:ios` suffix rather than forcing a fake cross-platform abstraction.
 
-React Native bridges to UIKit (and AppKit via third-party support). The views are native but the abstraction layer means some platform behaviors are lost or approximated. macOS support is a community effort (react-native-macos), not first-class.
+React Native bridges to UIKit and Android's native views. The views are native but the JS bridge means some platform behaviors are approximated or require manual native modules. macOS support is maintained by Microsoft (react-native-macos), not first-class.
 
 ### macOS-First
 ActionUI has deep AppKit integration: native menu bars with CommandGroup/CommandMenu, file open/save panels, alert dialogs, multi-window with per-window state, window lifecycle callbacks. This is first-class macOS app behavior.
@@ -32,9 +33,9 @@ ActionUI has deep AppKit integration: native menu bars with CommandGroup/Command
 React Native's macOS support is maintained by Microsoft (react-native-macos) and lacks many macOS conventions — proper menu bars, multi-window, and native panels require significant custom native code.
 
 ### Build Toolchain
-ActionUI: one Xcode project, `pip install` for the Python bridge. No node_modules, no Metro bundler, no Babel, no TypeScript transpiler, no CocoaPods/Gradle version matrix.
+ActionUI: Xcode for iOS/macOS, Android Studio for Android, `pip install` for the Python bridge. No Node.js, no Metro bundler, no Babel, no TypeScript transpiler. Each platform uses its own standard native toolchain — nothing extra.
 
-A fresh React Native project pulls hundreds of npm dependencies and requires coordinating versions across the JS and native toolchains. Build issues from version mismatches are common.
+A React Native project adds a JavaScript layer on top of both native toolchains: hundreds of npm dependencies, Metro bundler, and Babel/TypeScript coordinated with CocoaPods and Gradle versions. Build failures from npm/native version mismatches are a common time cost.
 
 ### Performance
 ActionUI has essentially zero overhead — calling SwiftUI is the entire rendering path. No JS-to-native bridge, no serialization, no virtual DOM diffing.
@@ -51,8 +52,11 @@ LoadableView loads new JSON UI definitions at runtime from local files or networ
 
 ## Where React Native Excels
 
-### Cross-Platform
-React Native targets iOS, Android, and Web from a single codebase. ActionUI is Apple-only. For apps that must run on Android, React Native (or similar cross-platform frameworks) is the practical choice.
+### Web Support
+React Native (via React Native Web) and Expo can target browsers in addition to iOS and Android. ActionUI has no web renderer. For apps that must run in a browser, React Native is the practical choice.
+
+### More Mature Android Coverage
+Both frameworks target iOS and Android. React Native's Android support is well-established and covers the full component surface. ActionUI's Android renderer (Jetpack Compose) is in active development: 48 of 64 element types are ported, with the full navigation stack, modals, dialogs, and dynamic loading working. Some elements (Gauge, Canvas, LazyVGrid, Map, VideoPlayer, WebView) and some modifiers (`disabled`, animation system, element-level sheet/popover) are not yet ported. For apps that can work within the current element coverage, the JSON is the same — no code changes between platforms.
 
 ### Dynamic UI Construction
 React Native's core model is dynamic — every render cycle can produce a completely different component tree based on state. Conditional rendering, lists of dynamic length, and component composition are natural.
@@ -92,12 +96,14 @@ This is not a limitation — it's a deliberate design choice. For applet-style a
 | For this need... | Better choice |
 |------------------|---------------|
 | macOS applets and tools | ActionUI |
-| Cross-platform consumer apps | React Native |
+| iOS + Android with no JS runtime | ActionUI |
+| Web support required | React Native |
+| Full Android component coverage today | React Native |
 | AI-generated UIs | ActionUI |
-| Complex navigation flows | React Native |
+| Complex animations and gesture-driven interactions | React Native |
 | Native macOS integration (menus, panels, multi-window) | ActionUI |
 | Large team with JS/TS expertise | React Native |
 | Minimal toolchain and dependencies | ActionUI |
 | Third-party component ecosystem | React Native |
-| Language-agnostic client code | ActionUI |
-| Rapid prototyping on Apple platforms | ActionUI |
+| Language-agnostic client code (Python, C, Swift, C++) | ActionUI |
+| Same JSON drives iOS, macOS, and Android | ActionUI |
