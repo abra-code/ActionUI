@@ -1,0 +1,9 @@
+{
+  "type": "VStack",
+  "id": 100,
+  "properties": { "spacing": 16, "padding": 24, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "id": 101, "properties": { "text": "This card was loaded as a window-level modal and rendered over the screen by the ActionUI renderer.", "font": "headline" } },
+    { "type": "Button", "id": 102, "properties": { "title": "Close", "systemImage": "xmark", "actionID": "modal.close" } }
+  ]
+}

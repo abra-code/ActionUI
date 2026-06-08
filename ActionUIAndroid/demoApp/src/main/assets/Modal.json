@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Window-level modals load a JSON sub-document and present it over the screen. The host calls ActionUIModel.presentModal (sheet or fullScreenCover); the modal's Close button routes an actionID back to dismissModal.", "font": "headline" } },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": { "title": "Show bottom sheet", "systemImage": "tray", "actionID": "modal.sheet" }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": { "title": "Show full-screen cover", "systemImage": "rectangle.portrait", "actionID": "modal.cover" }
+    }
+  ]
+}

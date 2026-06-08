@@ -17,9 +17,23 @@ import androidx.compose.ui.platform.LocalContext
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.DialogButton
 import com.abracode.actionui.Common.DialogButtonRole
+import com.abracode.actionui.Common.ModalStyle
 import com.abracode.actionui.demo.ui.theme.ActionUIAndroidTheme
 
+/**
+ * Bundled modal sub-document presented by [presentModal] in Modal.json's handlers
+ * (see [MainActivity.loadAssetText]). Uses ids (100+) that don't collide with the
+ * host document, and a Close button that routes "modal.close" back to
+ * [ActionUIModel.dismissModal]. Mirrors the Swift test app's `Sheet.modal.json`.
+ */
+private const val MODAL_CONTENT_ASSET = "Modal.content.json"
+
 class MainActivity : ComponentActivity() {
+
+    /** Reads a bundled `assets/` document to a String, or null if it can't be read. */
+    private fun loadAssetText(path: String): String? =
+        runCatching { assets.open(path).bufferedReader().use { it.readText() } }.getOrNull()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -136,6 +150,33 @@ class MainActivity : ComponentActivity() {
                     DialogButton("Cancel", DialogButtonRole.CANCEL),
                 ),
             )
+        }
+
+        // Modal.json: window-level modals load a JSON sub-document from assets
+        // (MODAL_CONTENT_ASSET) and present it as a bottom sheet or full-screen cover.
+        // The modal's Close button fires "modal.close" -> dismissModal. The cover also
+        // carries an onDismissActionID ("modal.dismissed") that fires on close (back
+        // press or Close), landing on the default handler's toast. Reading the document
+        // from the bundle mirrors the Swift handler that loads Sheet.modal.json.
+        ActionUIModel.registerActionHandler("modal.sheet") { _, windowUUID, _, _, _ ->
+            val json = loadAssetText(MODAL_CONTENT_ASSET) ?: return@registerActionHandler
+            ActionUIModel.presentModal(
+                windowUUID = windowUUID,
+                jsonString = json,
+                style = ModalStyle.SHEET,
+            )
+        }
+        ActionUIModel.registerActionHandler("modal.cover") { _, windowUUID, _, _, _ ->
+            val json = loadAssetText(MODAL_CONTENT_ASSET) ?: return@registerActionHandler
+            ActionUIModel.presentModal(
+                windowUUID = windowUUID,
+                jsonString = json,
+                style = ModalStyle.FULL_SCREEN_COVER,
+                onDismissActionID = "modal.dismissed",
+            )
+        }
+        ActionUIModel.registerActionHandler("modal.close") { _, windowUUID, _, _, _ ->
+            ActionUIModel.dismissModal(windowUUID)
         }
 
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->

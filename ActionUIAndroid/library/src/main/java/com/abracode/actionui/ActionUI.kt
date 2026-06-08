@@ -32,6 +32,7 @@ import com.abracode.actionui.Helpers.LoadableSource
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.ToolbarHost
 import com.abracode.actionui.Helpers.WindowDialogHost
+import com.abracode.actionui.Helpers.WindowModalHost
 import com.abracode.actionui.Helpers.classifyLoadableSource
 import com.abracode.actionui.Helpers.hasRootToolbarChrome
 import com.abracode.actionui.Helpers.loadLocalDescription
@@ -193,11 +194,12 @@ object ActionUI {
             LocalWindowModel provides windowModel,
         ) {
             RenderRoot(element, builder, modifier, logger)
-            // Window-level dialog overlay (alert / confirmationDialog). Renders
-            // nothing until a host handler calls ActionUIModel.presentAlert /
-            // presentConfirmationDialog. The Android counterpart of Apple wrapping
-            // a content-view root in WindowModalView.
+            // Window-level overlays (the Android counterpart of Apple wrapping a
+            // content-view root in WindowModalView). Both render nothing until a
+            // host handler presents one: a dialog (alert / confirmationDialog) or a
+            // modal (sheet / fullScreenCover).
             WindowDialogHost(windowModel)
+            WindowModalHost(windowModel)
         }
     }
 

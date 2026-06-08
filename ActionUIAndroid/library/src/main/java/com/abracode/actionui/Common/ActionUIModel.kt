@@ -2,8 +2,11 @@ package com.abracode.actionui.Common
 
 import androidx.compose.ui.graphics.Color
 import com.abracode.actionui.Helpers.DateHelper
+import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.colorToHex
+import com.abracode.actionui.Helpers.decodeDescription
 import com.abracode.actionui.Helpers.parseColor
+import kotlinx.serialization.json.Json
 import java.time.LocalDate
 
 /**
@@ -46,13 +49,12 @@ typealias ActionUIActionHandler =
  *
  * The data-driven rows API (`get/set/append/clearElementRows`,
  * `getElementColumnCount`) is ported (it drives `List` / `Section` template
- * mode). Window-level **dialogs** (`presentAlert` / `presentConfirmationDialog` /
- * `dismissDialog`) are ported. Still **not** ported (with the features that drive
- * them): runtime structural mutation (`insertElement` / `removeElement` /
- * `insertRow`), the **modal** half of presentation (`presentModal` /
- * `dismissModal`, i.e. sheet / fullScreenCover), and the property API
- * (`get/setElementProperty`, which awaits a validation stage). See
- * `Private/Android_Porting_Notes.md`.
+ * mode). Window-level presentation is ported: **dialogs** (`presentAlert` /
+ * `presentConfirmationDialog` / `dismissDialog`) and **modals** (`presentModal` /
+ * `dismissModal`, sheet / fullScreenCover). Still **not** ported (with the features
+ * that drive them): runtime structural mutation (`insertElement` / `removeElement`
+ * / `insertRow`) and the property API (`get/setElementProperty`, which awaits a
+ * validation stage). See `Private/Android_Porting_Notes.md`.
  *
  * Handlers and the value/state API run on the main thread (Compose `onClick`
  * callbacks and host handlers); this object performs no synchronization of its
@@ -79,6 +81,9 @@ object ActionUIModel {
      * `logger` property on the Swift `ActionUIModel`.
      */
     var logger: ActionUILogger = ConsoleLogger()
+
+    /** Decoder for modal sub-documents passed to [presentModal]. */
+    private val json: Json = Json { ignoreUnknownKeys = true }
 
     /**
      * Registers [handler] for [actionID], replacing any existing handler for
@@ -237,6 +242,63 @@ object ActionUIModel {
         val windowModel = windowModels[windowUUID] ?: return
         windowModel.windowDialog = null
         logger.log("dismissDialog: windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    // MARK: - Window-level modals (sheet / fullScreenCover)
+    //
+    // The Android port of the Swift `presentModal` / `dismissModal` surface. Unlike
+    // a dialog (pure data), a modal loads a JSON sub-document, merges its ViewModels
+    // into the window pool, and removes exactly those on dismiss. These set
+    // [WindowModel.windowModal] (Compose snapshot state), which the window's
+    // [com.abracode.actionui.Helpers.WindowModalHost] renders as a ModalBottomSheet
+    // (sheet) or a full-screen Dialog (fullScreenCover).
+
+    /**
+     * Loads [jsonString] as a sub-document and presents it as a [style] modal over
+     * [windowUUID]'s window. The modal's [ViewModel]s are registered in the window
+     * pool (so the value / state API reaches its controls) and removed on dismiss;
+     * [onDismissActionID] fires once when it closes. No-op (with an error log) when
+     * no window is registered or the document fails to decode. Mirrors the Swift
+     * `presentModal`.
+     */
+    fun presentModal(
+        windowUUID: String = "",
+        jsonString: String,
+        style: ModalStyle,
+        onDismissActionID: String? = null,
+    ) {
+        val windowModel = windowModels[windowUUID]
+        if (windowModel == null) {
+            logger.log("presentModal: No WindowModel for windowUUID: $windowUUID", LoggerLevel.error)
+            return
+        }
+        val element = when (val loaded = decodeDescription(jsonString, json, logger)) {
+            is DescriptionLoad.Loaded -> loaded.element
+            else -> {
+                logger.log("presentModal: could not decode modal description for windowUUID: $windowUUID", LoggerLevel.error)
+                return
+            }
+        }
+        val loadedViewIDs = windowModel.loadModalDescription(element)
+        windowModel.windowModal = WindowModal(element, style, onDismissActionID, loadedViewIDs)
+        logger.log("presentModal: presenting $style for windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * Dismisses the active sheet / fullScreenCover: removes the [ViewModel]s the
+     * modal added to the window pool, clears it, and fires its `onDismissActionID`
+     * (if any). The modal host calls this on a button action or a scrim / back
+     * dismiss. Mirrors the Swift `dismissModal`.
+     */
+    fun dismissModal(windowUUID: String = "") {
+        val windowModel = windowModels[windowUUID] ?: return
+        val modal = windowModel.windowModal ?: return
+        windowModel.viewModels.keys.removeAll(modal.loadedViewIDs)
+        windowModel.windowModal = null
+        modal.onDismissActionID?.let {
+            actionHandler(actionID = it, windowUUID = windowUUID, viewID = 0, viewPartID = 0, context = null)
+        }
+        logger.log("dismissModal: windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
     // MARK: - Element Value API

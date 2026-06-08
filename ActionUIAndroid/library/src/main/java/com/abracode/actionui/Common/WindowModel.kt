@@ -53,6 +53,15 @@ class WindowModel(
     var windowDialog: WindowDialog? by mutableStateOf(null)
 
     /**
+     * The active window-level modal (sheet / fullScreenCover), or `null` when none
+     * is presented. Backed by Compose snapshot state so [ActionUIModel.presentModal]
+     * / [ActionUIModel.dismissModal] recompose the modal host
+     * ([com.abracode.actionui.Helpers.WindowModalHost]). Mirrors the Swift
+     * `@Published var windowModal`.
+     */
+    var windowModal: WindowModal? by mutableStateOf(null)
+
+    /**
      * Adopts [root] as the window's element and (re)builds the [ViewModel] pool
      * from it, seeding each value-bearing element's initial value. Mirrors the
      * Swift `loadDescription`, minus the decoding (the caller decodes).
@@ -89,6 +98,37 @@ class WindowModel(
             LoggerLevel.verbose
         )
         return subRoot
+    }
+
+    /**
+     * Merges a modal sub-document [modalRoot] into this window's [ViewModel] pool and
+     * returns the set of element ids it **newly added**, so the caller
+     * ([ActionUIModel.dismissModal]) can remove exactly those on dismiss. Ids that
+     * collide with existing pool entries are skipped (with a warning) and excluded
+     * from the returned set - so presenting then dismissing a modal can never evict
+     * the underlying window's view models. (A safety improvement over Swift, which
+     * tracks all ids and leans on the unique-id assumption; the Android merge still
+     * follows Swift's conflict-skip.) Used by `presentModal`; does not touch
+     * [element] (the modal is an overlay, not the window root).
+     */
+    fun loadModalDescription(modalRoot: ActionUIElement): Set<Int> {
+        val modalViewModels = mutableMapOf<Int, ViewModel>()
+        populateViewModels(modalRoot, into = modalViewModels)
+        val addedIDs = mutableSetOf<Int>()
+        for ((id, viewModel) in modalViewModels) {
+            if (viewModels.containsKey(id)) {
+                logger.log("Modal ID conflict for element $id; skipping merge", LoggerLevel.warning)
+            } else {
+                viewModels[id] = viewModel
+                addedIDs += id
+            }
+        }
+        logger.log(
+            "Loaded modal description into windowUUID: $windowUUID, root id: ${modalRoot.id}, " +
+                "added ${addedIDs.size} view model(s), pool now ${viewModels.size}",
+            LoggerLevel.verbose
+        )
+        return addedIDs
     }
 
     /**
