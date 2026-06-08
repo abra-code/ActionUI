@@ -41,6 +41,7 @@ This produces a fully native SwiftUI form — no Swift code, no Xcode storyboard
 - **Multi-window, menu bar, dialogs** — native macOS app features out of the box
 - **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
 - **Cross-platform** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
+- ActionUI for **Android** in active development 
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript
 
 ## Example Apps using ActionUI
@@ -98,6 +99,7 @@ app.run()
 | watchOS  | 10.6+          |
 | tvOS     | 17.6+          |
 | visionOS | 2.6+           |
+| Android  | 12.0+          |
 
 ## License
 
