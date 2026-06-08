@@ -145,6 +145,7 @@
     "controlSize":   { "types": ["string"], "required": false, "enum": ["mini","small","regular","large","extraLarge"] },
     "labelsHidden":  { "types": ["boolean"], "required": false },
     "disabled":      { "types": ["boolean"], "required": false },
+    "help":          { "types": ["string"],  "required": false },
     "accessibilityLabel":      { "types": ["string"],  "required": false },
     "accessibilityHint":       { "types": ["string"],  "required": false },
     "accessibilityHidden":     { "types": ["boolean"], "required": false },

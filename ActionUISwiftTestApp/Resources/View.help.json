@@ -1,0 +1,89 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 24.0,
+    "padding": 20.0
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "help Modifier",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Adds a tooltip shown on hover (macOS). Hover over the controls below to see tooltips.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 16.0,
+        "padding": 16.0,
+        "background": "gray.opacity(0.1)",
+        "cornerRadius": 12.0
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Button with help tooltip",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Button",
+          "id": 101,
+          "properties": {
+            "title": "Run Action",
+            "buttonStyle": "bordered",
+            "help": "Triggers the primary action"
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Toggle with help tooltip",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Toggle",
+          "id": 102,
+          "properties": {
+            "title": "Enable feature",
+            "help": "Turns the feature on or off"
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "Image with help tooltip",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Image",
+          "properties": {
+            "systemName": "info.circle",
+            "help": "Tap for more information"
+          }
+        }
+      ]
+    }
+  ]
+}

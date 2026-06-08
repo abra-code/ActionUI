@@ -84,6 +84,7 @@
      "controlSize": "regular", // Optional: "mini", "small", "regular", "large", "extraLarge"; defaults to none (system default)
      "labelsHidden": true,  // Optional: Boolean to hide labels on child views (e.g., within Form/LabeledContent); defaults to false
      "disabled": false,     // Optional: Boolean to disable user interaction
+     "help": "Run action",  // Optional: String for help tooltip 
      "accessibilityLabel": "View", // Optional: Accessibility label for VoiceOver
      "accessibilityHint": "Base view", // Optional: Accessibility hint for VoiceOver
      "accessibilityHidden": false, // Optional: Boolean to hide view from VoiceOver
@@ -627,6 +628,11 @@ struct View: ActionUIViewConstruction {
         if validatedProperties["destinationViewId"] != nil, !(validatedProperties["destinationViewId"] is Int) {
             logger.log("Invalid type for destinationViewId: expected numeric, got \(type(of: validatedProperties["destinationViewId"]!)), ignoring", .warning)
             validatedProperties["destinationViewId"] = nil
+        }
+
+        if let helpLabel = properties["help"], !(helpLabel is String) {
+            logger.log("Invalid type for helpLabel: expected String, got \(type(of: helpLabel)), ignoring", .warning)
+            validatedProperties["help"] = nil
         }
 
         // Validate accessibility properties
@@ -1373,6 +1379,10 @@ struct View: ActionUIViewConstruction {
             default: // "automatic"
                 modifiedView = modifiedView.toolbarTitleDisplayMode(.automatic)
             }
+        }
+
+        if let helpLabel = properties["help"] as? String {
+            modifiedView = AnyView(modifiedView).help(helpLabel)
         }
 
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {

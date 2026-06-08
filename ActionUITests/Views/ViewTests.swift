@@ -1281,4 +1281,16 @@ final class ViewTests: XCTestCase {
         let validated = View.validateProperties(["multilineTextAlignment": 1], logger)
         XCTAssertNil(validated["multilineTextAlignment"], "Non-string multilineTextAlignment should be cleared")
     }
+
+    // MARK: - help validation
+
+    func testHelpValid() throws {
+        let validated = View.validateProperties(["help": "Run action"], logger)
+        XCTAssertEqual(validated["help"] as? String, "Run action")
+    }
+
+    func testHelpInvalidType() throws {
+        let validated = View.validateProperties(["help": 42], logger)
+        XCTAssertNil(validated["help"])
+    }
 }
