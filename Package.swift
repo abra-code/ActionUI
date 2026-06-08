@@ -206,6 +206,11 @@ let package = Package(
         .target(
             name: "ActionUIDocumentation",
             path: "Documentation",
+            exclude: [
+            	"Comparison-vs-ReactNative.md",
+            	"Comparison-vs-tkinter.md",
+            	"Architecture.md"
+            ],
             sources: ["ActionUIDocumentation.swift"],
             resources: [
                 .copy("ActionUI-JSON-Guide.md"),
