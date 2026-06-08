@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Window-level dialogs are presented by the host: a button fires an actionID, and the registered handler calls ActionUIModel.presentAlert / presentConfirmationDialog. Dialog buttons route their own actionIDs back to the host (see toasts).", "font": "headline" } },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": { "title": "Show alert", "systemImage": "exclamationmark.triangle", "actionID": "dialog.alert" }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": { "title": "Show confirmation dialog", "systemImage": "list.bullet", "actionID": "dialog.confirm" }
+    }
+  ]
+}

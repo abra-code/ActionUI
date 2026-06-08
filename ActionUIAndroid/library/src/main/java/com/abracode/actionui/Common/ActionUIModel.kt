@@ -46,10 +46,12 @@ typealias ActionUIActionHandler =
  *
  * The data-driven rows API (`get/set/append/clearElementRows`,
  * `getElementColumnCount`) is ported (it drives `List` / `Section` template
- * mode). Still **not** ported (with the features that drive them): runtime
- * structural mutation (`insertElement` / `removeElement` / `insertRow`),
- * modal/dialog presentation (`presentModal` / `presentAlert` / ...), and the
- * property API (`get/setElementProperty`, which awaits a validation stage). See
+ * mode). Window-level **dialogs** (`presentAlert` / `presentConfirmationDialog` /
+ * `dismissDialog`) are ported. Still **not** ported (with the features that drive
+ * them): runtime structural mutation (`insertElement` / `removeElement` /
+ * `insertRow`), the **modal** half of presentation (`presentModal` /
+ * `dismissModal`, i.e. sheet / fullScreenCover), and the property API
+ * (`get/setElementProperty`, which awaits a validation stage). See
  * `Private/Android_Porting_Notes.md`.
  *
  * Handlers and the value/state API run on the main thread (Compose `onClick`
@@ -175,6 +177,66 @@ object ActionUIModel {
     fun unregisterWindow(windowUUID: String, expected: WindowModel? = null) {
         if (expected != null && windowModels[windowUUID] !== expected) return
         windowModels.remove(windowUUID)
+    }
+
+    // MARK: - Window-level dialogs (alert / confirmationDialog)
+    //
+    // The Android port of the Swift `presentAlert` / `presentConfirmationDialog` /
+    // `dismissDialog` surface. These set [WindowModel.windowDialog] (Compose
+    // snapshot state), which the window's [com.abracode.actionui.Helpers.WindowDialogHost]
+    // observes and renders as a Material3 AlertDialog. The host fires each button's
+    // actionID (if any) and then dismisses. The sheet / fullScreenCover modal half
+    // (`presentModal` / `dismissModal`) is not ported yet.
+
+    /**
+     * Presents a system alert over [windowUUID]'s window. Defaults to a single
+     * dismissing "OK" button. No-op (with an error log) when no window is
+     * registered for [windowUUID]. Mirrors the Swift `presentAlert`.
+     */
+    fun presentAlert(
+        windowUUID: String = "",
+        title: String,
+        message: String? = null,
+        buttons: List<DialogButton> = listOf(DialogButton("OK", DialogButtonRole.CANCEL)),
+    ) {
+        val windowModel = windowModels[windowUUID]
+        if (windowModel == null) {
+            logger.log("presentAlert: No WindowModel for windowUUID: $windowUUID", LoggerLevel.error)
+            return
+        }
+        windowModel.windowDialog = WindowDialog(DialogStyle.ALERT, title, message, buttons)
+        logger.log("presentAlert: '$title' for windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * Presents a confirmation dialog (iOS action sheet) over [windowUUID]'s window.
+     * No-op (with an error log) when no window is registered for [windowUUID].
+     * Mirrors the Swift `presentConfirmationDialog`.
+     */
+    fun presentConfirmationDialog(
+        windowUUID: String = "",
+        title: String,
+        message: String? = null,
+        buttons: List<DialogButton>,
+    ) {
+        val windowModel = windowModels[windowUUID]
+        if (windowModel == null) {
+            logger.log("presentConfirmationDialog: No WindowModel for windowUUID: $windowUUID", LoggerLevel.error)
+            return
+        }
+        windowModel.windowDialog = WindowDialog(DialogStyle.CONFIRMATION_DIALOG, title, message, buttons)
+        logger.log("presentConfirmationDialog: '$title' for windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * Dismisses the active alert / confirmation dialog without firing any action.
+     * The dialog host normally calls this for you after a button tap (and on a
+     * scrim / back dismiss). Mirrors the Swift `dismissDialog`.
+     */
+    fun dismissDialog(windowUUID: String = "") {
+        val windowModel = windowModels[windowUUID] ?: return
+        windowModel.windowDialog = null
+        logger.log("dismissDialog: windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
     // MARK: - Element Value API

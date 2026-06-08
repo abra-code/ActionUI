@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.DialogButton
+import com.abracode.actionui.Common.DialogButtonRole
 import com.abracode.actionui.demo.ui.theme.ActionUIAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -104,6 +106,36 @@ class MainActivity : ComponentActivity() {
         // TabView.json: each tab switch passes the new 0-based index as context.
         ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()
+        }
+
+        // Dialog.json: window-level dialogs presented by the host. "dialog.alert"
+        // raises a destructive alert; "dialog.confirm" raises a multi-option
+        // confirmation dialog. The dialog buttons' own actionIDs (dialog.deleted /
+        // dialog.optionA / ...) route back through the action layer and land on the
+        // default handler's toast - showing a dialog button is just another action
+        // source. The windowUUID forwarded here targets the window the button fired
+        // from, so the dialog attaches to the right window.
+        ActionUIModel.registerActionHandler("dialog.alert") { _, windowUUID, _, _, _ ->
+            ActionUIModel.presentAlert(
+                windowUUID = windowUUID,
+                title = "Delete file?",
+                message = "This cannot be undone.",
+                buttons = listOf(
+                    DialogButton("Delete", DialogButtonRole.DESTRUCTIVE, actionID = "dialog.deleted"),
+                    DialogButton("Cancel", DialogButtonRole.CANCEL),
+                ),
+            )
+        }
+        ActionUIModel.registerActionHandler("dialog.confirm") { _, windowUUID, _, _, _ ->
+            ActionUIModel.presentConfirmationDialog(
+                windowUUID = windowUUID,
+                title = "Choose an option",
+                buttons = listOf(
+                    DialogButton("Option A", actionID = "dialog.optionA"),
+                    DialogButton("Option B", actionID = "dialog.optionB"),
+                    DialogButton("Cancel", DialogButtonRole.CANCEL),
+                ),
+            )
         }
 
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->

@@ -1,6 +1,9 @@
 package com.abracode.actionui.Common
 
 import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**
@@ -37,6 +40,17 @@ class WindowModel(
 
     /** Per-element runtime state, keyed by element id. */
     val viewModels: MutableMap<Int, ViewModel> = mutableMapOf()
+
+    /**
+     * The active window-level dialog (alert / confirmationDialog), or `null` when
+     * none is presented. Backed by Compose snapshot state so
+     * [ActionUIModel.presentAlert] / [ActionUIModel.presentConfirmationDialog] /
+     * [ActionUIModel.dismissDialog] recompose the dialog host
+     * ([com.abracode.actionui.Helpers.WindowDialogHost]). Mirrors the Swift
+     * `@Published var windowDialog`. (The `sheet` / `fullScreenCover` modal half -
+     * Swift's `windowModal` - is not ported yet.)
+     */
+    var windowDialog: WindowDialog? by mutableStateOf(null)
 
     /**
      * Adopts [root] as the window's element and (re)builds the [ViewModel] pool
