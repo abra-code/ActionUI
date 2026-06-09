@@ -46,6 +46,7 @@ public protocol ActionUIElementBase: Identifiable, Codable {
     var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "overlay", "background"
 }
 
+@MainActor
 protocol ActionUIPropertyValidation {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
 }
@@ -80,7 +81,7 @@ public struct ActionUIElement: ActionUIElementBase {
     // Counter for generating unique negative IDs when not specified.
     // Protected by a lock so it is safe to call from any thread (e.g. Decodable init).
     private static let negativeIDLock = NSLock()
-    private static var negativeIDCounter: Int = -1
+    nonisolated(unsafe) private static var negativeIDCounter: Int = -1
 
     // Generates a unique negative ID for elements without an explicit ID
     internal static func generateNegativeID() -> Int {
