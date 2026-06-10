@@ -1,0 +1,64 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Element-level sheet / fullScreenCover", "font": "title2" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Declared as a subview key on the Button; the tap opens it.",
+        "font": "subheadline"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "title": "Show Sheet",
+        "buttonStyle": "borderedProminent",
+        "sheetOnDismissActionID": "sheet.dismissed"
+      },
+      "sheet": {
+        "type": "VStack",
+        "properties": { "padding": "default", "spacing": 16 },
+        "children": [
+          { "type": "Text", "properties": { "text": "Sheet Content", "font": "headline" } },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Dismiss by swiping down or calling setElementState(key: \"sheetVisible\", value: false)."
+            }
+          },
+          { "type": "Toggle", "id": 100, "properties": { "title": "A live control", "isOn": true } }
+        ]
+      }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": {
+        "title": "Show Full Screen Cover",
+        "buttonStyle": "bordered",
+        "fullScreenCoverOnDismissActionID": "cover.dismissed"
+      },
+      "fullScreenCover": {
+        "type": "VStack",
+        "properties": { "padding": "default", "spacing": 16, "alignment": "center" },
+        "children": [
+          { "type": "Text", "properties": { "text": "Full Screen Cover", "font": "largeTitle" } },
+          {
+            "type": "Text",
+            "properties": { "text": "Use the system back gesture/button to dismiss." }
+          }
+        ]
+      }
+    }
+  ]
+}

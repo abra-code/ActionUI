@@ -23,10 +23,13 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ActionUIButtonStyle
 import com.abracode.actionui.Helpers.ActionUIControlSize
+import com.abracode.actionui.Helpers.FULL_SCREEN_COVER_VISIBLE_STATE_KEY
 import com.abracode.actionui.Helpers.LabelIcon
+import com.abracode.actionui.Helpers.SHEET_VISIBLE_STATE_KEY
 import com.abracode.actionui.Helpers.LocalActionUIButtonStyle
 import com.abracode.actionui.Helpers.LocalActionUIControlSize
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
@@ -149,7 +152,16 @@ object Button : ActionUIViewConstruction {
         val templateContext = LocalTemplateContext.current
         val dispatchViewID = templateContext?.parentID ?: element.id
         val dispatchPartID = templateContext?.rowIndex ?: 0
+        // A Button carrying a `sheet` / `fullScreenCover` subview opens it on tap
+        // (opened, not toggled - dismissal is swipe/back or a host
+        // setElementState(false)), mirroring `Button.swift`. The flag lives in the
+        // Button's own ViewModel states; `ElementModalHost` observes and presents.
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val onClick = {
+            if (element.sheet != null) viewModel?.states?.set(SHEET_VISIBLE_STATE_KEY, true)
+            if (element.fullScreenCover != null) {
+                viewModel?.states?.set(FULL_SCREEN_COVER_VISIBLE_STATE_KEY, true)
+            }
             if (actionID != null) {
                 ActionUIModel.actionHandler(actionID, viewID = dispatchViewID, viewPartID = dispatchPartID)
             }

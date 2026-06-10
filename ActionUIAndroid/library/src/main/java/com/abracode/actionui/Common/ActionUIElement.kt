@@ -50,6 +50,11 @@ import kotlinx.serialization.json.JsonObject
  *     element; consumed by the navigation screen's `ToolbarHost` (Scaffold top/
  *     bottom bar), not rendered inline. Registered (in [subElements]) so each
  *     item's `content`/`children` get [ViewModel]s.
+ *   * [sheet] / [fullScreenCover] - the element-level modal subviews any element
+ *     may declare; presented by `Helpers/ElementModalHost.kt` when the carrier's
+ *     `states["sheetVisible"]` / `states["fullScreenCoverVisible"]` flips true,
+ *     not rendered inline. Registered (in [subElements]) so the modal content's
+ *     controls get [ViewModel]s and are host-addressable, like on Apple.
  *
  * Any traversal of the element tree (id registration, etc.) should iterate
  * [subElements] so it automatically covers every named container as more are
@@ -67,6 +72,8 @@ interface ActionUIElementBase {
     val sidebar: ActionUIElement?
     val detail: ActionUIElement?
     val toolbar: List<ActionUIElement>?
+    val sheet: ActionUIElement?
+    val fullScreenCover: ActionUIElement?
 }
 
 @Serializable
@@ -81,7 +88,9 @@ data class ActionUIElement(
     override val destinations: List<ActionUIElement>? = null,
     override val sidebar: ActionUIElement? = null,
     override val detail: ActionUIElement? = null,
-    override val toolbar: List<ActionUIElement>? = null
+    override val toolbar: List<ActionUIElement>? = null,
+    override val sheet: ActionUIElement? = null,
+    override val fullScreenCover: ActionUIElement? = null
 ) : ActionUIElementBase
 
 /**
@@ -99,4 +108,6 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     sidebar?.let { add(it) }
     detail?.let { add(it) }
     toolbar?.let { addAll(it) }
+    sheet?.let { add(it) }
+    fullScreenCover?.let { add(it) }
 }
