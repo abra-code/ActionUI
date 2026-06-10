@@ -123,7 +123,10 @@ class ModifierResolverTest {
         val logger = CapturingLogger()
         val base = Modifier
         val out = base.applyCommonProperties(props("""{"frame":{"width":"wide"}}"""), logger)
-        assertEquals(chainLength(base), chainLength(out))
+        // The bad axis is skipped (warned), but the fixed frame still wraps its
+        // content (default-center alignment, the Swift contract), so the chain
+        // grows by the wrapContentSize element.
+        assertTrue(chainLength(out) > chainLength(base))
         assertEquals(1, logger.warnings.size)
         assertTrue(logger.warnings[0].contains("frame.width"))
     }
@@ -589,13 +592,35 @@ class ModifierResolverTest {
     }
 
     @Test
-    fun `fixed frame with alignment adds size and wrapContentSize elements`() {
+    fun `fixed frame always wraps content, defaulting to center like Swift`() {
         val base = Modifier
         val sized = base.applyCommonProperties(props("""{"frame":{"width":100,"height":40}}"""))
         val aligned = base.applyCommonProperties(
             props("""{"frame":{"width":100,"height":40,"alignment":"topLeading"}}""")
         )
-        assertTrue(chainLength(aligned) > chainLength(sized))
+        // Swift resolves a missing fixed-frame alignment to .center, so the
+        // wrapContentSize element is present with or without `alignment` -
+        // identical chain shapes - and both exceed the bare base.
+        assertEquals(chainLength(aligned), chainLength(sized))
+        assertTrue(chainLength(sized) > chainLength(base))
+    }
+
+    @Test
+    fun `padding combines with a fixed frame without losing either element`() {
+        // With a fixed frame the padding hoists OUTSIDE the box (it would
+        // otherwise cap the content below Material minimums - see the chain
+        // docs); same elements either way, so the combined chain must carry
+        // exactly the frame elements plus the padding element.
+        val base = Modifier
+        val framePadded = base.applyCommonProperties(
+            props("""{"frame":{"width":150,"height":44},"padding":12}""")
+        )
+        val frameOnly = base.applyCommonProperties(props("""{"frame":{"width":150,"height":44}}"""))
+        val paddingOnly = base.applyCommonProperties(props("""{"padding":12}"""))
+        assertEquals(
+            chainLength(frameOnly) + (chainLength(paddingOnly) - chainLength(base)),
+            chainLength(framePadded),
+        )
     }
 
     // -----------------------------------------------------------------------

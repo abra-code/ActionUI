@@ -77,19 +77,27 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * ```
  *   zIndex -> rotationEffect -> scaleEffect -> offset
- *          -> frame -> opacity -> hidden
+ *          -> [padding, if a fixed frame follows] -> frame -> opacity -> hidden
  *          -> shadow -> border -> clipShape -> cornerRadius
- *          -> background -> padding
+ *          -> background -> [padding, otherwise]
  * ```
  *
  * Opacity (and `hidden`, which is `alpha(0)`) sit outside the decoration so they
  * fade the entire visual subtree including the background, not just inner
  * content. Padding is innermost so the background fills the full size and the
- * inner element sits in a padded area inside the colored region. `border` is
- * outside `clipShape` because SwiftUI's `.border` is a rectangular stroke that
- * is not clipped by a later `.clipShape`.
+ * inner element sits in a padded area inside the colored region - EXCEPT when a
+ * fixed frame is present, where padding hoists outside the box (see the Sizing
+ * section in [applyCommonProperties] for why). `border` is outside `clipShape`
+ * because SwiftUI's `.border` is a rectangular stroke that is not clipped by a
+ * later `.clipShape`.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
+ *   * Compose constraints are hard caps, not SwiftUI's soft proposals a child
+ *     may refuse: content larger than a fixed `frame` is capped to the box
+ *     (SwiftUI lets it overflow at natural size). The two spots where this
+ *     bites - padding inside the box and a missing default alignment - are
+ *     handled (padding hoists outside a fixed frame; a fixed frame always
+ *     `wrapContentSize`s its content, defaulting to center like Swift).
  *   * `shadow` maps to Compose's elevation shadow - `radius` becomes elevation
  *     and `color` becomes the ambient/spot color; the `x`/`y` offset is ignored.
  *   * `frame` `idealWidth`/`idealHeight` (SwiftUI's preferred size) is ignored
@@ -121,6 +129,17 @@ fun Modifier.applyCommonProperties(
     }
 
     // ---- Sizing ----
+    // A fixed frame is a hard size in Compose - constraints are not SwiftUI's
+    // soft proposals a child may refuse. Padding inside the box would subtract
+    // from the content's max constraints and can crush a min-sized Material
+    // component invisible (an M3 Button under `frame {height: 44} + padding 12`
+    // gets 20dp and its title vanishes). So with a fixed frame, padding applies
+    // OUTSIDE the box; the SwiftUI-visible result - content at its natural size
+    // inside the frame - is preserved, at the cost of the padding reading as an
+    // outer margin instead of SwiftUI's (center-invisible) inner inset.
+    val hasFixedFrame =
+        (properties["frame"] as? JsonObject)?.let { it["width"] != null || it["height"] != null } == true
+    if (hasFixedFrame) m = m.applyPadding(properties)
     (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger) }
 
     // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
@@ -141,8 +160,8 @@ fun Modifier.applyCommonProperties(
         )
     }
 
-    // ---- Padding (innermost) ----
-    m = m.applyPadding(properties)
+    // ---- Padding (innermost, unless a fixed frame hoisted it - see Sizing) ----
+    if (!hasFixedFrame) m = m.applyPadding(properties)
     return m
 }
 
@@ -301,8 +320,9 @@ private fun Modifier.applyScaleEffect(properties: JsonObject): Modifier {
  *     maxHeight }` mapped to Compose `widthIn`/`heightIn` (ideal ignored - see
  *     the file header divergence note); `maxWidth/maxHeight: "infinity"` fills
  *     the axis.
- * `alignment` positions content within the resolved size via `wrapContentSize`;
- * it only takes effect when a size is also given.
+ * `alignment` positions content within the resolved size via `wrapContentSize`.
+ * A fixed frame always wraps, defaulting to center (the Swift contract); a
+ * flexible frame wraps only when `alignment` is explicitly given.
  */
 private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Modifier {
     var m: Modifier = this
@@ -316,12 +336,18 @@ private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Mod
     if (hasFixed) {
         m = m.applySizeAxis(frame["width"], horizontal = true, logger)
         m = m.applySizeAxis(frame["height"], horizontal = false, logger)
+        // A fixed frame always positions natural-size content within the box,
+        // defaulting to center - Swift resolves a missing `alignment` to
+        // `.center` (`View.swift`), and without the wrap the hard size would
+        // propagate INTO the content and stretch/crush it, which SwiftUI's
+        // soft proposals never do. (Content larger than the box is still
+        // capped - a Compose constraint, divergence-noted in the header.)
+        val alignment = frame.stringProperty("alignment")
+            ?.let { parseFrameAlignment(it, logger) } ?: Alignment.Center
+        m = m.wrapContentSize(alignment)
     } else if (hasFlexible) {
         m = m.applyFlexibleAxis(frame, horizontal = true, logger)
         m = m.applyFlexibleAxis(frame, horizontal = false, logger)
-    }
-
-    if (hasFixed || hasFlexible) {
         frame.stringProperty("alignment")?.let { name ->
             parseFrameAlignment(name, logger)?.let { m = m.wrapContentSize(it) }
         }
