@@ -4,12 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -18,6 +20,8 @@ import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Common.parseRowAlignment
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -46,11 +50,17 @@ import kotlinx.serialization.json.jsonPrimitive
  * `weight` nor per-child `align`; each child receives only its
  * `applyCommonProperties` modifier.
  *
- * **Deferred vs. Apple.** The data-driven `template` mode is deferred until the
- * `ViewModel`/state layer lands; only static `children` are rendered. See
- * `Private/Android_Porting_Notes.md`.
+ * The stack also supports the data-driven `template` mode: when
+ * [ActionUIElement.template] is present, one substituted template instance per
+ * row in `states[`[ActionUIModel.ROWS_STATE_KEY]`]` (set via the rows API),
+ * substituted lazily as rows scroll into view. See [LazyVStack] and
+ * `Helpers/TemplateHelper.kt`.
  */
 object LazyHStack : ActionUIViewConstruction {
+
+    override fun initialStates(element: ActionUIElement): Map<String, Any> =
+        mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
@@ -68,6 +78,11 @@ object LazyHStack : ActionUIViewConstruction {
         val hasExplicitWidth = (props?.get("frame") as? JsonObject)?.get("width") != null
         val listModifier = if (hasExplicitWidth) modifier else modifier.width(DEFAULT_MAIN_EXTENT)
 
+        // Template (data-driven) mode wins over children, as on Apple. The rows
+        // are read here (composable scope) so the lazy DSL below stays plain.
+        val template = element.template
+        val rows = if (template != null) templateRows(element.id) else emptyList()
+
         CompositionLocalProvider(LocalStackAxis provides StackAxis.Horizontal) {
             LazyRow(
                 modifier = listModifier,
@@ -76,7 +91,13 @@ object LazyHStack : ActionUIViewConstruction {
                     ?: Arrangement.Start,
                 verticalAlignment = verticalAlignment,
             ) {
-                items(element.children.orEmpty()) { child ->
+                if (template != null) {
+                    itemsIndexed(rows) { rowIndex, row ->
+                        TemplateHelper.BuildTemplateRow(
+                            template = template, row = row, parentID = element.id, rowIndex = rowIndex,
+                        )
+                    }
+                } else items(element.children.orEmpty()) { child ->
                     val builder = ActionUIRegistry.lookup(child.type) ?: return@items
                     ProvideTextStyleEnvironment(child.properties, logger) {
                         builder.BuildView(child, Modifier.applyCommonProperties(child.properties, logger))

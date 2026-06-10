@@ -98,15 +98,23 @@ object TemplateHelper {
      * `viewID` and [rowIndex] as `viewPartID` (the Swift action convention), and
      * builds it through the registry with the inherited text-style environment
      * and the universal modifiers. Renders nothing if the type is unregistered.
+     * [baseModifier] is prepended to the instance's own modifier; `Group` uses it
+     * to apply its group-level modifier to each row, the way it does to children.
      */
     @Composable
-    fun BuildTemplateRow(template: ActionUIElement, row: List<String>, parentID: Int, rowIndex: Int) {
+    fun BuildTemplateRow(
+        template: ActionUIElement,
+        row: List<String>,
+        parentID: Int,
+        rowIndex: Int,
+        baseModifier: Modifier = Modifier,
+    ) {
         val logger = LocalActionUILogger.current
         val substituted = substituteElement(template, row)
         val builder = ActionUIRegistry.lookup(substituted.type) ?: return
         CompositionLocalProvider(LocalTemplateContext provides TemplateContext(parentID, rowIndex)) {
             ProvideTextStyleEnvironment(substituted.properties, logger) {
-                builder.BuildView(substituted, Modifier.applyCommonProperties(substituted.properties, logger))
+                builder.BuildView(substituted, baseModifier.then(Modifier.applyCommonProperties(substituted.properties, logger)))
             }
         }
     }

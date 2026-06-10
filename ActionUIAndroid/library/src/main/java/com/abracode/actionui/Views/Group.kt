@@ -3,11 +3,14 @@ package com.abracode.actionui.Views
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.templateRows
 
 /**
  * Transparent grouping container. Mirror of the Apple `Group` element
@@ -31,18 +34,35 @@ import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
  * Each child is wrapped in [ProvideTextStyleEnvironment] so its own
  * `font`/`foregroundStyle`/`tint` apply, consistent with the layout containers.
  *
- * **Deferred vs. Apple.** Like the lazy stacks, the data-driven `template` mode
- * (one instance per row via `setElementRows`) needs the `ViewModel`/state layer
- * that has not landed yet; only static `children` are rendered. Children of a
- * Group also receive only the base `applyCommonProperties` modifier, so the
- * scope-restricted `weight`/`align` child modifiers are not propagated through a
- * Group (same limitation as the lazy stacks). See `Private/Android_Porting_Notes.md`.
+ * The Group also supports the data-driven `template` mode: when
+ * [ActionUIElement.template] is present, one substituted template instance per
+ * row in `states[`[ActionUIModel.ROWS_STATE_KEY]`]` (set via the rows API) is
+ * emitted into the caller's scope, each carrying the group-level [modifier] the
+ * way static children do. See `Helpers/TemplateHelper.kt`.
+ *
+ * **Deferred vs. Apple.** Children of a Group receive only the base
+ * `applyCommonProperties` modifier, so the scope-restricted `weight`/`align`
+ * child modifiers are not propagated through a Group (same limitation as the
+ * lazy stacks). See `Private/Android_Porting_Notes.md`.
  */
 object Group : ActionUIViewConstruction {
+
+    override fun initialStates(element: ActionUIElement): Map<String, Any> =
+        mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
-        element.children.orEmpty().forEach { child ->
+        // Template (data-driven) mode wins over children, as on Apple.
+        val template = element.template
+        if (template != null) {
+            templateRows(element.id).forEachIndexed { rowIndex, row ->
+                TemplateHelper.BuildTemplateRow(
+                    template = template, row = row, parentID = element.id, rowIndex = rowIndex,
+                    baseModifier = modifier,
+                )
+            }
+        } else element.children.orEmpty().forEach { child ->
             val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
             val childModifier = modifier.then(Modifier.applyCommonProperties(child.properties, logger))
             ProvideTextStyleEnvironment(child.properties, logger) {

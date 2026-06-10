@@ -117,6 +117,52 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Selected: $label", Toast.LENGTH_SHORT).show()
         }
 
+        // View.template.json - the data-driven template containers. Load/Append/
+        // Clear drive the rows API on three template hosts at once (VStack 10,
+        // LazyVGrid 40, LazyHStack 30); tapping a templated Button dispatches with
+        // viewID = owning container, viewPartID = row index, which the select/chip
+        // handlers toast.
+        val templateDemoRows = listOf(
+            listOf("star.fill", "Favorites"),
+            listOf("heart.fill", "Liked"),
+            listOf("clock", "Recent"),
+            listOf("bookmark.fill", "Saved"),
+            listOf("bell.fill", "Notifications"),
+            listOf("folder.fill", "Folders"),
+        )
+        val templateDemoExtraRows = listOf(
+            listOf("archivebox.fill", "Archive"),
+            listOf("trash.fill", "Trash"),
+            listOf("paperplane.fill", "Sent"),
+        )
+        val templateDemoIDs = listOf(10, 40, 30)
+        var templateDemoAppendIndex = 0
+        ActionUIModel.registerActionHandler("template.demo.load") { _, windowUUID, _, _, _ ->
+            templateDemoIDs.forEach { id ->
+                ActionUIModel.setElementRows(windowUUID = windowUUID, viewID = id, rows = templateDemoRows)
+            }
+        }
+        ActionUIModel.registerActionHandler("template.demo.append") { _, windowUUID, _, _, _ ->
+            val row = templateDemoExtraRows[templateDemoAppendIndex % templateDemoExtraRows.size]
+            templateDemoAppendIndex += 1
+            templateDemoIDs.forEach { id ->
+                ActionUIModel.appendElementRows(windowUUID = windowUUID, viewID = id, rows = listOf(row))
+            }
+        }
+        ActionUIModel.registerActionHandler("template.demo.clear") { _, windowUUID, _, _, _ ->
+            templateDemoIDs.forEach { id ->
+                ActionUIModel.clearElementRows(windowUUID = windowUUID, viewID = id)
+            }
+        }
+        ActionUIModel.registerActionHandler("template.demo.select") { _, windowUUID, viewID, viewPartID, _ ->
+            val row = ActionUIModel.getElementRows(windowUUID = windowUUID, viewID = viewID).getOrNull(viewPartID)
+            Toast.makeText(this, "Cell tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("template.demo.chip") { _, windowUUID, viewID, viewPartID, _ ->
+            val row = ActionUIModel.getElementRows(windowUUID = windowUUID, viewID = viewID).getOrNull(viewPartID)
+            Toast.makeText(this, "Chip tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
+        }
+
         // TabView.json: each tab switch passes the new 0-based index as context.
         ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()

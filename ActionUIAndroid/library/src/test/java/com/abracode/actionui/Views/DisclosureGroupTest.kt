@@ -39,9 +39,12 @@ class DisclosureGroupTest {
 
     @Test
     fun `initialStates reflects the isExpanded property, defaulting to false`() {
-        assertEquals(mapOf("isExpanded" to true), DisclosureGroup.initialStates(element(expanded = true)))
         assertEquals(
-            mapOf("isExpanded" to false),
+            mapOf("isExpanded" to true, "content" to emptyList<List<String>>()),
+            DisclosureGroup.initialStates(element(expanded = true)),
+        )
+        assertEquals(
+            mapOf("isExpanded" to false, "content" to emptyList<List<String>>()),
             DisclosureGroup.initialStates(ActionUIElement(id = 1, type = "DisclosureGroup"))
         )
     }

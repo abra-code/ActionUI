@@ -11,12 +11,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.templateRows
 
 /**
  * Titled, visually grouped container around a set of children. Mirror of the
@@ -36,11 +39,16 @@ import com.abracode.actionui.Helpers.stringProperty
  *   * plus the universal modifiers resolved by `applyCommonProperties` (via
  *     [modifier]).
  *
- * **Deferred vs. Apple.** The data-driven `template` mode needs the row/state
- * layer that has not landed yet; only static `children` are rendered. See
- * `Private/Android_Porting_Notes.md`.
+ * The box also supports the data-driven `template` mode: when
+ * [ActionUIElement.template] is present, one substituted template instance per
+ * row in `states[`[ActionUIModel.ROWS_STATE_KEY]`]` (set via the rows API)
+ * fills the content column. See `Helpers/TemplateHelper.kt`.
  */
 object GroupBox : ActionUIViewConstruction {
+
+    override fun initialStates(element: ActionUIElement): Map<String, Any> =
+        mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
@@ -54,7 +62,15 @@ object GroupBox : ActionUIViewConstruction {
                 if (!title.isNullOrEmpty()) {
                     M3Text(title, style = MaterialTheme.typography.titleSmall)
                 }
-                element.children.orEmpty().forEach { child ->
+                // Template (data-driven) mode wins over children, as on Apple.
+                val template = element.template
+                if (template != null) {
+                    templateRows(element.id).forEachIndexed { rowIndex, row ->
+                        TemplateHelper.BuildTemplateRow(
+                            template = template, row = row, parentID = element.id, rowIndex = rowIndex,
+                        )
+                    }
+                } else element.children.orEmpty().forEach { child ->
                     val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
                     ProvideTextStyleEnvironment(child.properties, logger) {
                         builder.BuildView(child, buildChildModifier(child.properties, logger))
