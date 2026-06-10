@@ -17,7 +17,9 @@ import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
 import com.abracode.actionui.Views.Label
 import com.abracode.actionui.Views.LabeledContent
+import com.abracode.actionui.Views.LazyHGrid
 import com.abracode.actionui.Views.LazyHStack
+import com.abracode.actionui.Views.LazyVGrid
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
 import com.abracode.actionui.Views.LoadableView
@@ -60,6 +62,8 @@ object ActionUIRegistry {
         register("ZStack", ZStack)
         register("LazyVStack", LazyVStack)
         register("LazyHStack", LazyHStack)
+        register("LazyVGrid", LazyVGrid)
+        register("LazyHGrid", LazyHGrid)
         register("Button", Button)
         register("Divider", Divider)
         register("Spacer", Spacer)

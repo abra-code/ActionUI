@@ -1,0 +1,34 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "LazyHGrid: fixed 40 dp first row plus one flexible row; children flow into columns and scroll horizontally. Bounded height 180 because a horizontal grid needs a bounded cross axis." } },
+    {
+      "type": "LazyHGrid",
+      "properties": {
+        "rows": [
+          { "minimum": 40 },
+          { "flexible": true }
+        ],
+        "spacing": 8,
+        "frame": { "width": "infinity", "height": 180 }
+      },
+      "children": [
+        { "type": "Text", "properties": { "text": "Cell 1", "padding": 6, "background": "#FFCDD2" } },
+        { "type": "Text", "properties": { "text": "Cell 2", "padding": 6, "background": "#90CAF9" } },
+        { "type": "Text", "properties": { "text": "Cell 3", "padding": 6, "background": "#A5D6A7" } },
+        { "type": "Text", "properties": { "text": "Cell 4", "padding": 6, "background": "#FFE0B2" } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 8, "fill": "#B39DDB", "frame": { "width": 72, "height": "infinity" } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 8, "fill": "#80CBC4", "frame": { "width": 72, "height": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 7", "padding": 6, "background": "#FFCDD2" } },
+        { "type": "Text", "properties": { "text": "Cell 8", "padding": 6, "background": "#90CAF9" } },
+        { "type": "Text", "properties": { "text": "Cell 9", "padding": 6, "background": "#A5D6A7" } },
+        { "type": "Text", "properties": { "text": "Cell 10", "padding": 6, "background": "#FFE0B2" } },
+        { "type": "Text", "properties": { "text": "Cell 11", "padding": 6, "background": "#FFCDD2" } },
+        { "type": "Text", "properties": { "text": "Cell 12", "padding": 6, "background": "#90CAF9" } },
+        { "type": "Text", "properties": { "text": "Cell 13", "padding": 6, "background": "#A5D6A7" } },
+        { "type": "Text", "properties": { "text": "Cell 14 (scroll to reach me)", "padding": 6, "background": "#FFE0B2" } }
+      ]
+    }
+  ]
+}

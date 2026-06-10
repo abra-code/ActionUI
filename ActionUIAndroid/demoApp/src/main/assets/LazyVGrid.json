@@ -1,0 +1,42 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "LazyVGrid: fixed 90 dp first column plus two flexible columns. Bounded height 280 so it scrolls inside its own viewport." } },
+    {
+      "type": "LazyVGrid",
+      "properties": {
+        "columns": [
+          { "minimum": 90 },
+          { "flexible": true },
+          { "flexible": true }
+        ],
+        "spacing": 8,
+        "frame": { "width": "infinity", "height": 280 }
+      },
+      "children": [
+        { "type": "Text", "properties": { "text": "Cell 1", "padding": 6, "background": "#FFCDD2", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 2", "padding": 6, "background": "#90CAF9", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 3", "padding": 6, "background": "#A5D6A7", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 4", "padding": 6, "background": "#FFCDD2", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 5", "padding": 6, "background": "#90CAF9", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 6", "padding": 6, "background": "#A5D6A7", "frame": { "width": "infinity" } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 8, "fill": "#FFE0B2", "frame": { "width": "infinity", "height": 32 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 8, "fill": "#B39DDB", "frame": { "width": "infinity", "height": 32 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 8, "fill": "#80CBC4", "frame": { "width": "infinity", "height": 32 } } },
+        { "type": "Text", "properties": { "text": "Cell 10", "padding": 6, "background": "#FFCDD2", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 11", "padding": 6, "background": "#90CAF9", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 12", "padding": 6, "background": "#A5D6A7", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 13", "padding": 6, "background": "#FFCDD2", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 14", "padding": 6, "background": "#90CAF9", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 15", "padding": 6, "background": "#A5D6A7", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 16", "padding": 6, "background": "#FFCDD2", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 17", "padding": 6, "background": "#90CAF9", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 18", "padding": 6, "background": "#A5D6A7", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 19", "padding": 6, "background": "#FFCDD2", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 20", "padding": 6, "background": "#90CAF9", "frame": { "width": "infinity" } } },
+        { "type": "Text", "properties": { "text": "Cell 21 (scroll to reach me)", "padding": 6, "background": "#A5D6A7", "frame": { "width": "infinity" } } }
+      ]
+    }
+  ]
+}
