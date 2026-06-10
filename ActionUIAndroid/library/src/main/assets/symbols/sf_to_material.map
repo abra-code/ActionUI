@@ -1,7 +1,7 @@
 # SF Symbols -> Material Symbols, compiled by Tools/material_symbols/build_sf_material_map.py
 # Format: <sf_name> <codepoint_hex> [<fill>] [<weight>] - trailing integers
 # are axis overrides by range: 1 => FILL 1, 100..700 => wght.
-# Generated artifact - do not edit by hand; regenerate from the glyphsvg mapping.
+# Generated artifact - do not edit by hand; regenerate from the sf-symbols-material-map mapping.
 0.circle f785
 0.circle.fill f785 1
 1.calendar e935
@@ -56,8 +56,8 @@
 9.calendar e935
 9.circle f77c
 9.circle.fill f77c 1
-accessibility e84e
-accessibility.fill e84e 1
+accessibility e92c
+accessibility.fill e92c 1
 air.car.side eff7
 air.car.side.fill eff7 1
 air.conditioner eb3b
@@ -147,14 +147,14 @@ applepencil.and.scribble f603 1 100
 applepencil.gen1 f604 1 100
 applepencil.gen2 f604 1 100
 applepencil.tip f362 1 100
-appletvremote.gen1 f5d9 100
-appletvremote.gen1.fill f5d9 1 100
-appletvremote.gen2 f5d9 100
-appletvremote.gen2.fill f5d9 1 100
-appletvremote.gen3 e83e 100
-appletvremote.gen3.fill e83e 1 100
-appletvremote.gen4 e83e 100
-appletvremote.gen4.fill e83e 1 100
+appletvremote.gen1 f5d9 300
+appletvremote.gen1.fill f5d9 1 300
+appletvremote.gen2 f5d9 300
+appletvremote.gen2.fill f5d9 1 300
+appletvremote.gen3 e83e 300
+appletvremote.gen3.fill e83e 1 300
+appletvremote.gen4 e83e 300
+appletvremote.gen4.fill e83e 1 300
 applewatch e334
 applewatch.case.sizes e334
 applewatch.side.right e334
@@ -632,8 +632,8 @@ cable.connector efe6
 cable.connector.horizontal efe6
 cable.connector.slash efe6
 cable.connector.video efe6
-cablecar f479 100
-cablecar.fill f479 1 100
+cablecar f479 200
+cablecar.fill f479 1 200
 calendar ebcc
 calendar.and.person e8a3
 calendar.badge e878
@@ -700,11 +700,11 @@ cedisign.bank.building.fill e84f 1
 cellularbars ef06
 centsign.bank.building e84f
 centsign.bank.building.fill e84f 1
-chair efed
-chair.fill efed 1
+chair efee 300
+chair.fill efee 1 300
 chair.lounge efed
 chair.lounge.fill efed 1
-character e262
+character e167
 character.circle e262
 character.circle.fill e262 1
 character.cursor.ibeam e262
@@ -820,7 +820,7 @@ clear e5cd
 clear.fill e5cd 1
 clipboard e85d
 clipboard.fill e85d 1
-clock efd6
+clock efd6 300
 clock.arrow.trianglehead.2.counterclockwise.rotate.90 e8b3
 clock.arrow.trianglehead.clockwise.rotate.90.path.dotted e923
 clock.arrow.trianglehead.counterclockwise.rotate.90 e8b3
@@ -916,8 +916,8 @@ danishkronesign.bank.building e84f
 danishkronesign.bank.building.fill e84f 1
 decrease.indent e23d
 decrease.quotelevel e23d
-delete.backward e92e
-delete.backward.fill e92e 1
+delete.backward e14a 300
+delete.backward.fill e14a 1 300
 delete.left e14a
 delete.left.fill e14a 1
 deskclock e855
@@ -925,11 +925,11 @@ deskclock.fill e855 1
 desktopcomputer e31e
 desktopcomputer.and.arrow.down eb71
 desktopcomputer.and.macbook e31e
-diamond ead5
+diamond e697 200
 diamond.bottomhalf.filled ead5
 diamond.circle ead5
 diamond.circle.fill ead5 1
-diamond.fill ead5 1
+diamond.fill e697 1
 diamond.lefthalf.filled ead5
 diamond.righthalf.filled ead5
 diamond.tophalf.filled ead5
@@ -1025,14 +1025,14 @@ earbuds.case.fill f327 1
 earbuds.in.ear f003
 earbuds.stemless f003
 earpods f324
-eject e8fb
+eject e8fb 200
 eject.circle e8fb
 eject.circle.fill e8fb 1
 eject.fill e8fb 1
 electronic.toll.collection e8e0
 electronic.toll.collection.rectangle e8e0
 electronic.toll.collection.rectangle.fill e8e0 1
-ellipsis e5d3
+ellipsis e5d3 300
 ellipsis.bubble e0c9
 ellipsis.bubble.fill e0c9 1
 ellipsis.circle ef64
@@ -1055,8 +1055,8 @@ envelope.open e151
 envelope.open.badge.clock e151
 envelope.open.badge.clock.fill e151 1
 envelope.open.fill e151 1
-environments e564 100
-equal f77b
+environments e564 200
+equal f77b 200
 equal.circle f77b
 equal.circle.fill f77b 1
 equal.square f77b
@@ -1138,7 +1138,7 @@ eyebrow eeb3
 eyedropper e3b8
 eyedropper.full e3b8
 eyedropper.halffull e3b8
-eyeglasses f6ee
+eyeglasses f2c7 200
 f.cursive f74c
 face.dashed f008
 face.dashed.fill f008 1
@@ -1347,7 +1347,7 @@ fuelpump.slash e546
 fuelpump.slash.fill e546 1
 function f866
 fx f866
-gamecontroller ea28
+gamecontroller ea28 300
 gamecontroller.circle ea28
 gamecontroller.circle.fill ea28 1
 gamecontroller.fill ea28 1
@@ -1371,7 +1371,7 @@ gauge.with.dots.needle.bottom.100percent e9e4
 gauge.with.dots.needle.bottom.50percent e9e4
 gauge.with.dots.needle.bottom.50percent.badge.minus f57d
 gauge.with.dots.needle.bottom.50percent.badge.plus f57e
-gauge.with.needle e9e4
+gauge.with.needle fff38
 gauge.with.needle.fill e9e4 1
 gear e8b8
 gear.badge e8b8
@@ -1389,7 +1389,7 @@ gift.circle.fill e8f6 1
 gift.fill e8f6 1
 giftcard e8f6
 giftcard.fill e8f6 1
-globe e80b
+globe ea07 300
 globe.americas e80b
 globe.americas.fill e80b 1
 globe.asia.australia e80b
@@ -1494,7 +1494,7 @@ heat.waves.circle f537
 heat.waves.circle.fill f537 1
 helmet ea2d
 helmet.fill ea2d 1
-hexagon eb39
+hexagon eb39 300
 hexagon.bottomhalf.filled eb39
 hexagon.fill eb39 1
 hexagon.lefthalf.filled eb39
@@ -1511,7 +1511,7 @@ hifispeaker.and.homepod.mini e32d
 hifispeaker.and.homepod.mini.fill e32d 1
 hifispeaker.fill e32d 1
 highlighter e6d1
-homepod e32d
+homepod f11c 300
 homepod.2 e32d
 homepod.2.fill e32d 1
 homepod.and.homepod.mini e32d
@@ -1578,7 +1578,7 @@ inset.filled.applewatch.case e334
 inset.filled.diamond ead5
 inset.filled.rectangle.and.person.filled e851
 inset.filled.tv e63b
-internaldrive e1db
+internaldrive f80e 300
 internaldrive.fill e1db 1
 ipad e331
 ipad.gen1 e331
@@ -1616,14 +1616,14 @@ key.circle e0da
 key.circle.fill e0da 1
 key.fill e0da 1
 key.horizontal e73c
-key.horizontal.fill e0da 1
+key.horizontal.fill e73c 1
 key.radiowaves.forward e0da
 key.radiowaves.forward.fill e0da 1
 key.radiowaves.forward.slash eb7a
 key.radiowaves.forward.slash.fill eb7a 1
 key.slash eb7a
 key.slash.fill eb7a 1
-keyboard e312
+keyboard e312 300
 keyboard.badge.ellipsis e312
 keyboard.badge.ellipsis.fill e312 1
 keyboard.badge.eye e312
@@ -1693,7 +1693,7 @@ lightbulb.2 e79a
 lightbulb.2.fill e79a 1
 lightbulb.circle e79a
 lightbulb.circle.fill e79a 1
-lightbulb.fill e79a 1
+lightbulb.fill e90f 1 300
 lightbulb.led e79a
 lightbulb.led.fill e79a 1
 lightbulb.led.wide e79a
@@ -1751,13 +1751,13 @@ location.circle e569
 location.circle.fill e569 1
 location.fill e569 1
 location.fill.viewfinder e55c
-location.north e569
+location.north e569 200
 location.north.circle e569
 location.north.circle.fill e569 1
 location.north.fill e569 1
 location.north.line e569
 location.north.line.fill e569 1
-location.slash e0c7
+location.slash f1ef 300
 location.slash.circle e0c7
 location.slash.circle.fill e0c7 1
 location.slash.fill e0c7 1
@@ -1826,6 +1826,7 @@ medal ea3f
 medal.fill ea3f 1
 medal.star ea3f
 medal.star.fill ea3f 1
+mediastick e83c 1 300
 medical.thermometer e846
 medical.thermometer.fill e846 1
 megaphone ef49
@@ -1833,6 +1834,9 @@ megaphone.fill ef49 1
 memorychip e322
 memorychip.fill e322 1
 menubar.dock.rectangle f2e0
+menubar.rectangle e9f7 300
+menucard ea19 300
+menucard.fill ea19 1 300
 message e0cb
 message.badge f189
 message.badge.fill f189 1
@@ -1929,7 +1933,6 @@ number.circle e9ef
 number.circle.fill e9ef 1
 number.square e9ef
 number.square.fill e9ef 1
-numbers eac7
 numbers.rectangle eac7
 numbers.rectangle.fill eac7 1
 oar.2.crossed e921
@@ -1945,6 +1948,8 @@ paintbrush e3ae
 paintbrush.fill e3ae 1
 paintbrush.pointed e3ae
 paintbrush.pointed.fill e3ae 1
+paintpalette e40a 300
+paintpalette.fill e40a 1 300
 pano f082
 pano.fill f082 1
 paperclip e226
@@ -1955,7 +1960,8 @@ paperplane e163
 paperplane.circle e163
 paperplane.circle.fill e163 1
 paperplane.fill e163 1
-parkingsign e54f
+paragraphsign f865 300
+parkingsign e54f 300
 parkingsign.brakesignal e54f
 parkingsign.circle e54f
 parkingsign.circle.fill e54f 1
@@ -1976,7 +1982,7 @@ pawprint.fill e91d 1
 pc e31e
 pedestrian.gate.closed e277
 pedestrian.gate.open e277
-pencil f097
+pencil f097 1 100
 pencil.and.outline f097
 pencil.and.ruler f10a
 pencil.and.ruler.fill f10a 1
@@ -2101,6 +2107,7 @@ photo.on.rectangle.angled e413
 photo.on.rectangle.angled.fill e413 1
 photo.stack e3d3
 photo.stack.fill e3d3 1
+pianokeys e521 300
 pill e11f
 pill.circle e11f
 pill.circle.fill e11f 1
@@ -2138,6 +2145,7 @@ play.square.stack e04a
 play.square.stack.fill e04a 1
 play.tv e63a
 play.tv.fill e63a 1
+playpause.fill f137 1 500
 plus e145
 plus.app e146
 plus.app.fill e146 1
@@ -2166,10 +2174,13 @@ pointer.arrow.ipad f82f
 pointer.arrow.motionlines.click e762
 polishzlotysign.bank.building e84f
 polishzlotysign.bank.building.fill e84f 1
-power e63c
+power f8c7
 power.circle f8c7
 power.circle.fill f8c7 1
 power.dotted e63c
+powercord f102 300
+powercord.fill f102 1 300
+powermeter fff38 300
 poweroutlet.type.a f1d4
 poweroutlet.type.a.fill f1d4 1
 poweroutlet.type.a.square f1d4
@@ -2245,8 +2256,10 @@ printer.filled.and.paper e8ad
 printer.filled.and.paper.inverse e8ad
 printer.inverse e8ad
 progress.indicator e9d0
-puzzlepiece.extension e87b
-puzzlepiece.extension.fill e87b 1
+puzzlepiece efc2 300
+puzzlepiece.extension e87b 300
+puzzlepiece.extension.fill e87b 1 300
+puzzlepiece.fill efc2 1 300
 qrcode ef6b
 qrcode.viewfinder f206
 questionmark e8fd
@@ -2296,6 +2309,7 @@ receipt e8b0
 receipt.fill e8b0 1
 record.circle e837
 record.circle.fill e837 1
+rectangle eb54 300
 rectangle.2.swap e8d4
 rectangle.3.group e871
 rectangle.3.group.fill e871 1
@@ -2310,6 +2324,7 @@ rectangle.compress.vertical e94d
 rectangle.dashed.and.paperclip e2bc
 rectangle.expand.diagonal e94f
 rectangle.expand.vertical e94f
+rectangle.fill eb54 1 300
 rectangle.fill.badge.person.crop e851
 rectangle.fill.badge.plus e05c
 rectangle.fill.on.rectangle.angled.fill e3e0 1
@@ -2320,6 +2335,7 @@ rectangle.grid.3x2 e9b0
 rectangle.grid.3x2.fill e9b0 1
 rectangle.grid.3x3 f015
 rectangle.grid.3x3.fill f015 1
+rectangle.on.rectangle f4c8 300
 rectangle.on.rectangle.angled e3e0
 rectangle.on.rectangle.badge.gearshape eb97
 rectangle.pattern.checkered f043
@@ -2360,7 +2376,7 @@ rectangle.stack.slash.fill f608 1
 refrigerator eb47
 refrigerator.fill eb47 1
 repeat e040
-repeat.1 e040
+repeat.1 e041 300
 repeat.1.circle e040
 repeat.1.circle.fill e040 1
 repeat.circle e040
@@ -2399,14 +2415,20 @@ rotate.right e41a
 rotate.right.fill e41a 1
 rublesign.bank.building e84f
 rublesign.bank.building.fill e84f 1
+rugbyball ea2e 300
+rugbyball.fill ea2e 1 300
 ruler e41c
 ruler.fill e41c 1
 rupeesign.bank.building e84f
 rupeesign.bank.building.fill e84f 1
+safari e87a
+safari.fill e87a 1
 sailboat e502
 sailboat.circle eff5
 sailboat.circle.fill eff5 1
 sailboat.fill eff5 1
+scalemass e13d 300
+scalemass.fill e13d 1 300
 scanner e329
 scanner.fill e329 1
 scissors e14e
@@ -2490,12 +2512,14 @@ sleep.circle.fill e213 1
 slider.horizontal.2.square e429
 slider.horizontal.3 e429
 slider.vertical.3 e429
+smallcircle.circle eee1
 smallcircle.filled.circle e57b
 smallcircle.filled.circle.fill e57b 1
 smartphone e7ba
 snowflake eb3b
 snowflake.circle eb3b
 snowflake.circle.fill eb3b 1
+soccerball ea2f 300
 sofa e16b
 sofa.fill e16b 1
 sos ebf7
@@ -2510,7 +2534,7 @@ sparkles.rectangle.stack e65f
 sparkles.rectangle.stack.fill e661 1
 sparkles.square.filled.on.square e661
 spatial.capture f727
-speaker e04e
+speaker e04e 200
 speaker.circle e32d
 speaker.circle.fill e32d 1
 speaker.fill e04e 1
@@ -2524,7 +2548,7 @@ speaker.slash.circle.fill e04f 1
 speaker.slash.fill e04f 1
 speaker.square e32d
 speaker.square.fill e32d 1
-speaker.wave.1 e04d
+speaker.wave.1 e04d 200
 speaker.wave.1.arrowtriangles.up.right.down.left e049
 speaker.wave.1.fill e04d 1
 speaker.wave.2 e050
@@ -2539,6 +2563,7 @@ sprinkler e29a
 sprinkler.and.droplets e29a
 sprinkler.and.droplets.fill e29a 1
 sprinkler.fill e29a 1
+square eb36
 square.2.layers.3d e53b
 square.2.layers.3d.bottom.filled e53b
 square.2.layers.3d.fill e53b 1
@@ -2575,12 +2600,14 @@ square.and.pencil.circle.fill f88d 1
 square.arrowtriangle.4.outward f1ce
 square.badge.plus e146
 square.badge.plus.fill e146 1
+square.circle eec7
+square.fill eb36 1
 square.filled.on.square e3e0
 square.grid.2x2 e9b0
 square.grid.2x2.fill e9b0 1
 square.grid.3x2 e9b0
 square.grid.3x2.fill e9b0 1
-square.grid.3x3 f015
+square.grid.3x3 e3ec 300
 square.grid.3x3.bottomleft.filled f015
 square.grid.3x3.bottommiddle.filled f015
 square.grid.3x3.bottomright.filled f015
@@ -2611,16 +2638,20 @@ square.stack.3d.up.fill e53b 1
 square.stack.3d.up.slash f608
 square.stack.3d.up.slash.fill f608 1
 square.stack.fill f609 1
+squareshape eb36 300
+squareshape.fill eb36 1 300
 squareshape.split.2x2 e9b0
 squareshape.split.3x3 f015
-stairs f1a9
-star f09a
+stairs f46c
+star f09a 200
 star.bubble f07c
 star.bubble.fill f07c 1
 star.circle e8d0
 star.circle.fill e8d0 1
 star.fill f09a 1
 star.leadinghalf.filled e839
+staroflife e1eb
+staroflife.fill e1eb 1
 staroflife.shield e1d5
 staroflife.shield.fill e1d5 1
 sterlingsign.bank.building e84f
@@ -2628,11 +2659,11 @@ sterlingsign.bank.building.fill e84f 1
 stethoscope f805
 stethoscope.circle f805
 stethoscope.circle.fill f805 1
-stop e047
+stop e047 200
 stop.circle ef71
 stop.circle.fill ef71 1
 stop.fill e047 1
-stopwatch e01b
+stopwatch e425 300
 stopwatch.fill e01b 1
 storefront ea12
 storefront.circle ea12
@@ -2644,8 +2675,6 @@ stroke.line.diagonal f41e
 stroke.line.diagonal.slash f41e
 stroller f1ae
 stroller.fill f1ae 1
-suit.diamond ead5
-suit.diamond.fill ead5 1
 suit.heart e87e
 suit.heart.fill e87e 1
 suitcase f235
@@ -2686,6 +2715,7 @@ syringe e133
 syringe.fill e138 1
 table.furniture f191
 table.furniture.fill f191 1
+tablecells f191 300
 tachometer e9e4
 tag f05b
 tag.circle f05b
@@ -2695,7 +2725,7 @@ tag.slash e9b6
 tag.slash.fill e9b6 1
 tag.square f05b
 tag.square.fill f05b 1
-takeoutbag.and.cup.and.straw ea74
+takeoutbag.and.cup.and.straw ef34 300
 takeoutbag.and.cup.and.straw.fill ea74 1
 target e719
 teletype f1aa
@@ -2714,6 +2744,7 @@ tent.2.fill f8a2 1
 tent.circle f8a2
 tent.circle.fill f8a2 1
 tent.fill f8a2 1
+testtube.2 e105 300
 text.aligncenter e234
 text.alignleft e236
 text.alignright e237
@@ -2752,6 +2783,8 @@ textformat.size.larger e245
 textformat.size.smaller e245
 textformat.subscript f111
 textformat.superscript f112
+theatermasks ea66 300
+theatermasks.fill ea66 1 300
 thermometer.and.ellipsis e846
 thermometer.and.liquid.waves e846
 thermometer.high e1ff
@@ -2764,11 +2797,12 @@ ticket.circle.fill e638 1
 ticket.fill e638 1
 timelapse e422
 timeline.selection e922
-timer e425
+timer e01b 300
 timer.circle e425
 timer.circle.fill e425 1
 timer.square e425
 tire ebc8
+togglepower f510 300
 toilet e63d
 toilet.fill e63d 1
 tornado e199
@@ -2817,16 +2851,21 @@ triangle e86b
 triangle.circle eec6
 triangle.circle.fill eec6 1
 triangle.fill e3c8 1
+triangleshape e86b 300
+triangleshape.fill e86b 1 300
 trophy ea23
 trophy.circle ea23
 trophy.circle.fill ea23 1
 trophy.fill ea23 1
+tropicalstorm f070 300
 truck.box e558
 truck.box.badge.clock e558
 truck.box.badge.clock.fill e558 1
 truck.box.fill e558 1
 truck.pickup.side e558
 truck.pickup.side.fill e558 1
+tshirt ef7b 300
+tshirt.fill ef7b 1 300
 tugriksign.bank.building e84f
 tugriksign.bank.building.fill e84f 1
 turkishlirasign.bank.building e84f
@@ -2871,8 +2910,8 @@ video.slash.circle.fill e04c 1
 video.slash.fill e04c 1
 video.square e04b
 video.square.fill e04b 1
-view.2d ef37
-view.3d ed38
+view.2d fff0e 300
+view.3d fff0f 300
 viewfinder e3c2
 viewfinder.circle e3c2
 viewfinder.circle.fill e3c2 1
@@ -2900,6 +2939,8 @@ washer.fill e54a 1
 watch.analog e334
 watchface.applewatch.case e334
 water.waves e176
+waterbottle f69d 300
+waterbottle.fill f69d 1 300
 waveform e1b8
 waveform.and.person.filled e91f
 waveform.badge.microphone e31d
@@ -2939,7 +2980,7 @@ window.vertical.open ec0e
 windshield.front.and.fluid.and.spray f32a
 windshield.front.and.heat.waves f328
 windshield.rear.and.heat.waves f329
-wineglass f1e8
+wineglass f1e8 300
 wineglass.fill f1e8 1
 wonsign.bank.building e84f
 wonsign.bank.building.fill e84f 1
@@ -2972,6 +3013,7 @@ xmark.square e888
 xmark.square.fill e888 1
 y.circle eec5
 y.circle.fill eec5 1
+yensign eafb
 yensign.bank.building e84f
 yensign.bank.building.fill e84f 1
 zl.button.roundedtop.horizontal eed8
