@@ -10,14 +10,33 @@ import org.junit.Test
  * Unit tests for the [ActionUIElement] named-container decode: the array
  * container `children` and the single-child container `content` both decode from
  * their top-level JSON keys, and [subElements] flattens every container for tree
- * traversal. Uses the same lenient [Json] config as `ActionUI.Render`.
+ * traversal. Uses [ActionUIJson], the exact decoder config of `ActionUI.Render`.
  */
 class ActionUIElementTest {
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json: Json = ActionUIJson
 
     private fun decode(text: String): ActionUIElement =
         json.decodeFromString(ActionUIElement.serializer(), text)
+
+    @Test
+    fun `tolerates trailing commas like Apple's Foundation parser`() {
+        // Documents authored against the Swift framework may carry trailing
+        // commas (Foundation accepts them; the verifier strips them). The
+        // shared config must decode them identically - see ActionUIJson.
+        val element = decode(
+            """
+            { "type": "VStack", "id": 1,
+              "children": [
+                { "type": "Text", "properties": { "text": "hi", } },
+              ],
+            }
+            """.trimIndent()
+        )
+
+        assertEquals("VStack", element.type)
+        assertEquals(1, element.children?.size)
+    }
 
     @Test
     fun `decodes a single-child content container as one element`() {

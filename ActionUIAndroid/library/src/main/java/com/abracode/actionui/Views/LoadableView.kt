@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
@@ -79,7 +80,8 @@ object LoadableView : ActionUIViewConstruction {
     override fun initialValue(element: ActionUIElement): Any? =
         resolveLoadableSource(null, element.properties) ?: ""
 
-    private val json: Json = Json { ignoreUnknownKeys = true }
+    // Shared document decoder config (Foundation-leniency parity; see Common/ActionUIJson).
+    private val json: Json = ActionUIJson
 
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {

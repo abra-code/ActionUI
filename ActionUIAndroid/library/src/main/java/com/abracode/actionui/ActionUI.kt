@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
@@ -43,9 +44,8 @@ import kotlinx.serialization.json.JsonObject
 
 object ActionUI {
 
-    private val json: Json = Json {
-        ignoreUnknownKeys = true
-    }
+    // The shared document decoder (Foundation-leniency parity; see ActionUIJson).
+    private val json: Json = ActionUIJson
 
     /**
      * Default logger used when callers don't supply one. Swap globally for

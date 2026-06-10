@@ -82,8 +82,8 @@ object ActionUIModel {
      */
     var logger: ActionUILogger = ConsoleLogger()
 
-    /** Decoder for modal sub-documents passed to [presentModal]. */
-    private val json: Json = Json { ignoreUnknownKeys = true }
+    /** Decoder for modal sub-documents passed to [presentModal] (shared config; see [ActionUIJson]). */
+    private val json: Json = ActionUIJson
 
     /**
      * Registers [handler] for [actionID], replacing any existing handler for
