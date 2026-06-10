@@ -19,6 +19,8 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LabelIcon
+import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -29,7 +31,9 @@ import com.abracode.actionui.Helpers.stringProperty
  *
  * Children are interpreted as menu items (not rendered as standalone views):
  *   * `Button`  -> a [DropdownMenuItem] showing the button's `title`; tapping it
- *     dispatches the button's `actionID` and dismisses the menu.
+ *     dispatches the button's `actionID` and dismisses the menu. An icon
+ *     (`systemImage` / `materialName:android`, resolved through the shared
+ *     `SymbolIcon` seam like `Button`) renders in the Material leading-icon slot.
  *   * `Divider` -> a [HorizontalDivider] between items.
  *   * `Section` -> its `header` as a (disabled) label item, then its `children` as
  *     nested items - a named group.
@@ -75,15 +79,36 @@ internal fun menuItemKind(child: ActionUIElement): MenuItemKind = when (child.ty
 /**
  * Renders one menu child as item(s); [dismiss] closes the menu after an action.
  * Internal so the toolbar `secondaryAction` overflow can reuse it.
+ *
+ * Children are interpreted, not registry-built: a `Button` here is a semantic
+ * action declaration (title / icon / `actionID`) whose presentation the menu
+ * owns - a [DropdownMenuItem], not the filled `M3Button` the registry would
+ * render. Same pattern as the toolbar chrome's `RenderChrome`
+ * (`Helpers/ToolbarHelper.kt`), which documents the rationale.
  */
 @Composable
 internal fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: () -> Unit) {
     when (menuItemKind(child)) {
         MenuItemKind.Action -> {
-            val label = child.properties?.stringProperty("title").orEmpty()
-            val actionID = child.properties?.stringProperty("actionID")
+            val props = child.properties
+            val label = props?.stringProperty("title").orEmpty()
+            val actionID = props?.stringProperty("actionID")
+            // A Button's icon (`systemImage` / `materialName:android`) renders in the
+            // Material leading-icon slot, through the same glyph seam as `Button`.
+            val iconSource = remember(props) { selectLabelIcon(props, "assetImage", "Menu item", logger) }
             DropdownMenuItem(
                 text = { M3Text(label) },
+                leadingIcon = iconSource?.let { source ->
+                    {
+                        LabelIcon(
+                            source = source,
+                            imageScale = props?.stringProperty("imageScale"),
+                            contentDescription = props?.stringProperty("accessibilityLabel"),
+                            elementName = "Menu item",
+                            logger = logger,
+                        )
+                    }
+                },
                 onClick = {
                     dismiss()
                     actionID?.let { ActionUIModel.actionHandler(it, viewID = child.id, viewPartID = 0) }
