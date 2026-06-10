@@ -30,6 +30,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalWindowModel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.colorToHex
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.stringProperty
@@ -101,12 +102,19 @@ object ColorPicker : ActionUIViewConstruction {
                 // Preview of the current value (reflects programmatic sets too).
                 Swatch(color = current, selected = false, onClick = null)
             }
+            // SwiftUI `.disabled` (set here or on any ancestor): a disabled
+            // palette keeps its preview but the swatches stop being tappable.
+            val enabled = LocalActionUIEnabled.current
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ColorPickerSwatches.forEach { swatch ->
-                    Swatch(color = swatch, selected = swatch == current, onClick = { onSelect(swatch) })
+                    Swatch(
+                        color = swatch,
+                        selected = swatch == current,
+                        onClick = if (enabled) ({ onSelect(swatch) }) else null,
+                    )
                 }
             }
         }

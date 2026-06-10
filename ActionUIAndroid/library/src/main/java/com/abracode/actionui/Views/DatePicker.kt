@@ -31,6 +31,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.DateHelper
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
@@ -175,7 +176,8 @@ private fun CompactDatePicker(
             M3Text(title)
             Spacer(Modifier.width(8.dp))
         }
-        OutlinedButton(onClick = { showDialog = true }) {
+        // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
+        OutlinedButton(onClick = { showDialog = true }, enabled = LocalActionUIEnabled.current) {
             M3Text(DateHelper.formatDate(current))
         }
     }

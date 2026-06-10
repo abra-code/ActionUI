@@ -19,6 +19,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -142,6 +143,8 @@ internal fun TextInputField(
             }
         },
         modifier = modifier,
+        // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
+        enabled = LocalActionUIEnabled.current,
         label = if (title.isNotEmpty()) ({ M3Text(title) }) else null,
         placeholder = prompt?.let { { M3Text(it) } },
         singleLine = !isVertical,

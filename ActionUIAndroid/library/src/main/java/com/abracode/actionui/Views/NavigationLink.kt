@@ -19,6 +19,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LabelIcon
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
@@ -62,7 +63,8 @@ object NavigationLink : ActionUIViewConstruction {
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .clickable {
+                // SwiftUI `.disabled` (set here or on any ancestor) blocks the push.
+                .clickable(enabled = LocalActionUIEnabled.current) {
                     if (targetId != null) {
                         push(targetId)
                     } else {

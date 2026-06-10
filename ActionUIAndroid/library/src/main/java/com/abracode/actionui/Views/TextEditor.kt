@@ -17,6 +17,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
@@ -103,6 +104,9 @@ object TextEditor : ActionUIViewConstruction {
                 }
             },
             modifier = editorModifier,
+            // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`,
+            // distinct from `readOnly` (selectable/scrollable but not editable).
+            enabled = LocalActionUIEnabled.current,
             readOnly = readOnly,
             singleLine = false,
             placeholder = placeholder?.let { { M3Text(it) } },

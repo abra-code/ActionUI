@@ -27,6 +27,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.buildChildModifier
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.booleanProperty
@@ -102,7 +103,9 @@ object DisclosureGroup : ActionUIViewConstruction {
 
         Column(modifier = modifier) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
+                // SwiftUI `.disabled` (set here or on any ancestor) blocks expand/collapse.
+                modifier = Modifier.fillMaxWidth()
+                    .clickable(enabled = LocalActionUIEnabled.current, onClick = onToggle),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 M3Text(title, modifier = Modifier.weight(1f))

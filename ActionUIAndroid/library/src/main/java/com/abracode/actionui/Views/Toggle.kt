@@ -24,6 +24,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -91,6 +92,8 @@ object Toggle : ActionUIViewConstruction {
         // SwiftUI `.tint` colors the toggle's "on" state; an inherited tint maps
         // to the switch's checked track / the checkbox's checked box.
         val tint = LocalActionUITint.current
+        // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
+        val enabled = LocalActionUIEnabled.current
 
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
             if (title.isNotEmpty()) {
@@ -101,6 +104,7 @@ object Toggle : ActionUIViewConstruction {
                 ToggleStyle.Checkbox -> Checkbox(
                     checked = checked,
                     onCheckedChange = onChange,
+                    enabled = enabled,
                     colors = if (tint != null) {
                         CheckboxDefaults.colors(checkedColor = tint)
                     } else {
@@ -110,6 +114,7 @@ object Toggle : ActionUIViewConstruction {
                 ToggleStyle.Switch -> Switch(
                     checked = checked,
                     onCheckedChange = onChange,
+                    enabled = enabled,
                     colors = if (tint != null) {
                         SwitchDefaults.colors(checkedTrackColor = tint)
                     } else {

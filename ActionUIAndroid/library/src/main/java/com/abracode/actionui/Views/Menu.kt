@@ -20,6 +20,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LabelIcon
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -56,7 +57,8 @@ object Menu : ActionUIViewConstruction {
         var expanded by remember { mutableStateOf(false) }
 
         Box(modifier = modifier) {
-            M3Button(onClick = { expanded = true }) {
+            // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
+            M3Button(onClick = { expanded = true }, enabled = LocalActionUIEnabled.current) {
                 M3Text(title.ifEmpty { "Menu" })
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

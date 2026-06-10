@@ -34,6 +34,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonArray
@@ -260,15 +261,19 @@ private fun PickerMenu(
     var expanded by remember { mutableStateOf(false) }
     val selectedTitle = sections.flatMap { it.items }.firstOrNull { it.tag == selectedTag }?.title ?: ""
 
+    // SwiftUI `.disabled` (set here or on any ancestor): gray the anchor field
+    // and refuse to open the menu.
+    val enabled = LocalActionUIEnabled.current
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it },
+        onExpandedChange = { if (enabled) expanded = it },
         modifier = modifier,
     ) {
         OutlinedTextField(
             value = selectedTitle,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = if (title.isNotEmpty()) ({ M3Text(title) }) else null,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
@@ -307,11 +312,13 @@ private fun PickerSegmented(
     selectedTag: String,
     onSelect: (String) -> Unit,
 ) {
+    val enabled = LocalActionUIEnabled.current
     SingleChoiceSegmentedButtonRow {
         items.forEachIndexed { index, item ->
             SegmentedButton(
                 selected = item.tag == selectedTag,
                 onClick = { onSelect(item.tag) },
+                enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = items.size),
             ) {
                 M3Text(item.title)
@@ -327,15 +334,24 @@ private fun PickerRadioGroup(
     onSelect: (String) -> Unit,
     horizontal: Boolean,
 ) {
+    val enabled = LocalActionUIEnabled.current
     val options: @Composable () -> Unit = {
         items.forEach { item ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .selectable(selected = item.tag == selectedTag, onClick = { onSelect(item.tag) })
+                    .selectable(
+                        selected = item.tag == selectedTag,
+                        enabled = enabled,
+                        onClick = { onSelect(item.tag) }
+                    )
                     .padding(end = 12.dp),
             ) {
-                RadioButton(selected = item.tag == selectedTag, onClick = { onSelect(item.tag) })
+                RadioButton(
+                    selected = item.tag == selectedTag,
+                    onClick = { onSelect(item.tag) },
+                    enabled = enabled,
+                )
                 M3Text(item.title)
             }
         }

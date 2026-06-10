@@ -14,6 +14,7 @@ import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
@@ -42,13 +43,17 @@ object ShareLink : ActionUIViewConstruction {
         val logger = LocalActionUILogger.current
         val config = resolveShareConfig(element.properties, logger) ?: return
         val context = LocalContext.current
-        val color = LocalActionUITint.current ?: MaterialTheme.colorScheme.primary
+        // SwiftUI `.disabled` (set here or on any ancestor): block the tap and
+        // dim the text with Material's standard disabled alpha.
+        val enabled = LocalActionUIEnabled.current
+        val color = (LocalActionUITint.current ?: MaterialTheme.colorScheme.primary)
+            .let { if (enabled) it else it.copy(alpha = 0.38f) }
 
         M3Text(
             text = "Share",
             color = color,
             textDecoration = TextDecoration.Underline,
-            modifier = modifier.clickable {
+            modifier = modifier.clickable(enabled = enabled) {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, shareText(config))

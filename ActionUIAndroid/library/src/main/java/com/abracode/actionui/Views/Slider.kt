@@ -16,6 +16,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -97,6 +98,8 @@ object Slider : ActionUIViewConstruction {
                 }
             },
             modifier = modifier,
+            // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
+            enabled = LocalActionUIEnabled.current,
             valueRange = config.min.toFloat()..config.max.toFloat(),
             steps = stepCount,
             colors = colors,
