@@ -156,6 +156,42 @@ struct ActionUISwiftTestApp: App {
             }
         }
 
+        // Lazy grid template demo handlers (LazyVGrid.template.json)
+        // IDs: 40 = LazyVGrid+Button cells, 50 = LazyHGrid+Text cells, 99 = status label
+        let gridTemplateRows: [[String]] = [
+            ["Swift"], ["Python"], ["Kotlin"], ["TypeScript"], ["Rust"],
+            ["Go"], ["C"], ["C++"], ["Ruby"]
+        ]
+        var gridTemplateAppendIndex = 0
+        let gridTemplateExtraRows: [[String]] = [
+            ["Haskell"], ["Elixir"], ["Julia"], ["Zig"], ["Dart"]
+        ]
+
+        ActionUISwift.registerActionHandler(actionID: "grid.template.demo.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 40, rows: gridTemplateRows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 50, rows: gridTemplateRows)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Tap a cell to see the action here.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "grid.template.demo.append") { _, windowUUID, _, _, _ in
+            let row = gridTemplateExtraRows[gridTemplateAppendIndex % gridTemplateExtraRows.count]
+            gridTemplateAppendIndex += 1
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 40, rows: [row])
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 50, rows: [row])
+        }
+        ActionUISwift.registerActionHandler(actionID: "grid.template.demo.clear") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 40)
+            ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 50)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Cleared.")
+        }
+        ActionUISwift.registerActionHandler(actionID: "grid.template.demo.select") { _, windowUUID, viewID, viewPartID, _ in
+            if let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID),
+               rows.indices.contains(viewPartID) {
+                let cell = rows[viewPartID].first ?? "?"
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99,
+                    value: "Cell tapped: \(cell) (row \(viewPartID))")
+            }
+        }
+
         // List template demo handlers (List.template.json)
         // IDs: 11 = List+Label, 21 = List+HStack, 31 = List+Button, 99 = status label
         let listTemplateRows: [[String]] = [
