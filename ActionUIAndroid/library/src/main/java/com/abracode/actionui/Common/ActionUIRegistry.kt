@@ -49,6 +49,7 @@ import com.abracode.actionui.Views.ToolbarItemGroup
 import com.abracode.actionui.Views.TextField
 import com.abracode.actionui.Views.Toggle
 import com.abracode.actionui.Views.VStack
+import com.abracode.actionui.Views.WebView
 import com.abracode.actionui.Views.ZStack
 
 object ActionUIRegistry {
@@ -105,6 +106,7 @@ object ActionUIRegistry {
         register("Menu", Menu)
         register("ToolbarItem", ToolbarItem)
         register("ToolbarItemGroup", ToolbarItemGroup)
+        register("WebView", WebView)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {
