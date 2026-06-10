@@ -30,6 +30,10 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -62,8 +66,11 @@ import kotlinx.serialization.json.jsonPrimitive
  *     Handles `zIndex`, `rotationEffect`, `scaleEffect`, `offset`, `frame`
  *     (SwiftUI sizing - fixed `{width,height}` or flexible `{minWidth,maxWidth,
  *     ...}` plus `alignment`), `opacity`, `hidden`, `shadow`, `border`,
- *     `clipShape`, `cornerRadius`, `background`, and `padding`
- *     (number / EdgeInsets `{top,leading,bottom,trailing}` / `"default"`).
+ *     `clipShape`, `cornerRadius`, `background`, `padding`
+ *     (number / EdgeInsets `{top,leading,bottom,trailing}` / `"default"`), and
+ *     the four accessibility properties (`accessibilityLabel`,
+ *     `accessibilityHint`, `accessibilityHidden`, `accessibilityIdentifier`)
+ *     mapped to a single semantics block.
  *   * [buildChildModifier] - overloads on each layout scope receiver, applied
  *     inside the container's content lambda where `weight`/`align` are in
  *     scope. They additionally chain in [applyCommonProperties].
@@ -76,7 +83,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * decoration modifiers slot in just before the clip/background:
  *
  * ```
- *   zIndex -> rotationEffect -> scaleEffect -> offset
+ *   accessibility semantics
+ *          -> zIndex -> rotationEffect -> scaleEffect -> offset
  *          -> [padding, if a fixed frame follows] -> frame -> opacity -> hidden
  *          -> shadow -> border -> clipShape -> cornerRadius
  *          -> background -> [padding, otherwise]
@@ -117,6 +125,9 @@ fun Modifier.applyCommonProperties(
 ): Modifier {
     if (properties == null) return this
     var m: Modifier = this
+
+    // ---- Accessibility semantics (outermost - Apple applies them last) ----
+    m = m.applyAccessibility(properties, logger)
 
     // ---- Outer wrappers: draw ordering, transforms, position ----
     properties.numberProperty("zIndex")?.let { m = m.zIndex(it.toFloat()) }
@@ -290,6 +301,68 @@ private val DEFAULT_PADDING: Dp = 16.dp
 /** A full-bounds oval, the Compose `Shape` analog of SwiftUI's `Ellipse`. */
 private val EllipseShape: Shape = GenericShape { size, _ ->
     addOval(Rect(0f, 0f, size.width, size.height))
+}
+
+/**
+ * The four universal accessibility properties, mapped to one semantics block
+ * (`View.swift` applies them at the end of its pipeline, i.e. outermost - the
+ * front of a Compose chain):
+ *
+ *   * `accessibilityLabel` -> `contentDescription` (TalkBack announces it in
+ *     place of the node's own text, like VoiceOver with `.accessibilityLabel`).
+ *   * `accessibilityHint` -> appended to the description after the label.
+ *     TalkBack has no separate hint slot (VoiceOver reads the hint after a
+ *     pause), so the hint joins the spoken description - a documented
+ *     approximation, not a dropped property.
+ *   * `accessibilityHidden: true` -> `hideFromAccessibility()`. `false` is a
+ *     no-op, as on Apple.
+ *   * `accessibilityIdentifier` -> the semantics `testTag`, Compose's UI-test
+ *     handle (matched by `onNodeWithTag`), the same role the identifier plays
+ *     for XCUITest.
+ *
+ * Types are validated warn-and-skip (`View.swift` parity). Elements whose icon
+ * needs a glyph-level description and that render outside this pipeline
+ * (toolbar chrome, tab items, menu items) keep their own `accessibilityLabel`
+ * reads; elements rendered through it must NOT also set `contentDescription`
+ * from the same property or TalkBack would announce the label twice
+ * (`ContentDescription` semantics merge by list concatenation).
+ */
+private fun Modifier.applyAccessibility(
+    properties: JsonObject,
+    logger: ActionUILogger?
+): Modifier {
+    val label = properties.accessibilityString("accessibilityLabel", logger)
+    val hint = properties.accessibilityString("accessibilityHint", logger)
+    val identifier = properties.accessibilityString("accessibilityIdentifier", logger)
+    val hidden = properties["accessibilityHidden"]?.let { raw ->
+        val value = (raw as? JsonPrimitive)?.let { properties.booleanProperty("accessibilityHidden") }
+        if (value == null) {
+            logger?.log(
+                "Invalid type for accessibilityHidden: expected Bool, ignoring",
+                LoggerLevel.warning
+            )
+        }
+        value
+    } == true
+
+    if (label == null && hint == null && identifier == null && !hidden) return this
+
+    return this.semantics {
+        val description = listOfNotNull(label, hint)
+        if (description.isNotEmpty()) contentDescription = description.joinToString(". ")
+        identifier?.let { testTag = it }
+        if (hidden) hideFromAccessibility()
+    }
+}
+
+/** A present-but-non-String accessibility property warns and reads as absent. */
+private fun JsonObject.accessibilityString(key: String, logger: ActionUILogger?): String? {
+    val raw = this[key] ?: return null
+    if ((raw as? JsonPrimitive)?.isString != true) {
+        logger?.log("Invalid type for $key: expected String, ignoring", LoggerLevel.warning)
+        return null
+    }
+    return raw.content
 }
 
 /**

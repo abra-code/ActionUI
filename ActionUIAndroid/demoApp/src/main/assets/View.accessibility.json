@@ -1,0 +1,75 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Accessibility modifiers", "font": "title2" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Inspect with TalkBack. Nothing here looks different; the four universal accessibility properties only change what is announced and what UI tests can address.",
+        "font": "subheadline"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "systemImage": "plus",
+        "accessibilityLabel": "Add item",
+        "accessibilityHint": "Adds a new item to the list",
+        "accessibilityIdentifier": "add_item_button",
+        "actionID": "accessibility.add"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "The icon-only button above announces 'Add item' plus its hint instead of nothing."
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        {
+          "type": "Image",
+          "properties": {
+            "systemName": "star.fill",
+            "imageScale": "large",
+            "foregroundStyle": "orange",
+            "accessibilityLabel": "Favorite"
+          }
+        },
+        {
+          "type": "Image",
+          "properties": {
+            "systemName": "sparkles",
+            "imageScale": "large",
+            "foregroundStyle": "purple",
+            "accessibilityHidden": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "The star announces 'Favorite'; the decorative sparkles are hidden from TalkBack entirely."
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "This row carries accessibilityIdentifier 'status_text' - a Compose test tag for onNodeWithTag.",
+        "accessibilityIdentifier": "status_text"
+      }
+    }
+  ]
+}

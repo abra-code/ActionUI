@@ -128,7 +128,6 @@ object Button : ActionUIViewConstruction {
 
         val title = props?.stringProperty("title") ?: ""
         val imageScale = props?.stringProperty("imageScale")
-        val contentDescription = props?.stringProperty("accessibilityLabel")
 
         // Leading icon (+ its deferred assetImage warning) resolved once per change.
         // A null result is title-only - a Button needs no icon (unlike Image).
@@ -186,10 +185,13 @@ object Button : ActionUIViewConstruction {
             // matches the title without any explicit wiring - the same inheritance
             // Label relies on. A controlSize overrides the label style M3 provides.
             val label: @Composable () -> Unit = {
+                // accessibilityLabel rides the button's modifier as semantics via
+                // the shared pipeline; the button merges descendant semantics, so
+                // a glyph-level copy would be announced twice.
                 val iconDrawn = LabelIcon(
                     source = iconSource,
                     imageScale = imageScale,
-                    contentDescription = contentDescription,
+                    contentDescription = null,
                     elementName = "Button",
                     logger = logger,
                 )

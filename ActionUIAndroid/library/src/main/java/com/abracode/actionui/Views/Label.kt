@@ -41,7 +41,10 @@ import com.abracode.actionui.Helpers.stringProperty
  * name->resource contract `Image`'s `assetName` waits on. A `Label` carrying only
  * `imageName` renders title-only with one warning.
  *
- * **Accessibility.** `accessibilityLabel` -> the icon's `contentDescription`.
+ * **Accessibility.** `accessibilityLabel` (and the other universal
+ * accessibility properties) arrive on [modifier] via the shared pipeline
+ * (`ModifierResolver.applyCommonProperties`); the icon's `contentDescription`
+ * stays null so the label is not announced a second time on the glyph node.
  *
  * Sample JSON:
  * ```
@@ -61,7 +64,6 @@ object Label : ActionUIViewConstruction {
 
         val title = props?.stringProperty("title") ?: ""
         val imageScale = props?.stringProperty("imageScale")
-        val contentDescription = props?.stringProperty("accessibilityLabel")
 
         // Icon selection (+ its deferred-source warning) runs once per change. A
         // null result is title-only (not an error), unlike Image's no-source case.
@@ -77,7 +79,7 @@ object Label : ActionUIViewConstruction {
             LabelIcon(
                 source = iconSource,
                 imageScale = imageScale,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 elementName = "Label",
                 logger = logger,
             )

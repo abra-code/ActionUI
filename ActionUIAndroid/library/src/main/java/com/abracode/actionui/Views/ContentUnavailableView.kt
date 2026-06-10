@@ -86,7 +86,6 @@ object ContentUnavailableView : ActionUIViewConstruction {
 
         // Hero icon (custom variant only; the search variant has no icon on Apple).
         val imageScale = props?.stringProperty("imageScale")
-        val contentDescription = props?.stringProperty("accessibilityLabel")
         val iconSource = remember(props) {
             if (isSearch) null else selectLabelIcon(props, "imageName", "ContentUnavailableView", logger)
         }
@@ -97,10 +96,12 @@ object ContentUnavailableView : ActionUIViewConstruction {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Large secondary symbol above the message (sized for a hero, not a font run).
+            // accessibilityLabel rides [modifier] as semantics via the shared
+            // pipeline; a glyph-level copy would be announced twice.
             LabelIcon(
                 source = iconSource,
                 imageScale = imageScale,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 elementName = "ContentUnavailableView",
                 defaultSizeSp = HERO_ICON_SIZE_SP,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

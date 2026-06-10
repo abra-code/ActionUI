@@ -709,4 +709,65 @@ class ModifierResolverTest {
         assertEquals(TransformOrigin.Center, parseTransformOrigin(null))
         assertEquals(TransformOrigin.Center, parseTransformOrigin("nonsense"))
     }
+
+    // -----------------------------------------------------------------------
+    // Accessibility properties (one semantics block)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `accessibilityLabel adds one semantics element to the chain`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props("""{"accessibilityLabel":"Send report"}"""),
+            logger
+        )
+        assertEquals(1, chainLength(out))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `all four accessibility properties share a single chain element`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props(
+                """{"accessibilityLabel":"Send","accessibilityHint":"Sends the report",
+                   "accessibilityHidden":true,"accessibilityIdentifier":"send_button"}"""
+            ),
+            logger
+        )
+        assertEquals(1, chainLength(out))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `accessibilityHidden false is a no-op`() {
+        val out = Modifier.applyCommonProperties(props("""{"accessibilityHidden":false}"""))
+        assertEquals(0, chainLength(out))
+    }
+
+    @Test
+    fun `invalid accessibility types warn and add nothing`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props(
+                """{"accessibilityLabel":42,"accessibilityHint":true,
+                   "accessibilityHidden":"yes","accessibilityIdentifier":7}"""
+            ),
+            logger
+        )
+        assertEquals(0, chainLength(out))
+        assertEquals(4, logger.warnings.size)
+        assertTrue(logger.warnings.all { it.startsWith("Invalid type for accessibility") })
+    }
+
+    @Test
+    fun `a valid accessibility property survives an invalid sibling`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props("""{"accessibilityLabel":"OK","accessibilityHidden":"yes"}"""),
+            logger
+        )
+        assertEquals(1, chainLength(out))
+        assertEquals(1, logger.warnings.size)
+    }
 }

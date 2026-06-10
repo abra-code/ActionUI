@@ -57,7 +57,6 @@ object NavigationLink : ActionUIViewConstruction {
         val push = LocalNavPush.current
 
         val imageScale = props?.stringProperty("imageScale")
-        val contentDescription = props?.stringProperty("accessibilityLabel")
         val iconSource = remember(props) { selectLabelIcon(props, "imageName", "NavigationLink", logger) }
 
         Row(
@@ -77,10 +76,13 @@ object NavigationLink : ActionUIViewConstruction {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // accessibilityLabel rides [modifier] as semantics via the shared
+            // pipeline; the clickable row merges descendants, so a glyph-level
+            // description from the same property would be announced twice.
             val iconDrawn = LabelIcon(
                 source = iconSource,
                 imageScale = imageScale,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 elementName = "NavigationLink",
                 logger = logger,
             )

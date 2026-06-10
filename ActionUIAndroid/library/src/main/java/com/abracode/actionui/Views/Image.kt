@@ -61,7 +61,12 @@ import com.abracode.actionui.Helpers.stringProperty
  * a regular, unfilled icon; per-symbol tuning is intended to live in the
  * SF->Material map so shared JSON needs no overrides.
  *
- * **Accessibility.** `accessibilityLabel` -> `contentDescription`.
+ * **Accessibility.** `accessibilityLabel` (and the other universal
+ * accessibility properties) arrive on [modifier] via the shared pipeline
+ * (`ModifierResolver.applyCommonProperties`), which sets `contentDescription`
+ * on this same node - so no per-element wiring here, and none is allowed:
+ * a second `contentDescription` from the same property would be announced
+ * twice (the semantics merge by list concatenation).
  *
  * Sample JSON:
  * ```
@@ -79,7 +84,10 @@ object Image : ActionUIViewConstruction {
         // Source selection (+ its warnings) runs once per properties change.
         val source = remember(props) { selectImageSource(props, logger) }
         val imageScale = props?.stringProperty("imageScale")
-        val contentDescription = props?.stringProperty("accessibilityLabel")
+        // accessibilityLabel is applied as semantics on [modifier] by the
+        // shared pipeline; the painter-level description stays null (see the
+        // Accessibility note in the header).
+        val contentDescription: String? = null
 
         // A resizable glyph scales to its frame instead of the font-relative
         // size (SwiftUI .resizable() semantics), and imageScale stops applying.
