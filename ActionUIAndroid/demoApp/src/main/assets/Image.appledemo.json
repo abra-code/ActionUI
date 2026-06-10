@@ -1,0 +1,144 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "center",
+    "spacing": 10.0,
+    "padding": 16.0,
+    "accessibilityIdentifier": "images_grid"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ActionUISwiftTestApp Image.json, adapted: the original is a Grid (not ported on Android yet), so its rows render as HStacks. Every Image element is verbatim.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10.0, "alignment": "center" },
+      "children": [
+        {
+          "type": "Image",
+          "id": 2,
+          "properties": {
+            "assetName": "abracode",
+            "resizable": true,
+            "contentMode": "fit",
+            "frame": {
+              "width": 100.0,
+              "height": 100.0,
+              "alignment": "center"
+            },
+            "padding": 8.0,
+            "accessibilityIdentifier": "abracode_image"
+          }
+        },
+        {
+          "type": "Image",
+          "id": 3,
+          "properties": {
+            "systemName": "checkmark.circle",
+            "imageScale": "large",
+            "foregroundStyle": "blue",
+            "frame": {
+              "width": 100.0,
+              "height": 100.0,
+              "alignment": "center"
+            },
+            "padding": 8.0,
+            "accessibilityIdentifier": "checkmark_image"
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10.0, "alignment": "center" },
+      "children": [
+        {
+          "type": "Image",
+          "id": 4,
+          "properties": {
+            "systemName": "hand.thumbsup",
+            "imageScale": "medium",
+            "foregroundStyle": "red",
+            "resizable": true,
+            "contentMode": "fill",
+            "frame": {
+              "width": 70.0,
+              "height": 70.0,
+              "alignment": "center"
+            },
+            "padding": 8.0,
+            "cornerRadius": 10.0,
+            "accessibilityIdentifier": "thumbsup_image"
+          }
+        },
+        {
+          "type": "Image",
+          "id": 5,
+          "properties": {
+            "systemName": "cloud",
+            "imageScale": "small",
+            "foregroundStyle": "blue",
+            "resizable": true,
+            "contentMode": "fit",
+            "opacity": 0.7,
+            "frame": {
+              "width": 80.0,
+              "height": 80.0,
+              "alignment": "center"
+            },
+            "padding": {
+              "top": 5.0,
+              "bottom": 5.0,
+              "leading": 10.0,
+              "trailing": 10.0
+            },
+            "accessibilityIdentifier": "cloud_image"
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10.0, "alignment": "center" },
+      "children": [
+        {
+          "type": "Image",
+          "id": 6,
+          "properties": {
+            "resourceName": "ActionUI.icns",
+            "resizable": true,
+            "contentMode": "fit",
+            "frame": {
+              "width": 180.0,
+              "height": 100.0,
+              "alignment": "center"
+            },
+            "padding": 12.0,
+            "accessibilityIdentifier": "actionui_app_icon"
+          }
+        },
+        {
+          "type": "Image",
+          "properties": {
+            "resourceName": "abracadabra.png",
+            "resizable": true,
+            "contentMode": "fit",
+            "frame": {
+              "width": 100.0,
+              "height": 100.0,
+              "alignment": "center"
+            },
+            "padding": 8.0,
+            "accessibilityIdentifier": "abracadabra_image"
+          }
+        }
+      ]
+    }
+  ]
+}

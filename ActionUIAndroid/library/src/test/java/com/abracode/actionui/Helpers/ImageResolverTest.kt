@@ -252,12 +252,19 @@ class ImageResolverTest {
     @Test
     fun `imageScale scales the base size`() {
         assertEquals(32f * IMAGE_SCALE_LARGE_FACTOR, resolveSymbolSizeSp(32f, "large", null), 0.001f)
-        assertEquals(16f * IMAGE_SCALE_SMALL_FACTOR, resolveSymbolSizeSp(null, "small", 16f), 0.001f)
+        assertEquals(
+            16f * SYMBOL_FONT_BOX_FACTOR * IMAGE_SCALE_SMALL_FACTOR,
+            resolveSymbolSizeSp(null, "small", 16f),
+            0.001f,
+        )
     }
 
     @Test
-    fun `inherited font size is used when no explicit size`() {
-        assertEquals(16f, resolveSymbolSizeSp(null, null, 16f), 0.001f)
+    fun `inherited font size is scaled by the symbol box factor`() {
+        // An SF Symbol's box renders larger than its font (~20pt at body 17);
+        // the inherited-font path applies the calibration, the explicit
+        // materialSize path (previous test) takes the author's value as-is.
+        assertEquals(16f * SYMBOL_FONT_BOX_FACTOR, resolveSymbolSizeSp(null, null, 16f), 0.001f)
     }
 
     @Test
@@ -268,6 +275,58 @@ class ImageResolverTest {
     @Test
     fun `unknown imageScale leaves the size unscaled`() {
         assertEquals(20f, resolveSymbolSizeSp(20f, "huge", null), 0.001f)
+    }
+
+    // -----------------------------------------------------------------------
+    // resolveResizableGlyphFrameDp - SwiftUI .resizable() frame-fit for glyphs
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `resizable glyph fits the smaller frame axis`() {
+        val size = resolveResizableGlyphFrameDp(
+            props("""{ "resizable": true, "frame": { "width": 70, "height": 50 } }""")
+        )
+        assertEquals(50f, size!!, 0.001f)
+    }
+
+    @Test
+    fun `resizable glyph with contentMode fill takes the larger axis`() {
+        val size = resolveResizableGlyphFrameDp(
+            props("""{ "resizable": true, "contentMode": "fill", "frame": { "width": 70, "height": 50 } }""")
+        )
+        assertEquals(70f, size!!, 0.001f)
+    }
+
+    @Test
+    fun `contentMode implies resizable like the Apple contract`() {
+        val size = resolveResizableGlyphFrameDp(
+            props("""{ "contentMode": "fit", "frame": { "width": 80, "height": 80 } }""")
+        )
+        assertEquals(80f, size!!, 0.001f)
+    }
+
+    @Test
+    fun `explicit resizable false wins over an implied contentMode`() {
+        assertNull(
+            resolveResizableGlyphFrameDp(
+                props("""{ "resizable": false, "contentMode": "fit", "frame": { "width": 80 } }""")
+            )
+        )
+    }
+
+    @Test
+    fun `single-axis frame uses that axis`() {
+        val size = resolveResizableGlyphFrameDp(
+            props("""{ "resizable": true, "frame": { "height": 60 } }""")
+        )
+        assertEquals(60f, size!!, 0.001f)
+    }
+
+    @Test
+    fun `non-resizable or frameless glyphs return null`() {
+        assertNull(resolveResizableGlyphFrameDp(null))
+        assertNull(resolveResizableGlyphFrameDp(props("""{ "frame": { "width": 100 } }""")))
+        assertNull(resolveResizableGlyphFrameDp(props("""{ "resizable": true }""")))
     }
 
     // -----------------------------------------------------------------------

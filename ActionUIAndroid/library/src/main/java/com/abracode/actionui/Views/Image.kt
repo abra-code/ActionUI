@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -14,6 +16,7 @@ import com.abracode.actionui.Helpers.MaterialNameIcon
 import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.loadImagePainter
 import com.abracode.actionui.Helpers.resolveContentScale
+import com.abracode.actionui.Helpers.resolveResizableGlyphFrameDp
 import com.abracode.actionui.Helpers.selectImageSource
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -46,7 +49,12 @@ import com.abracode.actionui.Helpers.stringProperty
  * **Scaling.** For raster sources, `contentMode` (`fit`/`fill`) maps to a Compose
  * `ContentScale` via [resolveContentScale]. For symbols, `imageScale`
  * (`small`/`medium`/`large`) scales the glyph relative to the ambient font; the
- * `materialSize:android` override sets an explicit size in sp.
+ * `materialSize:android` override sets an explicit size in sp. A **resizable**
+ * glyph (`resizable: true`, or implied by a `contentMode` - the Apple contract)
+ * instead scales to its fixed `frame`, mirroring SwiftUI's
+ * `Image(systemName:).resizable().frame(...)`; `imageScale` then no longer
+ * applies (see [resolveResizableGlyphFrameDp]), while `materialSize:android`
+ * still wins as the explicit Android escape hatch.
  *
  * **Axis overrides (Material symbols, `:android`).** `materialWeight` (100..700),
  * `materialFill` (0..1 or boolean), `materialGrade` (-50..200). Defaults reproduce
@@ -54,9 +62,6 @@ import com.abracode.actionui.Helpers.stringProperty
  * SF->Material map so shared JSON needs no overrides.
  *
  * **Accessibility.** `accessibilityLabel` -> `contentDescription`.
- *
- * **Known limitation.** A frame (`width`/`height`) does not scale a glyph (it is
- * text, not a resizable painter); use `imageScale` or `materialSize:android`.
  *
  * Sample JSON:
  * ```
@@ -76,6 +81,14 @@ object Image : ActionUIViewConstruction {
         val imageScale = props?.stringProperty("imageScale")
         val contentDescription = props?.stringProperty("accessibilityLabel")
 
+        // A resizable glyph scales to its frame instead of the font-relative
+        // size (SwiftUI .resizable() semantics), and imageScale stops applying.
+        // dp -> sp through the density so a user font-scale preference does not
+        // change the frame fit. materialSize:android still wins if present.
+        val frameFitDp = remember(props) { resolveResizableGlyphFrameDp(props) }
+        val frameFitSp = frameFitDp?.let { with(LocalDensity.current) { it.dp.toSp().value } }
+        val glyphScale = if (frameFitSp != null) null else imageScale
+
         when (source) {
             null -> return
 
@@ -87,8 +100,8 @@ object Image : ActionUIViewConstruction {
                     weight = source.weight,
                     fill = source.fill,
                     grade = source.grade,
-                    explicitSizeSp = source.explicitSizeSp,
-                    imageScale = imageScale,
+                    explicitSizeSp = source.explicitSizeSp ?: frameFitSp,
+                    imageScale = glyphScale,
                     contentDescription = contentDescription,
                     modifier = modifier,
                     logger = logger,
@@ -113,8 +126,8 @@ object Image : ActionUIViewConstruction {
                     explicitWeight = source.explicitWeight,
                     explicitFill = source.explicitFill,
                     explicitGrade = source.explicitGrade,
-                    explicitSizeSp = source.explicitSizeSp,
-                    imageScale = imageScale,
+                    explicitSizeSp = source.explicitSizeSp ?: frameFitSp,
+                    imageScale = glyphScale,
                     contentDescription = contentDescription,
                     modifier = modifier,
                     logger = logger,
