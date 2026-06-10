@@ -1,0 +1,60 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10,
+    "alignment": "center"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "AsyncImage Variants - Downloaded",
+        "padding": "default"
+      }
+    },
+    {
+      "type": "AsyncImage",
+      "properties": {
+        "url": "https://abracode.com/abracode.png",
+        "placeholder": "photo",
+        "resizable": true,
+        "contentMode": "fit",
+        "frame": {
+          "width": 50,
+          "height": 50,
+          "alignment": "center"
+        }
+      }
+    },
+    {
+      "type": "AsyncImage",
+      "properties": {
+        "url": "https://abracode.com/ActionUI/abracadabra.png",
+        "placeholder": "photo.circle",
+        "resizable": true,
+        "contentMode": "fit",
+        "frame": {
+          "width": 300,
+          "height": 300,
+          "alignment": "center"
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "An unloadable url stays on its placeholder:",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "AsyncImage",
+      "properties": {
+        "url": "invalid-url",
+        "placeholder": "exclamationmark.triangle",
+        "padding": "default"
+      }
+    }
+  ]
+}

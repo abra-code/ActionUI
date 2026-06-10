@@ -136,21 +136,31 @@ class WindowModel(
      * its named containers ([ActionUIElement.subElements]: `children` and the
      * single-child `content`), seeding the initial value for value-bearing
      * elements and the initial [ViewModel.states] (e.g. a `DisclosureGroup`'s
-     * `isExpanded`) from the registered builder. Elements with no explicit `id`
-     * share id 0 (last one wins); the value/state API is only meaningful for
-     * elements that carry a positive, unique id, as on the Apple side.
+     * `isExpanded`) from the registered builder. Only elements with a positive
+     * `id` register (see the in-body comment); the value/state API is only
+     * meaningful for elements that carry a positive, unique id, as on the
+     * Apple side.
      */
     private fun populateViewModels(element: ActionUIElement, into: MutableMap<Int, ViewModel>) {
-        val viewModel = ViewModel()
-        viewModel.elementType = element.type
-        val builder = ActionUIRegistry.lookup(element.type)
-        if (builder != null) {
-            if (builder.valueType != ActionUIValueType.NONE) {
-                viewModel.value = builder.initialValue(element)
+        // Only positive ids register - Apple's documented contract ("non-zero
+        // positive integer for runtime programmatic interaction"). Elements
+        // without an id default to 0 and would all collide on one map key,
+        // last-one-wins: every id-less value control in the document would then
+        // bind to the same ViewModel and read the last element's seeded value
+        // (three id-less AsyncImages all loading the last one's url). Id-less
+        // controls instead take their local-state fallback path.
+        if (element.id > 0) {
+            val viewModel = ViewModel()
+            viewModel.elementType = element.type
+            val builder = ActionUIRegistry.lookup(element.type)
+            if (builder != null) {
+                if (builder.valueType != ActionUIValueType.NONE) {
+                    viewModel.value = builder.initialValue(element)
+                }
+                viewModel.states.putAll(builder.initialStates(element))
             }
-            viewModel.states.putAll(builder.initialStates(element))
+            into[element.id] = viewModel
         }
-        into[element.id] = viewModel
 
         element.subElements().forEach { populateViewModels(it, into) }
     }

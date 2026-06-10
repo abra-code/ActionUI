@@ -1,5 +1,6 @@
 package com.abracode.actionui.Common
 
+import com.abracode.actionui.Views.AsyncImage
 import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
@@ -107,6 +108,7 @@ object ActionUIRegistry {
         register("ToolbarItem", ToolbarItem)
         register("ToolbarItemGroup", ToolbarItemGroup)
         register("WebView", WebView)
+        register("AsyncImage", AsyncImage)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

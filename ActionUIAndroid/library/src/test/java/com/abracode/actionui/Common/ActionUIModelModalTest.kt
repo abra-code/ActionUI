@@ -26,7 +26,9 @@ class ActionUIModelModalTest {
         """{"type":"VStack","id":50,"children":[{"type":"Text","id":51,"properties":{"text":"Hi"}}]}"""
 
     private fun registerWindow(uuid: String) {
-        val root = json.decodeFromString(ActionUIElement.serializer(), """{"type":"VStack"}""")
+        // The root carries an id so it registers in the pool (id-less elements
+        // do not) - the dismiss/collision tests below assert it survives.
+        val root = json.decodeFromString(ActionUIElement.serializer(), """{"type":"VStack","id":1}""")
         ActionUIModel.loadDescription(root, uuid, logger)
     }
 
@@ -59,7 +61,7 @@ class ActionUIModelModalTest {
         assertNull(window.windowModal)
         assertFalse(window.viewModels.containsKey(50))
         assertFalse(window.viewModels.containsKey(51))
-        assertTrue("window root must survive a modal dismiss", window.viewModels.containsKey(0))
+        assertTrue("window root must survive a modal dismiss", window.viewModels.containsKey(1))
     }
 
     @Test
@@ -76,15 +78,15 @@ class ActionUIModelModalTest {
     @Test
     fun `presentModal skips ids that collide with the existing pool`() {
         registerWindow("w")
-        // The window root is id 0; a modal also using id 0 must not overwrite or
+        // The window root is id 1; a modal also using id 1 must not overwrite or
         // (on dismiss) evict it.
-        val colliding = """{"type":"VStack","id":0,"children":[{"type":"Text","id":60}]}"""
+        val colliding = """{"type":"VStack","id":1,"children":[{"type":"Text","id":60}]}"""
         ActionUIModel.presentModal("w", colliding, ModalStyle.SHEET)
 
         val window = ActionUIModel.windowModels.getValue("w")
         assertEquals(setOf(60), window.windowModal?.loadedViewIDs)
         ActionUIModel.dismissModal("w")
-        assertTrue("colliding root id must be preserved", window.viewModels.containsKey(0))
+        assertTrue("colliding root id must be preserved", window.viewModels.containsKey(1))
     }
 
     @Test
