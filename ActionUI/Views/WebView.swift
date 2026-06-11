@@ -28,9 +28,15 @@
    }
  }
 
- Note: WebView requires iOS 26.0+ / macOS 26.0+. On older OS versions a fallback Label is shown instead.
+ Note: Two backings exist and are selected globally by the host app via
+   ActionUIRegistry.shared.webViewImplementation:
+     .native  (default) – a UIKit/AppKit WKWebView wrapped in NS/UIViewRepresentable.
+                          Works on the package baseline (macOS 14.6+ / iOS 17.6+).
+     .swiftUI            – SwiftUI's WebKit.WebView. Requires iOS 26.0+ / macOS 26.0+;
+                          on older OS versions it falls back to the native backing.
+   Both backings expose the identical observable surface and honour the same properties.
 
- Note: userScripts are injected via WKUserScript on each page load via WebPage.Configuration.
+ Note: userScripts are injected via WKUserScript on each page load.
  The "resourceName" lookup strips a trailing .js extension then calls Bundle.main.path(forResource:ofType:),
  mirroring Image.swift's resourceName pattern.
 
@@ -53,6 +59,17 @@
 
 import SwiftUI
 import WebKit
+
+/// Selects which backing renders ActionUI.WebView. Set globally by the host app via
+/// `ActionUIRegistry.shared.webViewImplementation` before windows are built.
+public enum WebViewImplementation: String, Sendable {
+    /// UIKit/AppKit WKWebView wrapped in NS/UIViewRepresentable. Works on the package
+    /// baseline (macOS 14.6+ / iOS 17.6+). Default.
+    case native
+    /// SwiftUI's WebKit.WebView. Requires iOS 26.0+ / macOS 26.0+; falls back to `.native`
+    /// on older OS versions.
+    case swiftUI
+}
 
 struct WebView: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -146,17 +163,30 @@ struct WebView: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        if #available(iOS 26.0, macOS 26.0, *) {
-            return WebViewContent(
-                model: model,
-                properties: properties,
-                element: element,
-                windowUUID: windowUUID,
-                logger: logger
-            )
-        } else {
-            logger.log("WebView requires iOS 26 / macOS 26 or later; displaying fallback Label", .error)
-            return SwiftUI.Label("WebView requires iOS 26 or macOS 26 or later", systemImage: "exclamationmark.triangle")
+        let native = WKWebViewRepresentable(
+            model: model,
+            properties: properties,
+            element: element,
+            windowUUID: windowUUID,
+            logger: logger
+        )
+
+        switch ActionUIRegistry.shared.webViewImplementation {
+        case .native:
+            return native
+        case .swiftUI:
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return WebViewContent(
+                    model: model,
+                    properties: properties,
+                    element: element,
+                    windowUUID: windowUUID,
+                    logger: logger
+                )
+            } else {
+                logger.log("WebView .swiftUI backing requires iOS 26 / macOS 26; falling back to .native", .warning)
+                return native
+            }
         }
     }
 
@@ -265,63 +295,16 @@ private struct WebViewContent: SwiftUI.View {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        if let scripts = properties["userScripts"] as? [[String: Any]], !scripts.isEmpty {
+        let scripts = WebViewSupport.buildUserScripts(from: properties, logger: logger)
+        if !scripts.isEmpty {
             let userContentController = WKUserContentController()
-            for scriptDict in scripts {
-                guard let source = resolveJSSource(from: scriptDict, logger: logger) else { continue }
-                let injectionTimeStr = scriptDict["injectionTime"] as? String ?? "documentEnd"
-                let injectionTime: WKUserScriptInjectionTime = (injectionTimeStr == "documentStart") ? .atDocumentStart : .atDocumentEnd
-                let forMainFrameOnly = scriptDict["forMainFrameOnly"] as? Bool ?? false
-                let script = WKUserScript(source: source, injectionTime: injectionTime, forMainFrameOnly: forMainFrameOnly)
+            for script in scripts {
                 userContentController.addUserScript(script)
             }
             config.userContentController = userContentController
         }
 
         return config
-    }
-
-    /// Resolves the JavaScript source string from a script descriptor.
-    /// Mirrors the Image.swift resourceName / filePath / source pattern.
-    private static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger) -> String? {
-        if let source = descriptor["source"] as? String {
-            return source
-        }
-
-        if let filePath = descriptor["filePath"] as? String {
-            do {
-                return try String(contentsOfFile: filePath, encoding: .utf8)
-            } catch {
-                logger.log("WebView userScript: failed to read file at '\(filePath)': \(error.localizedDescription)", .warning)
-                return nil
-            }
-        }
-
-        if let resourceName = descriptor["resourceName"] as? String {
-            // Strip .js extension to use Bundle path(forResource:ofType:)
-            let nameWithoutExt = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
-            if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
-                do {
-                    return try String(contentsOfFile: path, encoding: .utf8)
-                } catch {
-                    logger.log("WebView userScript: failed to read bundle resource '\(resourceName)': \(error.localizedDescription)", .warning)
-                    return nil
-                }
-            }
-            // Fallback: try the name as-is (e.g. "MyScript" without extension, or unusual extension)
-            if let path = Bundle.main.path(forResource: resourceName, ofType: nil) {
-                do {
-                    return try String(contentsOfFile: path, encoding: .utf8)
-                } catch {
-                    logger.log("WebView userScript: failed to read bundle resource '\(resourceName)': \(error.localizedDescription)", .warning)
-                    return nil
-                }
-            }
-            logger.log("WebView userScript: bundle resource '\(resourceName)' not found", .warning)
-            return nil
-        }
-
-        return nil
     }
 
     // MARK: Setup

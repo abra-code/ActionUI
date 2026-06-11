@@ -34,6 +34,7 @@ final class WebViewTests: XCTestCase {
 
     override func tearDown() {
         ActionUIRegistry.shared.resetForTesting()
+        ActionUIRegistry.shared.webViewImplementation = .native // restore default; it's global state
         ActionUIModel.resetForTesting()
         logger = nil
         consoleLogger = nil
@@ -565,6 +566,105 @@ final class WebViewTests: XCTestCase {
         XCTAssertEqual(out?.count, 2, "Only scripts with a source should be kept")
         XCTAssertEqual(out?[0]["injectionTime"] as? String, "documentStart")
         XCTAssertEqual(out?[1]["forMainFrameOnly"] as? Bool, true)
+    }
+
+    // MARK: - Implementation selection (global flag)
+
+    func testWebViewImplementation_DefaultIsNative() {
+        // resetForTesting + tearDown restore the default; verify it out of the box.
+        XCTAssertEqual(ActionUIRegistry.shared.webViewImplementation, .native,
+                       "WebView should default to the native WKWebView backing")
+    }
+
+    func testWebViewImplementation_Selectable() {
+        ActionUIRegistry.shared.webViewImplementation = .swiftUI
+        XCTAssertEqual(ActionUIRegistry.shared.webViewImplementation, .swiftUI,
+                       "Host app should be able to select the SwiftUI backing")
+        ActionUIRegistry.shared.webViewImplementation = .native
+        XCTAssertEqual(ActionUIRegistry.shared.webViewImplementation, .native)
+    }
+
+    func testWebViewImplementation_RawValues() {
+        XCTAssertEqual(WebViewImplementation.native.rawValue, "native")
+        XCTAssertEqual(WebViewImplementation.swiftUI.rawValue, "swiftUI")
+    }
+
+    func testWebViewConstruction_NativeBacking() throws {
+        // buildView must succeed (not crash) under the native backing on all OS versions.
+        ActionUIRegistry.shared.webViewImplementation = .native
+        let element = try ActionUIElement(from: [
+            "id": 1, "type": "WebView", "properties": ["url": "https://www.swift.org"]
+        ], logger: logger)
+        let validated = WebView.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        XCTAssertNotNil(view, "Native backing should build a view")
+    }
+
+    func testWebViewConstruction_SwiftUIBacking() throws {
+        // Under the .swiftUI flag, buildView must also succeed (falls back to native pre-OS-26).
+        ActionUIRegistry.shared.webViewImplementation = .swiftUI
+        let element = try ActionUIElement(from: [
+            "id": 1, "type": "WebView", "properties": ["url": "https://www.swift.org"]
+        ], logger: logger)
+        let validated = WebView.validateProperties(element.properties, logger)
+        let viewModel = ViewModel()
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validated)
+        XCTAssertNotNil(view, "SwiftUI backing should build a view (or native fallback)")
+    }
+
+    // MARK: - WebViewSupport (shared by both backings)
+
+    func testWebViewSupport_ResolveJSSource_Inline() {
+        let source = WebViewSupport.resolveJSSource(from: ["source": "var x = 1;"], logger: logger)
+        XCTAssertEqual(source, "var x = 1;")
+    }
+
+    func testWebViewSupport_ResolveJSSource_FilePath() throws {
+        let tmp = NSTemporaryDirectory() + "actionui-webview-test-\(UUID().uuidString).js"
+        try "console.log('from file');".write(toFile: tmp, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+        let source = WebViewSupport.resolveJSSource(from: ["filePath": tmp], logger: logger)
+        XCTAssertEqual(source, "console.log('from file');")
+    }
+
+    func testWebViewSupport_ResolveJSSource_MissingFile_ReturnsNil() {
+        ActionUIModel.shared.logger = consoleLogger
+        let source = WebViewSupport.resolveJSSource(from: ["filePath": "/no/such/file.js"], logger: consoleLogger)
+        XCTAssertNil(source, "Missing file should yield nil source")
+        ActionUIModel.shared.logger = logger
+    }
+
+    func testWebViewSupport_BuildUserScripts() {
+        let properties: [String: Any] = [
+            "userScripts": [
+                ["injectionTime": "documentStart", "source": "var a = 1;", "forMainFrameOnly": true],
+                ["injectionTime": "documentEnd", "source": "var b = 2;"]
+            ]
+        ]
+        let scripts = WebViewSupport.buildUserScripts(from: properties, logger: logger)
+        XCTAssertEqual(scripts.count, 2)
+        XCTAssertEqual(scripts[0].injectionTime, .atDocumentStart)
+        XCTAssertTrue(scripts[0].isForMainFrameOnly)
+        XCTAssertEqual(scripts[1].injectionTime, .atDocumentEnd)
+        XCTAssertFalse(scripts[1].isForMainFrameOnly, "forMainFrameOnly defaults to false")
+    }
+
+    func testWebViewSupport_BuildUserScripts_Empty() {
+        XCTAssertTrue(WebViewSupport.buildUserScripts(from: [:], logger: logger).isEmpty)
+    }
+
+    func testWebViewSupport_MakeWKConfiguration_AppliesFlags() {
+        let properties: [String: Any] = [
+            "limitsNavigationsToAppBoundDomains": true,
+            "upgradeKnownHostsToHTTPS": true,
+            "userScripts": [["injectionTime": "documentStart", "source": "1;"]]
+        ]
+        let config = WebViewSupport.makeWKConfiguration(properties: properties, logger: logger)
+        XCTAssertTrue(config.limitsNavigationsToAppBoundDomains)
+        XCTAssertTrue(config.upgradeKnownHostsToHTTPS)
+        XCTAssertEqual(config.userContentController.userScripts.count, 1,
+                       "User scripts should be installed on the configuration")
     }
 
     // MARK: - JSON round-trip with new properties

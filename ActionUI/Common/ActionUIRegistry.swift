@@ -19,7 +19,12 @@ public class ActionUIRegistry {
     private var logger: any ActionUILogger
     
     public static let shared = ActionUIRegistry()
-    
+
+    /// Selects which backing renders WebView elements. Host apps set this once at launch
+    /// (before windows are built). Defaults to `.native`, which works on the package baseline
+    /// (macOS 14.6+ / iOS 17.6+); `.swiftUI` uses SwiftUI's WebKit.WebView (requires OS 26).
+    public var webViewImplementation: WebViewImplementation = .native
+
     private init() {
         // Initialize with default ConsoleLogger
         var loggerLevel: LoggerLevel = .warning
