@@ -246,6 +246,32 @@ class WindowModelTest {
     }
 
     @Test
+    fun `id-less elements are not registered and cannot cross-wire`() {
+        // Elements without an id default to 0; registering them would collide
+        // on one map key, last-one-wins, so every id-less value control in the
+        // document would bind to the same ViewModel and read the LAST one's
+        // seeded value (three id-less AsyncImages all loading the last url -
+        // the entry-49 demo regression). Id-less elements must not register.
+        val root = ActionUIElement(
+            type = "VStack",
+            children = listOf(
+                ActionUIElement(type = "AsyncImage",
+                    properties = buildJsonObject { put("url", "https://example.com/a.png") }),
+                ActionUIElement(type = "AsyncImage",
+                    properties = buildJsonObject { put("url", "invalid-url") }),
+                ActionUIElement(id = 5, type = "TextField",
+                    properties = buildJsonObject { put("text", "kept") }),
+            )
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals(1, window.viewModels.size)
+        assertNull(window.viewModels[0])
+        assertEquals("kept", window.viewModels[5]?.value)
+    }
+
+    @Test
     fun `reloading rebuilds the pool from the new element`() {
         val window = model()
         window.loadDescription(

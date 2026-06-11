@@ -19,6 +19,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LabelIcon
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
@@ -56,13 +57,13 @@ object NavigationLink : ActionUIViewConstruction {
         val push = LocalNavPush.current
 
         val imageScale = props?.stringProperty("imageScale")
-        val contentDescription = props?.stringProperty("accessibilityLabel")
         val iconSource = remember(props) { selectLabelIcon(props, "imageName", "NavigationLink", logger) }
 
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .clickable {
+                // SwiftUI `.disabled` (set here or on any ancestor) blocks the push.
+                .clickable(enabled = LocalActionUIEnabled.current) {
                     if (targetId != null) {
                         push(targetId)
                     } else {
@@ -75,10 +76,13 @@ object NavigationLink : ActionUIViewConstruction {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // accessibilityLabel rides [modifier] as semantics via the shared
+            // pipeline; the clickable row merges descendants, so a glyph-level
+            // description from the same property would be announced twice.
             val iconDrawn = LabelIcon(
                 source = iconSource,
                 imageScale = imageScale,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 elementName = "NavigationLink",
                 logger = logger,
             )

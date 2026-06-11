@@ -117,6 +117,89 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Selected: $label", Toast.LENGTH_SHORT).show()
         }
 
+        // View.template.json - the data-driven template containers. Load/Append/
+        // Clear drive the rows API on three template hosts at once (VStack 10,
+        // LazyVGrid 40, LazyHStack 30); tapping a templated Button dispatches with
+        // viewID = owning container, viewPartID = row index, which the select/chip
+        // handlers toast.
+        val templateDemoRows = listOf(
+            listOf("star.fill", "Favorites"),
+            listOf("heart.fill", "Liked"),
+            listOf("clock", "Recent"),
+            listOf("bookmark.fill", "Saved"),
+            listOf("bell.fill", "Notifications"),
+            listOf("folder.fill", "Folders"),
+        )
+        val templateDemoExtraRows = listOf(
+            listOf("archivebox.fill", "Archive"),
+            listOf("trash.fill", "Trash"),
+            listOf("paperplane.fill", "Sent"),
+        )
+        val templateDemoIDs = listOf(10, 40, 30)
+        var templateDemoAppendIndex = 0
+        ActionUIModel.registerActionHandler("template.demo.load") { _, windowUUID, _, _, _ ->
+            templateDemoIDs.forEach { id ->
+                ActionUIModel.setElementRows(windowUUID = windowUUID, viewID = id, rows = templateDemoRows)
+            }
+        }
+        ActionUIModel.registerActionHandler("template.demo.append") { _, windowUUID, _, _, _ ->
+            val row = templateDemoExtraRows[templateDemoAppendIndex % templateDemoExtraRows.size]
+            templateDemoAppendIndex += 1
+            templateDemoIDs.forEach { id ->
+                ActionUIModel.appendElementRows(windowUUID = windowUUID, viewID = id, rows = listOf(row))
+            }
+        }
+        ActionUIModel.registerActionHandler("template.demo.clear") { _, windowUUID, _, _, _ ->
+            templateDemoIDs.forEach { id ->
+                ActionUIModel.clearElementRows(windowUUID = windowUUID, viewID = id)
+            }
+        }
+        ActionUIModel.registerActionHandler("template.demo.select") { _, windowUUID, viewID, viewPartID, _ ->
+            val row = ActionUIModel.getElementRows(windowUUID = windowUUID, viewID = viewID).getOrNull(viewPartID)
+            Toast.makeText(this, "Cell tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("template.demo.chip") { _, windowUUID, viewID, viewPartID, _ ->
+            val row = ActionUIModel.getElementRows(windowUUID = windowUUID, viewID = viewID).getOrNull(viewPartID)
+            Toast.makeText(this, "Chip tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
+        }
+
+        // GeometryReader.json: read the reader's observable states["size"]
+        // ([width, height] in dp) on demand - the Android demo surfaces it with
+        // a toast where the Swift app leaves the state for the host to poll.
+        ActionUIModel.registerActionHandler("geometry.read") { _, windowUUID, _, _, _ ->
+            val size = ActionUIModel.getElementState(windowUUID = windowUUID, viewID = 1, key = "size")
+            Toast.makeText(this, "GeometryReader size: $size", Toast.LENGTH_SHORT).show()
+        }
+
+        // Map.json: the COORDINATE value bridge. "map.read" reads the map's
+        // center as the canonical {"latitude":..,"longitude":..} JSON string
+        // (updated as the user pans); "map.london" writes a coordinate, panning
+        // the map from the host side.
+        ActionUIModel.registerActionHandler("map.read") { _, windowUUID, _, _, _ ->
+            val center = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Map center: $center", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("map.london") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValueFromString(
+                windowUUID = windowUUID, viewID = 1,
+                value = "{\"latitude\": 51.5074, \"longitude\": -0.1278}",
+            )
+        }
+
+        // VideoPlayer.json: the String value bridge. "video.read" reads the
+        // current source URL; "video.swap" writes a different URL, swapping the
+        // video from the host side.
+        ActionUIModel.registerActionHandler("video.read") { _, windowUUID, _, _, _ ->
+            val url = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "VideoPlayer URL: $url", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("video.swap") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValueFromString(
+                windowUUID = windowUUID, viewID = 1,
+                value = "https://www.w3schools.com/html/mov_bbb.mp4",
+            )
+        }
+
         // TabView.json: each tab switch passes the new 0-based index as context.
         ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()

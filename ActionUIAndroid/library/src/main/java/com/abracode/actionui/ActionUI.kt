@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
@@ -28,6 +29,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.PlatformFilter
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Helpers.DescriptionLoad
+import com.abracode.actionui.Helpers.ElementModalsHost
 import com.abracode.actionui.Helpers.LoadableSource
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.ToolbarHost
@@ -43,9 +45,8 @@ import kotlinx.serialization.json.JsonObject
 
 object ActionUI {
 
-    private val json: Json = Json {
-        ignoreUnknownKeys = true
-    }
+    // The shared document decoder (Foundation-leniency parity; see ActionUIJson).
+    private val json: Json = ActionUIJson
 
     /**
      * Default logger used when callers don't supply one. Swap globally for
@@ -117,9 +118,9 @@ object ActionUI {
      * loads synchronously. The read + decode is shared with the embedded element via
      * [DescriptionLoad].
      *
-     * Not yet ported from the Apple scene: the window-level modal / dialog chrome
-     * (`WindowModalView`) that `isContentView == true` also attaches - it awaits the
-     * Android modal/dialog subsystem. See `Private/Android_Porting_Notes.md`.
+     * Like every window root here, [RenderWindow] attaches the window-level modal /
+     * dialog chrome (the Android counterpart of Apple's `WindowModalView`) and the
+     * element-level modal host. See `Private/Android_Porting_Notes.md` entries 40/46.
      */
     @Composable
     fun RenderSource(
@@ -195,11 +196,13 @@ object ActionUI {
         ) {
             RenderRoot(element, builder, modifier, logger)
             // Window-level overlays (the Android counterpart of Apple wrapping a
-            // content-view root in WindowModalView). Both render nothing until a
-            // host handler presents one: a dialog (alert / confirmationDialog) or a
-            // modal (sheet / fullScreenCover).
+            // content-view root in WindowModalView). All render nothing until
+            // presented: a dialog (alert / confirmationDialog), a host-presented
+            // modal (presentModal), or an element-level `sheet` / `fullScreenCover`
+            // subview whose carrier's visible state flips true.
             WindowDialogHost(windowModel)
             WindowModalHost(windowModel)
+            ElementModalsHost(element)
         }
     }
 

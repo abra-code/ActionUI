@@ -123,7 +123,10 @@ class ModifierResolverTest {
         val logger = CapturingLogger()
         val base = Modifier
         val out = base.applyCommonProperties(props("""{"frame":{"width":"wide"}}"""), logger)
-        assertEquals(chainLength(base), chainLength(out))
+        // The bad axis is skipped (warned), but the fixed frame still wraps its
+        // content (default-center alignment, the Swift contract), so the chain
+        // grows by the wrapContentSize element.
+        assertTrue(chainLength(out) > chainLength(base))
         assertEquals(1, logger.warnings.size)
         assertTrue(logger.warnings[0].contains("frame.width"))
     }
@@ -589,13 +592,35 @@ class ModifierResolverTest {
     }
 
     @Test
-    fun `fixed frame with alignment adds size and wrapContentSize elements`() {
+    fun `fixed frame always wraps content, defaulting to center like Swift`() {
         val base = Modifier
         val sized = base.applyCommonProperties(props("""{"frame":{"width":100,"height":40}}"""))
         val aligned = base.applyCommonProperties(
             props("""{"frame":{"width":100,"height":40,"alignment":"topLeading"}}""")
         )
-        assertTrue(chainLength(aligned) > chainLength(sized))
+        // Swift resolves a missing fixed-frame alignment to .center, so the
+        // wrapContentSize element is present with or without `alignment` -
+        // identical chain shapes - and both exceed the bare base.
+        assertEquals(chainLength(aligned), chainLength(sized))
+        assertTrue(chainLength(sized) > chainLength(base))
+    }
+
+    @Test
+    fun `padding combines with a fixed frame without losing either element`() {
+        // With a fixed frame the padding hoists OUTSIDE the box (it would
+        // otherwise cap the content below Material minimums - see the chain
+        // docs); same elements either way, so the combined chain must carry
+        // exactly the frame elements plus the padding element.
+        val base = Modifier
+        val framePadded = base.applyCommonProperties(
+            props("""{"frame":{"width":150,"height":44},"padding":12}""")
+        )
+        val frameOnly = base.applyCommonProperties(props("""{"frame":{"width":150,"height":44}}"""))
+        val paddingOnly = base.applyCommonProperties(props("""{"padding":12}"""))
+        assertEquals(
+            chainLength(frameOnly) + (chainLength(paddingOnly) - chainLength(base)),
+            chainLength(framePadded),
+        )
     }
 
     // -----------------------------------------------------------------------
@@ -683,5 +708,66 @@ class ModifierResolverTest {
         assertEquals(TransformOrigin(0.5f, 1f), parseTransformOrigin("bottom"))
         assertEquals(TransformOrigin.Center, parseTransformOrigin(null))
         assertEquals(TransformOrigin.Center, parseTransformOrigin("nonsense"))
+    }
+
+    // -----------------------------------------------------------------------
+    // Accessibility properties (one semantics block)
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `accessibilityLabel adds one semantics element to the chain`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props("""{"accessibilityLabel":"Send report"}"""),
+            logger
+        )
+        assertEquals(1, chainLength(out))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `all four accessibility properties share a single chain element`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props(
+                """{"accessibilityLabel":"Send","accessibilityHint":"Sends the report",
+                   "accessibilityHidden":true,"accessibilityIdentifier":"send_button"}"""
+            ),
+            logger
+        )
+        assertEquals(1, chainLength(out))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `accessibilityHidden false is a no-op`() {
+        val out = Modifier.applyCommonProperties(props("""{"accessibilityHidden":false}"""))
+        assertEquals(0, chainLength(out))
+    }
+
+    @Test
+    fun `invalid accessibility types warn and add nothing`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props(
+                """{"accessibilityLabel":42,"accessibilityHint":true,
+                   "accessibilityHidden":"yes","accessibilityIdentifier":7}"""
+            ),
+            logger
+        )
+        assertEquals(0, chainLength(out))
+        assertEquals(4, logger.warnings.size)
+        assertTrue(logger.warnings.all { it.startsWith("Invalid type for accessibility") })
+    }
+
+    @Test
+    fun `a valid accessibility property survives an invalid sibling`() {
+        val logger = CapturingLogger()
+        val out = Modifier.applyCommonProperties(
+            props("""{"accessibilityLabel":"OK","accessibilityHidden":"yes"}"""),
+            logger
+        )
+        assertEquals(1, chainLength(out))
+        assertEquals(1, logger.warnings.size)
     }
 }

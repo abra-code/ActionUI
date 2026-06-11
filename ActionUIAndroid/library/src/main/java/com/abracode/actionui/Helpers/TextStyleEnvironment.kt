@@ -45,7 +45,9 @@ import kotlinx.serialization.json.JsonPrimitive
  * The seam is [ProvideTextStyleEnvironment], applied once per element at the
  * point the element is built - in `ActionUI.Render` for the root and in each
  * container's child loop for the rest - so an element's own font/color/tint
- * style both itself and its subtree, exactly once.
+ * style both itself and its subtree, exactly once. The control environment
+ * (`disabled` / `buttonStyle` / `controlSize` - locals and parsing in
+ * `ControlEnvironment.kt`) rides the same seam, for the same reason.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
  *   * Named text styles (`title`, `body`, ...) map onto the nearest Material3
@@ -62,10 +64,12 @@ val LocalActionUITint: ProvidableCompositionLocal<Color?> =
     compositionLocalOf { null }
 
 /**
- * Wraps [content] in the inherited text-styling environment derived from
- * [properties]' `font`, `foregroundStyle`, and `tint`. When none of the three is
- * present the [content] is invoked directly with no provider, so the common case
- * (most elements carry none) adds no composition overhead.
+ * Wraps [content] in the inherited environment derived from [properties] - the
+ * text-styling trio (`font`, `foregroundStyle`, `tint`) plus the control
+ * environment (`disabled`, `buttonStyle`, `controlSize`; locals and parsing in
+ * `ControlEnvironment.kt`). When none is present the [content] is invoked
+ * directly with no provider, so the common case (most elements carry none) adds
+ * no composition overhead.
  */
 @Composable
 fun ProvideTextStyleEnvironment(
@@ -81,19 +85,25 @@ fun ProvideTextStyleEnvironment(
     val fontStyle = resolveFontStyle(properties["font"], logger)
     val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", logger)
     val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", logger)
+    // `disabled: false` provides nothing - SwiftUI ANDs `isEnabled` down the
+    // tree, so a child can never re-enable a subtree an ancestor disabled.
+    val disabled = resolveDisabled(properties, logger)
+    val buttonStyle = properties.stringProperty("buttonStyle")?.let { parseButtonStyle(it, logger) }
+    val controlSize = properties.stringProperty("controlSize")?.let { parseControlSize(it, logger) }
 
-    if (fontStyle == null && foreground == null && tint == null) {
+    val provided = buildList {
+        fontStyle?.let { add(LocalTextStyle provides LocalTextStyle.current.merge(it)) }
+        foreground?.let { add(LocalContentColor provides it) }
+        tint?.let { add(LocalActionUITint provides it) }
+        if (disabled) add(LocalActionUIEnabled provides false)
+        buttonStyle?.let { add(LocalActionUIButtonStyle provides it) }
+        controlSize?.let { add(LocalActionUIControlSize provides it) }
+    }
+    if (provided.isEmpty()) {
         content()
         return
     }
-
-    val mergedTextStyle = fontStyle?.let { LocalTextStyle.current.merge(it) } ?: LocalTextStyle.current
-    CompositionLocalProvider(
-        LocalTextStyle provides mergedTextStyle,
-        LocalContentColor provides (foreground ?: LocalContentColor.current),
-        LocalActionUITint provides (tint ?: LocalActionUITint.current),
-        content = content
-    )
+    CompositionLocalProvider(*provided.toTypedArray(), content = content)
 }
 
 /** Resolves a `foregroundStyle`/`tint` color string, warning on an unknown color. */

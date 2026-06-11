@@ -8,14 +8,14 @@
       "id": 1,
       "properties": { "title": "Options" },
       "children": [
-        { "type": "Button", "properties": { "title": "New", "actionID": "menu.new" } },
-        { "type": "Button", "properties": { "title": "Open", "actionID": "menu.open" } },
+        { "type": "Button", "properties": { "title": "New", "systemImage": "square.and.pencil", "actionID": "menu.new" } },
+        { "type": "Button", "properties": { "title": "Open", "systemImage": "folder", "actionID": "menu.open" } },
         { "type": "Divider" },
         {
           "type": "Section",
           "properties": { "header": "Danger" },
           "children": [
-            { "type": "Button", "properties": { "title": "Delete", "actionID": "menu.delete" } }
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "actionID": "menu.delete" } }
           ]
         }
       ]

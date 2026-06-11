@@ -28,10 +28,15 @@ import androidx.compose.ui.Modifier
  *   * [STRING_LIST] - the `List` (and, on Apple, `Table`) **selection** value:
  *     the selected row's columns as a `List<String>` (empty when nothing is
  *     selected). Mirrors Apple's `[String]`.
+ *   * [COORDINATE] - `Map`. Carried as a
+ *     [com.abracode.actionui.Helpers.ActionUICoordinate] (latitude/longitude
+ *     degrees, the analog of Apple's `CLLocationCoordinate2D`);
+ *     parsed/serialized to the canonical `{"latitude": N, "longitude": N}`
+ *     JSON string by `Helpers/CoordinateHelper.kt`, matching Apple's
+ *     `Map.parseStringValue`/`serializeValueToString`.
  *
- * Apple's `CLLocationCoordinate2D` (Map) and the `[[String]]` Table-content value
- * have no live Android consumer yet (Map is unported; `Table` is a macOS-only
- * no-op) and are deferred with those elements.
+ * Apple's `[[String]]` Table-content value has no live Android consumer
+ * (`Table` is a macOS-only no-op) and is deferred with that element.
  */
 enum class ActionUIValueType {
     NONE,
@@ -42,6 +47,7 @@ enum class ActionUIValueType {
     DATE,
     COLOR,
     STRING_LIST,
+    COORDINATE,
 }
 
 interface ActionUIViewConstruction {

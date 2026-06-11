@@ -1,0 +1,87 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "padding": 16,
+    "alignment": "leading"
+  },
+  "children": [
+    { "type": "Text", "properties": { "text": "buttonStyle ladder", "font": "headline" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Prominent", "buttonStyle": "borderedProminent", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Bordered", "buttonStyle": "bordered", "actionID": "demo.tap" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Borderless", "buttonStyle": "borderless", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Plain", "buttonStyle": "plain", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Automatic", "actionID": "demo.tap" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "buttonStyle inherits from a container", "font": "headline" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "buttonStyle": "bordered" },
+      "children": [
+        { "type": "Button", "properties": { "title": "One", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Two", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Plain wins", "buttonStyle": "plain", "actionID": "demo.tap" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "controlSize ladder", "font": "headline" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "alignment": "center" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Mini", "controlSize": "mini", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Small", "controlSize": "small", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Regular", "actionID": "demo.tap" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "alignment": "center" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Large", "controlSize": "large", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "XL", "controlSize": "extraLarge", "actionID": "demo.tap" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "styles x role / tint / disabled", "font": "headline" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Delete", "role": "destructive", "buttonStyle": "borderedProminent", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Delete", "role": "destructive", "buttonStyle": "bordered", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Delete", "role": "destructive", "buttonStyle": "borderless", "actionID": "demo.tap" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "tint": "purple" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Tinted", "buttonStyle": "borderedProminent", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Tinted", "buttonStyle": "bordered", "actionID": "demo.tap" } },
+        { "type": "Button", "properties": { "title": "Tinted", "buttonStyle": "borderless", "actionID": "demo.tap" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Disabled", "disabled": true, "buttonStyle": "borderedProminent" } },
+        { "type": "Button", "properties": { "title": "Disabled", "disabled": true, "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "Disabled", "disabled": true, "buttonStyle": "borderless" } }
+      ]
+    }
+  ]
+}

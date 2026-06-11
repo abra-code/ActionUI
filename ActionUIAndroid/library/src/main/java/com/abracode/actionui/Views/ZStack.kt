@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -12,6 +13,8 @@ import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Common.parseAlignment
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -39,12 +42,16 @@ import kotlinx.serialization.json.jsonPrimitive
  * ZStack keeps the inherited orientation (horizontal by default), matching the
  * "no axis" nature of an overlap container.
  *
- * **Deferred vs. Apple.** The data-driven `template` mode (one instance per row
- * via `setElementRows`) needs the `ViewModel`/state layer that the Android port
- * has not landed yet; only static `children` are rendered here. See
- * `Private/Android_Porting_Notes.md`.
+ * Like its Apple counterpart, the stack also supports the data-driven `template`
+ * mode: when [ActionUIElement.template] is present, one substituted template
+ * instance per row in `states[`[ActionUIModel.ROWS_STATE_KEY]`]` (set via the
+ * rows API) is layered into the stack. See `Helpers/TemplateHelper.kt`.
  */
 object ZStack : ActionUIViewConstruction {
+
+    override fun initialStates(element: ActionUIElement): Map<String, Any> =
+        mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
@@ -62,7 +69,16 @@ object ZStack : ActionUIViewConstruction {
         } ?: Alignment.Center
 
         Box(modifier = modifier, contentAlignment = alignment) {
-            element.children.orEmpty().forEach { child ->
+            // Template (data-driven) mode wins over children, as on Apple:
+            // one substituted instance per row. See Helpers/TemplateHelper.kt.
+            val template = element.template
+            if (template != null) {
+                templateRows(element.id).forEachIndexed { rowIndex, row ->
+                    TemplateHelper.BuildTemplateRow(
+                        template = template, row = row, parentID = element.id, rowIndex = rowIndex,
+                    )
+                }
+            } else element.children.orEmpty().forEach { child ->
                 val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
                 ProvideTextStyleEnvironment(child.properties, logger) {
                     builder.BuildView(child, buildChildModifier(child.properties, logger))

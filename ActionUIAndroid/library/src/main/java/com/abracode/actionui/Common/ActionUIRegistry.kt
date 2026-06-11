@@ -1,6 +1,8 @@
 package com.abracode.actionui.Common
 
+import com.abracode.actionui.Views.AsyncImage
 import com.abracode.actionui.Views.Button
+import com.abracode.actionui.Views.Canvas
 import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
 import com.abracode.actionui.Views.ColorPicker
@@ -11,13 +13,18 @@ import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.EmptyView
 import com.abracode.actionui.Views.Form
+import com.abracode.actionui.Views.Gauge
+import com.abracode.actionui.Views.GeometryReader
+import com.abracode.actionui.Views.Grid
 import com.abracode.actionui.Views.Group
 import com.abracode.actionui.Views.GroupBox
 import com.abracode.actionui.Views.HStack
 import com.abracode.actionui.Views.Image
 import com.abracode.actionui.Views.Label
 import com.abracode.actionui.Views.LabeledContent
+import com.abracode.actionui.Views.LazyHGrid
 import com.abracode.actionui.Views.LazyHStack
+import com.abracode.actionui.Views.LazyVGrid
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
 import com.abracode.actionui.Views.LoadableView
@@ -46,7 +53,9 @@ import com.abracode.actionui.Views.ToolbarItem
 import com.abracode.actionui.Views.ToolbarItemGroup
 import com.abracode.actionui.Views.TextField
 import com.abracode.actionui.Views.Toggle
+import com.abracode.actionui.Views.VideoPlayer
 import com.abracode.actionui.Views.VStack
+import com.abracode.actionui.Views.WebView
 import com.abracode.actionui.Views.ZStack
 
 object ActionUIRegistry {
@@ -60,6 +69,10 @@ object ActionUIRegistry {
         register("ZStack", ZStack)
         register("LazyVStack", LazyVStack)
         register("LazyHStack", LazyHStack)
+        register("LazyVGrid", LazyVGrid)
+        register("LazyHGrid", LazyHGrid)
+        register("Grid", Grid)
+        register("GeometryReader", GeometryReader)
         register("Button", Button)
         register("Divider", Divider)
         register("Spacer", Spacer)
@@ -70,6 +83,8 @@ object ActionUIRegistry {
         register("Circle", Circle)
         register("Ellipse", Ellipse)
         register("ProgressView", ProgressView)
+        register("Gauge", Gauge)
+        register("Canvas", Canvas)
         register("TextField", TextField)
         register("SecureField", SecureField)
         register("TextEditor", TextEditor)
@@ -101,6 +116,13 @@ object ActionUIRegistry {
         register("Menu", Menu)
         register("ToolbarItem", ToolbarItem)
         register("ToolbarItemGroup", ToolbarItemGroup)
+        register("WebView", WebView)
+        register("AsyncImage", AsyncImage)
+        register("VideoPlayer", VideoPlayer)
+        // "Map" is deliberately NOT a core element: a map engine is
+        // distribution baggage for clients that never show one. A provider
+        // module (:map-osm or :map-google) self-registers it at app startup;
+        // the shared contract lives in Helpers/MapContract.kt.
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

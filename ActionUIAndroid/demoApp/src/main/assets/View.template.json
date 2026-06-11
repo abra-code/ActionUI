@@ -1,0 +1,54 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Data-driven template mode: each container declares a template instead of children and renders one substituted instance per row set via setElementRows. $1/$2 reference row columns. Load seeds the rows; Append adds one; Clear empties them." } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Load", "actionID": "template.demo.load", "buttonStyle": "borderedProminent" } },
+        { "type": "Button", "properties": { "title": "Append", "actionID": "template.demo.append", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "Clear", "actionID": "template.demo.clear", "buttonStyle": "bordered" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "VStack + Label template (icon + title):", "font": "headline" } },
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": { "alignment": "leading", "spacing": 6 },
+      "template": {
+        "type": "Label",
+        "properties": { "title": "$2", "systemImage": "$1" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "LazyVGrid + Button template (3 flexible columns):", "font": "headline" } },
+    {
+      "type": "LazyVGrid",
+      "id": 40,
+      "properties": {
+        "columns": [
+          { "flexible": true },
+          { "flexible": true },
+          { "flexible": true }
+        ],
+        "spacing": 8,
+        "frame": { "width": "infinity", "height": 200 }
+      },
+      "template": {
+        "type": "Button",
+        "properties": { "title": "$2", "actionID": "template.demo.select", "buttonStyle": "bordered" }
+      }
+    },
+    { "type": "Text", "properties": { "text": "LazyHStack + Button template (chip bar):", "font": "headline" } },
+    {
+      "type": "LazyHStack",
+      "id": 30,
+      "properties": { "spacing": 8, "frame": { "width": "infinity" } },
+      "template": {
+        "type": "Button",
+        "properties": { "title": "$2", "actionID": "template.demo.chip" }
+      }
+    }
+  ]
+}

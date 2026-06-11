@@ -42,6 +42,8 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(project(":library"))
+    // Exactly one Map provider module; it self-registers at startup.
+    implementation(project(":map-osm"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)

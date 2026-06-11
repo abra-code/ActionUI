@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -16,11 +17,17 @@ import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Common.parseColumnAlignment
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 object VStack : ActionUIViewConstruction {
+
+    override fun initialStates(element: ActionUIElement): Map<String, Any> =
+        mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
@@ -39,7 +46,16 @@ object VStack : ActionUIViewConstruction {
                     ?: Arrangement.Top,
                 horizontalAlignment = horizontalAlignment
             ) {
-                element.children.orEmpty().forEach { child ->
+                // Template (data-driven) mode wins over children, as on Apple:
+                // one substituted instance per row. See Helpers/TemplateHelper.kt.
+                val template = element.template
+                if (template != null) {
+                    templateRows(element.id).forEachIndexed { rowIndex, row ->
+                        TemplateHelper.BuildTemplateRow(
+                            template = template, row = row, parentID = element.id, rowIndex = rowIndex,
+                        )
+                    }
+                } else element.children.orEmpty().forEach { child ->
                     val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
                     // Spacer flexes by consuming remaining main-axis space; weight is
                     // ColumnScope-restricted, so the container applies it here (see Spacer.kt).

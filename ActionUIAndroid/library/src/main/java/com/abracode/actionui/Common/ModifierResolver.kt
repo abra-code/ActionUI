@@ -30,6 +30,10 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -62,8 +66,11 @@ import kotlinx.serialization.json.jsonPrimitive
  *     Handles `zIndex`, `rotationEffect`, `scaleEffect`, `offset`, `frame`
  *     (SwiftUI sizing - fixed `{width,height}` or flexible `{minWidth,maxWidth,
  *     ...}` plus `alignment`), `opacity`, `hidden`, `shadow`, `border`,
- *     `clipShape`, `cornerRadius`, `background`, and `padding`
- *     (number / EdgeInsets `{top,leading,bottom,trailing}` / `"default"`).
+ *     `clipShape`, `cornerRadius`, `background`, `padding`
+ *     (number / EdgeInsets `{top,leading,bottom,trailing}` / `"default"`), and
+ *     the four accessibility properties (`accessibilityLabel`,
+ *     `accessibilityHint`, `accessibilityHidden`, `accessibilityIdentifier`)
+ *     mapped to a single semantics block.
  *   * [buildChildModifier] - overloads on each layout scope receiver, applied
  *     inside the container's content lambda where `weight`/`align` are in
  *     scope. They additionally chain in [applyCommonProperties].
@@ -76,20 +83,29 @@ import kotlinx.serialization.json.jsonPrimitive
  * decoration modifiers slot in just before the clip/background:
  *
  * ```
- *   zIndex -> rotationEffect -> scaleEffect -> offset
- *          -> frame -> opacity -> hidden
+ *   accessibility semantics
+ *          -> zIndex -> rotationEffect -> scaleEffect -> offset
+ *          -> [padding, if a fixed frame follows] -> frame -> opacity -> hidden
  *          -> shadow -> border -> clipShape -> cornerRadius
- *          -> background -> padding
+ *          -> background -> [padding, otherwise]
  * ```
  *
  * Opacity (and `hidden`, which is `alpha(0)`) sit outside the decoration so they
  * fade the entire visual subtree including the background, not just inner
  * content. Padding is innermost so the background fills the full size and the
- * inner element sits in a padded area inside the colored region. `border` is
- * outside `clipShape` because SwiftUI's `.border` is a rectangular stroke that
- * is not clipped by a later `.clipShape`.
+ * inner element sits in a padded area inside the colored region - EXCEPT when a
+ * fixed frame is present, where padding hoists outside the box (see the Sizing
+ * section in [applyCommonProperties] for why). `border` is outside `clipShape`
+ * because SwiftUI's `.border` is a rectangular stroke that is not clipped by a
+ * later `.clipShape`.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
+ *   * Compose constraints are hard caps, not SwiftUI's soft proposals a child
+ *     may refuse: content larger than a fixed `frame` is capped to the box
+ *     (SwiftUI lets it overflow at natural size). The two spots where this
+ *     bites - padding inside the box and a missing default alignment - are
+ *     handled (padding hoists outside a fixed frame; a fixed frame always
+ *     `wrapContentSize`s its content, defaulting to center like Swift).
  *   * `shadow` maps to Compose's elevation shadow - `radius` becomes elevation
  *     and `color` becomes the ambient/spot color; the `x`/`y` offset is ignored.
  *   * `frame` `idealWidth`/`idealHeight` (SwiftUI's preferred size) is ignored
@@ -110,6 +126,9 @@ fun Modifier.applyCommonProperties(
     if (properties == null) return this
     var m: Modifier = this
 
+    // ---- Accessibility semantics (outermost - Apple applies them last) ----
+    m = m.applyAccessibility(properties, logger)
+
     // ---- Outer wrappers: draw ordering, transforms, position ----
     properties.numberProperty("zIndex")?.let { m = m.zIndex(it.toFloat()) }
     properties.numberProperty("rotationEffect")?.let { m = m.rotate(it.toFloat()) }
@@ -121,6 +140,17 @@ fun Modifier.applyCommonProperties(
     }
 
     // ---- Sizing ----
+    // A fixed frame is a hard size in Compose - constraints are not SwiftUI's
+    // soft proposals a child may refuse. Padding inside the box would subtract
+    // from the content's max constraints and can crush a min-sized Material
+    // component invisible (an M3 Button under `frame {height: 44} + padding 12`
+    // gets 20dp and its title vanishes). So with a fixed frame, padding applies
+    // OUTSIDE the box; the SwiftUI-visible result - content at its natural size
+    // inside the frame - is preserved, at the cost of the padding reading as an
+    // outer margin instead of SwiftUI's (center-invisible) inner inset.
+    val hasFixedFrame =
+        (properties["frame"] as? JsonObject)?.let { it["width"] != null || it["height"] != null } == true
+    if (hasFixedFrame) m = m.applyPadding(properties)
     (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger) }
 
     // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
@@ -141,8 +171,8 @@ fun Modifier.applyCommonProperties(
         )
     }
 
-    // ---- Padding (innermost) ----
-    m = m.applyPadding(properties)
+    // ---- Padding (innermost, unless a fixed frame hoisted it - see Sizing) ----
+    if (!hasFixedFrame) m = m.applyPadding(properties)
     return m
 }
 
@@ -274,6 +304,68 @@ private val EllipseShape: Shape = GenericShape { size, _ ->
 }
 
 /**
+ * The four universal accessibility properties, mapped to one semantics block
+ * (`View.swift` applies them at the end of its pipeline, i.e. outermost - the
+ * front of a Compose chain):
+ *
+ *   * `accessibilityLabel` -> `contentDescription` (TalkBack announces it in
+ *     place of the node's own text, like VoiceOver with `.accessibilityLabel`).
+ *   * `accessibilityHint` -> appended to the description after the label.
+ *     TalkBack has no separate hint slot (VoiceOver reads the hint after a
+ *     pause), so the hint joins the spoken description - a documented
+ *     approximation, not a dropped property.
+ *   * `accessibilityHidden: true` -> `hideFromAccessibility()`. `false` is a
+ *     no-op, as on Apple.
+ *   * `accessibilityIdentifier` -> the semantics `testTag`, Compose's UI-test
+ *     handle (matched by `onNodeWithTag`), the same role the identifier plays
+ *     for XCUITest.
+ *
+ * Types are validated warn-and-skip (`View.swift` parity). Elements whose icon
+ * needs a glyph-level description and that render outside this pipeline
+ * (toolbar chrome, tab items, menu items) keep their own `accessibilityLabel`
+ * reads; elements rendered through it must NOT also set `contentDescription`
+ * from the same property or TalkBack would announce the label twice
+ * (`ContentDescription` semantics merge by list concatenation).
+ */
+private fun Modifier.applyAccessibility(
+    properties: JsonObject,
+    logger: ActionUILogger?
+): Modifier {
+    val label = properties.accessibilityString("accessibilityLabel", logger)
+    val hint = properties.accessibilityString("accessibilityHint", logger)
+    val identifier = properties.accessibilityString("accessibilityIdentifier", logger)
+    val hidden = properties["accessibilityHidden"]?.let { raw ->
+        val value = (raw as? JsonPrimitive)?.let { properties.booleanProperty("accessibilityHidden") }
+        if (value == null) {
+            logger?.log(
+                "Invalid type for accessibilityHidden: expected Bool, ignoring",
+                LoggerLevel.warning
+            )
+        }
+        value
+    } == true
+
+    if (label == null && hint == null && identifier == null && !hidden) return this
+
+    return this.semantics {
+        val description = listOfNotNull(label, hint)
+        if (description.isNotEmpty()) contentDescription = description.joinToString(". ")
+        identifier?.let { testTag = it }
+        if (hidden) hideFromAccessibility()
+    }
+}
+
+/** A present-but-non-String accessibility property warns and reads as absent. */
+private fun JsonObject.accessibilityString(key: String, logger: ActionUILogger?): String? {
+    val raw = this[key] ?: return null
+    if ((raw as? JsonPrimitive)?.isString != true) {
+        logger?.log("Invalid type for $key: expected String, ignoring", LoggerLevel.warning)
+        return null
+    }
+    return raw.content
+}
+
+/**
  * `scaleEffect` - uniform `Number` or `{ x, y, anchor }`. The uniform form uses
  * Compose's `scale` (center anchor); the dict form goes through `graphicsLayer`
  * so the `anchor` maps to a [TransformOrigin].
@@ -301,8 +393,9 @@ private fun Modifier.applyScaleEffect(properties: JsonObject): Modifier {
  *     maxHeight }` mapped to Compose `widthIn`/`heightIn` (ideal ignored - see
  *     the file header divergence note); `maxWidth/maxHeight: "infinity"` fills
  *     the axis.
- * `alignment` positions content within the resolved size via `wrapContentSize`;
- * it only takes effect when a size is also given.
+ * `alignment` positions content within the resolved size via `wrapContentSize`.
+ * A fixed frame always wraps, defaulting to center (the Swift contract); a
+ * flexible frame wraps only when `alignment` is explicitly given.
  */
 private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Modifier {
     var m: Modifier = this
@@ -316,12 +409,18 @@ private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Mod
     if (hasFixed) {
         m = m.applySizeAxis(frame["width"], horizontal = true, logger)
         m = m.applySizeAxis(frame["height"], horizontal = false, logger)
+        // A fixed frame always positions natural-size content within the box,
+        // defaulting to center - Swift resolves a missing `alignment` to
+        // `.center` (`View.swift`), and without the wrap the hard size would
+        // propagate INTO the content and stretch/crush it, which SwiftUI's
+        // soft proposals never do. (Content larger than the box is still
+        // capped - a Compose constraint, divergence-noted in the header.)
+        val alignment = frame.stringProperty("alignment")
+            ?.let { parseFrameAlignment(it, logger) } ?: Alignment.Center
+        m = m.wrapContentSize(alignment)
     } else if (hasFlexible) {
         m = m.applyFlexibleAxis(frame, horizontal = true, logger)
         m = m.applyFlexibleAxis(frame, horizontal = false, logger)
-    }
-
-    if (hasFixed || hasFlexible) {
         frame.stringProperty("alignment")?.let { name ->
             parseFrameAlignment(name, logger)?.let { m = m.wrapContentSize(it) }
         }
@@ -587,14 +686,15 @@ private fun isBaselineAlignmentName(name: String): Boolean =
 
 internal fun parseAlignment(name: String): Alignment? =
     when (name.lowercase()) {
-        "topstart", "topleading"        -> Alignment.TopStart
-        "topcenter", "top"              -> Alignment.TopCenter
-        "topend", "toptrailing"         -> Alignment.TopEnd
-        "centerstart", "centerleading"  -> Alignment.CenterStart
-        "center"                        -> Alignment.Center
-        "centerend", "centertrailing"   -> Alignment.CenterEnd
-        "bottomstart", "bottomleading"  -> Alignment.BottomStart
-        "bottomcenter", "bottom"        -> Alignment.BottomCenter
-        "bottomend", "bottomtrailing"   -> Alignment.BottomEnd
-        else                            -> null
+        "topstart", "topleading"                   -> Alignment.TopStart
+        "topcenter", "top"                         -> Alignment.TopCenter
+        "topend", "toptrailing"                    -> Alignment.TopEnd
+        // SwiftUI's plain `.leading`/`.trailing` are vertically centered.
+        "centerstart", "centerleading", "leading"  -> Alignment.CenterStart
+        "center"                                   -> Alignment.Center
+        "centerend", "centertrailing", "trailing"  -> Alignment.CenterEnd
+        "bottomstart", "bottomleading"             -> Alignment.BottomStart
+        "bottomcenter", "bottom"                   -> Alignment.BottomCenter
+        "bottomend", "bottomtrailing"              -> Alignment.BottomEnd
+        else                                       -> null
     }

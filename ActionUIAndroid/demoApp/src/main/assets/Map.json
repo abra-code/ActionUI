@@ -1,0 +1,68 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Map (OpenStreetMap provider)",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Map",
+      "id": 1,
+      "properties": {
+        "coordinate": {
+          "latitude": 37.33233141,
+          "longitude": -122.0312186
+        },
+        "interactionModes": ["pan", "zoom"],
+        "annotations": [
+          {
+            "coordinate": {
+              "latitude": 37.332,
+              "longitude": -122.031
+            },
+            "title": "Point",
+            "subtitle": "Subtitle"
+          }
+        ],
+        "frame": { "height": 360 }
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12.0 },
+      "children": [
+        {
+          "type": "Button",
+          "id": 2,
+          "properties": {
+            "title": "Read center",
+            "actionID": "map.read"
+          }
+        },
+        {
+          "type": "Button",
+          "id": 3,
+          "properties": {
+            "title": "Go to London",
+            "actionID": "map.london"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Pan the map, then read its center; the host can pan it back.",
+        "font": "caption",
+        "foregroundColor": "#666666"
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "padding": 16,
+    "alignment": "leading"
+  },
+  "children": [
+    { "type": "Text", "properties": { "text": "Enabled controls", "font": "headline" } },
+    {
+      "type": "VStack",
+      "properties": { "spacing": 12, "alignment": "leading" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Tap me", "actionID": "demo.tap" } },
+        { "type": "Toggle", "properties": { "title": "Notifications", "isOn": true } },
+        { "type": "Slider", "properties": { "value": 0.4, "range": { "min": 0, "max": 1 } } },
+        { "type": "TextField", "properties": { "title": "Name", "prompt": "Type here" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "Same controls under a disabled container", "font": "headline" } },
+    {
+      "type": "VStack",
+      "properties": { "spacing": 12, "alignment": "leading", "disabled": true },
+      "children": [
+        { "type": "Button", "properties": { "title": "Tap me", "actionID": "demo.tap" } },
+        { "type": "Toggle", "properties": { "title": "Notifications", "isOn": true } },
+        { "type": "Slider", "properties": { "value": 0.4, "range": { "min": 0, "max": 1 } } },
+        { "type": "TextField", "properties": { "title": "Name", "prompt": "Type here" } },
+        {
+          "type": "Text",
+          "properties": { "text": "disabled: false cannot re-enable inside" }
+        },
+        { "type": "Button", "properties": { "title": "Still disabled", "disabled": false, "actionID": "demo.tap" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "Per-element disabled", "font": "headline" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        { "type": "Stepper", "properties": { "label": "Qty", "value": 1, "disabled": true } },
+        { "type": "Link", "properties": { "title": "Docs", "url": "https://example.com", "disabled": true } }
+      ]
+    }
+  ]
+}

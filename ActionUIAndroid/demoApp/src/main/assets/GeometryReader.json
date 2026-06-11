@@ -1,0 +1,61 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "GeometryReader Demo",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "GeometryReader",
+      "id": 1,
+      "properties": {
+        "alignment": "center",
+        "background": "#E8F0FE",
+        "frame": { "height": 240 }
+      },
+      "content": {
+        "type": "VStack",
+        "children": [
+          {
+            "type": "Label",
+            "properties": {
+              "title": "Centered in GeometryReader",
+              "systemImage": "arrow.up.left.and.arrow.down.right"
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Tap 'Read size' to read states['size']",
+              "font": "caption",
+              "foregroundColor": "#666666"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": {
+        "title": "Read size",
+        "actionID": "geometry.read"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Below GeometryReader",
+        "font": "caption",
+        "foregroundColor": "#999999"
+      }
+    }
+  ]
+}

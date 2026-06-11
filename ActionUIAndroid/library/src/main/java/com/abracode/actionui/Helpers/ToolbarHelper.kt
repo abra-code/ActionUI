@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
@@ -180,18 +184,70 @@ fun ToolbarHost(
 }
 
 /**
- * Renders one chrome item. A `Button` becomes a compact [TextButton] (toolbar
+ * Renders one chrome item. A `Button` becomes a native app-bar action (toolbar
  * idiom; firing its `actionID`); other content (e.g. a `Menu`) is built through
- * the registry. Toolbar buttons are text-only (no SF Symbol; icons are B2).
+ * the registry.
+ *
+ * **Why `Button` is special-cased instead of built through the registry.** The
+ * registered `Button` renders a filled `M3Button` - a colored pill, which is the
+ * wrong widget inside an app bar, where actions are borderless and inherit the
+ * bar's colors. SwiftUI restyles a toolbar `Button` the same way but invisibly,
+ * through the environment's implicit button style; Compose has no equivalent
+ * (`M3Button` hard-codes its container colors), so the chrome host must build a
+ * different composable. Here - as in `MenuChild`, where a `Button` child becomes
+ * a `DropdownMenuItem` - a `Button` is a semantic action declaration (title /
+ * icon / `actionID`) whose presentation the host context owns; the registry
+ * fallback is for content that renders itself the same everywhere. A deliberate
+ * consequence: this branch skips `applyCommonProperties`, so layout modifiers
+ * (padding / frame) on a toolbar button are ignored, consistent with SwiftUI
+ * toolbar items, which largely ignore layout modifiers too.
+ *
+ * A Button's icon resolves through the shared `SymbolIcon` seam exactly as on a
+ * standalone `Button` ([selectLabelIcon] -> [LabelIcon]): `systemImage` (SF
+ * Symbol -> closest Material glyph) or `materialName:android`. Icon without a
+ * `title` renders as a Material [IconButton] - the app-bar action idiom, what
+ * SwiftUI's chrome does with an image-only toolbar button. Icon plus `title`
+ * renders both in the [TextButton]; the glyph inherits the button's content
+ * color and label style, so it matches the text automatically.
  */
 @Composable
 private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
     if (element.type == "Button") {
-        val title = element.properties?.stringProperty("title").orEmpty()
-        val actionID = element.properties?.stringProperty("actionID")
-        TextButton(onClick = {
+        val props = element.properties
+        val title = props?.stringProperty("title").orEmpty()
+        val actionID = props?.stringProperty("actionID")
+        val imageScale = props?.stringProperty("imageScale")
+        val contentDescription = props?.stringProperty("accessibilityLabel")
+        val iconSource = remember(props) { selectLabelIcon(props, "assetImage", "ToolbarItem", logger) }
+        val onClick = {
             actionID?.let { ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0) }
-        }) { M3Text(title) }
+            Unit
+        }
+        if (iconSource != null && title.isEmpty()) {
+            IconButton(onClick = onClick) {
+                LabelIcon(
+                    source = iconSource,
+                    imageScale = imageScale,
+                    contentDescription = contentDescription,
+                    elementName = "ToolbarItem",
+                    logger = logger,
+                )
+            }
+        } else {
+            TextButton(onClick = onClick) {
+                val iconDrawn = LabelIcon(
+                    source = iconSource,
+                    imageScale = imageScale,
+                    contentDescription = contentDescription,
+                    elementName = "ToolbarItem",
+                    logger = logger,
+                )
+                if (iconDrawn && title.isNotEmpty()) {
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                }
+                M3Text(title)
+            }
+        }
     } else {
         val builder = ActionUIRegistry.lookup(element.type) ?: return
         ProvideTextStyleEnvironment(element.properties, logger) {
@@ -200,12 +256,28 @@ private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
     }
 }
 
-/** The `secondaryAction` overflow: a "More" trigger opening a [DropdownMenu] of the items (reuses `MenuChild`). */
+/**
+ * The `secondaryAction` overflow: the standard Android three-dot (`more_vert`)
+ * trigger opening a [DropdownMenu] of the items (reuses `MenuChild`). Falls back
+ * to a "More" text button if the glyph is missing from the bundled font.
+ */
 @Composable
 private fun OverflowMenu(items: List<ActionUIElement>, logger: ActionUILogger) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { expanded = true }) { M3Text("More") }
+        IconButton(onClick = { expanded = true }) {
+            val drawn = MaterialNameIcon(
+                name = "more_vert",
+                weight = MATERIAL_WEIGHT_DEFAULT,
+                fill = MATERIAL_FILL_DEFAULT,
+                grade = MATERIAL_GRADE_DEFAULT,
+                explicitSizeSp = null,
+                imageScale = null,
+                contentDescription = "More",
+                logger = logger,
+            )
+            if (!drawn) M3Text("More")
+        }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             items.forEach { MenuChild(it, logger) { expanded = false } }
         }

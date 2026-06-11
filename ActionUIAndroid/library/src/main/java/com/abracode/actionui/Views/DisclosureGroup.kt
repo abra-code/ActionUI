@@ -27,9 +27,12 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.buildChildModifier
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.templateRows
 
 /**
  * Expand/collapse container with a clickable title header. Mirror of the Apple
@@ -61,12 +64,17 @@ import com.abracode.actionui.Helpers.stringProperty
  * is in scope (host binding; needs a positive `id`), else local
  * [rememberSaveable] - the same dual-path binding the controls use.
  *
- * **Deferred vs. Apple.** The data-driven `template` mode needs the row/state
- * layer that has not landed yet; only static `children` are rendered.
+ * The disclosed content also supports the data-driven `template` mode: when
+ * [ActionUIElement.template] is present, one substituted template instance per
+ * row in `states[`[ActionUIModel.ROWS_STATE_KEY]`]` (set via the rows API) fills
+ * the expanded column. See `Helpers/TemplateHelper.kt`.
  */
 object DisclosureGroup : ActionUIViewConstruction {
     override fun initialStates(element: ActionUIElement): Map<String, Any> =
-        mapOf("isExpanded" to (element.properties?.booleanProperty("isExpanded") ?: false))
+        mapOf(
+            "isExpanded" to (element.properties?.booleanProperty("isExpanded") ?: false),
+            ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>(),
+        )
 
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
@@ -95,7 +103,9 @@ object DisclosureGroup : ActionUIViewConstruction {
 
         Column(modifier = modifier) {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
+                // SwiftUI `.disabled` (set here or on any ancestor) blocks expand/collapse.
+                modifier = Modifier.fillMaxWidth()
+                    .clickable(enabled = LocalActionUIEnabled.current, onClick = onToggle),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 M3Text(title, modifier = Modifier.weight(1f))
@@ -106,7 +116,15 @@ object DisclosureGroup : ActionUIViewConstruction {
                     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    element.children.orEmpty().forEach { child ->
+                    // Template (data-driven) mode wins over children, as on Apple.
+                    val template = element.template
+                    if (template != null) {
+                        templateRows(element.id).forEachIndexed { rowIndex, row ->
+                            TemplateHelper.BuildTemplateRow(
+                                template = template, row = row, parentID = element.id, rowIndex = rowIndex,
+                            )
+                        }
+                    } else element.children.orEmpty().forEach { child ->
                         val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
                         ProvideTextStyleEnvironment(child.properties, logger) {
                             builder.BuildView(child, buildChildModifier(child.properties, logger))

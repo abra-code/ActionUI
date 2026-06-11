@@ -1,11 +1,14 @@
 package com.abracode.actionui.Common
 
 import androidx.compose.ui.graphics.Color
+import com.abracode.actionui.Helpers.ActionUICoordinate
 import com.abracode.actionui.Helpers.DateHelper
 import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.colorToHex
+import com.abracode.actionui.Helpers.coordinateToJson
 import com.abracode.actionui.Helpers.decodeDescription
 import com.abracode.actionui.Helpers.parseColor
+import com.abracode.actionui.Helpers.parseCoordinate
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
 
@@ -82,8 +85,8 @@ object ActionUIModel {
      */
     var logger: ActionUILogger = ConsoleLogger()
 
-    /** Decoder for modal sub-documents passed to [presentModal]. */
-    private val json: Json = Json { ignoreUnknownKeys = true }
+    /** Decoder for modal sub-documents passed to [presentModal] (shared config; see [ActionUIJson]). */
+    private val json: Json = ActionUIJson
 
     /**
      * Registers [handler] for [actionID], replacing any existing handler for
@@ -338,9 +341,10 @@ object ActionUIModel {
      * element's declared [ActionUIValueType]. String values are returned directly;
      * other types use their canonical string form (a [ActionUIValueType.DATE] as
      * ISO `yyyy-MM-dd`, a [ActionUIValueType.COLOR] as `#RRGGBB`/`#RRGGBBAA`, a
-     * [ActionUIValueType.STRING_LIST] tab-joined); null value yields null. Mirrors
-     * the Swift `getElementValueAsString` (the Apple-only coordinate and the
-     * `[[String]]` Table join are deferred with those value types).
+     * [ActionUIValueType.STRING_LIST] tab-joined, a [ActionUIValueType.COORDINATE]
+     * as `{"latitude": N, "longitude": N}` JSON); null value yields null. Mirrors
+     * the Swift `getElementValueAsString` (the `[[String]]` Table join is
+     * deferred with that value type).
      */
     fun getElementValueAsString(windowUUID: String = "", viewID: Int, viewPartID: Int = 0): String? {
         val viewModel = viewModel(windowUUID, viewID) ?: return null
@@ -355,6 +359,8 @@ object ActionUIModel {
             valueType == ActionUIValueType.COLOR && value is Color -> colorToHex(value)
             valueType == ActionUIValueType.STRING_LIST && value is List<*> ->
                 value.joinToString("\t") { it?.toString() ?: "" }
+            valueType == ActionUIValueType.COORDINATE && value is ActionUICoordinate ->
+                coordinateToJson(value)
             else -> value.toString()
         }
     }
@@ -396,6 +402,10 @@ object ActionUIModel {
             }
             // Tab-separated, matching Apple's `[String]` parse (empty fields dropped).
             ActionUIValueType.STRING_LIST -> value.split("\t").filter { it.isNotEmpty() }
+            ActionUIValueType.COORDINATE -> parseCoordinate(value) ?: run {
+                logger.log("Invalid coordinate JSON string: $value for viewID: $viewID", LoggerLevel.warning)
+                return
+            }
             ActionUIValueType.NONE -> {
                 logger.log(
                     "Element of type ${viewModel.elementType} has no value and does not support " +

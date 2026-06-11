@@ -268,18 +268,27 @@ internal fun resolveSymbolGrade(explicit: Int?): Int =
 /** Default symbol size (sp) when neither `materialSize` nor an inherited font size applies. */
 internal const val DEFAULT_SYMBOL_SIZE_SP = 20f
 
-/** `imageScale` multipliers, approximating SF Symbol small/medium/large scaling. */
-internal const val IMAGE_SCALE_SMALL_FACTOR = 0.85f
-internal const val IMAGE_SCALE_LARGE_FACTOR = 1.15f
+/**
+ * `imageScale` multipliers and the font-to-symbol box factor, calibrated against
+ * the real SF Symbol sizes (measured via `NSImage.SymbolConfiguration` at a 17pt
+ * body font: medium boxes are ~20pt -> 1.18x the font size; small/large are
+ * 16/26pt -> 0.80x/1.28x of medium - figures consistent across glyph shapes).
+ * Material glyphs are drawn at em == size, so without [SYMBOL_FONT_BOX_FACTOR]
+ * they read visibly smaller next to the same title than SF Symbols do.
+ */
+internal const val IMAGE_SCALE_SMALL_FACTOR = 0.8f
+internal const val IMAGE_SCALE_LARGE_FACTOR = 1.28f
+internal const val SYMBOL_FONT_BOX_FACTOR = 1.18f
 
 /**
  * Resolves the rendered glyph size (sp), mirroring how an SF Symbol image is
  * sized: relative to the surrounding font, scaled by `imageScale`. Pure /
  * unit-testable.
  *
- *   1. base = [explicitSizeSp] (the `materialSize:android` override) if set,
- *      else [inheritedFontSizeSp] (the ambient `font` size), else
- *      [DEFAULT_SYMBOL_SIZE_SP].
+ *   1. base = [explicitSizeSp] (the `materialSize:android` override, taken
+ *      as-is) if set, else [inheritedFontSizeSp] (the ambient `font` size) *
+ *      [SYMBOL_FONT_BOX_FACTOR] (an SF Symbol renders larger than its font -
+ *      see the factor docs), else [DEFAULT_SYMBOL_SIZE_SP].
  *   2. multiplied by the `imageScale` factor (`small`/`large`; `medium`, `null`,
  *      or an invalid value leave it unscaled).
  */
@@ -288,13 +297,43 @@ internal fun resolveSymbolSizeSp(
     imageScale: String?,
     inheritedFontSizeSp: Float?,
 ): Float {
-    val base = explicitSizeSp ?: inheritedFontSizeSp ?: DEFAULT_SYMBOL_SIZE_SP
+    val base = explicitSizeSp
+        ?: inheritedFontSizeSp?.times(SYMBOL_FONT_BOX_FACTOR)
+        ?: DEFAULT_SYMBOL_SIZE_SP
     val factor = when (imageScale?.lowercase()) {
         "small" -> IMAGE_SCALE_SMALL_FACTOR
         "large" -> IMAGE_SCALE_LARGE_FACTOR
         else    -> 1f
     }
     return base * factor
+}
+
+/**
+ * The frame box (dp) a *resizable* glyph should scale to, or `null` when the
+ * element is not resizable or carries no usable fixed `frame`. Mirrors SwiftUI,
+ * where `.resizable()` makes `Image(systemName:)` scale to its frame instead of
+ * drawing at the font-relative size (and `imageScale` no longer applies - the
+ * caller passes the result as the explicit size with no scale).
+ *
+ * `resizable` follows the Apple contract: the explicit boolean wins, else it is
+ * implied by a `contentMode` (see `Image.swift`). With both axes given,
+ * `contentMode: "fill"` takes the larger (the square glyph em overflows the
+ * short axis - the crop analog), anything else aspect-fits the smaller; a
+ * single-axis frame uses that axis. Pure / unit-testable.
+ */
+internal fun resolveResizableGlyphFrameDp(properties: JsonObject?): Float? {
+    if (properties == null) return null
+    val contentMode = properties.stringProperty("contentMode")
+    val resizable = properties.booleanProperty("resizable") ?: (contentMode != null)
+    if (!resizable) return null
+    val frame = properties["frame"] as? JsonObject ?: return null
+    val width = frame.numberProperty("width")?.toFloat()
+    val height = frame.numberProperty("height")?.toFloat()
+    return when {
+        width != null && height != null ->
+            if (contentMode == "fill") maxOf(width, height) else minOf(width, height)
+        else -> width ?: height
+    }
 }
 
 /**

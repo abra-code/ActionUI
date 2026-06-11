@@ -3,7 +3,7 @@
 build_sf_material_map.py - compile the SF Symbols -> Material Symbols mapping
 into the compact table embedded in ActionUIAndroid.
 
-Input  (from the glyphsvg mapping system):
+Input  (from the sf-symbols-material-map repo):
   sf_to_material.json   { "_meta": {...}, "map": { "<sf_name>": { "material",
                           "fill", "weight", "score", "alternatives", "note" }, ... } }
                         'fill' (default false) and 'weight' (default 400) are both
@@ -41,7 +41,7 @@ codepoint + fill flag.
 
 Usage:
   build_sf_material_map.py \
-      --mapping     /path/to/sf_to_material.json \
+      --mapping     /path/to/sf-symbols-material-map/out/sf_to_material.json \
       --codepoints  ActionUIAndroid/.../symbols/MaterialSymbolsRounded.codepoints \
       --out         ActionUIAndroid/.../symbols/sf_to_material.map \
       [--min-score N]    drop matches scored below N (0-100); default 60
@@ -116,7 +116,7 @@ def build_entries(
     codepoints: dict[str, int],
     min_score: int = 0,
 ) -> tuple[list[Entry], Stats, list[str]]:
-    """Transform the glyphsvg mapping object into embedded [Entry] rows. Pure /
+    """Transform the sf-symbols-material-map mapping object into embedded [Entry] rows. Pure /
     unit-testable: takes already-parsed dicts, returns sorted entries, stats, and
     a sample of unresolved Material names (for the human-readable report).
 
@@ -215,7 +215,7 @@ def _report(stats: Stats, unresolved: list[str], min_score: int) -> str:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Compile the SF->Material embedded map.")
-    ap.add_argument("--mapping", required=True, help="glyphsvg sf_to_material.json")
+    ap.add_argument("--mapping", required=True, help="sf-symbols-material-map sf_to_material.json (out/sf_to_material.json)")
     ap.add_argument("--codepoints", required=True, help="MaterialSymbolsRounded.codepoints")
     ap.add_argument("--out", required=True, help="output sf_to_material.map")
     ap.add_argument("--min-score", type=int, default=DEFAULT_MIN_SCORE,
@@ -248,7 +248,7 @@ def main(argv: list[str]) -> int:
         "build_sf_material_map.py\n"
         "# Format: <sf_name> <codepoint_hex> [<fill>] [<weight>] - trailing integers\n"
         "# are axis overrides by range: 1 => FILL 1, 100..700 => wght.\n"
-        "# Generated artifact - do not edit by hand; regenerate from the glyphsvg "
+        "# Generated artifact - do not edit by hand; regenerate from the sf-symbols-material-map "
         "mapping.\n"
     )
     body = "\n".join(format_lines(entries))

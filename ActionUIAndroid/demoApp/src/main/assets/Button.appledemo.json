@@ -1,0 +1,365 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "spacing": 12.0,
+    "alignment": "center",
+    "padding": "default",
+    "accessibilityIdentifier": "buttons_container"
+  },
+  "children": [
+    {
+        "type": "HStack",
+        "properties": {
+          "spacing": 12,
+          "alignment": "center"
+        },
+        "children": [
+			{
+			  "type": "Button",
+			  "id": 2,
+			  "properties": {
+				"title": "Plain",
+				"buttonStyle": "plain",
+				"foregroundStyle": "blue",
+				"font": "headline",
+				"padding": 10.0,
+				"accessibilityIdentifier": "click_me_button",
+				"actionID": "click_me_action"
+			  }
+			},
+			{
+			  "type": "Button",
+			  "id": 3,
+			  "properties": {
+				"title": "Submit",
+				"buttonStyle": "borderedProminent",
+				"padding": {
+				  "top": 5.0,
+				  "bottom": 5.0,
+				  "leading": 10.0,
+				  "trailing": 10.0
+				},
+				"accessibilityIdentifier": "submit_button",
+				"actionID": "submit_action"
+			  }
+			},
+			{
+			  "type": "Button",
+			  "id": 5,
+			  "properties": {
+				"title": "Disabled",
+				"disabled": true,
+				"buttonStyle": "bordered",
+				"font": "callout",
+				"padding": 8.0,
+				"accessibilityIdentifier": "disabled_button"
+			  }
+			},
+            {
+              "type": "Button",
+              "properties": {
+                "title": "Borderless",
+                "buttonStyle": "borderless",
+                "padding": 8.0,
+                "accessibilityIdentifier": "borderless_button"
+              }
+            }
+       ]
+    },
+    {
+        "type": "HStack",
+        "properties": {
+          "spacing": 12,
+          "alignment": "center"
+        },
+        "children": [
+			{
+			  "type": "Button",
+			  "id": 4,
+			  "properties": {
+				"title": "Delete",
+				"disabled": false,
+				"role": "destructive",
+				"font": "body",
+				"frame": {
+				  "width": 150.0,
+				  "height": 44.0,
+				  "alignment": "center"
+				},
+				"padding": 12.0,
+				"accessibilityIdentifier": "delete_button",
+				"actionID": "delete_action"
+			  }
+			},
+			{
+			  "type": "Button",
+			  "id": 6,
+			  "properties": {
+				"title": "Cancel",
+				"disabled": false,
+				"role": "cancel",
+				"cornerRadius": 10.0,
+				"frame": {
+				  "width": 120.0,
+				  "height": 40.0,
+				  "alignment": "center"
+				},
+				"padding": {
+				  "top": 10.0,
+				  "bottom": 10.0,
+				  "leading": 20.0,
+				  "trailing": 20.0
+				},
+				"accessibilityIdentifier": "cancel_button",
+				"actionID": "cancel_action"
+			  }
+			},
+        ]
+    },
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "controlSize variants",
+        "font": "headline",
+        "padding": { "top": 16, "bottom": 4 }
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12,
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Mini",
+            "buttonStyle": "bordered",
+            "controlSize": "mini"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Small",
+            "buttonStyle": "bordered",
+            "controlSize": "small"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Regular",
+            "buttonStyle": "bordered",
+            "controlSize": "regular"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Large",
+            "buttonStyle": "bordered",
+            "controlSize": "large"
+          }
+        }
+      ]
+    },
+
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Image scale comparison (icon only)",
+        "font": "headline",
+        "padding": {
+          "top": 24,
+          "bottom": 8
+        }
+      }
+    },
+
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 40,
+        "alignment": "center"
+      },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4,
+            "alignment": "center"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "id": 7,
+              "properties": {
+                "systemImage": "star.circle.fill",
+                "title": "",
+                "imageScale": "small",
+                "buttonStyle": "plain",
+                "foregroundStyle": "purple",
+                "frame": {
+                  "width": 60,
+                  "height": 60
+                },
+                "accessibilityIdentifier": "scale_small"
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "small",
+                "font": "caption",
+                "foregroundStyle": "secondary"
+              }
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4,
+            "alignment": "center"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "id": 8,
+              "properties": {
+                "systemImage": "star.circle.fill",
+                "title": "",
+                "imageScale": "medium",
+                "buttonStyle": "plain",
+                "foregroundStyle": "purple",
+                "frame": {
+                  "width": 60,
+                  "height": 60
+                },
+                "accessibilityIdentifier": "scale_medium"
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "medium",
+                "font": "caption",
+                "foregroundStyle": "secondary"
+              }
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": {
+            "spacing": 4,
+            "alignment": "center"
+          },
+          "children": [
+            {
+              "type": "Button",
+              "id": 9,
+              "properties": {
+                "systemImage": "star.circle.fill",
+                "title": "",
+                "imageScale": "large",
+                "buttonStyle": "plain",
+                "foregroundStyle": "purple",
+                "frame": {
+                  "width": 60,
+                  "height": 60
+                },
+                "accessibilityIdentifier": "scale_large"
+              }
+            },
+            {
+              "type": "Text",
+              "properties": {
+                "text": "large",
+                "font": "caption",
+                "foregroundStyle": "secondary"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Image variants",
+        "font": "headline",
+        "padding": {
+          "top": 20,
+          "bottom": 8
+        }
+      }
+    },
+
+    {
+      "type": "Button",
+      "properties": {
+        "systemImage": "plus.circle.fill",
+        "imageScale": "large",
+        "buttonStyle": "plain",
+        "foregroundStyle": "accentcolor",
+        "accessibilityIdentifier": "icon_only_plus",
+        "actionID": "icon_plus"
+      }
+    },
+
+    {
+      "type": "Button",
+      "properties": {
+        "systemImage": "arrow.down.circle",
+        "title": "Download",
+        "imageScale": "medium",
+        "buttonStyle": "bordered",
+        "accessibilityIdentifier": "labeled_download",
+        "actionID": "labeled_download"
+      }
+    },
+
+    {
+      "type": "Button",
+      "properties": {
+        "assetImage": "Orb",
+        "imageScale": "large",
+        "buttonStyle": "plain",
+        "accessibilityIdentifier": "icon_only_orb",
+        "actionID": "orb_icon"
+      }
+    },
+
+    {
+      "type": "Button",
+      "properties": {
+        "assetImage": "Orb",
+        "title": "Orb Action",
+        "imageScale": "large",
+        "buttonStyle": "borderedProminent",
+        "accessibilityIdentifier": "labeled_orb",
+        "actionID": "orb_labeled"
+      }
+    },
+
+    {
+      "type": "Button",
+      "properties": {
+        "systemImage": "trash.fill",
+        "title": "Clear",
+        "imageScale": "large",
+        "buttonStyle": "borderedProminent",
+        "role": "destructive",
+        "accessibilityIdentifier": "destructive_with_icon",
+        "actionID": "clear_action"
+      }
+    }
+
+  ]
+}

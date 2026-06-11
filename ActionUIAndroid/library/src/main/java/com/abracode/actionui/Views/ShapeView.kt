@@ -1,6 +1,7 @@
 package com.abracode.actionui.Views
 
 import androidx.compose.foundation.layout.Spacer as LayoutSpacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -33,14 +34,18 @@ import com.abracode.actionui.Helpers.resolveShapePaint
  * [Stroke] `DrawStyle`, a fill to [Fill]. Each shape builder only describes its
  * geometry by passing a [draw] lambda to [ShapeView].
  *
- * ## Sizing caveat (documented divergence)
+ * ## Sizing: a shape is greedy
  *
- * A `Spacer` wraps to zero size with no constraints, whereas a SwiftUI shape is
- * *greedy* - it expands to fill the space offered by its parent. So on Android a
- * shape needs an explicit `frame` (or a parent that stretches it) to be visible;
- * a frameless shape renders nothing. This is the same "needs slack/size" class
- * of caveat already documented for per-child `align` (section 1) and `Divider`/`Spacer`
- * (section 9) in `Private/Android_Porting_Notes.md`; see section 11 there.
+ * A SwiftUI shape accepts the full proposal - it expands to fill whatever its
+ * parent offers. The `fillMaxSize` below declares that greed in Compose terms;
+ * without it the zero-content `Spacer` wraps to 0x0 inside a fixed `frame`'s
+ * `wrapContentSize` (which hands the content *loose* constraints so natural-size
+ * widgets like an M3 Button are never crushed - see `applyFrame` in
+ * `ModifierResolver.kt`) and the shape draws nothing. With an unbounded axis
+ * (e.g. height inside a vertical scroller) `fillMaxSize` cannot resolve, so a
+ * shape there still needs an explicit `frame` to be visible - the remaining
+ * "needs slack/size" caveat documented in section 11 of
+ * `Private/Android_Porting_Notes.md`.
  */
 @Composable
 internal fun ShapeView(
@@ -55,7 +60,7 @@ internal fun ShapeView(
     val paint = remember(props, defaultColor) { resolveShapePaint(props, defaultColor, logger) }
 
     LayoutSpacer(
-        modifier = modifier.drawBehind {
+        modifier = modifier.fillMaxSize().drawBehind {
             val style: DrawStyle = paint.strokeWidthDp?.let { Stroke(it.dp.toPx()) } ?: Fill
             draw(paint.color, style)
         }

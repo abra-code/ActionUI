@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -93,8 +94,11 @@ object Stepper : ActionUIViewConstruction {
             }
         }
 
-        val canDecrement = config.range == null || current > config.range.first
-        val canIncrement = config.range == null || current < config.range.second
+        // SwiftUI `.disabled` (set here or on any ancestor) gates both buttons,
+        // on top of the per-bound disabling a `range` already applies.
+        val enabled = LocalActionUIEnabled.current
+        val canDecrement = enabled && (config.range == null || current > config.range.first)
+        val canIncrement = enabled && (config.range == null || current < config.range.second)
 
         // SwiftUI `.tint` colors the stepper's +/- control; map it to the button
         // content color when an ancestor (or this element) provides one.

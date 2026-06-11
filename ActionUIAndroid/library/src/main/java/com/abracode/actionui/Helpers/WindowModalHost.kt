@@ -63,9 +63,12 @@ fun WindowModalHost(windowModel: WindowModel) {
     }
 }
 
-/** Builds the modal's loaded root through the registry, like the window root. */
+/**
+ * Builds a modal's root element through the registry, like the window root.
+ * Shared with the element-level modals (`ElementModalHost.kt`).
+ */
 @Composable
-private fun ModalContent(element: ActionUIElement, logger: ActionUILogger) {
+internal fun ModalContent(element: ActionUIElement, logger: ActionUILogger) {
     val builder = ActionUIRegistry.lookup(element.type) ?: return
     ProvideTextStyleEnvironment(element.properties, logger) {
         builder.BuildView(element, Modifier.applyCommonProperties(element.properties, logger))

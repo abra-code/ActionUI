@@ -1,0 +1,87 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Lazy Grid Template Demo",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        {
+          "type": "Button",
+          "properties": { "title": "Load", "actionID": "grid.template.demo.load", "buttonStyle": "borderedProminent" }
+        },
+        {
+          "type": "Button",
+          "properties": { "title": "Append", "actionID": "grid.template.demo.append", "buttonStyle": "bordered" }
+        },
+        {
+          "type": "Button",
+          "properties": { "title": "Clear", "actionID": "grid.template.demo.clear", "buttonStyle": "bordered" }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "LazyVGrid + Button template (3 flexible columns):", "font": "headline" }
+    },
+    {
+      "type": "ScrollView",
+      "properties": { "frame": { "maxHeight": 220 } },
+      "content": {
+        "type": "LazyVGrid",
+        "id": 40,
+        "properties": {
+          "columns": [
+            { "flexible": true },
+            { "flexible": true },
+            { "flexible": true }
+          ],
+          "spacing": 8
+        },
+        "template": {
+          "type": "Button",
+          "properties": { "title": "$1", "actionID": "grid.template.demo.select", "buttonStyle": "bordered" }
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "LazyHGrid + Text template (2 flexible rows):", "font": "headline" }
+    },
+    {
+      "type": "ScrollView",
+      "properties": { "axis": "horizontal", "frame": { "maxHeight": 120 } },
+      "content": {
+        "type": "LazyHGrid",
+        "id": 50,
+        "properties": {
+          "rows": [
+            { "flexible": true },
+            { "flexible": true }
+          ],
+          "spacing": 8
+        },
+        "template": {
+          "type": "Text",
+          "properties": { "text": "$1", "padding": 6 }
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": { "text": "Tap a cell to see the action here." }
+    }
+  ]
+}

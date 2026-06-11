@@ -25,3 +25,5 @@ dependencyResolutionManagement {
 rootProject.name = "ActionUIAndroid"
 include(":demoApp")
 include(":library")
+include(":map-osm")
+include(":map-google")
