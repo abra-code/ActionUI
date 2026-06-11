@@ -171,6 +171,21 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "GeometryReader size: $size", Toast.LENGTH_SHORT).show()
         }
 
+        // Map.json: the COORDINATE value bridge. "map.read" reads the map's
+        // center as the canonical {"latitude":..,"longitude":..} JSON string
+        // (updated as the user pans); "map.london" writes a coordinate, panning
+        // the map from the host side.
+        ActionUIModel.registerActionHandler("map.read") { _, windowUUID, _, _, _ ->
+            val center = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Map center: $center", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("map.london") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValueFromString(
+                windowUUID = windowUUID, viewID = 1,
+                value = "{\"latitude\": 51.5074, \"longitude\": -0.1278}",
+            )
+        }
+
         // TabView.json: each tab switch passes the new 0-based index as context.
         ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()

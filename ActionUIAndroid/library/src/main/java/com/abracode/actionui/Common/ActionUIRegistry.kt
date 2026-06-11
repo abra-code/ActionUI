@@ -27,6 +27,7 @@ import com.abracode.actionui.Views.LazyVGrid
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
 import com.abracode.actionui.Views.LoadableView
+import com.abracode.actionui.Views.MapView
 import com.abracode.actionui.Views.Menu
 import com.abracode.actionui.Views.ListView
 import com.abracode.actionui.Views.NavigationLink
@@ -115,6 +116,7 @@ object ActionUIRegistry {
         register("ToolbarItemGroup", ToolbarItemGroup)
         register("WebView", WebView)
         register("AsyncImage", AsyncImage)
+        register("Map", MapView)
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {
