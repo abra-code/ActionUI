@@ -1,0 +1,54 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "VideoPlayer",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "VideoPlayer",
+      "id": 1,
+      "properties": {
+        "url": "https://abracode.com/ActionUI/Nectarine.mp4",
+        "frame": { "height": 240 }
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12.0 },
+      "children": [
+        {
+          "type": "Button",
+          "id": 2,
+          "properties": {
+            "title": "Read URL",
+            "actionID": "video.read"
+          }
+        },
+        {
+          "type": "Button",
+          "id": 3,
+          "properties": {
+            "title": "Swap video",
+            "actionID": "video.swap"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Tap the video for the transport controls; the host can swap the source.",
+        "font": "caption",
+        "foregroundColor": "#666666"
+      }
+    }
+  ]
+}

@@ -186,6 +186,20 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        // VideoPlayer.json: the String value bridge. "video.read" reads the
+        // current source URL; "video.swap" writes a different URL, swapping the
+        // video from the host side.
+        ActionUIModel.registerActionHandler("video.read") { _, windowUUID, _, _, _ ->
+            val url = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "VideoPlayer URL: $url", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("video.swap") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValueFromString(
+                windowUUID = windowUUID, viewID = 1,
+                value = "https://www.w3schools.com/html/mov_bbb.mp4",
+            )
+        }
+
         // TabView.json: each tab switch passes the new 0-based index as context.
         ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()

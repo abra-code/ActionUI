@@ -52,6 +52,7 @@ import com.abracode.actionui.Views.ToolbarItem
 import com.abracode.actionui.Views.ToolbarItemGroup
 import com.abracode.actionui.Views.TextField
 import com.abracode.actionui.Views.Toggle
+import com.abracode.actionui.Views.VideoPlayer
 import com.abracode.actionui.Views.VStack
 import com.abracode.actionui.Views.WebView
 import com.abracode.actionui.Views.ZStack
@@ -115,6 +116,7 @@ object ActionUIRegistry {
         register("ToolbarItemGroup", ToolbarItemGroup)
         register("WebView", WebView)
         register("AsyncImage", AsyncImage)
+        register("VideoPlayer", VideoPlayer)
         // "Map" is deliberately NOT a core element: a map engine is
         // distribution baggage for clients that never show one. A provider
         // module (:map-osm or :map-google) self-registers it at app startup;

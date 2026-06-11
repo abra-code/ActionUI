@@ -11,6 +11,8 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/demoApp" />
             <option value="$PROJECT_DIR$/library" />
+            <option value="$PROJECT_DIR$/map-google" />
+            <option value="$PROJECT_DIR$/map-osm" />
           </set>
         </option>
       </GradleProjectSettings>
