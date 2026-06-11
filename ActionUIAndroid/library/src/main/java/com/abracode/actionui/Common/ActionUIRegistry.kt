@@ -27,7 +27,6 @@ import com.abracode.actionui.Views.LazyVGrid
 import com.abracode.actionui.Views.LazyVStack
 import com.abracode.actionui.Views.Link
 import com.abracode.actionui.Views.LoadableView
-import com.abracode.actionui.Views.MapView
 import com.abracode.actionui.Views.Menu
 import com.abracode.actionui.Views.ListView
 import com.abracode.actionui.Views.NavigationLink
@@ -116,7 +115,10 @@ object ActionUIRegistry {
         register("ToolbarItemGroup", ToolbarItemGroup)
         register("WebView", WebView)
         register("AsyncImage", AsyncImage)
-        register("Map", MapView)
+        // "Map" is deliberately NOT a core element: a map engine is
+        // distribution baggage for clients that never show one. A provider
+        // module (:map-osm or :map-google) self-registers it at app startup;
+        // the shared contract lives in Helpers/MapContract.kt.
     }
 
     fun register(type: String, builder: ActionUIViewConstruction) {

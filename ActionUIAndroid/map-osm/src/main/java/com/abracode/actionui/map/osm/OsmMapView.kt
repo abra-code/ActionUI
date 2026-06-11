@@ -1,4 +1,4 @@
-package com.abracode.actionui.Views
+package com.abracode.actionui.map.osm
 
 import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
@@ -14,32 +14,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.abracode.actionui.Common.ActionUIElement
-import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Common.ViewModel
 import com.abracode.actionui.Helpers.ActionUICoordinate
-import com.abracode.actionui.Helpers.booleanProperty
-import com.abracode.actionui.Helpers.coordinateProperty
-import com.abracode.actionui.Helpers.stringProperty
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
+import com.abracode.actionui.Helpers.MapConfig
+import com.abracode.actionui.Helpers.mapInitialCoordinate
+import com.abracode.actionui.Helpers.resolveMapConfig
 
 /**
- * Interactive map. Mirror of the Apple `Map` element
- * (`ActionUI/Views/Map.swift`, MapKit), rendered as the **default
- * OpenStreetMap provider**: a Leaflet page hosted in the platform
- * [android.webkit.WebView] - zero Gradle dependency, zero API key (see
- * `Private/Android_Porting_Notes.md` entry 53). Android has no in-OS map
- * widget (Google's Maps SDK is a Play Services library needing a billed API
- * key); a host that wants the native Google map can ship its own
- * `ActionUIViewConstruction` and re-register `"Map"` over this default -
- * `ActionUIRegistry.register` is public and last-write-wins.
+ * The OpenStreetMap provider for the ActionUI `Map` element: a Leaflet page
+ * hosted in the platform [android.webkit.WebView]. Dependency- and key-free -
+ * Leaflet 1.9.4 is bundled in this module's assets (`assets/leaflet/`, BSD-2
+ * license included), so the map engine works offline; only the OSM tiles
+ * need network. Mirror of the Apple `Map` element
+ * (`ActionUI/Views/Map.swift`, MapKit); the provider-independent contract
+ * (validation, the COORDINATE value bridge) lives in the core library's
+ * `Helpers/MapContract.kt` / `Helpers/CoordinateHelper.kt`.
+ *
+ * Linking this module is all a client does: [OsmMapProvider] registers the
+ * element at app startup. Link exactly one Map provider module (`:map-osm`
+ * or `:map-google`) - with both linked, whichever initializer runs last
+ * wins, an undefined order.
  *
  * Sample JSON (Apple's contract, key for key):
  * ```
@@ -68,34 +69,34 @@ import kotlinx.serialization.json.contentOrNull
  * element's own report-backs are told apart from host writes with the
  * `lastTracked` guard, the WebView element's `lastTrackedURL` pattern.
  *
- * **Divergences, all inherent to the OSM default** (documented here, the
+ * **Divergences, all inherent to the OSM provider** (documented here, the
  * WebView Apple-only-toggles precedent):
  *   * `showsUserLocation` is accepted but not rendered - it needs the host
- *     app's location permission plumbing, which a library default should not
- *     force; a Google-provider module is the upgrade path.
+ *     app's location permission plumbing, which this provider does not
+ *     force; the `:map-google` module is the upgrade path.
  *   * `interactionModes` `"rotate"` is accepted but a no-op (Leaflet does not
  *     rotate); `"pan"`/`"zoom"` map to Leaflet's dragging / zoom handlers.
- *   * Leaflet 1.9.4 is **bundled in the library assets**
- *     (`assets/leaflet/`, BSD-2 license included), so the map engine works
- *     offline and has no CDN dependency; only the tiles need network
- *     (`INTERNET` is already required by `LoadableView`). Tiles come from
- *     OpenStreetMap's public servers (attribution shown, per OSM policy;
- *     fair-use traffic - fine for applets, not heavy consumer apps); with no
- *     network the map degrades to a gray grid with controls rather than
- *     rendering nothing.
+ *   * Tiles come from OpenStreetMap's public servers (attribution shown, per
+ *     OSM policy; fair-use traffic - fine for applets, not heavy consumer
+ *     apps), needing network (`INTERNET` is already required by the core
+ *     library); with no network the map degrades to a gray grid with
+ *     pin/controls/attribution rather than rendering nothing. Page console
+ *     errors and tile failures surface through the ActionUI logger.
  *
- * **Sizing.** Like every gesture-owning element here
- * ([[android-bounded-height-scroll]]), it needs a bounded height (an explicit
- * `frame`) when hosted in an unbounded scroll column.
- *
- * Named `MapView` because `Map` collides with `kotlin.collections.Map` (the
- * `ListView`-for-`List` precedent); registered as `"Map"`.
+ * **Sizing.** Like every gesture-owning element ([[android-bounded-height-scroll]]),
+ * it needs a bounded height (an explicit `frame`) when hosted in an
+ * unbounded scroll column. The element is greedy (SwiftUI's Map fills
+ * whatever its parent offers), declared via `fillMaxSize` like ShapeView.
  */
-object MapView : ActionUIViewConstruction {
+object OsmMapView : ActionUIViewConstruction {
     override val valueType = ActionUIValueType.COORDINATE
 
-    override fun initialValue(element: ActionUIElement): Any? =
-        element.properties?.coordinateProperty("coordinate") ?: ActionUICoordinate(0.0, 0.0)
+    override fun initialValue(element: ActionUIElement): Any? = mapInitialCoordinate(element)
+
+    /** Registers this provider as the `Map` element. Called by [OsmMapProvider] at startup. */
+    fun register() {
+        ActionUIRegistry.register("Map", this)
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     @Composable
@@ -130,7 +131,7 @@ object MapView : ActionUIViewConstruction {
                     // bundled Leaflet js/css/marker images resolve from the
                     // APK; file subresource loads need this opt-in (off by
                     // default since API 30). The page content is entirely
-                    // library-generated (annotation text is escaped) and the
+                    // module-generated (annotation text is escaped) and the
                     // only remote subresources are tile images.
                     settings.allowFileAccess = true
                     // Surface page errors (a failed tile load, a JS error)
@@ -200,7 +201,7 @@ object MapView : ActionUIViewConstruction {
      */
     private fun reportCenter(
         coordinate: ActionUICoordinate,
-        viewModel: com.abracode.actionui.Common.ViewModel?,
+        viewModel: ViewModel?,
         lastTracked: MutableState<ActionUICoordinate>,
         config: MapConfig,
         element: ActionUIElement,
@@ -216,113 +217,6 @@ object MapView : ActionUIViewConstruction {
             ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0)
         }
     }
-}
-
-/** One validated annotation: a pin with an optional title/subtitle popup. */
-internal data class MapAnnotation(
-    val coordinate: ActionUICoordinate,
-    val title: String? = null,
-    val subtitle: String? = null,
-)
-
-/** The element's validated properties, resolved once per `properties` change. */
-internal data class MapConfig(
-    val coordinate: ActionUICoordinate? = null,
-    val showsUserLocation: Boolean = false,
-    val interactionModes: List<String> = VALID_MAP_MODES,
-    val annotations: List<MapAnnotation> = emptyList(),
-    val actionID: String? = null,
-    val valueChangeActionID: String? = null,
-)
-
-private val VALID_MAP_MODES = listOf("pan", "zoom", "rotate")
-
-/**
- * Resolves and validates the map properties, mirroring the Apple
- * `Map.validateProperties` warnings: an invalid `coordinate` is dropped, a
- * non-Boolean `showsUserLocation` defaults to false, malformed
- * `interactionModes` default to all, and annotations are validated
- * per-entry (an invalid coordinate skips the annotation; a non-String
- * title/subtitle is dropped). Pure (logging aside) so it is unit-testable.
- */
-internal fun resolveMapConfig(props: JsonObject?, logger: ActionUILogger?): MapConfig {
-    if (props == null) return MapConfig()
-
-    var coordinate: ActionUICoordinate? = null
-    if (props["coordinate"] != null) {
-        coordinate = props.coordinateProperty("coordinate")
-        if (coordinate == null) {
-            logger?.log(
-                "Map coordinate must be a dictionary with latitude/longitude numeric values",
-                LoggerLevel.warning,
-            )
-        }
-    }
-
-    var showsUserLocation = false
-    if (props["showsUserLocation"] != null) {
-        val flag = props.booleanProperty("showsUserLocation")
-        if (flag != null) {
-            showsUserLocation = flag
-        } else {
-            logger?.log("Map showsUserLocation must be a Boolean; defaulting to false", LoggerLevel.warning)
-        }
-    }
-
-    var modes = VALID_MAP_MODES
-    val rawModes = props["interactionModes"]
-    if (rawModes is JsonArray) {
-        val names = rawModes.map { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull }
-        if (names.all { it != null && it in VALID_MAP_MODES }) {
-            modes = names.filterNotNull()
-        } else {
-            logger?.log(
-                "Map interactionModes must be an array of 'pan', 'zoom', 'rotate'; defaulting to all",
-                LoggerLevel.warning,
-            )
-        }
-    } else if (rawModes != null) {
-        logger?.log("Map interactionModes must be an array; defaulting to all", LoggerLevel.warning)
-    }
-
-    val annotations = mutableListOf<MapAnnotation>()
-    val rawAnnotations = props["annotations"]
-    if (rawAnnotations is JsonArray) {
-        rawAnnotations.forEach { entry ->
-            val dict = entry as? JsonObject
-            val annotationCoordinate = dict?.coordinateProperty("coordinate")
-            if (annotationCoordinate == null) {
-                logger?.log("Map annotation coordinate invalid; skipping annotation", LoggerLevel.warning)
-                return@forEach
-            }
-            var title: String? = null
-            if (dict["title"] != null) {
-                title = (dict["title"] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-                if (title == null) {
-                    logger?.log("Map annotation title must be a String; defaulting to nil", LoggerLevel.warning)
-                }
-            }
-            var subtitle: String? = null
-            if (dict["subtitle"] != null) {
-                subtitle = (dict["subtitle"] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-                if (subtitle == null) {
-                    logger?.log("Map annotation subtitle must be a String; defaulting to nil", LoggerLevel.warning)
-                }
-            }
-            annotations.add(MapAnnotation(annotationCoordinate, title, subtitle))
-        }
-    } else if (rawAnnotations != null) {
-        logger?.log("Map annotations must be an array of dictionaries; defaulting to empty", LoggerLevel.warning)
-    }
-
-    return MapConfig(
-        coordinate = coordinate,
-        showsUserLocation = showsUserLocation,
-        interactionModes = modes,
-        annotations = annotations,
-        actionID = props.stringProperty("actionID"),
-        valueChangeActionID = props.stringProperty("valueChangeActionID"),
-    )
 }
 
 /**
@@ -343,7 +237,7 @@ internal fun escapeForPopup(text: String): String = text
 
 /**
  * The Leaflet/OSM page for [config], centered on [start]. Leaflet 1.9.4 is
- * bundled in the library assets and referenced relative to the page's
+ * bundled in this module's assets and referenced relative to the page's
  * `file:///android_asset/leaflet/` base (a CDN `<script src>` was a single
  * point of failure: one failed fetch left a permanently blank map); OSM
  * tiles with the required attribution, one marker per annotation (title
@@ -368,11 +262,13 @@ internal fun leafletMapHtml(config: MapConfig, start: ActionUICoordinate): Strin
     val pan = "pan" in config.interactionModes
     val zoom = "zoom" in config.interactionModes
     val markers = config.annotations.joinToString("\n") { annotation ->
+        val title = annotation.title
+        val subtitle = annotation.subtitle
         val popup = when {
-            annotation.title != null && annotation.subtitle != null ->
-                "'<b>${escapeForPopup(annotation.title)}</b><br>${escapeForPopup(annotation.subtitle)}'"
-            annotation.title != null -> "'<b>${escapeForPopup(annotation.title)}</b>'"
-            annotation.subtitle != null -> "'${escapeForPopup(annotation.subtitle)}'"
+            title != null && subtitle != null ->
+                "'<b>${escapeForPopup(title)}</b><br>${escapeForPopup(subtitle)}'"
+            title != null -> "'<b>${escapeForPopup(title)}</b>'"
+            subtitle != null -> "'${escapeForPopup(subtitle)}'"
             else -> null
         }
         val marker = "L.marker([${annotation.coordinate.latitude}, ${annotation.coordinate.longitude}]).addTo(map)"

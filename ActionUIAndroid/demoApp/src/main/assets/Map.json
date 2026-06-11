@@ -8,7 +8,7 @@
     {
       "type": "Text",
       "properties": {
-        "text": "Map (OpenStreetMap default)",
+        "text": "Map (OpenStreetMap provider)",
         "font": "title2"
       }
     },
