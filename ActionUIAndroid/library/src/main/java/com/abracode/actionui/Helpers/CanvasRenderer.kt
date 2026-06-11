@@ -85,9 +85,6 @@ import kotlin.math.roundToInt
  *   * **Shadow** ignores the optional `blendMode`/`drawAbove` knobs
  *     (`setShadowLayer` has no blend hook); shadows composite normally below
  *     content. Raster images draw without filters.
- *   * **Layer** opacity/blend apply to the composited group (`saveLayer`),
- *     not per-draw as `GraphicsContext` state does - the difference is only
- *     visible where shapes overlap *inside* one layer.
  *   * **Radial gradients** have no start radius in Compose; a non-zero
  *     `startRadius` is warned and treated as 0.
  *   * `text.alignment` is accepted but not applied - same as Apple, whose
@@ -658,6 +655,13 @@ internal class CanvasDrawEnv(
  * normalization space (the element size, or the layer frame inside a layer);
  * [shadow]/[blur] seed the inherited filter state for nested layers.
  *
+ * [layerAlpha]/[layerBlend] are a layer's opacity/blend applied **per draw**,
+ * the `GraphicsContext.opacity`/`.blendMode` context-state semantics of the
+ * Swift renderer: each op composites against the content already in the layer
+ * (so a white stroke inside a multiply layer vanishes into the fill beneath
+ * it). The layer itself then composites onto the canvas with the state it
+ * inherited, like a Core Graphics transparency layer.
+ *
  * The caller brackets the walk with `canvas.save()`/`restore()` so cumulative
  * transforms and clips cannot leak past the element's draw block.
  */
@@ -668,6 +672,8 @@ internal fun DrawScope.drawCanvasOperations(
     env: CanvasDrawEnv,
     shadow: CanvasOp.Shadow? = null,
     blur: Float? = null,
+    layerAlpha: Float = 1f,
+    layerBlend: BlendMode = BlendMode.SrcOver,
 ) {
     val canvas = drawContext.canvas
     var activeShadow = shadow
@@ -727,13 +733,15 @@ internal fun DrawScope.drawCanvasOperations(
                         )
                     }
                 }
+                paint.blendMode = layerBlend
+                paint.alpha *= layerAlpha
                 applyFilters(paint, activeShadow, activeBlur, ::pt)
                 canvas.drawPath(path, paint)
             }
 
             is CanvasOp.Text -> {
                 val frame = rect(op.frame)
-                val (color, composeShadow) = textShadow(op.color)
+                val (color, composeShadow) = textShadow(op.color.copy(alpha = op.color.alpha * layerAlpha))
                 drawText(
                     textMeasurer = env.textMeasurer,
                     text = op.text,
@@ -745,10 +753,12 @@ internal fun DrawScope.drawCanvasOperations(
                         shadow = composeShadow,
                     ),
                     size = frame.size,
+                    blendMode = layerBlend,
                 )
             }
 
-            is CanvasOp.Image -> drawCanvasImage(op, rect(op.frame), env, ::textShadow)
+            is CanvasOp.Image ->
+                drawCanvasImage(op, rect(op.frame), env, ::textShadow, layerAlpha, layerBlend)
 
             is CanvasOp.Clip -> canvas.clipPath(buildCanvasPath(op.path, canvasSize, pointsMode, this))
 
@@ -765,9 +775,12 @@ internal fun DrawScope.drawCanvasOperations(
                 // rotation inside the layer may sweep content outside the frame
                 // (GraphicsContext.drawLayer does not clip).
                 val inflate = max(max(frame.width, frame.height), 1f)
+                // The transparency layer composites onto the canvas with the
+                // *inherited* state; the layer's own opacity/blend become the
+                // per-draw state inside (GraphicsContext-state semantics).
                 val paint = Paint().apply {
-                    alpha = op.opacity
-                    blendMode = op.blendMode
+                    alpha = layerAlpha
+                    blendMode = layerBlend
                 }
                 canvas.saveLayer(
                     Rect(
@@ -780,6 +793,7 @@ internal fun DrawScope.drawCanvasOperations(
                 drawCanvasOperations(
                     op.operations, frame.size, pointsMode, env,
                     shadow = activeShadow, blur = activeBlur,
+                    layerAlpha = op.opacity, layerBlend = op.blendMode,
                 )
                 canvas.restore()
             }
@@ -918,6 +932,8 @@ private fun DrawScope.drawCanvasImage(
     frame: Rect,
     env: CanvasDrawEnv,
     textShadow: (Color) -> Pair<Color, Shadow?>,
+    layerAlpha: Float,
+    layerBlend: BlendMode,
 ) {
     when (val source = op.source) {
         is CanvasImageSpec.SystemName, is CanvasImageSpec.MaterialName -> {
@@ -958,7 +974,7 @@ private fun DrawScope.drawCanvasImage(
                 grade = resolveSymbolGrade(explicit = null),
                 opsz = fontSize.value.coerceIn(MATERIAL_OPSZ_MIN, MATERIAL_OPSZ_MAX),
             )
-            val tint = env.glyphColor.copy(alpha = env.glyphColor.alpha * op.opacity)
+            val tint = env.glyphColor.copy(alpha = env.glyphColor.alpha * op.opacity * layerAlpha)
             val (color, shadow) = textShadow(tint)
             val layout = env.textMeasurer.measure(
                 text = String(Character.toChars(codepoint)),
@@ -970,6 +986,7 @@ private fun DrawScope.drawCanvasImage(
                     frame.center.x - layout.size.width / 2f,
                     frame.center.y - layout.size.height / 2f,
                 ),
+                blendMode = layerBlend,
             )
         }
 
@@ -990,7 +1007,8 @@ private fun DrawScope.drawCanvasImage(
                     frame.width.roundToInt().coerceAtLeast(1),
                     frame.height.roundToInt().coerceAtLeast(1),
                 ),
-                alpha = op.opacity,
+                alpha = op.opacity * layerAlpha,
+                blendMode = layerBlend,
             )
         }
     }
