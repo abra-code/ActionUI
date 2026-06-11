@@ -12,6 +12,7 @@ import com.abracode.actionui.Views.Divider
 import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.EmptyView
 import com.abracode.actionui.Views.Form
+import com.abracode.actionui.Views.Gauge
 import com.abracode.actionui.Views.Group
 import com.abracode.actionui.Views.GroupBox
 import com.abracode.actionui.Views.HStack
@@ -76,6 +77,7 @@ object ActionUIRegistry {
         register("Circle", Circle)
         register("Ellipse", Ellipse)
         register("ProgressView", ProgressView)
+        register("Gauge", Gauge)
         register("TextField", TextField)
         register("SecureField", SecureField)
         register("TextEditor", TextEditor)

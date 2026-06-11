@@ -1,0 +1,53 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Gauge Variants"
+      }
+    },
+    {
+      "type": "Gauge",
+      "properties": {
+        "value": 65,
+        "title": "65%",
+        "style": "accessoryCircular",
+        "range": {
+          "min": 0.0,
+          "max": 100.0
+        }
+      }
+    },
+    {
+      "type": "Gauge",
+      "properties": {
+        "value": 0.4,
+        "title": "Level",
+        "style": "accessoryLinear"
+      }
+    },
+    {
+      "type": "Gauge",
+      "properties": {
+        "value": 0.75,
+        "title": "Capacity",
+        "style": "accessoryCircularCapacity",
+        "tint": "green"
+      }
+    },
+    {
+      "type": "Gauge",
+      "properties": {
+        "value": 0.25,
+        "title": "Default style shows its title",
+        "padding": "default"
+      }
+    }
+  ]
+}
