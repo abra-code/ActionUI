@@ -2,6 +2,7 @@ package com.abracode.actionui.Common
 
 import com.abracode.actionui.Views.AsyncImage
 import com.abracode.actionui.Views.Button
+import com.abracode.actionui.Views.Canvas
 import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
 import com.abracode.actionui.Views.ColorPicker
@@ -83,6 +84,7 @@ object ActionUIRegistry {
         register("Ellipse", Ellipse)
         register("ProgressView", ProgressView)
         register("Gauge", Gauge)
+        register("Canvas", Canvas)
         register("TextField", TextField)
         register("SecureField", SecureField)
         register("TextEditor", TextEditor)
