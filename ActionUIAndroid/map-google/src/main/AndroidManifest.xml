@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Self-registration at process start (see GoogleMapProvider). The
+             ${applicationId} placeholder keeps the authority unique per
+             installing app, as the system requires.
+
+             The HOST app must additionally declare its Maps API key:
+             <meta-data android:name="com.google.android.geo.API_KEY"
+                        android:value="YOUR_KEY"/> -->
+        <provider
+            android:name="com.abracode.actionui.map.google.GoogleMapProvider"
+            android:authorities="${applicationId}.actionui-map-google"
+            android:exported="false" />
+    </application>
+
+</manifest>
