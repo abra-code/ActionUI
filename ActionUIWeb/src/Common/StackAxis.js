@@ -17,7 +17,10 @@ export const StackAxis = Object.freeze({
 // its HStack aligns them vertically. Both default to center (matching SwiftUI,
 // whose stack default is .center even though flexbox/Compose default elsewhere).
 export const COLUMN_ALIGN = { leading: "flex-start", center: "center", trailing: "flex-end" };
-export const ROW_ALIGN = { top: "flex-start", center: "center", bottom: "flex-end" };
+export const ROW_ALIGN = {
+    top: "flex-start", center: "center", bottom: "flex-end",
+    firstTextBaseline: "baseline", lastTextBaseline: "last baseline",
+};
 
 export const DEFAULT_SPACING = 8; // approximates SwiftUI's adaptive default spacing
 

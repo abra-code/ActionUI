@@ -13,6 +13,7 @@ import { ActionUIElement } from "./Common/ActionUIElement.js";
 import { ActionUIModel } from "./Common/ActionUIModel.js";
 import { buildElementView } from "./Common/ActionUIRegistry.js";
 import { ConsoleLogger } from "./Common/ConsoleLogger.js";
+import { PlatformFilter } from "./Common/PlatformFilter.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -24,6 +25,7 @@ import "./Views/Text.js";
 import "./Views/Button.js";
 import "./Views/TextField.js";
 import "./Views/Toggle.js";
+import "./Views/Image.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {
@@ -46,9 +48,21 @@ export class Window {
 
     static fromJSON(json, uuid) {
         const logger = new ConsoleLogger();
-        const root = (typeof json === "string")
-            ? ActionUIElement.fromJSONString(json, logger)
-            : ActionUIElement.fromObject(json, logger);
+        let raw;
+        if (typeof json === "string") {
+            try {
+                raw = JSON.parse(json);
+            } catch (error) {
+                logger.log(`Invalid JSON: ${error.message}`, "error");
+                throw new Error("ActionUI: failed to parse window JSON");
+            }
+        } else {
+            raw = json;
+        }
+        // Resolve `<key>:<platform>` overrides for the web runtime (e.g.
+        // "font:web") before building the tree, dropping other platforms' keys.
+        const normalized = PlatformFilter.WEB.withLogger(logger).filter(raw);
+        const root = ActionUIElement.fromObject(normalized, logger);
         if (!root) throw new Error("ActionUI: failed to parse window JSON");
         return new Window(root, uuid, logger);
     }

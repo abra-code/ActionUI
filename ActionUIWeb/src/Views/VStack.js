@@ -7,18 +7,28 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { COLUMN_ALIGN, DEFAULT_SPACING, StackAxis } from "../Common/StackAxis.js";
 
-function validateStackProperties(properties, logger) {
+// Mirrors VStack.swift validateProperties (warning text included verbatim).
+function validateProperties(properties, logger) {
     const validated = { ...properties };
     if (validated.spacing !== undefined && typeof validated.spacing !== "number") {
-        logger.log(`Stack spacing must be a number, got ${JSON.stringify(validated.spacing)}`, "warning");
+        logger.log("VStack spacing must be numeric; ignoring", "warning");
         delete validated.spacing;
+    }
+    if (typeof validated.alignment === "string") {
+        if (!["leading", "center", "trailing"].includes(validated.alignment)) {
+            logger.log(`VStack alignment '${validated.alignment}' invalid; defaulting to nil`, "warning");
+            delete validated.alignment;
+        }
+    } else if (validated.alignment !== undefined) {
+        logger.log("VStack alignment must be 'leading', 'center', or 'trailing'; ignoring", "warning");
+        delete validated.alignment;
     }
     return validated;
 }
 
 register("VStack", {
     valueType: "none",
-    validateProperties: validateStackProperties,
+    validateProperties,
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
         node.className = "aui-stack aui-vstack";
@@ -32,5 +42,3 @@ register("VStack", {
         return node;
     },
 });
-
-export { validateStackProperties };

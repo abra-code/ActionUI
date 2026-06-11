@@ -12,6 +12,20 @@ the Swift (`ActionUI/`) and Android (`com/abracode/actionui/`) implementations
 file-for-file (`Common/`, `Helpers/`, `Views/`, one file per element type) so
 the three renderers stay diffable.
 
+## Symbol map
+
+`Image`'s `systemName` resolution uses the SF→Material map at
+`assets/symbols/sf_to_material.map`. It is **committed** (small, and the
+GitHub-hosted demo needs it), so no setup is required after cloning. It is a
+generated artifact copied from ActionUIAndroid; refresh it when the upstream
+mapping changes:
+
+```sh
+cd ActionUIWeb
+sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndroid
+# or: sh scripts/sync-symbol-map.sh /path/to/sf_to_material.map
+```
+
 ## Run the demo
 
 ES modules and `fetch` require an HTTP server (not `file://`):
@@ -31,12 +45,18 @@ python3 -m http.server 8080
   (`ActionUIModel.js`), baseline View modifier subset — padding, font text
   styles, colors, frame, cornerRadius, opacity, hidden, disabled, help, generic
   actionID (`ModifierResolver.js`), shared stack vocabulary (`StackAxis.js`),
-  console logger (`ConsoleLogger.js`).
+  console logger (`ConsoleLogger.js`), and `<key>:<platform>` override
+  resolution (`PlatformFilter.js`, active token `web`, run over the JSON before
+  the tree is built).
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,
-  Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles).
-  Property names and defaults follow `Documentation/Schemas/*.md`; deliberate
-  omissions (markdown, systemImage, numeric formats, template mode, …) log
-  warnings and are tracked in `Private/Web_Porting_Notes.md`.
+  Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles),
+  Image. Each view's `validateProperties` warnings match the Swift contract
+  (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings and are
+  tracked in `Private/Web_Porting_Notes.md`.
+- **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `assets/symbols/`):
+  `Image` renders SF Symbols (`systemName`) via the Android SF→Material map and
+  Material Symbols (`materialName`) via the OFL Material Symbols web font (loaded
+  by the host page; see `demo/index.html`).
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
   `ActionUINodeJS/index.js` — `Window.fromURL/fromJSON`, `presentWindow`,
   `get/setString|Bool|Int|Double|Value`, `app.action(id, fn)`,

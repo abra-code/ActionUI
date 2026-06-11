@@ -6,14 +6,46 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 
+// SwiftUI ZStack alignments → CSS `place-self` (block/vertical + inline/horizontal).
+const Z_ALIGN = {
+    topLeading: "start start", top: "start center", topTrailing: "start end",
+    leading: "center start", center: "center center", trailing: "center end",
+    bottomLeading: "end start", bottom: "end center", bottomTrailing: "end end",
+};
+const Z_VALID = Object.keys(Z_ALIGN);
+
 register("ZStack", {
     valueType: "none",
-    validateProperties: (properties) => properties,
+
+    // Mirrors ZStack.swift validateProperties (warning text included verbatim).
+    validateProperties: (properties, logger) => {
+        const validated = { ...properties };
+        if (typeof validated.alignment === "string") {
+            if (!Z_VALID.includes(validated.alignment)) {
+                logger.log(
+                    "ZStack alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', " +
+                    "'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring",
+                    "warning",
+                );
+                delete validated.alignment;
+            }
+        } else if (validated.alignment !== undefined) {
+            logger.log("Invalid type for alignment: expected String; ignoring", "warning");
+            delete validated.alignment;
+        }
+        return validated;
+    },
+
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
         node.className = "aui-zstack";
+        // place-self is set per child (an inline value overrides the stylesheet's
+        // default `.aui-zstack > * { place-self: center }`). Default: center.
+        const placeSelf = Z_ALIGN[properties.alignment] ?? "center center";
         for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
+            const built = ctx.build(child);
+            built.style.placeSelf = placeSelf;
+            node.appendChild(built);
         }
         return node;
     },

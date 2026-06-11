@@ -9,7 +9,17 @@ import { register } from "../Common/ActionUIRegistry.js";
 
 register("Spacer", {
     valueType: "none",
-    validateProperties: (properties) => properties,
+
+    // Mirrors Spacer.swift validateProperties (warning text included verbatim).
+    validateProperties: (properties, logger) => {
+        const validated = { ...properties };
+        if (validated.minLength !== undefined && typeof validated.minLength !== "number") {
+            logger.log("Spacer minLength must be a CGFloat; ignoring", "warning");
+            delete validated.minLength;
+        }
+        return validated;
+    },
+
     buildView: (element, properties) => {
         const node = document.createElement("div");
         node.className = "aui-spacer";

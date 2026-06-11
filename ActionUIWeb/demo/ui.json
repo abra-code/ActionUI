@@ -2,8 +2,25 @@
   "type": "VStack",
   "properties": { "alignment": "leading", "spacing": 12, "padding": 20, "frame": { "maxWidth": 420 } },
   "children": [
-    { "type": "Text", "properties": { "text": "ActionUIWeb Demo", "font": "title" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "star.fill", "imageScale": "large", "foregroundColor": "yellow" } },
+        { "type": "Text", "properties": { "text": "ActionUIWeb Demo", "font": "title", "font:web": "largeTitle" } }
+      ]
+    },
     { "type": "Text", "properties": { "text": "The same ActionUI JSON, rendered as DOM.", "foregroundColor": "secondary" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "heart.fill", "imageScale": "large", "foregroundColor": "red" } },
+        { "type": "Image", "properties": { "systemName": "gearshape", "imageScale": "large", "foregroundColor": "secondary" } },
+        { "type": "Image", "properties": { "systemName": "trash", "imageScale": "large", "foregroundColor": "secondary" } },
+        { "type": "Image", "properties": { "materialName": "rocket_launch", "imageScale": "large", "foregroundColor": "accentColor" } }
+      ]
+    },
     { "type": "Divider" },
     {
       "type": "HStack",

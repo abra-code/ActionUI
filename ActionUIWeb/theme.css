@@ -184,6 +184,39 @@
 }
 .aui-toggle-checkbox input:focus-visible ~ .aui-toggle-visual { box-shadow: var(--aui-focus-ring); }
 
+/* ---- Image & symbols ---- */
+
+.aui-image {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.aui-image > img { display: block; max-width: 100%; }
+
+/* The Material Symbols web font (OFL). The font resource itself is loaded by
+   the host page (see demo/index.html — Google Fonts or a self-hosted
+   @font-face); this class only configures rendering, so styling stays in the
+   library while the variable-font asset is a deployment choice. */
+.aui-symbol {
+    font-family: "Material Symbols Rounded", sans-serif;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px; /* default; imageScale overrides below */
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.aui-symbol-small  { font-size: 16px; }
+.aui-symbol-medium { font-size: 22px; }
+.aui-symbol-large  { font-size: 28px; }
+
 /* ---- misc ---- */
 
 .aui-disabled { pointer-events: none; }

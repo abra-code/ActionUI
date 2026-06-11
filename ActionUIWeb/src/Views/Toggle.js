@@ -12,19 +12,19 @@ import { markHandlesAction } from "../Common/ModifierResolver.js";
 register("Toggle", {
     valueType: "boolean",
 
+    // Mirrors Toggle.swift validateProperties (warning text included verbatim).
+    // Valid styles follow the macOS set ("switch", "button", "checkbox"); the
+    // "button" style is substituted at build time (see buildView).
     validateProperties: (properties, logger) => {
         const validated = { ...properties };
         if (validated.isOn !== undefined && typeof validated.isOn !== "boolean") {
-            logger.log(`Toggle "isOn" must be a boolean`, "warning");
-            validated.isOn = Boolean(validated.isOn);
+            logger.log("Toggle isOn must be a Bool; ignoring", "warning");
+            delete validated.isOn;
         }
-        if (validated.style !== undefined && !["switch", "checkbox", "button"].includes(validated.style)) {
-            logger.log(`Unknown Toggle style "${validated.style}", using "switch"`, "warning");
-            validated.style = "switch";
-        }
-        if (validated.style === "button") {
-            logger.log(`Toggle style "button" is not supported in the web PoC; using "switch"`, "warning");
-            validated.style = "switch";
+        const validStyles = ["switch", "button", "checkbox"];
+        if (typeof validated.style === "string" && !validStyles.includes(validated.style)) {
+            logger.log(`Toggle style '${validated.style}' invalid; falling back to default`, "warning");
+            delete validated.style;
         }
         return validated;
     },
@@ -32,7 +32,12 @@ register("Toggle", {
     initialValue: (element, properties) => properties.isOn ?? false,
 
     buildView: (element, properties, ctx) => {
-        const style = properties.style ?? "switch";
+        let style = properties.style ?? "switch";
+        if (style === "button") {
+            // Web has no button-style toggle yet; render as a switch.
+            ctx.logger.log("Toggle style 'button' is not yet supported on web; using 'switch'", "warning");
+            style = "switch";
+        }
         const wrapper = document.createElement("label");
         wrapper.className = `aui-toggle aui-toggle-${style}`;
 

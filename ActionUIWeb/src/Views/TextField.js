@@ -5,8 +5,9 @@
 // prompt (String placeholder), actionID (fires on Enter and on focus loss,
 // matching the documented macOS commit behavior), valueChangeActionID
 // (fires on every value change, user or programmatic).
-// Out of PoC scope: axis/lineLimit (multi-line), numeric format modes,
-// textContentType.
+// Not yet implemented on web (validation deferred, not ported): axis/lineLimit
+// (multi-line), numeric format modes (format/fractionLength/currencyCode/value),
+// textContentType. See Web_Porting_Notes.md.
 // Observable value: the field string.
 
 import { register } from "../Common/ActionUIRegistry.js";
@@ -15,13 +16,22 @@ import { markHandlesAction } from "../Common/ModifierResolver.js";
 register("TextField", {
     valueType: "string",
 
+    // Mirrors the implemented subset of TextField.swift validateProperties
+    // (title/text/prompt; warning text included verbatim). Validation for the
+    // not-yet-implemented numeric/multi-line properties is deferred.
     validateProperties: (properties, logger) => {
         const validated = { ...properties };
-        for (const key of ["title", "text", "prompt"]) {
-            if (validated[key] !== undefined && typeof validated[key] !== "string") {
-                logger.log(`TextField "${key}" must be a string`, "warning");
-                validated[key] = String(validated[key]);
-            }
+        if (validated.title !== undefined && typeof validated.title !== "string") {
+            logger.log("TextField title must be a String; defaulting to empty string", "warning");
+            delete validated.title;
+        }
+        if (validated.prompt !== undefined && typeof validated.prompt !== "string") {
+            logger.log("TextField prompt must be a String; defaulting to nil", "warning");
+            delete validated.prompt;
+        }
+        if (validated.text !== undefined && typeof validated.text !== "string") {
+            logger.log("TextField text must be a String; ignoring", "warning");
+            delete validated.text;
         }
         return validated;
     },
