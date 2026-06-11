@@ -1,0 +1,197 @@
+/* theme.css — ActionUIWeb default theme (PoC).
+   Tokenized via CSS custom properties; macOS-flavored, honest about being web.
+   Adapts to light/dark automatically like SwiftUI semantic colors. */
+
+:root {
+    --aui-color-accent: #007aff;
+    --aui-color-primary: #1d1d1f;
+    --aui-color-secondary: #6e6e73;
+    --aui-color-red: #ff3b30;
+    --aui-color-orange: #ff9500;
+    --aui-color-yellow: #ffcc00;
+    --aui-color-green: #34c759;
+    --aui-color-mint: #00c7be;
+    --aui-color-teal: #30b0c7;
+    --aui-color-cyan: #32ade6;
+    --aui-color-blue: #007aff;
+    --aui-color-indigo: #5856d6;
+    --aui-color-purple: #af52de;
+    --aui-color-pink: #ff2d55;
+    --aui-color-brown: #a2845e;
+    --aui-color-gray: #8e8e93;
+
+    --aui-window-background: #ececec;
+    --aui-control-background: #ffffff;
+    --aui-control-border: #d2d2d7;
+    --aui-control-radius: 6px;
+    --aui-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aui-color-accent) 35%, transparent);
+    --aui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --aui-color-primary: #f5f5f7;
+        --aui-color-secondary: #98989d;
+        --aui-window-background: #2d2d2d;
+        --aui-control-background: #1d1d1f;
+        --aui-control-border: #48484a;
+    }
+}
+
+/* ---- window host ---- */
+
+.aui-window {
+    font-family: var(--aui-font);
+    font-size: 13px;
+    color: var(--aui-color-primary);
+    background: var(--aui-window-background);
+    box-sizing: border-box;
+}
+.aui-window *, .aui-window *::before, .aui-window *::after { box-sizing: inherit; }
+
+/* ---- layout ---- */
+
+.aui-stack { display: flex; }
+.aui-vstack { flex-direction: column; }
+.aui-hstack { flex-direction: row; }
+
+.aui-zstack { display: grid; }
+.aui-zstack > * { grid-area: 1 / 1; place-self: center; }
+
+.aui-spacer { flex-grow: 1; align-self: stretch; }
+
+.aui-divider { background: var(--aui-control-border); align-self: stretch; }
+.aui-vstack > .aui-divider { height: 1px; }
+.aui-hstack > .aui-divider { width: 1px; }
+
+/* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
+
+.aui-font-largeTitle  { font-size: 26px; font-weight: 400; }
+.aui-font-title       { font-size: 22px; font-weight: 400; }
+.aui-font-title2      { font-size: 17px; font-weight: 400; }
+.aui-font-title3      { font-size: 15px; font-weight: 400; }
+.aui-font-headline    { font-size: 13px; font-weight: 700; }
+.aui-font-subheadline { font-size: 11px; font-weight: 400; }
+.aui-font-body        { font-size: 13px; font-weight: 400; }
+.aui-font-callout     { font-size: 12px; font-weight: 400; }
+.aui-font-footnote    { font-size: 10px; font-weight: 400; }
+.aui-font-caption     { font-size: 10px; font-weight: 400; }
+.aui-font-caption2    { font-size: 10px; font-weight: 500; }
+
+/* ---- Button ---- */
+
+.aui-button {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 12px;
+    cursor: pointer;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+}
+.aui-button:hover { filter: brightness(0.97); }
+.aui-button:active { filter: brightness(0.92); }
+.aui-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+.aui-button-borderedProminent {
+    background: var(--aui-color-accent);
+    border-color: var(--aui-color-accent);
+    color: #ffffff;
+}
+.aui-button-borderless, .aui-button-plain {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+.aui-button-destructive { color: var(--aui-color-red); }
+.aui-button-borderedProminent.aui-button-destructive {
+    background: var(--aui-color-red);
+    border-color: var(--aui-color-red);
+    color: #ffffff;
+}
+.aui-button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- TextField ---- */
+
+.aui-textfield {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+    min-width: 0;
+}
+.aui-textfield:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-textfield::placeholder { color: var(--aui-color-secondary); }
+.aui-textfield:disabled { opacity: 0.4; }
+
+.aui-labeled-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.aui-labeled-field > .aui-textfield { flex: 1; }
+.aui-field-label { color: var(--aui-color-primary); white-space: nowrap; }
+
+/* ---- Toggle ---- */
+
+.aui-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.aui-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.aui-toggle.aui-disabled, .aui-toggle:has(input:disabled) { opacity: 0.4; cursor: default; }
+
+/* switch style */
+.aui-toggle-switch .aui-toggle-visual {
+    width: 38px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--aui-control-border);
+    position: relative;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+}
+.aui-toggle-switch .aui-toggle-visual::after {
+    content: "";
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+}
+.aui-toggle-switch input:checked ~ .aui-toggle-visual { background: var(--aui-color-green); }
+.aui-toggle-switch input:checked ~ .aui-toggle-visual::after { transform: translateX(16px); }
+.aui-toggle-switch input:focus-visible ~ .aui-toggle-visual { box-shadow: var(--aui-focus-ring); }
+
+/* checkbox style */
+.aui-toggle-checkbox .aui-toggle-visual {
+    width: 14px; height: 14px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: 3px;
+    background: var(--aui-control-background);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.aui-toggle-checkbox input:checked ~ .aui-toggle-visual {
+    background: var(--aui-color-accent);
+    border-color: var(--aui-color-accent);
+}
+.aui-toggle-checkbox input:checked ~ .aui-toggle-visual::after {
+    content: "✓";
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1;
+}
+.aui-toggle-checkbox input:focus-visible ~ .aui-toggle-visual { box-shadow: var(--aui-focus-ring); }
+
+/* ---- misc ---- */
+
+.aui-disabled { pointer-events: none; }
+
+.aui-unknown {
+    border: 1px dashed var(--aui-color-orange);
+    color: var(--aui-color-orange);
+    border-radius: var(--aui-control-radius);
+    padding: 4px 8px;
+    font-size: 11px;
+}

@@ -1,0 +1,33 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12, "padding": 20, "frame": { "maxWidth": 420 } },
+  "children": [
+    { "type": "Text", "properties": { "text": "ActionUIWeb Demo", "font": "title" } },
+    { "type": "Text", "properties": { "text": "The same ActionUI JSON, rendered as DOM.", "foregroundColor": "secondary" } },
+    { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "TextField", "id": 1, "properties": { "title": "Name", "prompt": "Enter your name", "actionID": "greet", "frame": { "maxWidth": "infinity" } } },
+        { "type": "Button", "id": 2, "properties": { "title": "Greet", "buttonStyle": "borderedProminent", "actionID": "greet" } }
+      ]
+    },
+    { "type": "Toggle", "id": 3, "properties": { "title": "Shout the greeting", "actionID": "shoutChanged" } },
+    { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Text", "properties": { "text": "Counter:" } },
+        { "type": "Button", "properties": { "title": "−", "actionID": "decrement" } },
+        { "type": "Text", "id": 10, "properties": { "text": "0", "font": "headline" } },
+        { "type": "Button", "properties": { "title": "+", "actionID": "increment" } },
+        { "type": "Spacer" },
+        { "type": "Button", "properties": { "title": "Reset", "buttonStyle": "borderless", "foregroundColor": "red", "actionID": "reset" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
+  ]
+}
