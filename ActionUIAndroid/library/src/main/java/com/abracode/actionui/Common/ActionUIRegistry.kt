@@ -13,6 +13,7 @@ import com.abracode.actionui.Views.Ellipse
 import com.abracode.actionui.Views.EmptyView
 import com.abracode.actionui.Views.Form
 import com.abracode.actionui.Views.Gauge
+import com.abracode.actionui.Views.GeometryReader
 import com.abracode.actionui.Views.Grid
 import com.abracode.actionui.Views.Group
 import com.abracode.actionui.Views.GroupBox
@@ -69,6 +70,7 @@ object ActionUIRegistry {
         register("LazyVGrid", LazyVGrid)
         register("LazyHGrid", LazyHGrid)
         register("Grid", Grid)
+        register("GeometryReader", GeometryReader)
         register("Button", Button)
         register("Divider", Divider)
         register("Spacer", Spacer)

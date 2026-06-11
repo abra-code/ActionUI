@@ -163,6 +163,14 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Chip tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
         }
 
+        // GeometryReader.json: read the reader's observable states["size"]
+        // ([width, height] in dp) on demand - the Android demo surfaces it with
+        // a toast where the Swift app leaves the state for the host to poll.
+        ActionUIModel.registerActionHandler("geometry.read") { _, windowUUID, _, _, _ ->
+            val size = ActionUIModel.getElementState(windowUUID = windowUUID, viewID = 1, key = "size")
+            Toast.makeText(this, "GeometryReader size: $size", Toast.LENGTH_SHORT).show()
+        }
+
         // TabView.json: each tab switch passes the new 0-based index as context.
         ActionUIModel.registerActionHandler("tab.changed") { _, _, viewID, _, context ->
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()
