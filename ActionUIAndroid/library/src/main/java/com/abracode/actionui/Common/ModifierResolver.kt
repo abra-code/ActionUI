@@ -686,14 +686,15 @@ private fun isBaselineAlignmentName(name: String): Boolean =
 
 internal fun parseAlignment(name: String): Alignment? =
     when (name.lowercase()) {
-        "topstart", "topleading"        -> Alignment.TopStart
-        "topcenter", "top"              -> Alignment.TopCenter
-        "topend", "toptrailing"         -> Alignment.TopEnd
-        "centerstart", "centerleading"  -> Alignment.CenterStart
-        "center"                        -> Alignment.Center
-        "centerend", "centertrailing"   -> Alignment.CenterEnd
-        "bottomstart", "bottomleading"  -> Alignment.BottomStart
-        "bottomcenter", "bottom"        -> Alignment.BottomCenter
-        "bottomend", "bottomtrailing"   -> Alignment.BottomEnd
-        else                            -> null
+        "topstart", "topleading"                   -> Alignment.TopStart
+        "topcenter", "top"                         -> Alignment.TopCenter
+        "topend", "toptrailing"                    -> Alignment.TopEnd
+        // SwiftUI's plain `.leading`/`.trailing` are vertically centered.
+        "centerstart", "centerleading", "leading"  -> Alignment.CenterStart
+        "center"                                   -> Alignment.Center
+        "centerend", "centertrailing", "trailing"  -> Alignment.CenterEnd
+        "bottomstart", "bottomleading"             -> Alignment.BottomStart
+        "bottomcenter", "bottom"                   -> Alignment.BottomCenter
+        "bottomend", "bottomtrailing"              -> Alignment.BottomEnd
+        else                                       -> null
     }

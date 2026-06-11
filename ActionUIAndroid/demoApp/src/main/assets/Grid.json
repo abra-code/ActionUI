@@ -1,0 +1,113 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 10.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Grid - columns align across rows"
+      }
+    },
+    {
+      "type": "Grid",
+      "properties": {
+        "alignment": "leading",
+        "horizontalSpacing": 24.0,
+        "verticalSpacing": 8.0
+      },
+      "rows": [
+        [
+          {
+            "type": "Text",
+            "properties": { "text": "Item", "font": "headline" }
+          },
+          {
+            "type": "Text",
+            "properties": { "text": "Qty", "font": "headline" }
+          },
+          {
+            "type": "Text",
+            "properties": { "text": "", "font": "headline" }
+          }
+        ],
+        [
+          {
+            "type": "Text",
+            "properties": { "text": "Abracadabra elixir" }
+          },
+          {
+            "type": "Text",
+            "properties": { "text": "2" }
+          },
+          {
+            "type": "Image",
+            "properties": { "systemName": "star", "foregroundStyle": "orange" }
+          }
+        ],
+        [
+          {
+            "type": "Text",
+            "properties": { "text": "Orb" }
+          },
+          {
+            "type": "Text",
+            "properties": { "text": "13" }
+          },
+          {
+            "type": "Image",
+            "properties": { "systemName": "moon", "foregroundStyle": "blue" }
+          }
+        ],
+        [
+          {
+            "type": "Text",
+            "properties": { "text": "A ragged row spans fewer columns", "font": "caption", "foregroundStyle": "gray" }
+          }
+        ]
+      ]
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Centered cells (default alignment):",
+        "font": "subheadline"
+      }
+    },
+    {
+      "type": "Grid",
+      "properties": {
+        "horizontalSpacing": 12.0,
+        "verticalSpacing": 12.0
+      },
+      "rows": [
+        [
+          {
+            "type": "Rectangle",
+            "properties": { "fill": "red", "frame": { "width": 60, "height": 24 } }
+          },
+          {
+            "type": "Circle",
+            "properties": { "fill": "green", "frame": { "width": 24, "height": 24 } }
+          }
+        ],
+        [
+          {
+            "type": "Circle",
+            "properties": { "fill": "blue", "frame": { "width": 24, "height": 24 } }
+          },
+          {
+            "type": "Rectangle",
+            "properties": { "fill": "purple", "frame": { "width": 60, "height": 24 } }
+          }
+        ]
+      ]
+    }
+  ]
+}

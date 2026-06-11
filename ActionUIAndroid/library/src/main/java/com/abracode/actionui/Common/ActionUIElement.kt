@@ -55,6 +55,9 @@ import kotlinx.serialization.json.JsonObject
  *     `states["sheetVisible"]` / `states["fullScreenCoverVisible"]` flips true,
  *     not rendered inline. Registered (in [subElements]) so the modal content's
  *     controls get [ViewModel]s and are host-addressable, like on Apple.
+ *   * [rows] - `Grid`'s array-of-arrays container: each inner array is one
+ *     grid row's cells, in column order. Registered (flattened into
+ *     [subElements]) so cells get [ViewModel]s like any other child.
  *
  * Any traversal of the element tree (id registration, etc.) should iterate
  * [subElements] so it automatically covers every named container as more are
@@ -74,6 +77,7 @@ interface ActionUIElementBase {
     val toolbar: List<ActionUIElement>?
     val sheet: ActionUIElement?
     val fullScreenCover: ActionUIElement?
+    val rows: List<List<ActionUIElement>>?
 }
 
 @Serializable
@@ -90,7 +94,8 @@ data class ActionUIElement(
     override val detail: ActionUIElement? = null,
     override val toolbar: List<ActionUIElement>? = null,
     override val sheet: ActionUIElement? = null,
-    override val fullScreenCover: ActionUIElement? = null
+    override val fullScreenCover: ActionUIElement? = null,
+    override val rows: List<List<ActionUIElement>>? = null
 ) : ActionUIElementBase
 
 /**
@@ -110,4 +115,5 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     toolbar?.let { addAll(it) }
     sheet?.let { add(it) }
     fullScreenCover?.let { add(it) }
+    rows?.forEach { addAll(it) }
 }
