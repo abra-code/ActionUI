@@ -14,9 +14,13 @@
 //            separators to group items (parsed for parity; titled groups render as
 //            <optgroup>).
 //   pickerStyle  "menu" | "segmented" | "radioGroup" (the macOS set, matching the
-//            macOS-flavored default skin); "wheel" warns as unavailable. The web
-//            renders every style as the native dropdown for now — distinct visuals
-//            are deferred skin work, tracked in Web_Porting_Notes.md.
+//            macOS-flavored default skin); "wheel" warns as unavailable.
+//            "radioGroup" renders a native <fieldset> of <input type="radio">;
+//            every other style renders the native <select> dropdown for now
+//            (segmented visuals are deferred skin work, tracked in
+//            Web_Porting_Notes.md).
+//   horizontalRadioGroupLayout  Bool; lays a radioGroup out in a row instead of a
+//            column (only meaningful with pickerStyle "radioGroup").
 //   actionID dispatched on user-initiated selection change only (the native
 //            `change` event), matching the Apple binding setter; the selected tag
 //            is passed as context. Programmatic setString is silent.
@@ -67,6 +71,12 @@ register("Picker", {
         const sections = extractSections(properties.options, ctx.logger);
         const allItems = sections.flatMap((section) => section.items);
         const initial = allItems.length ? allItems[0].tag : "";
+
+        // radioGroup is the one style that renders a distinct native control: a
+        // <fieldset> of <input type="radio">. Every other style uses the <select>.
+        if (properties.pickerStyle === "radioGroup") {
+            return buildRadioGroup(element, properties, ctx, sections, initial);
+        }
 
         const select = document.createElement("select");
         select.className = "aui-picker";
@@ -127,6 +137,88 @@ function makeOption({ title, tag }) {
     option.value = tag;
     option.textContent = title;
     return option;
+}
+
+// Radios are grouped by a shared `name`; each Picker needs a unique one so two
+// radioGroup Pickers on a page don't become one mutually-exclusive set.
+let radioGroupCounter = 0;
+
+// Builds the radioGroup pickerStyle: a native <fieldset> whose <legend> is the
+// Picker title and whose options are <input type="radio"> sharing one `name`.
+// Radios have no native <optgroup>; a titled section becomes a sub-heading and a
+// divider/untitled break becomes an <hr>. The value is still the selected tag, so
+// the binding and actionID wiring match the <select> path.
+function buildRadioGroup(element, properties, ctx, sections, initial) {
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "aui-picker-radio";
+    if (properties.horizontalRadioGroupLayout === true) {
+        fieldset.classList.add("aui-picker-radio-horizontal");
+    }
+    if (properties.title) {
+        const legend = document.createElement("legend");
+        legend.className = "aui-picker-legend";
+        legend.textContent = properties.title;
+        fieldset.appendChild(legend);
+    }
+
+    const groupName = `aui-picker-radio-${++radioGroupCounter}`;
+    const inputs = [];
+    const useSections = sections.length > 1 || sections.some((section) => section.title);
+
+    sections.forEach((section, index) => {
+        if (useSections) {
+            if (section.title) {
+                const heading = document.createElement("span");
+                heading.className = "aui-radio-section-title";
+                heading.textContent = section.title;
+                fieldset.appendChild(heading);
+            } else if (index > 0) {
+                // A divider-created or implicit untitled break after the first group.
+                const rule = document.createElement("hr");
+                rule.className = "aui-radio-divider";
+                fieldset.appendChild(rule);
+            }
+        }
+        for (const item of section.items) {
+            const label = document.createElement("label");
+            label.className = "aui-radio";
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = groupName;
+            input.value = item.tag;
+            if (item.tag === initial) input.checked = true;
+            const text = document.createElement("span");
+            text.textContent = item.title;
+            label.append(input, text);
+            fieldset.appendChild(label);
+            inputs.push(input);
+        }
+    });
+
+    const selectedValue = () => {
+        const checked = inputs.find((input) => input.checked);
+        return checked ? checked.value : "";
+    };
+
+    markHandlesAction(fieldset);
+    // `change` bubbles from the chosen radio and fires only on user interaction
+    // (setting .checked programmatically does not), matching the binding setter.
+    fieldset.addEventListener("change", () => {
+        if (typeof properties.actionID === "string") {
+            ctx.model.dispatchAction(properties.actionID, element.id, 0, selectedValue());
+        }
+    });
+
+    if (element.id > 0) {
+        ctx.model.bind(element.id, {
+            getValue: () => selectedValue(),
+            setValue: (value) => { // programmatic: silent (no change event)
+                const tag = String(value);
+                for (const input of inputs) input.checked = (input.value === tag);
+            },
+        });
+    }
+    return fieldset;
 }
 
 function makeOptGroup(label) {

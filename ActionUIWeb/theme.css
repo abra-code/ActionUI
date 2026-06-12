@@ -201,6 +201,24 @@
 .aui-picker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
 .aui-picker:disabled { opacity: 0.4; }
 
+/* radioGroup pickerStyle: a native <fieldset> of <input type="radio">. The
+   options stack in a column, or a row with horizontalRadioGroupLayout. */
+.aui-picker-radio {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 8px 12px;
+    min-width: 0;
+}
+.aui-picker-radio.aui-picker-radio-horizontal { flex-flow: row wrap; align-items: center; gap: 16px; }
+.aui-picker-legend { padding: 0 4px; color: var(--aui-color-primary); }
+.aui-radio { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.aui-radio > input { accent-color: var(--aui-color-accent); }
+.aui-radio-section-title { color: var(--aui-color-secondary); font-size: 0.9em; margin-top: 4px; }
+.aui-radio-divider { width: 100%; border: none; border-top: 1px solid var(--aui-control-border); margin: 2px 0; }
+
 /* ---- Toggle ---- */
 
 .aui-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

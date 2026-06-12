@@ -90,6 +90,7 @@
         { "type": "Picker", "id": 60, "properties": { "title": "Format", "options": [{ "title": "Plain Text", "tag": "txt" }, { "title": "Markdown", "tag": "md" }, { "title": "HTML", "tag": "html" }], "actionID": "formatChanged", "frame": { "maxWidth": "infinity" } } }
       ]
     },
+    { "type": "Picker", "id": 61, "properties": { "title": "Alignment", "pickerStyle": "radioGroup", "horizontalRadioGroupLayout": true, "options": [{ "title": "Leading", "tag": "lead" }, { "title": "Center", "tag": "center" }, { "title": "Trailing", "tag": "trail" }], "actionID": "alignChanged" } },
     { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
