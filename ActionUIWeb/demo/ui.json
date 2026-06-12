@@ -63,6 +63,15 @@
       ]
     },
     { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Stepper", "id": 40, "properties": { "value": 3, "range": { "min": 0, "max": 10 }, "step": 1, "labelFormat": "Quantity: %.0f", "actionID": "quantityChanged" } },
+        { "type": "Spacer" }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

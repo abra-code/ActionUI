@@ -28,6 +28,7 @@ import "./Views/Toggle.js";
 import "./Views/Image.js";
 import "./Views/Label.js";
 import "./Views/Slider.js";
+import "./Views/Stepper.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

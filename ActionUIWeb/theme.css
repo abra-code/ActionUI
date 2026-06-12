@@ -129,6 +129,31 @@
 .aui-slider:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: 4px; }
 .aui-slider:disabled { opacity: 0.4; cursor: default; }
 
+/* ---- Stepper ---- */
+
+.aui-stepper { display: inline-flex; align-items: center; gap: 0.5em; }
+.aui-stepper-label { color: var(--aui-color-primary); white-space: nowrap; }
+.aui-stepper-controls { display: inline-flex; }
+.aui-stepper-button {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+}
+/* Joined as a single segmented control, like the macOS ± stepper. */
+.aui-stepper-decrement { border-radius: var(--aui-control-radius) 0 0 var(--aui-control-radius); }
+.aui-stepper-increment { border-radius: 0 var(--aui-control-radius) var(--aui-control-radius) 0; border-left: none; }
+.aui-stepper-button:hover:not(:disabled) { filter: brightness(0.97); }
+.aui-stepper-button:active:not(:disabled) { filter: brightness(0.92); }
+.aui-stepper-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); position: relative; }
+.aui-stepper-button:disabled { opacity: 0.4; cursor: default; }
+
 /* ---- TextField ---- */
 
 .aui-textfield {
