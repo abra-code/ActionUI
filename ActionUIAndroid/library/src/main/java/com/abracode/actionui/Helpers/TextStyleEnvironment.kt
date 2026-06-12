@@ -1,5 +1,7 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -11,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
@@ -34,6 +37,12 @@ import kotlinx.serialization.json.JsonPrimitive
  *   * `font`            -> merged into [LocalTextStyle]   (read by `Text`)
  *   * `foregroundStyle` -> [LocalContentColor]            (read by `Text`)
  *   * `tint`            -> [LocalActionUITint]             (read by the controls)
+ *   * `multilineTextAlignment` -> `textAlign` merged into [LocalTextStyle]
+ *     (SwiftUI's environment alignment for wrapped lines: leading/center/trailing)
+ *   * `textSelection`   -> a [SelectionContainer] / [DisableSelection] wrap
+ *     (SwiftUI's `.textSelection(.enabled/.disabled)`: descendant text becomes
+ *     long-press selectable; `disabled` opts a subtree back out inside an
+ *     enabled ancestor, exactly Compose's `DisableSelection` contract)
  *
  * [LocalTextStyle] and [LocalContentColor] are Material3's own locals, which
  * `Text` already consults, so propagating through them styles descendant text
@@ -90,21 +99,72 @@ fun ProvideTextStyleEnvironment(
     val disabled = resolveDisabled(properties, logger)
     val buttonStyle = properties.stringProperty("buttonStyle")?.let { parseButtonStyle(it, logger) }
     val controlSize = properties.stringProperty("controlSize")?.let { parseControlSize(it, logger) }
+    val textAlign = resolveMultilineTextAlignment(properties.stringProperty("multilineTextAlignment"), logger)
+    val selectable = resolveTextSelection(properties.stringProperty("textSelection"), logger)
 
     val provided = buildList {
-        fontStyle?.let { add(LocalTextStyle provides LocalTextStyle.current.merge(it)) }
+        if (fontStyle != null || textAlign != null) {
+            var merged = LocalTextStyle.current
+            fontStyle?.let { merged = merged.merge(it) }
+            textAlign?.let { merged = merged.copy(textAlign = it) }
+            add(LocalTextStyle provides merged)
+        }
         foreground?.let { add(LocalContentColor provides it) }
         tint?.let { add(LocalActionUITint provides it) }
         if (disabled) add(LocalActionUIEnabled provides false)
         buttonStyle?.let { add(LocalActionUIButtonStyle provides it) }
         controlSize?.let { add(LocalActionUIControlSize provides it) }
     }
+    val wrapped: @Composable () -> Unit = when (selectable) {
+        null -> content
+        true -> ({ SelectionContainer { content() } })
+        false -> ({ DisableSelection { content() } })
+    }
     if (provided.isEmpty()) {
-        content()
+        wrapped()
         return
     }
-    CompositionLocalProvider(*provided.toTypedArray(), content = content)
+    CompositionLocalProvider(*provided.toTypedArray()) { wrapped() }
 }
+
+/**
+ * Maps `multilineTextAlignment` (SwiftUI: how *wrapped lines* align within a
+ * text block) onto Compose's [TextAlign]. Apple's validation: an unknown value
+ * warns and is ignored (inherit).
+ */
+internal fun resolveMultilineTextAlignment(name: String?, logger: ActionUILogger? = null): TextAlign? =
+    when (name) {
+        null       -> null
+        "leading"  -> TextAlign.Start
+        "center"   -> TextAlign.Center
+        "trailing" -> TextAlign.End
+        else -> {
+            logger?.log(
+                "Invalid multilineTextAlignment '$name'; expected 'leading', 'center', or 'trailing', ignoring",
+                LoggerLevel.warning
+            )
+            null
+        }
+    }
+
+/**
+ * Maps `textSelection` onto the selection wrap: `true` ([SelectionContainer]),
+ * `false` ([DisableSelection]), or `null` (no wrap). Apple's validation: an
+ * unknown value warns and is ignored.
+ */
+internal fun resolveTextSelection(name: String?, logger: ActionUILogger? = null): Boolean? =
+    when (name) {
+        null       -> null
+        "enabled"  -> true
+        "disabled" -> false
+        else -> {
+            logger?.log(
+                "Invalid textSelection '$name'; expected 'enabled' or 'disabled', ignoring",
+                LoggerLevel.warning
+            )
+            null
+        }
+    }
 
 /** Resolves a `foregroundStyle`/`tint` color string, warning on an unknown color. */
 private fun resolveStyleColor(name: String?, property: String, logger: ActionUILogger?): Color? {

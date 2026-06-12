@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import org.junit.Assert.assertEquals
@@ -11,7 +12,8 @@ import org.junit.Test
 
 /**
  * Unit tests for the non-`@Composable` helpers in `TextStyleEnvironment.kt`:
- * [resolveFontWeight] and [resolveFontDesign]. The composable surface
+ * [resolveFontWeight], [resolveFontDesign], [resolveMultilineTextAlignment],
+ * and [resolveTextSelection]. The composable surface
  * ([ProvideTextStyleEnvironment], [resolveFontStyle], named-text-style mapping)
  * reads `MaterialTheme` and is exercised in instrumentation tests, which is
  * awkward to drive from plain JUnit.
@@ -94,5 +96,50 @@ class TextStyleEnvironmentTest {
         assertEquals(FontFamily.Default, resolveFontDesign("art-deco", logger))
         assertEquals(1, logger.warnings.size)
         assertTrue(logger.warnings.single().contains("font design"))
+    }
+
+    // -----------------------------------------------------------------------
+    // resolveMultilineTextAlignment - SwiftUI's three edges to TextAlign.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `the three SwiftUI alignments map to layout-direction-aware TextAligns`() {
+        assertEquals(TextAlign.Start, resolveMultilineTextAlignment("leading"))
+        assertEquals(TextAlign.Center, resolveMultilineTextAlignment("center"))
+        assertEquals(TextAlign.End, resolveMultilineTextAlignment("trailing"))
+    }
+
+    @Test
+    fun `absent alignment inherits without warning`() {
+        val logger = CapturingLogger()
+        assertNull(resolveMultilineTextAlignment(null, logger))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `invalid alignment warns and inherits`() {
+        val logger = CapturingLogger()
+        assertNull(resolveMultilineTextAlignment("justified", logger))
+        assertEquals(1, logger.warnings.size)
+        assertTrue(logger.warnings.single().contains("justified"))
+    }
+
+    // -----------------------------------------------------------------------
+    // resolveTextSelection - enabled/disabled to the selection wrap.
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `textSelection parses enabled, disabled, and absent`() {
+        assertEquals(true, resolveTextSelection("enabled"))
+        assertEquals(false, resolveTextSelection("disabled"))
+        assertNull(resolveTextSelection(null))
+    }
+
+    @Test
+    fun `invalid textSelection warns and is ignored`() {
+        val logger = CapturingLogger()
+        assertNull(resolveTextSelection("sometimes", logger))
+        assertEquals(1, logger.warnings.size)
+        assertTrue(logger.warnings.single().contains("sometimes"))
     }
 }
