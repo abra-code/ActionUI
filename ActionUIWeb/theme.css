@@ -187,6 +187,20 @@
 .aui-labeled-field > .aui-picker { flex: 1; }
 .aui-field-label { color: var(--aui-color-primary); white-space: nowrap; }
 
+/* DatePicker: the native <input type="date"> in the shared control box. */
+.aui-datepicker {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+    accent-color: var(--aui-color-accent);
+    min-width: 0;
+}
+.aui-datepicker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-datepicker:disabled { opacity: 0.4; }
+
 /* Picker renders as the native dropdown; styles other than the default menu are
    deferred skin work. It reuses the shared control box. */
 .aui-picker {
