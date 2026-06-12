@@ -203,6 +203,49 @@
     width: 100%;
 }
 
+/* ---- Gauge ---- */
+
+/* A read-only level indicator. Linear styles are a native <meter> — the DOM's
+   own gauge element — tinted via the vendor bar pseudos (<meter> ignores
+   accent-color); circular styles are a conic-gradient ring drawn in
+   currentColor (accent by default, so foregroundColor tints it) with the
+   title centered in the hole. */
+.aui-gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.aui-gauge-title { color: var(--aui-color-primary); }
+/* appearance:none lets the bar pseudos take over from the browser's green/
+   yellow/red meter look; the element's own background is the Firefox track,
+   ::-webkit-meter-bar the WebKit one. */
+.aui-gauge-bar {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: var(--aui-control-border);
+    border: none;
+    border-radius: 4px;
+}
+.aui-gauge-bar::-webkit-meter-bar { background: var(--aui-control-border); border: none; border-radius: 4px; height: 8px; }
+.aui-gauge-bar::-webkit-meter-optimum-value { background: var(--aui-color-accent); border-radius: 4px; }
+.aui-gauge-bar::-moz-meter-bar { background: var(--aui-color-accent); border-radius: 4px; }
+
+.aui-gauge-circular {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    color: var(--aui-color-accent);
+}
+.aui-gauge-circular > * { grid-area: 1 / 1; }
+.aui-gauge-ring {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(currentColor calc(var(--aui-gauge-fill, 0) * 1turn), var(--aui-control-border) 0);
+    -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    mask: radial-gradient(closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+}
+.aui-gauge-ring-title { font-size: 10px; color: var(--aui-color-primary); }
+
 /* ---- Stepper ---- */
 
 .aui-stepper { display: inline-flex; align-items: center; gap: 0.5em; }

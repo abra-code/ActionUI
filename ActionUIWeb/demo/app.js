@@ -22,6 +22,8 @@ app.action("shoutChanged", (ctx) => {
 app.action("volumeChanged", () => {
     win.setString(31, 0, String(win.getInt(30)));
     win.setDouble(70, 0, win.getInt(30) / 100); // drive the progress bar from the slider
+    win.setDouble(96, 0, win.getInt(30));       // …and both gauges
+    win.setDouble(97, 0, win.getInt(30));
 });
 
 app.action("quantityChanged", () => win.setString(20, 0, `Quantity is now ${win.getInt(40)}.`));

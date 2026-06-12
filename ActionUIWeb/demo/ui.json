@@ -64,6 +64,15 @@
     },
     { "type": "ProgressView", "id": 70, "properties": { "title": "Buffering", "value": 0.4, "total": 1.0 } },
     { "type": "ProgressView", "properties": { "title": "Working…" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        { "type": "Gauge", "id": 96, "properties": { "title": "Vol", "style": "accessoryCircular", "value": 40, "range": { "min": 0, "max": 100 } } },
+        { "type": "Gauge", "id": 97, "properties": { "title": "Volume level", "value": 40, "range": { "min": 0, "max": 100 }, "frame": { "maxWidth": "infinity" } } },
+        { "type": "Gauge", "properties": { "style": "accessoryLinearCapacity", "value": 0.8, "frame": { "width": 80 } } }
+      ]
+    },
     { "type": "Divider" },
     {
       "type": "HStack",

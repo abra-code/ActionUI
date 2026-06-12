@@ -52,7 +52,7 @@ python3 -m http.server 8080
   Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles),
   Image, Label, Slider, Stepper, SecureField, Picker, ProgressView, DatePicker,
   ColorPicker, ScrollView, LazyVStack, LazyHStack, Grid, LazyVGrid, LazyHGrid,
-  Form, Section, GroupBox, LabeledContent, DisclosureGroup, TextEditor.
+  Form, Section, GroupBox, LabeledContent, DisclosureGroup, TextEditor, Gauge.
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
