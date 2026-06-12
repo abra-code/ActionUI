@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
@@ -132,7 +133,8 @@ object Button : ActionUIViewConstruction {
 
         // Leading icon (+ its deferred assetImage warning) resolved once per change.
         // A null result is title-only - a Button needs no icon (unlike Image).
-        val iconSource = remember(props) { selectLabelIcon(props, "assetImage", "Button", logger) }
+        val imageRegistry = LocalActionUIImageRegistry.current
+        val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "assetImage", "Button", logger, imageRegistry) }
 
         // Validate role against the same vocabulary as the Apple side; an
         // unrecognized role is warned and ignored rather than applied.

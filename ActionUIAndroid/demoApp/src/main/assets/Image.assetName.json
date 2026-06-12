@@ -1,0 +1,105 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Asset-catalog images", "font": "title2" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "assetName / assetImage / imageName resolved to res/drawable by the host image registry.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+
+    { "type": "Divider", "properties": {} },
+
+    {
+      "type": "Text",
+      "properties": { "text": "Image via the explicit map: 'ActionUI Logo'", "font": "headline" }
+    },
+    {
+      "type": "Image",
+      "properties": {
+        "assetName": "ActionUI Logo",
+        "frame": { "width": 96, "height": 96 }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Free-form Apple name; MainActivity maps it to R.drawable.actionui_logo. Has a dark-mode variant (drawable-night).",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+
+    { "type": "Divider", "properties": {} },
+
+    {
+      "type": "Text",
+      "properties": { "text": "Image via aui_* discovery: 'Star Badge'", "font": "headline" }
+    },
+    {
+      "type": "Image",
+      "properties": {
+        "assetName": "Star Badge",
+        "frame": { "width": 64, "height": 64 }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Normalized to star_badge and found as aui_star_badge - no map entry needed.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+
+    { "type": "Divider", "properties": {} },
+
+    {
+      "type": "Text",
+      "properties": { "text": "Image via the build step: 'Shared Heart'", "font": "headline" }
+    },
+    {
+      "type": "Image",
+      "properties": {
+        "assetName": "Shared Heart",
+        "frame": { "width": 64, "height": 64 }
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Dropped in sharedImages/ under its Apple name; actionui-images.gradle generated aui_shared_heart at build time.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+
+    { "type": "Divider", "properties": {} },
+
+    {
+      "type": "Label",
+      "properties": { "title": "Label with imageName", "imageName": "Star Badge" }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "title": "Button with assetImage",
+        "assetImage": "Star Badge",
+        "buttonStyle": "bordered",
+        "actionID": "asset.button.tap"
+      }
+    }
+  ]
+}

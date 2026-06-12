@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Demo asset resolved through the EXPLICIT registry map: the JSON says
+     assetName "ActionUI Logo" (a free-form Apple catalog name) and MainActivity
+     maps it to R.drawable.actionui_logo - deliberately unprefixed, to show the
+     map mechanism needs no naming convention. Has a drawable-night variant,
+     demonstrating the catalog-appearance parity painterResource gives. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#3F51B5"
+        android:pathData="M5,2 H19 A3,3 0 0 1 22,5 V19 A3,3 0 0 1 19,22 H5 A3,3 0 0 1 2,19 V5 A3,3 0 0 1 5,2 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,5.5 L17.5,18.5 H15.1 L13.8,15.2 H10.2 L8.9,18.5 H6.5 Z M12,10.2 L10.9,13.2 H13.1 Z" />
+</vector>

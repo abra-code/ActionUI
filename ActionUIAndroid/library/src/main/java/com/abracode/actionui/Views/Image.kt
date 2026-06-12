@@ -6,9 +6,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ImageSource
@@ -42,9 +44,12 @@ import com.abracode.actionui.Helpers.stringProperty
  *     Per-symbol fill/weight tuning rides in the map, so shared cross-platform
  *     JSON renders right with no `:android` keys; an explicit `:android` axis knob
  *     still overrides the map.
- *
- * **Deferred vs. Apple** (warn-and-skip, not silent):
- *   * `assetName`  -> Android `res/drawable`; pending a name->resource contract.
+ *   * `assetName`           -> an asset-catalog image, resolved to `res/drawable`
+ *     by the host-supplied registry (`Common/ImageRegistry.kt`: explicit map
+ *     and/or the `aui_*` discovery convention) and rendered with
+ *     `painterResource` - density buckets, `-night` variants, and vector XML
+ *     work like catalog scale/appearance variants. No registry or an unknown
+ *     name warns-and-skips.
  *
  * **Scaling.** For raster sources, `contentMode` (`fit`/`fill`) maps to a Compose
  * `ContentScale` via [resolveContentScale]. For symbols, `imageScale`
@@ -80,9 +85,10 @@ object Image : ActionUIViewConstruction {
         val props = element.properties
         val logger = LocalActionUILogger.current
         val context = LocalContext.current
+        val imageRegistry = LocalActionUIImageRegistry.current
 
         // Source selection (+ its warnings) runs once per properties change.
-        val source = remember(props) { selectImageSource(props, logger) }
+        val source = remember(props, imageRegistry) { selectImageSource(props, logger, imageRegistry) }
         val imageScale = props?.stringProperty("imageScale")
         // accessibilityLabel is applied as semantics on [modifier] by the
         // shared pipeline; the painter-level description stays null (see the
@@ -99,6 +105,18 @@ object Image : ActionUIViewConstruction {
 
         when (source) {
             null -> return
+
+            is ImageSource.DrawableResource -> {
+                // Asset-catalog image resolved to res/drawable by the host
+                // registry. painterResource supplies the catalog feature set:
+                // density buckets, -night variants, vector inflation.
+                FoundationImage(
+                    painter = painterResource(source.resId),
+                    contentDescription = contentDescription,
+                    modifier = modifier,
+                    contentScale = resolveContentScale(props, logger),
+                )
+            }
 
             is ImageSource.MaterialSymbol -> {
                 // materialName -> codepoint + glyph via the shared SymbolIcon seam;

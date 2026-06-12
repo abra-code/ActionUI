@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.selectLabelIcon
@@ -67,7 +68,8 @@ object Label : ActionUIViewConstruction {
 
         // Icon selection (+ its deferred-source warning) runs once per change. A
         // null result is title-only (not an error), unlike Image's no-source case.
-        val iconSource = remember(props) { selectLabelIcon(props, "imageName", "Label", logger) }
+        val imageRegistry = LocalActionUIImageRegistry.current
+        val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "imageName", "Label", logger, imageRegistry) }
 
         Row(
             modifier = modifier,

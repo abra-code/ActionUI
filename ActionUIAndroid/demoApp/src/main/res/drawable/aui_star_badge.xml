@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Demo asset resolved through the aui_* DISCOVERY convention: the JSON says
+     assetName "Star Badge", DiscoveringImageRegistry normalizes it to
+     star_badge and finds aui_star_badge via getIdentifier. The library's
+     bundled keep rule (res/raw/actionui_keep.xml, @drawable/aui_*) keeps it
+     through resource shrinking. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFC107"
+        android:pathData="M12,2 L14.6,8.2 21.5,8.8 16.3,13.3 17.9,20 12,16.5 6.1,20 7.7,13.3 2.5,8.8 9.4,8.2 Z" />
+</vector>

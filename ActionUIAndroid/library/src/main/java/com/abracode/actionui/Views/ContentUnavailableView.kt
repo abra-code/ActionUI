@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Helpers.LabelIcon
@@ -86,8 +87,9 @@ object ContentUnavailableView : ActionUIViewConstruction {
 
         // Hero icon (custom variant only; the search variant has no icon on Apple).
         val imageScale = props?.stringProperty("imageScale")
-        val iconSource = remember(props) {
-            if (isSearch) null else selectLabelIcon(props, "imageName", "ContentUnavailableView", logger)
+        val imageRegistry = LocalActionUIImageRegistry.current
+        val iconSource = remember(props, imageRegistry) {
+            if (isSearch) null else selectLabelIcon(props, "imageName", "ContentUnavailableView", logger, imageRegistry)
         }
 
         Column(

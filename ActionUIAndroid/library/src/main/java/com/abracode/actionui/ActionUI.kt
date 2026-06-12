@@ -18,12 +18,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIImageRegistry
 import com.abracode.actionui.Common.ActionUIJson
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.ConsoleLogger
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.PlatformFilter
@@ -57,6 +59,15 @@ object ActionUI {
     var defaultLogger: ActionUILogger = ConsoleLogger()
 
     /**
+     * Default image registry used when callers don't pass `images` - the asset
+     * counterpart of [defaultLogger], for hosts with many render call sites.
+     * `null` (the default) means asset-named images (`assetName` /
+     * `assetImage` / `imageName`) warn-and-skip. See
+     * [com.abracode.actionui.Common.ActionUIImageRegistry].
+     */
+    var defaultImageRegistry: ActionUIImageRegistry? = null
+
+    /**
      * Renders [jsonString] for the window identified by [windowUUID].
      *
      * A [com.abracode.actionui.Common.WindowModel] is built once per document
@@ -77,6 +88,7 @@ object ActionUI {
         modifier: Modifier = Modifier,
         logger: ActionUILogger = defaultLogger,
         windowUUID: String = "",
+        images: ActionUIImageRegistry? = defaultImageRegistry,
     ) {
         val raw = json.parseToJsonElement(jsonString)
         val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
@@ -84,7 +96,7 @@ object ActionUI {
         // Key the window model on the source text: the element is re-decoded each
         // recomposition (a fresh but structurally identical instance), so it is not
         // a stable remember key.
-        RenderWindow(element, windowKey = jsonString, modifier, logger, windowUUID)
+        RenderWindow(element, windowKey = jsonString, modifier, logger, windowUUID, images)
     }
 
     @Composable
@@ -93,10 +105,11 @@ object ActionUI {
         modifier: Modifier = Modifier,
         logger: ActionUILogger = defaultLogger,
         windowUUID: String = "",
+        images: ActionUIImageRegistry? = defaultImageRegistry,
     ) {
         val context = LocalContext.current
         val jsonString = context.assets.open(assetPath).bufferedReader().use { it.readText() }
-        Render(jsonString, modifier, logger, windowUUID)
+        Render(jsonString, modifier, logger, windowUUID, images)
     }
 
     /**
@@ -129,6 +142,7 @@ object ActionUI {
         modifier: Modifier = Modifier,
         logger: ActionUILogger = defaultLogger,
         windowUUID: String = "",
+        images: ActionUIImageRegistry? = defaultImageRegistry,
     ) {
         val assets = LocalContext.current.assets
         val classified = remember(source) { classifyLoadableSource(source) }
@@ -152,7 +166,7 @@ object ActionUI {
             ) { CircularProgressIndicator() }
 
             is DescriptionLoad.Loaded ->
-                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID)
+                RenderWindow(loaded.element, windowKey = loaded.element, modifier, logger, windowUUID, images)
 
             is DescriptionLoad.Failed -> SourceError("Failed to load view: ${loaded.message}", modifier)
             is DescriptionLoad.NoSource -> SourceError("No valid source provided", modifier)
@@ -182,6 +196,7 @@ object ActionUI {
         modifier: Modifier,
         logger: ActionUILogger,
         windowUUID: String,
+        images: ActionUIImageRegistry?,
     ) {
         val windowModel = remember(windowUUID, windowKey) {
             ActionUIModel.loadDescription(element, windowUUID, logger)
@@ -194,6 +209,7 @@ object ActionUI {
         CompositionLocalProvider(
             LocalActionUILogger provides logger,
             LocalWindowModel provides windowModel,
+            LocalActionUIImageRegistry provides images,
         ) {
             RenderRoot(element, builder, modifier, logger)
             // Window-level overlays (the Android counterpart of Apple wrapping a

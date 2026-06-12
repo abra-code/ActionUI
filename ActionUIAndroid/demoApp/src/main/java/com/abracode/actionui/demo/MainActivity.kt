@@ -14,10 +14,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.abracode.actionui.ActionUI
+import com.abracode.actionui.Common.ActionUIImageRegistry
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.DialogButton
 import com.abracode.actionui.Common.DialogButtonRole
+import com.abracode.actionui.Common.DiscoveringImageRegistry
 import com.abracode.actionui.Common.ModalStyle
+import com.abracode.actionui.Common.imageRegistryOf
 import com.abracode.actionui.demo.ui.theme.ActionUIAndroidTheme
 
 /**
@@ -264,6 +268,18 @@ class MainActivity : ComponentActivity() {
 
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Default handler: '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
+        }
+
+        // Image.assetName.json - the host image registry that resolves Apple
+        // asset-catalog names (assetName / assetImage / imageName) to
+        // res/drawable, composing both mechanisms: the explicit map first
+        // ("ActionUI Logo" is a free-form name an Android resource cannot
+        // carry), then the aui_* discovery convention ("Star Badge" ->
+        // aui_star_badge, kept through shrinking by the library's keep rule).
+        val explicitImages = imageRegistryOf("ActionUI Logo" to R.drawable.actionui_logo)
+        val discoveredImages = DiscoveringImageRegistry(this)
+        ActionUI.defaultImageRegistry = ActionUIImageRegistry { name ->
+            explicitImages.drawableFor(name) ?: discoveredImages.drawableFor(name)
         }
 
         enableEdgeToEdge()

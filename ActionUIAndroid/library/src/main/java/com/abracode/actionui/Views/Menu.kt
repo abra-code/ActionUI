@@ -17,6 +17,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LabelIcon
@@ -97,7 +98,8 @@ internal fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: 
             val actionID = props?.stringProperty("actionID")
             // A Button's icon (`systemImage` / `materialName:android`) renders in the
             // Material leading-icon slot, through the same glyph seam as `Button`.
-            val iconSource = remember(props) { selectLabelIcon(props, "assetImage", "Menu item", logger) }
+            val imageRegistry = LocalActionUIImageRegistry.current
+            val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "assetImage", "Menu item", logger, imageRegistry) }
             DropdownMenuItem(
                 text = { M3Text(label) },
                 leadingIcon = iconSource?.let { source ->

@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import androidx.compose.ui.layout.ContentScale
 import com.abracode.actionui.Common.ActionUILogger
+import com.abracode.actionui.Common.imageRegistryOf
 import com.abracode.actionui.Common.LoggerLevel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -68,7 +69,7 @@ class ImageResolverTest {
     }
 
     @Test
-    fun `resourceName wins over a deferred assetName (no warning)`() {
+    fun `resourceName wins over assetName (no warning)`() {
         val log = CapturingLogger()
         val source = selectImageSource(
             props("""{ "assetName": "drawableName", "resourceName": "logo.png" }"""), log
@@ -89,20 +90,55 @@ class ImageResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // selectImageSource - deferred sources warn and render nothing
+    // selectImageSource - assetName via the host image registry
     // -----------------------------------------------------------------------
 
     @Test
-    fun `assetName alone is deferred - warns and returns null`() {
+    fun `assetName resolves through the host registry`() {
         val log = CapturingLogger()
-        val source = selectImageSource(props("""{ "assetName": "drawableName" }"""), log)
+        val registry = imageRegistryOf("My Logo" to 42)
+        val source = selectImageSource(props("""{ "assetName": "My Logo" }"""), log, registry)
+        assertEquals(ImageSource.DrawableResource(42), source)
+        assertTrue(log.warnings.isEmpty())
+    }
+
+    @Test
+    fun `assetName without a registry warns and returns null`() {
+        val log = CapturingLogger()
+        val source = selectImageSource(props("""{ "assetName": "My Logo" }"""), log)
         assertNull(source)
         assertEquals(1, log.warnings.size)
         assertTrue(log.warnings.single().contains("assetName"))
+        assertTrue(log.warnings.single().contains("no image registry"))
+        // The warning teaches the discovery convention with the normalized name.
+        assertTrue(log.warnings.single().contains("aui_my_logo"))
     }
 
-    // systemName is now supported (resolves via the SF->Material map at render
-    // time); its tests live in the SystemSymbol section below.
+    @Test
+    fun `assetName the registry does not know warns and returns null - no fall-through`() {
+        val log = CapturingLogger()
+        val registry = imageRegistryOf("Something Else" to 7)
+        val source = selectImageSource(
+            // systemName is present but must NOT be used: assetName outranks it
+            // (Apple's order) and an unresolvable name renders nothing, like a
+            // name absent from Apple's catalog.
+            props("""{ "assetName": "My Logo", "systemName": "heart" }"""), log, registry
+        )
+        assertNull(source)
+        assertEquals(1, log.warnings.size)
+        assertTrue(log.warnings.single().contains("does not resolve"))
+    }
+
+    @Test
+    fun `assetName wins over systemName when the registry resolves it (Apple order)`() {
+        val log = CapturingLogger()
+        val registry = imageRegistryOf("My Logo" to 42)
+        val source = selectImageSource(
+            props("""{ "assetName": "My Logo", "systemName": "heart" }"""), log, registry
+        )
+        assertEquals(ImageSource.DrawableResource(42), source)
+        assertTrue(log.warnings.isEmpty())
+    }
 
     // -----------------------------------------------------------------------
     // selectImageSource - materialName (Material Symbol glyph)
@@ -189,10 +225,11 @@ class ImageResolverTest {
     }
 
     @Test
-    fun `materialName wins over a deferred assetName (no warning)`() {
+    fun `materialName wins over assetName (the explicit Android key, no warning)`() {
         val log = CapturingLogger()
         val source = selectImageSource(
-            props("""{ "assetName": "drawable", "materialName": "delete" }"""), log
+            props("""{ "assetName": "drawable", "materialName": "delete" }"""), log,
+            imageRegistryOf("drawable" to 42),
         )
         assertTrue(source is ImageSource.MaterialSymbol)
         assertTrue(log.warnings.isEmpty())
@@ -230,15 +267,8 @@ class ImageResolverTest {
         assertEquals(ImageSource.SystemSymbol("star", 500, 0.5f, 100, 32f), source)
     }
 
-    @Test
-    fun `systemName wins over a deferred assetName (no warning)`() {
-        val log = CapturingLogger()
-        val source = selectImageSource(
-            props("""{ "assetName": "drawable", "systemName": "heart" }"""), log
-        )
-        assertTrue(source is ImageSource.SystemSymbol)
-        assertTrue(log.warnings.isEmpty())
-    }
+    // assetName vs systemName priority lives in the registry section above
+    // (assetName outranks systemName, Apple's Image.swift order).
 
     // -----------------------------------------------------------------------
     // resolveSymbolSizeSp

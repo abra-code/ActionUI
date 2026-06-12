@@ -1,5 +1,7 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.foundation.Image as FoundationImage
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
@@ -7,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.sp
 import com.abracode.actionui.Common.LoggerLevel
@@ -153,9 +157,11 @@ internal fun MaterialNameIcon(
  * for a context that should not track a surrounding font (a nav-bar item, a
  * hero icon). `null` keeps the ambient-font sizing inline labels use.
  *
- * Returns `true` iff a glyph was actually drawn - an unknown name warns (deduped
- * by `remember`) and draws nothing, `null`/raster draws nothing - so the caller
- * can place inter-element spacing only when there is really an icon.
+ * Returns `true` iff an icon was actually drawn - an unknown glyph name warns
+ * (deduped by `remember`) and draws nothing, `null`/raster draws nothing - so
+ * the caller can place inter-element spacing only when there is really an icon.
+ * A [ImageSource.DrawableResource] (registry-resolved asset icon) draws as-is,
+ * untinted, in the glyph-sized box.
  */
 @Composable
 internal fun LabelIcon(
@@ -218,6 +224,28 @@ internal fun LabelIcon(
                 }
             }
             return rendered
+        }
+
+        is ImageSource.DrawableResource -> {
+            // Asset-catalog icon (Label imageName / Button-Tab assetImage)
+            // resolved to res/drawable by the host registry. Drawn as-is (no
+            // tint - the registry cannot know whether a drawable is a template
+            // image), sized to the same box a glyph would get so it sits
+            // correctly beside the title.
+            val ambientFontSizeSp = LocalTextStyle.current.fontSize
+                .let { if (it.type == TextUnitType.Sp) it.value else null }
+            val sizeSp = resolveSymbolSizeSp(
+                explicitSizeSp = defaultSizeSp,
+                imageScale = imageScale,
+                inheritedFontSizeSp = ambientFontSizeSp,
+            )
+            val sizeDp = with(LocalDensity.current) { sizeSp.sp.toDp() }
+            FoundationImage(
+                painter = painterResource(source.resId),
+                contentDescription = contentDescription,
+                modifier = modifier.size(sizeDp),
+            )
+            return true
         }
 
         // null -> title-only; raster kinds are never produced by selectLabelIcon.

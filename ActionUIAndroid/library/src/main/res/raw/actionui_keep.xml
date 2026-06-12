@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resource-shrinker keep rule shipped with the ActionUI library. Drawables
+  following the `aui_*` discovery convention (see Common/ImageRegistry.kt) are
+  referenced only by runtime strings from JSON, which the shrinker cannot see;
+  this rule keeps them in shrunk release builds of any consuming app (library
+  raw resources merge into the app, and the shrinker honors tools:keep even in
+  strict mode). Named actionui_keep - not keep - so a host's own
+  res/raw/keep.xml does not replace it during resource merging.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/aui_*" />

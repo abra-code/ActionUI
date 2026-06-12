@@ -27,6 +27,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Views.MenuChild
@@ -218,7 +219,8 @@ private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
         val actionID = props?.stringProperty("actionID")
         val imageScale = props?.stringProperty("imageScale")
         val contentDescription = props?.stringProperty("accessibilityLabel")
-        val iconSource = remember(props) { selectLabelIcon(props, "assetImage", "ToolbarItem", logger) }
+        val imageRegistry = LocalActionUIImageRegistry.current
+        val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "assetImage", "ToolbarItem", logger, imageRegistry) }
         val onClick = {
             actionID?.let { ActionUIModel.actionHandler(it, viewID = element.id, viewPartID = 0) }
             Unit

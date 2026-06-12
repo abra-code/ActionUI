@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LabelIcon
@@ -57,7 +58,8 @@ object NavigationLink : ActionUIViewConstruction {
         val push = LocalNavPush.current
 
         val imageScale = props?.stringProperty("imageScale")
-        val iconSource = remember(props) { selectLabelIcon(props, "imageName", "NavigationLink", logger) }
+        val imageRegistry = LocalActionUIImageRegistry.current
+        val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "imageName", "NavigationLink", logger, imageRegistry) }
 
         Row(
             modifier = modifier

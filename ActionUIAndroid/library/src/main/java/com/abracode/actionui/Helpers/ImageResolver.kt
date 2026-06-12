@@ -2,12 +2,16 @@ package com.abracode.actionui.Helpers
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import com.abracode.actionui.Common.ActionUIImageRegistry
 import com.abracode.actionui.Common.ActionUILogger
+import com.abracode.actionui.Common.AUI_DRAWABLE_PREFIX
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Common.normalizeAssetDrawableName
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -34,7 +38,7 @@ import java.io.IOException
  * | `resourceName`      | bundle file (name+ext) | `assets/<name>` via [Context.getAssets]  | **done** |
  * | `materialName`      | Material Symbol name   | variable-font glyph ([MaterialSymbolGlyph]) | **done** |
  * | `systemName`        | SF Symbol              | SF->Material map -> glyph ([systemSymbol]) | **done** |
- * | `assetName`         | asset-catalog image    | `res/drawable/`                          | deferred |
+ * | `assetName`         | asset-catalog image    | `res/drawable/` via the host registry    | **done** |
  *
  * `materialName` is Android-only; authors write it as `materialName:android` and
  * `PlatformFilter` normalizes it to `materialName` here. Both `materialName` and
@@ -45,19 +49,21 @@ import java.io.IOException
  * the author gets the right look for free, still overridable by an explicit
  * `:android` axis knob.
  *
- * `assetName` (Android `res/drawable`) is the one still-deferred source, pending a
- * name->resource contract - runtime-by-name needs `resources.getIdentifier`, which
- * is slow and stripped by R8 unless kept, so the right shape is a client-supplied
- * map; that decision is open. Tracked in `Private/Android_Porting_Notes.md`.
+ * `assetName` (Android `res/drawable`) resolves through the host-supplied
+ * [ActionUIImageRegistry] (`Common/ImageRegistry.kt`): an explicit name ->
+ * `R.drawable` map, the `aui_*` discovery convention, or both. No registry, or a
+ * name the registry does not know, warns and renders nothing (mirroring Apple,
+ * where a name absent from the catalog renders nothing) - it does NOT fall
+ * through to a lower-priority source, so integration gaps surface instead of
+ * hiding. See `Private/Android_Asset_Image_Design.md`.
  *
  * ## Source priority
  *
  * When several source properties are present, the highest-priority one wins:
- * `filePath` > `resourceName` > `materialName` > `systemName` > `assetName`. The
- * Apple raster order (`filePath` > `resourceName`) is preserved; the Android-only
- * `materialName` outranks `systemName` so an explicit Android glyph beats the
- * SF-derived one in shared JSON; and the still-deferred `assetName` ranks last
- * (the "supported outranks deferred" rule).
+ * `filePath` > `resourceName` > `materialName` > `assetName` > `systemName`.
+ * That is Apple's order (`filePath` > `resourceName` > `assetName` >
+ * `systemName`, `Image.swift`) with the Android-only `materialName` inserted
+ * ahead of the shared keys it exists to override.
  *
  * ## Scaling
  *
@@ -77,6 +83,15 @@ internal sealed interface ImageSource {
 
     /** A raster/PDF-less image at an absolute filesystem path. */
     data class FilePath(val path: String) : ImageSource
+
+    /**
+     * A `res/drawable` resource, resolved from an asset-catalog name
+     * (`assetName` / `assetImage` / `imageName`) by the host's
+     * [ActionUIImageRegistry]. Rendered with `painterResource` (a composable
+     * call, so not via [loadImagePainter]), which applies density buckets,
+     * `-night` variants, and vector inflation - the asset-catalog feature set.
+     */
+    data class DrawableResource(@DrawableRes val resId: Int) : ImageSource
 
     /**
      * A Material Symbol icon, rendered as a variable-font glyph rather than a
@@ -114,18 +129,20 @@ internal sealed interface ImageSource {
 
 /**
  * Picks the image source to render from [properties], honoring the priority
- * `filePath` > `resourceName` > `materialName` > `systemName` > `assetName` and
- * warning on the deferred / missing / mistyped cases. Pure (no Android framework /
- * no asset access) so it is unit-testable; the codepoint + per-row tuning for a
- * `systemName` come from [systemSymbol] in the `Image` builder, and raster
- * decoding from [loadImagePainter].
+ * `filePath` > `resourceName` > `materialName` > `assetName` > `systemName` and
+ * warning on the missing / mistyped / unresolvable cases. Pure (no Android
+ * framework / no asset access - the optional [registry] is an injected lookup)
+ * so it is unit-testable; the codepoint + per-row tuning for a `systemName`
+ * come from [systemSymbol] in the `Image` builder, and raster decoding from
+ * [loadImagePainter].
  *
  * @return the chosen [ImageSource], or `null` when nothing renderable is
  *   present (a warning is emitted in that case).
  */
 internal fun selectImageSource(
     properties: JsonObject?,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger? = null,
+    registry: ActionUIImageRegistry? = null,
 ): ImageSource? {
     if (properties == null) {
         warnNoSource(logger)
@@ -153,6 +170,8 @@ internal fun selectImageSource(
                 .coerceIn(MATERIAL_GRADE_MIN, MATERIAL_GRADE_MAX),
             explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
         )
+        assetName != null    ->
+            resolveAssetDrawable(assetName, registry, "Image", "assetName", logger)
         systemName != null   -> ImageSource.SystemSymbol(
             // Codepoint + per-row fill/weight are resolved from the SF->Material map
             // at render time; these are the optional explicit overrides (or null).
@@ -162,17 +181,6 @@ internal fun selectImageSource(
             explicitGrade = properties.intProperty("materialGrade"),
             explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
         )
-        assetName != null    -> {
-            logger?.log(
-                "Image 'assetName' ('$assetName') maps to an Android res/drawable " +
-                    "resource, which is not supported yet (pending a name->resource " +
-                    "contract). Use 'resourceName' (assets/), 'materialName:android', " +
-                    "'systemName', or a platform suffix such as 'resourceName:android'. " +
-                    "Nothing rendered.",
-                LoggerLevel.warning
-            )
-            null
-        }
         else                 -> {
             warnNoSource(logger)
             null
@@ -189,15 +197,18 @@ internal fun selectImageSource(
  * Mirrors Image's `materialName` > `systemName` priority, but reads the SF name
  * from `systemImage` - the Apple `Label`/`Button` spelling of `systemName`. The
  * asset-catalog source (`imageName` on Label, `assetImage` on Button, named via
- * [assetCatalogKey]) is the analog of Image's `assetName`: still deferred, so it
- * warns-and-skips here. Pure (no Android framework) so it is unit-testable; the
- * codepoint + per-row tuning come from the render seam at draw time.
+ * [assetCatalogKey]) resolves through the host [registry] like Image's
+ * `assetName`, and ranks *below* `systemImage` - Apple's Label order
+ * (`Label.swift` tries `systemImage` first), the reverse of Image's. Pure (no
+ * Android framework - [registry] is an injected lookup) so it is unit-testable;
+ * the codepoint + per-row tuning come from the render seam at draw time.
  */
 internal fun selectLabelIcon(
     properties: JsonObject?,
     assetCatalogKey: String,
     elementName: String,
     logger: ActionUILogger? = null,
+    registry: ActionUIImageRegistry? = null,
 ): ImageSource? {
     if (properties == null) return null
     val materialName = properties.stringSource("materialName", logger)
@@ -221,18 +232,38 @@ internal fun selectLabelIcon(
             explicitGrade = properties.intProperty("materialGrade"),
             explicitSizeSp = properties.numberProperty("materialSize")?.toFloat(),
         )
-        assetImage != null -> {
-            logger?.log(
-                "$elementName '$assetCatalogKey' ('$assetImage') maps to an Android " +
-                    "res/drawable resource, which is not supported yet (pending a " +
-                    "name->resource contract). Use 'systemImage' (SF Symbol) or " +
-                    "'materialName:android' (Material Symbol). No icon rendered.",
-                LoggerLevel.warning
-            )
-            null
-        }
+        assetImage != null ->
+            resolveAssetDrawable(assetImage, registry, elementName, assetCatalogKey, logger)
         else -> null
     }
+}
+
+/**
+ * Resolves an asset-catalog [name] through the host [registry], warning (and
+ * returning `null` - nothing rendered, no fall-through, like a name absent
+ * from Apple's catalog) when there is no registry or the name is unknown to it.
+ */
+private fun resolveAssetDrawable(
+    name: String,
+    registry: ActionUIImageRegistry?,
+    elementName: String,
+    sourceKey: String,
+    logger: ActionUILogger?,
+): ImageSource.DrawableResource? {
+    val resId = registry?.drawableFor(name)
+    if (resId != null) return ImageSource.DrawableResource(resId)
+    val cause = if (registry == null) {
+        "no image registry was supplied (ActionUI.Render(images = ...) or ActionUI.defaultImageRegistry)"
+    } else {
+        "the host image registry does not resolve it"
+    }
+    logger?.log(
+        "$elementName $sourceKey '$name': $cause. Map it with imageRegistryOf(...), " +
+            "name a drawable '${AUI_DRAWABLE_PREFIX}${normalizeAssetDrawableName(name)}' for " +
+            "DiscoveringImageRegistry, or use a '$sourceKey:android' override. Nothing rendered.",
+        LoggerLevel.warning
+    )
+    return null
 }
 
 /**
@@ -377,12 +408,15 @@ internal fun loadImagePainter(
     context: Context,
     logger: ActionUILogger? = null
 ): Painter? = when (source) {
-    is ImageSource.Asset          -> decodeAsset(source.name, context, logger)
-    is ImageSource.FilePath       -> decodeFile(source.path, logger)
+    is ImageSource.Asset            -> decodeAsset(source.name, context, logger)
+    is ImageSource.FilePath         -> decodeFile(source.path, logger)
     // Symbol sources are glyphs, not raster painters; the Image builder renders
-    // them via MaterialSymbolGlyph and never routes them here.
-    is ImageSource.MaterialSymbol -> null
-    is ImageSource.SystemSymbol   -> null
+    // them via MaterialSymbolGlyph and never routes them here. A drawable is
+    // rendered with the composable painterResource (density/night/vector aware),
+    // so it never routes here either.
+    is ImageSource.MaterialSymbol   -> null
+    is ImageSource.SystemSymbol     -> null
+    is ImageSource.DrawableResource -> null
 }
 
 private fun decodeAsset(name: String, context: Context, logger: ActionUILogger?): Painter? =
@@ -442,10 +476,10 @@ private fun JsonObject.stringSource(key: String, logger: ActionUILogger?): Strin
 
 private fun warnNoSource(logger: ActionUILogger?) {
     logger?.log(
-        "Image requires an image source. Android supports 'resourceName' " +
-            "(assets/), 'filePath', 'materialName:android' (Material Symbol), and " +
-            "'systemName' (SF Symbol, via the bundled SF->Material map) today; " +
-            "'assetName' (res/drawable) is not supported yet. Nothing rendered.",
+        "Image requires an image source: 'resourceName' (assets/), 'filePath', " +
+            "'materialName:android' (Material Symbol), 'systemName' (SF Symbol, " +
+            "via the bundled SF->Material map), or 'assetName' (res/drawable, " +
+            "via the host image registry). Nothing rendered.",
         LoggerLevel.warning
     )
 }
