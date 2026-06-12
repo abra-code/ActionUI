@@ -16,6 +16,7 @@ import com.abracode.actionui.Common.LocalStackAxis
 import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Common.parseRowAlignment
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.templateRows
@@ -63,7 +64,7 @@ object HStack : ActionUIViewConstruction {
                     val childModifier = buildChildModifier(child.properties, logger)
                         .let { if (child.type == "Spacer") it.weight(1f) else it }
                     ProvideTextStyleEnvironment(child.properties, logger) {
-                        builder.BuildView(child, childModifier)
+                        builder.BuildViewWithPopover(child, childModifier)
                     }
                 }
             }

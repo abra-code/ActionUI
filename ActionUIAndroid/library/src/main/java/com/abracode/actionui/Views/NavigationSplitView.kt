@@ -38,6 +38,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -315,6 +316,6 @@ private fun DetailPane(
 private fun RenderPaneChild(element: ActionUIElement, modifier: Modifier, logger: ActionUILogger) {
     val builder = ActionUIRegistry.lookup(element.type) ?: return
     ProvideTextStyleEnvironment(element.properties, logger) {
-        builder.BuildView(element, modifier.applyCommonProperties(element.properties, logger))
+        builder.BuildViewWithPopover(element, modifier.applyCommonProperties(element.properties, logger))
     }
 }

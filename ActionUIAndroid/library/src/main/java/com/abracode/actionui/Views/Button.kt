@@ -35,6 +35,7 @@ import com.abracode.actionui.Helpers.LocalActionUIControlSize
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.LocalTemplateContext
+import com.abracode.actionui.Helpers.POPOVER_VISIBLE_STATE_KEY
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -155,11 +156,22 @@ object Button : ActionUIViewConstruction {
         // (opened, not toggled - dismissal is swipe/back or a host
         // setElementState(false)), mirroring `Button.swift`. The flag lives in the
         // Button's own ViewModel states; `ElementModalHost` observes and presents.
+        // A `popover` subview *toggles* (Apple's distinction), firing
+        // `popoverActionID` on show; `PopoverHelper` anchors the popup and adds
+        // no extra tap gesture to a Button.
+        val popoverActionID = props?.stringProperty("popoverActionID")
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         val onClick = {
             if (element.sheet != null) viewModel?.states?.set(SHEET_VISIBLE_STATE_KEY, true)
             if (element.fullScreenCover != null) {
                 viewModel?.states?.set(FULL_SCREEN_COVER_VISIBLE_STATE_KEY, true)
+            }
+            if (element.popover != null && viewModel != null) {
+                val willShow = !(viewModel.states[POPOVER_VISIBLE_STATE_KEY] as? Boolean ?: false)
+                viewModel.states[POPOVER_VISIBLE_STATE_KEY] = willShow
+                if (willShow && popoverActionID != null) {
+                    ActionUIModel.actionHandler(popoverActionID, viewID = dispatchViewID, viewPartID = 0)
+                }
             }
             if (actionID != null) {
                 ActionUIModel.actionHandler(actionID, viewID = dispatchViewID, viewPartID = dispatchPartID)

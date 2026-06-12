@@ -24,6 +24,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.intProperty
@@ -134,6 +135,6 @@ private fun RenderTabContent(content: ActionUIElement?, logger: ActionUILogger) 
     if (content == null) return
     val builder = ActionUIRegistry.lookup(content.type) ?: return
     ProvideTextStyleEnvironment(content.properties, logger) {
-        builder.BuildView(content, Modifier.applyCommonProperties(content.properties, logger))
+        builder.BuildViewWithPopover(content, Modifier.applyCommonProperties(content.properties, logger))
     }
 }

@@ -251,7 +251,7 @@ private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
     } else {
         val builder = ActionUIRegistry.lookup(element.type) ?: return
         ProvideTextStyleEnvironment(element.properties, logger) {
-            builder.BuildView(element, Modifier.applyCommonProperties(element.properties, logger))
+            builder.BuildViewWithPopover(element, Modifier.applyCommonProperties(element.properties, logger))
         }
     }
 }

@@ -12,6 +12,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Common.parseAlignment
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.templateRows
@@ -81,7 +82,7 @@ object ZStack : ActionUIViewConstruction {
             } else element.children.orEmpty().forEach { child ->
                 val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
                 ProvideTextStyleEnvironment(child.properties, logger) {
-                    builder.BuildView(child, buildChildModifier(child.properties, logger))
+                    builder.BuildViewWithPopover(child, buildChildModifier(child.properties, logger))
                 }
             }
         }
