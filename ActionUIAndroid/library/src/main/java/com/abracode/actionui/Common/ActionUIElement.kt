@@ -63,6 +63,14 @@ import kotlinx.serialization.json.JsonObject
  *   * [rows] - `Grid`'s array-of-arrays container: each inner array is one
  *     grid row's cells, in column order. Registered (flattened into
  *     [subElements]) so cells get [ViewModel]s like any other child.
+ *   * [overlay] / [background] - the decoration subviews any element may
+ *     declare (SwiftUI's `.overlay(alignment:)` / `.background(alignment:)`,
+ *     positioned by the `overlayAlignment` / `backgroundAlignment` properties).
+ *     Composed at the carrier by `Helpers/ViewModifierHelper.kt` as
+ *     size-matched siblings in a `Box` - behind the element ([background]) or
+ *     above it ([overlay]) - never affecting its layout size. Registered (in
+ *     [subElements]) so decoration content (e.g. a badge `Button`) gets
+ *     [ViewModel]s and is host-addressable.
  *
  * Any traversal of the element tree (id registration, etc.) should iterate
  * [subElements] so it automatically covers every named container as more are
@@ -84,6 +92,8 @@ interface ActionUIElementBase {
     val fullScreenCover: ActionUIElement?
     val popover: ActionUIElement?
     val rows: List<List<ActionUIElement>>?
+    val overlay: ActionUIElement?
+    val background: ActionUIElement?
 }
 
 @Serializable
@@ -102,7 +112,9 @@ data class ActionUIElement(
     override val sheet: ActionUIElement? = null,
     override val fullScreenCover: ActionUIElement? = null,
     override val popover: ActionUIElement? = null,
-    override val rows: List<List<ActionUIElement>>? = null
+    override val rows: List<List<ActionUIElement>>? = null,
+    override val overlay: ActionUIElement? = null,
+    override val background: ActionUIElement? = null
 ) : ActionUIElementBase
 
 /**
@@ -124,4 +136,6 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     fullScreenCover?.let { add(it) }
     popover?.let { add(it) }
     rows?.forEach { addAll(it) }
+    overlay?.let { add(it) }
+    background?.let { add(it) }
 }

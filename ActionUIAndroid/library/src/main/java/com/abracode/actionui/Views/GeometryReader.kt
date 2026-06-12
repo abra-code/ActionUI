@@ -14,9 +14,8 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Common.parseAlignment
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -88,7 +87,7 @@ object GeometryReader : ActionUIViewConstruction {
         ) {
             if (content != null && builder != null) {
                 ProvideTextStyleEnvironment(content.properties, logger) {
-                    builder.BuildViewWithPopover(content, Modifier.applyCommonProperties(content.properties, logger))
+                    builder.BuildViewWithModifiers(content, Modifier)
                 }
             }
         }

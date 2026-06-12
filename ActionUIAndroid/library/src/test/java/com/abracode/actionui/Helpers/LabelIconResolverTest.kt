@@ -1,6 +1,7 @@
 package com.abracode.actionui.Helpers
 
 import com.abracode.actionui.Common.ActionUILogger
+import com.abracode.actionui.Common.imageRegistryOf
 import com.abracode.actionui.Common.LoggerLevel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -96,35 +97,50 @@ class LabelIconResolverTest {
     }
 
     // -----------------------------------------------------------------------
-    // Deferred asset-catalog source (imageName / assetImage) -> warn + null
+    // Asset-catalog source (imageName / assetImage) via the host registry
     // -----------------------------------------------------------------------
 
     @Test
-    fun `imageName (Label asset catalog) is deferred with a warning`() {
+    fun `imageName (Label asset catalog) resolves through the host registry`() {
+        val log = CapturingLogger()
+        val icon = selectLabelIcon(
+            props("""{ "title": "X", "imageName": "Logo" }"""),
+            "imageName", "Label", log, imageRegistryOf("Logo" to 42),
+        )
+        assertEquals(ImageSource.DrawableResource(42), icon)
+        assertTrue(log.warnings.isEmpty())
+    }
+
+    @Test
+    fun `imageName without a registry warns and yields null`() {
         val log = CapturingLogger()
         val icon = selectLabelIcon(props("""{ "title": "X", "imageName": "Logo" }"""), "imageName", "Label", log)
         assertNull(icon)
         assertEquals(1, log.warnings.size)
         assertTrue(log.warnings[0].contains("imageName"))
-        assertTrue(log.warnings[0].contains("res/drawable"))
+        assertTrue(log.warnings[0].contains("no image registry"))
     }
 
     @Test
-    fun `assetImage (Button asset catalog) is deferred under its own key`() {
+    fun `assetImage unknown to the registry warns under its own key`() {
         val log = CapturingLogger()
-        val icon = selectLabelIcon(props("""{ "assetImage": "Logo" }"""), "assetImage", "Button", log)
+        val icon = selectLabelIcon(
+            props("""{ "assetImage": "Logo" }"""),
+            "assetImage", "Button", log, imageRegistryOf("Other" to 7),
+        )
         assertNull(icon)
         assertEquals(1, log.warnings.size)
         assertTrue(log.warnings[0].contains("Button"))
         assertTrue(log.warnings[0].contains("assetImage"))
+        assertTrue(log.warnings[0].contains("does not resolve"))
     }
 
     @Test
-    fun `systemImage outranks a deferred asset-catalog image (no warning)`() {
+    fun `systemImage outranks the asset-catalog image (Apple Label order, no warning)`() {
         val log = CapturingLogger()
         val icon = selectLabelIcon(
             props("""{ "systemImage": "star", "imageName": "Logo" }"""),
-            "imageName", "Label", log,
+            "imageName", "Label", log, imageRegistryOf("Logo" to 42),
         )
         assertEquals(ImageSource.SystemSymbol("star", null, null, null, null), icon)
         assertTrue(log.warnings.isEmpty())

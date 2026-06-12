@@ -99,7 +99,7 @@ private fun ElementModal(element: ActionUIElement) {
             ModalBottomSheet(
                 onDismissRequest = { carrierModel.states[SHEET_VISIBLE_STATE_KEY] = false },
             ) {
-                ModalContent(sheetElement, logger)
+                ElementContent(sheetElement, logger)
             }
         }
     }
@@ -113,7 +113,7 @@ private fun ElementModal(element: ActionUIElement) {
                 properties = DialogProperties(usePlatformDefaultWidth = false),
             ) {
                 Surface(Modifier.fillMaxSize()) {
-                    ModalContent(coverElement, logger)
+                    ElementContent(coverElement, logger)
                 }
             }
         }

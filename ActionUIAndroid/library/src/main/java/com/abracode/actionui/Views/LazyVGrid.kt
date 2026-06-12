@@ -17,10 +17,9 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalStackAxis
 import com.abracode.actionui.Common.StackAxis
-import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Common.parseColumnAlignment
 import com.abracode.actionui.Helpers.ActionUIGridCells
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.resolveGridTracks
@@ -117,7 +116,7 @@ object LazyVGrid : ActionUIViewConstruction {
                 } else items(element.children.orEmpty()) { child ->
                     val builder = ActionUIRegistry.lookup(child.type) ?: return@items
                     ProvideTextStyleEnvironment(child.properties, logger) {
-                        builder.BuildViewWithPopover(child, Modifier.applyCommonProperties(child.properties, logger))
+                        builder.BuildViewWithModifiers(child, Modifier)
                     }
                 }
             }

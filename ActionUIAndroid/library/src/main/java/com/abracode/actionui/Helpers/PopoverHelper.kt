@@ -23,6 +23,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Common.applyOuterProperties
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -34,12 +35,14 @@ import kotlinx.serialization.json.JsonObject
  * Unlike a sheet or a dialog, a popover is *anchored*: it positions against the
  * carrier's on-screen bounds. A Compose [Popup] anchors to the layout node it
  * is composed in - the same mechanism `DropdownMenu` uses - so the wrap must
- * happen where the carrier is built. [BuildViewWithPopover] is that seam: every
- * container child loop calls it instead of `BuildView`, and it is an exact
- * pass-through for the overwhelmingly common carrier-less element. (`template`
- * content keeps calling `BuildView` directly - per-row instances have no
- * registered ViewModel to hold presentation state, same exclusion as the
- * modals.)
+ * happen where the carrier is built. `BuildViewWithModifiers`
+ * (`ViewModifierHelper.kt`, which every container
+ * child loop calls instead of `BuildView`) routes any element declaring a
+ * `popover` subview through [BuildViewWithPopover]; the popover wrap is
+ * outermost - its `Box` is the anchor node - and the carrier continues through
+ * the decoration path (`BuildViewWithDecorations`) inside it. (`template` content keeps calling
+ * `BuildView` directly - per-row instances have no registered ViewModel to
+ * hold presentation state, same exclusion as the modals.)
  *
  * **Presentation state - Apple contract, key for key.** The carrier's
  * `states["popoverVisible"]` drives visibility. A tap on a non-`Button` carrier
@@ -60,14 +63,14 @@ import kotlinx.serialization.json.JsonObject
  * is an elevated Material shape like a `DropdownMenu` container.
  */
 @Composable
-fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElement, modifier: Modifier) {
-    val popoverElement = element.popover
-    if (popoverElement == null) {
-        BuildView(element, modifier)
+internal fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElement, modifier: Modifier) {
+    val logger = LocalActionUILogger.current
+    val popoverElement = element.popover ?: run {
+        // Defensive: BuildViewWithModifiers only routes here for a popover carrier.
+        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger))
         return
     }
 
-    val logger = LocalActionUILogger.current
     val carrierModel = LocalWindowModel.current?.viewModels?.get(element.id)
     if (carrierModel == null) {
         // No registered ViewModel (no window, or an unregistered context) means
@@ -76,7 +79,7 @@ fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElement, modi
             "Popover on element id ${element.id} has no registered state; ignoring the subview.",
             LoggerLevel.warning,
         )
-        BuildView(element, modifier)
+        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger))
         return
     }
 
@@ -100,11 +103,13 @@ fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElement, modi
         Modifier
     }
 
-    // The Box is the anchor node: the carrier's modifier chain moves onto it
-    // (so weight/align parent data still face the real parent layout) and the
-    // Popup anchors to its bounds.
-    Box(modifier.then(tapModifier)) {
-        BuildView(element, Modifier)
+    // The Box is the anchor node: the parent data and the outer property half
+    // move onto it (so weight/align still face the real parent layout, and the
+    // anchor bounds track the carrier's transforms) and the Popup anchors to
+    // its bounds. The carrier continues through the decoration path inside,
+    // which applies the inner half.
+    Box(modifier.applyOuterProperties(element.properties, logger).then(tapModifier)) {
+        BuildViewWithDecorations(element, Modifier)
         val visible = carrierModel.states[POPOVER_VISIBLE_STATE_KEY] as? Boolean ?: false
         if (visible) {
             Popup(
@@ -117,7 +122,7 @@ fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElement, modi
                     tonalElevation = 3.dp,
                     shadowElevation = 3.dp,
                 ) {
-                    ModalContent(popoverElement, logger)
+                    ElementContent(popoverElement, logger)
                 }
             }
         }

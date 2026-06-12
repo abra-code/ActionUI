@@ -283,4 +283,24 @@ class WindowModelTest {
         assertTrue(window.viewModels.containsKey(9))
         assertNull(window.viewModels[1])
     }
+
+    @Test
+    fun `descends into the overlay and background decoration subviews`() {
+        // Decoration content must register so a host can address it by id -
+        // e.g. a dismiss Button overlaid on a card.
+        val root = ActionUIElement(
+            id = 1, type = "Rectangle",
+            overlay = ActionUIElement(
+                id = 2, type = "ZStack",
+                children = listOf(ActionUIElement(id = 3, type = "TextField",
+                    properties = buildJsonObject { put("text", "badge") })),
+            ),
+            background = ActionUIElement(id = 4, type = "Capsule"),
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals("badge", window.viewModels[3]?.value)
+        assertEquals("Capsule", window.viewModels[4]?.elementType)
+    }
 }

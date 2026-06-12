@@ -21,10 +21,10 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
-import com.abracode.actionui.Common.applyCommonProperties
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.intProperty
@@ -99,7 +99,8 @@ object TabView : ActionUIViewConstruction {
                 tabs.forEachIndexed { index, tab ->
                     // The tab's SF Symbol / Material glyph, sized for a nav-bar item;
                     // NavigationBarItem tints it by selection via LocalContentColor.
-                    val tabIcon = remember(tab) { selectLabelIcon(tab.properties, "assetImage", "Tab", logger) }
+                    val imageRegistry = LocalActionUIImageRegistry.current
+                    val tabIcon = remember(tab, imageRegistry) { selectLabelIcon(tab.properties, "assetImage", "Tab", logger, imageRegistry) }
                     val tabImageScale = tab.properties?.stringProperty("imageScale")
                     NavigationBarItem(
                         selected = index == selected,
@@ -135,6 +136,6 @@ private fun RenderTabContent(content: ActionUIElement?, logger: ActionUILogger) 
     if (content == null) return
     val builder = ActionUIRegistry.lookup(content.type) ?: return
     ProvideTextStyleEnvironment(content.properties, logger) {
-        builder.BuildViewWithPopover(content, Modifier.applyCommonProperties(content.properties, logger))
+        builder.BuildViewWithModifiers(content, Modifier)
     }
 }
