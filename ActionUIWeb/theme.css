@@ -89,6 +89,11 @@
     padding: 3px 12px;
     cursor: pointer;
     box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+    /* icon + title sit inline with SwiftUI Label-like spacing (gap only bites
+       when both are present). */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
 }
 .aui-button:hover { filter: brightness(0.97); }
 .aui-button:active { filter: brightness(0.92); }
@@ -212,10 +217,15 @@
     -webkit-font-feature-settings: "liga";
     -webkit-font-smoothing: antialiased;
     font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    /* Sized relative to the surrounding font, like an SF Symbol image (the box is
+       ~1.18x the font size). This makes a glyph track its context — body text, or
+       a Button's label — and turns imageScale into a multiplier (small/large =
+       0.8x/1.28x of the medium box), mirroring the Android factors. */
+    font-size: 1.18em;
 }
-.aui-symbol-small  { font-size: 16px; }
-.aui-symbol-medium { font-size: 22px; }
-.aui-symbol-large  { font-size: 28px; }
+.aui-symbol-small  { font-size: 0.94em; }
+.aui-symbol-medium { font-size: 1.18em; }
+.aui-symbol-large  { font-size: 1.51em; }
 
 /* ---- misc ---- */
 

@@ -18,10 +18,7 @@
 //   (setString) re-renders the source with simple "mixed" heuristics.
 
 import { register } from "../Common/ActionUIRegistry.js";
-import {
-    resolveSystemSymbol, preloadSymbolMap,
-    MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX,
-} from "../Helpers/MaterialSymbolResolver.js";
+import { materialNameGlyph, systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 const SOURCE_KEYS = ["filePath", "resourceName", "assetName", "systemName", "materialName"];
 const RASTER_KEYS = ["filePath", "resourceName", "assetName"];
@@ -136,64 +133,17 @@ function render(node, source, props, ctx) {
     }
 
     if (typeof source.materialName === "string") {
-        node.appendChild(symbolGlyph(source.materialName, fillFor(props, false), weightFor(props, null), props.imageScale));
+        node.appendChild(materialNameGlyph(source.materialName, props));
         return;
     }
 
     if (typeof source.systemName === "string") {
-        const glyph = symbolGlyph("", false, null, props.imageScale); // placeholder until resolved
-        node.appendChild(glyph);
-        const entry = resolveSystemSymbol(source.systemName);
-        if (entry) {
-            applySystemSymbol(glyph, entry, props);
-        } else {
-            preloadSymbolMap(ctx.logger).then((map) => {
-                const resolved = map.get(source.systemName);
-                if (resolved) applySystemSymbol(glyph, resolved, props);
-                else ctx.logger.log(
-                    `Image systemName '${source.systemName}' has no SF→Material mapping; ` +
-                    `nothing rendered. Use 'materialName' for an explicit Material glyph.`,
-                    "warning",
-                );
-            });
-        }
+        node.appendChild(systemSymbolGlyph(source.systemName, props, ctx.logger, (name) =>
+            `Image systemName '${name}' has no SF→Material mapping; nothing rendered. ` +
+            `Use 'materialName' for an explicit Material glyph.`));
         return;
     }
 
     // No source: an empty placeholder (Apple falls back to the "photo" symbol).
     node.classList.add("aui-image-empty");
-}
-
-function applySystemSymbol(glyph, entry, props) {
-    glyph.textContent = String.fromCodePoint(entry.codepoint);
-    setAxes(glyph, fillFor(props, entry.fill), weightFor(props, entry.weight));
-}
-
-// Builds a Material Symbols font span. `content` is the ligature name
-// (materialName) or the codepoint character (systemName).
-function symbolGlyph(content, fill, weight, imageScale) {
-    const span = document.createElement("span");
-    span.className = "aui-symbol" + (imageScale ? ` aui-symbol-${imageScale}` : "");
-    span.textContent = content;
-    setAxes(span, fill, weight);
-    return span;
-}
-
-function setAxes(span, fill, weight) {
-    span.style.fontVariationSettings =
-        `'FILL' ${fill ? 1 : 0}, 'wght' ${weight ?? 400}, 'GRAD' 0, 'opsz' 24`;
-}
-
-// material* axis overrides win over the SF→Material map's per-symbol defaults.
-function fillFor(props, fallback) {
-    const v = props.materialFill;
-    if (typeof v === "boolean") return v;
-    if (typeof v === "number") return v >= 1;
-    return fallback;
-}
-
-function weightFor(props, fallback) {
-    const v = props.materialWeight;
-    if (typeof v === "number" && v >= MATERIAL_WEIGHT_MIN && v <= MATERIAL_WEIGHT_MAX) return v;
-    return fallback;
 }

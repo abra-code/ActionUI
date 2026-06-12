@@ -2,14 +2,20 @@
 // Web analog of ActionUI/Views/Button.swift (PoC subset).
 //
 // Properties: title (String, defaults to ""), role ("destructive" | "cancel"),
-// systemImage/assetImage/imageScale (validated; image rendering deferred — see
-// Web_Porting_Notes.md). Action context carries the button title, matching the
-// Swift implementation. `buttonStyle` is a View-level modifier on Apple (applied
-// via applyViewModifiers); on web it is styled here pending a ModifierResolver
-// home, so it is not part of this element's schema validation.
+// systemImage/assetImage/imageScale. A leading icon resolves through the shared
+// glyph seam (selectLabelIcon → SymbolIcon.js), the same path as Image: an SF
+// Symbol (`systemImage`) or an explicit Material glyph (`materialName:web`, which
+// wins when both are present). With a title the button is icon + title; with an
+// empty title it is icon-only. `assetImage` (asset-catalog) is deferred and
+// warns-and-skips, mirroring Image's `assetName` and the Android Button.
+// Action context carries the button title, matching the Swift implementation.
+// `buttonStyle` is a View-level modifier on Apple (applied via applyViewModifiers);
+// on web it is styled here pending a ModifierResolver home, so it is not part of
+// this element's schema validation.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
+import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
 
 const BUTTON_STYLES = new Set([
     "automatic", "bordered", "borderedProminent", "borderless", "plain",
@@ -56,7 +62,22 @@ register("Button", {
         const style = BUTTON_STYLES.has(properties.buttonStyle) ? properties.buttonStyle : "bordered";
         node.className = `aui-button aui-button-${style}`;
         if (properties.role === "destructive") node.classList.add("aui-button-destructive");
-        node.textContent = properties.title ?? "";
+
+        // Leading icon (systemImage / materialName:web; assetImage warns-and-skips)
+        // through the shared glyph seam — the same path as Image.
+        const icon = labelIcon(selectLabelIcon(properties, "assetImage", "Button", ctx.logger),
+            properties, "Button", ctx.logger);
+        const title = properties.title ?? "";
+        if (icon) {
+            node.classList.add("aui-button-has-icon");
+            node.appendChild(icon);
+        }
+        if (title) {
+            const label = document.createElement("span");
+            label.className = "aui-button-title";
+            label.textContent = title;
+            node.appendChild(label);
+        }
 
         if (typeof properties.actionID === "string") {
             markHandlesAction(node);
