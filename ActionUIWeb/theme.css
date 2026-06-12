@@ -117,6 +117,18 @@
 }
 .aui-button:disabled { opacity: 0.4; cursor: default; }
 
+/* ---- Slider ---- */
+
+.aui-slider {
+    /* Native range control, tinted to the accent (foregroundColor overrides via
+       the inline accent-color the modifier resolver may set). */
+    accent-color: var(--aui-color-accent);
+    width: 100%;
+    cursor: pointer;
+}
+.aui-slider:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: 4px; }
+.aui-slider:disabled { opacity: 0.4; cursor: default; }
+
 /* ---- TextField ---- */
 
 .aui-textfield {

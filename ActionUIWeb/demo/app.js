@@ -19,6 +19,8 @@ app.action("shoutChanged", (ctx) => {
     win.setString(20, 0, `Shout mode: ${ctx.context.isOn ? "on" : "off"}`);
 });
 
+app.action("volumeChanged", () => win.setString(31, 0, String(win.getInt(30))));
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {

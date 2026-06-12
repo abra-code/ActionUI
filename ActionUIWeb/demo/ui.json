@@ -53,6 +53,16 @@
       ]
     },
     { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Volume", "systemImage": "speaker.wave.2.fill" } },
+        { "type": "Slider", "id": 30, "properties": { "value": 40, "range": { "min": 0, "max": 100 }, "step": 1, "valueChangeActionID": "volumeChanged", "frame": { "maxWidth": "infinity" } } },
+        { "type": "Text", "id": 31, "properties": { "text": "40", "font": "headline" } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }
