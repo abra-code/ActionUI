@@ -21,6 +21,14 @@
         { "type": "Image", "properties": { "materialName": "rocket_launch", "imageScale": "large", "foregroundColor": "accentColor" } }
       ]
     },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Favorites", "systemImage": "star.fill", "foregroundColor": "yellow" } },
+        { "type": "Label", "properties": { "title": "Trash", "systemImage": "trash", "foregroundColor": "secondary" } }
+      ]
+    },
     { "type": "Divider" },
     {
       "type": "HStack",

@@ -198,6 +198,14 @@
 }
 .aui-image > img { display: block; max-width: 100%; }
 
+/* ---- Label ---- */
+
+.aui-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em; /* icon → title, like SwiftUI Label (gap only bites with both) */
+}
+
 /* The Material Symbols web font (OFL). The font resource itself is loaded by
    the host page (see demo/index.html — Google Fonts or a self-hosted
    @font-face); this class only configures rendering, so styling stays in the

@@ -26,6 +26,7 @@ import "./Views/Button.js";
 import "./Views/TextField.js";
 import "./Views/Toggle.js";
 import "./Views/Image.js";
+import "./Views/Label.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

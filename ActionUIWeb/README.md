@@ -50,13 +50,14 @@ python3 -m http.server 8080
   the tree is built).
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,
   Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles),
-  Image. Each view's `validateProperties` warnings match the Swift contract
-  (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings and are
-  tracked in `Private/Web_Porting_Notes.md`.
-- **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `assets/symbols/`):
-  `Image` renders SF Symbols (`systemName`) via the Android SF→Material map and
-  Material Symbols (`materialName`) via the OFL Material Symbols web font (loaded
-  by the host page; see `demo/index.html`).
+  Image, Label. Each view's `validateProperties` warnings match the Swift
+  contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
+  and are tracked in `Private/Web_Porting_Notes.md`.
+- **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `Helpers/SymbolIcon.js`
+  + `assets/symbols/`): a shared glyph seam — `Image`, `Button`, and `Label` all
+  render SF Symbols (`systemName`/`systemImage`) via the Android SF→Material map
+  and Material Symbols (`materialName`) via the OFL Material Symbols web font
+  (loaded by the host page; see `demo/index.html`).
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
   `ActionUINodeJS/index.js` — `Window.fromURL/fromJSON`, `presentWindow`,
   `get/setString|Bool|Int|Double|Value`, `app.action(id, fn)`,
