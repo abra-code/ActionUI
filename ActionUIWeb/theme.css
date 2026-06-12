@@ -79,6 +79,49 @@
    auto-flow:column), Grid is explicit GridRows. */
 .aui-grid { display: grid; }
 
+/* Form containers. All five reuse the stack flex rules (.aui-vstack /
+   .aui-hstack) for direction and Divider orientation; these classes add the
+   grouping looks. */
+
+/* Form: a leading-aligned column of rows. Non-scrolling (wrap in a ScrollView);
+   the 8px row gap approximates SwiftUI's grouped row spacing. */
+.aui-form { align-items: flex-start; gap: 8px; }
+
+/* Section: an optional header label above the rows, styled like a section
+   label (small, secondary, semibold — the Material titleSmall analog). */
+.aui-section { align-items: flex-start; }
+.aui-section-header {
+    color: var(--aui-color-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 0 4px;
+}
+
+/* GroupBox: the default SwiftUI style — a bordered rounded box with a subtle
+   fill, the title label above the content. */
+.aui-groupbox {
+    align-items: flex-start;
+    gap: 8px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: 8px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--aui-color-gray) 7%, transparent);
+}
+.aui-groupbox-title { font-weight: 600; }
+
+/* LabeledContent: leading title, trailing content. The title flexes to push
+   the children to the trailing edge (the SwiftUI label-left/content-right
+   layout); the row stretches like the Android weighted Row. */
+.aui-labeled-content { align-items: center; gap: 8px; align-self: stretch; }
+.aui-labeled-content-title { flex: 1; white-space: nowrap; }
+
+/* DisclosureGroup: native <details>/<summary>. The native disclosure marker
+   leads the title (SwiftUI's chevron trails — accepted platform character).
+   Content insets mirror the Android start-16/top-8 padding. */
+.aui-disclosure { align-self: stretch; }
+.aui-disclosure-title { cursor: pointer; user-select: none; }
+.aui-disclosure-content { align-items: flex-start; gap: 8px; padding: 8px 0 0 16px; }
+
 .aui-divider { background: var(--aui-control-border); align-self: stretch; }
 .aui-vstack > .aui-divider { height: 1px; }
 .aui-hstack > .aui-divider { width: 1px; }

@@ -7,6 +7,7 @@
 //   validateProperties: (properties, logger) => validatedProperties,
 //   buildView:          (element, ctx) => HTMLElement,
 //   initialValue:       (element, validatedProperties) => any | undefined,
+//   initialStates:      (element, validatedProperties) => { key: value } | undefined,
 // }
 // ctx = { model, windowUUID, logger, build } where build(childElement) recurses.
 //
@@ -39,6 +40,10 @@ export function buildElementView(element, ctx) {
         const initial = construction.initialValue?.(element, properties);
         if (construction.valueType !== "none" && initial !== undefined) {
             ctx.model.seedValue(element.id, initial);
+        }
+        const states = construction.initialStates?.(element, properties);
+        if (states !== undefined) {
+            ctx.model.seedStates(element.id, states);
         }
     }
     applyViewModifiers(node, element, properties, ctx);

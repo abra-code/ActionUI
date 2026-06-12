@@ -40,6 +40,11 @@ import "./Views/LazyHStack.js";
 import "./Views/Grid.js";
 import "./Views/LazyVGrid.js";
 import "./Views/LazyHGrid.js";
+import "./Views/Form.js";
+import "./Views/Section.js";
+import "./Views/GroupBox.js";
+import "./Views/LabeledContent.js";
+import "./Views/DisclosureGroup.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {
@@ -113,6 +118,13 @@ export class Window {
     setBool(viewID, viewPartID = 0, value)   { this.setValue(viewID, viewPartID, Boolean(value)); }
     setInt(viewID, viewPartID = 0, value)    { this.setValue(viewID, viewPartID, Math.trunc(value)); }
     setDouble(viewID, viewPartID = 0, value) { this.setValue(viewID, viewPartID, Number(value)); }
+
+    // State bridge — named per-element states (e.g. DisclosureGroup's
+    // "isExpanded"), same names as the Node.js adapter. The string-transport
+    // variants (getStateString/setStateFromString) are a C-bridge concern and
+    // have no web counterpart; values here are already JS values.
+    getState(viewID, key)        { return this.model.getElementState(viewID, key); }
+    setState(viewID, key, value) { this.model.setElementState(viewID, key, value); }
 }
 
 export class Application {

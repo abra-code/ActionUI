@@ -41,8 +41,8 @@ python3 -m http.server 8080
 - **Core** (`src/Common/`): element parsing with negative-ID generation and
   `children`/`content` key routing (`ActionUIElement.js`), type registry with
   fail-graceful unknown-type placeholders (`ActionUIRegistry.js`), per-window
-  model with viewID->DOM binding records instead of a virtual DOM
-  (`ActionUIModel.js`), baseline View modifier subset — padding, font text
+  model with viewID->DOM binding records instead of a virtual DOM — for both
+  element values and named element states (`ActionUIModel.js`), baseline View modifier subset — padding, font text
   styles, colors, frame, cornerRadius, opacity, hidden, disabled, help, generic
   actionID (`ModifierResolver.js`), shared stack vocabulary (`StackAxis.js`),
   console logger (`ConsoleLogger.js`), and `<key>:<platform>` override
@@ -51,7 +51,8 @@ python3 -m http.server 8080
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,
   Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles),
   Image, Label, Slider, Stepper, SecureField, Picker, ProgressView, DatePicker,
-  ColorPicker, ScrollView, LazyVStack, LazyHStack, Grid, LazyVGrid, LazyHGrid.
+  ColorPicker, ScrollView, LazyVStack, LazyHStack, Grid, LazyVGrid, LazyHGrid,
+  Form, Section, GroupBox, LabeledContent, DisclosureGroup.
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
@@ -62,7 +63,8 @@ python3 -m http.server 8080
   (loaded by the host page; see `demo/index.html`).
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
   `ActionUINodeJS/index.js` — `Window.fromURL/fromJSON`, `presentWindow`,
-  `get/setString|Bool|Int|Double|Value`, `app.action(id, fn)`,
+  `get/setString|Bool|Int|Double|Value`, `get/setState` (named element states,
+  e.g. DisclosureGroup's `isExpanded`), `app.action(id, fn)`,
   `setDefaultHandler`. Action handlers receive
   `(actionID, windowUUID, viewID, viewPartID, context)` as on all platforms.
 - **Theme** (`theme.css`): tokenized CSS custom properties, macOS-flavored
