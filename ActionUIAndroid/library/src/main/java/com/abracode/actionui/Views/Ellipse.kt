@@ -11,7 +11,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
  * Mirror of the Apple `Ellipse` element (`ActionUI/Views/Ellipse.swift`), which
  * wraps `SwiftUI.Ellipse`. Drawn with `drawOval`, which fills the box - an equal
  * width/height frame yields a circle. `fill` / `stroke` / `strokeLineWidth`
- * resolve through the shared [ShapeView] / `ShapeStyleHelper` seam. Needs an
+ * resolve through the shared [ShapeView] / `ShapeStyleHelper` path. Needs an
  * explicit `frame` to be visible - see [ShapeView].
  *
  * Sample JSON:

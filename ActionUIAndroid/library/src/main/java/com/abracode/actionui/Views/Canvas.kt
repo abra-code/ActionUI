@@ -57,7 +57,7 @@ import kotlinx.serialization.json.JsonObject
  *     with the element's `id` as `viewID`, like Apple's `onTapGesture`.
  *
  * `image` operations resolve `systemName` through the same SF->Material glyph
- * seam as the `Image` element, and `resourceName` / `filePath` as bitmaps
+ * helper as the `Image` element, and `resourceName` / `filePath` as bitmaps
  * (decoded once and cached per source); `assetName` is deferred with the same
  * warn-and-skip as `Image`. Glyphs tint with the inherited content color, the
  * Android analog of SwiftUI's `.primary` resolution inside a canvas.

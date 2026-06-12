@@ -12,7 +12,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
  * wraps `SwiftUI.Circle`. Drawn with `drawCircle(radius = minDimension/2)` so it
  * stays a true circle on a non-square frame - Compose's `CircleShape` would
  * degenerate to a capsule there. `fill` / `stroke` / `strokeLineWidth` resolve
- * through the shared [ShapeView] / `ShapeStyleHelper` seam. Needs an explicit
+ * through the shared [ShapeView] / `ShapeStyleHelper` path. Needs an explicit
  * `frame` to be visible - see [ShapeView].
  *
  * Sample JSON:

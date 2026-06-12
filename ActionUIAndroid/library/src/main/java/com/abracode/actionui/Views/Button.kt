@@ -102,7 +102,7 @@ import com.abracode.actionui.Helpers.stringProperty
  * renders the standard Material disabled colors and blocks the tap - set
  * directly or inherited from a disabled ancestor (SwiftUI `.disabled` semantics).
  *
- * **Image label.** A leading icon resolves through the shared `SymbolIcon` seam
+ * **Image label.** A leading icon resolves through the shared `SymbolIcon` helper
  * ([selectLabelIcon] -> `SymbolIcon.kt`), the same glyph path as `Image` / `Label`:
  * `systemImage` (an SF Symbol -> closest Material glyph) or `materialName:android`
  * (an explicit Material Symbol, winning when both are present). With a `title` the
@@ -181,7 +181,7 @@ object Button : ActionUIViewConstruction {
         }
 
         // The inherited control environment - the element's own properties were
-        // already provided into it by the per-element seam, so reading the
+        // already provided into it by ProvideTextStyleEnvironment, so reading the
         // locals covers both the inherited and the self-declared case.
         val style = LocalActionUIButtonStyle.current ?: ActionUIButtonStyle.AUTOMATIC
         val enabled = LocalActionUIEnabled.current

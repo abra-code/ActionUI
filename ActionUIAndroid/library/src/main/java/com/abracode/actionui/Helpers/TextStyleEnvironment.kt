@@ -51,12 +51,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * is introduced here and read by the interactive control builders (Button,
  * Toggle, Slider, ProgressView).
  *
- * The seam is [ProvideTextStyleEnvironment], applied once per element at the
- * point the element is built - in `ActionUI.Render` for the root and in each
- * container's child loop for the rest - so an element's own font/color/tint
- * style both itself and its subtree, exactly once. The control environment
- * (`disabled` / `buttonStyle` / `controlSize` - locals and parsing in
- * `ControlEnvironment.kt`) rides the same seam, for the same reason.
+ * The shared entry point is [ProvideTextStyleEnvironment], applied once per
+ * element at the point the element is built - in `ActionUI.Render` for the root
+ * and in each container's child loop for the rest - so an element's own
+ * font/color/tint style both itself and its subtree, exactly once. The control
+ * environment (`disabled` / `buttonStyle` / `controlSize` - locals and parsing
+ * in `ControlEnvironment.kt`) rides the same wrapper, for the same reason.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
  *   * Named text styles (`title`, `body`, ...) map onto the nearest Material3

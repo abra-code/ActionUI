@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the source-loading seam shared by the embedded `LoadableView`
+ * Unit tests for the source-loading helpers shared by the embedded `LoadableView`
  * element and the top-level `ActionUI.RenderSource` entry. Covers the parts that
  * need no Android framework: decoding and the remote `.plist` short-circuit.
  * (The local bundle/file reads go through `AssetManager` / the filesystem and are

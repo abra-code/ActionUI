@@ -39,7 +39,7 @@ import com.abracode.actionui.Helpers.stringProperty
  *
  * Property mapping: `title` (the row label, defaults to `"Link"`) and an optional
  * leading `systemImage` (SF Symbol) / `materialName:android` icon, resolved through
- * the shared `SymbolIcon` seam ([LabelIcon]) like every other image-label.
+ * the shared `SymbolIcon` helper ([LabelIcon]) like every other image-label.
  *
  * **Degrades vs. Apple.** Outside a `NavigationStack` (no [LocalNavPush]) a tap
  * is a no-op and warns. A link with neither a `destinationViewId` nor an

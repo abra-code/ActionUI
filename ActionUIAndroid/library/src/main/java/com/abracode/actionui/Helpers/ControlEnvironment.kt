@@ -17,7 +17,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * Material control, and button emphasis/size are distinct composables
  * (`Button` / `FilledTonalButton` / `TextButton`) and metrics, not an ambient
  * value. So, exactly as `tint` did, each gets a [ProvidableCompositionLocal]
- * provided once per element (through the [ProvideTextStyleEnvironment] seam)
+ * provided once per element (through [ProvideTextStyleEnvironment])
  * and read by the control builders:
  *
  *   * `disabled`    -> [LocalActionUIEnabled]      (read by every interactive control)

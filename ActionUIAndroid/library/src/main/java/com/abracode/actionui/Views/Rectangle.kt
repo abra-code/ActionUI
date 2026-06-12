@@ -11,7 +11,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
  * Mirror of the Apple `Rectangle` element (`ActionUI/Views/Rectangle.swift`),
  * which wraps `SwiftUI.Rectangle`. Stateless (`valueType = Void`); `fill` /
  * `stroke` / `strokeLineWidth` resolve through the shared [ShapeView] /
- * `ShapeStyleHelper` seam. Needs an explicit `frame` to be visible - see
+ * `ShapeStyleHelper` path. Needs an explicit `frame` to be visible - see
  * [ShapeView] for the sizing caveat.
  *
  * Sample JSON:

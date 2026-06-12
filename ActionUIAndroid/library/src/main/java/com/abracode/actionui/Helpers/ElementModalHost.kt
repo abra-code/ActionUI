@@ -30,7 +30,7 @@ import com.abracode.actionui.Common.subElements
  * **Why one window-level host instead of per-element wrappers.** SwiftUI's
  * `.sheet` is a view modifier, so Apple wraps each carrier view. In Compose a
  * `ModalBottomSheet` / `Dialog` is a window-scoped overlay no matter where it is
- * composed, so wrapping at each of the ~20 container child-loop seams would buy
+ * composed, so wrapping at each of the ~20 container child-loop call sites would buy
  * nothing. Instead `ActionUI.RenderWindow` places a single [ElementModalsHost]
  * beside [WindowDialogHost] / [WindowModalHost]; it walks the document once
  * ([collectModalCarriers], pure and testable) and observes every carrier's
