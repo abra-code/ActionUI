@@ -41,6 +41,10 @@ app.action("dateChanged", () => win.setString(20, 0, `Date: ${win.getString(80)}
 
 app.action("colorChanged", () => win.setString(20, 0, `Color: ${win.getString(81)}.`));
 
+app.action("notesChanged", () => {
+    win.setString(20, 0, `Notes: ${win.getString(95).length} characters.`);
+});
+
 // Exercises the state bridge: DisclosureGroup's expanded flag is a named
 // state ("isExpanded"), not a value.
 app.action("advancedToggled", () => {

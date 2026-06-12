@@ -230,7 +230,8 @@
 
 /* ---- TextField ---- */
 
-/* SecureField shares TextField's box; it differs only in type="password". */
+/* SecureField shares TextField's box; it differs only in type="password".
+   TextEditor is the multi-line member of the family (a <textarea>). */
 .aui-textfield, .aui-securefield {
     font: inherit;
     color: var(--aui-color-primary);
@@ -243,6 +244,14 @@
 .aui-textfield:focus-visible, .aui-securefield:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
 .aui-textfield::placeholder, .aui-securefield::placeholder { color: var(--aui-color-secondary); }
 .aui-textfield:disabled, .aui-securefield:disabled { opacity: 0.4; }
+
+/* TextEditor: a <textarea> in the shared box. The default height bounds the
+   editor so it scrolls internally (an inline frame.height overrides it); the
+   resize grip is the browser's own — native platform character. */
+.aui-texteditor {
+    height: 140px;
+    resize: vertical;
+}
 
 .aui-labeled-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .aui-labeled-field > .aui-textfield, .aui-labeled-field > .aui-securefield,

@@ -45,6 +45,7 @@ import "./Views/Section.js";
 import "./Views/GroupBox.js";
 import "./Views/LabeledContent.js";
 import "./Views/DisclosureGroup.js";
+import "./Views/TextEditor.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

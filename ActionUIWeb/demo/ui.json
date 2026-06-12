@@ -180,6 +180,9 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "TextEditor (multi-line, scrolls internally):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "TextEditor", "id": 95, "properties": { "placeholder": "Meeting notes…", "valueChangeActionID": "notesChanged", "frame": { "maxWidth": "infinity", "height": 90 } } },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Form with Section, LabeledContent, GroupBox, DisclosureGroup:", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Form",
