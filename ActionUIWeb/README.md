@@ -14,7 +14,7 @@ the three renderers stay diffable.
 
 ## Symbol map
 
-`Image`'s `systemName` resolution uses the SF→Material map at
+`Image`'s `systemName` resolution uses the SF -> Material map at
 `assets/symbols/sf_to_material.map`. It is **committed** (small, and the
 GitHub-hosted demo needs it), so no setup is required after cloning. It is a
 generated artifact copied from ActionUIAndroid; refresh it when the upstream
@@ -41,7 +41,7 @@ python3 -m http.server 8080
 - **Core** (`src/Common/`): element parsing with negative-ID generation and
   `children`/`content` key routing (`ActionUIElement.js`), type registry with
   fail-graceful unknown-type placeholders (`ActionUIRegistry.js`), per-window
-  model with viewID→DOM binding records instead of a virtual DOM
+  model with viewID->DOM binding records instead of a virtual DOM
   (`ActionUIModel.js`), baseline View modifier subset — padding, font text
   styles, colors, frame, cornerRadius, opacity, hidden, disabled, help, generic
   actionID (`ModifierResolver.js`), shared stack vocabulary (`StackAxis.js`),
@@ -50,12 +50,12 @@ python3 -m http.server 8080
   the tree is built).
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,
   Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles),
-  Image, Label, Slider. Each view's `validateProperties` warnings match the Swift
+  Image, Label, Slider, Stepper, SecureField. Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
 - **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `Helpers/SymbolIcon.js`
-  + `assets/symbols/`): a shared glyph seam — `Image`, `Button`, and `Label` all
-  render SF Symbols (`systemName`/`systemImage`) via the Android SF→Material map
+  + `assets/symbols/`): a shared glyph path — `Image`, `Button`, and `Label` all
+  render SF Symbols (`systemName`/`systemImage`) via the Android SF->Material map
   and Material Symbols (`materialName`) via the OFL Material Symbols web font
   (loaded by the host page; see `demo/index.html`).
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
@@ -68,6 +68,6 @@ python3 -m http.server 8080
 
 ## Layout mapping demonstrated
 
-VStack/HStack → flexbox (`spacing` → `gap`, alignment → `align-items`),
-ZStack → single-cell grid, Spacer → `flex-grow: 1`,
-`frame.maxWidth: "infinity"` → `flex-grow` + `max-width: 100%`.
+VStack/HStack -> flexbox (`spacing` -> `gap`, alignment -> `align-items`),
+ZStack -> single-cell grid, Spacer -> `flex-grow: 1`,
+`frame.maxWidth: "infinity"` -> `flex-grow` + `max-width: 100%`.

@@ -23,6 +23,11 @@ app.action("volumeChanged", () => win.setString(31, 0, String(win.getInt(30))));
 
 app.action("quantityChanged", () => win.setString(20, 0, `Quantity is now ${win.getInt(40)}.`));
 
+app.action("passwordSubmit", () => {
+    const len = win.getString(50).length;
+    win.setString(20, 0, len ? `Password received (${len} characters).` : "No password entered.");
+});
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {

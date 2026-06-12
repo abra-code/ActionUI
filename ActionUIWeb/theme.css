@@ -156,7 +156,8 @@
 
 /* ---- TextField ---- */
 
-.aui-textfield {
+/* SecureField shares TextField's box; it differs only in type="password". */
+.aui-textfield, .aui-securefield {
     font: inherit;
     color: var(--aui-color-primary);
     background: var(--aui-control-background);
@@ -165,12 +166,12 @@
     padding: 3px 8px;
     min-width: 0;
 }
-.aui-textfield:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
-.aui-textfield::placeholder { color: var(--aui-color-secondary); }
-.aui-textfield:disabled { opacity: 0.4; }
+.aui-textfield:focus-visible, .aui-securefield:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-textfield::placeholder, .aui-securefield::placeholder { color: var(--aui-color-secondary); }
+.aui-textfield:disabled, .aui-securefield:disabled { opacity: 0.4; }
 
 .aui-labeled-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.aui-labeled-field > .aui-textfield { flex: 1; }
+.aui-labeled-field > .aui-textfield, .aui-labeled-field > .aui-securefield { flex: 1; }
 .aui-field-label { color: var(--aui-color-primary); white-space: nowrap; }
 
 /* ---- Toggle ---- */

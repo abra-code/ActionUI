@@ -72,6 +72,15 @@
       ]
     },
     { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "SecureField", "id": 50, "properties": { "title": "Password", "prompt": "Enter password", "textContentType": "password", "actionID": "passwordSubmit", "frame": { "maxWidth": "infinity" } } },
+        { "type": "Button", "id": 51, "properties": { "title": "Sign in", "systemImage": "lock.fill", "buttonStyle": "borderedProminent", "actionID": "passwordSubmit" } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }
