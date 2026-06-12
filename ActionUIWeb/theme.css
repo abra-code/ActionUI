@@ -219,6 +219,29 @@
 .aui-radio-section-title { color: var(--aui-color-secondary); font-size: 0.9em; margin-top: 4px; }
 .aui-radio-divider { width: 100%; border: none; border-top: 1px solid var(--aui-control-border); margin: 2px 0; }
 
+/* segmented pickerStyle: the radio group styled as a joined button bar — the
+   native, no-infra analog of SwiftUI's .segmented. The radios are visually
+   hidden; the labels are the segments, with the checked one filled. */
+.aui-picker-segmented {
+    display: inline-flex;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    overflow: hidden;
+}
+.aui-picker-segmented .aui-segment {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 12px;
+    cursor: pointer;
+    user-select: none;
+    border-left: 1px solid var(--aui-control-border);
+}
+.aui-picker-segmented .aui-segment:first-child { border-left: none; }
+.aui-picker-segmented .aui-segment > input { position: absolute; opacity: 0; pointer-events: none; }
+.aui-picker-segmented .aui-segment:has(> input:checked) { background: var(--aui-color-accent); color: #fff; }
+.aui-picker-segmented .aui-segment:has(> input:focus-visible) { box-shadow: inset 0 0 0 2px var(--aui-color-accent); }
+
 /* ---- Toggle ---- */
 
 .aui-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

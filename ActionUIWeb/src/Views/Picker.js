@@ -16,9 +16,8 @@
 //   pickerStyle  "menu" | "segmented" | "radioGroup" (the macOS set, matching the
 //            macOS-flavored default skin); "wheel" warns as unavailable.
 //            "radioGroup" renders a native <fieldset> of <input type="radio">;
-//            every other style renders the native <select> dropdown for now
-//            (segmented visuals are deferred skin work, tracked in
-//            Web_Porting_Notes.md).
+//            "segmented" renders the same radios as a joined button bar; "menu"
+//            (and the "wheel" fallback) render the native <select> dropdown.
 //   horizontalRadioGroupLayout  Bool; lays a radioGroup out in a row instead of a
 //            column (only meaningful with pickerStyle "radioGroup").
 //   actionID dispatched on user-initiated selection change only (the native
@@ -76,6 +75,14 @@ register("Picker", {
         // <fieldset> of <input type="radio">. Every other style uses the <select>.
         if (properties.pickerStyle === "radioGroup") {
             return buildRadioGroup(element, properties, ctx, sections, initial);
+        }
+
+        // segmented is the same radio mechanism styled as a joined button bar —
+        // the native, no-infra analog of SwiftUI's .segmented, and a closer
+        // fallback than the menu dropdown. Segmented controls are flat, so any
+        // sections/dividers collapse into one row of segments.
+        if (properties.pickerStyle === "segmented") {
+            return buildSegmented(element, properties, ctx, allItems, initial);
         }
 
         const select = document.createElement("select");
@@ -219,6 +226,70 @@ function buildRadioGroup(element, properties, ctx, sections, initial) {
         });
     }
     return fieldset;
+}
+
+// Builds the segmented pickerStyle: the same name-grouped <input type="radio">
+// mechanism as buildRadioGroup, but laid out as a flat, joined button bar (the
+// radios are visually hidden; the labels are the segments). Kept as a separate
+// builder — with its own small copy of the binding wiring — so it stays purely
+// additive over the radioGroup change. The value is still the selected tag.
+function buildSegmented(element, properties, ctx, items, initial) {
+    const group = document.createElement("div");
+    group.className = "aui-picker-segmented";
+    group.setAttribute("role", "radiogroup");
+    if (properties.title) group.setAttribute("aria-label", properties.title);
+
+    const groupName = `aui-picker-radio-${++radioGroupCounter}`;
+    const inputs = [];
+    for (const item of items) {
+        const segment = document.createElement("label");
+        segment.className = "aui-segment";
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = groupName;
+        input.value = item.tag;
+        if (item.tag === initial) input.checked = true;
+        const text = document.createElement("span");
+        text.textContent = item.title;
+        segment.append(input, text);
+        group.appendChild(segment);
+        inputs.push(input);
+    }
+
+    const selectedValue = () => {
+        const checked = inputs.find((input) => input.checked);
+        return checked ? checked.value : "";
+    };
+
+    markHandlesAction(group);
+    group.addEventListener("change", () => {
+        if (typeof properties.actionID === "string") {
+            ctx.model.dispatchAction(properties.actionID, element.id, 0, selectedValue());
+        }
+    });
+
+    if (element.id > 0) {
+        ctx.model.bind(element.id, {
+            getValue: () => selectedValue(),
+            setValue: (value) => { // programmatic: silent (no change event)
+                const tag = String(value);
+                for (const input of inputs) input.checked = (input.value === tag);
+            },
+        });
+    }
+
+    // Optional leading label (a <div>, not a <label>, since it groups several
+    // radios), reusing the shared labeled-field layout.
+    if (properties.title) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "aui-labeled-field";
+        const label = document.createElement("span");
+        label.className = "aui-field-label";
+        label.textContent = properties.title;
+        wrapper.append(label, group);
+        return wrapper;
+    }
+    return group;
 }
 
 function makeOptGroup(label) {
