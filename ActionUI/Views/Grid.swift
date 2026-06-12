@@ -44,7 +44,7 @@ struct Grid: ActionUIViewConstruction {
                 validatedProperties["alignment"] = nil
             }
         } else if validatedProperties["alignment"] != nil {
-            logger.log("LazyHGrid alignment must be 'top', 'center', or 'bottom'; ignoring", .warning)
+            logger.log("Grid alignment must be one of 'topLeading', 'top', 'topTrailing', 'leading', 'center', 'trailing', 'bottomLeading', 'bottom', 'bottomTrailing'; ignoring", .warning)
             validatedProperties["alignment"] = nil
         }
 

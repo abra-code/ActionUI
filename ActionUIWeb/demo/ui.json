@@ -140,6 +140,46 @@
       }
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "LazyVGrid (three flexible columns):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "LazyVGrid",
+      "properties": {
+        "columns": [{ "flexible": true }, { "flexible": true }, { "flexible": true }],
+        "spacing": 8,
+        "frame": { "maxWidth": "infinity" }
+      },
+      "children": [
+        { "type": "Button", "properties": { "title": "7", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "8", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "9", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "4", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "5", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "6", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "1", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "2", "buttonStyle": "bordered" } },
+        { "type": "Button", "properties": { "title": "3", "buttonStyle": "bordered" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Grid (explicit rows, key/value):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Grid",
+      "properties": { "alignment": "leading", "horizontalSpacing": 16, "verticalSpacing": 6 },
+      "rows": [
+        [
+          { "type": "Text", "properties": { "text": "Name", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "ActionUIWeb" } }
+        ],
+        [
+          { "type": "Text", "properties": { "text": "Renderer", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "DOM + CSS" } }
+        ],
+        [
+          { "type": "Text", "properties": { "text": "Phase", "foregroundColor": "secondary" } },
+          { "type": "Label", "properties": { "title": "Collections", "systemImage": "square.grid.2x2" } }
+        ]
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

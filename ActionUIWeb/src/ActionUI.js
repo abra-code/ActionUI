@@ -37,6 +37,9 @@ import "./Views/ColorPicker.js";
 import "./Views/ScrollView.js";
 import "./Views/LazyVStack.js";
 import "./Views/LazyHStack.js";
+import "./Views/Grid.js";
+import "./Views/LazyVGrid.js";
+import "./Views/LazyHGrid.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

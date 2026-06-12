@@ -48,7 +48,6 @@ register("DatePicker", {
         }
 
         // range must be a { start, end } dictionary of strings; missing endpoints
-        // drop it (Apple's typo "is not not specified" is preserved verbatim).
         if (isStringDict(validated.range)) {
             let valid = true;
             if (validated.range.start === undefined) {
@@ -56,7 +55,7 @@ register("DatePicker", {
                 valid = false;
             }
             if (validated.range.end === undefined) {
-                logger.log("DatePicker range.end is not not specified; ignoring range", "warning");
+                logger.log("DatePicker range.end is not specified; ignoring range", "warning");
                 valid = false;
             }
             if (!valid) delete validated.range;

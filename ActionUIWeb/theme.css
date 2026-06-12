@@ -72,6 +72,13 @@
 .aui-scroll-no-indicators { scrollbar-width: none; }
 .aui-scroll-no-indicators::-webkit-scrollbar { display: none; }
 
+/* Grids → CSS grid. The track lists (grid-template-columns/rows), flow,
+   gaps, and place-items are set inline by each view from its JSON; Grid also
+   writes explicit grid-row/grid-column on each cell so uneven rows stay aligned.
+   LazyVGrid grows down (template-columns), LazyHGrid across (template-rows +
+   auto-flow:column), Grid is explicit GridRows. */
+.aui-grid { display: grid; }
+
 .aui-divider { background: var(--aui-control-border); align-self: stretch; }
 .aui-vstack > .aui-divider { height: 1px; }
 .aui-hstack > .aui-divider { width: 1px; }

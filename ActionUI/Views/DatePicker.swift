@@ -58,7 +58,7 @@ struct DatePicker: ActionUIViewConstruction {
                 isValid = false
             }
             if range["end"] == nil {
-                logger.log("DatePicker range.end is not not specified; ignoring range", .warning)
+                logger.log("DatePicker range.end is not specified; ignoring range", .warning)
                 isValid = false
             }
             if !isValid  {

@@ -8,14 +8,19 @@
 //   "children": []        // Optional: child elements (stored in subviews.children)
 // }
 //
-// PoC subset: only the "children" and "content" subview keys are routed.
-// The full set (rows, destination, sidebar, detail, label, popover, template,
-// toolbar, overlay, background, ...) comes with the elements that need them.
+// Subset routed so far: the "children" (array) and "content" (single) keys, plus
+// "rows" (array-of-arrays, for Grid's GridRows). The remaining Apple/Android keys
+// (destination, sidebar, detail, label, popover, template, toolbar, overlay,
+// background, ...) come with the elements that need them.
 
 let negativeIDCounter = -1;
 
 const SUBVIEW_ARRAY_KEYS = ["children"];
 const SUBVIEW_SINGLE_KEYS = ["content"];
+// Keys whose value is an array of arrays of elements (Grid's "rows": one inner
+// array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
+// `subviews["rows"] as? [[any ActionUIElementBase]]`.
+const SUBVIEW_NESTED_ARRAY_KEYS = ["rows"];
 
 export class ActionUIElement {
     constructor(id, type, properties, subviews) {
@@ -55,6 +60,17 @@ export class ActionUIElement {
                     subviews = subviews ?? {};
                     subviews[key] = child;
                 }
+            }
+        }
+        for (const key of SUBVIEW_NESTED_ARRAY_KEYS) {
+            if (Array.isArray(raw[key])) {
+                const rows = raw[key]
+                    .filter((row) => Array.isArray(row))
+                    .map((row) => row
+                        .map((child) => ActionUIElement.fromObject(child, logger))
+                        .filter((child) => child !== null));
+                subviews = subviews ?? {};
+                subviews[key] = rows;
             }
         }
         return new ActionUIElement(id, raw.type, properties, subviews);
