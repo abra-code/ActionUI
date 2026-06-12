@@ -215,4 +215,34 @@ class ActionUIElementTest {
 
         assertEquals(listOf(2), element.subElements().map { it.id })
     }
+
+    @Test
+    fun `decodes the overlay and background decoration containers`() {
+        val element = decode(
+            """
+            { "type": "Rectangle", "id": 1,
+              "properties": { "overlayAlignment": "topTrailing" },
+              "overlay": { "type": "Circle", "id": 2, "properties": { "fill": "red" } },
+              "background": { "type": "Capsule", "id": 3, "properties": { "fill": "blue" } } }
+            """.trimIndent()
+        )
+
+        assertEquals("Circle", element.overlay?.type)
+        assertEquals(2, element.overlay?.id)
+        assertEquals("Capsule", element.background?.type)
+        assertEquals(3, element.background?.id)
+    }
+
+    @Test
+    fun `subElements includes the overlay and background subviews`() {
+        // Decoration content (e.g. a badge Button) must get ViewModels and be
+        // host-addressable, so both containers are registered.
+        val element = ActionUIElement(
+            id = 1, type = "Text",
+            overlay = ActionUIElement(id = 2, type = "Circle"),
+            background = ActionUIElement(id = 3, type = "Capsule"),
+        )
+
+        assertEquals(listOf(2, 3), element.subElements().map { it.id })
+    }
 }

@@ -24,8 +24,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Common.applyCommonProperties
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.stringProperty
@@ -140,7 +139,7 @@ object ListView : ActionUIViewConstruction {
                     items(children) { child ->
                         val builder = ActionUIRegistry.lookup(child.type) ?: return@items
                         ProvideTextStyleEnvironment(child.properties, logger) {
-                            builder.BuildViewWithPopover(child, Modifier.applyCommonProperties(child.properties, logger))
+                            builder.BuildViewWithModifiers(child, Modifier)
                         }
                     }
                 }

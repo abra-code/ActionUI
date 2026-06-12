@@ -73,31 +73,49 @@ import kotlinx.serialization.json.jsonPrimitive
  *     mapped to a single semantics block.
  *   * [buildChildModifier] - overloads on each layout scope receiver, applied
  *     inside the container's content lambda where `weight`/`align` are in
- *     scope. They additionally chain in [applyCommonProperties].
+ *     scope. They resolve ONLY the scope-restricted parent data; the element's
+ *     own common properties are applied by `BuildViewWithModifiers`
+ *     (`Helpers/ViewModifierHelper.kt`), which needs
+ *     the chain unfused so it can split it around a decoration `Box`.
  *
  * **Chain order** (universal). Modifiers earlier in the chain are outer for
  * layout, later are inner. Picked to make the most common combination behave
  * intuitively - a "card" with a background, rounded corners, and inner content
- * padding. The existing core (`frame -> opacity -> clip -> background ->
- * padding`) is preserved; the new transforms wrap it on the outside and the
- * decoration modifiers slot in just before the clip/background:
+ * padding. The chain is split into two halves so the `overlay` / `background`
+ * decoration subviews (`Helpers/ViewModifierHelper.kt`) can wrap a `Box`
+ * between them - [applyOuterProperties] lands on the decoration `Box`,
+ * [applyInnerProperties] on the element inside it, and [applyCommonProperties]
+ * is simply their composition for the (overwhelmingly common) undecorated
+ * element:
  *
  * ```
- *   accessibility semantics
+ *   outer:  accessibility semantics
  *          -> zIndex -> rotationEffect -> scaleEffect -> offset
- *          -> [padding, if a fixed frame follows] -> frame -> opacity -> hidden
+ *          -> opacity -> hidden
+ *   inner:  [padding, if a fixed frame follows] -> frame
  *          -> shadow -> border -> clipShape -> cornerRadius
  *          -> background -> [padding, otherwise]
  * ```
  *
+ * The cut sits between the whole-subtree wrappers and the element's own
+ * size-and-decoration: a decoration subview must cover the element's
+ * frame-plus-padding box (a `Capsule` background behind a padded `Text` covers
+ * the padding - the SwiftUI badge idiom) and must move/fade with the carrier
+ * (`offset`, `opacity` wrap the decorated unit). `clipShape`/`cornerRadius`
+ * stay inner so a corner badge overlay is not clipped by the carrier's
+ * rounding, as on Apple.
+ *
  * Opacity (and `hidden`, which is `alpha(0)`) sit outside the decoration so they
  * fade the entire visual subtree including the background, not just inner
- * content. Padding is innermost so the background fills the full size and the
- * inner element sits in a padded area inside the colored region - EXCEPT when a
- * fixed frame is present, where padding hoists outside the box (see the Sizing
- * section in [applyCommonProperties] for why). `border` is outside `clipShape`
- * because SwiftUI's `.border` is a rectangular stroke that is not clipped by a
- * later `.clipShape`.
+ * content; alpha is a draw-layer effect, so its position relative to the pure
+ * layout modifiers (`frame`/`padding`) is visually inert - only its place
+ * outside `shadow` matters (the shadow fades with the element). Padding is
+ * innermost so the background fills the full size and the inner element sits
+ * in a padded area inside the colored region - EXCEPT when a fixed frame is
+ * present, where padding hoists outside the box (see the Sizing section in
+ * [applyInnerProperties] for why). `border` is outside `clipShape` because
+ * SwiftUI's `.border` is a rectangular stroke that is not clipped by a later
+ * `.clipShape`.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
  *   * Compose constraints are hard caps, not SwiftUI's soft proposals a child
@@ -122,6 +140,20 @@ import kotlinx.serialization.json.jsonPrimitive
 fun Modifier.applyCommonProperties(
     properties: JsonObject?,
     logger: ActionUILogger? = null
+): Modifier =
+    applyOuterProperties(properties, logger).applyInnerProperties(properties, logger)
+
+/**
+ * The outer half of the common-property chain - the wrappers that act on the
+ * whole decorated unit (see the chain-order section in the file header):
+ * accessibility semantics, `zIndex`, `rotationEffect`, `scaleEffect`, `offset`,
+ * `opacity`, and `hidden`. `BuildViewWithModifiers` puts this half on the decoration
+ * `Box` when an element declares an `overlay`/`background` subview, so the
+ * decorations move, fade, and stack with their carrier.
+ */
+fun Modifier.applyOuterProperties(
+    properties: JsonObject?,
+    logger: ActionUILogger? = null
 ): Modifier {
     if (properties == null) return this
     var m: Modifier = this
@@ -139,6 +171,28 @@ fun Modifier.applyCommonProperties(
         m = m.offset(x = x.dp, y = y.dp)
     }
 
+    // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
+    properties.floatProperty("opacity")?.let { m = m.alpha(it) }
+    if (properties.booleanProperty("hidden") == true) m = m.alpha(0f)
+    return m
+}
+
+/**
+ * The inner half of the common-property chain - the element's own size and
+ * decoration (see the chain-order section in the file header): `frame` and
+ * `padding` (with the fixed-frame hoist), `shadow`, `border`, `clipShape`,
+ * `cornerRadius`, and the `background` color. `BuildViewWithModifiers` puts this half on
+ * the element inside the decoration `Box`, so an `overlay`/`background`
+ * subview covers the frame-plus-padding box and is not clipped by the
+ * carrier's `clipShape`/`cornerRadius`.
+ */
+fun Modifier.applyInnerProperties(
+    properties: JsonObject?,
+    logger: ActionUILogger? = null
+): Modifier {
+    if (properties == null) return this
+    var m: Modifier = this
+
     // ---- Sizing ----
     // A fixed frame is a hard size in Compose - constraints are not SwiftUI's
     // soft proposals a child may refuse. Padding inside the box would subtract
@@ -152,10 +206,6 @@ fun Modifier.applyCommonProperties(
         (properties["frame"] as? JsonObject)?.let { it["width"] != null || it["height"] != null } == true
     if (hasFixedFrame) m = m.applyPadding(properties)
     (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger) }
-
-    // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
-    properties.floatProperty("opacity")?.let { m = m.alpha(it) }
-    if (properties.booleanProperty("hidden") == true) m = m.alpha(0f)
 
     // ---- Decoration: shadow, border, clip, background ----
     m = m.applyShadow(properties)
@@ -178,8 +228,9 @@ fun Modifier.applyCommonProperties(
 
 /**
  * Builds a Modifier for a child rendered inside a [androidx.compose.foundation.layout.Row].
- * Resolves `weight` (proportional sizing) and `align` (vertical positioning),
- * then chains in [applyCommonProperties].
+ * Resolves `weight` (proportional sizing) and `align` (vertical positioning) -
+ * the scope-restricted parent data only; the child's common properties are
+ * applied by the `BuildViewWithModifiers` call it is passed to (see the file header).
  *
  * Recognized `align` values: `top`, `center` / `centerVertically`, `bottom`.
  */
@@ -199,13 +250,14 @@ fun RowScope.buildChildModifier(
             )
         }
     }
-    return m.applyCommonProperties(properties, logger)
+    return m
 }
 
 /**
  * Builds a Modifier for a child rendered inside a [androidx.compose.foundation.layout.Column].
- * Resolves `weight` and `align` (horizontal positioning), then chains in
- * [applyCommonProperties].
+ * Resolves `weight` and `align` (horizontal positioning) - the scope-restricted
+ * parent data only; the child's common properties are applied by the
+ * `BuildViewWithModifiers` call it is passed to (see the file header).
  *
  * Recognized `align` values: `start` / `leading`, `center` / `centerHorizontally`,
  * `end` / `trailing`.
@@ -226,12 +278,14 @@ fun ColumnScope.buildChildModifier(
             )
         }
     }
-    return m.applyCommonProperties(properties, logger)
+    return m
 }
 
 /**
  * Builds a Modifier for a child rendered inside a [androidx.compose.foundation.layout.Box].
- * Resolves `align` (2D positioning), then chains in [applyCommonProperties].
+ * Resolves `align` (2D positioning) - the scope-restricted parent data only;
+ * the child's common properties are applied by the `BuildViewWithModifiers`
+ * call it is passed to (see the file header).
  *
  * Recognized `align` values: `topStart` / `topLeading`, `topCenter` / `top`,
  * `topEnd` / `topTrailing`, `centerStart` / `centerLeading`, `center`,
@@ -253,7 +307,7 @@ fun BoxScope.buildChildModifier(
             )
         }
     }
-    return m.applyCommonProperties(properties, logger)
+    return m
 }
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,6 @@ import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.ModalStyle
 import com.abracode.actionui.Common.WindowModel
-import com.abracode.actionui.Common.applyCommonProperties
 
 /**
  * Renders [windowModel]'s active WindowModal (sheet / fullScreenCover) over the
@@ -49,7 +48,7 @@ fun WindowModalHost(windowModel: WindowModel) {
 
     when (modal.style) {
         ModalStyle.SHEET -> ModalBottomSheet(onDismissRequest = dismiss) {
-            ModalContent(modal.element, logger)
+            ElementContent(modal.element, logger)
         }
 
         ModalStyle.FULL_SCREEN_COVER -> Dialog(
@@ -57,20 +56,26 @@ fun WindowModalHost(windowModel: WindowModel) {
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             Surface(Modifier.fillMaxSize()) {
-                ModalContent(modal.element, logger)
+                ElementContent(modal.element, logger)
             }
         }
     }
 }
 
 /**
- * Builds a modal's root element through the registry, like the window root.
- * Shared with the element-level modals (`ElementModalHost.kt`).
+ * Builds a subview root element through the registry, like the window root.
+ * Shared by the window/element modals (`ElementModalHost.kt`), the popover
+ * (`PopoverHelper.kt`), and the overlay/background decorations
+ * (`ViewModifierHelper.kt`, which supplies the alignment [modifier]).
  */
 @Composable
-internal fun ModalContent(element: ActionUIElement, logger: ActionUILogger) {
+internal fun ElementContent(
+    element: ActionUIElement,
+    logger: ActionUILogger,
+    modifier: Modifier = Modifier,
+) {
     val builder = ActionUIRegistry.lookup(element.type) ?: return
     ProvideTextStyleEnvironment(element.properties, logger) {
-        builder.BuildViewWithPopover(element, Modifier.applyCommonProperties(element.properties, logger))
+        builder.BuildViewWithModifiers(element, modifier)
     }
 }

@@ -23,8 +23,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.WindowModel
-import com.abracode.actionui.Common.applyCommonProperties
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.LoadableFormat
 import com.abracode.actionui.Helpers.LoadableSource
@@ -139,9 +138,9 @@ object LoadableView : ActionUIViewConstruction {
                     ErrorText("Unknown element type: ${loaded.type}", modifier)
                     return
                 }
-                val childModifier = modifier.then(Modifier.applyCommonProperties(loaded.properties, logger))
+                // BuildViewWithModifiers resolves the loaded element's common properties.
                 ProvideTextStyleEnvironment(loaded.properties, logger) {
-                    builder.BuildViewWithPopover(loaded, childModifier)
+                    builder.BuildViewWithModifiers(loaded, modifier)
                 }
             }
 

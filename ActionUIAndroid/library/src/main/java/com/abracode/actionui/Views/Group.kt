@@ -7,8 +7,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
-import com.abracode.actionui.Common.applyCommonProperties
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.templateRows
@@ -28,9 +27,9 @@ import com.abracode.actionui.Helpers.templateRows
  * **Group modifiers apply to each child.** In SwiftUI a modifier attached to a
  * Group is applied to each of its subviews, not to a wrapping node. Because there
  * is no wrapping node here either, the group-level [modifier] (the Group's own
- * resolved `applyCommonProperties`) is composed onto each child ahead of that
- * child's own modifier, reproducing that semantics. For the common empty-modifier
- * Group this is a clean passthrough.
+ * resolved common properties, fused by `BuildViewWithModifiers`) is composed onto each
+ * child ahead of that child's own modifier, reproducing that semantics. For the
+ * common empty-modifier Group this is a clean passthrough.
  *
  * Each child is wrapped in [ProvideTextStyleEnvironment] so its own
  * `font`/`foregroundStyle`/`tint` apply, consistent with the layout containers.
@@ -65,9 +64,10 @@ object Group : ActionUIViewConstruction {
             }
         } else element.children.orEmpty().forEach { child ->
             val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
-            val childModifier = modifier.then(Modifier.applyCommonProperties(child.properties, logger))
+            // The group-level modifier leads; BuildViewWithModifiers resolves
+            // the child's own common properties after it.
             ProvideTextStyleEnvironment(child.properties, logger) {
-                builder.BuildViewWithPopover(child, childModifier)
+                builder.BuildViewWithModifiers(child, modifier)
             }
         }
     }

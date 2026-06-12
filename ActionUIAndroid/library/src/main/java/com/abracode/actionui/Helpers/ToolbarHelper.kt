@@ -29,7 +29,6 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Views.MenuChild
 
 /**
@@ -253,7 +252,7 @@ private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
     } else {
         val builder = ActionUIRegistry.lookup(element.type) ?: return
         ProvideTextStyleEnvironment(element.properties, logger) {
-            builder.BuildViewWithPopover(element, Modifier.applyCommonProperties(element.properties, logger))
+            builder.BuildViewWithModifiers(element, Modifier)
         }
     }
 }

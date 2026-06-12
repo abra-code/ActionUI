@@ -12,9 +12,8 @@ import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Common.applyCommonProperties
 import com.abracode.actionui.Common.parseAlignment
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.numberProperty
 import kotlinx.serialization.json.JsonObject
@@ -80,7 +79,7 @@ object Grid : ActionUIViewConstruction {
                             // No scoped buildChildModifier here: a custom Layout has no
                             // Row/Column/Box scope, and cell positioning is the grid
                             // alignment's job (the LazyVGrid precedent).
-                            builder.BuildViewWithPopover(cell, Modifier.applyCommonProperties(cell.properties, logger))
+                            builder.BuildViewWithModifiers(cell, Modifier)
                         }
                     }
                 }

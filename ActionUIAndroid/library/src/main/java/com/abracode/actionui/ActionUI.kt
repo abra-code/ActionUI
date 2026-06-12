@@ -29,8 +29,7 @@ import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.PlatformFilter
-import com.abracode.actionui.Common.applyCommonProperties
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.ElementModalsHost
 import com.abracode.actionui.Helpers.LoadableSource
@@ -252,7 +251,7 @@ object ActionUI {
     ) {
         if (!hasRootToolbarChrome(element)) {
             ProvideTextStyleEnvironment(element.properties, logger) {
-                builder.BuildViewWithPopover(element, modifier.applyCommonProperties(element.properties, logger))
+                builder.BuildViewWithModifiers(element, modifier)
             }
             return
         }
@@ -264,7 +263,7 @@ object ActionUI {
         ToolbarHost(element, logger, modifier = hostModifier) { inner ->
             Box(Modifier.padding(inner)) {
                 ProvideTextStyleEnvironment(element.properties, logger) {
-                    builder.BuildViewWithPopover(element, Modifier.applyCommonProperties(element.properties, logger))
+                    builder.BuildViewWithModifiers(element, Modifier)
                 }
             }
         }

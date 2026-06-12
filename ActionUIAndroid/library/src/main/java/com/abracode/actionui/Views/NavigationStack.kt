@@ -22,8 +22,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
-import com.abracode.actionui.Common.applyCommonProperties
-import com.abracode.actionui.Helpers.BuildViewWithPopover
+import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.ToolbarHost
 import com.abracode.actionui.Helpers.stringProperty
@@ -191,7 +190,7 @@ private fun RenderNavChild(element: ActionUIElement?, logger: ActionUILogger) {
     val builder = ActionUIRegistry.lookup(element.type) ?: return
     val body: @Composable () -> Unit = {
         ProvideTextStyleEnvironment(element.properties, logger) {
-            builder.BuildViewWithPopover(element, Modifier.applyCommonProperties(element.properties, logger))
+            builder.BuildViewWithModifiers(element, Modifier)
         }
     }
     val hasChrome = element.toolbar != null ||
