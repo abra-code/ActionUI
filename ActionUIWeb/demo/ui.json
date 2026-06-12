@@ -81,6 +81,14 @@
       ]
     },
     { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Picker", "id": 60, "properties": { "title": "Format", "options": [{ "title": "Plain Text", "tag": "txt" }, { "title": "Markdown", "tag": "md" }, { "title": "HTML", "tag": "html" }], "actionID": "formatChanged", "frame": { "maxWidth": "infinity" } } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

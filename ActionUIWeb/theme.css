@@ -171,8 +171,23 @@
 .aui-textfield:disabled, .aui-securefield:disabled { opacity: 0.4; }
 
 .aui-labeled-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.aui-labeled-field > .aui-textfield, .aui-labeled-field > .aui-securefield { flex: 1; }
+.aui-labeled-field > .aui-textfield, .aui-labeled-field > .aui-securefield,
+.aui-labeled-field > .aui-picker { flex: 1; }
 .aui-field-label { color: var(--aui-color-primary); white-space: nowrap; }
+
+/* Picker renders as the native dropdown; styles other than the default menu are
+   deferred skin work. It reuses the shared control box. */
+.aui-picker {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+    min-width: 0;
+}
+.aui-picker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-picker:disabled { opacity: 0.4; }
 
 /* ---- Toggle ---- */
 

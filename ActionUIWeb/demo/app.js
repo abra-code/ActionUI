@@ -28,6 +28,8 @@ app.action("passwordSubmit", () => {
     win.setString(20, 0, len ? `Password received (${len} characters).` : "No password entered.");
 });
 
+app.action("formatChanged", (ctx) => win.setString(20, 0, `Format set to "${ctx.context}".`));
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {
