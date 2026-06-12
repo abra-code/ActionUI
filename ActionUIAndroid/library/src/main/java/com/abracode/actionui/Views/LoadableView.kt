@@ -24,6 +24,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.WindowModel
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.LoadableFormat
 import com.abracode.actionui.Helpers.LoadableSource
@@ -140,7 +141,7 @@ object LoadableView : ActionUIViewConstruction {
                 }
                 val childModifier = modifier.then(Modifier.applyCommonProperties(loaded.properties, logger))
                 ProvideTextStyleEnvironment(loaded.properties, logger) {
-                    builder.BuildView(loaded, childModifier)
+                    builder.BuildViewWithPopover(loaded, childModifier)
                 }
             }
 

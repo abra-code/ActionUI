@@ -55,6 +55,11 @@ import kotlinx.serialization.json.JsonObject
  *     `states["sheetVisible"]` / `states["fullScreenCoverVisible"]` flips true,
  *     not rendered inline. Registered (in [subElements]) so the modal content's
  *     controls get [ViewModel]s and are host-addressable, like on Apple.
+ *   * [popover] - the anchored-presentation subview any element may declare;
+ *     presented by `Helpers/PopoverHelper.kt` as a [androidx.compose.ui.window.Popup]
+ *     anchored at the carrier when `states["popoverVisible"]` flips true (a tap
+ *     on the carrier toggles it, Apple's `PopoverHelper.swift` contract).
+ *     Registered (in [subElements]) like the modal containers.
  *   * [rows] - `Grid`'s array-of-arrays container: each inner array is one
  *     grid row's cells, in column order. Registered (flattened into
  *     [subElements]) so cells get [ViewModel]s like any other child.
@@ -77,6 +82,7 @@ interface ActionUIElementBase {
     val toolbar: List<ActionUIElement>?
     val sheet: ActionUIElement?
     val fullScreenCover: ActionUIElement?
+    val popover: ActionUIElement?
     val rows: List<List<ActionUIElement>>?
 }
 
@@ -95,6 +101,7 @@ data class ActionUIElement(
     override val toolbar: List<ActionUIElement>? = null,
     override val sheet: ActionUIElement? = null,
     override val fullScreenCover: ActionUIElement? = null,
+    override val popover: ActionUIElement? = null,
     override val rows: List<List<ActionUIElement>>? = null
 ) : ActionUIElementBase
 
@@ -115,5 +122,6 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     toolbar?.let { addAll(it) }
     sheet?.let { add(it) }
     fullScreenCover?.let { add(it) }
+    popover?.let { add(it) }
     rows?.forEach { addAll(it) }
 }

@@ -13,6 +13,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -62,7 +63,7 @@ object ScrollView : ActionUIViewConstruction {
 
         Box(modifier = scrollModifier) {
             ProvideTextStyleEnvironment(content.properties, logger) {
-                builder.BuildView(content, Modifier.applyCommonProperties(content.properties, logger))
+                builder.BuildViewWithPopover(content, Modifier.applyCommonProperties(content.properties, logger))
             }
         }
     }

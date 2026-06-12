@@ -11,6 +11,7 @@ import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.buildChildModifier
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 
 /**
@@ -49,7 +50,7 @@ object Form : ActionUIViewConstruction {
                 val childModifier = buildChildModifier(child.properties, logger)
                     .let { if (child.type == "Spacer") it.weight(1f) else it }
                 ProvideTextStyleEnvironment(child.properties, logger) {
-                    builder.BuildView(child, childModifier)
+                    builder.BuildViewWithPopover(child, childModifier)
                 }
             }
         }

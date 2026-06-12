@@ -8,6 +8,7 @@ import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.applyCommonProperties
+import com.abracode.actionui.Helpers.BuildViewWithPopover
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.templateRows
@@ -66,7 +67,7 @@ object Group : ActionUIViewConstruction {
             val builder = ActionUIRegistry.lookup(child.type) ?: return@forEach
             val childModifier = modifier.then(Modifier.applyCommonProperties(child.properties, logger))
             ProvideTextStyleEnvironment(child.properties, logger) {
-                builder.BuildView(child, childModifier)
+                builder.BuildViewWithPopover(child, childModifier)
             }
         }
     }

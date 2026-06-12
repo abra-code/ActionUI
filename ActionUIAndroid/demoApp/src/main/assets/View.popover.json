@@ -1,0 +1,137 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Popover Variants", "font": "title2" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Declared as a 'popover' subview key; a tap on the carrier anchors it.",
+        "font": "subheadline"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "title": "Show Popover (Top)",
+        "buttonStyle": "bordered",
+        "popoverActionID": "popover.shown"
+      },
+      "popover": {
+        "type": "VStack",
+        "properties": {
+          "padding": "default",
+          "spacing": 8
+        },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Popover Content",
+              "font": "headline"
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "This popover has a top arrow edge (default)."
+            }
+          },
+          {
+            "type": "Toggle",
+            "id": 100,
+            "properties": { "title": "A live control", "isOn": true }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": {
+        "title": "Show Popover (Bottom)",
+        "buttonStyle": "borderedProminent",
+        "popoverArrowEdge": "bottom"
+      },
+      "popover": {
+        "type": "Text",
+        "properties": {
+          "text": "Bottom arrow edge popover",
+          "padding": "default"
+        }
+      }
+    },
+    {
+      "type": "Button",
+      "id": 3,
+      "properties": {
+        "title": "Show Popover (Leading)",
+        "buttonStyle": "bordered",
+        "popoverArrowEdge": "leading"
+      },
+      "popover": {
+        "type": "Text",
+        "properties": {
+          "text": "Leading arrow edge popover",
+          "padding": "default"
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "id": 4,
+      "properties": {
+        "text": "Tap this text for a popover",
+        "foregroundStyle": "blue",
+        "padding": "default",
+        "popoverArrowEdge": "trailing"
+      },
+      "popover": {
+        "type": "Text",
+        "properties": {
+          "text": "Popover on a Text view!",
+          "padding": "default"
+        }
+      }
+    },
+    {
+      "type": "Image",
+      "id": 5,
+      "properties": {
+        "systemName": "info.circle",
+        "imageScale": "large",
+        "foregroundStyle": "blue"
+      },
+      "popover": {
+        "type": "VStack",
+        "properties": {
+          "padding": "default",
+          "spacing": 4
+        },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Info",
+              "font": "headline"
+            }
+          },
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Popover on an Image view."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
