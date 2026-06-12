@@ -33,6 +33,7 @@ import "./Views/SecureField.js";
 import "./Views/Picker.js";
 import "./Views/ProgressView.js";
 import "./Views/DatePicker.js";
+import "./Views/ColorPicker.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

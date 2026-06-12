@@ -50,7 +50,7 @@ python3 -m http.server 8080
   the tree is built).
 - **Elements** (`src/Views/`, one file per type): VStack, HStack, ZStack,
   Spacer, Divider, Text, Button, TextField, Toggle (switch + checkbox styles),
-  Image, Label, Slider, Stepper, SecureField, Picker, ProgressView, DatePicker. Each view's `validateProperties` warnings match the Swift
+  Image, Label, Slider, Stepper, SecureField, Picker, ProgressView, DatePicker, ColorPicker. Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
 - **Symbols** (`src/Helpers/MaterialSymbolResolver.js` + `Helpers/SymbolIcon.js`

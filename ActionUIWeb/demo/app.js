@@ -39,6 +39,8 @@ app.action("viewChanged", (ctx) => win.setString(20, 0, `View: ${ctx.context}.`)
 
 app.action("dateChanged", () => win.setString(20, 0, `Date: ${win.getString(80)}.`));
 
+app.action("colorChanged", () => win.setString(20, 0, `Color: ${win.getString(81)}.`));
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {

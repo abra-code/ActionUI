@@ -94,6 +94,14 @@
     { "type": "Picker", "id": 62, "properties": { "title": "View", "pickerStyle": "segmented", "options": [{ "title": "Day", "tag": "day" }, { "title": "Week", "tag": "week" }, { "title": "Month", "tag": "month" }], "actionID": "viewChanged" } },
     { "type": "Divider" },
     { "type": "DatePicker", "id": 80, "properties": { "title": "Date", "selectedDate": "2026-06-12", "range": { "start": "2026-01-01", "end": "2026-12-31" }, "valueChangeActionID": "dateChanged" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "ColorPicker", "id": 81, "properties": { "title": "Tint", "selectedColor": "#3366ff", "actionID": "colorChanged" } },
+        { "type": "Spacer" }
+      ]
+    },
     { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]

@@ -201,6 +201,19 @@
 .aui-datepicker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
 .aui-datepicker:disabled { opacity: 0.4; }
 
+/* ColorPicker: the native <input type="color"> as a compact color well. */
+.aui-colorpicker {
+    width: 44px;
+    height: 24px;
+    padding: 2px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    background: var(--aui-control-background);
+    cursor: pointer;
+}
+.aui-colorpicker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-colorpicker:disabled { opacity: 0.4; cursor: default; }
+
 /* Picker renders as the native dropdown; styles other than the default menu are
    deferred skin work. It reuses the shared control box. */
 .aui-picker {
