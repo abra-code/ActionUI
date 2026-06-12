@@ -34,6 +34,9 @@ import "./Views/Picker.js";
 import "./Views/ProgressView.js";
 import "./Views/DatePicker.js";
 import "./Views/ColorPicker.js";
+import "./Views/ScrollView.js";
+import "./Views/LazyVStack.js";
+import "./Views/LazyHStack.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

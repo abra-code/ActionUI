@@ -60,6 +60,18 @@
 
 .aui-spacer { flex-grow: 1; align-self: stretch; }
 
+/* Lazy stacks share the flex layout (and Divider orientation) of their eager
+   twins; the .aui-lazy* classes are markers for any future lazy-only styling.
+   On web they render eagerly — virtualization is deferred (Phase 4). */
+.aui-lazyvstack, .aui-lazyhstack { /* reuse .aui-vstack / .aui-hstack rules */ }
+
+/* ScrollView: a viewport whose overflow is set per-axis inline by the view.
+   showsIndicators:false hides the scrollbars (the .scrollIndicators(.hidden)
+   analog) while keeping the content scrollable. */
+.aui-scroll { max-height: 100%; max-width: 100%; }
+.aui-scroll-no-indicators { scrollbar-width: none; }
+.aui-scroll-no-indicators::-webkit-scrollbar { display: none; }
+
 .aui-divider { background: var(--aui-control-border); align-self: stretch; }
 .aui-vstack > .aui-divider { height: 1px; }
 .aui-hstack > .aui-divider { width: 1px; }

@@ -103,6 +103,43 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Scroll horizontally:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "ScrollView",
+      "properties": { "axis": "horizontal", "showsIndicators": false, "frame": { "maxWidth": "infinity" } },
+      "content": {
+        "type": "LazyHStack",
+        "properties": { "spacing": 8 },
+        "children": [
+          { "type": "Button", "properties": { "title": "Inbox", "systemImage": "tray", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Sent", "systemImage": "paperplane", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Drafts", "systemImage": "doc", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Flagged", "systemImage": "flag", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Trash", "systemImage": "trash", "buttonStyle": "bordered" } }
+        ]
+      }
+    },
+    { "type": "Text", "properties": { "text": "Scroll vertically (bounded):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "ScrollView",
+      "properties": { "axis": "vertical", "frame": { "maxHeight": 120, "maxWidth": "infinity" }, "padding": 8, "cornerRadius": 8, "background": "secondary" },
+      "content": {
+        "type": "LazyVStack",
+        "properties": { "alignment": "leading", "spacing": 6 },
+        "children": [
+          { "type": "Label", "properties": { "title": "Mercury", "systemImage": "circle.fill" } },
+          { "type": "Label", "properties": { "title": "Venus", "systemImage": "circle.fill" } },
+          { "type": "Label", "properties": { "title": "Earth", "systemImage": "circle.fill", "foregroundColor": "blue" } },
+          { "type": "Label", "properties": { "title": "Mars", "systemImage": "circle.fill", "foregroundColor": "red" } },
+          { "type": "Label", "properties": { "title": "Jupiter", "systemImage": "circle.fill", "foregroundColor": "orange" } },
+          { "type": "Label", "properties": { "title": "Saturn", "systemImage": "circle.fill", "foregroundColor": "yellow" } },
+          { "type": "Label", "properties": { "title": "Uranus", "systemImage": "circle.fill", "foregroundColor": "cyan" } },
+          { "type": "Label", "properties": { "title": "Neptune", "systemImage": "circle.fill", "foregroundColor": "indigo" } }
+        ]
+      }
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }
