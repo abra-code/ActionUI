@@ -56,14 +56,19 @@ struct ProgressView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        // TODO: that logic is somewhat faulty in case of indeterminate progress where value is expected to be nil
         let initialValue = Self.initialValue(model) as? Double
-        let total: Double? = properties.double(forKey: "total")
         let title: String? = properties["title"] as? String
         let actionID: String? = properties["actionID"] as? String
-        
+
+        // The runtime states["progress"] override wins over the initial JSON value.
         let currentValue: Double? = model.states.double(forKey: "progress") ?? initialValue
-        
+
+        // total defaults to 1.0 when a value is present (matching the documented
+        // contract and the Android/Web ports); an explicitly invalid total has
+        // already been dropped to nil by validateProperties. With no value at all
+        // the progress is indeterminate, so total stays nil.
+        let total: Double? = properties.double(forKey: "total") ?? (currentValue != nil ? 1.0 : nil)
+
         let progressView: any SwiftUI.View
         if let value = currentValue, let total = total, value <= total {
             progressView = title != nil ?
@@ -86,7 +91,10 @@ struct ProgressView: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
 #if canImport(UIKit)
-        if properties["value"] == nil || properties["total"] == nil {
+        // Indeterminate (the circular spinner on iOS) when no value is supplied;
+        // a missing total no longer implies indeterminate — it defaults to 1.0 in
+        // buildView when a value is present.
+        if properties["value"] == nil {
             modifiedView = modifiedView.progressViewStyle(.circular)
         }
 #endif

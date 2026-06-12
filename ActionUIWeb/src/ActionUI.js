@@ -31,6 +31,7 @@ import "./Views/Slider.js";
 import "./Views/Stepper.js";
 import "./Views/SecureField.js";
 import "./Views/Picker.js";
+import "./Views/ProgressView.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

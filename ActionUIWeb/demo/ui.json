@@ -62,6 +62,8 @@
         { "type": "Text", "id": 31, "properties": { "text": "40", "font": "headline" } }
       ]
     },
+    { "type": "ProgressView", "id": 70, "properties": { "title": "Buffering", "value": 0.4, "total": 1.0 } },
+    { "type": "ProgressView", "properties": { "title": "Working…" } },
     { "type": "Divider" },
     {
       "type": "HStack",

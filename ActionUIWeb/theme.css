@@ -129,6 +129,18 @@
 .aui-slider:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: 4px; }
 .aui-slider:disabled { opacity: 0.4; cursor: default; }
 
+/* ---- ProgressView ---- */
+
+/* Determinate bar (a <progress> with a value) or, with no value, the browser's
+   animated indeterminate bar — the web counterpart of the SwiftUI/Material
+   spinner. A title stacks above it in a column. */
+.aui-progress { display: flex; flex-direction: column; gap: 4px; }
+.aui-progress-title { color: var(--aui-color-primary); }
+.aui-progress-bar {
+    accent-color: var(--aui-color-accent);
+    width: 100%;
+}
+
 /* ---- Stepper ---- */
 
 .aui-stepper { display: inline-flex; align-items: center; gap: 0.5em; }

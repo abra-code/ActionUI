@@ -95,6 +95,30 @@ final class ProgressViewTests: XCTestCase {
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
     
+    func testProgressViewConstructionValueWithoutTotal() throws {
+        // Regression: a value with no explicit total is determinate — total
+        // defaults to 1.0 in buildView (matching the documented contract and the
+        // Android/Web ports), rather than falling through to an indeterminate
+        // spinner. Build the view to exercise that path and confirm the value is
+        // seeded onto the viewModel.
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "ProgressView",
+            "properties": [
+                "value": 0.3
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
+        XCTAssertEqual(validatedProperties["value"] as? Double, 0.3, "value should survive validation")
+        XCTAssertNil(validatedProperties["total"], "total stays absent; it is defaulted in buildView, not validation")
+
+        let viewModel = ViewModel()
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        XCTAssertEqual(ProgressView.initialValue(viewModel) as? Double, 0.3, "initialValue should resolve to the JSON value")
+    }
+
     func testProgressViewJSONDecoding() throws {
         let jsonString = """
         {

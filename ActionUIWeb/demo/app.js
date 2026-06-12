@@ -19,7 +19,10 @@ app.action("shoutChanged", (ctx) => {
     win.setString(20, 0, `Shout mode: ${ctx.context.isOn ? "on" : "off"}`);
 });
 
-app.action("volumeChanged", () => win.setString(31, 0, String(win.getInt(30))));
+app.action("volumeChanged", () => {
+    win.setString(31, 0, String(win.getInt(30)));
+    win.setDouble(70, 0, win.getInt(30) / 100); // drive the progress bar from the slider
+});
 
 app.action("quantityChanged", () => win.setString(20, 0, `Quantity is now ${win.getInt(40)}.`));
 
