@@ -15,11 +15,21 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.ActionUIAndroid">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- The View.actionHooks.json deep-link round trip: a Link opens
+                 actionui://... through the system, this filter routes it back,
+                 and onNewIntent forwards it to ActionUIModel.onOpenURL. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="actionui" />
             </intent-filter>
         </activity>
     </application>

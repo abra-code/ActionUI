@@ -57,7 +57,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * ```
  *
  * **Phases** (SwiftUI `AsyncImagePhase` parity): while loading and on failure
- * the `placeholder` SF Symbol renders through the shared glyph seam
+ * the `placeholder` SF Symbol renders through the shared glyph helper
  * (`SystemSymbolIcon`, the same SF->Material path as `Image`'s `systemName`);
  * on success the bitmap renders. A missing/empty `url` warns and shows the
  * placeholder, like the Apple builder.
@@ -152,7 +152,7 @@ object AsyncImage : ActionUIViewConstruction {
         }
     }
 
-    /** The loading/failure glyph - `placeholder` through the shared SF-symbol seam. */
+    /** The loading/failure glyph - `placeholder` through the shared SF-symbol helper. */
     @Composable
     private fun Placeholder(config: AsyncImageConfig, modifier: Modifier, logger: ActionUILogger) {
         val rendered = SystemSymbolIcon(

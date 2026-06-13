@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -19,6 +20,7 @@ import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +41,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.ToolbarHost
 import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.coroutines.launch
@@ -92,9 +95,25 @@ import kotlinx.coroutines.launch
  * keep the default split - the closest native analog of
  * `.navigationSplitViewStyle`, which Material3 has no direct equivalent for.
  *
- * **Degrades vs. Apple (documented).** Sidebar rows are text-only (no SF Symbol;
- * icons are the B2 track). `columnVisibility` and `style` are approximate maps as
- * noted above rather than literal SwiftUI bindings.
+ * **Sidebar rows + icons.** Each row renders through the full element pipeline
+ * ([RenderPaneChild]), so an Apple-canonical `Label` row carries its leading icon
+ * for free: `systemImage` resolves through the bundled SF->Material map (no host
+ * registry needed), exactly as on the `Image` / `Label` elements elsewhere. The
+ * selected row tints both its background (`secondaryContainer`) and its content
+ * (`onSecondaryContainer`, provided through [LocalContentColor] so a Label's icon
+ * and title follow) - the Material analog of SwiftUI's sidebar selection emphasis.
+ *
+ * **Per-pane chrome.** Each pane (the sidebar, the `content` middle pane, and the
+ * detail / its switched destination) carries its own navigation chrome: a pane
+ * whose root element declares a `toolbar` or `navigationTitle` is wrapped in a
+ * per-pane [ToolbarHost] (`Scaffold` + `TopAppBar`), so the sidebar and the detail
+ * get separate top bars rather than one shared bar - the Android analog of
+ * SwiftUI, where each column has its own toolbar. This is [hasRootToolbarChrome]'s
+ * reason for excluding `NavigationSplitView` from root chrome: the chrome lives on
+ * the panes, applied here, exactly as `NavigationStack` applies it per screen.
+ *
+ * **Degrades vs. Apple (documented).** `columnVisibility` and `style` are
+ * approximate maps as noted above rather than literal SwiftUI bindings.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 object NavigationSplitView : ActionUIViewConstruction {
@@ -184,7 +203,7 @@ object NavigationSplitView : ActionUIViewConstruction {
             detailPane = {
                 AnimatedPane {
                     if (content != null) {
-                        RenderPaneChild(content, Modifier.fillMaxSize(), logger)
+                        RenderPane(content, logger)
                     } else {
                         DetailPane(selected, destinations, detail, logger)
                     }
@@ -265,9 +284,12 @@ internal fun navigationSplitDestinations(element: ActionUIElement): Map<Int, Act
 
 /**
  * The list pane. In the selection-driven form (there are `destinations` and the
- * sidebar has children) each child is rendered as a tappable row whose
- * `destinationViewId` selects the matching detail; the selected row is tinted.
- * Otherwise the `sidebar` is rendered as a static pane through the registry.
+ * sidebar has children) each child is rendered through the full element pipeline
+ * as a tappable row whose `destinationViewId` selects the matching detail; an
+ * Apple-canonical `Label` row therefore shows its `systemImage` leading icon for
+ * free. The selected row tints its background (`secondaryContainer`) and its
+ * content (`onSecondaryContainer`). Otherwise the `sidebar` is rendered as a
+ * static pane through the registry.
  */
 @Composable
 private fun SidebarPane(
@@ -279,24 +301,53 @@ private fun SidebarPane(
 ) {
     val rows = sidebar.children.orEmpty()
     if (destinations.isEmpty() || rows.isEmpty()) {
-        RenderPaneChild(sidebar, Modifier.fillMaxSize(), logger)
+        // Static sidebar: render the whole element as a pane (its own chrome included).
+        RenderPane(sidebar, logger)
         return
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        rows.forEach { row ->
-            val destId = row.properties?.intProperty("destinationViewId")
-            var rowModifier = Modifier.fillMaxWidth()
-            if (destId != null) {
-                rowModifier = rowModifier.clickable { onSelect(destId) }
-                if (destId == selected) {
+    // Selection-driven sidebar: the List element *is* the pane, so its own
+    // `toolbar` / `navigationTitle` wraps the row column, and each child is a row.
+    PaneChrome(sidebar, logger) { paneModifier ->
+        Column(paneModifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            rows.forEach { row ->
+                val destId = row.properties?.intProperty("destinationViewId")
+                val isSelected = isSidebarRowSelected(destId, selected)
+                var rowModifier = Modifier.fillMaxWidth()
+                if (destId != null) {
+                    rowModifier = rowModifier.clickable { onSelect(destId) }
+                }
+                if (isSelected) {
                     rowModifier = rowModifier.background(MaterialTheme.colorScheme.secondaryContainer)
                 }
+                rowModifier = rowModifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                Box(rowModifier) {
+                    if (isSelected) {
+                        // Pair the tinted background with its Material "on" content color so a
+                        // Label row's icon + title stay legible and read as selected - the
+                        // analog of SwiftUI's sidebar selection emphasis. An explicit row
+                        // `foregroundStyle` still wins (it is applied inside RenderPaneChild).
+                        CompositionLocalProvider(
+                            LocalContentColor provides MaterialTheme.colorScheme.onSecondaryContainer,
+                        ) {
+                            RenderPaneChild(row, Modifier, logger)
+                        }
+                    } else {
+                        RenderPaneChild(row, Modifier, logger)
+                    }
+                }
             }
-            rowModifier = rowModifier.padding(horizontal = 16.dp, vertical = 12.dp)
-            Box(rowModifier) { RenderPaneChild(row, Modifier, logger) }
         }
     }
 }
+
+/**
+ * Whether a sidebar row is the selected one: it must link to a destination
+ * ([destId] non-null) and that destination must be the current [selected]. A row
+ * without a `destinationViewId` (a static header / spacer) is never highlighted.
+ * Pure, so it is unit-testable.
+ */
+internal fun isSidebarRowSelected(destId: Int?, selected: Int): Boolean =
+    destId != null && destId == selected
 
 /** The detail pane: the selected destination, else the static `detail` placeholder. */
 @Composable
@@ -307,10 +358,50 @@ private fun DetailPane(
     logger: ActionUILogger,
 ) {
     val target = destinations[selected] ?: defaultDetail ?: return
-    RenderPaneChild(target, Modifier.fillMaxSize(), logger)
+    RenderPane(target, logger)
 }
 
-/** Renders one pane child through the normal pipeline. */
+/**
+ * A pane carries its own navigation chrome when its root element declares a
+ * `toolbar` or a `navigationTitle` - the same test [hasRootToolbarChrome] applies
+ * at the document root and `NavigationStack` applies per screen. Pure, so it is
+ * unit-testable.
+ */
+internal fun paneHasChrome(element: ActionUIElement): Boolean =
+    element.toolbar != null || element.properties?.stringProperty("navigationTitle") != null
+
+/**
+ * Wraps a pane's [content] in a per-pane [ToolbarHost] (`Scaffold` + `TopAppBar` /
+ * `BottomAppBar`) when [element] declares chrome ([paneHasChrome]), handing the
+ * scaffold inset to [content]; otherwise invokes [content] with a plain [Modifier]
+ * and no chrome. The split-view analog of SwiftUI's per-column toolbars; the
+ * sidebar pane and the detail pane each get their own bar this way.
+ */
+@Composable
+private fun PaneChrome(
+    element: ActionUIElement,
+    logger: ActionUILogger,
+    content: @Composable (Modifier) -> Unit,
+) {
+    if (paneHasChrome(element)) {
+        ToolbarHost(element, logger) { inner -> content(Modifier.padding(inner)) }
+    } else {
+        content(Modifier)
+    }
+}
+
+/**
+ * Renders one pane (sidebar / content / detail / destination) filling its column,
+ * inside its per-pane chrome when it declares any ([PaneChrome]).
+ */
+@Composable
+private fun RenderPane(element: ActionUIElement, logger: ActionUILogger) {
+    PaneChrome(element, logger) { paneModifier ->
+        RenderPaneChild(element, paneModifier.fillMaxSize(), logger)
+    }
+}
+
+/** Renders one pane child (or sidebar row) through the normal pipeline, bare. */
 @Composable
 private fun RenderPaneChild(element: ActionUIElement, modifier: Modifier, logger: ActionUILogger) {
     val builder = ActionUIRegistry.lookup(element.type) ?: return

@@ -63,11 +63,15 @@ import kotlinx.serialization.json.JsonObject
  * is an elevated Material shape like a `DropdownMenu` container.
  */
 @Composable
-internal fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElement, modifier: Modifier) {
+internal fun ActionUIViewConstruction.BuildViewWithPopover(
+    element: ActionUIElement,
+    modifier: Modifier,
+    animator: ElementAnimator? = null,
+) {
     val logger = LocalActionUILogger.current
     val popoverElement = element.popover ?: run {
         // Defensive: BuildViewWithModifiers only routes here for a popover carrier.
-        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger))
+        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger, animator), animator)
         return
     }
 
@@ -79,7 +83,7 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElem
             "Popover on element id ${element.id} has no registered state; ignoring the subview.",
             LoggerLevel.warning,
         )
-        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger))
+        BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger, animator), animator)
         return
     }
 
@@ -108,8 +112,8 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(element: ActionUIElem
     // anchor bounds track the carrier's transforms) and the Popup anchors to
     // its bounds. The carrier continues through the decoration path inside,
     // which applies the inner half.
-    Box(modifier.applyOuterProperties(element.properties, logger).then(tapModifier)) {
-        BuildViewWithDecorations(element, Modifier)
+    Box(modifier.applyOuterProperties(element.properties, logger, animator).then(tapModifier)) {
+        BuildViewWithDecorations(element, Modifier, animator)
         val visible = carrierModel.states[POPOVER_VISIBLE_STATE_KEY] as? Boolean ?: false
         if (visible) {
             Popup(

@@ -26,7 +26,7 @@ import com.abracode.actionui.Helpers.stringProperty
  * `foregroundStyle` (so the icon and text match), with the universal modifiers
  * (padding, frame, background, ...) applied to the row via [modifier].
  *
- * **Icon source.** The icon resolves through the shared `SymbolIcon` seam, the
+ * **Icon source.** The icon resolves through the shared `SymbolIcon` helper, the
  * same glyph path as `Image`:
  *   * `systemImage`          -> an SF Symbol, mapped to the closest Material glyph
  *     via the bundled SF->Material map. This is the Apple-canonical key; shared
@@ -76,7 +76,7 @@ object Label : ActionUIViewConstruction {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(IconGap),
         ) {
-            // Shared glyph seam: draws nothing (and warns) on an unknown name, and
+            // Shared glyph helper: draws nothing (and warns) on an unknown name, and
             // composes no node when there is no icon, so spacedBy adds no phantom gap.
             LabelIcon(
                 source = iconSource,

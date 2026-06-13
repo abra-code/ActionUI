@@ -51,7 +51,7 @@ import kotlinx.serialization.json.JsonObject
  * [DEFAULT_TAB_EXTENT] keeps an unbounded parent from breaking the `weight`.
  *
  * **Tab icons.** A Tab's `systemImage` (SF Symbol) / `materialName:android` is drawn
- * in the item icon slot via the shared `SymbolIcon` seam ([LabelIcon]), sized for a
+ * in the item icon slot via the shared `SymbolIcon` helper ([LabelIcon]), sized for a
  * nav-bar item and tinted by selection. `assetImage` (asset catalog) and `badge`
  * stay deferred (the same `res/drawable` contract `Image`'s `assetName` waits on).
  * The `style` property (`page`, `sidebarAdaptable`, ...) is accepted but not

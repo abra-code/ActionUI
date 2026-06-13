@@ -3,6 +3,7 @@ package com.abracode.actionui.Helpers
 import androidx.compose.ui.Alignment
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -75,5 +76,30 @@ class ViewModifierHelperTest {
         assertEquals(1, logger.messages.size)
         assertTrue(logger.messages[0].contains("backgroundAlignment"))
         assertTrue(logger.messages[0].contains("diagonal"))
+    }
+
+    // MARK: - mergeProperties (the setElementProperty override merge)
+
+    @Test
+    fun `overrides layer over authored properties with override winning per key`() {
+        val authored = buildJsonObject {
+            put("title", "hello")
+            put("opacity", 0.5)
+        }
+        val merged = mergeProperties(
+            authored,
+            mapOf("opacity" to JsonPrimitive(0.25), "hidden" to JsonPrimitive(true))
+        )
+
+        assertEquals(JsonPrimitive("hello"), merged["title"])     // authored kept
+        assertEquals(JsonPrimitive(0.25), merged["opacity"])      // override wins
+        assertEquals(JsonPrimitive(true), merged["hidden"])       // new key added
+    }
+
+    @Test
+    fun `overrides alone form the properties when nothing was authored`() {
+        val merged = mergeProperties(null, mapOf("opacity" to JsonPrimitive(0.1)))
+        assertEquals(1, merged.size)
+        assertEquals(JsonPrimitive(0.1), merged["opacity"])
     }
 }

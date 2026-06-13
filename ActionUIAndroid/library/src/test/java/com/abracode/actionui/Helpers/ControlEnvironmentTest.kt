@@ -94,4 +94,30 @@ class ControlEnvironmentTest {
         assertEquals(2, logger.warnings.size)
         assertTrue(logger.warnings.all { it.contains("disabled") })
     }
+
+    // ---- resolveLabelsHidden ----
+
+    @Test
+    fun `resolveLabelsHidden is false when the property is absent`() {
+        val logger = CapturingLogger()
+        assertFalse(resolveLabelsHidden(buildJsonObject { put("title", "x") }, logger))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `resolveLabelsHidden reads a Boolean`() {
+        val logger = CapturingLogger()
+        assertTrue(resolveLabelsHidden(buildJsonObject { put("labelsHidden", true) }, logger))
+        assertFalse(resolveLabelsHidden(buildJsonObject { put("labelsHidden", false) }, logger))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `resolveLabelsHidden warns and ignores a non-Boolean value`() {
+        val logger = CapturingLogger()
+        assertFalse(resolveLabelsHidden(buildJsonObject { put("labelsHidden", "yes") }, logger))
+        assertFalse(resolveLabelsHidden(buildJsonObject { putJsonObject("labelsHidden") {} }, logger))
+        assertEquals(2, logger.warnings.size)
+        assertTrue(logger.warnings.all { it.contains("labelsHidden") })
+    }
 }

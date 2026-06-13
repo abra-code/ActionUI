@@ -20,7 +20,7 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Shared image-resolution seam for ActionUI Android. The single place that turns
+ * Shared image-resolution helper for ActionUI Android. The single place that turns
  * an element's image-source properties into a Compose [Painter], so `Image`
  * (and, later, `Label` / `Button` image labels) converge on one contract -
  * mirroring how the Apple side resolves images centrally.
@@ -201,7 +201,7 @@ internal fun selectImageSource(
  * `assetName`, and ranks *below* `systemImage` - Apple's Label order
  * (`Label.swift` tries `systemImage` first), the reverse of Image's. Pure (no
  * Android framework - [registry] is an injected lookup) so it is unit-testable;
- * the codepoint + per-row tuning come from the render seam at draw time.
+ * the codepoint + per-row tuning come from the glyph renderer at draw time.
  */
 internal fun selectLabelIcon(
     properties: JsonObject?,

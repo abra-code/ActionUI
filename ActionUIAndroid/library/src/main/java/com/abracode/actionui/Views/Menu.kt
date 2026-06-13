@@ -35,7 +35,7 @@ import com.abracode.actionui.Helpers.stringProperty
  *   * `Button`  -> a [DropdownMenuItem] showing the button's `title`; tapping it
  *     dispatches the button's `actionID` and dismisses the menu. An icon
  *     (`systemImage` / `materialName:android`, resolved through the shared
- *     `SymbolIcon` seam like `Button`) renders in the Material leading-icon slot.
+ *     `SymbolIcon` helper like `Button`) renders in the Material leading-icon slot.
  *   * `Divider` -> a [HorizontalDivider] between items.
  *   * `Section` -> its `header` as a (disabled) label item, then its `children` as
  *     nested items - a named group.
@@ -97,7 +97,7 @@ internal fun MenuChild(child: ActionUIElement, logger: ActionUILogger, dismiss: 
             val label = props?.stringProperty("title").orEmpty()
             val actionID = props?.stringProperty("actionID")
             // A Button's icon (`systemImage` / `materialName:android`) renders in the
-            // Material leading-icon slot, through the same glyph seam as `Button`.
+            // Material leading-icon slot, through the same glyph helper as `Button`.
             val imageRegistry = LocalActionUIImageRegistry.current
             val iconSource = remember(props, imageRegistry) { selectLabelIcon(props, "assetImage", "Menu item", logger, imageRegistry) }
             DropdownMenuItem(

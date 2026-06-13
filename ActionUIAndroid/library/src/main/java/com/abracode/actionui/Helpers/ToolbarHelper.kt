@@ -202,7 +202,7 @@ fun ToolbarHost(
  * (padding / frame) on a toolbar button are ignored, consistent with SwiftUI
  * toolbar items, which largely ignore layout modifiers too.
  *
- * A Button's icon resolves through the shared `SymbolIcon` seam exactly as on a
+ * A Button's icon resolves through the shared `SymbolIcon` helper exactly as on a
  * standalone `Button` ([selectLabelIcon] -> [LabelIcon]): `systemImage` (SF
  * Symbol -> closest Material glyph) or `materialName:android`. Icon without a
  * `title` renders as a Material [IconButton] - the app-bar action idiom, what

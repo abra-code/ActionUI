@@ -43,7 +43,7 @@ import com.abracode.actionui.Helpers.stringProperty
  *   * `query` - the search term shown in the search message (also settable via
  *     the runtime value).
  *   * `systemImage` - a large hero SF Symbol above the title, drawn through the
- *     shared `SymbolIcon` seam ([LabelIcon]); `materialName:android` is the
+ *     shared `SymbolIcon` helper ([LabelIcon]); `materialName:android` is the
  *     explicit-glyph escape hatch. Ignored in the `search` variant (matching
  *     Apple). Tinted `onSurfaceVariant` to read as the secondary empty-state icon.
  *   * plus the universal modifiers resolved by `applyCommonProperties` (via

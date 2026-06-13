@@ -5,6 +5,7 @@ import com.abracode.actionui.Common.ActionUIRegistry
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -61,6 +62,30 @@ class NavigationSplitViewTest {
     }
 
     @Test
+    fun `paneHasChrome detects a toolbar or a navigationTitle, and nothing else`() {
+        // A navigationTitle alone makes a pane carry its own top bar...
+        assertTrue(
+            paneHasChrome(
+                ActionUIElement(
+                    id = 10, type = "VStack",
+                    properties = buildJsonObject { put("navigationTitle", "Inbox") },
+                ),
+            ),
+        )
+        // ...as does a toolbar alone...
+        assertTrue(
+            paneHasChrome(
+                ActionUIElement(
+                    id = 11, type = "VStack",
+                    toolbar = listOf(ActionUIElement(id = 0, type = "ToolbarItem")),
+                ),
+            ),
+        )
+        // ...but a plain pane with neither renders bare (no nested Scaffold).
+        assertFalse(paneHasChrome(ActionUIElement(id = 12, type = "VStack")))
+    }
+
+    @Test
     fun `navigationSplitDestinations keys destinations by id`() {
         val element = ActionUIElement(
             id = 1, type = "NavigationSplitView",
@@ -73,6 +98,18 @@ class NavigationSplitViewTest {
 
         assertEquals(setOf(10, 11), map.keys)
         assertEquals("VStack", map[10]?.type)
+    }
+
+    @Test
+    fun `isSidebarRowSelected highlights only the matching destination row`() {
+        // The row linked to the current selection is highlighted...
+        assertTrue(isSidebarRowSelected(destId = 11, selected = 11))
+        // ...a row linked to a different destination is not...
+        assertFalse(isSidebarRowSelected(destId = 10, selected = 11))
+        // ...and a row with no destinationViewId (a static header/spacer) never is,
+        // even when its id would coincide with the selection sentinel.
+        assertFalse(isSidebarRowSelected(destId = null, selected = 0))
+        assertFalse(isSidebarRowSelected(destId = null, selected = 11))
     }
 
     @Test

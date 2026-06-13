@@ -6,9 +6,9 @@
     "type": "List",
     "id": 2,
     "children": [
-      { "type": "Text", "id": 100, "properties": { "text": "Inbox", "destinationViewId": 10 } },
-      { "type": "Text", "id": 101, "properties": { "text": "Drafts", "destinationViewId": 11 } },
-      { "type": "Text", "id": 102, "properties": { "text": "Archive", "destinationViewId": 12 } }
+      { "type": "Label", "id": 100, "properties": { "title": "Inbox", "systemImage": "tray", "destinationViewId": 10 } },
+      { "type": "Label", "id": 101, "properties": { "title": "Drafts", "systemImage": "square.and.pencil", "destinationViewId": 11 } },
+      { "type": "Label", "id": 102, "properties": { "title": "Archive", "systemImage": "archivebox", "destinationViewId": 12 } }
     ]
   },
   "content": {

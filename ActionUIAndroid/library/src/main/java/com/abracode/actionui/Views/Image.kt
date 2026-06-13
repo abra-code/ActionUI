@@ -26,9 +26,9 @@ import com.abracode.actionui.Helpers.stringProperty
  * Renders a bundled raster image, a filesystem image, or a Material Symbol icon.
  *
  * Mirror of the Apple `Image` element (`ActionUI/Views/Image.swift`). Source
- * selection, scaling, and axis resolution live in the shared `ImageResolver` seam
+ * selection, scaling, and axis resolution live in the shared `ImageResolver` helper
  * (`Helpers/ImageResolver.kt`); the glyph draw lives in the shared `SymbolIcon`
- * seam (`Helpers/SymbolIcon.kt`), which `Label` and Button image-labels reuse.
+ * helper (`Helpers/SymbolIcon.kt`), which `Label` and Button image-labels reuse.
  * This builder stays thin and routes to the right renderer.
  *
  * **Supported sources.**
@@ -119,7 +119,7 @@ object Image : ActionUIViewConstruction {
             }
 
             is ImageSource.MaterialSymbol -> {
-                // materialName -> codepoint + glyph via the shared SymbolIcon seam;
+                // materialName -> codepoint + glyph via the shared SymbolIcon helper;
                 // axes were already resolved + clamped in selectImageSource.
                 val rendered = MaterialNameIcon(
                     name = source.name,
@@ -146,7 +146,7 @@ object Image : ActionUIViewConstruction {
 
             is ImageSource.SystemSymbol -> {
                 // systemName -> SF->Material map -> glyph via the shared SymbolIcon
-                // seam. Explicit :android knobs override the map's per-row tuning.
+                // helper. Explicit :android knobs override the map's per-row tuning.
                 val rendered = SystemSymbolIcon(
                     name = source.name,
                     explicitWeight = source.explicitWeight,

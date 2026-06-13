@@ -1,0 +1,112 @@
+{
+  "type": "VStack",
+  "properties": {
+    "padding": 20.0,
+    "spacing": 16.0,
+    "alignment": "leading",
+    "onAppearActionID": "hooks.demo.appeared",
+    "onDisappearActionID": "hooks.demo.disappeared"
+  },
+  "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Lifecycle Action Hooks Demo",
+          "font": "title2",
+          "padding": { "bottom": 4.0 }
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "The document root carries onAppearActionID / onDisappearActionID - the host toasts when this screen opens and closes.",
+          "font": "caption",
+          "foregroundStyle": "secondary",
+          "padding": { "bottom": 8.0 }
+        }
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "onAppear / onDisappear in a lazy list", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "The teal row carries both hooks. Scroll it into and out of view: a lazy container composes rows on entry and disposes them on exit, so the hooks fire per visit - the SwiftUI List behavior.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "LazyVStack",
+        "properties": {
+          "spacing": 8.0,
+          "frame": { "height": 220.0 },
+          "alignment": "leading"
+        },
+        "children": [
+          { "type": "Text", "properties": { "text": "Row 1", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 2", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 3", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 4", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 5", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 6", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 7", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 8", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 9", "padding": 8.0 } },
+          {
+            "type": "Text",
+            "id": 201,
+            "properties": {
+              "text": "Row 10 - watched",
+              "foregroundStyle": "white",
+              "padding": 8.0,
+              "background": "teal",
+              "cornerRadius": 8.0,
+              "onAppearActionID": "hooks.demo.row.appeared",
+              "onDisappearActionID": "hooks.demo.row.disappeared"
+            }
+          },
+          { "type": "Text", "properties": { "text": "Row 11", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 12", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 13", "padding": 8.0 } },
+          { "type": "Text", "properties": { "text": "Row 14", "padding": 8.0 } }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "openURLActionID - deep-link round trip", "font": "headline" }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "The Link opens actionui://hooks/hello through the system; the demo app's intent filter routes it back, the Activity forwards it to ActionUIModel.onOpenURL, and the badge below receives it.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "Link",
+        "properties": {
+          "title": "Open actionui://hooks/hello",
+          "url": "actionui://hooks/hello"
+        }
+      },
+      {
+        "type": "Text",
+        "id": 202,
+        "properties": {
+          "text": "No URL received yet",
+          "foregroundStyle": "white",
+          "padding": 12.0,
+          "background": "indigo",
+          "cornerRadius": 8.0,
+          "openURLActionID": "hooks.demo.url"
+        }
+      }
+  ]
+}

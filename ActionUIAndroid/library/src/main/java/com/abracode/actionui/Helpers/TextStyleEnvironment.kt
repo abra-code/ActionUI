@@ -51,12 +51,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * is introduced here and read by the interactive control builders (Button,
  * Toggle, Slider, ProgressView).
  *
- * The seam is [ProvideTextStyleEnvironment], applied once per element at the
- * point the element is built - in `ActionUI.Render` for the root and in each
- * container's child loop for the rest - so an element's own font/color/tint
- * style both itself and its subtree, exactly once. The control environment
- * (`disabled` / `buttonStyle` / `controlSize` - locals and parsing in
- * `ControlEnvironment.kt`) rides the same seam, for the same reason.
+ * The shared entry point is [ProvideTextStyleEnvironment], applied once per
+ * element at the point the element is built - in `ActionUI.Render` for the root
+ * and in each container's child loop for the rest - so an element's own
+ * font/color/tint style both itself and its subtree, exactly once. The control
+ * environment (`disabled` / `buttonStyle` / `controlSize` - locals and parsing
+ * in `ControlEnvironment.kt`) rides the same wrapper, for the same reason.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
  *   * Named text styles (`title`, `body`, ...) map onto the nearest Material3
@@ -94,9 +94,11 @@ fun ProvideTextStyleEnvironment(
     val fontStyle = resolveFontStyle(properties["font"], logger)
     val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", logger)
     val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", logger)
-    // `disabled: false` provides nothing - SwiftUI ANDs `isEnabled` down the
-    // tree, so a child can never re-enable a subtree an ancestor disabled.
+    // `disabled: false` / `labelsHidden: false` provide nothing - SwiftUI ANDs
+    // `isEnabled` down the tree (a child can never re-enable a subtree an
+    // ancestor disabled), and `.labelsHidden()` has no inverse.
     val disabled = resolveDisabled(properties, logger)
+    val labelsHidden = resolveLabelsHidden(properties, logger)
     val buttonStyle = properties.stringProperty("buttonStyle")?.let { parseButtonStyle(it, logger) }
     val controlSize = properties.stringProperty("controlSize")?.let { parseControlSize(it, logger) }
     val textAlign = resolveMultilineTextAlignment(properties.stringProperty("multilineTextAlignment"), logger)
@@ -112,6 +114,7 @@ fun ProvideTextStyleEnvironment(
         foreground?.let { add(LocalContentColor provides it) }
         tint?.let { add(LocalActionUITint provides it) }
         if (disabled) add(LocalActionUIEnabled provides false)
+        if (labelsHidden) add(LocalActionUILabelsHidden provides true)
         buttonStyle?.let { add(LocalActionUIButtonStyle provides it) }
         controlSize?.let { add(LocalActionUIControlSize provides it) }
     }
