@@ -5,6 +5,7 @@ import com.abracode.actionui.Common.ActionUIRegistry
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -73,6 +74,18 @@ class NavigationSplitViewTest {
 
         assertEquals(setOf(10, 11), map.keys)
         assertEquals("VStack", map[10]?.type)
+    }
+
+    @Test
+    fun `isSidebarRowSelected highlights only the matching destination row`() {
+        // The row linked to the current selection is highlighted...
+        assertTrue(isSidebarRowSelected(destId = 11, selected = 11))
+        // ...a row linked to a different destination is not...
+        assertFalse(isSidebarRowSelected(destId = 10, selected = 11))
+        // ...and a row with no destinationViewId (a static header/spacer) never is,
+        // even when its id would coincide with the selection sentinel.
+        assertFalse(isSidebarRowSelected(destId = null, selected = 0))
+        assertFalse(isSidebarRowSelected(destId = null, selected = 11))
     }
 
     @Test
