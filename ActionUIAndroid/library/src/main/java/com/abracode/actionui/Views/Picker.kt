@@ -35,6 +35,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
+import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonArray
@@ -92,7 +93,9 @@ object Picker : ActionUIViewConstruction {
         val sections = parsePickerOptions(props?.get("options"), logger)
         val items = sections.flatMap { it.items }
         val initial = items.firstOrNull()?.tag ?: ""
-        val title = props?.stringProperty("title") ?: ""
+        // SwiftUI `.labelsHidden()` (set here or on any ancestor): no label on
+        // any style - menu field label, segmented/radio heading.
+        val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: ""
         val actionID = props?.stringProperty("actionID")
         val style = resolvePickerStyle(props?.stringProperty("pickerStyle"), logger)
 

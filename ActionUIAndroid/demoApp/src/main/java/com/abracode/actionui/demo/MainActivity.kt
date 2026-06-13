@@ -1,5 +1,6 @@
 package com.abracode.actionui.demo
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -235,6 +236,32 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        // View.actionHooks.json - the lifecycle action hooks. The document root
+        // and a lazy-list row carry onAppearActionID / onDisappearActionID
+        // (composition entry/exit toasts); the badge Text carries
+        // openURLActionID, receiving deep links the Activity forwards through
+        // ActionUIModel.onOpenURL (see onNewIntent) - the handler writes the
+        // URL into the badge through the property API.
+        ActionUIModel.registerActionHandler("hooks.demo.appeared") { _, _, _, _, _ ->
+            Toast.makeText(this, "Document appeared", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("hooks.demo.disappeared") { _, _, _, _, _ ->
+            Toast.makeText(this, "Document disappeared", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("hooks.demo.row.appeared") { _, _, viewID, _, _ ->
+            Toast.makeText(this, "Row $viewID appeared", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("hooks.demo.row.disappeared") { _, _, viewID, _, _ ->
+            Toast.makeText(this, "Row $viewID disappeared", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("hooks.demo.url") { _, windowUUID, viewID, _, context ->
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = viewID,
+                propertyName = "text", value = "Received: $context",
+            )
+            Toast.makeText(this, "openURL: $context", Toast.LENGTH_SHORT).show()
+        }
+
         // GeometryReader.json: read the reader's observable states["size"]
         // ([width, height] in dp) on demand - the Android demo surfaces it with
         // a toast where the Swift app leaves the state for the host to poll.
@@ -356,6 +383,18 @@ class MainActivity : ComponentActivity() {
                 DemoApp()
             }
         }
+    }
+
+    /**
+     * Forwards an incoming deep link (the `actionui` scheme declared in the
+     * manifest) to every composed element carrying `openURLActionID` - the
+     * Android analog of the system invoking SwiftUI's `.onOpenURL`. The
+     * activity is `singleTop`, so a link tapped while the demo is frontmost
+     * lands here rather than relaunching it (View.actionHooks.json).
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.data?.let { ActionUIModel.onOpenURL(it.toString()) }
     }
 }
 

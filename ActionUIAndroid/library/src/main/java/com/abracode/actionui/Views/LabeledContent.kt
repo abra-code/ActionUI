@@ -15,6 +15,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -41,7 +42,9 @@ object LabeledContent : ActionUIViewConstruction {
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
-        val title = element.properties?.stringProperty("title") ?: ""
+        // SwiftUI `.labelsHidden()` (set here or on any ancestor) hides the
+        // leading label; the trailing content stays.
+        val title = if (LocalActionUILabelsHidden.current) "" else element.properties?.stringProperty("title") ?: ""
 
         Row(
             modifier = modifier,

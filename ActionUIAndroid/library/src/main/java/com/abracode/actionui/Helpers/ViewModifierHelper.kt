@@ -32,8 +32,8 @@ import kotlinx.serialization.json.JsonObject
  *   * `overlay` / `background` - the decoration subviews, composed here in a
  *     `Box` around the element ([BuildViewWithDecorations]).
  *
- * Two runtime concerns also resolve here, before anything else, because this
- * is the one place every rendered element passes through:
+ * Three runtime concerns also resolve here, before anything else, because
+ * this is the one place every rendered element passes through:
  *
  *   * **Property overrides** - `ActionUIModel.setElementProperty` writes merge
  *     over the authored properties ([effectiveElement]), so host mutations
@@ -43,6 +43,11 @@ import kotlinx.serialization.json.JsonObject
  *     (`AnimationHelper.kt`) turns the element's `animation` declaration into
  *     an [ElementAnimator] threaded through the chain halves, animating their
  *     visual values toward host-mutated targets.
+ *   * **The lifecycle action hooks** - [ElementActionHooks]
+ *     (`ActionHookHelper.kt`): `onAppearActionID` / `onDisappearActionID`
+ *     fire on composition entry/exit (SwiftUI `.onAppear`/`.onDisappear`),
+ *     `openURLActionID` registers for host-delivered URLs
+ *     (`ActionUIModel.onOpenURL`, SwiftUI `.onOpenURL`).
  *
  * Callers pass only the scope-restricted parent data (`weight`/`align`, via
  * `buildChildModifier`) or `Modifier`; the element's own properties are
@@ -84,6 +89,10 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // declaration (if any) is resolved against the same effective element, so
     // chain targets and the watched trigger move in one recomposition.
     val effective = effectiveElement(element)
+    // The lifecycle action hooks (onAppearActionID / onDisappearActionID /
+    // openURLActionID - ActionHookHelper.kt) attach here so they cover both
+    // the popover route and the plain one.
+    ElementActionHooks(effective)
     val animator = rememberElementAnimator(effective)
     if (effective.popover != null) {
         // PopoverHelper applies the outer half to the anchor Box itself and

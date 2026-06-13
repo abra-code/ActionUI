@@ -1,0 +1,120 @@
+{
+  "type": "VStack",
+  "properties": {
+    "padding": 20.0,
+    "spacing": 16.0,
+    "alignment": "leading"
+  },
+  "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "labelsHidden Modifier Demo",
+          "font": "title2",
+          "padding": { "bottom": 4.0 }
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "labelsHidden on a container hides the built-in labels of every labeled control inside it (Toggle, Picker, DatePicker, ColorPicker, Stepper, LabeledContent); the values stay visible.",
+          "font": "caption",
+          "foregroundStyle": "secondary",
+          "padding": { "bottom": 8.0 }
+        }
+      },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Labels shown (default)", "font": "headline" }
+      },
+      {
+        "type": "VStack",
+        "properties": { "spacing": 12.0, "alignment": "leading" },
+        "children": [
+          {
+            "type": "Toggle",
+            "properties": { "title": "Wi-Fi", "isOn": true }
+          },
+          {
+            "type": "Picker",
+            "properties": {
+              "title": "Language",
+              "options": [
+                { "title": "Kotlin", "tag": "kt" },
+                { "title": "Swift", "tag": "sw" }
+              ]
+            }
+          },
+          {
+            "type": "DatePicker",
+            "properties": { "title": "Birthday", "selectedDate": "2024-07-16" }
+          },
+          {
+            "type": "Stepper",
+            "properties": { "labelFormat": "Count: %.0f", "value": 3.0 }
+          },
+          {
+            "type": "LabeledContent",
+            "properties": { "title": "Version" },
+            "children": [
+              { "type": "Text", "properties": { "text": "2.1.0" } }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Same controls, labelsHidden on the VStack", "font": "headline" }
+      },
+      {
+        "type": "VStack",
+        "properties": { "spacing": 12.0, "alignment": "leading", "labelsHidden": true },
+        "children": [
+          {
+            "type": "Toggle",
+            "properties": { "title": "Wi-Fi", "isOn": true }
+          },
+          {
+            "type": "Picker",
+            "properties": {
+              "title": "Language",
+              "options": [
+                { "title": "Kotlin", "tag": "kt" },
+                { "title": "Swift", "tag": "sw" }
+              ]
+            }
+          },
+          {
+            "type": "DatePicker",
+            "properties": { "title": "Birthday", "selectedDate": "2024-07-16" }
+          },
+          {
+            "type": "Stepper",
+            "properties": { "labelFormat": "Count: %.0f", "value": 3.0 }
+          },
+          {
+            "type": "LabeledContent",
+            "properties": { "title": "Version" },
+            "children": [
+              { "type": "Text", "properties": { "text": "2.1.0" } }
+            ]
+          }
+        ]
+      },
+
+      { "type": "Divider" },
+
+      {
+        "type": "Text",
+        "properties": { "text": "Directly on one control", "font": "headline" }
+      },
+      {
+        "type": "Toggle",
+        "properties": { "title": "Hidden label", "isOn": false, "labelsHidden": true }
+      }
+  ]
+}

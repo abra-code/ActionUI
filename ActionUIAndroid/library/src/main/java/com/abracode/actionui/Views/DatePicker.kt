@@ -32,6 +32,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.DateHelper
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
+import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
@@ -81,7 +82,8 @@ object DatePicker : ActionUIViewConstruction {
         val logger = LocalActionUILogger.current
         val props = element.properties
 
-        val title = props?.stringProperty("title") ?: "Date"
+        // SwiftUI `.labelsHidden()` (set here or on any ancestor).
+        val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: "Date"
         val actionID = props?.stringProperty("valueChangeActionID")
         val style = resolveDateStyle(props?.stringProperty("displayStyle"), logger)
         val bounds = parseDateBounds(props, logger)

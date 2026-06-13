@@ -25,6 +25,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
+import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -70,7 +71,9 @@ object Toggle : ActionUIViewConstruction {
         val props = element.properties
         val logger = LocalActionUILogger.current
 
-        val title = props?.stringProperty("title") ?: "Toggle"
+        // SwiftUI `.labelsHidden()` (set here or on any ancestor): the control
+        // shows no label but keeps its value visible.
+        val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: "Toggle"
         val actionID = props?.stringProperty("actionID")
         val initial = props?.booleanProperty("isOn") ?: false
         val style = resolveToggleStyle(props?.stringProperty("style"), logger)

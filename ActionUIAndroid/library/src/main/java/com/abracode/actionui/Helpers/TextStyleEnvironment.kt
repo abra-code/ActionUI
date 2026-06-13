@@ -94,9 +94,11 @@ fun ProvideTextStyleEnvironment(
     val fontStyle = resolveFontStyle(properties["font"], logger)
     val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", logger)
     val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", logger)
-    // `disabled: false` provides nothing - SwiftUI ANDs `isEnabled` down the
-    // tree, so a child can never re-enable a subtree an ancestor disabled.
+    // `disabled: false` / `labelsHidden: false` provide nothing - SwiftUI ANDs
+    // `isEnabled` down the tree (a child can never re-enable a subtree an
+    // ancestor disabled), and `.labelsHidden()` has no inverse.
     val disabled = resolveDisabled(properties, logger)
+    val labelsHidden = resolveLabelsHidden(properties, logger)
     val buttonStyle = properties.stringProperty("buttonStyle")?.let { parseButtonStyle(it, logger) }
     val controlSize = properties.stringProperty("controlSize")?.let { parseControlSize(it, logger) }
     val textAlign = resolveMultilineTextAlignment(properties.stringProperty("multilineTextAlignment"), logger)
@@ -112,6 +114,7 @@ fun ProvideTextStyleEnvironment(
         foreground?.let { add(LocalContentColor provides it) }
         tint?.let { add(LocalActionUITint provides it) }
         if (disabled) add(LocalActionUIEnabled provides false)
+        if (labelsHidden) add(LocalActionUILabelsHidden provides true)
         buttonStyle?.let { add(LocalActionUIButtonStyle provides it) }
         controlSize?.let { add(LocalActionUIControlSize provides it) }
     }
