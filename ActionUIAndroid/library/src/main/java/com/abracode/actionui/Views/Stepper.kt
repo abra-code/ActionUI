@@ -23,6 +23,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
+import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -83,7 +84,8 @@ object Stepper : ActionUIViewConstruction {
         val current = (if (viewModel != null) (viewModel.value as? Double) ?: initial else localValue)
             .let { if (config.range != null) it.coerceIn(config.range.first, config.range.second) else it }
 
-        val label = stepperLabel(props, current, logger)
+        // SwiftUI `.labelsHidden()` (set here or on any ancestor).
+        val label = if (LocalActionUILabelsHidden.current) "" else stepperLabel(props, current, logger)
 
         val commit: (Double) -> Unit = { next ->
             if (next != current) {

@@ -152,6 +152,7 @@ class WindowModel(
         if (element.id > 0) {
             val viewModel = ViewModel()
             viewModel.elementType = element.type
+            viewModel.authoredProperties = element.properties
             val builder = ActionUIRegistry.lookup(element.type)
             if (builder != null) {
                 if (builder.valueType != ActionUIValueType.NONE) {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.parseColumnAlignment
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.JsonObject
@@ -94,8 +96,14 @@ object LazyVStack : ActionUIViewConstruction {
         val template = element.template
         val rows = if (template != null) templateRows(element.id) else emptyList()
 
+        // Hoisted so an enclosing ScrollViewReader can drive scroll-to-row
+        // (no-op enrollment outside a reader; see ScrollReaderHelper.kt).
+        val listState = rememberLazyListState()
+        RegisterLazyScrollHandle(element, listState, vertical = true)
+
         CompositionLocalProvider(LocalStackAxis provides StackAxis.Vertical) {
             LazyColumn(
+                state = listState,
                 modifier = listModifier,
                 verticalArrangement = spacing
                     ?.let { Arrangement.spacedBy(it.dp) }

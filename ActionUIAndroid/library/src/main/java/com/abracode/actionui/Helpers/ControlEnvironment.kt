@@ -20,15 +20,26 @@ import kotlinx.serialization.json.JsonPrimitive
  * provided once per element (through [ProvideTextStyleEnvironment])
  * and read by the control builders:
  *
- *   * `disabled`    -> [LocalActionUIEnabled]      (read by every interactive control)
- *   * `buttonStyle` -> [LocalActionUIButtonStyle]  (read by `Button`)
- *   * `controlSize` -> [LocalActionUIControlSize]  (read by `Button`)
+ *   * `disabled`     -> [LocalActionUIEnabled]      (read by every interactive control)
+ *   * `buttonStyle`  -> [LocalActionUIButtonStyle]  (read by `Button`)
+ *   * `controlSize`  -> [LocalActionUIControlSize]  (read by `Button`)
+ *   * `labelsHidden` -> [LocalActionUILabelsHidden] (read by the labeled controls)
  *
  * **`disabled` combination.** SwiftUI ANDs `isEnabled` down the hierarchy: a
  * `.disabled(false)` cannot re-enable a subtree an ancestor disabled. The
  * provider mirrors that by only ever narrowing - `disabled: true` provides
  * `false`, while `disabled: false` (or absent) leaves the inherited value
  * untouched.
+ *
+ * **`labelsHidden`** mirrors SwiftUI's `.labelsHidden()`: it hides the built-in
+ * labels of the labeled controls in the subtree - `Toggle`, `Picker`,
+ * `DatePicker`, `ColorPicker`, `Stepper`, and `LabeledContent` - while leaving
+ * their values visible. Like `.labelsHidden()` (which takes no argument and
+ * cannot be undone by a descendant), the provider only ever narrows:
+ * `labelsHidden: true` provides `true`, `false` (or absent) inherits. Not
+ * affected, matching SwiftUI: a `Gauge`'s title (part of its data display) and
+ * the text fields' floating label (their `title` doubles as the placeholder,
+ * which `.labelsHidden()` does not remove).
  *
  * **Vocabulary** matches `View.swift` validation: `buttonStyle` is one of
  * `automatic` / `plain` / `borderless` / `bordered` / `borderedProminent`,
@@ -43,6 +54,9 @@ val LocalActionUIButtonStyle: ProvidableCompositionLocal<ActionUIButtonStyle?> =
 
 val LocalActionUIControlSize: ProvidableCompositionLocal<ActionUIControlSize?> =
     compositionLocalOf { null }
+
+val LocalActionUILabelsHidden: ProvidableCompositionLocal<Boolean> =
+    compositionLocalOf { false }
 
 /** SwiftUI `ButtonStyle` vocabulary; the Material mapping lives in `Views/Button.kt`. */
 enum class ActionUIButtonStyle {
@@ -95,6 +109,21 @@ internal fun resolveDisabled(properties: JsonObject, logger: ActionUILogger? = n
     val value = (raw as? JsonPrimitive)?.let { properties.booleanProperty("disabled") }
     if (value == null) {
         logger?.log("Invalid type for disabled: expected Bool, ignoring", LoggerLevel.warning)
+        return false
+    }
+    return value
+}
+
+/**
+ * Reads the `labelsHidden` flag off [properties], warning on a non-Boolean
+ * value (`View.swift` parity). Returns `true` only when the subtree's control
+ * labels must be hidden.
+ */
+internal fun resolveLabelsHidden(properties: JsonObject, logger: ActionUILogger? = null): Boolean {
+    val raw = properties["labelsHidden"] ?: return false
+    val value = (raw as? JsonPrimitive)?.let { properties.booleanProperty("labelsHidden") }
+    if (value == null) {
+        logger?.log("Invalid type for labelsHidden: expected Bool, ignoring", LoggerLevel.warning)
         return false
     }
     return value

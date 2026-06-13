@@ -31,6 +31,7 @@ import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
+import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.colorToHex
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.stringProperty
@@ -74,7 +75,8 @@ object ColorPicker : ActionUIViewConstruction {
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
-        val title = props?.stringProperty("title") ?: ""
+        // SwiftUI `.labelsHidden()` (set here or on any ancestor).
+        val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: ""
         val actionID = props?.stringProperty("actionID")
 
         val initial = (initialValue(element) as? Color) ?: Color.Transparent
