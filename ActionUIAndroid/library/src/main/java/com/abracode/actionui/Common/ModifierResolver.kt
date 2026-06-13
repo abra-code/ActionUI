@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.abracode.actionui.Helpers.ElementAnimator
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.dpProperty
 import com.abracode.actionui.Helpers.floatProperty
@@ -153,7 +154,8 @@ fun Modifier.applyCommonProperties(
  */
 fun Modifier.applyOuterProperties(
     properties: JsonObject?,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger? = null,
+    animator: ElementAnimator? = null
 ): Modifier {
     if (properties == null) return this
     var m: Modifier = this
@@ -163,16 +165,22 @@ fun Modifier.applyOuterProperties(
 
     // ---- Outer wrappers: draw ordering, transforms, position ----
     properties.numberProperty("zIndex")?.let { m = m.zIndex(it.toFloat()) }
-    properties.numberProperty("rotationEffect")?.let { m = m.rotate(it.toFloat()) }
-    m = m.applyScaleEffect(properties)
+    properties.numberProperty("rotationEffect")?.let {
+        val degrees = it.toFloat()
+        m = m.rotate(animator?.float("rotationEffect", degrees) ?: degrees)
+    }
+    m = m.applyScaleEffect(properties, animator)
     (properties["offset"] as? JsonObject)?.let { offset ->
-        val x = offset.numberProperty("x")?.toFloat() ?: 0f
-        val y = offset.numberProperty("y")?.toFloat() ?: 0f
-        m = m.offset(x = x.dp, y = y.dp)
+        val x = (offset.numberProperty("x")?.toFloat() ?: 0f).dp
+        val y = (offset.numberProperty("y")?.toFloat() ?: 0f).dp
+        m = m.offset(
+            x = animator?.dp("offset.x", x) ?: x,
+            y = animator?.dp("offset.y", y) ?: y
+        )
     }
 
     // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
-    properties.floatProperty("opacity")?.let { m = m.alpha(it) }
+    properties.floatProperty("opacity")?.let { m = m.alpha(animator?.float("opacity", it) ?: it) }
     if (properties.booleanProperty("hidden") == true) m = m.alpha(0f)
     return m
 }
@@ -188,7 +196,8 @@ fun Modifier.applyOuterProperties(
  */
 fun Modifier.applyInnerProperties(
     properties: JsonObject?,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger? = null,
+    animator: ElementAnimator? = null
 ): Modifier {
     if (properties == null) return this
     var m: Modifier = this
@@ -205,7 +214,7 @@ fun Modifier.applyInnerProperties(
     val hasFixedFrame =
         (properties["frame"] as? JsonObject)?.let { it["width"] != null || it["height"] != null } == true
     if (hasFixedFrame) m = m.applyPadding(properties)
-    (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger) }
+    (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger, animator) }
 
     // ---- Decoration: shadow, border, clip, background ----
     m = m.applyShadow(properties)
@@ -214,7 +223,7 @@ fun Modifier.applyInnerProperties(
     properties.dpProperty("cornerRadius")?.let { m = m.clip(RoundedCornerShape(it)) }
     properties.stringProperty("background")?.let { name ->
         val c = parseColor(name)
-        if (c != null) m = m.background(c)
+        if (c != null) m = m.background(animator?.color("background", c) ?: c)
         else logger?.log(
             "Unknown color '$name' for property 'background'. Property ignored.",
             LoggerLevel.warning
@@ -326,12 +335,14 @@ fun BoxScope.buildChildModifier(
 internal fun Modifier.applySizeAxis(
     value: JsonElement?,
     horizontal: Boolean,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger? = null,
+    animator: ElementAnimator? = null
 ): Modifier {
     if (value == null) return this
     val prim = value.jsonPrimitive
     prim.doubleOrNull?.let { n ->
-        val size = n.toFloat().dp
+        val target = n.toFloat().dp
+        val size = animator?.dp(if (horizontal) "frame.width" else "frame.height", target) ?: target
         return if (horizontal) this.width(size) else this.height(size)
     }
     if (prim.contentOrNull == "infinity") {
@@ -424,18 +435,23 @@ private fun JsonObject.accessibilityString(key: String, logger: ActionUILogger?)
  * Compose's `scale` (center anchor); the dict form goes through `graphicsLayer`
  * so the `anchor` maps to a [TransformOrigin].
  */
-private fun Modifier.applyScaleEffect(properties: JsonObject): Modifier {
+private fun Modifier.applyScaleEffect(properties: JsonObject, animator: ElementAnimator? = null): Modifier {
     (properties["scaleEffect"] as? JsonObject)?.let { obj ->
         val sx = obj.numberProperty("x")?.toFloat() ?: 1f
         val sy = obj.numberProperty("y")?.toFloat() ?: 1f
+        val animatedX = animator?.float("scaleEffect.x", sx) ?: sx
+        val animatedY = animator?.float("scaleEffect.y", sy) ?: sy
         val origin = parseTransformOrigin(obj.stringProperty("anchor"))
         return this.graphicsLayer {
-            scaleX = sx
-            scaleY = sy
+            scaleX = animatedX
+            scaleY = animatedY
             transformOrigin = origin
         }
     }
-    properties.numberProperty("scaleEffect")?.let { return this.scale(it.toFloat()) }
+    properties.numberProperty("scaleEffect")?.let {
+        val s = it.toFloat()
+        return this.scale(animator?.float("scaleEffect", s) ?: s)
+    }
     return this
 }
 
@@ -451,7 +467,7 @@ private fun Modifier.applyScaleEffect(properties: JsonObject): Modifier {
  * A fixed frame always wraps, defaulting to center (the Swift contract); a
  * flexible frame wraps only when `alignment` is explicitly given.
  */
-private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Modifier {
+private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?, animator: ElementAnimator? = null): Modifier {
     var m: Modifier = this
     val hasFixed = frame["width"] != null || frame["height"] != null
     val flexKeys = listOf(
@@ -461,8 +477,8 @@ private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?): Mod
     val hasFlexible = flexKeys.any { frame[it] != null }
 
     if (hasFixed) {
-        m = m.applySizeAxis(frame["width"], horizontal = true, logger)
-        m = m.applySizeAxis(frame["height"], horizontal = false, logger)
+        m = m.applySizeAxis(frame["width"], horizontal = true, logger, animator)
+        m = m.applySizeAxis(frame["height"], horizontal = false, logger, animator)
         // A fixed frame always positions natural-size content within the box,
         // defaulting to center - Swift resolves a missing `alignment` to
         // `.center` (`View.swift`), and without the wrap the hard size would

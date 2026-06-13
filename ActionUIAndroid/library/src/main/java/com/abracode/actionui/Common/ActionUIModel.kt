@@ -7,6 +7,8 @@ import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.colorToHex
 import com.abracode.actionui.Helpers.coordinateToJson
 import com.abracode.actionui.Helpers.decodeDescription
+import com.abracode.actionui.Helpers.jsonToKotlinValue
+import com.abracode.actionui.Helpers.kotlinValueToJson
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.parseCoordinate
 import kotlinx.serialization.json.Json
@@ -52,12 +54,13 @@ typealias ActionUIActionHandler =
  *
  * The data-driven rows API (`get/set/append/clearElementRows`,
  * `getElementColumnCount`) is ported (it drives `List` / `Section` template
- * mode). Window-level presentation is ported: **dialogs** (`presentAlert` /
- * `presentConfirmationDialog` / `dismissDialog`) and **modals** (`presentModal` /
- * `dismissModal`, sheet / fullScreenCover). Still **not** ported (with the features
- * that drive them): runtime structural mutation (`insertElement` / `removeElement`
- * / `insertRow`) and the property API (`get/setElementProperty`, which awaits a
- * validation stage). See `Private/Android_Porting_Notes.md`.
+ * mode), as is the property API (`get/setElementProperty`, runtime property
+ * overrides merged at the shared build entry point). Window-level presentation
+ * is ported: **dialogs** (`presentAlert` / `presentConfirmationDialog` /
+ * `dismissDialog`) and **modals** (`presentModal` / `dismissModal`, sheet /
+ * fullScreenCover). Still **not** ported (with the features that drive them):
+ * runtime structural mutation (`insertElement` / `removeElement` / `insertRow`).
+ * See `Private/Android_Porting_Notes.md`.
  *
  * Handlers and the value/state API run on the main thread (Compose `onClick`
  * callbacks and host handlers); this object performs no synchronization of its
@@ -332,6 +335,7 @@ object ActionUIModel {
      */
     fun setElementValue(windowUUID: String = "", viewID: Int, viewPartID: Int = 0, value: Any) {
         val viewModel = viewModel(windowUUID, viewID) ?: return
+        viewModel.mutationToken += 1
         viewModel.value = value
         logger.log("Set value for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
@@ -464,6 +468,7 @@ object ActionUIModel {
             )
             return
         }
+        viewModel.mutationToken += 1
         viewModel.states[key] = value
         logger.log("Set state '$key' for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
@@ -510,6 +515,59 @@ object ActionUIModel {
         }
         viewModel.states[key] = converted
         logger.log("Set state '$key' from string for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    // MARK: - Element Property API
+
+    /**
+     * Returns the current value of property [propertyName] on element [viewID]:
+     * a runtime override ([setElementProperty]) if one was set, else the
+     * authored JSON value, both as plain Kotlin values
+     * ([com.abracode.actionui.Helpers.jsonToKotlinValue]). Warns and returns
+     * null for an unknown element or an absent property. Mirrors the Swift
+     * `getElementProperty`, which reads the one merged `validatedProperties`
+     * dictionary.
+     */
+    fun getElementProperty(windowUUID: String = "", viewID: Int, propertyName: String): Any? {
+        val viewModel = viewModel(windowUUID, viewID) ?: return null
+        val element = viewModel.propertyOverrides[propertyName]
+            ?: viewModel.authoredProperties?.get(propertyName)
+        if (element == null) {
+            logger.log("Property '$propertyName' not found for viewID: $viewID", LoggerLevel.warning)
+            return null
+        }
+        return jsonToKotlinValue(element)
+    }
+
+    /**
+     * Sets property [propertyName] on element [viewID] to [value] (a plain
+     * Kotlin value - Boolean / Number / String / List / Map - or a
+     * [kotlinx.serialization.json.JsonElement]). The write lands in
+     * [ViewModel.propertyOverrides]; the shared build entry point
+     * (`Helpers/ViewModifierHelper.kt`) merges overrides into the element's
+     * properties during composition, so the element recomposes with the new
+     * value - the Apple contract, where views read the mutated
+     * `validatedProperties`. Warns and does nothing for an unknown element or
+     * an unrepresentable value type.
+     *
+     * The Swift setter re-validates the mutated dictionary; Android has no
+     * central validation stage (see the porting notes), so an invalid value is
+     * caught where authored values are - warn-and-skip at read time.
+     */
+    fun setElementProperty(windowUUID: String = "", viewID: Int, propertyName: String, value: Any) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        val json = kotlinValueToJson(value)
+        if (json == null) {
+            logger.log(
+                "Unsupported value type ${value::class.simpleName} for property '$propertyName' " +
+                    "on viewID: $viewID. Expected Boolean, Number, String, List, or Map.",
+                LoggerLevel.warning
+            )
+            return
+        }
+        viewModel.mutationToken += 1
+        viewModel.propertyOverrides[propertyName] = json
+        logger.log("Set property '$propertyName' for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
     // MARK: - Element Rows API (data-driven List / Section)

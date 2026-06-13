@@ -167,6 +167,74 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Chip tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
         }
 
+        // View.animation.json - the animation modifier driven by the property
+        // API. Each handler mutates one property through setElementProperty;
+        // whether (and how) the transition animates is decided entirely by the
+        // element's "animation" declaration in the JSON. toggleProperty flips a
+        // numeric property between its authored value and a target, reading the
+        // current value back through getElementProperty.
+        fun toggleProperty(windowUUID: String, viewID: Int, name: String, authored: Double, target: Double) {
+            val current = ActionUIModel.getElementProperty(
+                windowUUID = windowUUID, viewID = viewID, propertyName = name
+            ) as? Double ?: authored
+            val next = if (current == authored) target else authored
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = viewID, propertyName = name, value = next
+            )
+        }
+        ActionUIModel.registerActionHandler("anim.demo.101.opacity") { _, windowUUID, _, _, _ ->
+            toggleProperty(windowUUID, 101, "opacity", 1.0, 0.2)
+        }
+        ActionUIModel.registerActionHandler("anim.demo.101.scale") { _, windowUUID, _, _, _ ->
+            toggleProperty(windowUUID, 101, "scaleEffect", 1.0, 1.5)
+        }
+        ActionUIModel.registerActionHandler("anim.demo.102.opacity") { _, windowUUID, _, _, _ ->
+            toggleProperty(windowUUID, 102, "opacity", 1.0, 0.2)
+        }
+        ActionUIModel.registerActionHandler("anim.demo.102.scale") { _, windowUUID, _, _, _ ->
+            toggleProperty(windowUUID, 102, "scaleEffect", 1.0, 1.5)
+        }
+        ActionUIModel.registerActionHandler("anim.demo.103.scale") { _, windowUUID, _, _, _ ->
+            toggleProperty(windowUUID, 103, "scaleEffect", 1.0, 1.4)
+        }
+        ActionUIModel.registerActionHandler("anim.demo.104.color") { _, windowUUID, _, _, _ ->
+            val current = ActionUIModel.getElementProperty(
+                windowUUID = windowUUID, viewID = 104, propertyName = "background"
+            ) as? String
+            val next = if (current == "purple") "teal" else "purple"
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = 104, propertyName = "background", value = next
+            )
+        }
+        ActionUIModel.registerActionHandler("anim.demo.105.rotate") { _, windowUUID, _, _, _ ->
+            val current = ActionUIModel.getElementProperty(
+                windowUUID = windowUUID, viewID = 105, propertyName = "rotationEffect"
+            ) as? Double ?: 0.0
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = 105, propertyName = "rotationEffect", value = current + 90.0
+            )
+        }
+        ActionUIModel.registerActionHandler("anim.demo.106.offset") { _, windowUUID, _, _, _ ->
+            val current = ActionUIModel.getElementProperty(
+                windowUUID = windowUUID, viewID = 106, propertyName = "offset"
+            ) as? Map<*, *>
+            val x = if ((current?.get("x") as? Double ?: 0.0) == 0.0) 80.0 else 0.0
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = 106, propertyName = "offset",
+                value = mapOf("x" to x, "y" to 0.0)
+            )
+        }
+        ActionUIModel.registerActionHandler("anim.demo.107.width") { _, windowUUID, _, _, _ ->
+            val current = ActionUIModel.getElementProperty(
+                windowUUID = windowUUID, viewID = 107, propertyName = "frame"
+            ) as? Map<*, *>
+            val width = if ((current?.get("width") as? Double ?: 70.0) == 70.0) 150.0 else 70.0
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = 107, propertyName = "frame",
+                value = mapOf("width" to width, "height" to 70.0)
+            )
+        }
+
         // GeometryReader.json: read the reader's observable states["size"]
         // ([width, height] in dp) on demand - the Android demo surfaces it with
         // a toast where the Swift app leaves the state for the host to poll.

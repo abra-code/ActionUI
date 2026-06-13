@@ -10,10 +10,12 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.applyInnerProperties
 import com.abracode.actionui.Common.applyOuterProperties
 import com.abracode.actionui.Common.parseAlignment
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -29,6 +31,18 @@ import kotlinx.serialization.json.JsonObject
  *     (`PopoverHelper.kt`).
  *   * `overlay` / `background` - the decoration subviews, composed here in a
  *     `Box` around the element ([BuildViewWithDecorations]).
+ *
+ * Two runtime concerns also resolve here, before anything else, because this
+ * is the one place every rendered element passes through:
+ *
+ *   * **Property overrides** - `ActionUIModel.setElementProperty` writes merge
+ *     over the authored properties ([effectiveElement]), so host mutations
+ *     reach the chain and the builder; Apple's equivalent is views reading the
+ *     mutated `validatedProperties`.
+ *   * **The `animation` modifier** - [rememberElementAnimator]
+ *     (`AnimationHelper.kt`) turns the element's `animation` declaration into
+ *     an [ElementAnimator] threaded through the chain halves, animating their
+ *     visual values toward host-mutated targets.
  *
  * Callers pass only the scope-restricted parent data (`weight`/`align`, via
  * `buildChildModifier`) or `Modifier`; the element's own properties are
@@ -63,15 +77,50 @@ import kotlinx.serialization.json.JsonObject
  */
 @Composable
 fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, modifier: Modifier) {
-    if (element.popover != null) {
+    // Runtime property overrides (ActionUIModel.setElementProperty) merge into
+    // the element here, so every consumer below - the modifier chain and the
+    // element builder - sees host mutations; reading the override map
+    // subscribes this composition to future writes. The element's `animation`
+    // declaration (if any) is resolved against the same effective element, so
+    // chain targets and the watched trigger move in one recomposition.
+    val effective = effectiveElement(element)
+    val animator = rememberElementAnimator(effective)
+    if (effective.popover != null) {
         // PopoverHelper applies the outer half to the anchor Box itself and
         // routes the carrier through BuildViewWithDecorations.
-        BuildViewWithPopover(element, modifier)
+        BuildViewWithPopover(effective, modifier, animator)
         return
     }
     val logger = LocalActionUILogger.current
-    BuildViewWithDecorations(element, modifier.applyOuterProperties(element.properties, logger))
+    BuildViewWithDecorations(effective, modifier.applyOuterProperties(effective.properties, logger, animator), animator)
 }
+
+/**
+ * [element] with the host's runtime property overrides
+ * ([com.abracode.actionui.Common.ViewModel.propertyOverrides], written by
+ * `ActionUIModel.setElementProperty`) merged over its authored `properties` -
+ * the Android analog of Apple's views reading the mutated
+ * `validatedProperties`. Identity when the element has no registered
+ * ViewModel or no overrides (the overwhelmingly common case).
+ */
+@Composable
+private fun effectiveElement(element: ActionUIElement): ActionUIElement {
+    if (element.id <= 0) return element
+    val overrides = LocalWindowModel.current?.viewModels?.get(element.id)?.propertyOverrides
+    if (overrides.isNullOrEmpty()) return element
+    return element.copy(properties = mergeProperties(element.properties, overrides))
+}
+
+/** [overrides] layered over [authored], later writes winning per key. */
+internal fun mergeProperties(
+    authored: JsonObject?,
+    overrides: Map<String, JsonElement>,
+): JsonObject = JsonObject(
+    buildMap {
+        authored?.forEach { (key, value) -> put(key, value) }
+        putAll(overrides)
+    }
+)
 
 /**
  * Composes the element's `overlay` / `background` decoration subviews around
@@ -83,12 +132,13 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
 internal fun ActionUIViewConstruction.BuildViewWithDecorations(
     element: ActionUIElement,
     modifier: Modifier,
+    animator: ElementAnimator? = null,
 ) {
     val logger = LocalActionUILogger.current
     val overlayElement = element.overlay
     val backgroundElement = element.background
     if (overlayElement == null && backgroundElement == null) {
-        BuildView(element, modifier.applyInnerProperties(element.properties, logger))
+        BuildView(element, modifier.applyInnerProperties(element.properties, logger, animator))
         return
     }
 
@@ -98,7 +148,7 @@ internal fun ActionUIViewConstruction.BuildViewWithDecorations(
         backgroundElement?.let {
             ElementContent(it, logger, decorationModifier(element.properties, "backgroundAlignment", it, logger))
         }
-        BuildView(element, Modifier.applyInnerProperties(element.properties, logger))
+        BuildView(element, Modifier.applyInnerProperties(element.properties, logger, animator))
         overlayElement?.let {
             ElementContent(it, logger, decorationModifier(element.properties, "overlayAlignment", it, logger))
         }
