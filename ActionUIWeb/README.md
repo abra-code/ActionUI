@@ -57,8 +57,9 @@ python3 -m http.server 8080
   Ellipse (shared fill/stroke resolution in `Helpers/ShapeStyleHelper.js`),
   TabView + Tab (a top tab strip with selection binding and badges),
   Menu (a pull-down of action items, with sections and dividers),
-  List (a row collection; the heterogeneous children mode and the homogeneous
-  itemType mode, with selection), and
+  List (a row collection; all three modes — heterogeneous children, homogeneous
+  itemType, and the data-driven template repeater with `$1`/`$2` column
+  references — with selection), and
   Table (a multi-column data table driven by the rows API).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings

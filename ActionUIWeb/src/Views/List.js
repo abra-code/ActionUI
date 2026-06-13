@@ -7,10 +7,8 @@
 //   2. Heterogeneous (children) — arbitrary child views, one per row.
 //   3. Template (data-driven)  — one substituted template instance per row.
 //
-// Web ships **mode 2 (children)** and **mode 1 (homogeneous)** now. Mode 3
-// (template) is the data-driven repeater and lands next; it reuses the same
-// content-rows plumbing as homogeneous. Mode precedence matches Swift / Android:
-// template (when present) → children → homogeneous.
+// Web ships all three modes. Mode precedence matches Swift / Android: template
+// (when present) → children → homogeneous.
 //
 // Data-driven rows. Modes 1 and 3 read their rows from `states["content"]`
 // ([[String]]) via the rows API on Window (set/append/clearElementRows) — the
@@ -18,7 +16,8 @@
 // set/append/clear re-renders the rows in place. Homogeneous mode displays each
 // row's **first column** (matching Apple/Android) as the `itemType.viewType`
 // cell; the web renders real Image / AsyncImage cells (Android downgrades those
-// to text, its B2 deferral).
+// to text, its B2 deferral). Template mode renders one substituted template
+// instance per row ($1/$2/$N column references; see Helpers/TemplateHelper.js).
 //
 // Selection (value bridge). Apple exposes the selection as a `[String]`; the web
 // value vocabulary is scalar, so — like Android's tab-joined string transport —
@@ -45,6 +44,7 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
+import { buildTemplateRow } from "../Helpers/TemplateHelper.js";
 
 // The macOS-valid listStyles (the web's default skin is macOS-flavored). The
 // other SwiftUI styles ("grouped", "insetGrouped") are iOS/tvOS/visionOS-only and
@@ -161,8 +161,16 @@ register("List", {
         const selectable = typeof properties.actionID === "string";
         const rowStyle = computeRowStyle(properties, ctx.logger);
 
-        // Mode precedence (matching List.swift / List.kt): children → homogeneous.
-        // (Template mode lands next, ahead of children.)
+        // Mode precedence (matching List.swift / List.kt): template → children →
+        // homogeneous.
+        const template = element.template();
+        if (template) {
+            // Template (data-driven repeater): one substituted instance per content
+            // row, reusing the shared data-row plumbing.
+            return buildDataRows(node, element, properties, ctx, selectable, rowStyle,
+                (row, index) => buildTemplateRow(template, row, index, element.id, ctx));
+        }
+
         if (children.length > 0) {
             return buildChildrenRows(node, element, properties, ctx, children, selectable, rowStyle);
         }

@@ -19,6 +19,10 @@ win.setElementRows(100, [
 // the same rows API; each row shows its first column.
 win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
 
+// The template List repeats its HStack(Image $2, Text $1) per row: column 1 is the
+// label, column 2 the SF Symbol name.
+win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "doc"], ["Sent", "paperplane"]]);
+
 app.action("greet", () => {
     const name = win.getString(1).trim();
     let greeting = name ? `Hello, ${name}!` : "Hello, anonymous!";
@@ -76,6 +80,12 @@ app.action("tableRowAction", (ctx) => win.setString(20, 0, `Open row ${ctx.conte
 // tab-joined; a single column here).
 app.action("homListSelect", () => {
     win.setString(20, 0, win.getString(45) ? `Priority: ${win.getString(45)}.` : "No priority selected.");
+});
+
+// Template List selection: the value is the selected row tab-joined (label, symbol).
+app.action("tmplListSelect", () => {
+    const row = win.getString(55).split("\t");
+    win.setString(20, 0, win.getString(55) ? `Folder: ${row[0]}.` : "No folder selected.");
 });
 
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));

@@ -321,6 +321,20 @@
       "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "frame": { "maxWidth": "infinity" } }
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (template repeater; $1/$2 column references, rows via the rows API):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 55,
+      "properties": { "actionID": "tmplListSelect", "frame": { "maxWidth": "infinity" } },
+      "template": {
+        "type": "HStack",
+        "children": [
+          { "type": "Image", "properties": { "systemName": "$2" } },
+          { "type": "Text", "properties": { "text": "$1" } }
+        ]
+      }
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Table (rows via the rows API; an Image column and per-row Button):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Table",

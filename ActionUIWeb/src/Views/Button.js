@@ -81,10 +81,17 @@ register("Button", {
 
         if (typeof properties.actionID === "string") {
             markHandlesAction(node);
+            // Inside a template row, dispatch with the owning container's id as
+            // viewID and the row index as viewPartID — the Swift/Android template
+            // action convention (no context; the host reads the row via the rows
+            // API). Otherwise the button dispatches as itself, carrying its title.
+            const templateContext = ctx.templateContext;
             node.addEventListener("click", () => {
-                ctx.model.dispatchAction(properties.actionID, element.id, 0, {
-                    title: properties.title ?? "",
-                });
+                if (templateContext) {
+                    ctx.model.dispatchAction(properties.actionID, templateContext.parentID, templateContext.rowIndex, null);
+                } else {
+                    ctx.model.dispatchAction(properties.actionID, element.id, 0, { title: properties.title ?? "" });
+                }
             });
         }
         return node;
