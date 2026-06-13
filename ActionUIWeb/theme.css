@@ -277,6 +277,48 @@
 }
 .aui-list-empty { min-height: 28px; }
 
+/* ---- Table ---- */
+
+/* A multi-column data table (the macOS Table; the web is a desktop target, so it
+   renders a real <table> rather than the Android no-op). Rows arrive via the rows
+   API into states["content"]; selection highlights a <tr>. */
+.aui-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    background: var(--aui-control-background);
+    overflow: hidden;
+}
+.aui-table thead th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--aui-color-secondary);
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--aui-control-border);
+    background: color-mix(in srgb, var(--aui-control-border) 22%, transparent);
+}
+.aui-table tbody td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-table tbody tr:last-child td { border-bottom: none; }
+.aui-table tbody tr { cursor: default; }
+.aui-table-row-selected td { background: var(--aui-color-accent); color: #ffffff; }
+.aui-table-button {
+    font: inherit;
+    color: var(--aui-color-accent);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+}
+.aui-table-row-selected .aui-table-button { color: #ffffff; }
+.aui-table-image { max-width: 28px; max-height: 28px; vertical-align: middle; }
+
 /* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
 
 .aui-font-largeTitle  { font-size: 26px; font-weight: 400; }

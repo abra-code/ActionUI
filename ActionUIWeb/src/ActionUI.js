@@ -56,6 +56,7 @@ import "./Views/Tab.js";
 import "./Views/TabView.js";
 import "./Views/Menu.js";
 import "./Views/List.js";
+import "./Views/Table.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {
@@ -136,6 +137,29 @@ export class Window {
     // have no web counterpart; values here are already JS values.
     getState(viewID, key)        { return this.model.getElementState(viewID, key); }
     setState(viewID, key, value) { this.model.setElementState(viewID, key, value); }
+
+    // Rows bridge — the data backing collection elements (Table now; List's
+    // itemType/template modes next). Rows live in the `content` state as a
+    // [[String]] (the Apple states["content"] contract), so these are sugar over
+    // the state bridge: a bound element (e.g. Table) re-renders on set/append/clear.
+    getElementRows(viewID) {
+        const rows = this.model.getElementState(viewID, "content");
+        return Array.isArray(rows) ? rows : [];
+    }
+    setElementRows(viewID, rows)    { this.model.setElementState(viewID, "content", normalizeRows(rows)); }
+    appendElementRows(viewID, rows) { this.setElementRows(viewID, this.getElementRows(viewID).concat(normalizeRows(rows))); }
+    clearElementRows(viewID)        { this.setElementRows(viewID, []); }
+    getElementColumnCount(viewID) {
+        return this.getElementRows(viewID).reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
+    }
+}
+
+// Coerces host-supplied rows to the [[String]] shape: each row an array of
+// strings, each cell stringified. A non-array yields no rows; a bare value
+// becomes a one-cell row.
+function normalizeRows(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => (Array.isArray(row) ? row : [row]).map((cell) => String(cell ?? "")));
 }
 
 export class Application {

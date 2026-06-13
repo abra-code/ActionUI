@@ -8,6 +8,13 @@ const app = new Application({ name: "ActionUIWeb Demo" });
 const win = await Window.fromURL("./ui.json");
 app.presentWindow(win, document.getElementById("root"));
 
+// The Table is data-driven: populate it through the rows API (states["content"]).
+win.setElementRows(100, [
+    ["Budget.xlsx", "tablecells", "Open"],
+    ["Photo.jpg", "photo", "Open"],
+    ["Notes.txt", "text.document", "Open"],
+]);
+
 app.action("greet", () => {
     const name = win.getString(1).trim();
     let greeting = name ? `Hello, ${name}!` : "Hello, anonymous!";
@@ -52,6 +59,14 @@ app.action("notesChanged", () => {
 app.action("advancedToggled", () => {
     win.setString(20, 0, `Advanced ${win.getState(91, "isExpanded") ? "expanded" : "collapsed"}.`);
 });
+
+// Table: the selection-change action carries no context — read the value (the
+// selected row, tab-joined); the per-row Button column fires with the row index.
+app.action("tableSelect", () => {
+    const row = win.getString(100).split("\t");
+    win.setString(20, 0, win.getString(100) ? `Selected "${row[0]}".` : "Nothing selected.");
+});
+app.action("tableRowAction", (ctx) => win.setString(20, 0, `Open row ${ctx.context}.`));
 
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));

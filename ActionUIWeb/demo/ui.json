@@ -314,6 +314,23 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Table (rows via the rows API; an Image column and per-row Button):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Table",
+      "id": 100,
+      "properties": {
+        "columns": ["Name", "Kind", "Action"],
+        "columnTypes": [
+          { "viewType": "Text" },
+          { "viewType": "Image", "dataInterpretation": "systemName" },
+          { "viewType": "Button", "actionContext": "rowIndex", "actionID": "tableRowAction" }
+        ],
+        "widths": [150, 60, 80],
+        "actionID": "tableSelect",
+        "frame": { "maxWidth": "infinity" }
+      }
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

@@ -56,8 +56,9 @@ python3 -m http.server 8080
   the shape primitives Rectangle, RoundedRectangle, Capsule, Circle,
   Ellipse (shared fill/stroke resolution in `Helpers/ShapeStyleHelper.js`),
   TabView + Tab (a top tab strip with selection binding and badges),
-  Menu (a pull-down of action items, with sections and dividers), and
-  List (a row collection; the heterogeneous children mode, with selection).
+  Menu (a pull-down of action items, with sections and dividers),
+  List (a row collection; the heterogeneous children mode, with selection), and
+  Table (a multi-column data table driven by the rows API).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
@@ -69,7 +70,9 @@ python3 -m http.server 8080
 - **API** (`src/ActionUI.js`): `Application` / `Window` classes mirroring
   `ActionUINodeJS/index.js` — `Window.fromURL/fromJSON`, `presentWindow`,
   `get/setString|Bool|Int|Double|Value`, `get/setState` (named element states,
-  e.g. DisclosureGroup's `isExpanded`), `app.action(id, fn)`,
+  e.g. DisclosureGroup's `isExpanded`), the rows API for data-driven collections
+  (`get/set/append/clearElementRows`, `getElementColumnCount` — sugar over the
+  `content` state, used by Table), `app.action(id, fn)`,
   `setDefaultHandler`. Action handlers receive
   `(actionID, windowUUID, viewID, viewPartID, context)` as on all platforms.
 - **Theme** (`theme.css`): tokenized CSS custom properties, macOS-flavored
