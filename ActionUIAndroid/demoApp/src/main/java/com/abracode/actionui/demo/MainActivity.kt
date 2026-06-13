@@ -262,6 +262,30 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "openURL: $context", Toast.LENGTH_SHORT).show()
         }
 
+        // ScrollViewReader.scrollTo.json - host-driven scroll-to. Each button
+        // rewrites the reader's "scrollTo" property; the reader's
+        // LaunchedEffect (keyed on the element's mutationToken, so re-sending
+        // the same id re-scrolls) dispatches to the enrolled scrollable.
+        fun scrollReaderTo(windowUUID: String, readerID: Int, targetID: Int) {
+            ActionUIModel.setElementProperty(
+                windowUUID = windowUUID, viewID = readerID,
+                propertyName = "scrollTo", value = targetID,
+            )
+            Toast.makeText(this, "scrollTo $targetID (reader $readerID)", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("svr.demo.plain.deep") { _, windowUUID, _, _, _ ->
+            scrollReaderTo(windowUUID, readerID = 1, targetID = 118)
+        }
+        ActionUIModel.registerActionHandler("svr.demo.plain.first") { _, windowUUID, _, _, _ ->
+            scrollReaderTo(windowUUID, readerID = 1, targetID = 101)
+        }
+        ActionUIModel.registerActionHandler("svr.demo.lazy.deep") { _, windowUUID, _, _, _ ->
+            scrollReaderTo(windowUUID, readerID = 2, targetID = 238)
+        }
+        ActionUIModel.registerActionHandler("svr.demo.lazy.first") { _, windowUUID, _, _, _ ->
+            scrollReaderTo(windowUUID, readerID = 2, targetID = 201)
+        }
+
         // GeometryReader.json: read the reader's observable states["size"]
         // ([width, height] in dp) on demand - the Android demo surfaces it with
         // a toast where the Swift app leaves the state for the host to poll.

@@ -1,0 +1,617 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12,
+    "padding": 16,
+    "alignment": "leading"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ScrollViewReader: host-driven scroll-to",
+        "font": "headline"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Plain ScrollView path (anchor: top)",
+        "font": "subheadline"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 8
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Row 18",
+            "actionID": "svr.demo.plain.deep"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Row 1",
+            "actionID": "svr.demo.plain.first"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ScrollViewReader",
+      "id": 1,
+      "properties": {
+        "anchor": "top"
+      },
+      "content": {
+        "type": "ScrollView",
+        "properties": {
+          "frame": {
+            "height": 200
+          }
+        },
+        "content": {
+          "type": "VStack",
+          "properties": {
+            "spacing": 2,
+            "alignment": "leading"
+          },
+          "children": [
+            {
+              "type": "Text",
+              "id": 101,
+              "properties": {
+                "text": "Plain row 1",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 102,
+              "properties": {
+                "text": "Plain row 2",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 103,
+              "properties": {
+                "text": "Plain row 3",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 104,
+              "properties": {
+                "text": "Plain row 4",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 105,
+              "properties": {
+                "text": "Plain row 5",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 106,
+              "properties": {
+                "text": "Plain row 6",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 107,
+              "properties": {
+                "text": "Plain row 7",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 108,
+              "properties": {
+                "text": "Plain row 8",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 109,
+              "properties": {
+                "text": "Plain row 9",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 110,
+              "properties": {
+                "text": "Plain row 10",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 111,
+              "properties": {
+                "text": "Plain row 11",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 112,
+              "properties": {
+                "text": "Plain row 12",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 113,
+              "properties": {
+                "text": "Plain row 13",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 114,
+              "properties": {
+                "text": "Plain row 14",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 115,
+              "properties": {
+                "text": "Plain row 15",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 116,
+              "properties": {
+                "text": "Plain row 16",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 117,
+              "properties": {
+                "text": "Plain row 17",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 118,
+              "properties": {
+                "text": "Plain row 18",
+                "padding": 8,
+                "background": "teal",
+                "cornerRadius": 6,
+                "foregroundColor": "white"
+              }
+            },
+            {
+              "type": "Text",
+              "id": 119,
+              "properties": {
+                "text": "Plain row 19",
+                "padding": 4
+              }
+            },
+            {
+              "type": "Text",
+              "id": 120,
+              "properties": {
+                "text": "Plain row 20",
+                "padding": 4
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Lazy path (LazyVStack rows, anchor: center)",
+        "font": "subheadline"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Opens already scrolled to row 20 (authored scrollTo)",
+        "font": "caption"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 8
+      },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Row 38",
+            "actionID": "svr.demo.lazy.deep"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Row 1",
+            "actionID": "svr.demo.lazy.first"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ScrollViewReader",
+      "id": 2,
+      "properties": {
+        "scrollTo": 220,
+        "anchor": "center"
+      },
+      "content": {
+        "type": "LazyVStack",
+        "properties": {
+          "frame": {
+            "height": 200
+          },
+          "alignment": "leading"
+        },
+        "children": [
+          {
+            "type": "Text",
+            "id": 201,
+            "properties": {
+              "text": "Lazy row 1",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 202,
+            "properties": {
+              "text": "Lazy row 2",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 203,
+            "properties": {
+              "text": "Lazy row 3",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 204,
+            "properties": {
+              "text": "Lazy row 4",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 205,
+            "properties": {
+              "text": "Lazy row 5",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 206,
+            "properties": {
+              "text": "Lazy row 6",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 207,
+            "properties": {
+              "text": "Lazy row 7",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 208,
+            "properties": {
+              "text": "Lazy row 8",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 209,
+            "properties": {
+              "text": "Lazy row 9",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 210,
+            "properties": {
+              "text": "Lazy row 10",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 211,
+            "properties": {
+              "text": "Lazy row 11",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 212,
+            "properties": {
+              "text": "Lazy row 12",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 213,
+            "properties": {
+              "text": "Lazy row 13",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 214,
+            "properties": {
+              "text": "Lazy row 14",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 215,
+            "properties": {
+              "text": "Lazy row 15",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 216,
+            "properties": {
+              "text": "Lazy row 16",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 217,
+            "properties": {
+              "text": "Lazy row 17",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 218,
+            "properties": {
+              "text": "Lazy row 18",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 219,
+            "properties": {
+              "text": "Lazy row 19",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 220,
+            "properties": {
+              "text": "Lazy row 20",
+              "padding": 8,
+              "background": "teal",
+              "cornerRadius": 6,
+              "foregroundColor": "white"
+            }
+          },
+          {
+            "type": "Text",
+            "id": 221,
+            "properties": {
+              "text": "Lazy row 21",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 222,
+            "properties": {
+              "text": "Lazy row 22",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 223,
+            "properties": {
+              "text": "Lazy row 23",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 224,
+            "properties": {
+              "text": "Lazy row 24",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 225,
+            "properties": {
+              "text": "Lazy row 25",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 226,
+            "properties": {
+              "text": "Lazy row 26",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 227,
+            "properties": {
+              "text": "Lazy row 27",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 228,
+            "properties": {
+              "text": "Lazy row 28",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 229,
+            "properties": {
+              "text": "Lazy row 29",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 230,
+            "properties": {
+              "text": "Lazy row 30",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 231,
+            "properties": {
+              "text": "Lazy row 31",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 232,
+            "properties": {
+              "text": "Lazy row 32",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 233,
+            "properties": {
+              "text": "Lazy row 33",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 234,
+            "properties": {
+              "text": "Lazy row 34",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 235,
+            "properties": {
+              "text": "Lazy row 35",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 236,
+            "properties": {
+              "text": "Lazy row 36",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 237,
+            "properties": {
+              "text": "Lazy row 37",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 238,
+            "properties": {
+              "text": "Lazy row 38",
+              "padding": 8,
+              "background": "indigo",
+              "cornerRadius": 6,
+              "foregroundColor": "white"
+            }
+          },
+          {
+            "type": "Text",
+            "id": 239,
+            "properties": {
+              "text": "Lazy row 39",
+              "padding": 4
+            }
+          },
+          {
+            "type": "Text",
+            "id": 240,
+            "properties": {
+              "text": "Lazy row 40",
+              "padding": 4
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

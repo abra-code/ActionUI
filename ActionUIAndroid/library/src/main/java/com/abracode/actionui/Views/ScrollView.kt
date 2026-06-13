@@ -14,6 +14,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.rememberPlainScrollRegistration
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -54,10 +55,23 @@ object ScrollView : ActionUIViewConstruction {
 
         val verticalState = rememberScrollState()
         val horizontalState = rememberScrollState()
+
+        // Enroll in an enclosing ScrollViewReader (identity modifier outside
+        // one) so the reader can drive this viewport's ScrollStates. Must sit
+        // BEFORE the scroll modifiers in the chain: it captures the viewport
+        // coordinates, against which target positions move as the content
+        // scrolls (inside the scroll modifier they would be static content
+        // coordinates and the reader's offset math would double-count the
+        // current scroll value).
+        val readerModifier = rememberPlainScrollRegistration(
+            verticalState = verticalState.takeIf { axis != ScrollAxis.Horizontal },
+            horizontalState = horizontalState.takeIf { axis != ScrollAxis.Vertical },
+        )
+        val viewportModifier = modifier.then(readerModifier)
         val scrollModifier = when (axis) {
-            ScrollAxis.Vertical -> modifier.verticalScroll(verticalState)
-            ScrollAxis.Horizontal -> modifier.horizontalScroll(horizontalState)
-            ScrollAxis.Both -> modifier.verticalScroll(verticalState).horizontalScroll(horizontalState)
+            ScrollAxis.Vertical -> viewportModifier.verticalScroll(verticalState)
+            ScrollAxis.Horizontal -> viewportModifier.horizontalScroll(horizontalState)
+            ScrollAxis.Both -> viewportModifier.verticalScroll(verticalState).horizontalScroll(horizontalState)
         }
 
         Box(modifier = scrollModifier) {

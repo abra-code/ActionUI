@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button as M3Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
@@ -26,6 +27,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.stringProperty
 import com.abracode.actionui.Helpers.templateRows
@@ -120,10 +122,16 @@ object ListView : ActionUIViewConstruction {
             }
         }
 
+        // Hoisted so an enclosing ScrollViewReader can drive scroll-to-row.
+        // Only children mode is addressable (template / homogeneous rows
+        // carry no element ids); see ScrollReaderHelper.kt.
+        val listState = rememberLazyListState()
+        RegisterLazyScrollHandle(element, listState, vertical = true)
+
         when {
             template != null -> {
                 val rows = templateRows(element.id)
-                LazyColumn(modifier = listModifier) {
+                LazyColumn(state = listState, modifier = listModifier) {
                     itemsIndexed(rows) { index, row ->
                         SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
                             TemplateHelper.BuildTemplateRow(
@@ -135,7 +143,7 @@ object ListView : ActionUIViewConstruction {
             }
 
             children.isNotEmpty() -> {
-                LazyColumn(modifier = listModifier) {
+                LazyColumn(state = listState, modifier = listModifier) {
                     items(children) { child ->
                         val builder = ActionUIRegistry.lookup(child.type) ?: return@items
                         ProvideTextStyleEnvironment(child.properties, logger) {
@@ -148,7 +156,7 @@ object ListView : ActionUIViewConstruction {
             else -> {
                 val rows = templateRows(element.id)
                 val itemType = resolveItemType(props, logger)
-                LazyColumn(modifier = listModifier) {
+                LazyColumn(state = listState, modifier = listModifier) {
                     itemsIndexed(rows) { index, row ->
                         SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
                             HomogeneousRow(itemType, row.firstOrNull().orEmpty(), index, element.id)

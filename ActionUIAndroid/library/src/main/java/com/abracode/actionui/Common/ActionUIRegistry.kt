@@ -38,6 +38,7 @@ import com.abracode.actionui.Views.ProgressView
 import com.abracode.actionui.Views.Rectangle
 import com.abracode.actionui.Views.RoundedRectangle
 import com.abracode.actionui.Views.ScrollView
+import com.abracode.actionui.Views.ScrollViewReader
 import com.abracode.actionui.Views.Section
 import com.abracode.actionui.Views.SecureField
 import com.abracode.actionui.Views.ShareLink
@@ -94,6 +95,7 @@ object ActionUIRegistry {
         register("Stepper", Stepper)
         register("Group", Group)
         register("ScrollView", ScrollView)
+        register("ScrollViewReader", ScrollViewReader)
         register("GroupBox", GroupBox)
         register("LabeledContent", LabeledContent)
         register("DisclosureGroup", DisclosureGroup)

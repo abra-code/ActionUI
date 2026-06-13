@@ -32,7 +32,7 @@ import kotlinx.serialization.json.JsonObject
  *   * `overlay` / `background` - the decoration subviews, composed here in a
  *     `Box` around the element ([BuildViewWithDecorations]).
  *
- * Three runtime concerns also resolve here, before anything else, because
+ * Four runtime concerns also resolve here, before anything else, because
  * this is the one place every rendered element passes through:
  *
  *   * **Property overrides** - `ActionUIModel.setElementProperty` writes merge
@@ -48,6 +48,9 @@ import kotlinx.serialization.json.JsonObject
  *     fire on composition entry/exit (SwiftUI `.onAppear`/`.onDisappear`),
  *     `openURLActionID` registers for host-delivered URLs
  *     (`ActionUIModel.onOpenURL`, SwiftUI `.onOpenURL`).
+ *   * **Scroll targets** - inside a `ScrollViewReader`, every element with a
+ *     positive id registers its coordinates ([scrollTargetModifier],
+ *     `ScrollReaderHelper.kt`) so the reader's `scrollTo` can address it.
  *
  * Callers pass only the scope-restricted parent data (`weight`/`align`, via
  * `buildChildModifier`) or `Modifier`; the element's own properties are
@@ -93,15 +96,19 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // openURLActionID - ActionHookHelper.kt) attach here so they cover both
     // the popover route and the plain one.
     ElementActionHooks(effective)
+    // Inside a ScrollViewReader, an element with a positive id is a scroll
+    // target: its coordinates register with the reader (ScrollReaderHelper.kt).
+    // Identity modifier outside a reader.
+    val targeted = scrollTargetModifier(effective, modifier)
     val animator = rememberElementAnimator(effective)
     if (effective.popover != null) {
         // PopoverHelper applies the outer half to the anchor Box itself and
         // routes the carrier through BuildViewWithDecorations.
-        BuildViewWithPopover(effective, modifier, animator)
+        BuildViewWithPopover(effective, targeted, animator)
         return
     }
     val logger = LocalActionUILogger.current
-    BuildViewWithDecorations(effective, modifier.applyOuterProperties(effective.properties, logger, animator), animator)
+    BuildViewWithDecorations(effective, targeted.applyOuterProperties(effective.properties, logger, animator), animator)
 }
 
 /**
