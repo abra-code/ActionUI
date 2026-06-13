@@ -435,17 +435,6 @@ Use `{title, tag}` objects when the display label should differ from the value d
 ]}
 ```
 
-### Slider + TextField linked pair
-
-For numeric values where users want both drag and type-in. Use separate `actionID`s so each control can sync the other:
-
-```json
-{ "type": "HStack", "properties": { "spacing": 8 }, "children": [
-  { "type": "Slider", "id": 10, "properties": { "value": 85, "range": { "min": 1, "max": 100 }, "valueChangeActionID": "quality.slider.changed" } },
-  { "type": "TextField", "id": 11, "properties": { "text": "85", "format": "integer", "frame": { "width": 50 }, "valueChangeActionID": "quality.text.changed" } }
-]}
-```
-
 ### TextEditor as log/output view
 
 Read-only monospaced output area with secondary background:
@@ -460,23 +449,6 @@ Read-only monospaced output area with secondary background:
 }}
 ```
 
-### Menu with custom label (dropdown button)
-
-When a `+` button should open a menu of add options instead of a single action:
-
-```json
-{ "type": "Menu", "properties": { "buttonStyle": "plain" },
-  "label": {
-    "type": "Image",
-    "properties": { "systemName": "plus.circle", "imageScale": "large", "frame": { "width": 32, "height": 28 } }
-  },
-  "children": [
-    { "type": "Button", "properties": { "title": "Add Image…", "actionID": "layer.add.image" } },
-    { "type": "Button", "properties": { "title": "Add Symbol", "actionID": "layer.add.symbol" } }
-  ]
-}
-```
-
 ### Drag-and-drop on Table
 
 ```json
@@ -485,6 +457,42 @@ When a `+` button should open a menu of add options instead of a single action:
   "onDropActionID": "files.dropped"
 }}
 ```
+
+
+### Runtime value semantics (what action handlers actually receive)
+
+Verified against the live runtime — getting these wrong produces silent
+no-ops that are very hard to debug from the JSON alone:
+
+- **Picker** (segmented, menu, …): the observable value and the action's
+  trigger context are the **1-based option index** ("1", "2", …), not the
+  option title. Setting the value programmatically also takes the index —
+  setting it to an option's title is a silent no-op. Keep the ordered option
+  list available to handlers so they can map index → name.
+- **TabView**: the `actionID` delivers the **0-based tab index** as trigger
+  context.
+- Programmatic `options`/value updates can fire the control's
+  `actionID`/`valueChangeActionID` with transitional or bogus values —
+  handlers must validate what they receive.
+
+### Table column minimum widths
+
+Always declare `minWidths` alongside `widths` — the default per-column
+minimum is 10 pt, which lets columns collapse into unreadable slivers when
+the window shrinks:
+
+```json
+"widths":    [36, 190, 270],
+"minWidths": [16, 160, 100]
+```
+
+### Two container-key mistakes the validator catches late
+
+- `GroupBox` content goes in `children` (an array) — there is no `content`
+  key on GroupBox.
+- `NavigationSplitView` requires `sidebar` **and** `detail`; a lone
+  `sidebar` + `content` pair (without `detail`) is invalid — `content` is
+  only the optional middle pane of a three-column split.
 
 
 
