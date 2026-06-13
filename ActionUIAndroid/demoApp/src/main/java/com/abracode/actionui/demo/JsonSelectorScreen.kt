@@ -1,7 +1,7 @@
 package com.abracode.actionui.demo
 
 import android.content.Context
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,16 +26,17 @@ import com.abracode.actionui.ActionUI
 
 /**
  * Native (Compose) JSON picker for the demo app - the Android counterpart of the
- * Swift test app's `JSONSelectorView` (`ActionUISwiftTestApp.swift`). The Apple
- * app drives selection with SwiftUI navigation; ActionUI on Android has no
- * navigation elements yet, so the picker is plain Kotlin/Compose shell code
- * around the renderer rather than an ActionUI JSON document.
+ * Swift test app's `JSONSelectorView` (`ActionUISwiftTestApp.swift`). The picker
+ * itself is plain Compose shell code around the renderer (not an ActionUI
+ * document); the picker -> detail routing is a Navigation Compose `NavHost`
+ * (see `DemoApp`) so a `NavigationStack` inside a rendered document nests under
+ * the system back button.
  *
  * Flow: [JsonSelectorScreen] lists the bundled `.json` example files in
- * `assets/`; tapping one shows [ExampleDetailScreen], which renders that
- * document with
- * [ActionUI.RenderAsset] inside a scroll container (ActionUI has no `ScrollView`
- * element yet) and offers a back affordance (top bar + system back).
+ * `assets/`; tapping one routes to [ExampleDetailScreen], which renders that
+ * document with [ActionUI.RenderAsset] inside a scroll container (the demo shell
+ * provides scrolling for documents taller than the viewport) and offers a top-bar
+ * back affordance; system back is owned by the host NavHost.
  *
  * The list also carries one synthetic entry, [RENDER_SOURCE_DEMO_LABEL], that is
  * not a bundled file: it renders a remote document as the window *root* via
@@ -93,8 +94,15 @@ fun ExampleDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Route the system/gesture back to the picker instead of finishing the app.
-    BackHandler(onBack = onBack)
+    // Back - both the system gesture/button and the top-bar arrow - is routed
+    // through the OnBackPressedDispatcher (DemoApp hosts the picker/detail flow in a
+    // NavHost). That way a NavigationStack inside the rendered document pops its own
+    // push levels first, and only the detail route's final back returns to the
+    // picker. The arrow MUST dispatch rather than pop the host controller directly:
+    // a direct pop (or a BackHandler here, which registers in a DisposableEffect
+    // after the document's NavHost registers during composition) would skip the
+    // nested NavHost and jump straight to the picker from any depth.
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
     Scaffold(
         modifier = modifier,
@@ -102,7 +110,7 @@ fun ExampleDetailScreen(
             TopAppBar(
                 title = { Text(assetPath.removeSuffix(".json")) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { backDispatcher?.onBackPressed() ?: onBack() }) {
                         // Avoid a material-icons dependency for one glyph.
                         Text("<", style = MaterialTheme.typography.headlineSmall)
                     }

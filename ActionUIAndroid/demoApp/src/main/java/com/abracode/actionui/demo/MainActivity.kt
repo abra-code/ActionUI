@@ -1,6 +1,7 @@
 package com.abracode.actionui.demo
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -8,13 +9,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.abracode.actionui.ActionUI
 import com.abracode.actionui.Common.ActionUIImageRegistry
 import com.abracode.actionui.Common.ActionUIModel
@@ -442,27 +444,47 @@ class MainActivity : ComponentActivity() {
 /**
  * Top-level demo shell: a native JSON picker (start screen) that lists the
  * bundled `.json` examples in `assets/` and renders the selected one. Mirrors the
- * Swift test app's selector-then-view flow; see [JsonSelectorScreen]. ActionUI
- * on Android has no navigation elements yet, so this routing lives in plain
- * Compose rather than in an ActionUI document.
+ * Swift test app's selector-then-view flow; see [JsonSelectorScreen].
+ *
+ * The picker -> detail routing is a real Navigation Compose [NavHost], not a
+ * `selected`-state swap, so that a `NavigationStack` (or `NavigationSplitView`)
+ * *inside* the rendered document nests correctly under the system back button.
+ * Nested NavHosts coordinate through the shared `OnBackPressedDispatcher`: the
+ * inner (document) stack - composed deeper - takes back priority and pops its own
+ * push levels first, and this host only returns to the picker once that inner
+ * stack is at its root. A `BackHandler` placed above the document would instead
+ * shadow it (it registers in a `DisposableEffect`, after the inner NavHost
+ * registers during composition), jumping straight to the picker from any depth -
+ * the bug this structure fixes. See [ExampleDetailScreen].
  */
 @Composable
 fun DemoApp() {
     val context = LocalContext.current
     // The synthetic RenderSource entry leads; the bundled assets follow (sorted).
     val files = remember { listOf(RENDER_SOURCE_DEMO_LABEL) + listJsonAssets(context) }
-    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    val navController = rememberNavController()
 
-    when (val current = selected) {
-        null -> JsonSelectorScreen(
-            files = files,
-            onSelect = { selected = it },
-            modifier = Modifier.fillMaxSize(),
-        )
-        else -> ExampleDetailScreen(
-            assetPath = current,
-            onBack = { selected = null },
-            modifier = Modifier.fillMaxSize(),
-        )
+    NavHost(navController = navController, startDestination = DEMO_PICKER_ROUTE) {
+        composable(DEMO_PICKER_ROUTE) {
+            JsonSelectorScreen(
+                files = files,
+                onSelect = { navController.navigate(DEMO_DETAIL_ROUTE_PREFIX + Uri.encode(it)) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        composable(
+            route = DEMO_DETAIL_ROUTE_PREFIX + "{$DEMO_ASSET_ARG}",
+            arguments = listOf(navArgument(DEMO_ASSET_ARG) { type = NavType.StringType }),
+        ) { entry ->
+            ExampleDetailScreen(
+                assetPath = entry.arguments?.getString(DEMO_ASSET_ARG).orEmpty(),
+                onBack = { navController.popBackStack() },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
+
+private const val DEMO_PICKER_ROUTE = "demo/picker"
+private const val DEMO_DETAIL_ROUTE_PREFIX = "demo/detail/"
+private const val DEMO_ASSET_ARG = "asset"
