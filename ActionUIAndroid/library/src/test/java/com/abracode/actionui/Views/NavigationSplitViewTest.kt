@@ -62,6 +62,30 @@ class NavigationSplitViewTest {
     }
 
     @Test
+    fun `paneHasChrome detects a toolbar or a navigationTitle, and nothing else`() {
+        // A navigationTitle alone makes a pane carry its own top bar...
+        assertTrue(
+            paneHasChrome(
+                ActionUIElement(
+                    id = 10, type = "VStack",
+                    properties = buildJsonObject { put("navigationTitle", "Inbox") },
+                ),
+            ),
+        )
+        // ...as does a toolbar alone...
+        assertTrue(
+            paneHasChrome(
+                ActionUIElement(
+                    id = 11, type = "VStack",
+                    toolbar = listOf(ActionUIElement(id = 0, type = "ToolbarItem")),
+                ),
+            ),
+        )
+        // ...but a plain pane with neither renders bare (no nested Scaffold).
+        assertFalse(paneHasChrome(ActionUIElement(id = 12, type = "VStack")))
+    }
+
+    @Test
     fun `navigationSplitDestinations keys destinations by id`() {
         val element = ActionUIElement(
             id = 1, type = "NavigationSplitView",

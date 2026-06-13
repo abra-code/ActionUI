@@ -1,0 +1,62 @@
+{
+  "type": "NavigationSplitView",
+  "id": 1,
+  "properties": { "frame": { "height": 520 }, "actionID": "split.ppt.selection" },
+  "sidebar": {
+    "type": "List",
+    "id": 2,
+    "properties": { "navigationTitle": "Mailboxes" },
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "properties": { "placement": "topBarTrailing" },
+        "content": { "type": "Button", "properties": { "systemImage": "square.and.pencil", "accessibilityLabel": "Compose", "actionID": "split.toolbar.compose" } }
+      }
+    ],
+    "children": [
+      { "type": "Label", "id": 100, "properties": { "title": "Inbox", "systemImage": "tray", "destinationViewId": 10 } },
+      { "type": "Label", "id": 101, "properties": { "title": "Sent", "systemImage": "paperplane", "destinationViewId": 11 } }
+    ]
+  },
+  "detail": {
+    "type": "VStack",
+    "id": 3,
+    "properties": { "padding": 16, "navigationTitle": "Mail" },
+    "children": [
+      { "type": "Text", "properties": { "text": "Pick a mailbox. The sidebar carries its own top bar (title 'Mailboxes' + a Compose action); each detail destination carries a separate top bar (its own title + a Reply action and a Delete overflow item) - distinct per-pane toolbars, not one shared bar." } }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 10,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Inbox" },
+      "toolbar": [
+        {
+          "type": "ToolbarItem",
+          "properties": { "placement": "topBarTrailing" },
+          "content": { "type": "Button", "properties": { "title": "Reply", "systemImage": "arrowshape.turn.up.left", "actionID": "split.toolbar.reply" } }
+        },
+        {
+          "type": "ToolbarItem",
+          "properties": { "placement": "secondaryAction" },
+          "content": { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "actionID": "split.toolbar.delete" } }
+        }
+      ],
+      "children": [ { "type": "Text", "properties": { "text": "Inbox: 3 unread messages." } } ]
+    },
+    {
+      "type": "VStack",
+      "id": 11,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Sent" },
+      "toolbar": [
+        {
+          "type": "ToolbarItem",
+          "properties": { "placement": "topBarTrailing" },
+          "content": { "type": "Button", "properties": { "title": "Reply", "systemImage": "arrowshape.turn.up.left", "actionID": "split.toolbar.reply" } }
+        }
+      ],
+      "children": [ { "type": "Text", "properties": { "text": "Sent: 42 messages." } } ]
+    }
+  ]
+}

@@ -286,6 +286,23 @@ class MainActivity : ComponentActivity() {
             scrollReaderTo(windowUUID, readerID = 2, targetID = 201)
         }
 
+        // NavigationSplitView.perPaneToolbars.json - each pane owns its top bar.
+        // The sidebar's Compose action and each detail destination's Reply / Delete
+        // actions fire here (the per-pane chrome is otherwise purely visual); the
+        // sidebar selection reports the chosen destination id as its context.
+        ActionUIModel.registerActionHandler("split.ppt.selection") { _, _, _, _, context ->
+            Toast.makeText(this, "Mailbox selected: $context", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("split.toolbar.compose") { _, _, _, _, _ ->
+            Toast.makeText(this, "Compose (sidebar toolbar)", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("split.toolbar.reply") { _, _, _, _, _ ->
+            Toast.makeText(this, "Reply (detail toolbar)", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("split.toolbar.delete") { _, _, _, _, _ ->
+            Toast.makeText(this, "Delete (detail overflow)", Toast.LENGTH_SHORT).show()
+        }
+
         // GeometryReader.json: read the reader's observable states["size"]
         // ([width, height] in dp) on demand - the Android demo surfaces it with
         // a toast where the Swift app leaves the state for the host to poll.
