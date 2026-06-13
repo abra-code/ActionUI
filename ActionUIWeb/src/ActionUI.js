@@ -47,6 +47,11 @@ import "./Views/LabeledContent.js";
 import "./Views/DisclosureGroup.js";
 import "./Views/TextEditor.js";
 import "./Views/Gauge.js";
+import "./Views/Rectangle.js";
+import "./Views/RoundedRectangle.js";
+import "./Views/Capsule.js";
+import "./Views/Circle.js";
+import "./Views/Ellipse.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

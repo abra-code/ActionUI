@@ -237,6 +237,21 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Shapes (fill, stroke, bare):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Rectangle", "properties": { "fill": "blue", "frame": { "width": 56, "height": 36 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 10, "fill": "teal", "frame": { "width": 56, "height": 36 } } },
+        { "type": "RoundedRectangle", "properties": { "cornerRadius": 10, "cornerStyle": "continuous", "stroke": "purple", "strokeLineWidth": 2, "frame": { "width": 56, "height": 36 } } },
+        { "type": "Capsule", "properties": { "fill": "accentColor", "frame": { "width": 64, "height": 24 } } },
+        { "type": "Circle", "properties": { "stroke": "red", "strokeLineWidth": 3, "frame": { "width": 36, "height": 36 } } },
+        { "type": "Ellipse", "properties": { "fill": "orange", "frame": { "width": 56, "height": 32 } } },
+        { "type": "Circle", "properties": { "foregroundColor": "green", "frame": { "width": 20, "height": 36 } } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

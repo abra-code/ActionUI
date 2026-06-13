@@ -126,6 +126,23 @@
 .aui-vstack > .aui-divider { height: 1px; }
 .aui-hstack > .aui-divider { width: 1px; }
 
+/* ---- shapes ---- */
+
+/* Stateless shape primitives (Rectangle, RoundedRectangle, Capsule, Circle,
+   Ellipse): zero-content divs painted inline by the views (fill → background,
+   stroke → inner border). A SwiftUI shape is greedy — it accepts the full
+   proposal — so a bare shape stretches and grows; an explicit frame pins it
+   (the view sets flex-grow:0 inline). */
+.aui-shape { flex-grow: 1; align-self: stretch; min-width: 0; min-height: 0; }
+.aui-capsule { border-radius: 9999px; }
+.aui-ellipse { border-radius: 50%; }
+/* Circle stays circular in a non-square box (SwiftUI inscribes it: diameter =
+   min(width, height), centered), where border-radius:50% would give an
+   ellipse. The box is a size container so the disc can take
+   min(100cqw, 100cqh) — the inscribed diameter — in pure CSS. */
+.aui-circle { container-type: size; display: grid; place-items: center; }
+.aui-circle-disc { width: min(100cqw, 100cqh); aspect-ratio: 1; border-radius: 50%; }
+
 /* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
 
 .aui-font-largeTitle  { font-size: 26px; font-weight: 400; }
