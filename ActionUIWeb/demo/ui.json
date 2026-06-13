@@ -301,6 +301,19 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (selectable children; a Button row keeps its own action):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 40,
+      "properties": { "actionID": "listSelect", "listStyle": "inset", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Label", "id": 41, "properties": { "title": "Inbox", "systemImage": "tray" } },
+        { "type": "Label", "id": 42, "properties": { "title": "Drafts", "systemImage": "doc" } },
+        { "type": "Label", "id": 43, "properties": { "title": "Sent", "systemImage": "paperplane" } },
+        { "type": "Button", "id": 44, "properties": { "title": "Compose", "systemImage": "square.and.pencil", "actionID": "listCompose" } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

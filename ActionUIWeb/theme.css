@@ -247,6 +247,36 @@
     padding: 6px 10px 2px;
 }
 
+/* ---- List ---- */
+
+/* A vertical collection of rows. Each row carries a bottom separator (the macOS
+   list rule) suppressed on the last row; selectable rows highlight on selection
+   and stay keyboard-focusable. The inset/sidebar styles add the SwiftUI inset. */
+.aui-list {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    background: var(--aui-control-background);
+    overflow: hidden;
+}
+.aui-list-row {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-list-row:last-child { border-bottom: none; }
+.aui-list-row-no-separator { border-bottom: none; }
+.aui-list-row-selected { background: var(--aui-color-accent); color: #ffffff; }
+.aui-list[role="listbox"] .aui-list-row { cursor: default; }
+.aui-list-row:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-list-style-inset, .aui-list-style-sidebar { padding: 4px; }
+.aui-list-style-inset .aui-list-row, .aui-list-style-sidebar .aui-list-row {
+    border-bottom: none;
+    border-radius: 5px;
+}
+.aui-list-empty { min-height: 28px; }
+
 /* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
 
 .aui-font-largeTitle  { font-size: 26px; font-weight: 400; }

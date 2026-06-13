@@ -55,6 +55,7 @@ import "./Views/Ellipse.js";
 import "./Views/Tab.js";
 import "./Views/TabView.js";
 import "./Views/Menu.js";
+import "./Views/List.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {
