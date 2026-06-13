@@ -54,6 +54,7 @@ import "./Views/Circle.js";
 import "./Views/Ellipse.js";
 import "./Views/Tab.js";
 import "./Views/TabView.js";
+import "./Views/Menu.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

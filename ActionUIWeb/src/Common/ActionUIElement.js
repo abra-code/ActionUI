@@ -8,15 +8,16 @@
 //   "children": []        // Optional: child elements (stored in subviews.children)
 // }
 //
-// Subset routed so far: the "children" (array) and "content" (single) keys, plus
-// "rows" (array-of-arrays, for Grid's GridRows). The remaining Apple/Android keys
-// (destination, sidebar, detail, label, popover, template, toolbar, overlay,
-// background, ...) come with the elements that need them.
+// Subset routed so far: the "children" (array), "content" and "label" (single)
+// keys, plus "rows" (array-of-arrays, for Grid's GridRows). "label" is the
+// custom-trigger view (Menu's label-instead-of-title; later Button/Toggle). The
+// remaining Apple/Android keys (destination, sidebar, detail, popover, template,
+// toolbar, overlay, background, ...) come with the elements that need them.
 
 let negativeIDCounter = -1;
 
 const SUBVIEW_ARRAY_KEYS = ["children"];
-const SUBVIEW_SINGLE_KEYS = ["content"];
+const SUBVIEW_SINGLE_KEYS = ["content", "label"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.

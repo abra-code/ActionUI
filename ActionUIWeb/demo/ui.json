@@ -283,6 +283,24 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Menu (pull-down: icons, a section, a divider):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Menu",
+      "properties": { "title": "Actions" },
+      "children": [
+        { "type": "Button", "properties": { "title": "New", "systemImage": "plus", "actionID": "menuNew" } },
+        { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "menuDuplicate" } },
+        { "type": "Divider" },
+        {
+          "type": "Section",
+          "properties": { "header": "Danger" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "actionID": "menuDelete" } }
+          ]
+        }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

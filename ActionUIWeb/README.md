@@ -55,7 +55,8 @@ python3 -m http.server 8080
   Form, Section, GroupBox, LabeledContent, DisclosureGroup, TextEditor, Gauge,
   the shape primitives Rectangle, RoundedRectangle, Capsule, Circle,
   Ellipse (shared fill/stroke resolution in `Helpers/ShapeStyleHelper.js`),
-  and TabView + Tab (a top tab strip with selection binding and badges).
+  TabView + Tab (a top tab strip with selection binding and badges), and
+  Menu (a pull-down of action items, with sections and dividers).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
