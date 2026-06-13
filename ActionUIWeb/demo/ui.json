@@ -252,6 +252,37 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "TabView (top strip, selection-bound, badges):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "TabView",
+      "id": 30,
+      "properties": { "selection": 0, "actionID": "tabChanged" },
+      "children": [
+        {
+          "type": "Tab",
+          "properties": { "title": "Home", "systemImage": "house" },
+          "content": {
+            "type": "VStack",
+            "properties": { "alignment": "leading", "spacing": 6 },
+            "children": [
+              { "type": "Text", "properties": { "text": "Home", "font": "headline" } },
+              { "type": "Text", "properties": { "text": "Each tab keeps its own state across switches.", "foregroundColor": "secondary" } }
+            ]
+          }
+        },
+        {
+          "type": "Tab",
+          "properties": { "title": "Settings", "systemImage": "gearshape", "badge": 3 },
+          "content": { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } }
+        },
+        {
+          "type": "Tab",
+          "properties": { "title": "About", "systemImage": "info.circle", "badge": "!" },
+          "content": { "type": "Text", "properties": { "text": "ActionUIWeb — three renderers, one JSON." } }
+        }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
   ]
 }

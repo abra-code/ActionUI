@@ -53,8 +53,9 @@ python3 -m http.server 8080
   Image, Label, Slider, Stepper, SecureField, Picker, ProgressView, DatePicker,
   ColorPicker, ScrollView, LazyVStack, LazyHStack, Grid, LazyVGrid, LazyHGrid,
   Form, Section, GroupBox, LabeledContent, DisclosureGroup, TextEditor, Gauge,
-  and the shape primitives Rectangle, RoundedRectangle, Capsule, Circle,
-  Ellipse (shared fill/stroke resolution in `Helpers/ShapeStyleHelper.js`).
+  the shape primitives Rectangle, RoundedRectangle, Capsule, Circle,
+  Ellipse (shared fill/stroke resolution in `Helpers/ShapeStyleHelper.js`),
+  and TabView + Tab (a top tab strip with selection binding and badges).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.

@@ -143,6 +143,49 @@
 .aui-circle { container-type: size; display: grid; place-items: center; }
 .aui-circle-disc { width: min(100cqw, 100cqh); aspect-ratio: 1; border-radius: 50%; }
 
+/* ---- TabView ---- */
+
+/* A top tab strip over a content area (the macOS TabView convention; Android/iOS
+   put the bar at the bottom). The view toggles each panel's `display` inline. */
+.aui-tabview { display: flex; flex-direction: column; align-self: stretch; }
+.aui-tabbar {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-tab {
+    font: inherit;
+    color: var(--aui-color-secondary);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px; /* overlap the bar's bottom border so the active underline sits on it */
+    padding: 6px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+}
+.aui-tab:hover { color: var(--aui-color-primary); }
+.aui-tab:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: var(--aui-control-radius); }
+.aui-tab-selected {
+    color: var(--aui-color-accent);
+    border-bottom-color: var(--aui-color-accent);
+}
+.aui-tab-icon { font-size: 1.18em; }
+/* A small count/text bubble trailing the title, like SwiftUI's .badge. */
+.aui-tab-badge {
+    min-width: 1.3em;
+    padding: 0 0.4em;
+    border-radius: 999px;
+    background: var(--aui-color-red);
+    color: #ffffff;
+    font-size: 0.75em;
+    line-height: 1.4;
+    text-align: center;
+}
+.aui-tabview-content { padding-top: 10px; }
+
 /* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
 
 .aui-font-largeTitle  { font-size: 26px; font-weight: 400; }
