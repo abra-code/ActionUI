@@ -314,6 +314,13 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 45,
+      "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "frame": { "maxWidth": "infinity" } }
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Table (rows via the rows API; an Image column and per-row Button):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Table",

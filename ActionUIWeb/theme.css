@@ -249,9 +249,12 @@
 
 /* ---- List ---- */
 
-/* A vertical collection of rows. Each row carries a bottom separator (the macOS
-   list rule) suppressed on the last row; selectable rows highlight on selection
-   and stay keyboard-focusable. The inset/sidebar styles add the SwiftUI inset. */
+/* A vertical collection of rows. Rows come from embedded children, or — in the
+   data-driven modes — from states["content"] via the rows API (homogeneous
+   itemType cells; the template repeater lands next). Each row carries a bottom
+   separator (the macOS list rule) suppressed on the last row; selectable rows
+   highlight on selection and stay keyboard-focusable. The inset/sidebar styles
+   add the SwiftUI inset. */
 .aui-list {
     display: flex;
     flex-direction: column;
@@ -276,6 +279,16 @@
     border-radius: 5px;
 }
 .aui-list-empty { min-height: 28px; }
+/* Homogeneous itemType Button cell (a borderless action inside a row). */
+.aui-list-button {
+    font: inherit;
+    color: var(--aui-color-accent);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+.aui-list-row-selected .aui-list-button { color: #ffffff; }
 
 /* ---- Table ---- */
 
@@ -317,7 +330,8 @@
     gap: 0.34em;
 }
 .aui-table-row-selected .aui-table-button { color: #ffffff; }
-.aui-table-image { max-width: 28px; max-height: 28px; vertical-align: middle; }
+/* Shared image-cell sizing for the data-driven collections (Table, List itemType). */
+.aui-data-image { max-width: 28px; max-height: 28px; vertical-align: middle; }
 
 /* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
 

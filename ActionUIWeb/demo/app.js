@@ -15,6 +15,10 @@ win.setElementRows(100, [
     ["Notes.txt", "text.document", "Open"],
 ]);
 
+// The homogeneous List (itemType Text) is data-driven too — its rows come through
+// the same rows API; each row shows its first column.
+win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
+
 app.action("greet", () => {
     const name = win.getString(1).trim();
     let greeting = name ? `Hello, ${name}!` : "Hello, anonymous!";
@@ -67,6 +71,12 @@ app.action("tableSelect", () => {
     win.setString(20, 0, win.getString(100) ? `Selected "${row[0]}".` : "Nothing selected.");
 });
 app.action("tableRowAction", (ctx) => win.setString(20, 0, `Open row ${ctx.context}.`));
+
+// Homogeneous List selection: no context — read the value (the selected row,
+// tab-joined; a single column here).
+app.action("homListSelect", () => {
+    win.setString(20, 0, win.getString(45) ? `Priority: ${win.getString(45)}.` : "No priority selected.");
+});
 
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));

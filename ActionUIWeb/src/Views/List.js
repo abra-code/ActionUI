@@ -7,17 +7,25 @@
 //   2. Heterogeneous (children) — arbitrary child views, one per row.
 //   3. Template (data-driven)  — one substituted template instance per row.
 //
-// Web ships **mode 2 (children)** now: the only mode that renders from a static
-// document with no host data (Android frames it the same way). Modes 1 and 3 are
-// data-driven — they read rows from `states["content"]` — and ride with the rows
-// API that lands alongside Table; the `content` state is seeded here so they slot
-// in later. `itemType`/`template` properties are still validated verbatim.
+// Web ships **mode 2 (children)** and **mode 1 (homogeneous)** now. Mode 3
+// (template) is the data-driven repeater and lands next; it reuses the same
+// content-rows plumbing as homogeneous. Mode precedence matches Swift / Android:
+// template (when present) → children → homogeneous.
+//
+// Data-driven rows. Modes 1 and 3 read their rows from `states["content"]`
+// ([[String]]) via the rows API on Window (set/append/clearElementRows) — the
+// same store Table uses. The List binds its "content" state, so a host
+// set/append/clear re-renders the rows in place. Homogeneous mode displays each
+// row's **first column** (matching Apple/Android) as the `itemType.viewType`
+// cell; the web renders real Image / AsyncImage cells (Android downgrades those
+// to text, its B2 deferral).
 //
 // Selection (value bridge). Apple exposes the selection as a `[String]`; the web
 // value vocabulary is scalar, so — like Android's tab-joined string transport —
-// the selection is carried as a **String**: the stringified id of the selected
-// child (empty string = nothing selected). A host reads/writes it with
-// get/setString(listID). Selection is interactive only when a list-level
+// the selection is carried as a **String**. In children mode it is the
+// stringified id of the selected child; in the data-driven modes it is the
+// selected row's columns tab-joined ("" = nothing selected). A host reads/writes
+// it with get/setString(listID). Selection is interactive only when a list-level
 // `actionID` is present (Apple's selectable mode): clicking a row selects it,
 // highlights it, and fires `actionID` (the host then reads the selection — Apple
 // fires with no context and reads model.value, so the web matches and sends none).
@@ -27,7 +35,7 @@
 //
 // Properties (mirroring List.swift):
 //   itemType         { viewType, actionContext, actionID, dataInterpretation } —
-//                    homogeneous cell config (validated; rendered with the rows API).
+//                    homogeneous cell config.
 //   actionID         Fires on selection change (enables selectable mode).
 //   doubleClickActionID  macOS double-click; row index as context (data modes).
 //   listStyle        "automatic"|"plain"|"inset"|"sidebar" (the macOS set).
@@ -36,6 +44,7 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
+import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 
 // The macOS-valid listStyles (the web's default skin is macOS-flavored). The
 // other SwiftUI styles ("grouped", "insetGrouped") are iOS/tvOS/visionOS-only and
@@ -50,7 +59,7 @@ const ITEM_ACTION_CONTEXTS = ["title", "rowIndex"];
 const INTERACTIVE_SELECTOR = "button, input, select, textarea, a";
 
 register("List", {
-    // The selected child id, as a String ("" = nothing selected). See header.
+    // The selected child id / row, as a String ("" = nothing selected). See header.
     valueType: "string",
 
     // Mirrors List.swift validateProperties (warning text included verbatim).
@@ -134,7 +143,7 @@ register("List", {
     initialValue: () => "",
 
     // The documented row store (states["content"] = [[String]]); empty until a
-    // host fills it via the rows API. Seeded so the data modes can read and fill it.
+    // host fills it via the rows API. Read by the data-driven modes.
     initialStates: () => ({ content: [] }),
 
     buildView: (element, properties, ctx) => {
@@ -152,84 +161,220 @@ register("List", {
         const selectable = typeof properties.actionID === "string";
         const rowStyle = computeRowStyle(properties, ctx.logger);
 
-        if (children.length === 0) {
-            // Data-driven modes (itemType / template) read from states["content"],
-            // which lands with the rows API; render an empty list for now.
-            node.classList.add("aui-list-empty");
-            ctx.logger.log("List: data-driven modes (itemType / template) are not yet rendered on web; provide children, or drive rows via the rows API (lands with Table). Rendering an empty list.", "info");
-            return node;
+        // Mode precedence (matching List.swift / List.kt): children → homogeneous.
+        // (Template mode lands next, ahead of children.)
+        if (children.length > 0) {
+            return buildChildrenRows(node, element, properties, ctx, children, selectable, rowStyle);
         }
+
+        // Homogeneous (itemType) mode: each row renders its first column as a
+        // single typed cell. validateProperties has already normalized itemType.
+        const itemType = (typeof properties.itemType === "object" && properties.itemType !== null)
+            ? properties.itemType : { viewType: "Text" };
+        return buildDataRows(node, element, properties, ctx, selectable, rowStyle,
+            (row, index) => renderHomogeneousCell(itemType, row[0] ?? "", index, element, ctx));
+    },
+});
+
+// Heterogeneous children mode: each child is a full ActionUI view built through
+// the registry into a row. Selection (when the list has an actionID) is carried
+// as the stringified selected child id.
+function buildChildrenRows(node, element, properties, ctx, children, selectable, rowStyle) {
+    if (selectable) node.setAttribute("role", "listbox");
+
+    const rows = [];
+    let selectedId = "";
+
+    const applySelectionStyles = () => {
+        for (const row of rows) {
+            const isSelected = selectable && row.dataset.auiRowId === selectedId && selectedId !== "";
+            row.classList.toggle("aui-list-row-selected", isSelected);
+            if (selectable) row.setAttribute("aria-selected", isSelected ? "true" : "false");
+        }
+    };
+
+    const selectRow = (id, fromUser) => {
+        if (!selectable || id === selectedId) return;
+        selectedId = id;
+        applySelectionStyles();
+        // Apple fires the selection-change actionID with no context and lets the
+        // host read model.value; the web carries the selection as the element
+        // value (getString), so it matches — no context sent.
+        if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
+    };
+
+    for (const child of children) {
+        const row = document.createElement("div");
+        row.className = "aui-list-row";
+        applyRowStyle(row, rowStyle);
+
+        row.appendChild(ctx.build(child));
 
         if (selectable) {
-            node.setAttribute("role", "listbox");
-        }
-
-        const rows = [];
-        let selectedId = "";
-
-        const applySelectionStyles = () => {
-            for (const row of rows) {
-                const isSelected = selectable && row.dataset.auiRowId === selectedId && selectedId !== "";
-                row.classList.toggle("aui-list-row-selected", isSelected);
-                if (selectable) row.setAttribute("aria-selected", isSelected ? "true" : "false");
-            }
-        };
-
-        const selectRow = (id, fromUser) => {
-            if (!selectable || id === selectedId) return;
-            selectedId = id;
-            applySelectionStyles();
-            // Apple fires the selection-change actionID with no context and lets
-            // the host read model.value; the web carries the selection as the
-            // element value (getString), so it matches — no context sent.
-            if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
-        };
-
-        for (const child of children) {
-            const row = document.createElement("div");
-            row.className = "aui-list-row";
-            applyRowStyle(row, rowStyle);
-
-            const childNode = ctx.build(child);
-            row.appendChild(childNode);
-
-            if (selectable) {
-                row.dataset.auiRowId = String(child.id);
-                row.setAttribute("role", "option");
-                row.setAttribute("aria-selected", "false");
-                row.tabIndex = 0;
-                row.addEventListener("click", (event) => {
-                    // A click on an interactive cell (e.g. a Button) is the cell's
-                    // own; only a click on inert content selects the row.
-                    const control = event.target.closest?.(INTERACTIVE_SELECTOR);
-                    if (control && row.contains(control)) return;
+            row.dataset.auiRowId = String(child.id);
+            row.setAttribute("role", "option");
+            row.setAttribute("aria-selected", "false");
+            row.tabIndex = 0;
+            row.addEventListener("click", (event) => {
+                // A click on an interactive cell (e.g. a Button) is the cell's
+                // own; only a click on inert content selects the row.
+                const control = event.target.closest?.(INTERACTIVE_SELECTOR);
+                if (control && row.contains(control)) return;
+                selectRow(row.dataset.auiRowId, true);
+            });
+            row.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
                     selectRow(row.dataset.auiRowId, true);
-                });
-                row.addEventListener("keydown", (event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectRow(row.dataset.auiRowId, true);
-                    }
-                });
-            }
-
-            rows.push(row);
-            node.appendChild(row);
-        }
-
-        if (element.id > 0) {
-            ctx.model.bind(element.id, {
-                getValue: () => selectedId,
-                setValue: (value) => { // programmatic: silent (no actionID dispatch)
-                    selectedId = String(value ?? "");
-                    applySelectionStyles();
-                },
+                }
             });
         }
 
-        return node;
-    },
-});
+        rows.push(row);
+        node.appendChild(row);
+    }
+
+    if (element.id > 0) {
+        ctx.model.bind(element.id, {
+            getValue: () => selectedId,
+            setValue: (value) => { // programmatic: silent (no actionID dispatch)
+                selectedId = String(value ?? "");
+                applySelectionStyles();
+            },
+        });
+    }
+
+    return node;
+}
+
+// Shared plumbing for the data-driven row modes (homogeneous itemType now, and
+// the template repeater next): rows come from states["content"], and the
+// selection rides as the tab-joined row String. `renderCell(row, index)` builds
+// the mode's row body; everything else (selection, styling, re-render on a rows
+// change) is identical across the modes.
+function buildDataRows(node, element, properties, ctx, selectable, rowStyle, renderCell) {
+    if (selectable) node.setAttribute("role", "listbox");
+
+    let rows = [];
+    let rowNodes = [];
+    let selectedRow = ""; // the selected row's columns tab-joined ("" = none)
+
+    const rowValue = (row) => row.join("\t");
+
+    const applySelectionStyles = () => {
+        rowNodes.forEach((rowNode, i) => {
+            const isSelected = selectable && selectedRow !== "" && rowValue(rows[i]) === selectedRow;
+            rowNode.classList.toggle("aui-list-row-selected", isSelected);
+            if (selectable) rowNode.setAttribute("aria-selected", isSelected ? "true" : "false");
+        });
+    };
+
+    const selectRow = (index, fromUser) => {
+        const value = rowValue(rows[index]);
+        if (value === selectedRow) return;
+        selectedRow = value;
+        applySelectionStyles();
+        // Apple fires the selection actionID with no context and reads
+        // model.value; the web matches — the selection is the element value.
+        if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
+    };
+
+    const renderRows = () => {
+        rowNodes = rows.map((row, index) => {
+            const rowNode = document.createElement("div");
+            rowNode.className = "aui-list-row";
+            applyRowStyle(rowNode, rowStyle);
+            rowNode.appendChild(renderCell(row, index));
+            if (selectable) {
+                rowNode.setAttribute("role", "option");
+                rowNode.setAttribute("aria-selected", "false");
+                rowNode.tabIndex = 0;
+                rowNode.addEventListener("click", (event) => {
+                    const control = event.target.closest?.(INTERACTIVE_SELECTOR);
+                    if (control && rowNode.contains(control)) return;
+                    selectRow(index, true);
+                });
+                rowNode.addEventListener("keydown", (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectRow(index, true);
+                    }
+                });
+                rowNode.addEventListener("dblclick", () => {
+                    if (typeof properties.doubleClickActionID === "string" && rowValue(row) === selectedRow) {
+                        ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, index);
+                    }
+                });
+            }
+            return rowNode;
+        });
+        node.classList.toggle("aui-list-empty", rows.length === 0);
+        node.replaceChildren(...rowNodes);
+        // A rows change that drops the selected row clears the selection.
+        if (selectedRow !== "" && !rows.some((row) => rowValue(row) === selectedRow)) selectedRow = "";
+        applySelectionStyles();
+    };
+
+    if (element.id > 0) {
+        // The rows store: set/append/clearElementRows route through here and
+        // re-render the rows in place.
+        ctx.model.bindState(element.id, {
+            getState: (key) => (key === "content" ? rows : undefined),
+            setState: (key, value) => {
+                if (key !== "content") return;
+                rows = Array.isArray(value) ? value : [];
+                renderRows();
+            },
+        });
+        // The selection value: the selected row tab-joined; highlighted silently
+        // when set programmatically.
+        ctx.model.bind(element.id, {
+            getValue: () => selectedRow,
+            setValue: (value) => {
+                selectedRow = String(value ?? "");
+                applySelectionStyles();
+            },
+        });
+    }
+
+    renderRows();
+    return node;
+}
+
+// One homogeneous itemType cell: the row's first column rendered as the
+// itemType.viewType. Text shows the value; Button fires itemType.actionID
+// (context = the row index or the value) and consumes its tap; Image / AsyncImage
+// render a real image (via the shared data-image-cell helper).
+function renderHomogeneousCell(itemType, value, index, element, ctx) {
+    const viewType = itemType.viewType ?? "Text";
+    if (viewType === "Button") {
+        const button = document.createElement("button");
+        button.className = "aui-list-button";
+        button.textContent = value;
+        button.addEventListener("click", (event) => {
+            event.stopPropagation(); // the cell's own tap, not row selection
+            if (typeof itemType.actionID === "string") {
+                const context = itemType.actionContext === "rowIndex" ? index : value;
+                ctx.model.dispatchAction(itemType.actionID, element.id, 0, context);
+            }
+        });
+        return button;
+    }
+    if (viewType === "Image") {
+        return buildDataImageCell(value, itemType.dataInterpretation ?? "systemName", ctx.logger, "List");
+    }
+    if (viewType === "AsyncImage") {
+        const img = document.createElement("img");
+        img.className = "aui-data-image";
+        img.loading = "lazy";
+        img.src = value;
+        img.alt = "";
+        return img;
+    }
+    const span = document.createElement("span");
+    span.textContent = value;
+    return span;
+}
 
 // Resolves the row-styling properties once; the result is applied to every row.
 function computeRowStyle(properties, logger) {

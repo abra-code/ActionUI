@@ -33,7 +33,7 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
-import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 
 const CELL_VIEW_TYPES = ["Text", "Button", "Image", "AsyncImage"];
 const DATA_INTERPRETATIONS = ["path", "systemName", "assetName", "resourceName", "mixed"];
@@ -198,7 +198,7 @@ register("Table", {
                 const button = document.createElement("button");
                 button.className = "aui-table-button";
                 if (colType.dataInterpretation) {
-                    button.appendChild(buildCellImage(value, colType.dataInterpretation, ctx.logger));
+                    button.appendChild(buildDataImageCell(value, colType.dataInterpretation, ctx.logger, "Table"));
                 } else {
                     button.textContent = value;
                 }
@@ -210,10 +210,10 @@ register("Table", {
                 });
                 td.appendChild(button);
             } else if (viewType === "Image") {
-                td.appendChild(buildCellImage(value, colType.dataInterpretation ?? "mixed", ctx.logger));
+                td.appendChild(buildDataImageCell(value, colType.dataInterpretation ?? "mixed", ctx.logger, "Table"));
             } else if (viewType === "AsyncImage") {
                 const img = document.createElement("img");
-                img.className = "aui-table-image";
+                img.className = "aui-data-image";
                 img.loading = "lazy";
                 img.src = value;
                 img.alt = "";
@@ -282,42 +282,6 @@ function cellContext(actionContext, value, rowIndex, colIndex) {
         case "rowColumnIndex": return { row: rowIndex, column: colIndex };
         default:               return value; // "title"
     }
-}
-
-// Renders a Table image cell from a raw data string + interpretation, reusing the
-// shared glyph helper for SF Symbols and a plain <img> for raster paths. asset/
-// resource catalog sources warn-and-skip on web (no name→URL contract yet), as in
-// Image.js/SymbolIcon.js. "mixed" sniffs a path-looking string.
-function buildCellImage(value, interpretation, logger) {
-    const resolved = interpretation === "mixed"
-        ? (looksLikePath(value) ? "path" : "systemName")
-        : interpretation;
-
-    if (resolved === "systemName") {
-        return systemSymbolGlyph(value, {}, logger, (name) =>
-            `Table image cell systemName '${name}' has no SF→Material mapping; icon omitted. ` +
-            `Use 'materialName:web' for an explicit Material glyph.`);
-    }
-    if (resolved === "path") {
-        const img = document.createElement("img");
-        img.className = "aui-table-image";
-        img.src = value;
-        img.alt = "";
-        return img;
-    }
-    // assetName / resourceName: asset-catalog images aren't supported on web yet.
-    logger.log(
-        `Table image cell '${value}' uses '${resolved}', an asset-catalog source not ` +
-        `supported on web yet (pending a name→URL contract). No image rendered.`,
-        "warning",
-    );
-    const empty = document.createElement("span");
-    empty.className = "aui-image aui-image-empty";
-    return empty;
-}
-
-function looksLikePath(value) {
-    return /^(https?:|\.{0,2}\/|data:)/.test(value) || /\.(png|jpe?g|gif|webp|svg|bmp|pdf)$/i.test(value);
 }
 
 function isStringArray(value) {
