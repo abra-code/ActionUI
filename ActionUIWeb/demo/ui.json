@@ -252,11 +252,11 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "TabView (top strip, selection-bound, badges):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "TabView (sidebarAdaptable: a left rail, selection-bound, badges):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "TabView",
       "id": 30,
-      "properties": { "selection": 0, "actionID": "tabChanged" },
+      "properties": { "selection": 0, "actionID": "tabChanged", "style": "sidebarAdaptable" },
       "children": [
         {
           "type": "Tab",
@@ -350,6 +350,38 @@
         "actionID": "tableSelect",
         "frame": { "maxWidth": "infinity" }
       }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "NavigationSplitView (sidebar selection switches the detail pane):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "NavigationSplitView",
+      "id": 200,
+      "properties": { "columnVisibility": "all", "frame": { "maxWidth": "infinity" } },
+      "sidebar": {
+        "type": "List",
+        "id": 201,
+        "properties": { "actionID": "navSelect" },
+        "children": [
+          { "type": "Label", "id": 210, "properties": { "title": "Inbox", "systemImage": "tray", "destinationViewId": 220 } },
+          { "type": "Label", "id": 211, "properties": { "title": "Drafts", "systemImage": "doc", "destinationViewId": 221 } },
+          { "type": "Label", "id": 212, "properties": { "title": "Sent", "systemImage": "paperplane", "destinationViewId": 222 } }
+        ]
+      },
+      "detail": { "type": "Text", "properties": { "text": "Select a section.", "foregroundColor": "secondary" } },
+      "destinations": [
+        { "type": "VStack", "id": 220, "properties": { "alignment": "leading", "spacing": 6 }, "children": [
+          { "type": "Text", "properties": { "text": "Inbox", "font": "headline" } },
+          { "type": "Text", "properties": { "text": "Your incoming messages live here." } }
+        ] },
+        { "type": "VStack", "id": 221, "properties": { "alignment": "leading", "spacing": 6 }, "children": [
+          { "type": "Text", "properties": { "text": "Drafts", "font": "headline" } },
+          { "type": "Text", "properties": { "text": "Unsent drafts, saved as you type." } }
+        ] },
+        { "type": "VStack", "id": 222, "properties": { "alignment": "leading", "spacing": 6 }, "children": [
+          { "type": "Text", "properties": { "text": "Sent", "font": "headline" } },
+          { "type": "Text", "properties": { "text": "Everything you've already sent." } }
+        ] }
+      ]
     },
     { "type": "Divider" },
     { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }

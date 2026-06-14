@@ -57,6 +57,7 @@ import "./Views/TabView.js";
 import "./Views/Menu.js";
 import "./Views/List.js";
 import "./Views/Table.js";
+import "./Views/NavigationSplitView.js";
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {

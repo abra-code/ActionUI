@@ -55,12 +55,15 @@ python3 -m http.server 8080
   Form, Section, GroupBox, LabeledContent, DisclosureGroup, TextEditor, Gauge,
   the shape primitives Rectangle, RoundedRectangle, Capsule, Circle,
   Ellipse (shared fill/stroke resolution in `Helpers/ShapeStyleHelper.js`),
-  TabView + Tab (a top tab strip with selection binding and badges),
+  TabView + Tab (a tab strip — or a left sidebar rail with
+  `style: sidebarAdaptable` — with selection binding and badges),
   Menu (a pull-down of action items, with sections and dividers),
   List (a row collection; all three modes — heterogeneous children, homogeneous
   itemType, and the data-driven template repeater with `$1`/`$2` column
-  references — with selection), and
-  Table (a multi-column data table driven by the rows API).
+  references — with selection),
+  Table (a multi-column data table driven by the rows API), and
+  NavigationSplitView (a sidebar | (content) | detail layout — static panes, or a
+  sidebar List whose `destinationViewId` rows switch the detail pane).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.

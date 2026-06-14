@@ -13,9 +13,13 @@
 // convention, matching the macOS-flavored default skin — where Android uses a
 // bottom Material NavigationBar and iOS a bottom tab bar. All tab contents are
 // built once and toggled with `display`, so each tab keeps its state across
-// switches (Apple keeps tab views alive). `style` (page / sidebarAdaptable / …)
-// is validated and stashed (data-attribute) but not honored — the strip is
-// always used, the Android stance. Tab icons (systemImage / materialName:web)
+// switches (Apple keeps tab views alive). `style` "sidebarAdaptable" is honored
+// as a left sidebar rail — the tab items run down the side and the content fills
+// the rest (Apple's adaptive sidebar, rendered as the desktop/expanded form; the
+// narrow-window collapse to a strip is the deferred responsive part). The other
+// styles (page / verticalPage / grouped / tabBarOnly) are validated and stashed
+// (data-attribute) but not honored — the top strip is used, the Android stance.
+// Tab icons (systemImage / materialName:web)
 // draw through the shared SymbolIcon seam; `assetImage` warns-and-skips like
 // Image's assetName. See Private/Web_Porting_Notes.md (TabView).
 
@@ -56,8 +60,12 @@ register("TabView", {
     initialValue: (element, properties) => (Number.isInteger(properties.selection) ? properties.selection : 0),
 
     buildView: (element, properties, ctx) => {
+        // "sidebarAdaptable" lays the tab items out as a left rail instead of a top
+        // strip; every other style keeps the strip (see the header note).
+        const sidebarLayout = properties.style === "sidebarAdaptable";
+
         const node = document.createElement("div");
-        node.className = "aui-tabview";
+        node.className = sidebarLayout ? "aui-tabview aui-tabview-sidebar" : "aui-tabview";
         if (typeof properties.style === "string") node.dataset.auiTabStyle = properties.style;
 
         const tabs = element.children();
@@ -68,8 +76,9 @@ register("TabView", {
         let selected = initial;
 
         const bar = document.createElement("div");
-        bar.className = "aui-tabbar";
+        bar.className = sidebarLayout ? "aui-tabbar aui-tabbar-sidebar" : "aui-tabbar";
         bar.setAttribute("role", "tablist");
+        if (sidebarLayout) bar.setAttribute("aria-orientation", "vertical");
 
         const contentArea = document.createElement("div");
         contentArea.className = "aui-tabview-content";

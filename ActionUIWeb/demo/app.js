@@ -88,6 +88,14 @@ app.action("tmplListSelect", () => {
     win.setString(20, 0, win.getString(55) ? `Folder: ${row[0]}.` : "No folder selected.");
 });
 
+// NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
+// context — read the selected destination id from the split view's state.
+app.action("navSelect", () => {
+    const dest = win.getState(200, "selectedDestination");
+    const names = { 220: "Inbox", 221: "Drafts", 222: "Sent" };
+    win.setString(20, 0, dest ? `Section: ${names[dest] ?? dest}.` : "No section selected.");
+});
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {

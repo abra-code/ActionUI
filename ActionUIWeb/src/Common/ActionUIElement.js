@@ -8,18 +8,19 @@
 //   "children": []        // Optional: child elements (stored in subviews.children)
 // }
 //
-// Subset routed so far: the "children" (array), "content", "label" and
-// "template" (single) keys, plus "rows" (array-of-arrays, for Grid's GridRows).
-// "label" is the custom-trigger view (Menu's label-instead-of-title; later
-// Button/Toggle). "template" is the data-driven repeater's per-row prototype
-// (List's template mode; later Section). The remaining Apple/Android keys
-// (destination, sidebar, detail, popover, toolbar, overlay, background, ...)
-// come with the elements that need them.
+// Subset routed so far: the "children" and "destinations" (arrays); "content",
+// "label", "template", "sidebar" and "detail" (single); plus "rows"
+// (array-of-arrays, for Grid's GridRows). "label" is the custom-trigger view
+// (Menu's label-instead-of-title; later Button/Toggle). "template" is the
+// data-driven repeater's per-row prototype (List's template mode; later Section).
+// "sidebar"/"content"/"detail" are NavigationSplitView's panes and "destinations"
+// its detail targets. The remaining Apple/Android keys (destination, popover,
+// toolbar, overlay, background, ...) come with the elements that need them.
 
 let negativeIDCounter = -1;
 
-const SUBVIEW_ARRAY_KEYS = ["children"];
-const SUBVIEW_SINGLE_KEYS = ["content", "label", "template"];
+const SUBVIEW_ARRAY_KEYS = ["children", "destinations"];
+const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.
@@ -98,5 +99,24 @@ export class ActionUIElement {
     // null. Never built directly — the owner substitutes a copy per data row.
     template() {
         return this.subviews?.template ?? null;
+    }
+
+    // NavigationSplitView's panes and detail targets. sidebar() / content() /
+    // detail() are single child elements (or null); destinations() is the array
+    // of detail targets addressed by id (empty when absent).
+    sidebar() {
+        return this.subviews?.sidebar ?? null;
+    }
+
+    content() {
+        return this.subviews?.content ?? null;
+    }
+
+    detail() {
+        return this.subviews?.detail ?? null;
+    }
+
+    destinations() {
+        return this.subviews?.destinations ?? [];
     }
 }
