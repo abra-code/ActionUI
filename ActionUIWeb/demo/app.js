@@ -1,6 +1,9 @@
 // app.js — demo application logic.
-// Exercises the value bridge (get/setString, get/setInt, getBool) and the
-// action system from JS, mirroring the Node.js/Python adapter examples.
+// Exercises the value bridge (get/setString, get/setInt, getBool), the action
+// system, and — new — the LoadableView split: the UI is a NavigationSplitView
+// shell (ui.json) whose sidebar rows load each section from a separate JSON file
+// under demo/sections/. Elements live in those loaded files, so a section's data
+// is pushed once it loads (viewDidLoadActionID) rather than up front.
 
 import { Application, Window } from "../src/ActionUI.js";
 
@@ -8,20 +11,29 @@ const app = new Application({ name: "ActionUIWeb Demo" });
 const win = await Window.fromURL("./ui.json");
 app.presentWindow(win, document.getElementById("root"));
 
-// The Table is data-driven: populate it through the rows API (states["content"]).
-win.setElementRows(100, [
-    ["Budget.xlsx", "tablecells", "Open"],
-    ["Photo.jpg", "photo", "Open"],
-    ["Notes.txt", "text.document", "Open"],
-]);
+// Open on the Overview section (the LoadableViews all preload as the split's
+// destinations; this just selects which one is shown first).
+win.setState(1000, "selectedDestination", 1100);
 
-// The homogeneous List (itemType Text) is data-driven too — its rows come through
-// the same rows API; each row shows its first column.
-win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
+// NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
+// context — read the selected destination id from the split view's state.
+const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation" };
+app.action("sectionSelect", () => {
+    const dest = win.getState(1000, "selectedDestination");
+    win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
+});
 
-// The template List repeats its HStack(Image $2, Text $1) per row: column 1 is the
-// label, column 2 the SF Symbol name.
-win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "doc"], ["Sent", "paperplane"]]);
+// The Collections section is data-driven: once its JSON loads, its List/Table
+// bindings exist, so push their rows through the rows API (states["content"]).
+app.action("collectionsLoaded", () => {
+    win.setElementRows(100, [
+        ["Budget.xlsx", "tablecells", "Open"],
+        ["Photo.jpg", "photo", "Open"],
+        ["Notes.txt", "text.document", "Open"],
+    ]);
+    win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
+    win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "doc"], ["Sent", "paperplane"]]);
+});
 
 app.action("greet", () => {
     const name = win.getString(1).trim();
@@ -86,14 +98,6 @@ app.action("homListSelect", () => {
 app.action("tmplListSelect", () => {
     const row = win.getString(55).split("\t");
     win.setString(20, 0, win.getString(55) ? `Folder: ${row[0]}.` : "No folder selected.");
-});
-
-// NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
-// context — read the selected destination id from the split view's state.
-app.action("navSelect", () => {
-    const dest = win.getState(200, "selectedDestination");
-    const names = { 220: "Inbox", 221: "Drafts", 222: "Sent" };
-    win.setString(20, 0, dest ? `Section: ${names[dest] ?? dest}.` : "No section selected.");
 });
 
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));

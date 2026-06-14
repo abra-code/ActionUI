@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Navigation", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "TabView (sidebarAdaptable: a left rail, selection-bound, badges):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "TabView",
+      "id": 130,
+      "properties": { "selection": 0, "actionID": "tabChanged", "style": "sidebarAdaptable", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "Tab",
+          "properties": { "title": "Home", "systemImage": "house" },
+          "content": {
+            "type": "VStack",
+            "properties": { "alignment": "leading", "spacing": 6 },
+            "children": [
+              { "type": "Text", "properties": { "text": "Home", "font": "headline" } },
+              { "type": "Text", "properties": { "text": "Each tab keeps its own state across switches.", "foregroundColor": "secondary" } }
+            ]
+          }
+        },
+        {
+          "type": "Tab",
+          "properties": { "title": "Settings", "systemImage": "gearshape", "badge": 3 },
+          "content": { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } }
+        },
+        {
+          "type": "Tab",
+          "properties": { "title": "About", "systemImage": "info.circle", "badge": "!" },
+          "content": { "type": "Text", "properties": { "text": "ActionUIWeb — three renderers, one JSON." } }
+        }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Menu (pull-down: icons, a section, a divider):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Menu",
+      "properties": { "title": "Actions" },
+      "children": [
+        { "type": "Button", "properties": { "title": "New", "systemImage": "plus", "actionID": "menuNew" } },
+        { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "menuDuplicate" } },
+        { "type": "Divider" },
+        {
+          "type": "Section",
+          "properties": { "header": "Danger" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "actionID": "menuDelete" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

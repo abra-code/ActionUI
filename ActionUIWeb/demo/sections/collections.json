@@ -1,0 +1,59 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Collections", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "Rows for the data-driven collections are pushed from app.js once this section loads (viewDidLoadActionID).", "foregroundColor": "secondary" } },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (selectable children; a Button row keeps its own action):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 46,
+      "properties": { "actionID": "listSelect", "listStyle": "inset", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Label", "id": 41, "properties": { "title": "Inbox", "systemImage": "tray" } },
+        { "type": "Label", "id": 42, "properties": { "title": "Drafts", "systemImage": "doc" } },
+        { "type": "Label", "id": 43, "properties": { "title": "Sent", "systemImage": "paperplane" } },
+        { "type": "Button", "id": 44, "properties": { "title": "Compose", "systemImage": "square.and.pencil", "actionID": "listCompose" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 45,
+      "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "frame": { "maxWidth": "infinity" } }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (template repeater; $1/$2 column references, rows via the rows API):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 55,
+      "properties": { "actionID": "tmplListSelect", "frame": { "maxWidth": "infinity" } },
+      "template": {
+        "type": "HStack",
+        "children": [
+          { "type": "Image", "properties": { "systemName": "$2" } },
+          { "type": "Text", "properties": { "text": "$1" } }
+        ]
+      }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Table (rows via the rows API; an Image column and per-row Button):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Table",
+      "id": 100,
+      "properties": {
+        "columns": ["Name", "Kind", "Action"],
+        "columnTypes": [
+          { "viewType": "Text" },
+          { "viewType": "Image", "dataInterpretation": "systemName" },
+          { "viewType": "Button", "actionContext": "rowIndex", "actionID": "tableRowAction" }
+        ],
+        "widths": [150, 60, 80],
+        "actionID": "tableSelect",
+        "frame": { "maxWidth": "infinity" }
+      }
+    }
+  ]
+}

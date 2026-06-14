@@ -395,6 +395,16 @@
 /* style=prominentDetail → a narrower sidebar so the detail dominates. */
 .aui-nav-split[data-aui-split-style="prominentDetail"] .aui-nav-split-sidebar { min-width: 150px; }
 
+/* ---- LoadableView ---- */
+
+/* A dynamic include: a sub-document fetched and rendered inline. A plain block
+   wrapper (so baseline modifiers on the element still apply); the
+   spinner/error/deferred placeholders show while loading or on failure. */
+.aui-loadable { display: block; }
+.aui-loadable-loading { color: var(--aui-color-secondary); padding: 12px; }
+.aui-loadable-error { color: var(--aui-color-red); padding: 12px; }
+.aui-loadable-deferred { color: var(--aui-color-secondary); padding: 12px; }
+
 /* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
 
 .aui-font-largeTitle  { font-size: 26px; font-weight: 400; }

@@ -36,6 +36,9 @@ python3 -m http.server 8080
 # open http://localhost:8080/demo/
 ```
 
+The demo is a `NavigationSplitView` shell (`demo/ui.json`); each sidebar section is
+a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
+
 ## What is implemented
 
 - **Core** (`src/Common/`): element parsing with negative-ID generation and
@@ -61,9 +64,11 @@ python3 -m http.server 8080
   List (a row collection; all three modes — heterogeneous children, homogeneous
   itemType, and the data-driven template repeater with `$1`/`$2` column
   references — with selection),
-  Table (a multi-column data table driven by the rows API), and
+  Table (a multi-column data table driven by the rows API),
   NavigationSplitView (a sidebar | (content) | detail layout — static panes, or a
-  sidebar List whose `destinationViewId` rows switch the detail pane).
+  sidebar List whose `destinationViewId` rows switch the detail pane), and
+  LoadableView (a dynamic include — fetches a JSON sub-document by `url` /
+  `filePath` / `name` and renders it inline, so a UI can be split across files).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.
