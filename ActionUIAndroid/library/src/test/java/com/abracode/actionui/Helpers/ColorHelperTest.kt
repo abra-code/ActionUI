@@ -94,4 +94,68 @@ class ColorHelperTest {
         assertNull(parseColor("#1234567"))  // 7 chars
         assertNull(parseColor("#"))
     }
+
+    // --- HSV conversion (the ColorPicker free-form dialog) ---
+
+    // Compose's sRGB Color packs each channel at 8-bit precision, so a component
+    // round-trips to within 1/255 (~0.004), not exactly - hence the tolerance.
+    private fun assertHsvEquals(expected: Hsv, actual: Hsv, tol: Float = 0.004f) {
+        assertEquals(expected.hue, actual.hue, tol)
+        assertEquals(expected.saturation, actual.saturation, tol)
+        assertEquals(expected.value, actual.value, tol)
+    }
+
+    private fun assertColorEquals(expected: Color, actual: Color, tol: Float = 0.004f) {
+        assertEquals(expected.red, actual.red, tol)
+        assertEquals(expected.green, actual.green, tol)
+        assertEquals(expected.blue, actual.blue, tol)
+        assertEquals(expected.alpha, actual.alpha, tol)
+    }
+
+    @Test
+    fun `toHsv decomposes the primaries`() {
+        assertHsvEquals(Hsv(0f, 1f, 1f), Color.Red.toHsv())
+        assertHsvEquals(Hsv(120f, 1f, 1f), Color.Green.toHsv())
+        assertHsvEquals(Hsv(240f, 1f, 1f), Color.Blue.toHsv())
+    }
+
+    @Test
+    fun `toHsv reports zero hue and saturation for grayscale`() {
+        // Black: value and saturation both 0; white: full value, no saturation;
+        // mid gray: half value, no saturation. Hue is undefined -> 0 by convention.
+        assertHsvEquals(Hsv(0f, 0f, 0f), Color.Black.toHsv())
+        assertHsvEquals(Hsv(0f, 0f, 1f), Color.White.toHsv())
+        assertHsvEquals(Hsv(0f, 0f, 0.5f), Color(0.5f, 0.5f, 0.5f).toHsv())
+    }
+
+    @Test
+    fun `hsvToColor builds the primaries`() {
+        assertColorEquals(Color.Red, hsvToColor(0f, 1f, 1f))
+        assertColorEquals(Color.Green, hsvToColor(120f, 1f, 1f))
+        assertColorEquals(Color.Blue, hsvToColor(240f, 1f, 1f))
+        assertColorEquals(Color.White, hsvToColor(0f, 0f, 1f))
+        assertColorEquals(Color.Black, hsvToColor(123f, 0.5f, 0f))
+    }
+
+    @Test
+    fun `hsvToColor wraps hue and clamps the fractions`() {
+        // 360 wraps to 0 (red); negative hue wraps too; out-of-range s/v/a clamp.
+        assertColorEquals(Color.Red, hsvToColor(360f, 1f, 1f))
+        assertColorEquals(Color.Red, hsvToColor(-360f, 1f, 1f))
+        assertColorEquals(Color.Red, hsvToColor(0f, 2f, 2f, 2f))
+    }
+
+    @Test
+    fun `toHsv and hsvToColor round-trip an arbitrary chromatic color`() {
+        // A saturated orange has a recoverable hue, so RGB->HSV->RGB is lossless.
+        val orange = parseColor("#FF8800")!!
+        val hsv = orange.toHsv()
+        assertColorEquals(orange, hsvToColor(hsv.hue, hsv.saturation, hsv.value, orange.alpha))
+    }
+
+    @Test
+    fun `hsvToColor preserves alpha`() {
+        assertEquals(0.5f, hsvToColor(0f, 1f, 1f, 0.5f).alpha, 0.004f)
+        assertEquals(0f, hsvToColor(0f, 1f, 1f, 0f).alpha, 0.004f)
+    }
 }

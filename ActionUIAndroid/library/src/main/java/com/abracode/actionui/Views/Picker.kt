@@ -12,7 +12,9 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -25,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
@@ -36,6 +39,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
+import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonArray
@@ -76,6 +80,11 @@ import kotlinx.serialization.json.JsonPrimitive
  * (parity with the Apple binding setter, which fires only on user interaction).
  * State is ViewModel-backed under a [com.abracode.actionui.Common.WindowModel],
  * local [rememberSaveable] otherwise; host binding needs a positive `id`.
+ *
+ * **Tint.** An inherited [LocalActionUITint] (SwiftUI `.tint`) colors the active
+ * selection per style: the checked `radioGroup` dot, the selected `segmented`
+ * segment, and the `menu` field's focused accent + its selected dropdown row.
+ * Literal colors only (see `TextStyleEnvironment.kt`).
  */
 object Picker : ActionUIViewConstruction {
     override val valueType = ActionUIValueType.STRING
@@ -113,14 +122,18 @@ object Picker : ActionUIViewConstruction {
             }
         }
 
+        // SwiftUI `.tint` (set here or on any ancestor): colors the active
+        // selection in whichever style is rendered.
+        val tint = LocalActionUITint.current
+
         when (style) {
             PickerStyle.Menu ->
-                PickerMenu(title, sections, selectedTag, onSelect, modifier)
+                PickerMenu(title, sections, selectedTag, onSelect, tint, modifier)
             PickerStyle.Segmented ->
-                TitledControl(title, modifier) { PickerSegmented(items, selectedTag, onSelect) }
+                TitledControl(title, modifier) { PickerSegmented(items, selectedTag, onSelect, tint) }
             PickerStyle.RadioGroup -> {
                 val horizontal = props?.booleanProperty("horizontalRadioGroupLayout") ?: false
-                TitledControl(title, modifier) { PickerRadioGroup(items, selectedTag, onSelect, horizontal) }
+                TitledControl(title, modifier) { PickerRadioGroup(items, selectedTag, onSelect, horizontal, tint) }
             }
         }
     }
@@ -259,6 +272,7 @@ private fun PickerMenu(
     sections: List<PickerSection>,
     selectedTag: String,
     onSelect: (String) -> Unit,
+    tint: Color?,
     modifier: Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -267,6 +281,17 @@ private fun PickerMenu(
     // SwiftUI `.disabled` (set here or on any ancestor): gray the anchor field
     // and refuse to open the menu.
     val enabled = LocalActionUIEnabled.current
+    // The anchor reads as "focused" while the menu is open, so tinting the
+    // focused border/label/trailing-icon accents the open picker.
+    val fieldColors = if (tint != null) {
+        OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = tint,
+            focusedLabelColor = tint,
+            focusedTrailingIconColor = tint,
+        )
+    } else {
+        OutlinedTextFieldDefaults.colors()
+    }
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { if (enabled) expanded = it },
@@ -279,6 +304,7 @@ private fun PickerMenu(
             enabled = enabled,
             label = if (title.isNotEmpty()) ({ M3Text(title) }) else null,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            colors = fieldColors,
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
@@ -295,8 +321,11 @@ private fun PickerMenu(
                     )
                 }
                 section.items.forEach { item ->
+                    // The current selection reads in the tint (iOS shows the
+                    // chosen menu row in the accent color).
+                    val itemColor = if (tint != null && item.tag == selectedTag) tint else Color.Unspecified
                     DropdownMenuItem(
-                        text = { M3Text(item.title) },
+                        text = { M3Text(item.title, color = itemColor) },
                         onClick = {
                             onSelect(item.tag)
                             expanded = false
@@ -314,14 +343,23 @@ private fun PickerSegmented(
     items: List<PickerOption>,
     selectedTag: String,
     onSelect: (String) -> Unit,
+    tint: Color?,
 ) {
     val enabled = LocalActionUIEnabled.current
+    // SwiftUI `.tint` fills the selected segment; map it to the active
+    // container + its border.
+    val colors = if (tint != null) {
+        SegmentedButtonDefaults.colors(activeContainerColor = tint, activeBorderColor = tint)
+    } else {
+        SegmentedButtonDefaults.colors()
+    }
     SingleChoiceSegmentedButtonRow {
         items.forEachIndexed { index, item ->
             SegmentedButton(
                 selected = item.tag == selectedTag,
                 onClick = { onSelect(item.tag) },
                 enabled = enabled,
+                colors = colors,
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = items.size),
             ) {
                 M3Text(item.title)
@@ -336,8 +374,15 @@ private fun PickerRadioGroup(
     selectedTag: String,
     onSelect: (String) -> Unit,
     horizontal: Boolean,
+    tint: Color?,
 ) {
     val enabled = LocalActionUIEnabled.current
+    // SwiftUI `.tint` colors the selected radio dot.
+    val colors = if (tint != null) {
+        RadioButtonDefaults.colors(selectedColor = tint)
+    } else {
+        RadioButtonDefaults.colors()
+    }
     val options: @Composable () -> Unit = {
         items.forEach { item ->
             Row(
@@ -354,6 +399,7 @@ private fun PickerRadioGroup(
                     selected = item.tag == selectedTag,
                     onClick = { onSelect(item.tag) },
                     enabled = enabled,
+                    colors = colors,
                 )
                 M3Text(item.title)
             }

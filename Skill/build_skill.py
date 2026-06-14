@@ -180,7 +180,7 @@ def _copy_docs(meta: dict, docs_out: Path) -> None:
         shutil.rmtree(docs_out)
     docs_out.mkdir()
 
-    for name in ["ActionUI-Elements.md", "ActionUI-JSON-Guide.md"]:
+    for name in ["ActionUI-Elements.md", "ActionUI-JSON-Guide.md", "ActionUI-MenuBar-JSON-Guide.md"]:
         src = docs_src / name
         if src.exists():
             shutil.copy2(src, docs_out / name)
