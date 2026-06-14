@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import androidx.compose.ui.graphics.Color
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -76,6 +77,72 @@ internal fun colorToHex(color: Color): String {
         val a = (color.alpha * 255f).roundToInt()
         String.format(Locale.ROOT, "#%02X%02X%02X%02X", r, g, b, a)
     }
+}
+
+/**
+ * A color in HSV (hue/saturation/value) space - the model the `ColorPicker`'s
+ * free-form dialog edits. `hue` is in degrees `[0, 360)`, `saturation` and
+ * `value` (brightness) are fractions `[0, 1]`. Alpha is kept on the Compose
+ * [Color] and carried separately (see [hsvToColor]), so HSV stays the picker's
+ * single source of truth while a control drags - converting RGB->HSV->RGB
+ * round-trips losslessly for the hue/sat/value the picker holds, but a *gray*
+ * (saturation 0) or *black* (value 0) color has no recoverable hue, which is
+ * why the picker seeds HSV once and edits it directly rather than re-deriving it
+ * from the bound color on every change.
+ */
+internal data class Hsv(val hue: Float, val saturation: Float, val value: Float)
+
+/**
+ * Decomposes this opaque-or-translucent [Color] into [Hsv]. The standard
+ * RGB->HSV transform; `hue` is `0` for a grayscale color (no chroma). Pure (no
+ * Android framework call - unlike `android.graphics.Color.colorToHSV`), so it is
+ * unit-testable and matches [hsvToColor] exactly.
+ */
+internal fun Color.toHsv(): Hsv {
+    val r = red
+    val g = green
+    val b = blue
+    val max = maxOf(r, g, b)
+    val min = minOf(r, g, b)
+    val delta = max - min
+    val hue = when {
+        delta == 0f -> 0f
+        max == r -> 60f * (((g - b) / delta) % 6f)
+        max == g -> 60f * (((b - r) / delta) + 2f)
+        else -> 60f * (((r - g) / delta) + 4f)
+    }.let { if (it < 0f) it + 360f else it }
+    val saturation = if (max == 0f) 0f else delta / max
+    return Hsv(hue, saturation, max)
+}
+
+/**
+ * Builds a Compose [Color] from HSV components plus [alpha]. [hue] wraps into
+ * `[0, 360)`; [saturation] / [value] / [alpha] are clamped to `[0, 1]`. The
+ * inverse of [Color.toHsv]; backs the `ColorPicker` HSV dialog's
+ * saturation/brightness area, hue track, and alpha track. Pure, so the dialog's
+ * canvases need no Android framework color call.
+ */
+internal fun hsvToColor(hue: Float, saturation: Float, value: Float, alpha: Float = 1f): Color {
+    val h = ((hue % 360f) + 360f) % 360f
+    val s = saturation.coerceIn(0f, 1f)
+    val v = value.coerceIn(0f, 1f)
+    val c = v * s
+    val x = c * (1f - abs((h / 60f) % 2f - 1f))
+    val m = v - c
+    val (r1, g1, b1) = when {
+        h < 60f  -> Triple(c, x, 0f)
+        h < 120f -> Triple(x, c, 0f)
+        h < 180f -> Triple(0f, c, x)
+        h < 240f -> Triple(0f, x, c)
+        h < 300f -> Triple(x, 0f, c)
+        else     -> Triple(c, 0f, x)
+    }
+    return Color(
+        red = (r1 + m).coerceIn(0f, 1f),
+        green = (g1 + m).coerceIn(0f, 1f),
+        blue = (b1 + m).coerceIn(0f, 1f),
+        alpha = alpha.coerceIn(0f, 1f),
+    )
 }
 
 private fun parseHexColor(hex: String): Color? {

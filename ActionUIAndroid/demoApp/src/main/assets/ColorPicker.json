@@ -2,7 +2,7 @@
   "type": "VStack",
   "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
   "children": [
-    { "type": "Text", "properties": { "text": "ColorPicker - preset swatches; the preview reflects the value:" } },
+    { "type": "Text", "properties": { "text": "ColorPicker - tap a preset swatch, or tap the preview well to open the free-form HSV picker (hue / saturation-brightness / alpha):" } },
     { "type": "ColorPicker", "id": 1, "properties": { "title": "Accent", "selectedColor": "#FF8800", "actionID": "color.changed" } },
     { "type": "ColorPicker", "id": 2, "properties": { "title": "Background", "selectedColor": "teal" } }
   ]

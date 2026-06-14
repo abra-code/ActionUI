@@ -13,8 +13,9 @@ import org.junit.Test
 
 /**
  * Unit tests for [ColorPicker] - registry resolution, the COLOR value seed, and
- * the preset swatch palette. The `@Composable` swatch grid is exercised by the
- * app.
+ * the preset swatch palette. The `@Composable` swatch grid and the free-form HSV
+ * dialog are exercised by the app; the dialog's HSV<->Color math is unit-tested in
+ * `Helpers/ColorHelperTest.kt`.
  */
 class ColorPickerTest {
 
