@@ -60,6 +60,16 @@
 
 .aui-spacer { flex-grow: 1; align-self: stretch; }
 
+/* maxWidth/maxHeight ".infinity" -> fill the proposal (the
+   .frame(maxWidth/maxHeight: .infinity) analog). View modifiers run before the
+   node is attached, so the parent stack resolves the axis here: grow along its
+   main axis, stretch across its cross axis. A view that fills only one axis hugs
+   its content on the other. See Private/ActionUI-Web-Layout-Engine.md. */
+.aui-vstack > .aui-fill-width  { align-self: stretch; }
+.aui-hstack > .aui-fill-width  { flex: 1 1 0; min-width: 0; }
+.aui-vstack > .aui-fill-height { flex: 1 1 0; min-height: 0; }
+.aui-hstack > .aui-fill-height { align-self: stretch; }
+
 /* Lazy stacks share the flex layout (and Divider orientation) of their eager
    twins; the .aui-lazy* classes are markers for any future lazy-only styling.
    On web they render eagerly — virtualization is deferred (Phase 4). */
@@ -372,15 +382,20 @@
     border-radius: var(--aui-control-radius);
     overflow: hidden;
 }
+/* Panes shrink (min-width/height:0 defeats the default min-*:auto) and scroll
+   internally, so a tall section scrolls inside a fixed-height detail pane rather
+   than growing the split (and the window). */
 .aui-nav-split-sidebar {
     min-width: 180px;
     flex: 0 0 auto;
     padding: 4px;
     border-right: 1px solid var(--aui-control-border);
     background: color-mix(in srgb, var(--aui-control-border) 14%, transparent);
+    min-height: 0;
+    overflow: auto;
 }
-.aui-nav-split-content { flex: 1 1 0; padding: 12px; border-right: 1px solid var(--aui-control-border); }
-.aui-nav-split-detail { flex: 2 1 0; padding: 12px; }
+.aui-nav-split-content { flex: 1 1 0; min-width: 0; min-height: 0; overflow: auto; padding: 12px; border-right: 1px solid var(--aui-control-border); }
+.aui-nav-split-detail { flex: 2 1 0; min-width: 0; min-height: 0; overflow: auto; padding: 12px; }
 .aui-nav-split-row {
     padding: 6px 10px;
     border-radius: var(--aui-control-radius);

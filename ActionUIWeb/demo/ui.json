@@ -1,6 +1,6 @@
 {
   "type": "VStack",
-  "properties": { "alignment": "leading", "spacing": 12, "padding": 20, "frame": { "maxWidth": 760 } },
+  "properties": { "alignment": "leading", "spacing": 12, "padding": 20, "frame": { "minWidth": 480, "idealWidth": 760, "maxWidth": 900, "minHeight": 520, "idealHeight": 680, "maxHeight": 900 } },
   "children": [
     {
       "type": "HStack",
@@ -14,7 +14,7 @@
     {
       "type": "NavigationSplitView",
       "id": 1000,
-      "properties": { "columnVisibility": "all", "frame": { "maxWidth": "infinity" } },
+      "properties": { "columnVisibility": "all", "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
       "sidebar": {
         "type": "List",
         "id": 1001,

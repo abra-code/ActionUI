@@ -10,8 +10,10 @@
 //   background       SwiftUI color name or hex string
 //   cornerRadius     Number
 //   font             Named text style ("largeTitle".."caption2") — CSS class
-//   frame            {width, height, minWidth, maxWidth, minHeight, maxHeight}
-//                    ("infinity" accepted for maxWidth/maxHeight)
+//   frame            {width, height, minWidth, idealWidth, maxWidth,
+//                    minHeight, idealHeight, maxHeight} — clamped against the
+//                    viewport per the SwiftUI rules; "infinity" accepted for
+//                    maxWidth/maxHeight (see applyFrame).
 //   help             String tooltip -> title attribute
 //   actionID         Handled by individual views (interaction semantics differ
 //                    per control); plain display views get a click action here.
@@ -68,22 +70,47 @@ function applyPadding(node, padding, logger) {
     }
 }
 
-function applyFrameDimension(node, value, cssProperty) {
-    if (value === "infinity") {
-        node.style[cssProperty] = "100%";
-        if (cssProperty === "maxWidth" || cssProperty === "width") node.style.flexGrow = "1";
-    } else if (typeof value === "number") {
-        node.style[cssProperty] = `${value}px`;
-    }
-}
-
+// Frame -> CSS, following the SwiftUI frame contract (see
+// Private/ActionUI-Web-Layout-Engine.md). The browser viewport is the proposed
+// size; min/ideal/max clamp against it, per axis:
+//   - never below min (the box overflows the window instead of shrinking past it),
+//   - apply ideal when it fits the proposal,
+//   - never above max even if the proposal is larger.
+// In CSS this is the native min/max interaction: ideal -> the base size,
+// max -> min(<max>, 100%) (so ideal yields to a smaller window while max caps a
+// larger one), min -> the hard floor. A fixed width/height is rigid. maxWidth/
+// maxHeight ".infinity" -> a fill class the parent stack resolves per axis (grow
+// along its main axis, stretch across its cross axis).
 function applyFrame(node, frame) {
-    applyFrameDimension(node, frame.width, "width");
-    applyFrameDimension(node, frame.height, "height");
-    applyFrameDimension(node, frame.minWidth, "minWidth");
-    applyFrameDimension(node, frame.maxWidth, "maxWidth");
-    applyFrameDimension(node, frame.minHeight, "minHeight");
-    applyFrameDimension(node, frame.maxHeight, "maxHeight");
+    // --- width axis ---
+    if (typeof frame.width === "number") {
+        node.style.width = `${frame.width}px`;            // fixed: exactly this wide
+    } else if (typeof frame.idealWidth === "number") {
+        node.style.width = `${frame.idealWidth}px`;       // ideal: base; yields to a smaller window
+        if (frame.maxWidth === undefined) node.style.maxWidth = "100%";
+    }
+    if (typeof frame.minWidth === "number") node.style.minWidth = `${frame.minWidth}px`;
+    if (frame.maxWidth === "infinity") {
+        node.classList.add("aui-fill-width");
+    } else if (typeof frame.maxWidth === "number") {
+        node.style.maxWidth = `min(${frame.maxWidth}px, 100%)`;
+    }
+
+    // --- height axis ---
+    if (typeof frame.height === "number") {
+        node.style.height = `${frame.height}px`;
+    } else if (typeof frame.idealHeight === "number") {
+        node.style.height = `${frame.idealHeight}px`;
+        if (frame.maxHeight === undefined) node.style.maxHeight = "100%";
+    }
+    if (typeof frame.minHeight === "number") node.style.minHeight = `${frame.minHeight}px`;
+    if (frame.maxHeight === "infinity") {
+        node.classList.add("aui-fill-height");
+    } else if (typeof frame.maxHeight === "number") {
+        node.style.maxHeight = `min(${frame.maxHeight}px, 100%)`;
+    }
+
+    // A fixed dimension is rigid: it neither grows nor shrinks along that axis.
     if (typeof frame.width === "number" || typeof frame.height === "number") {
         node.style.flexShrink = "0";
     }
