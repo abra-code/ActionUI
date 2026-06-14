@@ -36,6 +36,15 @@ let package = Package(
             targets: ["ActionUI"]
         ),
 
+        // MARK: - Menu bar
+        // Lifecycle-free JSON->NSMenu builder (default macOS menu bar plus
+        // CommandMenu / CommandGroup items).  Shared by ActionUIAppKitApplication
+        // and external hosts.  Depends only on ActionUI core.
+        .library(
+            name: "ActionUIMenuBar",
+            targets: ["ActionUIMenuBar"]
+        ),
+
         // MARK: - Swift adapter
         // Provides the @MainActor ActionUISwift struct with a simplified static API.
         // Depends on ActionUI. Suitable for Swift-only clients.
@@ -89,6 +98,14 @@ let package = Package(
         .target(
             name: "ActionUI",
             path: "ActionUI",
+        ),
+
+        // MARK: - ActionUIMenuBar
+        // Lifecycle-free menu-bar construction.
+        .target(
+            name: "ActionUIMenuBar",
+            dependencies: ["ActionUI"],
+            path: "ActionUIMenuBar",
         ),
 
         // MARK: - ActionUISwiftAdapter
