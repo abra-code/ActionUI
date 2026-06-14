@@ -13,8 +13,10 @@
 //  Builds the standard macOS menu bar (App, File, Edit, Format, Window, Help)
 //  with all default items wired to their standard first-responder selectors,
 //  and applies additional CommandMenu / CommandGroup items described in
-//  ActionUI JSON.  JSON may also remove default items via RemoveMenu /
-//  RemoveItem, so a host can pare the standard bar down to what it needs.
+//  ActionUI JSON.  A CommandGroup with `placement: "replacing"` and no children
+//  removes its target — a single default item (by stable identifier), a SwiftUI
+//  group placement (the whole group), or a whole top-level menu (by title) — so
+//  a host can pare the standard bar down to what it needs.
 //
 //  This library is lifecycle-free: it does NOT own the NSApplication, an app
 //  delegate, or a run loop.  The two host-specific concerns — how a custom
@@ -123,15 +125,18 @@ public typealias ActionUIMenuItemBuilder = (_ properties: [String: Any]) -> NSMe
     /// ```json
     /// [
     ///   { "type": "CommandMenu", "properties": { "name": "Tools" }, "children": [...] },
-    ///   { "type": "CommandGroup", "properties": { "placement": "after", "placementTarget": "newItem" }, "children": [...] },
-    ///   { "type": "RemoveMenu", "properties": { "name": "Format" } },
-    ///   { "type": "RemoveItem", "properties": { "menu": "File", "title": "New" } }
+    ///   { "type": "CommandGroup", "properties": { "placement": "replacing", "placementTarget": "new" } },
+    ///   { "type": "CommandGroup", "properties": { "placement": "replacing", "placementTarget": "newItem" }, "children": [...] },
+    ///   { "type": "CommandGroup", "properties": { "placement": "replacing", "placementTarget": "Format" } }
     /// ]
     /// ```
     ///
-    /// `RemoveMenu` deletes a whole top-level menu by its title; `RemoveItem`
-    /// deletes a single item by title (optionally scoped to one menu via
-    /// `menu`).  Both let a host pare the default bar down to what it needs.
+    /// `placementTarget` resolves in order: a single default item by its stable
+    /// identifier (e.g. `"new"`, `"open"`) — surgical; then a SwiftUI group
+    /// placement (e.g. `"newItem"`) which targets the WHOLE group; then a
+    /// top-level menu title (e.g. `"Format"`).  A `"replacing"` CommandGroup with
+    /// no children deletes its target.  (Group placements follow SwiftUI's
+    /// `CommandGroup(replacing:)`, where e.g. `newItem` is the New+Open group.)
     ///
     /// - Parameter itemBuilder: Produces a wired NSMenuItem for each Button
     ///   element; see `ActionUIMenuItemBuilder`.
@@ -174,12 +179,6 @@ public typealias ActionUIMenuItemBuilder = (_ properties: [String: Any]) -> NSMe
                 applyCommandGroup(properties: properties, children: children,
                                   to: mainMenu, itemBuilder: itemBuilder, logger: logger)
 
-            case "RemoveMenu":
-                applyRemoveMenu(properties: properties, from: mainMenu, logger: logger)
-
-            case "RemoveItem":
-                applyRemoveItem(properties: properties, from: mainMenu, logger: logger)
-
             default:
                 logger.log("ActionUIMenuBar: unsupported command type '\(type)'", .warning)
             }
@@ -203,6 +202,8 @@ private func buildAppMenu(appName: String, aboutTarget: AnyObject?, aboutAction:
                                  action: aboutAction ?? #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                                  keyEquivalent: "")
     aboutItem.target = aboutTarget
+    aboutItem.tag = MenuPlacementTag.appInfo.rawValue
+    aboutItem.identifier = NSUserInterfaceItemIdentifier("about")
 
     // --- appSettings ---
     let appSettingsSentinel = NSMenuItem.separator()
@@ -217,6 +218,8 @@ private func buildAppMenu(appName: String, aboutTarget: AnyObject?, aboutAction:
     let servicesMenu = NSMenu(title: "Services")
     let servicesItem = menu.addItem(withTitle: "Services", action: nil, keyEquivalent: "")
     servicesItem.submenu = servicesMenu
+    servicesItem.tag = MenuPlacementTag.systemServices.rawValue
+    servicesItem.identifier = NSUserInterfaceItemIdentifier("services")
     NSApp.servicesMenu = servicesMenu
 
     // --- appVisibility ---
@@ -224,27 +227,35 @@ private func buildAppMenu(appName: String, aboutTarget: AnyObject?, aboutAction:
     appVisibilitySentinel.tag = MenuPlacementTag.appVisibility.rawValue
     menu.addItem(appVisibilitySentinel)
 
-    menu.addItem(withTitle: "Hide \(appName)",
-                 action: #selector(NSApplication.hide(_:)),
-                 keyEquivalent: "h")
+    let hideItem = menu.addItem(withTitle: "Hide \(appName)",
+                                action: #selector(NSApplication.hide(_:)),
+                                keyEquivalent: "h")
+    hideItem.tag = MenuPlacementTag.appVisibility.rawValue
+    hideItem.identifier = NSUserInterfaceItemIdentifier("hide")
 
     let hideOthers = menu.addItem(withTitle: "Hide Others",
                                   action: #selector(NSApplication.hideOtherApplications(_:)),
                                   keyEquivalent: "h")
     hideOthers.keyEquivalentModifierMask = [.command, .option]
+    hideOthers.tag = MenuPlacementTag.appVisibility.rawValue
+    hideOthers.identifier = NSUserInterfaceItemIdentifier("hideOthers")
 
-    menu.addItem(withTitle: "Show All",
-                 action: #selector(NSApplication.unhideAllApplications(_:)),
-                 keyEquivalent: "")
+    let showAllItem = menu.addItem(withTitle: "Show All",
+                                   action: #selector(NSApplication.unhideAllApplications(_:)),
+                                   keyEquivalent: "")
+    showAllItem.tag = MenuPlacementTag.appVisibility.rawValue
+    showAllItem.identifier = NSUserInterfaceItemIdentifier("showAll")
 
     // --- appTermination ---
     let appTerminationSentinel = NSMenuItem.separator()
     appTerminationSentinel.tag = MenuPlacementTag.appTermination.rawValue
     menu.addItem(appTerminationSentinel)
 
-    menu.addItem(withTitle: "Quit \(appName)",
-                 action: #selector(NSApplication.terminate(_:)),
-                 keyEquivalent: "q")
+    let quitItem = menu.addItem(withTitle: "Quit \(appName)",
+                                action: #selector(NSApplication.terminate(_:)),
+                                keyEquivalent: "q")
+    quitItem.tag = MenuPlacementTag.appTermination.rawValue
+    quitItem.identifier = NSUserInterfaceItemIdentifier("quit")
 
     let item = NSMenuItem()
     item.submenu = menu
@@ -258,8 +269,10 @@ private func buildFileMenu() -> NSMenuItem {
     // --- New / Open group ---
     // Standard first-responder document actions: active when something in the
     // responder chain (or NSDocumentController) handles them, disabled otherwise.
-    addStandardItem(menu, "New", NSSelectorFromString("newDocument:"), key: "n")
-    addStandardItem(menu, "Open…", NSSelectorFromString("openDocument:"), key: "o")
+    addStandardItem(menu, "New", NSSelectorFromString("newDocument:"), key: "n",
+                    tag: MenuPlacementTag.newItem.rawValue, identifier: "new")
+    addStandardItem(menu, "Open…", NSSelectorFromString("openDocument:"), key: "o",
+                    tag: MenuPlacementTag.newItem.rawValue, identifier: "open")
 
     // Note: no "Open Recent" submenu is built here. AppKit only auto-populates an
     // Open Recent submenu for nib-based menus; a programmatic submenu stays empty
@@ -271,9 +284,11 @@ private func buildFileMenu() -> NSMenuItem {
     menu.addItem(newItemSentinel)
 
     // --- Close / Save group ---
-    menu.addItem(withTitle: "Close",
-                 action: #selector(NSWindow.performClose(_:)),
-                 keyEquivalent: "w")
+    let closeItem = menu.addItem(withTitle: "Close",
+                                 action: #selector(NSWindow.performClose(_:)),
+                                 keyEquivalent: "w")
+    closeItem.tag = MenuPlacementTag.saveItem.rawValue
+    closeItem.identifier = NSUserInterfaceItemIdentifier("close")
 
     let saveItemSentinel = NSMenuItem.separator()
     saveItemSentinel.tag = MenuPlacementTag.saveItem.rawValue
@@ -303,39 +318,53 @@ private func buildEditMenu() -> NSMenuItem {
     undoRedoSentinel.tag = MenuPlacementTag.undoRedo.rawValue
     menu.addItem(undoRedoSentinel)
 
-    menu.addItem(withTitle: "Undo",
-                 action: NSSelectorFromString("undo:"),
-                 keyEquivalent: "z")
+    let undoItem = menu.addItem(withTitle: "Undo",
+                                action: NSSelectorFromString("undo:"),
+                                keyEquivalent: "z")
+    undoItem.tag = MenuPlacementTag.undoRedo.rawValue
+    undoItem.identifier = NSUserInterfaceItemIdentifier("undo")
 
     let redo = menu.addItem(withTitle: "Redo",
                             action: NSSelectorFromString("redo:"),
                             keyEquivalent: "z")
     redo.keyEquivalentModifierMask = [.command, .shift]
+    redo.tag = MenuPlacementTag.undoRedo.rawValue
+    redo.identifier = NSUserInterfaceItemIdentifier("redo")
 
     // --- pasteboard ---
     let pasteboardSentinel = NSMenuItem.separator()
     pasteboardSentinel.tag = MenuPlacementTag.pasteboard.rawValue
     menu.addItem(pasteboardSentinel)
 
-    menu.addItem(withTitle: "Cut",
-                 action: #selector(NSText.cut(_:)),
-                 keyEquivalent: "x")
+    let cutItem = menu.addItem(withTitle: "Cut",
+                               action: #selector(NSText.cut(_:)),
+                               keyEquivalent: "x")
+    cutItem.tag = MenuPlacementTag.pasteboard.rawValue
+    cutItem.identifier = NSUserInterfaceItemIdentifier("cut")
 
-    menu.addItem(withTitle: "Copy",
-                 action: #selector(NSText.copy(_:)),
-                 keyEquivalent: "c")
+    let copyItem = menu.addItem(withTitle: "Copy",
+                                action: #selector(NSText.copy(_:)),
+                                keyEquivalent: "c")
+    copyItem.tag = MenuPlacementTag.pasteboard.rawValue
+    copyItem.identifier = NSUserInterfaceItemIdentifier("copy")
 
-    menu.addItem(withTitle: "Paste",
-                 action: #selector(NSText.paste(_:)),
-                 keyEquivalent: "v")
+    let pasteItem = menu.addItem(withTitle: "Paste",
+                                 action: #selector(NSText.paste(_:)),
+                                 keyEquivalent: "v")
+    pasteItem.tag = MenuPlacementTag.pasteboard.rawValue
+    pasteItem.identifier = NSUserInterfaceItemIdentifier("paste")
 
-    menu.addItem(withTitle: "Delete",
-                 action: #selector(NSText.delete(_:)),
-                 keyEquivalent: "")
+    let deleteItem = menu.addItem(withTitle: "Delete",
+                                  action: #selector(NSText.delete(_:)),
+                                  keyEquivalent: "")
+    deleteItem.tag = MenuPlacementTag.pasteboard.rawValue
+    deleteItem.identifier = NSUserInterfaceItemIdentifier("delete")
 
-    menu.addItem(withTitle: "Select All",
-                 action: #selector(NSText.selectAll(_:)),
-                 keyEquivalent: "a")
+    let selectAllItem = menu.addItem(withTitle: "Select All",
+                                     action: #selector(NSText.selectAll(_:)),
+                                     keyEquivalent: "a")
+    selectAllItem.tag = MenuPlacementTag.pasteboard.rawValue
+    selectAllItem.identifier = NSUserInterfaceItemIdentifier("selectAll")
 
     // --- textEditing ---
     let textEditingSentinel = NSMenuItem.separator()
@@ -361,7 +390,8 @@ private func addStandardItem(_ menu: NSMenu, _ title: String, _ action: Selector
                             key: String = "",
                             modifiers: NSEvent.ModifierFlags = .command,
                             target: AnyObject? = nil,
-                            tag: Int = 0) -> NSMenuItem {
+                            tag: Int = 0,
+                            identifier: String? = nil) -> NSMenuItem {
     let item = menu.addItem(withTitle: title, action: action, keyEquivalent: key)
     if !key.isEmpty {
         item.keyEquivalentModifierMask = modifiers
@@ -370,6 +400,9 @@ private func addStandardItem(_ menu: NSMenu, _ title: String, _ action: Selector
         item.target = target
     }
     item.tag = tag
+    if let identifier = identifier {
+        item.identifier = NSUserInterfaceItemIdentifier(identifier)
+    }
     return item
 }
 
@@ -482,22 +515,28 @@ private func buildWindowMenu() -> (NSMenuItem, NSMenu) {
     windowSizeSentinel.tag = MenuPlacementTag.windowSize.rawValue
     menu.addItem(windowSizeSentinel)
 
-    menu.addItem(withTitle: "Minimize",
-                 action: #selector(NSWindow.performMiniaturize(_:)),
-                 keyEquivalent: "m")
+    let minimizeItem = menu.addItem(withTitle: "Minimize",
+                                    action: #selector(NSWindow.performMiniaturize(_:)),
+                                    keyEquivalent: "m")
+    minimizeItem.tag = MenuPlacementTag.windowSize.rawValue
+    minimizeItem.identifier = NSUserInterfaceItemIdentifier("minimize")
 
-    menu.addItem(withTitle: "Zoom",
-                 action: #selector(NSWindow.performZoom(_:)),
-                 keyEquivalent: "")
+    let zoomItem = menu.addItem(withTitle: "Zoom",
+                                action: #selector(NSWindow.performZoom(_:)),
+                                keyEquivalent: "")
+    zoomItem.tag = MenuPlacementTag.windowSize.rawValue
+    zoomItem.identifier = NSUserInterfaceItemIdentifier("zoom")
 
     // --- windowArrangement ---
     let windowArrangementSentinel = NSMenuItem.separator()
     windowArrangementSentinel.tag = MenuPlacementTag.windowArrangement.rawValue
     menu.addItem(windowArrangementSentinel)
 
-    menu.addItem(withTitle: "Bring All to Front",
-                 action: #selector(NSApplication.arrangeInFront(_:)),
-                 keyEquivalent: "")
+    let bringAllToFrontItem = menu.addItem(withTitle: "Bring All to Front",
+                                           action: #selector(NSApplication.arrangeInFront(_:)),
+                                           keyEquivalent: "")
+    bringAllToFrontItem.tag = MenuPlacementTag.windowArrangement.rawValue
+    bringAllToFrontItem.identifier = NSUserInterfaceItemIdentifier("bringAllToFront")
 
     // --- windowList / singleWindowList ---
     let windowListSentinel = NSMenuItem.separator()
@@ -522,9 +561,11 @@ private func buildHelpMenu(appName: String) -> (NSMenuItem, NSMenu) {
     helpSentinel.tag = MenuPlacementTag.help.rawValue
     menu.addItem(helpSentinel)
 
-    menu.addItem(withTitle: "\(appName) Help",
-                 action: #selector(NSApplication.showHelp(_:)),
-                 keyEquivalent: "?")
+    let helpItem = menu.addItem(withTitle: "\(appName) Help",
+                                action: #selector(NSApplication.showHelp(_:)),
+                                keyEquivalent: "?")
+    helpItem.tag = MenuPlacementTag.help.rawValue
+    helpItem.identifier = NSUserInterfaceItemIdentifier("help")
 
     let item = NSMenuItem()
     item.submenu = menu
@@ -537,8 +578,13 @@ private func buildHelpMenu(appName: String) -> (NSMenuItem, NSMenu) {
 // CommandGroup's placementTarget can locate the right insertion point.
 // Tags are internal-only and never exposed to the caller.
 
-/// Maps CommandGroup `placementTarget` strings to an NSMenuItem tag.
-/// The tag is set on a sentinel separator in each region of the default menus.
+/// Maps CommandGroup `placementTarget` strings to an NSMenuItem tag for SwiftUI
+/// *group* placements.  Every default item in a region carries its region's tag,
+/// as does a leading (or trailing) sentinel separator, so the region can be
+/// located as a span: `before`/`after` insert relative to the span, and
+/// `replacing` removes the whole span (matching SwiftUI's CommandGroupPlacement
+/// semantics).  Individual items are addressed separately and surgically by
+/// `NSMenuItem.identifier` (see `findItem`).
 private enum MenuPlacementTag: Int {
     // App menu regions
     case appInfo         = 1001
@@ -644,43 +690,161 @@ private func applyCommandGroup(properties: [String: Any],
                                itemBuilder: ActionUIMenuItemBuilder,
                                logger: any ActionUILogger) {
     let placement = properties["placement"] as? String ?? "after"
-    let placementTarget = properties["placementTarget"] as? String ?? "help"
-
-    guard let targetTag = MenuPlacementTag.from(placementTarget) else {
-        logger.log("CommandGroup: unknown placementTarget '\(placementTarget)'", .warning)
+    guard let placementTarget = properties["placementTarget"] as? String, !placementTarget.isEmpty else {
+        logger.log("CommandGroup: missing 'placementTarget'", .warning)
         return
     }
 
-    // Find the menu and index of the tagged sentinel item
-    guard let (menu, sentinelIndex) = findSentinelItem(tag: targetTag.rawValue, in: mainMenu) else {
-        // No sentinel found — fall back to positional heuristic
+    // An empty children array with placement "replacing" is a pure deletion of
+    // the target (a single item, a region's items, or a whole top-level menu).
+    let newItems = children.compactMap { buildMenuItem(from: $0, itemBuilder: itemBuilder, logger: logger) }
+
+    // placementTarget resolves in order of specificity:
+    //   1. a single default item, by its stable identifier (surgical);
+    //   2. a SwiftUI group placement, by tag (operates on the WHOLE group);
+    //   3. a top-level menu, by title.
+
+    // 1. Individual item — the only way to target one default item on its own.
+    if let (menu, index) = findItem(identifier: placementTarget, in: mainMenu) {
+        applyCommandGroupToItem(menu: menu, index: index, placement: placement, newItems: newItems)
+        return
+    }
+
+    // 2. SwiftUI group placement (replaces/targets the whole group).
+    if let targetTag = MenuPlacementTag.from(placementTarget) {
+        applyCommandGroupToRegion(tag: targetTag.rawValue, placement: placement,
+                                  newItems: newItems, placementTarget: placementTarget,
+                                  children: children, to: mainMenu,
+                                  itemBuilder: itemBuilder, logger: logger)
+        return
+    }
+
+    // 3. Top-level menu title (e.g. "Format").
+    if let menuIndex = mainMenu.items.firstIndex(where: { $0.submenu?.title == placementTarget }) {
+        applyCommandGroupToMenu(menuIndex: menuIndex, placement: placement,
+                                placementTarget: placementTarget, newItems: newItems,
+                                in: mainMenu, logger: logger)
+        return
+    }
+
+    logger.log("CommandGroup: placementTarget '\(placementTarget)' is not a known item id, group region, or top-level menu", .warning)
+}
+
+/// Locate a single default item by its stable identifier (assigned to every
+/// default item — locale-independent, never the displayed title).
+@MainActor
+private func findItem(identifier: String, in mainMenu: NSMenu) -> (NSMenu, Int)? {
+    let wanted = NSUserInterfaceItemIdentifier(identifier)
+    for topLevelItem in mainMenu.items {
+        guard let submenu = topLevelItem.submenu else { continue }
+        if let index = submenu.items.firstIndex(where: { $0.identifier == wanted }) {
+            return (submenu, index)
+        }
+    }
+    return nil
+}
+
+/// Apply a CommandGroup to one identified item: `replacing` swaps just that item
+/// (empty newItems ⇒ delete only it); `before`/`after` insert adjacent to it.
+@MainActor
+private func applyCommandGroupToItem(menu: NSMenu, index: Int, placement: String,
+                                     newItems: [NSMenuItem]) {
+    switch placement {
+    case "replacing":
+        // macOS 26+ assigns SF Symbols to standard menu items lazily, during
+        // menu validation rather than at construction.  Force that now so a
+        // replacement can inherit the system icon the original would have shown
+        // (we mutate the bar before it is ever displayed).  On earlier systems
+        // update() assigns no image, so the captured icon is nil and this is a
+        // no-op.
+        menu.update()
+        let inheritedImage = menu.items[index].image
+        menu.removeItem(at: index)
+        for (offset, item) in newItems.enumerated() {
+            menu.insertItem(item, at: index + offset)
+        }
+        // Carry the replaced item's icon onto the replacement, unless the
+        // replacement set its own (e.g. an explicit `systemImage`).
+        if let first = newItems.first, first.image == nil {
+            first.image = inheritedImage
+        }
+    case "before":
+        for (offset, item) in newItems.enumerated() {
+            menu.insertItem(item, at: index + offset)
+        }
+    default: // "after"
+        for (offset, item) in newItems.enumerated() {
+            menu.insertItem(item, at: min(index + 1 + offset, menu.items.count))
+        }
+    }
+}
+
+/// Apply a CommandGroup to a named region (a tagged span of default items inside
+/// a standard menu).  `replacing` removes the whole span; an empty `newItems`
+/// therefore deletes the region's default items.
+@MainActor
+private func applyCommandGroupToRegion(tag: Int, placement: String,
+                                       newItems: [NSMenuItem], placementTarget: String,
+                                       children: [[String: Any]], to mainMenu: NSMenu,
+                                       itemBuilder: ActionUIMenuItemBuilder,
+                                       logger: any ActionUILogger) {
+    guard let (menu, indices) = findRegion(tag: tag, in: mainMenu) else {
+        // Region not present (e.g. toolbar/sidebar with no View menu) — fall
+        // back to the positional heuristic, which can only append.
         applyCommandGroupByHeuristic(placement: placement, placementTarget: placementTarget,
                                      children: children, to: mainMenu,
                                      itemBuilder: itemBuilder, logger: logger)
         return
     }
 
-    let newItems = children.compactMap { buildMenuItem(from: $0, itemBuilder: itemBuilder, logger: logger) }
-    guard !newItems.isEmpty else { return }
+    let firstIndex = indices.first!
+    let lastIndex = indices.last!
 
     switch placement {
     case "replacing":
-        // Replace the sentinel item with the new items
-        menu.removeItem(at: sentinelIndex)
+        // Remove the whole region span (sentinel + default items), then insert
+        // the new items in its place.  Empty newItems ⇒ pure deletion.
+        for idx in indices.reversed() {
+            menu.removeItem(at: idx)
+        }
         for (offset, item) in newItems.enumerated() {
-            menu.insertItem(item, at: sentinelIndex + offset)
+            menu.insertItem(item, at: firstIndex + offset)
         }
 
     case "before":
         for (offset, item) in newItems.enumerated() {
-            menu.insertItem(item, at: sentinelIndex + offset)
+            menu.insertItem(item, at: firstIndex + offset)
         }
 
     default: // "after"
-        let insertAt = sentinelIndex + 1
+        let insertAt = lastIndex + 1
         for (offset, item) in newItems.enumerated() {
             menu.insertItem(item, at: min(insertAt + offset, menu.items.count))
         }
+    }
+}
+
+/// Apply a CommandGroup whose placementTarget is a top-level menu title.
+/// `replacing` with no children deletes the whole menu; with children it swaps
+/// the menu's contents.  `before`/`after` are not supported here (use a
+/// CommandMenu to add a menu).
+@MainActor
+private func applyCommandGroupToMenu(menuIndex: Int, placement: String,
+                                     placementTarget: String, newItems: [NSMenuItem],
+                                     in mainMenu: NSMenu, logger: any ActionUILogger) {
+    switch placement {
+    case "replacing":
+        if newItems.isEmpty {
+            mainMenu.removeItem(at: menuIndex)
+        } else if let submenu = mainMenu.items[menuIndex].submenu {
+            submenu.removeAllItems()
+            for item in newItems {
+                submenu.addItem(item)
+            }
+        }
+
+    default:
+        logger.log("CommandGroup: placement '\(placement)' on top-level menu '\(placementTarget)' is not supported; use 'replacing' to delete or replace a menu, or CommandMenu to add one", .warning)
     }
 }
 
@@ -735,61 +899,19 @@ private func appendItems(_ children: [[String: Any]],
     }
 }
 
-// MARK: - Default item removal
+// MARK: - Region finding
 
-/// Remove a whole top-level menu (e.g. "Format") from the main menu by title.
+/// Locate a region by tag: the first standard submenu that contains any item
+/// carrying `tag`, together with the ascending indices of all such items (the
+/// sentinel separator plus the region's default items).  These indices form a
+/// contiguous span, so `indices.first` / `indices.last` bound the region.
 @MainActor
-private func applyRemoveMenu(properties: [String: Any],
-                             from mainMenu: NSMenu,
-                             logger: any ActionUILogger) {
-    guard let name = properties["name"] as? String, !name.isEmpty else {
-        logger.log("RemoveMenu: missing 'name'", .warning)
-        return
-    }
-
-    if let index = mainMenu.items.firstIndex(where: { $0.submenu?.title == name }) {
-        mainMenu.removeItem(at: index)
-    } else {
-        logger.log("RemoveMenu: top-level menu '\(name)' not found", .warning)
-    }
-}
-
-/// Remove a single item by title.  When `menu` is given the search is scoped to
-/// that top-level menu; otherwise the first match across all menus is removed.
-@MainActor
-private func applyRemoveItem(properties: [String: Any],
-                             from mainMenu: NSMenu,
-                             logger: any ActionUILogger) {
-    guard let title = properties["title"] as? String, !title.isEmpty else {
-        logger.log("RemoveItem: missing 'title'", .warning)
-        return
-    }
-    let menuName = properties["menu"] as? String
-
+private func findRegion(tag: Int, in mainMenu: NSMenu) -> (NSMenu, [Int])? {
     for topLevelItem in mainMenu.items {
         guard let submenu = topLevelItem.submenu else { continue }
-        if let menuName = menuName, submenu.title != menuName { continue }
-        if let index = submenu.items.firstIndex(where: { $0.title == title }) {
-            submenu.removeItem(at: index)
-            return
-        }
-        if menuName != nil { break }
-    }
-
-    let scope = menuName.map { " in menu '\($0)'" } ?? ""
-    logger.log("RemoveItem: '\(title)'\(scope) not found", .warning)
-}
-
-// MARK: - Sentinel finding
-
-/// Recursively search all submenus of `mainMenu` for an item with the given tag.
-/// Returns the submenu and the index of the tagged item within it.
-@MainActor
-private func findSentinelItem(tag: Int, in mainMenu: NSMenu) -> (NSMenu, Int)? {
-    for topLevelItem in mainMenu.items {
-        guard let submenu = topLevelItem.submenu else { continue }
-        if let index = submenu.items.firstIndex(where: { $0.tag == tag }) {
-            return (submenu, index)
+        let indices = submenu.items.indices.filter { submenu.items[$0].tag == tag }
+        if !indices.isEmpty {
+            return (submenu, Array(indices))
         }
     }
     return nil
@@ -839,6 +961,15 @@ private func configureActionItem(_ item: NSMenuItem, properties: [String: Any]) 
         if !mask.isEmpty {
             item.keyEquivalentModifierMask = mask
         }
+    }
+
+    // Optional leading SF Symbol icon (the Button's `systemImage`).  AppKit
+    // sizes the menu item image automatically; SF Symbols are template images,
+    // so they tint correctly for enabled/disabled/highlighted states.
+    if let systemImage = properties["systemImage"] as? String,
+       !systemImage.isEmpty,
+       let image = NSImage(systemSymbolName: systemImage, accessibilityDescription: nil) {
+        item.image = image
     }
 }
 

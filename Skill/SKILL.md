@@ -502,7 +502,7 @@ This skill package includes a `docs/` folder with full per-element documentation
 
 - `docs/ActionUI-Elements.md` — complete element index (all types, with links)
 - `docs/ActionUI-JSON-Guide.md` — JSON structure guide and layout reference
-- `docs/ActionUI-MenuBar-JSON-Guide.md` — menu-bar JSON format (`MainMenu.json`): array root, `CommandMenu`/`CommandGroup`/`RemoveMenu`/`RemoveItem`, Button/Divider children
+- `docs/ActionUI-MenuBar-JSON-Guide.md` — menu-bar JSON format (`MainMenu.json`): array root, `CommandMenu`/`CommandGroup` (delete via `replacing` with no children), Button/Divider children
 - `docs/Schemas/<Type>.md` — full property specification for a specific element
 - `docs/Elements/<Type>.json` — ready-to-use JSON template for a specific element
 
