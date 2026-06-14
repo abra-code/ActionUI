@@ -91,6 +91,12 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Language tag: '$tag'", Toast.LENGTH_SHORT).show()
         }
 
+        // ColorPicker.json: the picker passes the newly chosen color (hex) as the
+        // action context on every change - preset taps and free-form HSV drags alike.
+        ActionUIModel.registerActionHandler("color.changed") { _, _, viewID, _, context ->
+            Toast.makeText(this, "Color $viewID is now $context", Toast.LENGTH_SHORT).show()
+        }
+
         // List.selection.json - mirrors the Swift test app's List demo. Load/Append/
         // Clear drive the rows API on the List (viewID 1); tapping a row fires the
         // selection handler, which toasts the selected item. (The Android demo

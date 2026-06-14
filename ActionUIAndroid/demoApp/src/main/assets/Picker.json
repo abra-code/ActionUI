@@ -2,7 +2,7 @@
   "type": "VStack",
   "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
   "children": [
-    { "type": "Text", "properties": { "text": "Menu style (default), with a section header + divider:" } },
+    { "type": "Text", "properties": { "text": "Menu style (default), with a section header + divider; tinted purple (focused accent + selected row):" } },
     {
       "type": "Picker",
       "id": 1,
@@ -16,20 +16,22 @@
           { "title": "Other", "tag": "other" }
         ],
         "actionID": "picker.changed",
+        "tint": "purple",
         "frame": { "width": "infinity" }
       }
     },
-    { "type": "Text", "properties": { "text": "Segmented style (simple array, auto-tagged 1..n):" } },
+    { "type": "Text", "properties": { "text": "Segmented style (simple array, auto-tagged 1..n); tint fills the selected segment:" } },
     {
       "type": "Picker",
       "id": 2,
       "properties": {
         "options": ["Day", "Week", "Month"],
         "pickerStyle": "segmented",
-        "actionID": "picker.changed"
+        "actionID": "picker.changed",
+        "tint": "purple"
       }
     },
-    { "type": "Text", "properties": { "text": "Radio group style:" } },
+    { "type": "Text", "properties": { "text": "Radio group style; tint colors the selected dot:" } },
     {
       "type": "Picker",
       "id": 3,
@@ -41,7 +43,8 @@
           { "title": "Large", "tag": "l" }
         ],
         "pickerStyle": "radioGroup",
-        "actionID": "picker.changed"
+        "actionID": "picker.changed",
+        "tint": "purple"
       }
     },
     {
