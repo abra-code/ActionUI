@@ -10,8 +10,9 @@
 //
 //  ActionUI app-host glue over the shared ActionUIMenuBar engine.
 //
-//  Menu-bar construction (the default bar + CommandMenu / CommandGroup /
-//  RemoveMenu / RemoveItem) lives in the lifecycle-free ActionUIMenuBar library.
+//  Menu-bar construction (the default bar + CommandMenu / CommandGroup, with
+//  deletion expressed as a childless "replacing" CommandGroup) lives in the
+//  lifecycle-free ActionUIMenuBar library.
 //  This file supplies only the host-specific parts: dispatch of custom menu
 //  items through ActionUIModel, the custom About handler, and the C entry
 //  point `actionUIAppLoadMenuBar`.

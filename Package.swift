@@ -231,6 +231,7 @@ let package = Package(
             sources: ["ActionUIDocumentation.swift"],
             resources: [
                 .copy("ActionUI-JSON-Guide.md"),
+                .copy("ActionUI-MenuBar-JSON-Guide.md"),
                 .copy("ActionUI-Elements.md"),
                 .copy("Schemas"),
                 .copy("Elements"),
