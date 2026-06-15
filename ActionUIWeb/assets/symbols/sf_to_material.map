@@ -2363,6 +2363,8 @@ rectangle.split.2x1 e949
 rectangle.split.2x1.fill e949 1
 rectangle.split.2x2 e9b0
 rectangle.split.2x2.fill e9b0 1
+rectangle.split.3x1 e8ec 300
+rectangle.split.3x1.fill e8ec 1 300
 rectangle.split.3x3 f015
 rectangle.split.3x3.fill f015 1
 rectangle.stack f609
