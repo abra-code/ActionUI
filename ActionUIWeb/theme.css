@@ -892,6 +892,9 @@
 .aui-symbol-small  { font-size: 0.94em; }
 .aui-symbol-medium { font-size: 1.18em; }
 .aui-symbol-large  { font-size: 1.51em; }
+/* Debug-mode placeholder for an unmapped SF Symbol (SymbolIcon.markMissingGlyph):
+   a tinted, outlined broken-image glyph so the gap is visible, not silent. */
+.aui-symbol-missing { color: var(--aui-color-red); outline: 1px dashed var(--aui-color-red); outline-offset: 1px; }
 
 /* ---- misc ---- */
 

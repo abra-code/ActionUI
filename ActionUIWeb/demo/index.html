@@ -35,7 +35,11 @@
            centered window does not shift horizontally in the rare case the stage
            itself must scroll (window min size > viewport, per layout rule 1). */
         #root {
+            box-sizing: border-box;
             height: 100dvh;
+            /* Reserve space for the collapsed diagnostics bar so it never covers
+               the centered window. */
+            padding-bottom: 38px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -46,10 +50,58 @@
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
         }
+
+        /* ---- Diagnostics panel (demo chrome, not part of the renderer) ----
+           A fixed, collapsible bar pinned to the bottom that surfaces everything
+           the renderer logs (warnings/errors/info) and toggles glyph debug mode.
+           See app.js. */
+        .aui-diag {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
+            font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+            background: rgba(28, 28, 30, 0.92); color: #e8e8ea;
+            backdrop-filter: blur(8px); border-top: 1px solid rgba(0, 0, 0, 0.4);
+        }
+        .aui-diag-bar { display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
+        .aui-diag-toggle, .aui-diag-clear {
+            appearance: none; border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08); color: inherit; font: inherit;
+            padding: 3px 10px; border-radius: 6px; cursor: pointer;
+        }
+        .aui-diag-clear { margin-left: auto; }
+        .aui-diag-debug { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+        .aui-diag-count {
+            display: inline-block; min-width: 16px; padding: 0 6px; border-radius: 9px;
+            text-align: center; background: rgba(255, 255, 255, 0.12);
+        }
+        .aui-diag-count.has-issues { background: #ff453a; color: #fff; }
+        .aui-diag-log {
+            list-style: none; margin: 0; padding: 0; max-height: 0; overflow: auto;
+            transition: max-height 0.15s ease;
+        }
+        .aui-diag.expanded .aui-diag-log { max-height: 38vh; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        .aui-diag-entry { display: flex; gap: 10px; padding: 3px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .aui-diag-time { color: #8e8e93; flex: 0 0 auto; }
+        .aui-diag-level { flex: 0 0 60px; text-transform: uppercase; font-size: 10px; align-self: center; }
+        .aui-diag-msg { flex: 1; white-space: pre-wrap; word-break: break-word; }
+        .aui-diag-warning .aui-diag-level { color: #ffd60a; }
+        .aui-diag-error .aui-diag-level { color: #ff453a; }
+        .aui-diag-info .aui-diag-level { color: #64d2ff; }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    <aside id="aui-diag" class="aui-diag" aria-label="Diagnostics">
+        <div class="aui-diag-bar">
+            <button id="aui-diag-toggle" class="aui-diag-toggle" type="button" aria-expanded="false">
+                Diagnostics <span id="aui-diag-count" class="aui-diag-count"></span>
+            </button>
+            <label class="aui-diag-debug" title="Draw a broken-glyph icon for any unmapped SF Symbol">
+                <input type="checkbox" id="aui-diag-debug"> Debug glyphs
+            </label>
+            <button id="aui-diag-clear" class="aui-diag-clear" type="button">Clear</button>
+        </div>
+        <ol id="aui-diag-log" class="aui-diag-log" aria-live="polite"></ol>
+    </aside>
     <script type="module" src="./app.js"></script>
 </body>
 </html>

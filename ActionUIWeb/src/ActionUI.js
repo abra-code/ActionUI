@@ -82,8 +82,11 @@ export class Window {
         this.rootNode = null; // built on present()
     }
 
-    static fromJSON(json, uuid) {
-        const logger = new ConsoleLogger();
+    // `logger` is optional: a host (e.g. the demo's diagnostics panel) can pass
+    // its own ActionUILogger to capture parse + runtime messages; it defaults to
+    // a ConsoleLogger. The same instance is used for parsing and handed to the
+    // Window, so every message flows through one sink.
+    static fromJSON(json, uuid, logger = new ConsoleLogger()) {
         let raw;
         if (typeof json === "string") {
             try {
@@ -103,10 +106,10 @@ export class Window {
         return new Window(root, uuid, logger);
     }
 
-    static async fromURL(url, uuid) {
+    static async fromURL(url, uuid, logger) {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`ActionUI: failed to load ${url}: ${response.status}`);
-        return Window.fromJSON(await response.text(), uuid);
+        return Window.fromJSON(await response.text(), uuid, logger);
     }
 
     present(container) {

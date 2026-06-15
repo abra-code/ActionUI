@@ -25,6 +25,7 @@ import {
     resolveSystemSymbol, preloadSymbolMap,
     MATERIAL_WEIGHT_MIN, MATERIAL_WEIGHT_MAX,
 } from "./MaterialSymbolResolver.js";
+import { isDebugMode } from "../Common/Debug.js";
 
 // Builds a Material Symbols font span. `content` is the ligature name
 // (materialName) or the codepoint character (systemName).
@@ -64,7 +65,8 @@ export function materialNameGlyph(name, props) {
 
 // systemName/systemImage → mapped codepoint glyph. Returns the (initially blank)
 // node immediately and fills it once the SF→Material map is available; when the
-// name has no mapping, warns via `noMapping(name)` and leaves the glyph blank.
+// name has no mapping, warns via `noMapping(name)` and (in debug mode) draws a
+// visible broken-glyph placeholder rather than leaving it blank.
 export function systemSymbolGlyph(name, props, logger, noMapping) {
     const glyph = buildSymbolGlyph("", false, null, props.imageScale); // placeholder until resolved
     const entry = resolveSystemSymbol(name);
@@ -73,11 +75,26 @@ export function systemSymbolGlyph(name, props, logger, noMapping) {
     } else {
         preloadSymbolMap(logger).then((map) => {
             const resolved = map.get(name);
-            if (resolved) applySystemSymbol(glyph, resolved, props);
-            else logger.log(noMapping(name), "warning");
+            if (resolved) {
+                applySystemSymbol(glyph, resolved, props);
+            } else {
+                logger.log(noMapping(name), "warning");
+                markMissingGlyph(glyph, name);
+            }
         });
     }
     return glyph;
+}
+
+// In debug mode, turn an unmapped systemName glyph into a visible placeholder:
+// the Material `broken_image` ligature, tinted via `.aui-symbol-missing`, with
+// the original SF name on hover. Off in production, where a miss stays blank
+// (Apple shows nothing for an unknown SF Symbol too) — the warning still logs.
+function markMissingGlyph(glyph, name) {
+    if (!isDebugMode()) return;
+    glyph.classList.add("aui-symbol-missing");
+    glyph.textContent = "broken_image";
+    glyph.title = `Unmapped SF Symbol: ${name}`;
 }
 
 function applySystemSymbol(glyph, entry, props) {

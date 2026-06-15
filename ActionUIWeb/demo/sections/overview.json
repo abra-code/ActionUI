@@ -23,6 +23,17 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Symbols & diagnostics:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "ActionUI maps SF Symbols to the closest Material Symbol. A name with no mapping renders nothing and logs a warning in the Diagnostics panel below. Turn on 'Debug glyphs' (then reload) to draw a broken-image placeholder in its place. Use 'materialName' for an explicit Material glyph.", "foregroundColor": "secondary" } },
+    {
+      "type": "VStack",
+      "properties": { "alignment": "leading", "spacing": 6 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Unmapped: systemImage \"example.unmapped.symbol\"", "systemImage": "example.unmapped.symbol" } },
+        { "type": "Label", "properties": { "title": "Explicit Material glyph: materialName \"description\"", "materialName": "description" } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Shapes (fill, stroke, bare):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "HStack",
@@ -52,7 +63,7 @@
         ],
         [
           { "type": "Text", "properties": { "text": "Loaded from", "foregroundColor": "secondary" } },
-          { "type": "Label", "properties": { "title": "overview.json", "systemImage": "doc.text" } }
+          { "type": "Label", "properties": { "title": "overview.json", "systemImage": "text.document" } }
         ]
       ]
     },
@@ -67,7 +78,7 @@
         "children": [
           { "type": "Button", "properties": { "title": "Inbox", "systemImage": "tray", "buttonStyle": "bordered" } },
           { "type": "Button", "properties": { "title": "Sent", "systemImage": "paperplane", "buttonStyle": "bordered" } },
-          { "type": "Button", "properties": { "title": "Drafts", "systemImage": "doc", "buttonStyle": "bordered" } },
+          { "type": "Button", "properties": { "title": "Drafts", "systemImage": "text.document", "buttonStyle": "bordered" } },
           { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "buttonStyle": "bordered" } },
           { "type": "Button", "properties": { "title": "Flagged", "systemImage": "flag", "buttonStyle": "bordered" } },
           { "type": "Button", "properties": { "title": "Trash", "systemImage": "trash", "buttonStyle": "bordered" } }

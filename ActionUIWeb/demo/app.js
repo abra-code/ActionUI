@@ -6,9 +6,76 @@
 // is pushed once it loads (viewDidLoadActionID) rather than up front.
 
 import { Application, Window } from "../src/ActionUI.js";
+import { ConsoleLogger } from "../src/Common/ConsoleLogger.js";
+import { setDebugMode } from "../src/Common/Debug.js";
+
+// ---- Diagnostics: debug mode + a log panel under the demo ----
+// Debug mode (`?debug` / the panel checkbox) must be set before building so it
+// reaches every glyph (sections preload on load).
+const debugOn = new URLSearchParams(location.search).has("debug");
+setDebugMode(debugOn);
+
+const diagEl = document.getElementById("aui-diag");
+const logListEl = document.getElementById("aui-diag-log");
+const countEl = document.getElementById("aui-diag-count");
+let issueCount = 0;
+
+function appendLogEntry(level, message) {
+    const li = document.createElement("li");
+    li.className = `aui-diag-entry aui-diag-${level}`;
+    const time = document.createElement("span");
+    time.className = "aui-diag-time";
+    time.textContent = new Date().toLocaleTimeString();
+    const lvl = document.createElement("span");
+    lvl.className = "aui-diag-level";
+    lvl.textContent = level;
+    const msg = document.createElement("span");
+    msg.className = "aui-diag-msg";
+    msg.textContent = message; // textContent, never innerHTML — messages are untrusted
+    li.append(time, lvl, msg);
+    logListEl.appendChild(li);
+    logListEl.scrollTop = logListEl.scrollHeight;
+    if (level === "warning" || level === "error") {
+        issueCount += 1;
+        countEl.textContent = String(issueCount);
+        countEl.classList.add("has-issues");
+    }
+}
+
+// A logger that mirrors to the browser console (the default ConsoleLogger) and
+// to the on-page panel, so renderer warnings/errors are visible without devtools.
+const consoleLogger = new ConsoleLogger();
+const logger = {
+    log(message, level = "info") {
+        consoleLogger.log(message, level);
+        appendLogEntry(level, message);
+    },
+};
+
+// Panel controls.
+const debugBox = document.getElementById("aui-diag-debug");
+debugBox.checked = debugOn;
+debugBox.addEventListener("change", () => {
+    // Glyphs are built once at load, so toggling reloads with the param set/cleared.
+    const url = new URL(location.href);
+    if (debugBox.checked) url.searchParams.set("debug", "1");
+    else url.searchParams.delete("debug");
+    location.href = url.toString();
+});
+const toggleBtn = document.getElementById("aui-diag-toggle");
+toggleBtn.addEventListener("click", () => {
+    const expanded = diagEl.classList.toggle("expanded");
+    toggleBtn.setAttribute("aria-expanded", String(expanded));
+});
+document.getElementById("aui-diag-clear").addEventListener("click", () => {
+    logListEl.replaceChildren();
+    issueCount = 0;
+    countEl.textContent = "";
+    countEl.classList.remove("has-issues");
+});
 
 const app = new Application({ name: "ActionUIWeb Demo" });
-const win = await Window.fromURL("./ui.json");
+const win = await Window.fromURL("./ui.json", undefined, logger);
 app.presentWindow(win, document.getElementById("root"));
 
 // Open on the Overview section (the LoadableViews all preload as the split's
@@ -32,7 +99,7 @@ app.action("collectionsLoaded", () => {
         ["Notes.txt", "text.document", "Open"],
     ]);
     win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
-    win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "doc"], ["Sent", "paperplane"]]);
+    win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "text.document"], ["Sent", "paperplane"]]);
 });
 
 app.action("greet", () => {
