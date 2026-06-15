@@ -14,13 +14,14 @@
 // (Menu's label-instead-of-title; later Button/Toggle). "template" is the
 // data-driven repeater's per-row prototype (List's template mode; later Section).
 // "sidebar"/"content"/"detail" are NavigationSplitView's panes and "destinations"
-// its detail targets; "destination" is NavigationLink's inline push target.
-// The remaining Apple/Android keys (popover, toolbar, overlay, background, ...)
-// come with the elements that need them.
+// its detail targets; "destination" is NavigationLink's inline push target;
+// "toolbar" is the array of ToolbarItem/ToolbarItemGroup chrome carriers any view
+// may declare. The remaining Apple/Android keys (popover, overlay, background,
+// ...) come with the elements that need them.
 
 let negativeIDCounter = -1;
 
-const SUBVIEW_ARRAY_KEYS = ["children", "destinations"];
+const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar"];
 const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
@@ -126,5 +127,11 @@ export class ActionUIElement {
     // to be addressable, like Android's NavHost routes).
     destination() {
         return this.subviews?.destination ?? null;
+    }
+
+    // The view's toolbar chrome carriers (ToolbarItem / ToolbarItemGroup), or an
+    // empty array. Rendered as screen chrome by ToolbarHelper, not built directly.
+    toolbar() {
+        return this.subviews?.toolbar ?? [];
     }
 }

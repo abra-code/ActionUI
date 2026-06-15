@@ -15,6 +15,7 @@
 // element is rendered, mirroring the fail-gracefully design principle.
 
 import { applyViewModifiers } from "./ModifierResolver.js";
+import { wrapWithToolbar } from "../Helpers/ToolbarHelper.js";
 
 const constructions = new Map();
 
@@ -47,5 +48,8 @@ export function buildElementView(element, ctx) {
         }
     }
     applyViewModifiers(node, element, properties, ctx);
-    return node;
+    // A `toolbar` / `navigationTitle` wraps the node in screen chrome (a top bar
+    // + optional bottom bar). The data-aui-id stays on the inner node, so host
+    // addressing (value/state/scroll) is unaffected by the wrap.
+    return wrapWithToolbar(node, element, properties, ctx);
 }

@@ -484,6 +484,39 @@
 .aui-nav-link-title { flex: 1; }
 .aui-nav-link-chevron { color: var(--aui-color-secondary); }
 
+/* ---- Toolbar (ToolbarHelper screen chrome) ---- */
+
+/* A `toolbar`/`navigationTitle` wraps the view in this host: a top bar
+   (leading | title-or-principal | trailing), the body, an optional bottom bar.
+   Flex column + min-height:0 so a scrolling body still scrolls rather than
+   growing the host. */
+.aui-toolbar-host { display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+.aui-toolbar-body { min-height: 0; }
+.aui-toolbar-bar { display: flex; align-items: center; gap: 8px; }
+.aui-toolbar-top { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--aui-control-border); }
+.aui-toolbar-bottom { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--aui-control-border); justify-content: center; }
+.aui-toolbar-leading, .aui-toolbar-trailing { display: flex; align-items: center; gap: 4px; }
+.aui-toolbar-principal { flex: 1; min-width: 0; display: flex; align-items: center; }
+.aui-toolbar-trailing { justify-content: flex-end; }
+.aui-toolbar-title { font-weight: 600; font-size: 1.05em; }
+/* App-bar action: borderless, accent-colored (the toolbar idiom; the registered
+   Button is a styled pill, wrong inside a bar). */
+.aui-toolbar-button {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--aui-color-accent);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--aui-control-radius);
+}
+.aui-toolbar-button:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
+.aui-toolbar-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
 /* ---- LoadableView ---- */
 
 /* A dynamic include: a sub-document fetched and rendered inline. A plain block

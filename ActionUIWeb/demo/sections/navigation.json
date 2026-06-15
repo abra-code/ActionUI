@@ -85,7 +85,10 @@
           "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Profile" },
           "children": [
             { "type": "Label", "properties": { "title": "Ada Lovelace", "systemImage": "person.crop.circle" } },
-            { "type": "Text", "properties": { "text": "Pushed by reference (destinationViewId 161).", "foregroundColor": "secondary" } }
+            { "type": "Text", "properties": { "text": "Pushed by reference (destinationViewId 161). The toolbar action lives in the title bar.", "foregroundColor": "secondary" } }
+          ],
+          "toolbar": [
+            { "type": "ToolbarItem", "properties": { "placement": "primaryAction" }, "content": { "type": "Button", "properties": { "title": "Edit", "systemImage": "pencil", "actionID": "toolbarEdit" } } }
           ]
         },
         {
@@ -95,8 +98,33 @@
           "children": [
             { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } },
             { "type": "Text", "properties": { "text": "Each pushed pane keeps its state across navigation.", "foregroundColor": "secondary" } }
+          ],
+          "toolbar": [
+            { "type": "ToolbarItem", "properties": { "placement": "cancellationAction" }, "content": { "type": "Button", "properties": { "title": "Cancel", "actionID": "toolbarCancel" } } },
+            { "type": "ToolbarItem", "properties": { "placement": "confirmationAction" }, "content": { "type": "Button", "properties": { "title": "Done", "actionID": "toolbarDone" } } }
           ]
         }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Toolbar (chrome on any view: leading / trailing group / bottom bar):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "VStack",
+      "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Documents", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "A toolbar/navigationTitle wraps any view in screen chrome (no NavigationStack needed)." } }
+      ],
+      "toolbar": [
+        { "type": "ToolbarItem", "properties": { "placement": "topBarLeading" }, "content": { "type": "Button", "properties": { "title": "Add", "systemImage": "plus", "actionID": "toolbarAdd" } } },
+        {
+          "type": "ToolbarItemGroup",
+          "properties": { "placement": "primaryAction" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "toolbarShare" } },
+            { "type": "Button", "properties": { "title": "Filter", "systemImage": "line.3.horizontal.decrease", "actionID": "toolbarFilter" } }
+          ]
+        },
+        { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundColor": "secondary" } } }
       ]
     }
   ]

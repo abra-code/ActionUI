@@ -107,6 +107,11 @@ app.action("svrTop", () => win.setInt(140, 0, 141));
 app.action("svrMiddle", () => win.setInt(140, 0, 146));
 app.action("svrBottom", () => win.setInt(140, 0, 152));
 
+// Toolbar chrome actions: a toolbar Button fires its actionID with { title }.
+["toolbarEdit", "toolbarCancel", "toolbarDone", "toolbarAdd", "toolbarShare", "toolbarFilter"].forEach((id) => {
+    app.action(id, (ctx) => win.setString(20, 0, `Toolbar: ${ctx.context?.title ?? id}.`));
+});
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {

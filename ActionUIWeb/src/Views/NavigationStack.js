@@ -32,9 +32,11 @@
 // State (`navigationPath`, valueType "none"): a [Int] of the destination ids on
 // the stack, root-to-top (empty at root). Seeded empty; the binding's getState
 // returns the live path (so a host read always reflects the UI), and a host
-// setState reconciles the panes (programmatic push/pop). `navigationTitle` on
-// the content/destination renders as a simple header for now; the real
-// navigation bar arrives with the toolbar track.
+// setState reconciles the panes (programmatic push/pop). `navigationTitle` and
+// `toolbar` on the content/destination render as chrome (ToolbarHelper) since
+// each is built through the registry; the stack adds only a `‹ Back` affordance
+// above a destination (the selectable-List root, whose rows are built directly,
+// still gets a navTitleHeader here).
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { NAV_PUSH_EVENT } from "./NavigationLink.js";
@@ -127,8 +129,9 @@ register("NavigationStack", {
             }
             rootPane.appendChild(listBox);
         } else {
-            const header = navTitleHeader(content);
-            if (header) rootPane.appendChild(header);
+            // Normal form: the content is built through the registry, so its own
+            // `navigationTitle`/`toolbar` renders as chrome (ToolbarHelper) — the
+            // stack adds no title of its own here.
             const body = document.createElement("div");
             body.className = "aui-nav-stack-body";
             body.appendChild(ctx.build(content));
@@ -143,6 +146,9 @@ register("NavigationStack", {
             pane.className = "aui-nav-stack-pane";
             pane.style.display = "none";
 
+            // A thin back affordance above the destination; the destination's
+            // own `navigationTitle`/`toolbar` renders as chrome below it
+            // (ToolbarHelper), the iOS back-chevron-over-title pattern.
             const bar = document.createElement("div");
             bar.className = "aui-nav-stack-bar";
             const back = document.createElement("button");
@@ -151,13 +157,6 @@ register("NavigationStack", {
             back.textContent = "‹ Back";
             back.addEventListener("click", () => pop());
             bar.appendChild(back);
-            const titleText = navTitleOf(destEl);
-            if (titleText) {
-                const t = document.createElement("span");
-                t.className = "aui-nav-stack-title";
-                t.textContent = titleText;
-                bar.appendChild(t);
-            }
             pane.appendChild(bar);
 
             const body = document.createElement("div");
