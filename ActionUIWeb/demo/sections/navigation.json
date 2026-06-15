@@ -50,6 +50,54 @@
           ]
         }
       ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "NavigationStack",
+      "id": 160,
+      "properties": { "frame": { "maxWidth": "infinity" } },
+      "content": {
+        "type": "VStack",
+        "properties": { "alignment": "leading", "spacing": 0, "navigationTitle": "Library" },
+        "children": [
+          { "type": "NavigationLink", "properties": { "title": "Profile", "systemImage": "person.crop.circle", "destinationViewId": 161 } },
+          { "type": "NavigationLink", "properties": { "title": "Settings", "systemImage": "gearshape", "destinationViewId": 162 } },
+          {
+            "type": "NavigationLink",
+            "properties": { "title": "Inline note", "systemImage": "text.document" },
+            "destination": {
+              "type": "VStack",
+              "id": 163,
+              "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Note" },
+              "children": [
+                { "type": "Text", "properties": { "text": "This destination was declared inline on the link.", "font": "headline" } },
+                { "type": "Text", "properties": { "text": "Inline destinations are hoisted by id (the Android/web constraint).", "foregroundColor": "secondary" } }
+              ]
+            }
+          }
+        ]
+      },
+      "destinations": [
+        {
+          "type": "VStack",
+          "id": 161,
+          "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Profile" },
+          "children": [
+            { "type": "Label", "properties": { "title": "Ada Lovelace", "systemImage": "person.crop.circle" } },
+            { "type": "Text", "properties": { "text": "Pushed by reference (destinationViewId 161).", "foregroundColor": "secondary" } }
+          ]
+        },
+        {
+          "type": "VStack",
+          "id": 162,
+          "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Settings" },
+          "children": [
+            { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } },
+            { "type": "Text", "properties": { "text": "Each pushed pane keeps its state across navigation.", "foregroundColor": "secondary" } }
+          ]
+        }
+      ]
     }
   ]
 }

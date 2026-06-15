@@ -59,6 +59,8 @@ import "./Views/Menu.js";
 import "./Views/List.js";
 import "./Views/Table.js";
 import "./Views/NavigationSplitView.js";
+import "./Views/NavigationLink.js";
+import "./Views/NavigationStack.js";
 import "./Views/LoadableView.js";
 
 export class ActionContext {

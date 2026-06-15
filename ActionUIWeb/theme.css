@@ -431,6 +431,59 @@
 /* style=prominentDetail → a narrower sidebar so the detail dominates. */
 .aui-nav-split[data-aui-split-style="prominentDetail"] .aui-nav-split-sidebar { min-width: 150px; }
 
+/* ---- NavigationStack / NavigationLink ---- */
+
+/* Push navigation: panes stacked in the DOM, only the top one shown (display
+   toggled by NavigationStack.js). The stack and each pane are flex columns so a
+   filling child still works; min-height:0 lets a child scroll rather than grow
+   the stack. */
+.aui-nav-stack { display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+.aui-nav-stack-pane { display: flex; flex-direction: column; min-height: 0; }
+.aui-nav-stack-body { min-height: 0; }
+/* The header/back bar: a title row on the root, a back button + title on a
+   destination (the simple header; the real navigation bar arrives with toolbar). */
+.aui-nav-stack-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-nav-stack-title { font-weight: 600; }
+.aui-nav-stack-back {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--aui-color-accent);
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: var(--aui-control-radius);
+}
+.aui-nav-stack-back:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* A link row: full-width tap target, leading icon + title + trailing chevron. */
+.aui-nav-link {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-nav-link:last-child { border-bottom: none; }
+.aui-nav-link:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-nav-link-title { flex: 1; }
+.aui-nav-link-chevron { color: var(--aui-color-secondary); }
+
 /* ---- LoadableView ---- */
 
 /* A dynamic include: a sub-document fetched and rendered inline. A plain block

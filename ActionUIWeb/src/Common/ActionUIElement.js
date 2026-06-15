@@ -9,18 +9,19 @@
 // }
 //
 // Subset routed so far: the "children" and "destinations" (arrays); "content",
-// "label", "template", "sidebar" and "detail" (single); plus "rows"
+// "label", "template", "sidebar", "detail" and "destination" (single); plus "rows"
 // (array-of-arrays, for Grid's GridRows). "label" is the custom-trigger view
 // (Menu's label-instead-of-title; later Button/Toggle). "template" is the
 // data-driven repeater's per-row prototype (List's template mode; later Section).
 // "sidebar"/"content"/"detail" are NavigationSplitView's panes and "destinations"
-// its detail targets. The remaining Apple/Android keys (destination, popover,
-// toolbar, overlay, background, ...) come with the elements that need them.
+// its detail targets; "destination" is NavigationLink's inline push target.
+// The remaining Apple/Android keys (popover, toolbar, overlay, background, ...)
+// come with the elements that need them.
 
 let negativeIDCounter = -1;
 
 const SUBVIEW_ARRAY_KEYS = ["children", "destinations"];
-const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail"];
+const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.
@@ -118,5 +119,12 @@ export class ActionUIElement {
 
     destinations() {
         return this.subviews?.destinations ?? [];
+    }
+
+    // NavigationLink's inline push target (Form 1), or null. Hoisted by id into
+    // the enclosing NavigationStack's destination registry (it must carry an id
+    // to be addressable, like Android's NavHost routes).
+    destination() {
+        return this.subviews?.destination ?? null;
     }
 }
