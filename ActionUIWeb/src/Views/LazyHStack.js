@@ -14,6 +14,8 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { ROW_ALIGN, StackAxis } from "../Common/StackAxis.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 // Mirrors LazyHStack.swift validateProperties (warning text included verbatim).
 function validateProperties(properties, logger) {
@@ -36,6 +38,7 @@ function validateProperties(properties, logger) {
 
 register("LazyHStack", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
     validateProperties,
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
@@ -44,9 +47,7 @@ register("LazyHStack", {
         node.style.gap = `${properties.spacing ?? 0}px`;
         // SwiftUI LazyHStack default alignment is .center.
         node.style.alignItems = ROW_ALIGN[properties.alignment] ?? "center";
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

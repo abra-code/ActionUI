@@ -16,6 +16,8 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { DEFAULT_SPACING } from "../Common/StackAxis.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { gridRowsBinding } from "../Helpers/InsertionHelper.js";
 
 // 9-way alignment → [align-items (block/vertical), justify-items (inline/horizontal)].
 const PLACE_ITEMS = {
@@ -26,6 +28,7 @@ const PLACE_ITEMS = {
 
 register("Grid", {
     valueType: "none",
+    insertableContainers: { rows: ContainerShape.ROWS },
 
     // Mirrors Grid.swift validateProperties
     validateProperties: (properties, logger) => {
@@ -66,16 +69,22 @@ register("Grid", {
         node.style.alignItems = alignItems;
         node.style.justifyItems = justifyItems;
 
-        rows.forEach((row, rowIndex) => {
-            row.forEach((cell, columnIndex) => {
-                const cellNode = ctx.build(cell);
-                // Explicit placement keeps columns aligned across uneven rows
-                // (CSS auto-placement would backfill short rows into the gaps).
-                cellNode.style.gridRow = String(rowIndex + 1);
-                cellNode.style.gridColumn = String(columnIndex + 1);
-                node.appendChild(cellNode);
-            });
-        });
+        const cellRows = rows.map((row, rowIndex) => row.map((cell, columnIndex) => {
+            const cellNode = ctx.build(cell);
+            // Explicit placement keeps columns aligned across uneven rows
+            // (CSS auto-placement would backfill short rows into the gaps).
+            cellNode.style.gridRow = String(rowIndex + 1);
+            cellNode.style.gridColumn = String(columnIndex + 1);
+            node.appendChild(cellNode);
+            return cellNode;
+        }));
+
+        // The rows container for insertRow: a new row's cells are placed and the
+        // explicit grid coordinates reflow. A cell wider than the declared column
+        // count falls into an implicit auto track (no template change needed).
+        if (element.id > 0) {
+            ctx.model.bindContainer(element.id, "rows", gridRowsBinding(node, cellRows));
+        }
         return node;
     },
 });

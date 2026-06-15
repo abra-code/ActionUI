@@ -5,7 +5,7 @@
 // under demo/sections/. Elements live in those loaded files, so a section's data
 // is pushed once it loads (viewDidLoadActionID) rather than up front.
 
-import { Application, Window } from "../src/ActionUI.js";
+import { Application, Window, InsertPosition } from "../src/ActionUI.js";
 import { ConsoleLogger } from "../src/Common/ConsoleLogger.js";
 import { setDebugMode } from "../src/Common/Debug.js";
 
@@ -173,6 +173,44 @@ app.action("tmplListSelect", () => {
 app.action("svrTop", () => win.setInt(140, 0, 141));
 app.action("svrMiddle", () => win.setInt(140, 0, 146));
 app.action("svrBottom", () => win.setInt(140, 0, 152));
+
+// Insertion API: structural mutations against the Collections demo containers.
+// Inserted views need positive ids to stay host-addressable (negative ids get no
+// data-aui-id), so the demo mints them from a counter and tracks the stack for
+// "remove last". insertElement/removeElement/insertRow throw InsertError on a bad
+// request; the panel logger surfaces the renderer's own info lines.
+let insSeq = 600;
+const insertedIds = [];
+const insStatus = () => win.setString(210, 0, insertedIds.length
+    ? `${insertedIds.length} inserted (last id ${insertedIds[insertedIds.length - 1]}).`
+    : "No insertions yet.");
+
+app.action("insAppend", () => {
+    const id = insSeq++;
+    win.insertElement(200, { type: "Label", id, properties: { title: `Appended item ${id}`, systemImage: "list.bullet" } });
+    insertedIds.push(id);
+    insStatus();
+});
+app.action("insPrepend", () => {
+    const id = insSeq++;
+    win.insertElement(200, { type: "Label", id, properties: { title: `Prepended item ${id}`, systemImage: "arrow.up" } },
+        null, InsertPosition.PREPEND);
+    insertedIds.push(id);
+    insStatus();
+});
+app.action("insRemoveLast", () => {
+    const id = insertedIds.pop();
+    if (id === undefined) { win.setString(210, 0, "Nothing inserted to remove (seed rows stay)."); return; }
+    win.removeElement(id);
+    insStatus();
+});
+app.action("insAddRow", () => {
+    const id = insSeq++;
+    win.insertRow(220, [
+        { type: "Text", id, properties: { text: `Row ${id}` } },
+        { type: "Text", properties: { text: "added at runtime", foregroundColor: "secondary" } },
+    ]);
+});
 
 // Toolbar chrome actions: a toolbar Button fires its actionID with { title }.
 ["toolbarEdit", "toolbarCancel", "toolbarDone", "toolbarAdd", "toolbarShare", "toolbarFilter"].forEach((id) => {

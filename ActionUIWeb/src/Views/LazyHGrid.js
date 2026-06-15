@@ -18,6 +18,8 @@
 //   alignment  top|center|bottom → align-items (default center).
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 // Validated track defs → a CSS track list. `{minimum}` → fixed px, `{flexible}`
 // → 1fr; anything else dropped; empty ⇒ a single "1fr" (Swift's [GridItem(.flexible())]).
@@ -32,6 +34,7 @@ const ALIGN = { top: "start", center: "center", bottom: "end" };
 
 register("LazyHGrid", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors LazyHGrid.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -81,9 +84,7 @@ register("LazyHGrid", {
         node.style.gridAutoFlow = "column";
         node.style.gap = `${properties.spacing ?? 0}px`;
         node.style.alignItems = ALIGN[properties.alignment] ?? "center";
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

@@ -18,6 +18,8 @@
 //   alignment  leading|center|trailing → justify-items (default center).
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 // Validated track defs → a CSS track list. `{minimum}` → fixed px, `{flexible}`
 // → 1fr; anything else dropped; empty ⇒ a single "1fr" (Swift's [GridItem(.flexible())]).
@@ -32,6 +34,7 @@ const JUSTIFY = { leading: "start", center: "center", trailing: "end" };
 
 register("LazyVGrid", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors LazyVGrid.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -80,9 +83,7 @@ register("LazyVGrid", {
         node.style.gridTemplateColumns = trackList(properties.columns);
         node.style.gap = `${properties.spacing ?? 0}px`;
         node.style.justifyItems = JUSTIFY[properties.alignment] ?? "center";
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

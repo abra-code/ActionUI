@@ -12,9 +12,12 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { StackAxis } from "../Common/StackAxis.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 register("Form", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors Form.swift validateProperties (a pass-through).
     validateProperties: (properties) => properties,
@@ -25,9 +28,7 @@ register("Form", {
         // free); .aui-form adds the leading alignment and row spacing.
         node.className = "aui-stack aui-vstack aui-form";
         node.dataset.auiAxis = StackAxis.Vertical;
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

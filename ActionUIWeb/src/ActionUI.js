@@ -14,6 +14,7 @@ import { ActionUIModel } from "./Common/ActionUIModel.js";
 import { buildElementView } from "./Common/ActionUIRegistry.js";
 import { ConsoleLogger } from "./Common/ConsoleLogger.js";
 import { PlatformFilter } from "./Common/PlatformFilter.js";
+import { InsertPosition } from "./Common/ActionUIInsertion.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -62,6 +63,10 @@ import "./Views/NavigationSplitView.js";
 import "./Views/NavigationLink.js";
 import "./Views/NavigationStack.js";
 import "./Views/LoadableView.js";
+
+// Re-export so hosts can `import { Window, InsertPosition } from ".../ActionUI.js"`
+// (mirrors the Node.js adapter exposing InsertPosition alongside the Window).
+export { InsertPosition };
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {
@@ -121,6 +126,9 @@ export class Window {
         ctx.build = (element) => buildElementView(element, ctx);
         this.rootNode = ctx.build(this.rootElement);
         this.rootNode.classList.add("aui-window");
+        // Hand the render context to the model so the insertion API can render
+        // inserted subtrees and query the live tree by id.
+        this.model.setRenderContext(this.rootNode, ctx.build, this.rootElement.id);
         container.replaceChildren(this.rootNode);
         return this;
     }
@@ -160,6 +168,20 @@ export class Window {
     getElementColumnCount(viewID) {
         return this.getElementRows(viewID).reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
     }
+
+    // Structural mutations — same names/signature as the Node.js adapter's Window.
+    // `element`/`cells` accept a JS object/array or a JSON string; `container` may
+    // be null to auto-derive the unique container of the right shape; `position`
+    // is an InsertPosition (default APPEND), `positionParam` the index (AT) or
+    // sibling viewID (BEFORE/AFTER). insertElement returns the new id; insertRow
+    // returns the cell ids; all throw InsertError on a bad request.
+    insertElement(parentID, element, container = null, position = InsertPosition.APPEND, positionParam = 0) {
+        return this.model.insertElement(parentID, element, container, position, positionParam);
+    }
+    insertRow(parentID, cells, container = null, position = InsertPosition.APPEND, positionParam = 0) {
+        return this.model.insertRow(parentID, cells, container, position, positionParam);
+    }
+    removeElement(viewID) { return this.model.removeElement(viewID); }
 }
 
 // Coerces host-supplied rows to the [[String]] shape: each row an array of

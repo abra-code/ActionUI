@@ -12,9 +12,12 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { StackAxis } from "../Common/StackAxis.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 register("Section", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors Section.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -37,9 +40,8 @@ register("Section", {
             header.textContent = properties.header;
             node.appendChild(header);
         }
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        // The optional header is not a tracked child, so insertions land after it.
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

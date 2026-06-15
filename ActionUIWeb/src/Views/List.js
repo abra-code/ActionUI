@@ -45,6 +45,8 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { buildTemplateRow } from "../Helpers/TemplateHelper.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { flatContainerBinding } from "../Helpers/InsertionHelper.js";
 
 // The macOS-valid listStyles (the web's default skin is macOS-flavored). The
 // other SwiftUI styles ("grouped", "insetGrouped") are iOS/tvOS/visionOS-only and
@@ -61,6 +63,12 @@ const INTERACTIVE_SELECTOR = "button, input, select, textarea, a";
 register("List", {
     // The selected child id / row, as a String ("" = nothing selected). See header.
     valueType: "string",
+
+    // Children mode accepts runtime insertions (insertElement / removeElement);
+    // each inserted child is wrapped in a row and joins selection like the
+    // statically authored rows. The data-driven modes mutate via the rows API
+    // (set/append/clearElementRows), not this container.
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors List.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -186,15 +194,16 @@ register("List", {
 
 // Heterogeneous children mode: each child is a full ActionUI view built through
 // the registry into a row. Selection (when the list has an actionID) is carried
-// as the stringified selected child id.
+// as the stringified selected child id. Selection styling reads the live rows
+// (querySelectorAll), so a runtime-inserted child (insertElement) participates
+// without extra bookkeeping.
 function buildChildrenRows(node, element, properties, ctx, children, selectable, rowStyle) {
     if (selectable) node.setAttribute("role", "listbox");
 
-    const rows = [];
     let selectedId = "";
 
     const applySelectionStyles = () => {
-        for (const row of rows) {
+        for (const row of node.querySelectorAll(".aui-list-row")) {
             const isSelected = selectable && row.dataset.auiRowId === selectedId && selectedId !== "";
             row.classList.toggle("aui-list-row-selected", isSelected);
             if (selectable) row.setAttribute("aria-selected", isSelected ? "true" : "false");
@@ -211,15 +220,15 @@ function buildChildrenRows(node, element, properties, ctx, children, selectable,
         if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
     };
 
-    for (const child of children) {
+    // Wraps one built child view in a row + selection wiring. Shared by the
+    // initial build and runtime insertion (the container binding's `wrap`).
+    const wrapRow = (childNode, childId) => {
         const row = document.createElement("div");
         row.className = "aui-list-row";
         applyRowStyle(row, rowStyle);
-
-        row.appendChild(ctx.build(child));
-
+        row.appendChild(childNode);
         if (selectable) {
-            row.dataset.auiRowId = String(child.id);
+            row.dataset.auiRowId = String(childId);
             row.setAttribute("role", "option");
             row.setAttribute("aria-selected", "false");
             row.tabIndex = 0;
@@ -237,10 +246,14 @@ function buildChildrenRows(node, element, properties, ctx, children, selectable,
                 }
             });
         }
+        return row;
+    };
 
-        rows.push(row);
+    const slots = children.map((child) => {
+        const row = wrapRow(ctx.build(child), child.id);
         node.appendChild(row);
-    }
+        return { id: child.id, dom: row };
+    });
 
     if (element.id > 0) {
         ctx.model.bind(element.id, {
@@ -250,6 +263,10 @@ function buildChildrenRows(node, element, properties, ctx, children, selectable,
                 applySelectionStyles();
             },
         });
+        // The insertion container: a new child is wrapped via wrapRow and tracked
+        // by its element id (so before/after-sibling positions resolve).
+        ctx.model.bindContainer(element.id, "children",
+            flatContainerBinding(node, slots, { wrap: (childNode, id) => wrapRow(childNode, id) }));
     }
 
     return node;

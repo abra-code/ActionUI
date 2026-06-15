@@ -11,9 +11,12 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { StackAxis } from "../Common/StackAxis.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 register("GroupBox", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors GroupBox.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -36,9 +39,8 @@ register("GroupBox", {
             title.textContent = properties.title;
             node.appendChild(title);
         }
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        // The optional title is not a tracked child, so insertions land after it.
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

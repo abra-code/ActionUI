@@ -15,6 +15,8 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { COLUMN_ALIGN, StackAxis } from "../Common/StackAxis.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 // Mirrors LazyVStack.swift validateProperties (warning text included verbatim).
 function validateProperties(properties, logger) {
@@ -37,6 +39,7 @@ function validateProperties(properties, logger) {
 
 register("LazyVStack", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
     validateProperties,
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
@@ -45,9 +48,7 @@ register("LazyVStack", {
         node.style.gap = `${properties.spacing ?? 0}px`;
         // SwiftUI LazyVStack default alignment is .center.
         node.style.alignItems = COLUMN_ALIGN[properties.alignment] ?? "center";
-        for (const child of element.children()) {
-            node.appendChild(ctx.build(child));
-        }
+        buildFlatChildren(node, element, ctx);
         return node;
     },
 });

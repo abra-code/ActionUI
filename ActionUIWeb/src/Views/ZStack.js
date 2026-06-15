@@ -5,6 +5,8 @@
 // and stack on the z-axis in document order (later children paint on top).
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
+import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
 
 // SwiftUI ZStack alignments → CSS `place-self` (block/vertical + inline/horizontal).
 const Z_ALIGN = {
@@ -16,6 +18,7 @@ const Z_VALID = Object.keys(Z_ALIGN);
 
 register("ZStack", {
     valueType: "none",
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors ZStack.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -41,12 +44,10 @@ register("ZStack", {
         node.className = "aui-zstack";
         // place-self is set per child (an inline value overrides the stylesheet's
         // default `.aui-zstack > * { place-self: center }`). Default: center.
+        // The same `prepare` runs on runtime-inserted children, so they share the
+        // stack's alignment.
         const placeSelf = Z_ALIGN[properties.alignment] ?? "center center";
-        for (const child of element.children()) {
-            const built = ctx.build(child);
-            built.style.placeSelf = placeSelf;
-            node.appendChild(built);
-        }
+        buildFlatChildren(node, element, ctx, { prepare: (built) => { built.style.placeSelf = placeSelf; } });
         return node;
     },
 });

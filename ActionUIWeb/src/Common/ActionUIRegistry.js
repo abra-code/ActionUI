@@ -3,13 +3,21 @@
 //
 // A view construction is an object:
 // {
-//   valueType:          "none" | "string" | "boolean" | "int" | "double",
-//   validateProperties: (properties, logger) => validatedProperties,
-//   buildView:          (element, ctx) => HTMLElement,
-//   initialValue:       (element, validatedProperties) => any | undefined,
-//   initialStates:      (element, validatedProperties) => { key: value } | undefined,
+//   valueType:           "none" | "string" | "boolean" | "int" | "double",
+//   validateProperties:  (properties, logger) => validatedProperties,
+//   buildView:           (element, ctx) => HTMLElement,
+//   initialValue:        (element, validatedProperties) => any | undefined,
+//   initialStates:       (element, validatedProperties) => { key: value } | undefined,
+//   insertableContainers:{ <containerName>: ContainerShape } | undefined,
 // }
 // ctx = { model, windowUUID, logger, build } where build(childElement) recurses.
+//
+// `insertableContainers` is the web analog of Swift's
+// ActionUIViewConstruction.insertableContainers - it declares which subview
+// arrays accept runtime insertions (insertElement / insertRow) and their shape.
+// A view that declares one also registers a matching container binding at build
+// time (Helpers/InsertionHelper.js); the model reads the declaration via
+// getInsertableContainers to resolve/validate the target container.
 //
 // Unknown types degrade gracefully: a warning is logged and a placeholder
 // element is rendered, mirroring the fail-gracefully design principle.
@@ -21,6 +29,12 @@ const constructions = new Map();
 
 export function register(type, construction) {
     constructions.set(type, construction);
+}
+
+// The container declarations for a type, or null when it accepts no insertions.
+// Mirrors ActionUIRegistry.getInsertableContainers(forElementType:).
+export function getInsertableContainers(type) {
+    return constructions.get(type)?.insertableContainers ?? null;
 }
 
 export function buildElementView(element, ctx) {
