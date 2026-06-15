@@ -166,6 +166,18 @@
           ]
         }
       ]
-    }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "VideoPlayer (a native <video> with transport controls; bound its height with a frame):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "VideoPlayer",
+      "properties": {
+        "url": "https://abracode.com/ActionUI/Nectarine.mp4",
+        "cornerRadius": 8,
+        "frame": { "maxWidth": 480, "height": 240 }
+      }
+    },
+    { "type": "Text", "properties": { "text": "A missing URL falls back to an error row:", "foregroundColor": "secondary", "font": "footnote" } },
+    { "type": "VideoPlayer", "properties": {} }
   ]
 }

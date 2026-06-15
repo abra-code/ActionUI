@@ -867,6 +867,27 @@
 }
 .aui-async-image > img { display: block; max-width: 100%; }
 
+/* VideoPlayer: a native <video controls>. Greedy like AVKit's player - fills
+   the frame the parent offers (bound the height with a frame in a scroll
+   column). The error row replaces the player on a missing/invalid URL. */
+.aui-video-player {
+    display: flex;
+    width: 100%;
+}
+.aui-video-player > video {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    background: #000;
+    border-radius: inherit;
+}
+.aui-video-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+    color: var(--aui-color-red);
+}
+
 /* ---- Label ---- */
 
 .aui-label {

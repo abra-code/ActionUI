@@ -28,6 +28,7 @@ import "./Views/TextField.js";
 import "./Views/Toggle.js";
 import "./Views/Image.js";
 import "./Views/AsyncImage.js";
+import "./Views/VideoPlayer.js";
 import "./Views/Label.js";
 import "./Views/Slider.js";
 import "./Views/Stepper.js";
