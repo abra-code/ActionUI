@@ -142,6 +142,30 @@
           ]
         }
       }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "AsyncImage (a browser <img>; an SF Symbol placeholder shows while loading and on failure):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "top" },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "alignment": "leading", "spacing": 4 },
+          "children": [
+            { "type": "AsyncImage", "properties": { "url": "https://abracode.com/ActionUI/abracadabra.png", "cornerRadius": 8, "frame": { "width": 240, "height": 150 } } },
+            { "type": "Text", "properties": { "text": "Loaded from a URL", "foregroundColor": "secondary", "font": "footnote" } }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": { "alignment": "leading", "spacing": 4 },
+          "children": [
+            { "type": "AsyncImage", "properties": { "url": "https://example.invalid/missing.png", "placeholder": "exclamationmark.triangle", "frame": { "width": 120, "height": 150 } } },
+            { "type": "Text", "properties": { "text": "Broken URL -> placeholder", "foregroundColor": "secondary", "font": "footnote" } }
+          ]
+        }
+      ]
     }
   ]
 }

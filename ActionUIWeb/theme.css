@@ -856,6 +856,17 @@
 }
 .aui-image > img { display: block; max-width: 100%; }
 
+/* AsyncImage: an <img> with the SwiftUI AsyncImagePhase placeholder/success
+   shape. The box clips its (resizable) image to the frame, like a SwiftUI
+   resizable AsyncImage filling its bounds. */
+.aui-async-image {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.aui-async-image > img { display: block; max-width: 100%; }
+
 /* ---- Label ---- */
 
 .aui-label {
