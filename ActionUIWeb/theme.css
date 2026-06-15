@@ -394,8 +394,17 @@
     min-height: 0;
     overflow: auto;
 }
-.aui-nav-split-content { flex: 1 1 0; min-width: 0; min-height: 0; overflow: auto; padding: 12px; border-right: 1px solid var(--aui-control-border); }
-.aui-nav-split-detail { flex: 2 1 0; min-width: 0; min-height: 0; overflow: auto; padding: 12px; }
+/* overflow-y:scroll keeps the vertical scrollbar track permanently reserved, so
+   switching between a scrolling (tall, e.g. Controls) and a non-scrolling (short)
+   section never reflows the pane by the scrollbar width. This is the classic,
+   universally-supported reservation - unlike scrollbar-gutter:stable it does not
+   depend on the browser/scrollbar mode honoring that newer property (it is a
+   no-op under overlay scrollbars and older engines). Under overlay scrollbars it
+   still costs nothing (the bar floats); under classic scrollbars the track is
+   always present, so the width is identical across sections. overflow-x:hidden
+   prevents an accidental horizontal scrollbar from adding a second axis of jump. */
+.aui-nav-split-content { flex: 1 1 0; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; padding: 12px; border-right: 1px solid var(--aui-control-border); }
+.aui-nav-split-detail { flex: 2 1 0; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; padding: 12px; }
 .aui-nav-split-row {
     padding: 6px 10px;
     border-radius: var(--aui-control-radius);
@@ -671,6 +680,11 @@
     cursor: pointer;
     user-select: none;
     border-left: 1px solid var(--aui-control-border);
+    /* contain the position:absolute hidden <input> below: without a positioned
+       wrapper its containing block falls back to the document, so it anchors at
+       its static flow position (deep in a tall section) and inflates the document
+       scroll height - escaping an ancestor ScrollView/overflow clip. */
+    position: relative;
 }
 .aui-picker-segmented .aui-segment:first-child { border-left: none; }
 .aui-picker-segmented .aui-segment > input { position: absolute; opacity: 0; pointer-events: none; }
@@ -679,7 +693,12 @@
 
 /* ---- Toggle ---- */
 
-.aui-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+/* position:relative contains the position:absolute hidden <input> below; without
+   it the input's containing block is the document, so it anchors at its static
+   flow position (deep in a tall section) and inflates the document scroll height,
+   escaping an ancestor ScrollView/overflow clip (the NavigationSplitView detail
+   pane "Controls grows the page" bug). */
+.aui-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; position: relative; }
 .aui-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .aui-toggle.aui-disabled, .aui-toggle:has(input:disabled) { opacity: 0.4; cursor: default; }
 

@@ -12,25 +12,36 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
     <link rel="stylesheet" href="../theme.css">
     <style>
-        /* The body is the "screen": a definite viewport-sized stage (the scene
-           proposal). The window is centered within it and clamps to it via its
-           root frame (see Private/ActionUI-Web-Layout-Engine.md); when the
-           window's min size exceeds the viewport, the stage scrolls. */
         body {
             margin: 0;
-            height: 100dvh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: auto;
             background: #d8d8dc;
         }
         @media (prefers-color-scheme: dark) {
             body { background: #1c1c1e; }
         }
-        /* Transparent wrapper so the .aui-window is the body's flex item and its
-           frame-derived width/height govern the layout directly. */
-        #root { display: contents; }
+        /* #root is the "screen": a definite, viewport-sized flex stage (the scene
+           proposal). The window centers within it and clamps to it via its root
+           frame (see Private/ActionUI-Web-Layout-Engine.md). It must be a real
+           box with a definite height (NOT display:contents): the window's
+           max-height is min(<max>px, 100%), and that 100% only resolves against a
+           containing block that generates a box with a definite height. Under
+           display:contents the wrapper generates no box, so the percentage
+           collapsed to none in some engines (Firefox) - the window then grew with
+           a tall section (Controls) past the viewport, the detail pane never
+           needed to scroll, and the page overflowed (window scrollbar -> the
+           centered card shifted). A definite-height stage caps the window to the
+           viewport, so a tall section scrolls inside the detail pane instead.
+           scrollbar-gutter:stable reserves the stage's scrollbar track so the
+           centered window does not shift horizontally in the rare case the stage
+           itself must scroll (window min size > viewport, per layout rule 1). */
+        #root {
+            height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            scrollbar-gutter: stable;
+        }
         #root .aui-window {
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);

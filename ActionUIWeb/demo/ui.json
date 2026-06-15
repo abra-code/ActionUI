@@ -18,7 +18,7 @@
       "sidebar": {
         "type": "List",
         "id": 1001,
-        "properties": { "actionID": "sectionSelect" },
+        "properties": { "actionID": "sectionSelect", "navigationSplitViewColumnWidth": { "ideal": 200, "min": 180, "max": 240 } },
         "children": [
           { "type": "Label", "id": 1010, "properties": { "title": "Overview", "systemImage": "square.grid.2x2", "destinationViewId": 1100 } },
           { "type": "Label", "id": 1011, "properties": { "title": "Controls", "systemImage": "slider.horizontal.3", "destinationViewId": 1101 } },

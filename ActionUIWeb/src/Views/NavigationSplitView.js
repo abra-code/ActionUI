@@ -47,6 +47,32 @@ import { register } from "../Common/ActionUIRegistry.js";
 const VALID_COLUMN_VISIBILITIES = ["automatic", "all", "doubleColumn", "detail"];
 const VALID_STYLES = ["automatic", "balanced", "prominentDetail"];
 
+// navigationSplitViewColumnWidth (View.md): a Number -> a fixed column, or
+// { ideal, min, max } -> a preferred width bounded by min/max (ideal required).
+// Declared on the sidebar/content/detail subview; applied to that pane here (the
+// modifier is a no-op outside an NSV column, matching the schema). Mirrors the
+// SwiftUI .navigationSplitViewColumnWidth modifier; the pane becomes rigid
+// (flex:0 0 auto) so its width is governed by the declared values.
+function applyColumnWidth(paneNode, element, logger) {
+    const cw = element?.properties?.navigationSplitViewColumnWidth;
+    if (cw === undefined) return;
+    if (typeof cw === "number") {
+        paneNode.style.flex = "0 0 auto";
+        paneNode.style.width = `${cw}px`;
+        paneNode.style.minWidth = `${cw}px`;
+        paneNode.style.maxWidth = `${cw}px`;
+        return;
+    }
+    if (typeof cw === "object" && cw !== null && typeof cw.ideal === "number") {
+        paneNode.style.flex = "0 0 auto";
+        paneNode.style.width = `${cw.ideal}px`;
+        if (typeof cw.min === "number") paneNode.style.minWidth = `${cw.min}px`;
+        if (typeof cw.max === "number") paneNode.style.maxWidth = `${cw.max}px`;
+        return;
+    }
+    logger.log("navigationSplitViewColumnWidth requires a Number or a dictionary with a numeric 'ideal'; ignoring", "warning");
+}
+
 register("NavigationSplitView", {
     // Selection is element state, not the scalar value (Swift valueType Void).
     valueType: "none",
@@ -100,8 +126,10 @@ register("NavigationSplitView", {
 
         const sidebarPane = document.createElement("div");
         sidebarPane.className = "aui-nav-split-sidebar";
+        applyColumnWidth(sidebarPane, sidebar, ctx.logger);
         const detailPane = document.createElement("div");
         detailPane.className = "aui-nav-split-detail";
+        applyColumnWidth(detailPane, detail, ctx.logger);
 
         // Selection state (only meaningful in the selection-driven form).
         let selectedDestination = 0;
@@ -183,6 +211,7 @@ register("NavigationSplitView", {
             if (threePane) {
                 const contentPane = document.createElement("div");
                 contentPane.className = "aui-nav-split-content";
+                applyColumnWidth(contentPane, content, ctx.logger);
                 contentPane.appendChild(ctx.build(content));
                 node.append(sidebarPane, contentPane, detailPane);
             } else {
@@ -195,6 +224,7 @@ register("NavigationSplitView", {
             if (threePane) {
                 const contentPane = document.createElement("div");
                 contentPane.className = "aui-nav-split-content";
+                applyColumnWidth(contentPane, content, ctx.logger);
                 contentPane.appendChild(ctx.build(content));
                 node.append(sidebarPane, contentPane, detailPane);
             } else {
