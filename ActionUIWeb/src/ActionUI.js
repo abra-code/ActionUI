@@ -35,6 +35,7 @@ import "./Views/ProgressView.js";
 import "./Views/DatePicker.js";
 import "./Views/ColorPicker.js";
 import "./Views/ScrollView.js";
+import "./Views/ScrollViewReader.js";
 import "./Views/LazyVStack.js";
 import "./Views/LazyHStack.js";
 import "./Views/Grid.js";

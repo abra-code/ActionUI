@@ -100,6 +100,13 @@ app.action("tmplListSelect", () => {
     win.setString(20, 0, win.getString(55) ? `Folder: ${row[0]}.` : "No folder selected.");
 });
 
+// ScrollViewReader: the scroll target is the reader's Int value (the web's
+// runtime proxy.scrollTo), so a button scroll is just setInt(readerID, rowID).
+// Re-sending the same id re-scrolls, so each press works after scrolling away.
+app.action("svrTop", () => win.setInt(140, 0, 141));
+app.action("svrMiddle", () => win.setInt(140, 0, 146));
+app.action("svrBottom", () => win.setInt(140, 0, 152));
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {
