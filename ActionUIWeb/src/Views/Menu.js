@@ -1,10 +1,12 @@
 // Menu.js — Menu element.
 // Web analog of ActionUI/Views/Menu.swift (and ActionUIAndroid Views/Menu.kt).
 //
-// A pull-down menu: a trigger that opens a floating list of action items, built
-// as the native <details>/<summary> pair (the same primitive as DisclosureGroup,
-// so no Phase 3 popover infrastructure is needed) with the item list absolutely
-// positioned to overlay content rather than push it. The trigger is the `title`
+// A pull-down menu: a trigger that opens a floating list of action items. The
+// item list is a native top-layer popover (the Popover API), so it overlays
+// content and - crucially - escapes every ancestor overflow/clip (e.g. the
+// NavigationSplitView pane's overflow:scroll), the way a SwiftUI Menu pull-down
+// escapes its window. This is the web's "window-level overlay" / popover infra.
+// The trigger is the `title`
 // (or a custom `label` view, when present — the ellipsis-icon Menu), and the
 // `children` are interpreted as menu items, not rendered as standalone views:
 //   * Button  → an item showing the button's title (+ its systemImage /
@@ -16,14 +18,25 @@
 //   * anything else → a best-effort label item (warns); arbitrary view content
 //     has no menu analog.
 //
-// Divergence from Apple: the items render in the document (a CSS-positioned
-// dropdown), not a window-level popover — submenus collapse to inline items, and
-// the trigger defaults to "Menu" when the title is empty and there is no label
-// (so the control is visible), the Android stance. See
+// Divergence from Apple: submenus collapse to inline items (no nested popovers),
+// and the trigger defaults to "Menu" when the title is empty and there is no
+// label (so the control is visible), the Android stance. See
 // Private/Web_Porting_Notes.md (Menu).
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
+
+// The Popover API renders the dropdown in the browser top layer, escaping every
+// ancestor overflow/clip (e.g. the NavigationSplitView pane). We use a "manual"
+// popover driven by our own click + dismiss handlers, NOT the declarative
+// popovertarget invoker with auto light-dismiss: that keeps open/close,
+// positioning, and dismissal uniform across engines (Safari's declarative-invoker
+// and toggle-event timing diverge from Firefox/Chrome) while still getting the
+// top layer. Detected once; when unavailable the dropdown degrades to an in-flow
+// absolute panel toggled by a class (clipped by overflow ancestors, the prior
+// behavior) with a manual outside-click dismiss.
+const SUPPORTS_POPOVER = typeof HTMLElement !== "undefined"
+    && Object.prototype.hasOwnProperty.call(HTMLElement.prototype, "popover");
 
 register("Menu", {
     valueType: "none",
@@ -39,46 +52,127 @@ register("Menu", {
     },
 
     buildView: (element, properties, ctx) => {
-        const details = document.createElement("details");
-        details.className = "aui-menu";
+        const menu = document.createElement("div");
+        menu.className = "aui-menu";
 
-        const summary = document.createElement("summary");
-        summary.className = "aui-menu-trigger";
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "aui-menu-trigger";
 
         // A custom `label` view replaces the title (the SF-Symbol-trigger Menu);
         // otherwise the title text, defaulting to "Menu" so the trigger shows.
         const labelElement = element.subviews?.label;
         if (labelElement) {
-            summary.appendChild(ctx.build(labelElement));
+            trigger.appendChild(ctx.build(labelElement));
         } else {
             const text = document.createElement("span");
             text.className = "aui-menu-title";
             text.textContent = properties.title || "Menu";
-            summary.appendChild(text);
+            trigger.appendChild(text);
         }
         const caret = document.createElement("span");
         caret.className = "aui-menu-caret";
-        caret.textContent = "▾"; // ▾
-        summary.appendChild(caret);
-        details.appendChild(summary);
+        caret.textContent = "▾"; // a downward caret
+        trigger.appendChild(caret);
+        menu.appendChild(trigger);
 
         const items = document.createElement("div");
         items.className = "aui-menu-items";
         items.setAttribute("role", "menu");
-        const dismiss = () => { details.open = false; };
+
+        // Wire open/close before building items so each item can dismiss the menu.
+        let dismiss;
+        if (SUPPORTS_POPOVER) {
+            items.setAttribute("popover", "manual"); // top layer; we own dismissal
+            dismiss = wirePopover(items, trigger, menu);
+        } else {
+            dismiss = () => menu.classList.remove("is-open");
+            wireFallbackToggle(menu, trigger);
+        }
+
         for (const child of element.children()) {
             appendMenuChild(items, child, ctx, dismiss);
         }
-        details.appendChild(items);
+        menu.appendChild(items);
 
-        // A floating menu closes on an outside click (native <details> does not).
-        document.addEventListener("pointerdown", (event) => {
-            if (details.open && !details.contains(event.target)) details.open = false;
-        });
-
-        return details;
+        return menu;
     },
 });
+
+// Drives a manual top-layer popover: the trigger toggles it, and while open we
+// anchor it under the trigger (the Popover API shows it centered by default) and
+// dismiss on an outside pointerdown or Escape. Positioning runs synchronously
+// right after showPopover() - not from the async `toggle` event - so it does not
+// depend on toggle-event timing (which differs in Safari). Returns a close()
+// the menu items reuse to dismiss. This is event-driven floating-element
+// placement (what any menu needs; a native <select> does the same internally),
+// not the JS measure/relayout layout loop the layout engine avoids - the browser
+// still sizes the panel.
+function wirePopover(popover, trigger, menu) {
+    const place = () => placePopover(popover, trigger);
+    let open = false;
+    const onPointerDown = (event) => { if (!menu.contains(event.target)) close(); };
+    const onKeyDown = (event) => { if (event.key === "Escape") close(); };
+
+    function show() {
+        if (open) return;
+        open = true;
+        popover.showPopover();
+        place();
+        window.addEventListener("scroll", place, true); // capture: follow the scrolling pane
+        window.addEventListener("resize", place);
+        document.addEventListener("pointerdown", onPointerDown, true);
+        document.addEventListener("keydown", onKeyDown);
+    }
+    function close() {
+        if (!open) return;
+        open = false;
+        popover.hidePopover();
+        window.removeEventListener("scroll", place, true);
+        window.removeEventListener("resize", place);
+        document.removeEventListener("pointerdown", onPointerDown, true);
+        document.removeEventListener("keydown", onKeyDown);
+    }
+
+    trigger.addEventListener("click", () => { if (open) close(); else show(); });
+    return close;
+}
+
+function placePopover(popover, trigger) {
+    const rect = trigger.getBoundingClientRect();
+    const gap = 4;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const panelWidth = popover.offsetWidth;
+    const panelHeight = popover.offsetHeight;
+
+    // Horizontal: align the panel's left edge to the trigger, clamped on-screen.
+    let left = Math.min(rect.left, viewportWidth - panelWidth - gap);
+    left = Math.max(gap, left);
+
+    // Vertical: open below the trigger; flip above if it would overflow the
+    // bottom and there is room above (SwiftUI menus flip the same way).
+    let top = rect.bottom + gap;
+    if (top + panelHeight > viewportHeight - gap && rect.top - panelHeight - gap >= gap) {
+        top = rect.top - panelHeight - gap;
+    }
+    top = Math.max(gap, Math.min(top, viewportHeight - panelHeight - gap));
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+}
+
+// Legacy fallback (no Popover API): toggle an in-flow absolute panel via a class,
+// with a manual outside-click dismiss. The panel is clipped by overflow
+// ancestors - the behavior before the top-layer popover - but functional.
+function wireFallbackToggle(menu, trigger) {
+    trigger.addEventListener("click", () => menu.classList.toggle("is-open"));
+    document.addEventListener("pointerdown", (event) => {
+        if (menu.classList.contains("is-open") && !menu.contains(event.target)) {
+            menu.classList.remove("is-open");
+        }
+    });
+}
 
 // Classifies one Menu child by type, mirroring Android's menuItemKind.
 function menuItemKind(child) {

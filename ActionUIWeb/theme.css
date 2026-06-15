@@ -222,9 +222,11 @@
 
 /* ---- Menu ---- */
 
-/* A pull-down: a <summary> trigger styled like a Button, with the item list
-   (a sibling <div>) absolutely positioned to overlay rather than push content.
-   The native disclosure marker is suppressed in favor of a trailing caret. */
+/* A pull-down: a <button> trigger styled like a Button, with the item list a
+   top-layer popover (Popover API) that overlays content. A trailing caret marks
+   it as a menu. The dropdown lives in the browser top layer so it escapes every
+   ancestor overflow/clip (e.g. the NavigationSplitView pane's overflow:scroll),
+   the way a SwiftUI Menu pull-down escapes its window. */
 .aui-menu { position: relative; display: inline-block; }
 .aui-menu-trigger {
     font: inherit;
@@ -235,30 +237,34 @@
     padding: 3px 12px;
     cursor: pointer;
     box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
-    list-style: none; /* hide the disclosure marker (Firefox) */
     display: inline-flex;
     align-items: center;
     gap: 0.34em;
     user-select: none;
 }
-.aui-menu-trigger::-webkit-details-marker { display: none; } /* hide it (WebKit/Blink) */
 .aui-menu-trigger:hover { filter: brightness(0.97); }
 .aui-menu-trigger:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
 .aui-menu-caret { font-size: 0.7em; opacity: 0.7; }
 
+/* The dropdown panel: shared visual styling (positioning differs by mode). */
 .aui-menu-items {
-    position: absolute;
     z-index: 10;
     min-width: 168px;
-    margin-top: 4px;
     padding: 4px;
     background: var(--aui-control-background);
     border: 1px solid var(--aui-control-border);
     border-radius: var(--aui-control-radius);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-    display: flex;
     flex-direction: column;
 }
+/* Top-layer popover: override the UA centering (inset:0; margin:auto) so JS can
+   anchor it to the trigger via top/left; shown as a flex column only when open. */
+.aui-menu-items[popover] { position: fixed; margin: 0; inset: auto; }
+.aui-menu-items:popover-open { display: flex; }
+/* Legacy fallback (no Popover API): an in-flow absolute panel, toggled by
+   .is-open. Clipped by overflow ancestors - the behavior before the top layer. */
+.aui-menu-items:not([popover]) { position: absolute; margin-top: 4px; display: none; }
+.aui-menu.is-open .aui-menu-items:not([popover]) { display: flex; }
 .aui-menu-item {
     font: inherit;
     text-align: left;
