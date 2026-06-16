@@ -23,6 +23,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.DialogButton
 import com.abracode.actionui.Common.DialogButtonRole
 import com.abracode.actionui.Common.DiscoveringImageRegistry
+import com.abracode.actionui.Common.InsertPosition
 import com.abracode.actionui.Common.ModalStyle
 import com.abracode.actionui.Common.imageRegistryOf
 import com.abracode.actionui.demo.ui.theme.ActionUIAndroidTheme
@@ -408,6 +409,70 @@ class MainActivity : ComponentActivity() {
         }
         ActionUIModel.registerActionHandler("modal.close") { _, windowUUID, _, _, _ ->
             ActionUIModel.dismissModal(windowUUID)
+        }
+
+        // View.insertion.json - the runtime structural-mutation API (insertElement /
+        // insertRow / removeElement). Each button mints a fresh positive id (host ids
+        // start at 900, so they never collide with the authored document) and mutates
+        // a container by id; the declaring view recomposes with no rebuild. Inserted
+        // VStack-children ids are tracked so "Remove last" can pop them. The mutations
+        // throw InsertError on a bad request, so each is wrapped to toast the failure
+        // rather than crash the demo. The same handlers drive a flat container
+        // (VStack 1), a rows container (Grid 2), and an exotic one (TabView 3) -
+        // proof the merge reaches every container shape uniformly.
+        var insertSeq = 900
+        val insertedStackIds = ArrayDeque<Int>()
+        fun tryMutate(label: String, block: () -> Unit) {
+            runCatching(block).onFailure {
+                Toast.makeText(this, "$label failed: ${it.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+        ActionUIModel.registerActionHandler("insert.append") { _, windowUUID, _, _, _ ->
+            val id = insertSeq++
+            tryMutate("Append") {
+                ActionUIModel.insertElement(
+                    windowUUID = windowUUID, parentID = 1,
+                    jsonString = """{"type":"Label","id":$id,"properties":{"title":"Inserted $id","systemImage":"sparkles"}}""",
+                )
+                insertedStackIds.addLast(id)
+            }
+        }
+        ActionUIModel.registerActionHandler("insert.prepend") { _, windowUUID, _, _, _ ->
+            val id = insertSeq++
+            tryMutate("Prepend") {
+                ActionUIModel.insertElement(
+                    windowUUID = windowUUID, parentID = 1,
+                    jsonString = """{"type":"Label","id":$id,"properties":{"title":"Inserted $id","systemImage":"arrow.up"}}""",
+                    position = InsertPosition.Prepend,
+                )
+                insertedStackIds.addLast(id)
+            }
+        }
+        ActionUIModel.registerActionHandler("insert.removeLast") { _, windowUUID, _, _, _ ->
+            val id = insertedStackIds.removeLastOrNull()
+            if (id == null) {
+                Toast.makeText(this, "Nothing inserted to remove (seed rows stay)", Toast.LENGTH_SHORT).show()
+            } else {
+                tryMutate("Remove") { ActionUIModel.removeElement(windowUUID = windowUUID, viewID = id) }
+            }
+        }
+        ActionUIModel.registerActionHandler("insert.addRow") { _, windowUUID, _, _, _ ->
+            val id = insertSeq++
+            tryMutate("Add row") {
+                ActionUIModel.insertRow(
+                    windowUUID = windowUUID, parentID = 2,
+                    jsonString = """[{"type":"Text","id":$id,"properties":{"text":"Row $id"}},{"type":"Text","properties":{"text":"added at runtime","foregroundColor":"secondary"}}]""",
+                )
+            }
+        }
+        ActionUIModel.registerActionHandler("insert.addTab") { _, windowUUID, _, _, _ ->
+            val id = insertSeq++
+            tryMutate("Add tab") {
+                ActionUIModel.insertElement(
+                    windowUUID = windowUUID, parentID = 3,
+                    jsonString = """{"type":"Tab","id":$id,"properties":{"title":"Tab $id","systemImage":"star"},"content":{"type":"Text","properties":{"text":"Inserted tab $id"}}}""",
+                )
+            }
         }
 
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->

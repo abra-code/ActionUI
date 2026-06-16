@@ -21,6 +21,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
@@ -58,6 +59,8 @@ import kotlinx.serialization.json.JsonObject
  * honored; the NavigationBar is always used.
  */
 object TabView : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
     override val valueType = ActionUIValueType.INT
 
     override fun initialValue(element: ActionUIElement): Any? =

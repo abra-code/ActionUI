@@ -133,4 +133,13 @@ object ActionUIRegistry {
 
     fun lookup(type: String): ActionUIViewConstruction? =
         if (type.isEmpty()) null else builders[type]
+
+    /**
+     * The insertable-container map for a registered view type, or `null` when the
+     * type is unknown or declares none. The Android analog of Swift's
+     * `ActionUIRegistry.getInsertableContainers(forElementType:)`; consulted by
+     * [ActionUIModel] to resolve an insertion request's target container.
+     */
+    fun getInsertableContainers(type: String): Map<String, ContainerShape>? =
+        lookup(type)?.insertableContainers
 }

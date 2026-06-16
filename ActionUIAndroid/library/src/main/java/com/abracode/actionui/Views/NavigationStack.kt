@@ -19,6 +19,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
@@ -63,6 +64,8 @@ import com.abracode.actionui.Helpers.stringProperty
  * simple header for now; the real navigation bar arrives with the toolbar track.
  */
 object NavigationStack : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("destinations" to ContainerShape.FLAT)
 
     /** Element-state key holding the push path as `List<Int>` (Apple parity). */
     const val NAVIGATION_PATH_KEY = "navigationPath"

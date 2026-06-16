@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
@@ -83,6 +84,8 @@ import kotlinx.serialization.json.JsonObject
  * across the `Views` package; it is registered under the canonical string `"List"`.
  */
 object ListView : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
 
     /** The selected row, as the Apple-parity `[String]` selection value. */
     override val valueType = ActionUIValueType.STRING_LIST

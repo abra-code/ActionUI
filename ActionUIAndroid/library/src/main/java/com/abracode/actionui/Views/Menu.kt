@@ -17,6 +17,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
@@ -49,6 +50,8 @@ import com.abracode.actionui.Helpers.stringProperty
  * is visible). Nested submenus collapse to inline items.
  */
 object Menu : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
 
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {

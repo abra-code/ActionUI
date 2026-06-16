@@ -82,4 +82,30 @@ interface ActionUIViewConstruction {
      * the element state API before any user interaction.
      */
     fun initialStates(element: ActionUIElement): Map<String, Any> = emptyMap()
+
+    /**
+     * The named subview containers this element accepts runtime insertions into,
+     * each mapped to its [ContainerShape]. The Android analog of Swift's
+     * `ActionUIElementConstruction.insertableContainers`. Default `null` (no
+     * insertions), so leaf and single-child elements need not opt in.
+     *
+     * A container of shape [ContainerShape.FLAT] (`children` / `destinations`)
+     * accepts [ActionUIModel.insertElement]; [ContainerShape.ROWS] (`Grid`'s
+     * `rows`) accepts [ActionUIModel.insertRow]. The mutation engine
+     * ([WindowModel]) writes the new container contents into the parent
+     * [ViewModel.dynamicSubviews], which the shared build entry point
+     * (`Helpers/ViewModifierHelper.kt`) merges back over the element each
+     * recomposition - so the declaring view's existing `element.children` /
+     * `element.destinations` / `element.rows` read picks up the live state with
+     * no per-view wiring (the declarative-Compose advantage over the web port,
+     * which needs imperative bindings).
+     *
+     * Only declare a container the builder actually renders from the matching
+     * field. The single-child `content` family (`GroupBox` / `DisclosureGroup` /
+     * `LabeledContent` render `children` as an array on Android, so they do
+     * declare `children`); `ToolbarItemGroup` is rendered by the toolbar host,
+     * not the normal child loop, and is deferred with the toolbar track.
+     */
+    val insertableContainers: Map<String, ContainerShape>?
+        get() = null
 }
