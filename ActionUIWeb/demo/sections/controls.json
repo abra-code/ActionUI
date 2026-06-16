@@ -23,6 +23,16 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Window-level modals (presentModal loads a JSON sub-document into a native <dialog>; the modal's Close button routes an actionID to dismissModal):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Sheet Modal", "systemImage": "tray", "buttonStyle": "bordered", "actionID": "showSheetModal" } },
+        { "type": "Button", "properties": { "title": "Cover Modal", "systemImage": "rectangle.portrait", "buttonStyle": "bordered", "actionID": "showCoverModal" } }
+      ]
+    },
+    { "type": "Divider" },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },

@@ -90,7 +90,12 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   `get/setString|Bool|Int|Double|Value`, `get/setState` (named element states,
   e.g. DisclosureGroup's `isExpanded`), the rows API for data-driven collections
   (`get/set/append/clearElementRows`, `getElementColumnCount` — sugar over the
-  `content` state, used by Table and List's data-driven modes), `app.action(id, fn)`,
+  `content` state, used by Table and List's data-driven modes), the window-level
+  presentation host API (`src/Scenes/`): `presentAlert` /
+  `presentConfirmationDialog` / `dismissDialog` (a native `<dialog>` from pure
+  data) and `presentModal` / `dismissModal` (a JSON sub-document loaded into a
+  sheet / `fullScreenCover` `<dialog>`, its controls bound into the window model),
+  `app.action(id, fn)`,
   `setDefaultHandler`. Action handlers receive
   `(actionID, windowUUID, viewID, viewPartID, context)` as on all platforms.
 - **Theme** (`theme.css`): tokenized CSS custom properties, macOS-flavored

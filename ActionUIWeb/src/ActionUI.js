@@ -16,6 +16,7 @@ import { ConsoleLogger } from "./Common/ConsoleLogger.js";
 import { PlatformFilter } from "./Common/PlatformFilter.js";
 import { InsertPosition } from "./Common/ActionUIInsertion.js";
 import { presentDialog, dismissActiveDialog } from "./Scenes/DialogHost.js";
+import { presentModal, dismissActiveModal, ModalStyle } from "./Scenes/ModalHost.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -75,9 +76,9 @@ import "./Views/Link.js";
 import "./Views/ShareLink.js";
 import "./Views/ContentUnavailableView.js";
 
-// Re-export so hosts can `import { Window, InsertPosition } from ".../ActionUI.js"`
-// (mirrors the Node.js adapter exposing InsertPosition alongside the Window).
-export { InsertPosition };
+// Re-export so hosts can `import { Window, InsertPosition, ModalStyle } from
+// ".../ActionUI.js"` (mirrors the Node.js adapter exposing these alongside Window).
+export { InsertPosition, ModalStyle };
 
 export class ActionContext {
     constructor(actionID, windowUUID, viewID, viewPartID, context) {
@@ -208,6 +209,26 @@ export class Window {
         this._presentDialog("confirmationDialog", title, message, buttons ?? []);
     }
     dismissDialog() { dismissActiveDialog(this.rootNode); }
+
+    // Window-level modal - same names/signature as the Node.js adapter's Window.
+    // Loads a JSON sub-document (`description`: a JSON string or object) and
+    // presents it over the window as a native <dialog> (sheet or fullScreenCover);
+    // the modal's own controls bind into the window model (addressable by id) and
+    // are removed on dismiss. The modal dismisses itself by routing an actionID the
+    // host maps to dismissModal(), or via Escape/the backdrop. See Scenes/ModalHost.js.
+    presentModal(description, format = "json", style = ModalStyle.SHEET, onDismissActionID = null) {
+        if (!this.rootNode) {
+            this.logger.log("presentModal: window not presented yet; call present() first", "error");
+            return;
+        }
+        presentModal(this.rootNode, {
+            data: typeof description === "string" ? description : JSON.stringify(description),
+            format,
+            style: style === ModalStyle.FULL_SCREEN_COVER ? "fullScreenCover" : "sheet",
+            onDismissActionID,
+        }, this.model, this.logger);
+    }
+    dismissModal() { dismissActiveModal(this.rootNode, this.model); }
 
     _presentDialog(style, title, message, buttons) {
         if (!this.rootNode) {

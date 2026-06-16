@@ -5,7 +5,7 @@
 // under demo/sections/. Elements live in those loaded files, so a section's data
 // is pushed once it loads (viewDidLoadActionID) rather than up front.
 
-import { Application, Window, InsertPosition } from "../src/ActionUI.js";
+import { Application, Window, InsertPosition, ModalStyle } from "../src/ActionUI.js";
 import { ConsoleLogger } from "../src/Common/ConsoleLogger.js";
 import { setDebugMode } from "../src/Common/Debug.js";
 
@@ -240,6 +240,35 @@ app.action("demoSheetClose", () => win.setState(301, "sheetVisible", false));
 app.action("demoSheetDismissed", () => win.setString(20, 0, "Sheet dismissed."));
 app.action("demoCoverClose", () => win.setState(302, "fullScreenCoverVisible", false));
 app.action("demoCoverDismissed", () => win.setString(20, 0, "Full screen cover dismissed."));
+
+// Window-level modals (Controls): presentModal loads a JSON sub-document into a
+// native <dialog>; its controls bind into the window model by id. The modal's
+// Close button routes an actionID the host maps to dismissModal() - the
+// Modal.json / cross-platform contract. onDismissActionID fires on any close.
+const sheetModal = {
+    type: "VStack",
+    properties: { alignment: "leading", spacing: 14, padding: "default", frame: { width: 380 } },
+    children: [
+        { type: "Text", properties: { text: "Sheet Modal", font: "title2" } },
+        { type: "Text", properties: { text: "Loaded from a JSON description via presentModal. This field binds into the window model by id.", foregroundColor: "secondary" } },
+        { type: "TextField", id: 500, properties: { title: "Note", prompt: "Type something" } },
+        { type: "Button", properties: { title: "Close", buttonStyle: "borderedProminent", actionID: "dismissThisModal" } },
+    ],
+};
+const coverModal = {
+    type: "VStack",
+    properties: { alignment: "center", spacing: 16, padding: "default", frame: { maxWidth: "infinity", maxHeight: "infinity" } },
+    children: [
+        { type: "Text", properties: { text: "Cover Modal", font: "largeTitle" } },
+        { type: "Text", properties: { text: "A full-viewport modal. Press Escape or use the button to dismiss.", foregroundColor: "secondary" } },
+        { type: "Button", properties: { title: "Close", systemImage: "xmark", buttonStyle: "borderedProminent", actionID: "dismissThisModal" } },
+    ],
+};
+app.action("showSheetModal", () => win.presentModal(sheetModal, "json", ModalStyle.SHEET, "sheetModalDismissed"));
+app.action("showCoverModal", () => win.presentModal(coverModal, "json", ModalStyle.FULL_SCREEN_COVER, "coverModalDismissed"));
+app.action("dismissThisModal", () => win.dismissModal());
+app.action("sheetModalDismissed", () => win.setString(20, 0, "Sheet modal dismissed."));
+app.action("coverModalDismissed", () => win.setString(20, 0, "Cover modal dismissed."));
 
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
