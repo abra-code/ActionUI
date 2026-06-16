@@ -14,6 +14,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.applyScrollContentBackground
 
 /**
  * Grouped form layout. Mirror of the Apple `Form` element
@@ -44,7 +45,7 @@ object Form : ActionUIViewConstruction {
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
         Column(
-            modifier = modifier,
+            modifier = modifier.applyScrollContentBackground(element.properties, logger),
             verticalArrangement = Arrangement.spacedBy(DEFAULT_ROW_SPACING),
             horizontalAlignment = Alignment.Start,
         ) {

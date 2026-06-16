@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 24, "padding": 16, "frame": { "maxWidth": "infinity", "alignment": "leading" } },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "ControlGroup", "font": "title" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "A horizontal cluster of controls, optionally under a title label. Taps land on the demo's default action handler (toast).",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "ControlGroup",
+      "properties": { "title": "Format" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Bold", "systemImage": "bold", "actionID": "cg.bold" } },
+        { "type": "Button", "properties": { "title": "Italic", "systemImage": "italic", "actionID": "cg.italic" } },
+        { "type": "Button", "properties": { "title": "Underline", "systemImage": "underline", "actionID": "cg.underline" } }
+      ]
+    },
+    {
+      "type": "ControlGroup",
+      "children": [
+        { "type": "Button", "properties": { "title": "Day", "actionID": "cg.day" } },
+        { "type": "Button", "properties": { "title": "Week", "actionID": "cg.week" } },
+        { "type": "Button", "properties": { "title": "Month", "actionID": "cg.month" } }
+      ]
+    }
+  ]
+}

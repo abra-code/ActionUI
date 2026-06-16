@@ -30,6 +30,7 @@ import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.applyScrollContentBackground
 import com.abracode.actionui.Helpers.stringProperty
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.JsonObject
@@ -107,7 +108,8 @@ object ListView : ActionUIViewConstruction {
         // inherited frame.height wins, else a default keeps an unbounded parent
         // from crashing it (same guard as LazyVStack).
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
-        val listModifier = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
+        val listModifier = (if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT))
+            .applyScrollContentBackground(props, logger)
 
         // Selection (value bridge): interactive only when a list-level actionID is
         // present (Apple's selectable mode). The selected row is the element value.
