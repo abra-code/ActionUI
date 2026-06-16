@@ -100,6 +100,11 @@ app.action("collectionsLoaded", () => {
     ]);
     win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
     win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "text.document"], ["Sent", "paperplane"]]);
+    // LazyVGrid template mode: one substituted instance per row, flowing into the grid.
+    win.setElementRows(56, [
+        ["Inbox", "tray"], ["Drafts", "text.document"], ["Sent", "paperplane"],
+        ["Flagged", "flag"], ["Trash", "trash"], ["Archive", "archivebox"],
+    ]);
 });
 
 app.action("greet", () => {
@@ -210,6 +215,40 @@ app.action("insAddRow", () => {
         { type: "Text", id, properties: { text: `Row ${id}` } },
         { type: "Text", properties: { text: "added at runtime", foregroundColor: "secondary" } },
     ]);
+});
+
+// Insertion into the exotic containers (Navigation section): TabView 130 children,
+// Menu 170 children, NavigationStack 160 destinations - Apple declares all three
+// insertable. Inserted ids are minted from a separate counter.
+let navInsSeq = 700;
+app.action("insertTab", () => {
+    const id = navInsSeq++;
+    win.insertElement(130, { type: "Tab", id, properties: { title: `Tab ${id}`, systemImage: "star" },
+        content: { type: "Text", properties: { text: `Inserted tab ${id}. Click it in the rail.` } } });
+    win.setString(20, 0, `Inserted tab ${id} into the TabView.`);
+});
+app.action("insertMenuItem", () => {
+    const id = navInsSeq++;
+    win.insertElement(170, { type: "Button", id, properties: { title: `Item ${id}`, systemImage: "sparkles", actionID: "menuInserted" } });
+    win.setString(20, 0, `Inserted menu item ${id} - re-open the Menu to see it.`);
+});
+app.action("menuInserted", () => win.setString(20, 0, "Menu: inserted item clicked."));
+app.action("insertDestination", () => {
+    const destId = navInsSeq++;
+    const linkId = navInsSeq++;
+    // 1) Register the push target in the stack's `destinations` (addressable by id).
+    win.insertElement(160, { type: "VStack", id: destId,
+        properties: { alignment: "leading", spacing: 6, navigationTitle: `Inserted ${destId}` },
+        children: [{ type: "Text", properties: { text: `Destination ${destId} was inserted at runtime, then pushed.`, font: "headline" } }] },
+        "destinations");
+    // 2) Add a visible Library row that points at it (content VStack id 164), so the
+    // destination is reachable after Back - inserting into `destinations` alone only
+    // makes a target pushable, it adds no navigation affordance.
+    win.insertElement(164, { type: "NavigationLink", id: linkId,
+        properties: { title: `Inserted ${destId}`, systemImage: "sparkles", destinationViewId: destId } });
+    // 3) Push to the freshly-inserted destination.
+    win.setState(160, "navigationPath", [destId]);
+    win.setString(20, 0, `Inserted destination ${destId} (Library row + push target) and pushed to it.`);
 });
 
 // Toolbar chrome actions: a toolbar Button fires its actionID with { title }.

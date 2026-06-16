@@ -26,6 +26,8 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
+import { interpretiveFlatBinding } from "../Helpers/InsertionHelper.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { tabTitle, tabBadge } from "./Tab.js";
 
 // The full SwiftUI style set; only "automatic" (the strip) is honored on web,
@@ -34,6 +36,12 @@ const VALID_STYLES = ["automatic", "tabBarOnly", "sidebarAdaptable", "page", "ve
 
 register("TabView", {
     valueType: "int",
+
+    // `children` is a runtime-insertable flat container (Apple's
+    // TabView.insertableContainers["children"]): a host can add/remove tabs at
+    // runtime. A Tab child is interpreted (strip button + content panel), so this
+    // is the interpretive insertion path (see InsertionHelper.interpretiveFlatBinding).
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors TabView.swift validateProperties (warning text verbatim).
     validateProperties: (properties, logger) => {
@@ -68,13 +76,6 @@ register("TabView", {
         node.className = sidebarLayout ? "aui-tabview aui-tabview-sidebar" : "aui-tabview";
         if (typeof properties.style === "string") node.dataset.auiTabStyle = properties.style;
 
-        const tabs = element.children();
-        if (tabs.length === 0) return node; // empty TabView: nothing to show (Android returns early)
-
-        const clamp = (index) => Math.min(Math.max(index, 0), tabs.length - 1);
-        const initial = clamp(Number.isInteger(properties.selection) ? properties.selection : 0);
-        let selected = initial;
-
         const bar = document.createElement("div");
         bar.className = sidebarLayout ? "aui-tabbar aui-tabbar-sidebar" : "aui-tabbar";
         bar.setAttribute("role", "tablist");
@@ -85,6 +86,8 @@ register("TabView", {
 
         const buttons = [];
         const panels = [];
+        let selected = 0;
+        const clamp = (index) => (panels.length === 0 ? 0 : Math.min(Math.max(index, 0), panels.length - 1));
 
         // Switches the visible tab and the strip's selected state. No dispatch /
         // model write here — getValue reads `selected` live, so a user click and a
@@ -100,7 +103,11 @@ register("TabView", {
             panels.forEach((panel, i) => { panel.style.display = i === index ? "" : "none"; });
         };
 
-        tabs.forEach((tab, index) => {
+        // Builds a tab's strip button + content panel and inserts both at `atIndex`.
+        // Reused by the initial build and by runtime insertElement. The click
+        // handler resolves its index dynamically, so it stays correct after
+        // insertions/removals shift positions.
+        const makeTab = (tab, atIndex) => {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "aui-tab";
@@ -119,7 +126,7 @@ register("TabView", {
 
             const titleSpan = document.createElement("span");
             titleSpan.className = "aui-tab-title";
-            titleSpan.textContent = tabTitle(tab, index);
+            titleSpan.textContent = tabTitle(tab, atIndex);
             button.appendChild(titleSpan);
 
             const badge = tabBadge(tab);
@@ -131,26 +138,34 @@ register("TabView", {
             }
 
             button.addEventListener("click", () => {
-                if (index === selected) return;
+                const index = buttons.indexOf(button);
+                if (index < 0 || index === selected) return;
                 show(index);
                 if (typeof properties.actionID === "string") {
                     ctx.model.dispatchAction(properties.actionID, element.id, 0, index);
                 }
             });
-            bar.appendChild(button);
-            buttons.push(button);
 
             // Tab body, built once through the normal pipeline; an absent
-            // `content` leaves an empty panel.
+            // `content` leaves an empty panel. The panel carries the Tab's id so
+            // removeElement can find and tear it down.
             const panel = document.createElement("div");
             panel.className = "aui-tab-panel";
+            if (tab.id > 0) panel.dataset.auiId = String(tab.id);
             const contentElement = tab.subviews?.content;
             if (contentElement) panel.appendChild(ctx.build(contentElement));
-            contentArea.appendChild(panel);
-            panels.push(panel);
-        });
 
-        show(selected);
+            bar.insertBefore(button, bar.children[atIndex] ?? null);
+            contentArea.insertBefore(panel, contentArea.children[atIndex] ?? null);
+            buttons.splice(atIndex, 0, button);
+            panels.splice(atIndex, 0, panel);
+        };
+
+        const tabs = element.children();
+        tabs.forEach((tab, index) => makeTab(tab, index));
+
+        selected = clamp(Number.isInteger(properties.selection) ? properties.selection : 0);
+        if (panels.length > 0) show(selected);
 
         // TabView dispatches actionID on selection change (with the index as
         // context), not as a whole-view click — opt out of the generic handler.
@@ -159,9 +174,32 @@ register("TabView", {
             ctx.model.bind(element.id, {
                 getValue: () => selected,
                 setValue: (value) => { // programmatic: silent (no actionID)
-                    show(clamp(Math.trunc(Number(value)) || 0));
+                    if (panels.length) show(clamp(Math.trunc(Number(value)) || 0));
                 },
             });
+
+            // `children` insertion: a Tab child becomes a strip button + panel.
+            // Inserting at/under the current selection shifts it so the same tab
+            // stays visible; removing adjusts likewise.
+            ctx.model.bindContainer(element.id, "children", interpretiveFlatBinding(
+                (tabEl, _id, index) => {
+                    const wasEmpty = panels.length === 0;
+                    makeTab(tabEl, index);
+                    if (wasEmpty) show(0);
+                    else { if (index <= selected) selected += 1; show(selected); }
+                },
+                (id) => {
+                    const i = panels.findIndex((p) => Number(p.dataset.auiId) === id);
+                    if (i < 0) return;
+                    buttons[i].remove();
+                    panels[i].remove();
+                    buttons.splice(i, 1);
+                    panels.splice(i, 1);
+                    if (panels.length === 0) selected = 0;
+                    else { if (i < selected) selected -= 1; show(clamp(selected)); }
+                },
+                tabs.map((tab) => tab.id),
+            ));
         }
 
         node.append(bar, contentArea);

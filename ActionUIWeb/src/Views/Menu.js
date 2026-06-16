@@ -26,6 +26,8 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
 import { makeFloatingPanel } from "../Helpers/PopoverPlacement.js";
+import { interpretiveFlatBinding } from "../Helpers/InsertionHelper.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
 
 // The dropdown is a shared top-layer floating panel (Helpers/PopoverPlacement.js):
 // it renders in the browser top layer (the Popover API), escaping every ancestor
@@ -36,6 +38,12 @@ import { makeFloatingPanel } from "../Helpers/PopoverPlacement.js";
 
 register("Menu", {
     valueType: "none",
+
+    // `children` is a runtime-insertable flat container (Apple's
+    // Menu.insertableContainers["children"]): a host can add/remove items at
+    // runtime. A child is interpreted into menu item node(s) (a Section expands to
+    // a header + its items), so this is the interpretive insertion path.
+    insertableContainers: { children: ContainerShape.FLAT },
 
     // Mirrors Menu.swift validateProperties (warning text verbatim).
     validateProperties: (properties, logger) => {
@@ -83,10 +91,36 @@ register("Menu", {
         trigger.addEventListener("click", () => { if (panel.open) panel.close(); else panel.show(); });
         const dismiss = () => panel.close();
 
+        // Each child maps to one slot of one-or-more DOM nodes (a Section expands
+        // to a header + its items). The slots track child order/nodes so a runtime
+        // insertElement places an item at the right offset and removeElement tears
+        // its node(s) down.
+        const slots = []; // [{ id, nodes: [Node, ...] }]
         for (const child of element.children()) {
-            appendMenuChild(items, child, ctx, dismiss);
+            const nodes = buildMenuChildNodes(child, ctx, dismiss);
+            nodes.forEach((n) => items.appendChild(n));
+            slots.push({ id: child.id, nodes });
         }
         menu.appendChild(items);
+
+        if (element.id > 0) {
+            ctx.model.bindContainer(element.id, "children", interpretiveFlatBinding(
+                (childEl, id, index) => {
+                    const nodes = buildMenuChildNodes(childEl, ctx, dismiss);
+                    if (nodes.length && id > 0) nodes[0].dataset.auiId = String(id); // so removeElement finds it
+                    const ref = slots[index]?.nodes[0] ?? null;
+                    nodes.forEach((n) => items.insertBefore(n, ref));
+                    slots.splice(index, 0, { id, nodes });
+                },
+                (id) => {
+                    const i = slots.findIndex((slot) => slot.id === id);
+                    if (i < 0) return;
+                    slots[i].nodes.forEach((n) => n.remove());
+                    slots.splice(i, 1);
+                },
+                element.children().map((child) => child.id),
+            ));
+        }
 
         return menu;
     },
@@ -102,56 +136,35 @@ function menuItemKind(child) {
     }
 }
 
-// Appends one Menu child as item(s) to `container`; `dismiss` closes the menu
-// after an action. Children are interpreted (a Button is an action declaration —
-// title / icon / actionID — that the menu presents as an item), not built
-// through the registry as the filled controls they would render standalone.
-function appendMenuChild(container, child, ctx, dismiss) {
+// Interprets one Menu child into its menu-item DOM node(s) (a Section expands to a
+// header + its nested items, flattened - the web collapses submenus to inline
+// items). `dismiss` closes the menu after an action. Children are interpreted (a
+// Button is an action declaration - title / icon / actionID - that the menu
+// presents as an item), not built through the registry as the filled controls they
+// would render standalone. Returns the node list so the caller can append it or
+// insert it at a runtime offset (the insertion API).
+function buildMenuChildNodes(child, ctx, dismiss) {
     switch (menuItemKind(child)) {
-        case "action": {
-            const props = child.properties ?? {};
-            const item = document.createElement("button");
-            item.type = "button";
-            item.className = "aui-menu-item";
-            item.setAttribute("role", "menuitem");
-
-            const icon = labelIcon(
-                selectLabelIcon(props, "assetImage", "Menu item", ctx.logger),
-                props, "Menu item", ctx.logger,
-            );
-            if (icon) item.appendChild(icon);
-
-            const text = document.createElement("span");
-            text.textContent = typeof props.title === "string" ? props.title : "";
-            item.appendChild(text);
-
-            item.addEventListener("click", () => {
-                dismiss();
-                if (typeof props.actionID === "string") {
-                    ctx.model.dispatchAction(props.actionID, child.id);
-                }
-            });
-            container.appendChild(item);
-            break;
-        }
+        case "action":
+            return [buildActionItem(child, ctx, dismiss)];
         case "divider": {
             const rule = document.createElement("hr");
             rule.className = "aui-menu-divider";
-            container.appendChild(rule);
-            break;
+            return [rule];
         }
         case "section": {
+            const nodes = [];
             const header = child.properties?.header;
             if (typeof header === "string") {
                 const heading = document.createElement("div");
                 heading.className = "aui-menu-section-header";
                 heading.textContent = header;
-                container.appendChild(heading);
+                nodes.push(heading);
             }
             for (const nested of child.children()) {
-                appendMenuChild(container, nested, ctx, dismiss);
+                nodes.push(...buildMenuChildNodes(nested, ctx, dismiss));
             }
-            break;
+            return nodes;
         }
         default: {
             ctx.logger.log(`Menu child '${child.type}' is not a menu item; showing a plain label`, "warning");
@@ -164,7 +177,35 @@ function appendMenuChild(container, child, ctx, dismiss) {
             item.className = "aui-menu-item aui-menu-item-plain";
             item.textContent = label;
             item.addEventListener("click", dismiss);
-            container.appendChild(item);
+            return [item];
         }
     }
+}
+
+// An action item: the button's title (+ icon through the shared glyph seam);
+// clicking dismisses the menu and dispatches the declared actionID.
+function buildActionItem(child, ctx, dismiss) {
+    const props = child.properties ?? {};
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "aui-menu-item";
+    item.setAttribute("role", "menuitem");
+
+    const icon = labelIcon(
+        selectLabelIcon(props, "assetImage", "Menu item", ctx.logger),
+        props, "Menu item", ctx.logger,
+    );
+    if (icon) item.appendChild(icon);
+
+    const text = document.createElement("span");
+    text.textContent = typeof props.title === "string" ? props.title : "";
+    item.appendChild(text);
+
+    item.addEventListener("click", () => {
+        dismiss();
+        if (typeof props.actionID === "string") {
+            ctx.model.dispatchAction(props.actionID, child.id);
+        }
+    });
+    return item;
 }

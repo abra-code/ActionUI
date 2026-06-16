@@ -66,6 +66,38 @@ export function buildFlatChildren(mount, element, ctx, options = {}) {
     }
 }
 
+// An interpretive flat-container binding: the container synthesizes its own
+// structure from the inserted *element* (a TabView tab -> strip button + panel, a
+// Menu child -> an item), rather than placing a pre-built node, so the model skips
+// the default build (binding.interpretive) and passes the element to `insert`. The
+// view supplies the placement and removal it needs; this only tracks child-id
+// order so childIds()/before-after positioning and removal resolve.
+//   insertChild(element, id, index)  builds + places the view's structure for the
+//                                    child at `index` (tagging its primary node
+//                                    data-aui-id=id so removeElement can find it).
+//   removeChild(id)                  tears that structure down.
+export function interpretiveFlatBinding(insertChild, removeChild, initialIds = []) {
+    const ids = [...initialIds];
+    return {
+        shape: ContainerShape.FLAT,
+        interpretive: true,
+        childIds() {
+            return [...ids];
+        },
+        insert(_node, id, index, element) {
+            insertChild(element, id, index);
+            ids.splice(index, 0, id);
+        },
+        remove(id) {
+            const i = ids.indexOf(id);
+            if (i < 0) return false;
+            removeChild(id);
+            ids.splice(i, 1);
+            return true;
+        },
+    };
+}
+
 // A rows-container binding over a Grid `node` (display:grid). Cells are placed by
 // explicit grid-row/grid-column so columns line up across uneven rows (CSS
 // auto-placement would backfill short rows into the gaps); inserting/removing a

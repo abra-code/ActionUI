@@ -39,12 +39,19 @@
 // still gets a navTitleHeader here).
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { NAV_PUSH_EVENT } from "./NavigationLink.js";
 
 const NAV_PATH_KEY = "navigationPath";
 
 register("NavigationStack", {
     valueType: "none",
+
+    // `destinations` is a runtime-insertable flat container (Apple's
+    // NavigationStack.insertableContainers["destinations"]): a host can add push
+    // targets at runtime. Each inserted destination is built into a hidden pane,
+    // addressable by id like the authored ones.
+    insertableContainers: { destinations: ContainerShape.FLAT },
 
     validateProperties: (properties) => ({ ...properties }),
 
@@ -141,14 +148,16 @@ register("NavigationStack", {
 
         // --- destination panes (built once, toggled by display) ---
         const destPanes = new Map();
-        for (const [id, destEl] of destMap) {
+        const destOrder = []; // dest ids in container order (for insertion positioning)
+
+        // Wraps a built destination body in a hidden pane with a back affordance;
+        // the destination's own navigationTitle/toolbar renders as chrome below it
+        // (ToolbarHelper), the iOS back-chevron-over-title pattern. Reused by the
+        // initial build and by runtime insertElement.
+        const makeDestPane = (bodyContentNode) => {
             const pane = document.createElement("div");
             pane.className = "aui-nav-stack-pane";
             pane.style.display = "none";
-
-            // A thin back affordance above the destination; the destination's
-            // own `navigationTitle`/`toolbar` renders as chrome below it
-            // (ToolbarHelper), the iOS back-chevron-over-title pattern.
             const bar = document.createElement("div");
             bar.className = "aui-nav-stack-bar";
             const back = document.createElement("button");
@@ -158,13 +167,17 @@ register("NavigationStack", {
             back.addEventListener("click", () => pop());
             bar.appendChild(back);
             pane.appendChild(bar);
-
             const body = document.createElement("div");
             body.className = "aui-nav-stack-body";
-            body.appendChild(ctx.build(destEl));
+            body.appendChild(bodyContentNode);
             pane.appendChild(body);
+            return pane;
+        };
 
+        for (const [id, destEl] of destMap) {
+            const pane = makeDestPane(ctx.build(destEl));
             destPanes.set(id, pane);
+            destOrder.push(id);
             node.appendChild(pane);
         }
 
@@ -193,6 +206,33 @@ register("NavigationStack", {
             ctx.model.bindState(element.id, {
                 getState: (key) => (key === NAV_PATH_KEY ? [...path] : undefined),
                 setState: (key, value) => { if (key === NAV_PATH_KEY) setPath(value); },
+            });
+
+            // `destinations` insertion: the model builds the destination content
+            // (the 4th arg `destEl` is its parsed element, registered into destMap
+            // so push() accepts it); we wrap it in a hidden pane like the authored
+            // ones. The built content carries data-aui-id, so removeElement finds it
+            // and remove() tears down the whole pane (dropping it from the path if on it).
+            ctx.model.bindContainer(element.id, "destinations", {
+                shape: ContainerShape.FLAT,
+                childIds: () => [...destOrder],
+                insert: (contentNode, id, index, destEl) => {
+                    const pane = makeDestPane(contentNode);
+                    destMap.set(id, destEl);
+                    destPanes.set(id, pane);
+                    destOrder.splice(index, 0, id);
+                    node.appendChild(pane); // hidden; order among panes is display-toggled, not visual
+                },
+                remove: (id) => {
+                    const i = destOrder.indexOf(id);
+                    if (i < 0) return false;
+                    destPanes.get(id)?.remove();
+                    destPanes.delete(id);
+                    destMap.delete(id);
+                    destOrder.splice(i, 1);
+                    if (path.includes(id)) { path = path.filter((p) => p !== id); showTop(); }
+                    return true;
+                },
             });
         }
 

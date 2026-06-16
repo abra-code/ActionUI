@@ -37,6 +37,7 @@
     { "type": "Text", "properties": { "text": "Menu (pull-down: icons, a section, a divider):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Menu",
+      "id": 170,
       "properties": { "title": "Actions" },
       "children": [
         { "type": "Button", "properties": { "title": "New", "systemImage": "plus", "actionID": "menuNew" } },
@@ -59,6 +60,7 @@
       "properties": { "frame": { "maxWidth": "infinity" } },
       "content": {
         "type": "VStack",
+        "id": 164,
         "properties": { "alignment": "leading", "spacing": 0, "navigationTitle": "Library" },
         "children": [
           { "type": "NavigationLink", "properties": { "title": "Profile", "systemImage": "person.crop.circle", "destinationViewId": 161 } },
@@ -125,6 +127,17 @@
           ]
         },
         { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundColor": "secondary" } } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Runtime insertion into the exotic containers (Apple declares these insertable): add a tab to the TabView above, an item to the Menu above (re-open it), or a destination to the NavigationStack (a Library row is added alongside the push target, so it persists after Back):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Add Tab", "systemImage": "plus.rectangle", "buttonStyle": "bordered", "actionID": "insertTab" } },
+        { "type": "Button", "properties": { "title": "Add Menu Item", "systemImage": "plus.circle", "buttonStyle": "bordered", "actionID": "insertMenuItem" } },
+        { "type": "Button", "properties": { "title": "Add + Open Destination", "systemImage": "plus.square.on.square", "buttonStyle": "bordered", "actionID": "insertDestination" } }
       ]
     }
   ]

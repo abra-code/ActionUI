@@ -39,6 +39,21 @@
       }
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "LazyVGrid (data-driven template mode; one substituted instance per row from the rows API, flowing into the grid):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "LazyVGrid",
+      "id": 56,
+      "properties": { "columns": [{ "flexible": true }, { "flexible": true }, { "flexible": true }], "spacing": 10, "frame": { "maxWidth": "infinity" } },
+      "template": {
+        "type": "VStack",
+        "properties": { "spacing": 4, "padding": 8 },
+        "children": [
+          { "type": "Image", "properties": { "systemName": "$2", "imageScale": "large", "foregroundColor": "accentColor" } },
+          { "type": "Text", "properties": { "text": "$1", "font": "footnote" } }
+        ]
+      }
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Table (rows via the rows API; an Image column and per-row Button):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Table",

@@ -20,6 +20,7 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
+import { renderTemplateRows } from "../Helpers/TemplateHelper.js";
 
 // Validated track defs → a CSS track list. `{minimum}` → fixed px, `{flexible}`
 // → 1fr; anything else dropped; empty ⇒ a single "1fr" (Swift's [GridItem(.flexible())]).
@@ -33,6 +34,7 @@ function trackList(defs) {
 const ALIGN = { top: "start", center: "center", bottom: "end" };
 
 register("LazyHGrid", {
+    initialStates: () => ({ content: [] }),
     valueType: "none",
     insertableContainers: { children: ContainerShape.FLAT },
 
@@ -84,6 +86,10 @@ register("LazyHGrid", {
         node.style.gridAutoFlow = "column";
         node.style.gap = `${properties.spacing ?? 0}px`;
         node.style.alignItems = ALIGN[properties.alignment] ?? "center";
+        // Data-driven `template` mode: one substituted instance per states["content"]
+        // row, flowing into the row tracks (column auto-flow). Precedes static children.
+        const template = element.template();
+        if (template) return renderTemplateRows(node, element, template, ctx);
         buildFlatChildren(node, element, ctx);
         return node;
     },

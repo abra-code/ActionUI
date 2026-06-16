@@ -7,8 +7,9 @@
 // `.aui-vstack` class (so Divider orientation and flex-direction come for free)
 // plus an `.aui-lazyvstack` marker. One divergence from VStack: the default
 // spacing is 0, mirroring the Swift `spacing ?? 0.0` (VStack approximates
-// SwiftUI's adaptive default with 8). Template/data-driven mode is deferred with
-// the insertion API (see Web_Porting_Notes.md), as on the other stacks.
+// SwiftUI's adaptive default with 8). It also supports the data-driven `template`
+// mode (one substituted instance per states["content"] row, set via the rows API),
+// like List - see Helpers/TemplateHelper.renderTemplateRows.
 //
 // Properties: spacing (Number → CSS gap, default 0), alignment
 // (leading|center|trailing → cross-axis align-items, default center).
@@ -17,6 +18,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { COLUMN_ALIGN, StackAxis } from "../Common/StackAxis.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
+import { renderTemplateRows } from "../Helpers/TemplateHelper.js";
 
 // Mirrors LazyVStack.swift validateProperties (warning text included verbatim).
 function validateProperties(properties, logger) {
@@ -40,6 +42,9 @@ function validateProperties(properties, logger) {
 register("LazyVStack", {
     valueType: "none",
     insertableContainers: { children: ContainerShape.FLAT },
+    // The documented row store for the data-driven `template` mode (empty until a
+    // host setElementRows); mirrors LazyVStack.swift / List.
+    initialStates: () => ({ content: [] }),
     validateProperties,
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
@@ -48,6 +53,10 @@ register("LazyVStack", {
         node.style.gap = `${properties.spacing ?? 0}px`;
         // SwiftUI LazyVStack default alignment is .center.
         node.style.alignItems = COLUMN_ALIGN[properties.alignment] ?? "center";
+        // Data-driven `template` mode (one substituted instance per states["content"]
+        // row, set via the rows API) takes precedence over static children, like List.
+        const template = element.template();
+        if (template) return renderTemplateRows(node, element, template, ctx);
         buildFlatChildren(node, element, ctx);
         return node;
     },

@@ -151,8 +151,13 @@ export class ActionUIModel {
         const element = this.parseElementObject(raw);
         this.assertNoIdConflict(collectElementIds(element));
         const index = resolveFlatIndex(binding.childIds(), position, positionParam, name);
-        const node = this.buildFn(element);
-        binding.insert(node, element.id, index);
+        // Most containers render a child as a built node placed in the DOM. The
+        // interpretive containers (TabView tabs, Menu items) instead read the
+        // element to synthesize their own structure (a tab strip + panel, a menu
+        // item), so the model skips the default build and hands them the element;
+        // they build what they need through their own closed-over render context.
+        const node = binding.interpretive ? null : this.buildFn(element);
+        binding.insert(node, element.id, index, element);
         this.logger.log(`insertElement: id ${element.id} into ${parentID}.${name} at index ${index}`, "info");
         return element.id;
     }

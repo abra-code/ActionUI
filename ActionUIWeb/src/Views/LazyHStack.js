@@ -7,7 +7,8 @@
 // flex-direction) plus an `.aui-lazyhstack` marker. Like LazyVStack the default
 // spacing is 0 (Swift `spacing ?? 0.0`), and its alignment vocabulary is the
 // VerticalAlignment subset top|center|bottom — without HStack's baseline cases.
-// Template/data-driven mode is deferred with the insertion API.
+// It also supports the data-driven `template` mode (one substituted instance per
+// states["content"] row, via the rows API), like List.
 //
 // Properties: spacing (Number → CSS gap, default 0), alignment
 // (top|center|bottom → cross-axis align-items, default center).
@@ -16,6 +17,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { ROW_ALIGN, StackAxis } from "../Common/StackAxis.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { buildFlatChildren } from "../Helpers/InsertionHelper.js";
+import { renderTemplateRows } from "../Helpers/TemplateHelper.js";
 
 // Mirrors LazyHStack.swift validateProperties (warning text included verbatim).
 function validateProperties(properties, logger) {
@@ -39,6 +41,7 @@ function validateProperties(properties, logger) {
 register("LazyHStack", {
     valueType: "none",
     insertableContainers: { children: ContainerShape.FLAT },
+    initialStates: () => ({ content: [] }),
     validateProperties,
     buildView: (element, properties, ctx) => {
         const node = document.createElement("div");
@@ -47,6 +50,9 @@ register("LazyHStack", {
         node.style.gap = `${properties.spacing ?? 0}px`;
         // SwiftUI LazyHStack default alignment is .center.
         node.style.alignItems = ROW_ALIGN[properties.alignment] ?? "center";
+        // Data-driven `template` mode takes precedence over static children (List parity).
+        const template = element.template();
+        if (template) return renderTemplateRows(node, element, template, ctx);
         buildFlatChildren(node, element, ctx);
         return node;
     },

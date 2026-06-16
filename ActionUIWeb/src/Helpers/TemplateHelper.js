@@ -95,3 +95,29 @@ export function buildTemplateRow(template, row, rowIndex, parentID, ctx) {
     childCtx.build = (element) => buildElementView(element, childCtx);
     return childCtx.build(substituted);
 }
+
+// Wires a container's `template` data-driven mode: one substituted template
+// instance per row in states["content"] (set via the rows API), re-rendered in
+// place on every rows change. The container `node` keeps its own layout (flex /
+// grid); the instances are its direct children. Used by the Lazy stacks/grids
+// (List has its own selectable variant in buildDataRows). valueType stays none -
+// the rows live in the "content" state, not the value. Returns `node`.
+export function renderTemplateRows(node, element, template, ctx) {
+    let rows = [];
+    const renderRows = () => {
+        node.replaceChildren(...rows.map((row, index) =>
+            buildTemplateRow(template, row, index, element.id, ctx)));
+    };
+    if (element.id > 0) {
+        ctx.model.bindState(element.id, {
+            getState: (key) => (key === "content" ? rows : undefined),
+            setState: (key, value) => {
+                if (key !== "content") return;
+                rows = Array.isArray(value) ? value : [];
+                renderRows();
+            },
+        });
+    }
+    renderRows();
+    return node;
+}
