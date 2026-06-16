@@ -1015,3 +1015,64 @@
     padding: 4px 8px;
     font-size: 11px;
 }
+
+/* ---- Scenes: window-level dialogs (alert / confirmationDialog) ---- */
+/* A native <dialog> shown with showModal(): the browser's own top-layer modal
+   with a ::backdrop and Escape-to-cancel. See Scenes/DialogHost.js. */
+.aui-dialog {
+    border: none;
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 280px;
+    max-width: 90vw;
+    color: var(--aui-color-text, inherit);
+    background: var(--aui-color-surface, #fff);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+}
+.aui-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(1px);
+}
+.aui-dialog-title {
+    display: block;
+    font-size: 1.05em;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.aui-dialog-message {
+    margin: 0 0 16px;
+    color: var(--aui-color-secondary);
+    font-size: 0.95em;
+}
+.aui-dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+/* confirmationDialog: stack the buttons (the action-sheet shape). */
+.aui-dialog-confirmationDialog .aui-dialog-buttons {
+    flex-direction: column-reverse;
+    align-items: stretch;
+}
+.aui-dialog-button {
+    appearance: none;
+    font: inherit;
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: var(--aui-control-radius);
+    border: 1px solid var(--aui-color-border, #d2d2d7);
+    background: var(--aui-color-surface, #fff);
+    color: var(--aui-color-accent);
+}
+.aui-dialog-button-default {
+    background: var(--aui-color-accent);
+    border-color: var(--aui-color-accent);
+    color: #fff;
+}
+.aui-dialog-button-destructive {
+    color: var(--aui-color-red);
+    border-color: color-mix(in srgb, var(--aui-color-red) 50%, transparent);
+}
+.aui-dialog-button:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
+.aui-dialog-button-default:hover { background: color-mix(in srgb, var(--aui-color-accent) 88%, #000); }
+.aui-dialog-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }

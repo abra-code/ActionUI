@@ -13,6 +13,16 @@
     },
     { "type": "Toggle", "id": 3, "properties": { "title": "Shout the greeting", "actionID": "shoutChanged" } },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Window-level dialogs (a native top-layer <dialog>):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Show Alert", "systemImage": "exclamationmark.bubble", "buttonStyle": "bordered", "actionID": "showAlert" } },
+        { "type": "Button", "properties": { "title": "Confirm Delete", "systemImage": "trash", "buttonStyle": "bordered", "actionID": "showConfirm" } }
+      ]
+    },
+    { "type": "Divider" },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },

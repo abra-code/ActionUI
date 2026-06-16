@@ -217,6 +217,20 @@ app.action("insAddRow", () => {
     app.action(id, (ctx) => win.setString(20, 0, `Toolbar: ${ctx.context?.title ?? id}.`));
 });
 
+// Window-level dialogs: a native top-layer <dialog>. A button with no actionID
+// dismisses only; one with an actionID fires it (viewID 0, no context) after the
+// dialog closes - the Apple/Android dialog-button convention.
+app.action("showAlert", () => {
+    win.presentAlert("Saved", "Your changes have been saved.");
+});
+app.action("showConfirm", () => {
+    win.presentConfirmationDialog("Delete file?", "This cannot be undone.", [
+        { title: "Delete", role: "destructive", actionID: "confirmDelete" },
+        { title: "Cancel", role: "cancel" },
+    ]);
+});
+app.action("confirmDelete", () => win.setString(20, 0, "File deleted."));
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {

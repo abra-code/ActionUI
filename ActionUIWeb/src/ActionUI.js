@@ -15,6 +15,7 @@ import { buildElementView } from "./Common/ActionUIRegistry.js";
 import { ConsoleLogger } from "./Common/ConsoleLogger.js";
 import { PlatformFilter } from "./Common/PlatformFilter.js";
 import { InsertPosition } from "./Common/ActionUIInsertion.js";
+import { presentDialog, dismissActiveDialog } from "./Scenes/DialogHost.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -192,6 +193,34 @@ export class Window {
         return this.model.insertRow(parentID, cells, container, position, positionParam);
     }
     removeElement(viewID) { return this.model.removeElement(viewID); }
+
+    // Window-level dialogs - same names/signature as the Node.js adapter's Window.
+    // A dialog is pure data (title, message, buttons) shown as a native top-layer
+    // <dialog>; see Scenes/DialogHost.js. `buttons` is an array of
+    // { title, role?: "default"|"cancel"|"destructive", actionID? }. presentAlert
+    // defaults to a single "OK" (cancel role); presentConfirmationDialog requires
+    // its buttons (an empty/absent list falls back to a "Cancel" so it stays
+    // dismissable). Only one dialog is active per window at a time.
+    presentAlert(title, message = null, buttons = null) {
+        this._presentDialog("alert", title, message, buttons ?? [{ title: "OK", role: "cancel" }]);
+    }
+    presentConfirmationDialog(title, message = null, buttons = null) {
+        this._presentDialog("confirmationDialog", title, message, buttons ?? []);
+    }
+    dismissDialog() { dismissActiveDialog(this.rootNode); }
+
+    _presentDialog(style, title, message, buttons) {
+        if (!this.rootNode) {
+            this.logger.log("presentDialog: window not presented yet; call present() first", "error");
+            return;
+        }
+        presentDialog(this.rootNode, {
+            style,
+            title: title == null ? "" : String(title),
+            message: message == null ? null : String(message),
+            buttons,
+        }, this.model, this.logger);
+    }
 }
 
 // Coerces host-supplied rows to the [[String]] shape: each row an array of
