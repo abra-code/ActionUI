@@ -2,9 +2,11 @@ package com.abracode.actionui.Views
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
@@ -25,9 +27,20 @@ import com.abracode.actionui.Helpers.stringProperty
  * not `children`.
  *
  * Rendered as a [Box] carrying a `verticalScroll` / `horizontalScroll` modifier
- * (or both). Unlike the lazy stacks, these modifiers do not require a bounded
- * main axis: the Box is sized by its parent and lets the child overflow and
- * scroll, so no default extent is needed.
+ * (or both).
+ *
+ * **Unbounded-axis guard.** A Compose scroll modifier requires a *bounded* main
+ * axis - it throws `IllegalStateException` ("scrollable component was measured
+ * with an infinity maximum ... constraints") if measured unbounded. The usual
+ * trigger is a `ScrollView` nested in another scroll of the same axis (the demo
+ * shell already scrolls vertically, so a `ScrollView` with no bounding `frame`
+ * placed in a document is a vertical-in-vertical nest). Rather than crash the
+ * whole render from one bad document, this element reads its incoming
+ * constraints ([BoxWithConstraints]) and **drops any scroll axis that is
+ * unbounded** ([resolveAppliedScroll]): that axis defers to the enclosing scroll
+ * (which handles the overflow), matching SwiftUI's tolerance of nested
+ * ScrollViews. A bounding `frame` (height for vertical, width for horizontal)
+ * re-enables the element's own scroll. A dropped axis warns once.
  *
  * **Supported properties.**
  *   * `axis` - `"vertical"` (default), `"horizontal"`, or `"both"`, resolved by
@@ -56,27 +69,43 @@ object ScrollView : ActionUIViewConstruction {
         val verticalState = rememberScrollState()
         val horizontalState = rememberScrollState()
 
-        // Enroll in an enclosing ScrollViewReader (identity modifier outside
-        // one) so the reader can drive this viewport's ScrollStates. Must sit
-        // BEFORE the scroll modifiers in the chain: it captures the viewport
-        // coordinates, against which target positions move as the content
-        // scrolls (inside the scroll modifier they would be static content
-        // coordinates and the reader's offset math would double-count the
-        // current scroll value).
-        val readerModifier = rememberPlainScrollRegistration(
-            verticalState = verticalState.takeIf { axis != ScrollAxis.Horizontal },
-            horizontalState = horizontalState.takeIf { axis != ScrollAxis.Vertical },
-        )
-        val viewportModifier = modifier.then(readerModifier)
-        val scrollModifier = when (axis) {
-            ScrollAxis.Vertical -> viewportModifier.verticalScroll(verticalState)
-            ScrollAxis.Horizontal -> viewportModifier.horizontalScroll(horizontalState)
-            ScrollAxis.Both -> viewportModifier.verticalScroll(verticalState).horizontalScroll(horizontalState)
-        }
+        // Read the incoming constraints so an unbounded scroll axis can be dropped
+        // (see the class note) instead of crashing the scroll modifier.
+        BoxWithConstraints(modifier = modifier) {
+            val applied = resolveAppliedScroll(axis, constraints.hasBoundedHeight, constraints.hasBoundedWidth)
 
-        Box(modifier = scrollModifier) {
-            ProvideTextStyleEnvironment(content.properties, logger) {
-                builder.BuildViewWithModifiers(content, Modifier)
+            val droppedVertical = axis != ScrollAxis.Horizontal && !applied.vertical
+            val droppedHorizontal = axis != ScrollAxis.Vertical && !applied.horizontal
+            LaunchedEffect(droppedVertical, droppedHorizontal) {
+                if (droppedVertical || droppedHorizontal) {
+                    logger.log(
+                        "ScrollView is unbounded on its scroll axis (a ScrollView nested in " +
+                            "another scroll of the same axis?); that axis defers to the enclosing " +
+                            "scroll. Add a frame height/width to make this ScrollView scroll itself.",
+                        LoggerLevel.warning,
+                    )
+                }
+            }
+
+            // Enroll in an enclosing ScrollViewReader (identity modifier outside
+            // one) so the reader can drive this viewport's ScrollStates - only for
+            // the axes we actually scroll. Must sit BEFORE the scroll modifiers in
+            // the chain: it captures the viewport coordinates, against which target
+            // positions move as the content scrolls (inside the scroll modifier they
+            // would be static content coordinates and the reader's offset math would
+            // double-count the current scroll value).
+            val readerModifier = rememberPlainScrollRegistration(
+                verticalState = verticalState.takeIf { applied.vertical },
+                horizontalState = horizontalState.takeIf { applied.horizontal },
+            )
+            var scrollModifier = readerModifier
+            if (applied.vertical) scrollModifier = scrollModifier.verticalScroll(verticalState)
+            if (applied.horizontal) scrollModifier = scrollModifier.horizontalScroll(horizontalState)
+
+            Box(modifier = scrollModifier) {
+                ProvideTextStyleEnvironment(content.properties, logger) {
+                    builder.BuildViewWithModifiers(content, Modifier)
+                }
             }
         }
     }
@@ -84,6 +113,30 @@ object ScrollView : ActionUIViewConstruction {
 
 /** The scroll directions the Android renderer supports. */
 internal enum class ScrollAxis { Vertical, Horizontal, Both }
+
+/** Which scroll axes [ScrollView] actually applies (see its unbounded-axis guard). */
+internal data class ScrollAxesApplied(val vertical: Boolean, val horizontal: Boolean)
+
+/**
+ * Decides which scroll axes [ScrollView] applies, given the requested [axis] and
+ * whether the incoming constraints bound each axis ([boundedHeight] /
+ * [boundedWidth]). A requested scroll axis whose main-axis constraint is
+ * unbounded is **dropped**: applying `verticalScroll` / `horizontalScroll` to an
+ * infinite constraint throws in Compose, so the enclosing scroll handles that
+ * overflow instead. Pure, so it is unit-testable without a Compose host.
+ */
+internal fun resolveAppliedScroll(
+    axis: ScrollAxis,
+    boundedHeight: Boolean,
+    boundedWidth: Boolean,
+): ScrollAxesApplied {
+    val wantsVertical = axis != ScrollAxis.Horizontal
+    val wantsHorizontal = axis != ScrollAxis.Vertical
+    return ScrollAxesApplied(
+        vertical = wantsVertical && boundedHeight,
+        horizontal = wantsHorizontal && boundedWidth,
+    )
+}
 
 /**
  * Maps the JSON `axis` to a [ScrollAxis]. `null`/`"vertical"` -> [ScrollAxis.Vertical],
