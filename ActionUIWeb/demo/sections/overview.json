@@ -178,6 +178,77 @@
       }
     },
     { "type": "Text", "properties": { "text": "A missing URL falls back to an error row:", "foregroundColor": "secondary", "font": "footnote" } },
-    { "type": "VideoPlayer", "properties": {} }
+    { "type": "VideoPlayer", "properties": {} },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "WebView (the web's own analog: a native <iframe>; inline html via srcdoc):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "WebView",
+      "properties": {
+        "html": "<style>body{font:15px -apple-system,system-ui,sans-serif;margin:16px;color:#1d1d1f}h1{margin:0 0 8px}a{color:#007aff}</style><h1>Hello from a WebView</h1><p>This page is inline <code>html</code> rendered through an iframe srcdoc. The same JSON drives a WKWebView on Apple and an android.webkit.WebView on Android.</p><p><a href=\"https://www.swift.org\" target=\"_blank\">An external link</a></p>",
+        "cornerRadius": 8,
+        "frame": { "maxWidth": 480, "height": 200 }
+      }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "ContentUnavailableView (empty-state: hero glyph, title, description) and the search variant:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16, "alignment": "top", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "GroupBox",
+          "properties": {},
+          "children": [
+            {
+              "type": "ContentUnavailableView",
+              "properties": {
+                "title": "No Mail",
+                "systemImage": "tray",
+                "description": "New messages will appear here."
+              }
+            }
+          ]
+        },
+        {
+          "type": "GroupBox",
+          "properties": {},
+          "children": [
+            {
+              "type": "ContentUnavailableView",
+              "properties": { "search": true, "query": "planets" }
+            }
+          ]
+        }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Group is a transparent passthrough - its children flow into the parent HStack as if it were not there:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Text", "properties": { "text": "Before" } },
+        {
+          "type": "Group",
+          "children": [
+            { "type": "Image", "properties": { "systemName": "1.circle", "imageScale": "large", "foregroundColor": "accentColor" } },
+            { "type": "Image", "properties": { "systemName": "2.circle", "imageScale": "large", "foregroundColor": "accentColor" } },
+            { "type": "Image", "properties": { "systemName": "3.circle", "imageScale": "large", "foregroundColor": "accentColor" } }
+          ]
+        },
+        { "type": "Text", "properties": { "text": "After" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Link (a native <a>, opens externally) and ShareLink (the Web Share API). EmptyView renders nothing:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16, "alignment": "center" },
+      "children": [
+        { "type": "Link", "properties": { "title": "Visit swift.org", "url": "https://www.swift.org" } },
+        { "type": "ShareLink", "properties": { "item": "https://www.swift.org", "subject": "The Swift website" } },
+        { "type": "EmptyView", "properties": {} }
+      ]
+    }
   ]
 }

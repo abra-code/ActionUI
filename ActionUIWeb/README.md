@@ -68,7 +68,11 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   NavigationSplitView (a sidebar | (content) | detail layout — static panes, or a
   sidebar List whose `destinationViewId` rows switch the detail pane), and
   LoadableView (a dynamic include — fetches a JSON sub-document by `url` /
-  `filePath` / `name` and renders it inline, so a UI can be split across files).
+  `filePath` / `name` and renders it inline, so a UI can be split across files),
+  WebView (the web's own native `<iframe>`; `url` or inline `html`), and the
+  structural/utility passthroughs Group (transparent, via `display:contents`),
+  EmptyView, Link (a native `<a>`), ShareLink (the Web Share API), and
+  ContentUnavailableView (an empty-state hero glyph + title + description).
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log warnings
   and are tracked in `Private/Web_Porting_Notes.md`.

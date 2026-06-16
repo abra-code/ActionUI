@@ -888,6 +888,82 @@
     color: var(--aui-color-red);
 }
 
+/* WebView: the web's own native analog, a native <iframe>. Greedy like the
+   WKWebView/Android WebView - fills the frame the parent offers (bound the height
+   with a frame in a scroll column). */
+.aui-webview {
+    display: flex;
+    width: 100%;
+}
+.aui-webview-frame {
+    display: block;
+    width: 100%;
+    min-height: 240px; /* a usable default when no frame.height is given */
+    border: 1px solid var(--aui-color-border, #d2d2d7);
+    border-radius: inherit;
+    background: #fff;
+}
+
+/* ---- Group-A batch: structural / utility passthroughs ---- */
+
+/* EmptyView renders nothing (SwiftUI EmptyView / the Android no-op). */
+.aui-empty { display: none; }
+
+/* Group is a transparent passthrough: display:contents removes its box so the
+   children participate in the parent's layout directly (see Group.js). */
+.aui-group { display: contents; }
+
+/* Link is the platform's own <a> (opens in a new tab). */
+.aui-link {
+    color: var(--aui-color-accent);
+    text-decoration: none;
+    cursor: pointer;
+}
+.aui-link:hover { text-decoration: underline; }
+.aui-link:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: 2px; }
+
+/* ShareLink: a borderless accent button (icon + "Share"), like the toolbar
+   button, invoking the Web Share API. */
+.aui-sharelink {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--aui-color-accent);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+    padding: 4px 8px;
+    border-radius: var(--aui-control-radius);
+}
+.aui-sharelink:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
+.aui-sharelink:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* ContentUnavailableView: a centered empty-state block - hero glyph over a bold
+   title and a secondary description. */
+.aui-content-unavailable {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--aui-color-secondary);
+}
+.aui-content-unavailable-icon {
+    font-size: 2.6em;
+    color: var(--aui-color-secondary);
+    margin-bottom: 4px;
+}
+.aui-content-unavailable-title {
+    font-weight: 600;
+    font-size: 1.1em;
+    color: var(--aui-color-text, inherit);
+}
+.aui-content-unavailable-description { font-size: 0.95em; }
+
 /* ---- Label ---- */
 
 .aui-label {

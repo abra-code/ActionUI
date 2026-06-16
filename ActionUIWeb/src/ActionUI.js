@@ -29,6 +29,7 @@ import "./Views/Toggle.js";
 import "./Views/Image.js";
 import "./Views/AsyncImage.js";
 import "./Views/VideoPlayer.js";
+import "./Views/WebView.js";
 import "./Views/Label.js";
 import "./Views/Slider.js";
 import "./Views/Stepper.js";
@@ -65,6 +66,13 @@ import "./Views/NavigationSplitView.js";
 import "./Views/NavigationLink.js";
 import "./Views/NavigationStack.js";
 import "./Views/LoadableView.js";
+// Group-A batch (low effort, no new architecture): the structural/utility
+// passthroughs and the external-content elements.
+import "./Views/Group.js";
+import "./Views/EmptyView.js";
+import "./Views/Link.js";
+import "./Views/ShareLink.js";
+import "./Views/ContentUnavailableView.js";
 
 // Re-export so hosts can `import { Window, InsertPosition } from ".../ActionUI.js"`
 // (mirrors the Node.js adapter exposing InsertPosition alongside the Window).
