@@ -75,6 +75,13 @@ export class ActionUIModel {
         this.stateBindings.set(viewID, binding);
     }
 
+    // The current state binding for a view (or undefined). Used by the presentation
+    // modifiers (Helpers/PresentationModifier.js) to compose their visibility keys
+    // on top of an element's own state binding without clobbering it.
+    getStateBinding(viewID) {
+        return this.stateBindings.get(viewID);
+    }
+
     getElementValue(viewID, viewPartID = 0) {
         const binding = this.bindings.get(viewID);
         if (binding) return binding.getValue(viewPartID);

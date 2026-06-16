@@ -24,6 +24,7 @@
 
 import { applyViewModifiers } from "./ModifierResolver.js";
 import { wrapWithToolbar } from "../Helpers/ToolbarHelper.js";
+import { applyPresentationModifiers } from "../Helpers/PresentationModifier.js";
 
 const constructions = new Map();
 
@@ -62,6 +63,10 @@ export function buildElementView(element, ctx) {
         }
     }
     applyViewModifiers(node, element, properties, ctx);
+    // Element-level presentation modifiers (sheet / fullScreenCover / popover):
+    // attaches the presented surface + its visibility state binding to the carrier
+    // node. A no-op unless one of those subviews is declared.
+    applyPresentationModifiers(node, element, properties, ctx);
     // A `toolbar` / `navigationTitle` wraps the node in screen chrome (a top bar
     // + optional bottom bar). The data-aui-id stays on the inner node, so host
     // addressing (value/state/scroll) is unaffected by the wrap.

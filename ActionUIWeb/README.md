@@ -47,7 +47,11 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   model with viewID->DOM binding records instead of a virtual DOM — for both
   element values and named element states (`ActionUIModel.js`), baseline View modifier subset — padding, font text
   styles, colors, frame, cornerRadius, opacity, hidden, disabled, help, generic
-  actionID (`ModifierResolver.js`), shared stack vocabulary (`StackAxis.js`),
+  actionID (`ModifierResolver.js`), the element-level presentation modifiers —
+  `sheet` / `fullScreenCover` (a native `<dialog>`) and `popover` (a top-layer
+  panel), each opened off the carrier's own state
+  (`Helpers/PresentationModifier.js`, `Helpers/PopoverPlacement.js`),
+  shared stack vocabulary (`StackAxis.js`),
   console logger (`ConsoleLogger.js`), and `<key>:<platform>` override
   resolution (`PlatformFilter.js`, active token `web`, run over the JSON before
   the tree is built).

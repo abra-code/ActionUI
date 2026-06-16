@@ -267,10 +267,11 @@
    anchor it to the trigger via top/left; shown as a flex column only when open. */
 .aui-menu-items[popover] { position: fixed; margin: 0; inset: auto; }
 .aui-menu-items:popover-open { display: flex; }
-/* Legacy fallback (no Popover API): an in-flow absolute panel, toggled by
-   .is-open. Clipped by overflow ancestors - the behavior before the top layer. */
-.aui-menu-items:not([popover]) { position: absolute; margin-top: 4px; display: none; }
-.aui-menu.is-open .aui-menu-items:not([popover]) { display: flex; }
+/* Fallback (no Popover API): a fixed, JS-placed panel toggled by .is-open (the
+   shared makeFloatingPanel adds the class to the panel). No top layer, so an
+   overflow ancestor of the host can clip it - the behavior before the top layer. */
+.aui-menu-items:not([popover]) { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-menu-items.is-open:not([popover]) { display: flex; }
 .aui-menu-item {
     font: inherit;
     text-align: left;
@@ -291,6 +292,59 @@
     font-size: 11px;
     font-weight: 600;
     padding: 6px 10px 2px;
+}
+
+/* ---- Element-level presentation: popover / sheet / fullScreenCover ---- */
+/* The `.popover` modifier: a shared top-layer floating panel
+   (Helpers/PopoverPlacement.js), the same machinery as Menu, anchored to the
+   carrier and holding the built `popover` subview. */
+.aui-popover-panel {
+    z-index: 10;
+    min-width: 60px;
+    max-width: min(360px, 90vw);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+/* Top layer: override the UA centering so JS can anchor it via top/left. */
+.aui-popover-panel[popover] { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-popover-panel:popover-open { display: block; }
+/* Fallback (no Popover API): fixed + JS-placed, toggled by .is-open. */
+.aui-popover-panel:not([popover]) { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-popover-panel.is-open:not([popover]) { display: block; }
+
+/* The `.sheet` / `.fullScreenCover` modifiers (and the host-API presentModal,
+   Scenes/ModalHost.js): a native <dialog> shown with showModal() - the browser's
+   own top-layer modal with a ::backdrop and Escape-to-cancel. The content is the
+   built subview/sub-document, which brings its own padding. */
+.aui-modal {
+    border: none;
+    padding: 0;
+    color: var(--aui-color-text, inherit);
+    background: var(--aui-color-surface, #fff);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+}
+.aui-modal::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(1px);
+}
+/* sheet: a centered card (the desktop/macOS sheet shape, not iOS's bottom sheet). */
+.aui-modal-sheet {
+    border-radius: 12px;
+    min-width: 320px;
+    max-width: min(560px, 92vw);
+    max-height: 86vh;
+    overflow: auto;
+}
+/* fullScreenCover: fills the viewport (no OS cover on a desktop target). */
+.aui-modal-cover {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    overflow: auto;
 }
 
 /* ---- List ---- */

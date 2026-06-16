@@ -249,6 +249,72 @@
         { "type": "ShareLink", "properties": { "item": "https://www.swift.org", "subject": "The Swift website" } },
         { "type": "EmptyView", "properties": {} }
       ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Element-level presentation modifiers - a 'popover' / 'sheet' / 'fullScreenCover' subview opens off the carrier's own state (a Button taps it open; the host can also setElementState):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        {
+          "type": "Button",
+          "id": 300,
+          "properties": { "title": "Popover", "systemImage": "info.circle", "buttonStyle": "bordered", "popoverActionID": "demoPopoverShown" },
+          "popover": {
+            "type": "VStack",
+            "properties": { "alignment": "leading", "spacing": 8, "padding": "default", "frame": { "width": 240 } },
+            "children": [
+              { "type": "Text", "properties": { "text": "Popover content", "font": "headline" } },
+              { "type": "Text", "properties": { "text": "A top-layer panel anchored to the button. Click outside or press Escape to dismiss.", "font": "footnote", "foregroundColor": "secondary" } },
+              { "type": "Toggle", "id": 305, "properties": { "title": "A live control", "isOn": true } }
+            ]
+          }
+        },
+        {
+          "type": "Text",
+          "id": 306,
+          "properties": { "text": "Text with a popover (tap me)", "foregroundColor": "accentColor", "popoverArrowEdge": "bottom" },
+          "popover": {
+            "type": "Text",
+            "properties": { "text": "Any view can carry a popover.", "padding": "default" }
+          }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        {
+          "type": "Button",
+          "id": 301,
+          "properties": { "title": "Show Sheet", "systemImage": "rectangle.portrait", "buttonStyle": "borderedProminent", "sheetOnDismissActionID": "demoSheetDismissed" },
+          "sheet": {
+            "type": "VStack",
+            "properties": { "alignment": "leading", "spacing": 14, "padding": "default", "frame": { "width": 360 } },
+            "children": [
+              { "type": "Text", "properties": { "text": "Sheet", "font": "title2" } },
+              { "type": "Text", "properties": { "text": "A native <dialog> shown with showModal(). Dismiss with Escape, the backdrop, or the button below (which calls setElementState sheetVisible=false).", "foregroundColor": "secondary" } },
+              { "type": "Toggle", "id": 307, "properties": { "title": "A live control inside the sheet", "isOn": false } },
+              { "type": "Button", "properties": { "title": "Done", "buttonStyle": "borderedProminent", "actionID": "demoSheetClose" } }
+            ]
+          }
+        },
+        {
+          "type": "Button",
+          "id": 302,
+          "properties": { "title": "Full Screen Cover", "systemImage": "arrow.up.left.and.arrow.down.right", "buttonStyle": "bordered", "fullScreenCoverOnDismissActionID": "demoCoverDismissed" },
+          "fullScreenCover": {
+            "type": "VStack",
+            "properties": { "alignment": "center", "spacing": 16, "padding": "default", "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+            "children": [
+              { "type": "Text", "properties": { "text": "Full Screen Cover", "font": "largeTitle" } },
+              { "type": "Text", "properties": { "text": "Fills the viewport. No OS cover on a desktop target - Escape or the button dismisses.", "foregroundColor": "secondary" } },
+              { "type": "Button", "properties": { "title": "Close", "systemImage": "xmark", "buttonStyle": "borderedProminent", "actionID": "demoCoverClose" } }
+            ]
+          }
+        }
+      ]
     }
   ]
 }

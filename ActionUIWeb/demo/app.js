@@ -231,6 +231,16 @@ app.action("showConfirm", () => {
 });
 app.action("confirmDelete", () => win.setString(20, 0, "File deleted."));
 
+// Element-level presentation modifiers (Overview): a 'popover'/'sheet'/
+// 'fullScreenCover' subview opens off the carrier's state. The dismiss actions
+// fire on any close; the "Done"/"Close" buttons close programmatically via
+// setElementState, demonstrating host-driven dismissal.
+app.action("demoPopoverShown", () => win.setString(20, 0, "Popover shown."));
+app.action("demoSheetClose", () => win.setState(301, "sheetVisible", false));
+app.action("demoSheetDismissed", () => win.setString(20, 0, "Sheet dismissed."));
+app.action("demoCoverClose", () => win.setState(302, "fullScreenCoverVisible", false));
+app.action("demoCoverDismissed", () => win.setString(20, 0, "Full screen cover dismissed."));
+
 app.action("increment", () => win.setInt(10, 0, win.getInt(10) + 1));
 app.action("decrement", () => win.setInt(10, 0, win.getInt(10) - 1));
 app.action("reset", () => {
