@@ -112,20 +112,48 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
 }
 
 /**
- * [element] with the host's runtime property overrides
- * ([com.abracode.actionui.Common.ViewModel.propertyOverrides], written by
- * `ActionUIModel.setElementProperty`) merged over its authored `properties` -
- * the Android analog of Apple's views reading the mutated
- * `validatedProperties`. Identity when the element has no registered
- * ViewModel or no overrides (the overwhelmingly common case).
+ * [element] with the host's runtime overrides merged in - the Android analog of
+ * Apple's views reading the mutated `validatedProperties` plus the
+ * `applyDynamicSubviews` merge in `ActionUIRegistry.buildView`:
+ *
+ *   * **Property overrides** ([com.abracode.actionui.Common.ViewModel.propertyOverrides],
+ *     written by `ActionUIModel.setElementProperty`) layer over the authored
+ *     `properties`.
+ *   * **Structural mutations** ([com.abracode.actionui.Common.ViewModel.dynamicSubviews],
+ *     written by `WindowModel.insertElement` / `insertRow` / `removeElement`)
+ *     replace the `children` / `destinations` / `rows` container the host has
+ *     mutated. The declaring view's existing container read then sees the live
+ *     list with no per-view wiring.
+ *
+ * Reading both snapshot maps subscribes this composition, so a host mutation
+ * recomposes the element. Identity when the element has no registered ViewModel
+ * or no overrides (the overwhelmingly common case).
  */
 @Composable
 private fun effectiveElement(element: ActionUIElement): ActionUIElement {
     if (element.id <= 0) return element
-    val overrides = LocalWindowModel.current?.viewModels?.get(element.id)?.propertyOverrides
-    if (overrides.isNullOrEmpty()) return element
-    return element.copy(properties = mergeProperties(element.properties, overrides))
+    val viewModel = LocalWindowModel.current?.viewModels?.get(element.id) ?: return element
+    val overrides = viewModel.propertyOverrides
+    val dynamic = viewModel.dynamicSubviews
+    if (overrides.isEmpty() && dynamic.isEmpty()) return element
+    return element.copy(
+        properties = if (overrides.isEmpty()) element.properties
+            else mergeProperties(element.properties, overrides),
+        children = dynamic.flatContainer("children") ?: element.children,
+        destinations = dynamic.flatContainer("destinations") ?: element.destinations,
+        rows = dynamic.rowsContainer("rows") ?: element.rows,
+    )
 }
+
+/** A flat-container override (`children` / `destinations`) from [dynamicSubviews], or null. */
+@Suppress("UNCHECKED_CAST")
+private fun Map<String, Any>.flatContainer(key: String): List<ActionUIElement>? =
+    this[key] as? List<ActionUIElement>
+
+/** The `rows` 2-D override from [dynamicSubviews], or null. */
+@Suppress("UNCHECKED_CAST")
+private fun Map<String, Any>.rowsContainer(key: String): List<List<ActionUIElement>>? =
+    this[key] as? List<List<ActionUIElement>>
 
 /** [overrides] layered over [authored], later writes winning per key. */
 internal fun mergeProperties(

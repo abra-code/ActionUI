@@ -15,6 +15,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalStackAxis
 import com.abracode.actionui.Common.StackAxis
@@ -70,6 +71,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * every template instance eagerly. See `Helpers/TemplateHelper.kt`.
  */
 object LazyVStack : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
 
     override fun initialStates(element: ActionUIElement): Map<String, Any> =
         mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())

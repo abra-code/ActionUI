@@ -37,6 +37,7 @@ class ActionUIRegistryTest {
         assertSame(com.abracode.actionui.Views.Group, ActionUIRegistry.lookup("Group"))
         assertSame(com.abracode.actionui.Views.ScrollView, ActionUIRegistry.lookup("ScrollView"))
         assertSame(com.abracode.actionui.Views.GroupBox, ActionUIRegistry.lookup("GroupBox"))
+        assertSame(com.abracode.actionui.Views.ControlGroup, ActionUIRegistry.lookup("ControlGroup"))
         assertSame(com.abracode.actionui.Views.LabeledContent, ActionUIRegistry.lookup("LabeledContent"))
         assertSame(com.abracode.actionui.Views.DisclosureGroup, ActionUIRegistry.lookup("DisclosureGroup"))
         assertSame(com.abracode.actionui.Views.Link, ActionUIRegistry.lookup("Link"))

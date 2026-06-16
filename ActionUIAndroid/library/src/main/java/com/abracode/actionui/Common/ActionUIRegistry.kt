@@ -7,6 +7,7 @@ import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
 import com.abracode.actionui.Views.ColorPicker
 import com.abracode.actionui.Views.ContentUnavailableView
+import com.abracode.actionui.Views.ControlGroup
 import com.abracode.actionui.Views.DatePicker
 import com.abracode.actionui.Views.DisclosureGroup
 import com.abracode.actionui.Views.Divider
@@ -97,6 +98,7 @@ object ActionUIRegistry {
         register("ScrollView", ScrollView)
         register("ScrollViewReader", ScrollViewReader)
         register("GroupBox", GroupBox)
+        register("ControlGroup", ControlGroup)
         register("LabeledContent", LabeledContent)
         register("DisclosureGroup", DisclosureGroup)
         register("Link", Link)
@@ -133,4 +135,13 @@ object ActionUIRegistry {
 
     fun lookup(type: String): ActionUIViewConstruction? =
         if (type.isEmpty()) null else builders[type]
+
+    /**
+     * The insertable-container map for a registered view type, or `null` when the
+     * type is unknown or declares none. The Android analog of Swift's
+     * `ActionUIRegistry.getInsertableContainers(forElementType:)`; consulted by
+     * [ActionUIModel] to resolve an insertion request's target container.
+     */
+    fun getInsertableContainers(type: String): Map<String, ContainerShape>? =
+        lookup(type)?.insertableContainers
 }

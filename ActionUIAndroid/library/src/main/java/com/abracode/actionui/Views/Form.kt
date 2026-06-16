@@ -9,10 +9,12 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.applyScrollContentBackground
 
 /**
  * Grouped form layout. Mirror of the Apple `Form` element
@@ -37,11 +39,13 @@ import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
  *     the visual grouping.
  */
 object Form : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
         Column(
-            modifier = modifier,
+            modifier = modifier.applyScrollContentBackground(element.properties, logger),
             verticalArrangement = Arrangement.spacedBy(DEFAULT_ROW_SPACING),
             horizontalAlignment = Alignment.Start,
         ) {

@@ -1,0 +1,46 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "frame": { "maxWidth": "infinity", "alignment": "leading" } },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "scrollContentBackground", "font": "title" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "visible -> a Material container surface behind the List (the Android analog of iOS's grouped background).",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "List",
+      "properties": { "scrollContentBackground": "visible", "cornerRadius": 12, "frame": { "height": 140 } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Swift", "padding": 8 } },
+        { "type": "Text", "properties": { "text": "Kotlin", "padding": 8 } },
+        { "type": "Text", "properties": { "text": "Rust", "padding": 8 } },
+        { "type": "Text", "properties": { "text": "Go", "padding": 8 } }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "automatic / hidden -> transparent (the Android default; a base background shows through).",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "List",
+      "properties": { "scrollContentBackground": "hidden", "cornerRadius": 12, "frame": { "height": 140 } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Swift", "padding": 8 } },
+        { "type": "Text", "properties": { "text": "Kotlin", "padding": 8 } },
+        { "type": "Text", "properties": { "text": "Rust", "padding": 8 } },
+        { "type": "Text", "properties": { "text": "Go", "padding": 8 } }
+      ]
+    }
+  ]
+}

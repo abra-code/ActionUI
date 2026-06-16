@@ -6,6 +6,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
@@ -46,6 +47,8 @@ import com.abracode.actionui.Helpers.templateRows
  * lazy stacks). See `Private/Android_Porting_Notes.md`.
  */
 object Group : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
 
     override fun initialStates(element: ActionUIElement): Map<String, Any> =
         mapOf(ActionUIModel.ROWS_STATE_KEY to emptyList<List<String>>())

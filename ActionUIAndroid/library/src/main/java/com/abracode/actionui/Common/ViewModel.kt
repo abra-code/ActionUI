@@ -62,8 +62,9 @@ import kotlinx.serialization.json.JsonObject
  *
  *   * `templateContext` - data-driven template rendering (List rows, ZStack
  *     templates) is not ported.
- *   * `dynamicSubviews` - runtime structural mutation (insertElement /
- *     removeElement / insertRow) is not ported.
+ *
+ * [dynamicSubviews] - runtime structural mutation - **is** now ported (see its
+ * doc below).
  */
 class ViewModel {
     /**
@@ -108,4 +109,22 @@ class ViewModel {
      */
     var mutationToken: Int by mutableStateOf(0)
         internal set
+
+    /**
+     * Runtime structural-mutation overrides, keyed by named container
+     * (`children` / `destinations` / `rows`). The Android analog of Swift's
+     * `ViewModel.dynamicSubviews`: [WindowModel.insertElement] /
+     * [WindowModel.insertRow] / [WindowModel.removeElement] write the *whole* new
+     * container contents here (a `List<ActionUIElement>` for a flat container, a
+     * `List<List<ActionUIElement>>` for `rows`), and the shared build entry point
+     * (`Helpers/ViewModifierHelper.kt` `effectiveElement`) merges them back over
+     * the element's authored subviews each recomposition.
+     *
+     * Backed by a [SnapshotStateMap], so a mutation recomposes the declaring
+     * parent (its `effectiveElement` read subscribes) and its child loop re-runs
+     * with the new container - the same change-propagation `value` / `states`
+     * use, with no explicit notification (Swift needs `objectWillChange.send()`).
+     * Empty for the overwhelmingly common case of a never-mutated element.
+     */
+    val dynamicSubviews: SnapshotStateMap<String, Any> = mutableStateMapOf()
 }

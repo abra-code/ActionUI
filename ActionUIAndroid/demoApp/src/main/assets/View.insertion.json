@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Runtime structural mutation: insertElement / insertRow / removeElement (Apple parity). Each button calls the host's ActionUIModel; the container recomposes.", "foregroundColor": "secondary", "font": "footnote" } },
+
+    { "type": "Text", "properties": { "text": "Flat container - VStack children", "font": "headline" } },
+    {
+      "type": "VStack",
+      "id": 1,
+      "properties": { "spacing": 6, "alignment": "leading" },
+      "children": [
+        { "type": "Label", "id": 10, "properties": { "title": "Seed row A", "systemImage": "circle.fill" } },
+        { "type": "Label", "id": 11, "properties": { "title": "Seed row B", "systemImage": "circle.fill" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Append", "actionID": "insert.append" } },
+        { "type": "Button", "properties": { "title": "Prepend", "actionID": "insert.prepend" } },
+        { "type": "Button", "properties": { "title": "Remove last", "actionID": "insert.removeLast" } }
+      ]
+    },
+
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Rows container - Grid", "font": "headline" } },
+    {
+      "type": "Grid",
+      "id": 2,
+      "properties": { "alignment": "leading", "horizontalSpacing": 24, "verticalSpacing": 6 },
+      "rows": [
+        [
+          { "type": "Text", "properties": { "text": "Name", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "Note", "foregroundColor": "secondary" } }
+        ]
+      ]
+    },
+    { "type": "Button", "properties": { "title": "Add Grid row", "actionID": "insert.addRow" } },
+
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Exotic - TabView children", "font": "headline" } },
+    {
+      "type": "TabView",
+      "id": 3,
+      "properties": { "frame": { "height": 150 } },
+      "children": [
+        { "type": "Tab", "properties": { "title": "Home", "systemImage": "house" }, "content": { "type": "Text", "properties": { "text": "Home tab" } } },
+        { "type": "Tab", "properties": { "title": "Settings", "systemImage": "gearshape" }, "content": { "type": "Text", "properties": { "text": "Settings tab" } } }
+      ]
+    },
+    { "type": "Button", "properties": { "title": "Add Tab", "actionID": "insert.addTab" } }
+  ]
+}

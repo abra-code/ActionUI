@@ -55,4 +55,52 @@ class ScrollViewTest {
         assertFalse(logger.warnings.isEmpty())
         assertTrue(logger.warnings.any { it.contains("vertical") })
     }
+
+    // ---- unbounded-axis guard (resolveAppliedScroll) ----
+
+    @Test
+    fun `bounded vertical scroll is applied`() {
+        assertEquals(
+            ScrollAxesApplied(vertical = true, horizontal = false),
+            resolveAppliedScroll(ScrollAxis.Vertical, boundedHeight = true, boundedWidth = false),
+        )
+    }
+
+    @Test
+    fun `unbounded vertical scroll is dropped`() {
+        // The crash case: a vertical ScrollView nested in another vertical scroll
+        // (infinite incoming height) - drop the axis instead of crashing.
+        assertEquals(
+            ScrollAxesApplied(vertical = false, horizontal = false),
+            resolveAppliedScroll(ScrollAxis.Vertical, boundedHeight = false, boundedWidth = true),
+        )
+    }
+
+    @Test
+    fun `unbounded horizontal scroll is dropped`() {
+        assertEquals(
+            ScrollAxesApplied(vertical = false, horizontal = false),
+            resolveAppliedScroll(ScrollAxis.Horizontal, boundedHeight = true, boundedWidth = false),
+        )
+    }
+
+    @Test
+    fun `both-axis scroll keeps only the bounded axes`() {
+        // Height unbounded, width bounded -> vertical drops, horizontal stays.
+        assertEquals(
+            ScrollAxesApplied(vertical = false, horizontal = true),
+            resolveAppliedScroll(ScrollAxis.Both, boundedHeight = false, boundedWidth = true),
+        )
+        assertEquals(
+            ScrollAxesApplied(vertical = true, horizontal = true),
+            resolveAppliedScroll(ScrollAxis.Both, boundedHeight = true, boundedWidth = true),
+        )
+    }
+
+    @Test
+    fun `the cross axis is never scrolled regardless of bounds`() {
+        // A vertical ScrollView never scrolls horizontally even with bounded width.
+        assertFalse(resolveAppliedScroll(ScrollAxis.Vertical, boundedHeight = true, boundedWidth = true).horizontal)
+        assertFalse(resolveAppliedScroll(ScrollAxis.Horizontal, boundedHeight = true, boundedWidth = true).vertical)
+    }
 }

@@ -10,6 +10,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.parseAlignment
@@ -42,11 +43,14 @@ import kotlinx.serialization.json.contentOrNull
  *     default 0, the same "absent spacing adds nothing" stance as the stacks
  *     (SwiftUI's nil means "platform default spacing").
  *
- * **Not ported with the element:** SwiftUI per-cell modifiers SwiftUI offers
- * outside the JSON contract (`gridCellColumns` span and friends) do not exist
- * on Apple's ActionUI either; the `rows` runtime-insertion surface
- * (`insertElement` into `insertableContainers["rows"]`) waits on the
- * structural-mutation API like every other container.
+ * **Runtime row insertion** is supported: `rows` is declared in
+ * [insertableContainers] as a [ContainerShape.ROWS] container, so a host adds a
+ * row of cells with `ActionUIModel.insertRow` and the grid recomposes (the
+ * `effectiveElement` merge feeds the new `rows` straight into the layout).
+ *
+ * **Not ported with the element:** the per-cell modifiers SwiftUI offers outside
+ * the JSON contract (`gridCellColumns` span and friends) do not exist on Apple's
+ * ActionUI either.
  *
  * Sample JSON:
  * ```
@@ -59,6 +63,8 @@ import kotlinx.serialization.json.contentOrNull
  * ```
  */
 object Grid : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("rows" to ContainerShape.ROWS)
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current

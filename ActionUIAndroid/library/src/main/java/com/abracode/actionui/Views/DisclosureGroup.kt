@@ -24,6 +24,7 @@ import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.buildChildModifier
@@ -71,6 +72,8 @@ import com.abracode.actionui.Helpers.templateRows
  * the expanded column. See `Helpers/TemplateHelper.kt`.
  */
 object DisclosureGroup : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
     override fun initialStates(element: ActionUIElement): Map<String, Any> =
         mapOf(
             "isExpanded" to (element.properties?.booleanProperty("isExpanded") ?: false),

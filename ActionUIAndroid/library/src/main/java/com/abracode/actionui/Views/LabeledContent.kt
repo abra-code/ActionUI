@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
@@ -39,6 +40,8 @@ import com.abracode.actionui.Helpers.stringProperty
  *     [modifier]).
  */
 object LabeledContent : ActionUIViewConstruction {
+
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current

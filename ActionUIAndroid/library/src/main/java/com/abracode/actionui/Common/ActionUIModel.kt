@@ -12,6 +12,7 @@ import com.abracode.actionui.Helpers.kotlinValueToJson
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.parseCoordinate
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import java.time.LocalDate
 
 /**
@@ -68,9 +69,10 @@ internal data class OpenURLObserver(
  * overrides merged at the shared build entry point). Window-level presentation
  * is ported: **dialogs** (`presentAlert` / `presentConfirmationDialog` /
  * `dismissDialog`) and **modals** (`presentModal` / `dismissModal`, sheet /
- * fullScreenCover). Still **not** ported (with the features that drive them):
- * runtime structural mutation (`insertElement` / `removeElement` / `insertRow`).
- * See `Private/Android_Porting_Notes.md`.
+ * fullScreenCover). **Runtime structural mutation** (`insertElement` /
+ * `insertRow` / `removeElement`) is ported too - it mutates the parent's
+ * [ViewModel.dynamicSubviews] (snapshot state) so the declaring container
+ * recomposes; see [WindowModel] and `Private/Android_Porting_Notes.md`.
  *
  * Handlers and the value/state API run on the main thread (Compose `onClick`
  * callbacks and host handlers); this object performs no synchronization of its
@@ -671,4 +673,161 @@ object ActionUIModel {
      */
     fun getElementColumnCount(windowUUID: String = "", viewID: Int): Int =
         getElementRows(windowUUID, viewID).maxOfOrNull { it.size } ?: 0
+
+    // MARK: - Runtime structural mutations (insertElement / insertRow / removeElement)
+    //
+    // The Android port of the Swift `ActionUIModel` insertion surface. The model
+    // resolves which insertable container the request targets (by the parent's
+    // declared [ActionUIViewConstruction.insertableContainers] and the method's
+    // shape) and delegates the mutation to [WindowModel], which writes the new
+    // container into the parent's [ViewModel.dynamicSubviews] (snapshot state) so
+    // the declaring view recomposes. All entry points throw [InsertError] on a
+    // bad request, matching Apple.
+
+    /**
+     * Inserts [element] into a flat container (`children` / `destinations`) of
+     * [parentID] at [position]. [container] may be null when the parent declares
+     * exactly one flat container. Returns the inserted element's id. Throws
+     * [InsertError] for an unknown window/parent, a non-container parent, an
+     * ambiguous/unknown container, an out-of-range position, or an id conflict.
+     * Mirrors the Swift `insertElement(windowUUID:parentID:dict:container:position:)`.
+     */
+    fun insertElement(
+        windowUUID: String = "",
+        parentID: Int,
+        element: ActionUIElement,
+        container: String? = null,
+        position: InsertPosition = InsertPosition.Append,
+    ): Int {
+        val windowModel = windowModels[windowUUID] ?: throw InsertError.WindowNotFound(windowUUID)
+        val resolved = resolveContainer(parentID, windowModel, container, ContainerShape.FLAT)
+        return windowModel.insertElement(element, parentID, resolved, position)
+    }
+
+    /**
+     * JSON-string convenience over [insertElement]: [jsonString] must encode one
+     * element object, decoded through the Android [PlatformFilter] like the
+     * document loader. Throws [InsertError.InvalidJSON] / [InsertError.MissingType]
+     * on a bad payload. Mirrors the Swift `insertElement(...json:...)` overload.
+     */
+    fun insertElement(
+        windowUUID: String = "",
+        parentID: Int,
+        jsonString: String,
+        container: String? = null,
+        position: InsertPosition = InsertPosition.Append,
+    ): Int = insertElement(windowUUID, parentID, parseElement(jsonString), container, position)
+
+    /**
+     * Inserts a row of [cells] into a `rows` container (`Grid`) of [parentID] at
+     * [position] (before/after are rejected - rows have no synthetic id). Returns
+     * the inserted cell ids. Mirrors the Swift `insertRow(...cells:...)`.
+     */
+    fun insertRow(
+        windowUUID: String = "",
+        parentID: Int,
+        cells: List<ActionUIElement>,
+        container: String? = null,
+        position: InsertPosition = InsertPosition.Append,
+    ): List<Int> {
+        val windowModel = windowModels[windowUUID] ?: throw InsertError.WindowNotFound(windowUUID)
+        val resolved = resolveContainer(parentID, windowModel, container, ContainerShape.ROWS)
+        return windowModel.insertRow(cells, parentID, resolved, position)
+    }
+
+    /**
+     * JSON-string convenience over [insertRow]: [jsonString] must encode a JSON
+     * array of cell objects, e.g. `[{"type":"Text",...},{"type":"Button",...}]`.
+     * Mirrors the Swift `insertRow(...json:...)` overload.
+     */
+    fun insertRow(
+        windowUUID: String = "",
+        parentID: Int,
+        jsonString: String,
+        container: String? = null,
+        position: InsertPosition = InsertPosition.Append,
+    ): List<Int> = insertRow(windowUUID, parentID, parseCells(jsonString), container, position)
+
+    /**
+     * Removes element [viewID] (and its descendants) from its flat / rows
+     * container. Throws [InsertError] for an unknown window, the window root, an
+     * unknown view, or a view that is not a removable container member. Mirrors
+     * the Swift `removeElement(windowUUID:viewID:)`.
+     */
+    fun removeElement(windowUUID: String = "", viewID: Int) {
+        val windowModel = windowModels[windowUUID] ?: throw InsertError.WindowNotFound(windowUUID)
+        windowModel.removeElement(viewID)
+    }
+
+    /**
+     * Resolves which insertable container of [parentID] a request targets: the
+     * [requestedContainer] when given (validated against the parent's declared
+     * containers and the method's [expectedShape]), else the parent's unique
+     * container of that shape. Mirrors the Swift `resolveContainer`.
+     */
+    private fun resolveContainer(
+        parentID: Int,
+        windowModel: WindowModel,
+        requestedContainer: String?,
+        expectedShape: ContainerShape,
+    ): String {
+        val parentVM = windowModel.viewModels[parentID] ?: throw InsertError.ParentNotFound(parentID)
+        val containers = ActionUIRegistry.getInsertableContainers(parentVM.elementType)
+            ?: throw InsertError.NotAContainer(parentVM.elementType)
+
+        if (requestedContainer != null) {
+            val shape = containers[requestedContainer]
+                ?: throw InsertError.UnknownContainer(requestedContainer, containers.keys.sorted())
+            if (shape != expectedShape) {
+                val methodName = if (expectedShape == ContainerShape.FLAT) "insertElement" else "insertRow"
+                val altMethod = if (expectedShape == ContainerShape.FLAT) "insertRow" else "insertElement"
+                throw InsertError.WrongMethod(
+                    requestedContainer, shape,
+                    "$methodName requires a $expectedShape container - use $altMethod for this container.",
+                )
+            }
+            return requestedContainer
+        }
+
+        val matching = containers.filterValues { it == expectedShape }.keys
+        if (matching.size == 1) return matching.first()
+        throw InsertError.ContainerRequired(matching.sorted())
+    }
+
+    /** Decodes one element from a JSON object string, through the Android [PlatformFilter]. */
+    private fun parseElement(jsonString: String): ActionUIElement {
+        val raw = try {
+            json.parseToJsonElement(jsonString)
+        } catch (e: Exception) {
+            throw InsertError.InvalidJSON(e.message ?: "could not parse JSON")
+        }
+        val filtered = PlatformFilter.Android.withLogger(logger).filter(raw)
+        val element = try {
+            json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
+        } catch (e: Exception) {
+            throw InsertError.InvalidJSON(e.message ?: "could not decode element")
+        }
+        if (element.type.isEmpty()) throw InsertError.MissingType
+        return element
+    }
+
+    /** Decodes an array of cell elements from a JSON array string, platform-filtered. */
+    private fun parseCells(jsonString: String): List<ActionUIElement> {
+        val raw = try {
+            json.parseToJsonElement(jsonString)
+        } catch (e: Exception) {
+            throw InsertError.InvalidJSON(e.message ?: "could not parse JSON")
+        }
+        if (raw !is JsonArray) throw InsertError.InvalidJSON("Expected a JSON array of cell objects")
+        return raw.map { cell ->
+            val filtered = PlatformFilter.Android.withLogger(logger).filter(cell)
+            val element = try {
+                json.decodeFromJsonElement(ActionUIElement.serializer(), filtered)
+            } catch (e: Exception) {
+                throw InsertError.InvalidJSON(e.message ?: "could not decode cell")
+            }
+            if (element.type.isEmpty()) throw InsertError.MissingType
+            element
+        }
+    }
 }

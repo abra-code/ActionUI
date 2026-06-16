@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
@@ -29,6 +30,7 @@ import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.applyScrollContentBackground
 import com.abracode.actionui.Helpers.stringProperty
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.JsonObject
@@ -84,6 +86,8 @@ import kotlinx.serialization.json.JsonObject
  */
 object ListView : ActionUIViewConstruction {
 
+    override val insertableContainers = mapOf("children" to ContainerShape.FLAT)
+
     /** The selected row, as the Apple-parity `[String]` selection value. */
     override val valueType = ActionUIValueType.STRING_LIST
 
@@ -104,7 +108,8 @@ object ListView : ActionUIViewConstruction {
         // inherited frame.height wins, else a default keeps an unbounded parent
         // from crashing it (same guard as LazyVStack).
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
-        val listModifier = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
+        val listModifier = (if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT))
+            .applyScrollContentBackground(props, logger)
 
         // Selection (value bridge): interactive only when a list-level actionID is
         // present (Apple's selectable mode). The selected row is the element value.
