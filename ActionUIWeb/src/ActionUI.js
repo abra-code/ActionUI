@@ -32,6 +32,7 @@ import "./Views/Image.js";
 import "./Views/AsyncImage.js";
 import "./Views/VideoPlayer.js";
 import "./Views/WebView.js";
+import "./Views/Canvas.js";
 import "./Views/Label.js";
 import "./Views/Slider.js";
 import "./Views/Stepper.js";

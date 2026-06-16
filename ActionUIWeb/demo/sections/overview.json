@@ -190,6 +190,80 @@
       }
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Canvas (a native <canvas> driving the shared JSON draw-command list - the same operations render on SwiftUI and Compose). Tap the last one:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16, "alignment": "center" },
+      "children": [
+        {
+          "type": "Canvas",
+          "properties": {
+            "frame": { "width": 130, "height": 130 },
+            "backgroundColor": "#F8F9FA",
+            "cornerRadius": 16,
+            "operations": [
+              {
+                "type": "fill",
+                "path": { "type": "roundedRect", "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8, "cornerRadius": 0.15 },
+                "gradient": { "type": "linear", "start": [0, 0], "end": [1, 1], "colors": ["#FF9500", "#FF2D55", "#007AFF"] }
+              },
+              {
+                "type": "stroke",
+                "path": { "type": "roundedRect", "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8, "cornerRadius": 0.15 },
+                "color": "#000000", "lineWidth": 2
+              }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "properties": {
+            "frame": { "width": 130, "height": 130 },
+            "backgroundColor": "#FFF5E6",
+            "cornerRadius": 16,
+            "operations": [
+              {
+                "type": "stroke",
+                "path": {
+                  "type": "path",
+                  "commands": [
+                    ["moveTo", 0.5, 0.10], ["lineTo", 0.65, 0.40], ["lineTo", 0.95, 0.40],
+                    ["lineTo", 0.72, 0.60], ["lineTo", 0.82, 0.90], ["lineTo", 0.5, 0.70],
+                    ["lineTo", 0.18, 0.90], ["lineTo", 0.28, 0.60], ["lineTo", 0.05, 0.40],
+                    ["lineTo", 0.35, 0.40], ["closePath"]
+                  ]
+                },
+                "color": "#FF9800", "lineWidth": 6, "lineCap": "round", "lineJoin": "round"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Canvas",
+          "id": 400,
+          "properties": {
+            "frame": { "width": 160, "height": 130 },
+            "backgroundColor": "#FFFFFF",
+            "cornerRadius": 12,
+            "actionID": "canvasTapped",
+            "operations": [
+              {
+                "type": "fill",
+                "path": { "type": "circle", "center": [0.5, 0.45], "radius": 0.42 },
+                "gradient": { "type": "radial", "center": [0.5, 0.45], "endRadius": 0.5, "colors": ["#42A5F5", "#1976D2"] }
+              },
+              { "type": "image", "systemName": "star.fill", "frame": [0.38, 0.18, 0.24, 0.24], "opacity": 0.95 },
+              { "type": "shadow", "color": "#00000060", "radius": 4, "x": 2, "y": 2 },
+              {
+                "type": "text", "text": "Canvas", "frame": [0.1, 0.5, 0.8, 0.4],
+                "fontSize": 22, "fontWeight": "bold", "color": "#FFFFFF", "alignment": "center"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "ContentUnavailableView (empty-state: hero glyph, title, description) and the search variant:", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "HStack",

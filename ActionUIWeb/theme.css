@@ -958,6 +958,16 @@
     background: #fff;
 }
 
+/* Canvas: a native <canvas> driving the shared draw-command list. The backing
+   store is sized to the box * devicePixelRatio in JS; here it is just a block of
+   the frame's size (default 300x150 like the HTML element when no frame is given).
+   border-radius (the cornerRadius modifier) clips the canvas - it is replaced
+   content, so rounded corners apply to the drawing. */
+.aui-canvas {
+    display: block;
+    max-width: 100%;
+}
+
 /* ---- Group-A batch: structural / utility passthroughs ---- */
 
 /* EmptyView renders nothing (SwiftUI EmptyView / the Android no-op). */

@@ -73,7 +73,10 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   sidebar List whose `destinationViewId` rows switch the detail pane), and
   LoadableView (a dynamic include — fetches a JSON sub-document by `url` /
   `filePath` / `name` and renders it inline, so a UI can be split across files),
-  WebView (the web's own native `<iframe>`; `url` or inline `html`), and the
+  WebView (the web's own native `<iframe>`; `url` or inline `html`),
+  Canvas (a native `<canvas>` driving the shared JSON `operations` draw-command
+  list — fill/stroke/text/image, paths, gradients, transforms, clips, shadow/blur,
+  layers — the same drawing rendering on SwiftUI and Compose), and the
   structural/utility passthroughs Group (transparent, via `display:contents`),
   EmptyView, Link (a native `<a>`), ShareLink (the Web Share API), and
   ContentUnavailableView (an empty-state hero glyph + title + description).

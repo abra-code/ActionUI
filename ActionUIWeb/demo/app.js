@@ -241,6 +241,9 @@ app.action("demoSheetDismissed", () => win.setString(20, 0, "Sheet dismissed."))
 app.action("demoCoverClose", () => win.setState(302, "fullScreenCoverVisible", false));
 app.action("demoCoverDismissed", () => win.setString(20, 0, "Full screen cover dismissed."));
 
+// Canvas: a tap on a Canvas with an actionID fires it (viewID = canvas id).
+app.action("canvasTapped", () => win.setString(20, 0, "Canvas tapped."));
+
 // Window-level modals (Controls): presentModal loads a JSON sub-document into a
 // native <dialog>; its controls bind into the window model by id. The modal's
 // Close button routes an actionID the host maps to dismissModal() - the
