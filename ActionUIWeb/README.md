@@ -76,7 +76,9 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   WebView (the web's own native `<iframe>`; `url` or inline `html`),
   Canvas (a native `<canvas>` driving the shared JSON `operations` draw-command
   list — fill/stroke/text/image, paths, gradients, transforms, clips, shadow/blur,
-  layers — the same drawing rendering on SwiftUI and Compose), and the
+  layers — the same drawing rendering on SwiftUI and Compose),
+  GeometryReader (a greedy box that fills its frame and reports its measured size to
+  the host as `states["size"]`, read via `getElementState`), and the
   structural/utility passthroughs Group (transparent, via `display:contents`),
   EmptyView, Link (a native `<a>`), ShareLink (the Web Share API), and
   ContentUnavailableView (an empty-state hero glyph + title + description).

@@ -58,6 +58,13 @@
 .aui-zstack { display: grid; }
 .aui-zstack > * { grid-area: 1 / 1; place-self: center; }
 
+/* GeometryReader: a greedy container (fills the proposal, the .aui-shape idiom)
+   that places its single content child by alignment via place-self (set inline
+   per the JSON, default topLeading). An explicit numeric frame pins the box (the
+   view sets flex-grow:0 inline), the same discipline the shapes use. */
+.aui-geometry-reader { display: grid; flex-grow: 1; align-self: stretch; min-width: 0; min-height: 0; }
+.aui-geometry-reader > * { grid-area: 1 / 1; }
+
 .aui-spacer { flex-grow: 1; align-self: stretch; }
 
 /* maxWidth/maxHeight ".infinity" -> fill the proposal (the

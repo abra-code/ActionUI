@@ -22,6 +22,7 @@ import { presentModal, dismissActiveModal, ModalStyle } from "./Scenes/ModalHost
 import "./Views/VStack.js";
 import "./Views/HStack.js";
 import "./Views/ZStack.js";
+import "./Views/GeometryReader.js";
 import "./Views/Spacer.js";
 import "./Views/Divider.js";
 import "./Views/Text.js";

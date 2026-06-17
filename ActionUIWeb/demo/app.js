@@ -283,6 +283,18 @@ app.action("demoCoverDismissed", () => win.setString(20, 0, "Full screen cover d
 // Canvas: a tap on a Canvas with an actionID fires it (viewID = canvas id).
 app.action("canvasTapped", () => win.setString(20, 0, "Canvas tapped."));
 
+// GeometryReader: the host reads the container's measured size on demand from
+// states["size"] ([width, height], CSS px) - the same getElementState call on
+// Apple, Android, and the web. Round for display.
+app.action("readGeometrySize", () => {
+    const size = win.getState(410, "size");
+    if (Array.isArray(size) && size.length === 2) {
+        win.setString(20, 0, `GeometryReader size: ${Math.round(size[0])} x ${Math.round(size[1])} px.`);
+    } else {
+        win.setString(20, 0, "GeometryReader size unavailable.");
+    }
+});
+
 // Window-level modals (Controls): presentModal loads a JSON sub-document into a
 // native <dialog>; its controls bind into the window model by id. The modal's
 // Close button routes an actionID the host maps to dismissModal() - the

@@ -106,6 +106,21 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "GeometryReader (a greedy box that fills its frame and reports its measured size to the host as states[\"size\"] - read it on demand, the same call on every platform). It fills the width; its height is a fixed 90 (the bounded-axis caveat: inside a vertical scroll there is no height to fill). Resize the window, then read the size:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "GeometryReader",
+      "id": 410,
+      "properties": { "alignment": "center", "background": "secondary", "cornerRadius": 12, "frame": { "maxWidth": "infinity", "height": 90 } },
+      "content": {
+        "type": "VStack",
+        "properties": { "alignment": "center", "spacing": 8 },
+        "children": [
+          { "type": "Text", "properties": { "text": "I am a GeometryReader. My content sits at alignment 'center'.", "font": "footnote", "foregroundColor": "secondary" } },
+          { "type": "Button", "properties": { "title": "Read my size", "systemImage": "ruler", "buttonStyle": "bordered", "actionID": "readGeometrySize" } }
+        ]
+      }
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "ScrollViewReader (opens centered on Row 6; buttons scroll programmatically):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "HStack",
