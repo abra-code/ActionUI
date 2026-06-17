@@ -82,9 +82,10 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   Map (a pluggable provider, the Android "link one module" model: the
   dependency-free default `src/Views/MapEmbed.js` is an OpenStreetMap embed + a
   platform-aware "Open in Maps" handoff, and importing `providers/map-maplibre.js`
-  (key-free MapLibre) or `providers/map-google.js` (Google Maps, `apiKey:web`)
-  after `ActionUI.js` swaps in a full map — markers + the user-pan value bridge —
-  from the same JSON), and the
+  (key-free MapLibre), `providers/map-google.js` (Google Maps, `apiKey:web`), or
+  `providers/map-apple.js` (Apple MapKit JS, `token:web`/`tokenURL:web`) after
+  `ActionUI.js` swaps in a full map — markers + the user-pan value bridge — from the
+  same JSON), and the
   structural/utility passthroughs Group (transparent, via `display:contents`),
   EmptyView, Link (a native `<a>`), ShareLink (the Web Share API), and
   ContentUnavailableView (an empty-state hero glyph + title + description).

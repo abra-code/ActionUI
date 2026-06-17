@@ -80,9 +80,10 @@ const win = await Window.fromURL("./ui.json", undefined, logger);
 // Map provider: by default Map uses the built-in dependency-free embed
 // (Views/MapEmbed.js). LINK a richer provider to override it - it registers "Map"
 // last and wins (the pluggable-provider model). ?maplibre loads the key-free
-// MapLibre provider; ?google=YOUR_KEY loads the Google provider (it needs the
-// host's own API key, passed here via the global the provider falls back to). Must
-// run before present() so the override is registered before the tree is built.
+// MapLibre provider; ?google=YOUR_KEY loads the Google provider; ?mapkit=YOUR_JWT
+// loads the Apple MapKit JS provider (Google/Apple need the host's own key/token,
+// passed here via the globals the providers fall back to). Must run before present()
+// so the override is registered before the tree is built.
 const mapParams = new URLSearchParams(location.search);
 if (mapParams.has("maplibre")) {
     await import("../providers/map-maplibre.js");
@@ -90,6 +91,10 @@ if (mapParams.has("maplibre")) {
     const key = mapParams.get("google");
     if (key) window.AUI_GOOGLE_MAPS_API_KEY = key;
     await import("../providers/map-google.js");
+} else if (mapParams.has("mapkit")) {
+    const token = mapParams.get("mapkit");
+    if (token) window.AUI_MAPKIT_JS_TOKEN = token;
+    await import("../providers/map-apple.js");
 }
 
 app.presentWindow(win, document.getElementById("root"));
