@@ -17,6 +17,7 @@ import { PlatformFilter } from "./Common/PlatformFilter.js";
 import { InsertPosition } from "./Common/ActionUIInsertion.js";
 import { presentDialog, dismissActiveDialog } from "./Scenes/DialogHost.js";
 import { presentModal, dismissActiveModal, ModalStyle } from "./Scenes/ModalHost.js";
+import { parseMenuBar, buildAppShell } from "./Scenes/MenuBar.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -265,6 +266,34 @@ export class Application {
         this.defaultHandler = null;
         this.windows = new Map();  // uuid -> Window
         this.logger = new ConsoleLogger();
+        this.menuBar = null;       // parsed MainMenu.json model (Scenes/MenuBar.js)
+    }
+
+    // Application menu bar (the array-root MainMenu.json). `menu` is a JSON string
+    // or an already-parsed array. On web this is not a desktop menu strip: it
+    // renders as a top app bar (hamburger + optional account menu) wrapping the
+    // window - see Scenes/MenuBar.js. Call before presentWindow.
+    setMenuBar(menu, logger = this.logger) {
+        let raw = menu;
+        if (typeof menu === "string") {
+            try {
+                raw = JSON.parse(menu);
+            } catch (error) {
+                logger.log(`Invalid menu bar JSON: ${error.message}`, "error");
+                return this;
+            }
+        }
+        this.menuBar = parseMenuBar(raw, logger);
+        return this;
+    }
+
+    async setMenuBarFromURL(url, logger = this.logger) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            logger.log(`Failed to load menu bar ${url}: ${response.status}`, "error");
+            return this;
+        }
+        return this.setMenuBar(await response.text(), logger);
     }
 
     presentWindow(win, container) {
@@ -277,6 +306,15 @@ export class Application {
             }
         };
         this.windows.set(win.uuid, win);
+        // With a menu bar, wrap the window in an app shell (top app bar + drawer +
+        // account menu) and present into its stage; menu commands dispatch at the
+        // app level (viewID 0). Without one, mount the window directly (unchanged).
+        if (this.menuBar) {
+            const dispatch = (actionID) => win.model.dispatchAction(actionID, 0);
+            const { shell, stage } = buildAppShell(this.menuBar, this.name, dispatch, win.logger);
+            container.replaceChildren(shell);
+            return win.present(stage);
+        }
         return win.present(container);
     }
 

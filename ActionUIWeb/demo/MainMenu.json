@@ -1,0 +1,39 @@
+[
+  {
+    "type": "CommandMenu",
+    "properties": { "name": "Go" },
+    "children": [
+      { "type": "Button", "properties": { "title": "Overview", "actionID": "go.overview", "systemImage": "house" } },
+      { "type": "Button", "properties": { "title": "Controls", "actionID": "go.controls", "systemImage": "slider.horizontal.3" } },
+      { "type": "Button", "properties": { "title": "Collections", "actionID": "go.collections", "systemImage": "square.grid.2x2" } },
+      { "type": "Button", "properties": { "title": "Navigation", "actionID": "go.navigation", "systemImage": "map" } }
+    ]
+  },
+  {
+    "type": "CommandMenu",
+    "properties": { "name": "Tools" },
+    "children": [
+      { "type": "Button", "properties": { "title": "Run Report", "actionID": "tools.report", "systemImage": "doc.text",
+          "keyboardShortcut": { "key": "r", "modifiers": ["command", "shift"] } } },
+      { "type": "Divider" },
+      { "type": "Button", "properties": { "title": "Clear Log", "actionID": "tools.clearLog", "systemImage": "trash" } }
+    ]
+  },
+  {
+    "type": "CommandGroup",
+    "properties": { "placement": "after", "placementTarget": "newItem" },
+    "children": [
+      { "type": "Button", "properties": { "title": "Import Files...", "actionID": "file.import", "systemImage": "square.and.arrow.down" } }
+    ]
+  },
+  {
+    "type": "CommandMenu",
+    "properties": { "name": "Account", "role:web": "account", "systemImage": "person.crop.circle" },
+    "children": [
+      { "type": "Button", "properties": { "title": "Profile", "actionID": "account.profile", "systemImage": "person" } },
+      { "type": "Button", "properties": { "title": "Settings", "actionID": "account.settings", "systemImage": "gearshape" } },
+      { "type": "Divider" },
+      { "type": "Button", "properties": { "title": "Sign Out", "actionID": "account.signOut", "systemImage": "rectangle.portrait.and.arrow.right" } }
+    ]
+  }
+]

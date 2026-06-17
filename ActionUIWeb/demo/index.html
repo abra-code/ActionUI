@@ -46,7 +46,11 @@
             overflow: auto;
             scrollbar-gutter: stable;
         }
-        #root .aui-window {
+        /* The centered "card": the window when standalone, or the app shell when a
+           menu bar wraps it (Application.setMenuBar). Direct-child selectors so the
+           shell's nested .aui-window does not get a second radius/shadow. */
+        #root > .aui-window,
+        #root > .aui-app-shell {
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
         }

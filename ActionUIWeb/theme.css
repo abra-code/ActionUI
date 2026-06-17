@@ -321,6 +321,130 @@
     padding: 6px 10px 2px;
 }
 
+/* ---- App shell: top app bar + hamburger drawer + account menu ---- */
+/* The application menu bar (MainMenu.json) rendered as modern web chrome
+   (Scenes/MenuBar.js): a thin top app bar over a centering stage that holds the
+   window. The shell fills the host container's height so the stage is a
+   definite-height region and the window's own frame clamp still resolves. */
+.aui-app-shell {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--aui-font);
+    background: var(--aui-window-background);
+}
+.aui-appbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 10px;
+    background: var(--aui-control-background);
+    border-bottom: 1px solid var(--aui-control-border);
+    z-index: 2; /* above the stage's window content */
+}
+.aui-appbar-title { font-size: 15px; font-weight: 600; color: var(--aui-color-primary); }
+.aui-appbar-spacer { flex: 1 1 auto; }
+/* Hamburger: three CSS bars (no glyph-font dependency). */
+.aui-hamburger {
+    appearance: none; border: none; background: transparent; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 8px; padding: 8px;
+    display: inline-flex; flex-direction: column; justify-content: space-between;
+}
+.aui-hamburger:hover { background: color-mix(in srgb, var(--aui-color-primary) 8%, transparent); }
+.aui-hamburger:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-hamburger-bar { display: block; height: 2px; border-radius: 1px; background: var(--aui-color-primary); }
+.aui-account-button {
+    appearance: none; border: none; background: transparent; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 50%; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--aui-color-primary); font-size: 22px;
+}
+.aui-account-button:hover { background: color-mix(in srgb, var(--aui-color-primary) 8%, transparent); }
+.aui-account-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* The stage: re-creates the centering, definite-height host the window sits in;
+   the window pins to the top under the app bar and scrolls within if tall. */
+.aui-app-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: auto;
+    scrollbar-gutter: stable;
+}
+/* When shelled, the window is no longer the standalone card. */
+.aui-app-shell .aui-window { box-shadow: none; border-radius: 0; }
+
+/* Drawer + dimmed backdrop, absolutely placed within the shell. */
+.aui-drawer-backdrop {
+    position: absolute; inset: 0; z-index: 5;
+    background: rgba(0, 0, 0, 0.32);
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+.aui-app-shell.is-drawer-open .aui-drawer-backdrop { opacity: 1; visibility: visible; }
+.aui-drawer {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 6;
+    width: min(280px, 82%);
+    background: var(--aui-control-background);
+    border-right: 1px solid var(--aui-control-border);
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.2);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 8px 16px;
+}
+.aui-app-shell.is-drawer-open .aui-drawer { transform: translateX(0); }
+.aui-drawer-head {
+    font-size: 17px; font-weight: 700; color: var(--aui-color-primary);
+    padding: 10px 10px 12px;
+}
+.aui-drawer-empty { color: var(--aui-color-secondary); padding: 8px 10px; }
+.aui-drawer-section { padding: 6px 0; }
+.aui-drawer-section + .aui-drawer-section { border-top: 1px solid var(--aui-control-border); }
+.aui-drawer-section-title {
+    color: var(--aui-color-secondary);
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 6px 10px 4px;
+}
+
+/* The account menu: a top-layer popover (shared makeFloatingPanel machinery). */
+.aui-account-menu {
+    z-index: 10;
+    min-width: 180px;
+    padding: 4px;
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    flex-direction: column;
+}
+.aui-account-menu[popover] { position: fixed; margin: 0; inset: auto; }
+.aui-account-menu:popover-open { display: flex; }
+.aui-account-menu:not([popover]) { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-account-menu.is-open:not([popover]) { display: flex; }
+
+/* Menu items shared by the drawer and the account popover. */
+.aui-menubar-item {
+    font: inherit; text-align: left; width: 100%;
+    color: var(--aui-color-primary); background: transparent; border: none;
+    border-radius: 6px; padding: 7px 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 0.55em;
+}
+.aui-menubar-item:hover { background: var(--aui-color-accent); color: #ffffff; }
+.aui-menubar-item:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-menubar-item.is-disabled { color: var(--aui-color-secondary); cursor: default; }
+.aui-menubar-item.is-disabled:hover { background: transparent; color: var(--aui-color-secondary); }
+.aui-menubar-divider { border: none; border-top: 1px solid var(--aui-control-border); margin: 4px 6px; }
+
 /* ---- Element-level presentation: popover / sheet / fullScreenCover ---- */
 /* The `.popover` modifier: a shared top-layer floating panel
    (Helpers/PopoverPlacement.js), the same machinery as Menu, anchored to the

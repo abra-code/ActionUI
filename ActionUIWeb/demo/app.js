@@ -97,6 +97,12 @@ if (mapParams.has("maplibre")) {
     await import("../providers/map-apple.js");
 }
 
+// Application menu bar (MainMenu.json): on web this renders as the top app bar -
+// a hamburger drawer (the "Go"/"Tools" command menus + the File "Import" group)
+// and a top-right account menu (the role:web "account" command menu). Loaded
+// before present() so the shell wraps the window.
+await app.setMenuBarFromURL("./MainMenu.json", logger);
+
 app.presentWindow(win, document.getElementById("root"));
 
 // Open on the Overview section (the LoadableViews all preload as the split's
@@ -110,6 +116,24 @@ app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
 });
+
+// Menu bar (MainMenu.json) commands. The "Go" menu drives the split's selected
+// destination (same state the sidebar selection writes); the rest set status or
+// reuse existing demo behavior. All dispatch at the app level (viewID 0).
+function goSection(dest) {
+    win.setState(1000, "selectedDestination", dest);
+    win.setString(20, 0, `Section: ${SECTION_NAMES[dest]}.`);
+}
+app.action("go.overview", () => goSection(1100));
+app.action("go.controls", () => goSection(1101));
+app.action("go.collections", () => goSection(1102));
+app.action("go.navigation", () => goSection(1103));
+app.action("tools.report", () => win.setString(20, 0, "Running report..."));
+app.action("tools.clearLog", () => document.getElementById("aui-diag-clear").click());
+app.action("file.import", () => pick({ allowsMultiple: true }));
+app.action("account.profile", () => win.setString(20, 0, "Account: Profile."));
+app.action("account.settings", () => win.setString(20, 0, "Account: Settings."));
+app.action("account.signOut", () => win.setString(20, 0, "Account: signed out."));
 
 // The Collections section is data-driven: once its JSON loads, its List/Table
 // bindings exist, so push their rows through the rows API (states["content"]).
