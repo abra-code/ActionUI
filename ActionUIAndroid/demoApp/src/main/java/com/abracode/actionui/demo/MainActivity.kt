@@ -130,6 +130,80 @@ class MainActivity : ComponentActivity() {
             val label = if (selected.isNullOrEmpty()) "(none)" else selected
             Toast.makeText(this, "Selected: $label", Toast.LENGTH_SHORT).show()
         }
+        // Programmatic selection (List.selection.json, second button row). Selecting in
+        // code does not fire list.demo.selection.changed, so each handler toasts the
+        // result itself. The loaded rows are Swift/Python/Kotlin/TypeScript/Rust/Go, so
+        // index 3 is TypeScript and "Rust" is row 5. Mirrors the Swift test app.
+        ActionUIModel.registerActionHandler("list.demo.select.index") { _, windowUUID, _, _, _ ->
+            val row = ActionUIModel.selectElementRow(windowUUID = windowUUID, viewID = 1, index = 3)
+            val msg = if (row != null) "Selected row #4 by index: ${row.joinToString()}"
+                      else "Row #4 unavailable - load items first."
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("list.demo.select.content") { _, windowUUID, _, _, _ ->
+            val index = ActionUIModel.selectElementRow(windowUUID = windowUUID, viewID = 1, text = "Rust")
+            val msg = if (index != null) "Matched \"Rust\" at row #${index + 1}."
+                      else "\"Rust\" not in the list."
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("list.demo.deselect") { _, windowUUID, _, _, _ ->
+            ActionUIModel.clearElementSelection(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Selection cleared.", Toast.LENGTH_SHORT).show()
+        }
+
+        // Table.json - Table is macOS-only and renders nothing on Android, but the row
+        // and selection APIs operate on the data model regardless, so each handler
+        // reports its result with a toast. Mirrors the Swift test app's Table demo;
+        // the loaded data matches it (Role column holds "Engineer" for rows 1 and 5).
+        val tableExtraRows = listOf(
+            listOf("Frank Chen", "Director", "Operations"),
+            listOf("Grace Kim", "Lead", "Platform"),
+            listOf("Henry Wu", "Intern", "Data"),
+        )
+        var tableAppendIndex = 0
+        ActionUIModel.registerActionHandler("table.demo.load") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementRows(
+                windowUUID = windowUUID, viewID = 1,
+                rows = listOf(
+                    listOf("Alice Johnson", "Engineer", "Platform"),
+                    listOf("Bob Smith", "Designer", "Product"),
+                    listOf("Carol White", "Manager", "Engineering"),
+                    listOf("David Lee", "Analyst", "Data"),
+                    listOf("Eva Martinez", "Engineer", "Platform"),
+                ),
+            )
+            ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 1, value = emptyList<String>())
+        }
+        ActionUIModel.registerActionHandler("table.demo.append") { _, windowUUID, _, _, _ ->
+            val row = tableExtraRows[tableAppendIndex % tableExtraRows.size]
+            tableAppendIndex += 1
+            ActionUIModel.appendElementRows(windowUUID = windowUUID, viewID = 1, rows = listOf(row))
+        }
+        ActionUIModel.registerActionHandler("table.demo.clear") { _, windowUUID, _, _, _ ->
+            ActionUIModel.clearElementRows(windowUUID = windowUUID, viewID = 1)
+            ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 1, value = emptyList<String>())
+        }
+        ActionUIModel.registerActionHandler("table.demo.selection.changed") { _, windowUUID, _, _, _ ->
+            val selected = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 1)
+            val label = if (selected.isNullOrEmpty()) "(none)" else selected
+            Toast.makeText(this, "Selected: $label", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("table.demo.select.index") { _, windowUUID, _, _, _ ->
+            val row = ActionUIModel.selectElementRow(windowUUID = windowUUID, viewID = 1, index = 2)
+            val msg = if (row != null) "Selected row #3 by index: ${row.joinToString(" / ")}"
+                      else "Row #3 unavailable - load the data first."
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("table.demo.select.content") { _, windowUUID, _, _, _ ->
+            val index = ActionUIModel.selectElementRow(windowUUID = windowUUID, viewID = 1, text = "Engineer", column = 1)
+            val msg = if (index != null) "Matched \"Engineer\" in Role at row #${index + 1}."
+                      else "No row with \"Engineer\" in the Role column."
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("table.demo.deselect") { _, windowUUID, _, _, _ ->
+            ActionUIModel.clearElementSelection(windowUUID = windowUUID, viewID = 1)
+            Toast.makeText(this, "Selection cleared.", Toast.LENGTH_SHORT).show()
+        }
 
         // View.template.json - the data-driven template containers. Load/Append/
         // Clear drive the rows API on three template hosts at once (VStack 10,

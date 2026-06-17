@@ -855,6 +855,35 @@ class Window:
         _actionui.clear_element_rows(self.uuid, view_id)
 
     # ------------------------------------------------------------------
+    # Element selection (Table / List)
+    # ------------------------------------------------------------------
+
+    def select_row(self, view_id: int, index: int) -> bool:
+        """
+        Select a Table/List row by its 0-based index without altering the rows.
+
+        An index outside 0..<rowCount clears the selection. Fires no actionID.
+        Returns True if a row was selected, False if the index was out of range
+        (selection cleared) or the element is not a Table/List.
+        """
+        return bool(_actionui.select_element_row_by_index(self.uuid, view_id, index))
+
+    def select_row_with_content(self, view_id: int, text: str, column: Optional[int] = None) -> int:
+        """
+        Select the first row whose column value matches ``text`` (exact, case-sensitive).
+
+        When ``column`` is None, matches any column; otherwise matches the given 0-based
+        column only. Fires no actionID. Returns the 0-based index of the selected row,
+        or -1 if no row matched.
+        """
+        col = column if column is not None else -1
+        return int(_actionui.select_element_row_with_content(self.uuid, view_id, text, col))
+
+    def clear_selection(self, view_id: int):
+        """Clear the current selection of a Table/List element."""
+        _actionui.clear_element_selection(self.uuid, view_id)
+
+    # ------------------------------------------------------------------
     # Element properties (structural / layout)
     # ------------------------------------------------------------------
 

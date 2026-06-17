@@ -37,6 +37,36 @@
       ]
     },
     {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Select Row #4",
+            "actionID": "list.demo.select.index",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Find \"Rust\"",
+            "actionID": "list.demo.select.content",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Deselect",
+            "actionID": "list.demo.deselect",
+            "buttonStyle": "bordered"
+          }
+        }
+      ]
+    },
+    {
       "type": "List",
       "id": 1,
       "properties": {

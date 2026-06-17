@@ -70,11 +70,41 @@ struct ActionUISwiftTestApp: App {
         }
         ActionUISwift.registerActionHandler(actionID: "table.demo.clear") { _, windowUUID, _, _, _ in
             ActionUISwift.clearElementRows(windowUUID: windowUUID, viewID: 1)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: (none)")
         }
         ActionUISwift.registerActionHandler(actionID: "table.demo.selection.changed") { _, windowUUID, _, _, _ in
             if let selected = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], !selected.isEmpty {
                 print("Table row selected: \(selected)")
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Selected: \(selected.joined(separator: " / "))")
+            } else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: (none)")
             }
+        }
+        // Programmatic selection demos — none of these fire table.demo.selection.changed,
+        // so each handler updates the status label itself to reflect the result.
+        ActionUISwift.registerActionHandler(actionID: "table.demo.select.index") { _, windowUUID, _, _, _ in
+            if let row = ActionUISwift.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 2) {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Selected row #3 by index: \(row.joined(separator: " / "))")
+            } else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Row #3 unavailable — load the data first.")
+            }
+        }
+        ActionUISwift.registerActionHandler(actionID: "table.demo.select.content") { _, windowUUID, _, _, _ in
+            // Match "Engineer" in the Role column only (0-based column 1).
+            if let index = ActionUISwift.selectElementRow(windowUUID: windowUUID, viewID: 1, matching: "Engineer", column: 1) {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Matched \"Engineer\" in Role at row #\(index + 1).")
+            } else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "No row with \"Engineer\" in the Role column.")
+            }
+        }
+        ActionUISwift.registerActionHandler(actionID: "table.demo.deselect") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementSelection(windowUUID: windowUUID, viewID: 1)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selection cleared.")
         }
 
         // List demo handlers
@@ -99,6 +129,30 @@ struct ActionUISwiftTestApp: App {
             let selected = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String]
             let label = selected?.first.map { "Selected: \($0)" } ?? "Selected: <none>"
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: label)
+        }
+        // Programmatic selection demos — selecting in code does not fire
+        // list.demo.selection.changed, so each handler updates the status label itself.
+        ActionUISwift.registerActionHandler(actionID: "list.demo.select.index") { _, windowUUID, _, _, _ in
+            if let row = ActionUISwift.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 3) {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Selected row #4 by index: \(row.joined())")
+            } else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Selected: <none> — row #4 unavailable, load items first.")
+            }
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.demo.select.content") { _, windowUUID, _, _, _ in
+            if let index = ActionUISwift.selectElementRow(windowUUID: windowUUID, viewID: 1, matching: "Rust") {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Matched \"Rust\" at row #\(index + 1).")
+            } else {
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                    value: "Selected: <none> — \"Rust\" not in the list.")
+            }
+        }
+        ActionUISwift.registerActionHandler(actionID: "list.demo.deselect") { _, windowUUID, _, _, _ in
+            ActionUISwift.clearElementSelection(windowUUID: windowUUID, viewID: 1)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
         }
 
         // VStack template demo handlers (VStack.template.json)

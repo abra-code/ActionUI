@@ -549,6 +549,66 @@ public func actionUIAppendElementRowsJSON(
     return true
 }
 
+// MARK: - Element Selection
+
+/// Selects a row by its 0-based index in a Table/List view element.
+/// An index outside 0..<rowCount clears the selection. Does not fire the element's actionID.
+/// Returns true if a row was selected, false if the index was out of range (selection cleared)
+/// or the view is not a Table/List.
+@_cdecl("actionUISelectElementRowByIndex")
+public func actionUISelectElementRowByIndex(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ index: Int64
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    let selected = runOnMainActorSync {
+        ActionUIModel.shared.selectElementRow(windowUUID: swiftWindowUUID, viewID: Int(viewID), index: Int(index))
+    }
+
+    return selected != nil
+}
+
+/// Selects the first row whose column value matches `text` (exact, case-sensitive).
+/// A negative `column` matches any column; otherwise matches the given 0-based column only.
+/// Does not fire the element's actionID.
+/// Returns the 0-based index of the selected row, or -1 if no row matched.
+@_cdecl("actionUISelectElementRowWithContent")
+public func actionUISelectElementRowWithContent(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ text: UnsafePointer<CChar>,
+    _ column: Int64
+) -> Int64 {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftText = String(cString: text)
+    let col: Int? = (column >= 0) ? Int(column) : nil
+
+    let idx = runOnMainActorSync {
+        ActionUIModel.shared.selectElementRow(windowUUID: swiftWindowUUID, viewID: Int(viewID), matching: swiftText, column: col)
+    }
+
+    return Int64(idx ?? -1)
+}
+
+/// Clears the current selection of a Table/List view element.
+@_cdecl("actionUIClearElementSelection")
+public func actionUIClearElementSelection(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64
+) {
+    let swiftWindowUUID = String(cString: windowUUID)
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.clearElementSelection(windowUUID: swiftWindowUUID, viewID: Int(viewID))
+    }
+}
+
 // MARK: - Element Properties
 
 /// Gets a structural property value for a view element, returned as a JSON string.
@@ -997,7 +1057,7 @@ public func actionUILoadHostingControllerFromURL(
         hostingController.view.autoresizingMask = [.width, .height]
         return Unmanaged.passRetained(hostingController).toOpaque()
         #elseif canImport(UIKit)
-        let hostingController = UIHostingController(rootView: view)
+        let hostingController = UIHostingController(rootView: AnyView(view))
         hostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         return Unmanaged.passRetained(hostingController.view!).toOpaque()
         #else

@@ -555,6 +555,97 @@ public class ActionUIModel: ObservableObject {
         logger.log("Appended \(rows.count) rows to table viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
     }
 
+    // MARK: - Element Selection API
+    //
+    // Programmatic row selection for content-backed Table and List elements. Selection is stored in
+    // the element's `value` ([String] = the selected row's column values); the SwiftUI selection
+    // binding's getter finds the content row equal to `value`. These methods set `value` to the
+    // chosen content row WITHOUT replacing the rows — distinct from setElementValue([String]),
+    // which is interpreted as new list content.
+    //
+    // These do NOT fire the element's actionID: programmatic selection is silent to avoid
+    // selection-changed handler feedback loops. Read the result back via getElementValue.
+    // They apply to Table, homogeneous List, and template List (all backed by states["content"]);
+    // they do not apply to heterogeneous List children, which select by child element ID.
+
+    // Selects a row by its 0-based index in the element's content rows.
+    // An index outside 0..<rowCount clears the selection.
+    // Returns the selected row's column values, or nil if the view is not a Table/List or the
+    // index was out of range (selection cleared).
+    @discardableResult
+    public func selectElementRow(windowUUID: String, viewID: Int, index: Int) -> [String]? {
+        guard let windowModel = windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[viewID] else {
+            logger.log("selectElementRow: no view for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
+        }
+        guard let content = viewModel.states["content"] as? [[String]] else {
+            logger.log("selectElementRow: viewID \(viewID) is not a Table/List (no row content)", .warning)
+            return nil
+        }
+        guard content.indices.contains(index) else {
+            logger.log("selectElementRow: index \(index) out of range (0..<\(content.count)) for viewID: \(viewID); clearing selection", .debug)
+            clearElementSelection(windowUUID: windowUUID, viewID: viewID)
+            return nil
+        }
+        let rowValues = content[index]
+        guard (viewModel.value as? [String]) != rowValues else { return rowValues }
+        viewModel.objectWillChange.send()
+        viewModel.mutationToken &+= 1
+        viewModel.value = rowValues
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Selected row \(index) for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+        return rowValues
+    }
+
+    // Selects the first row whose column value matches `text`.
+    // When `column` is nil, matches a row in which ANY column equals `text`; otherwise matches the
+    // given 0-based column only. Matching is exact, case-sensitive string equality.
+    // Returns the 0-based index of the selected row, or nil if no row matched (selection unchanged).
+    @discardableResult
+    public func selectElementRow(windowUUID: String, viewID: Int, matching text: String, column: Int? = nil) -> Int? {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("selectElementRow(matching:): no view for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
+        }
+        guard let content = viewModel.states["content"] as? [[String]] else {
+            logger.log("selectElementRow(matching:): viewID \(viewID) is not a Table/List (no row content)", .warning)
+            return nil
+        }
+        let matchIndex = content.firstIndex { row in
+            if let column {
+                return column >= 0 && column < row.count && row[column] == text
+            }
+            return row.contains(text)
+        }
+        guard let idx = matchIndex else {
+            let where_ = column.map { " in column \($0)" } ?? ""
+            logger.log("selectElementRow(matching:): no row matches '\(text)'\(where_) for viewID: \(viewID)", .debug)
+            return nil
+        }
+        _ = selectElementRow(windowUUID: windowUUID, viewID: viewID, index: idx)
+        return idx
+    }
+
+    // Clears the current selection of a Table or List element (no-op if nothing is selected).
+    public func clearElementSelection(windowUUID: String, viewID: Int) {
+        guard let windowModel = windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[viewID] else {
+            logger.log("clearElementSelection: no view for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        guard let selected = viewModel.value as? [String] else {
+            logger.log("clearElementSelection: viewID \(viewID) is not a Table/List", .warning)
+            return
+        }
+        guard !selected.isEmpty else { return }
+        viewModel.objectWillChange.send()
+        viewModel.mutationToken &+= 1
+        viewModel.value = [] as [String]
+        windowModel.viewModels[viewID] = viewModel
+        logger.log("Cleared selection for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
+    }
+
     // Returns a dictionary mapping positive (user-assigned) view IDs to their view type strings for a given window.
     // Negative IDs are auto-assigned and excluded; 0 is not a valid ID.
     // Includes elements loaded dynamically by LoadableView (merged into viewModels but not in the element tree).

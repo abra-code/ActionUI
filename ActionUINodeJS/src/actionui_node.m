@@ -763,6 +763,46 @@ static napi_value node_append_element_rows_json(napi_env env, napi_callback_info
     return result;
 }
 
+// MARK: - N-API: Element Selection
+
+static napi_value node_select_element_row_by_index(napi_env env, napi_callback_info info) {
+    size_t argc = 3; napi_value argv[3];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    int64_t viewID = 0, index = 0;
+    napi_get_value_int64(env, argv[1], &viewID);
+    napi_get_value_int64(env, argv[2], &index);
+    napi_value result;
+    napi_get_boolean(env, actionUISelectElementRowByIndex(uuid, viewID, index), &result);
+    return result;
+}
+
+static napi_value node_select_element_row_with_content(napi_env env, napi_callback_info info) {
+    size_t argc = 4; napi_value argv[4];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128], text[4096]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    int64_t viewID = 0, column = -1;
+    napi_get_value_int64(env, argv[1], &viewID);
+    napi_get_value_string_utf8(env, argv[2], text, sizeof(text), &len);
+    napi_get_value_int64(env, argv[3], &column);
+    napi_value result;
+    napi_create_int64(env, actionUISelectElementRowWithContent(uuid, viewID, text, column), &result);
+    return result;
+}
+
+static napi_value node_clear_element_selection(napi_env env, napi_callback_info info) {
+    size_t argc = 2; napi_value argv[2];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    int64_t viewID = 0;
+    napi_get_value_int64(env, argv[1], &viewID);
+    actionUIClearElementSelection(uuid, viewID);
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
 // MARK: - N-API: Element Properties
 
 static napi_value node_get_element_property_json(napi_env env, napi_callback_info info) {
@@ -1626,6 +1666,11 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "clearElementRows",         node_clear_element_rows);
     EXPORT_FN(exports, "setElementRowsJSON",       node_set_element_rows_json);
     EXPORT_FN(exports, "appendElementRowsJSON",    node_append_element_rows_json);
+
+    /* Element selection */
+    EXPORT_FN(exports, "selectElementRowByIndex",     node_select_element_row_by_index);
+    EXPORT_FN(exports, "selectElementRowWithContent", node_select_element_row_with_content);
+    EXPORT_FN(exports, "clearElementSelection",       node_clear_element_selection);
 
     /* Element properties */
     EXPORT_FN(exports, "getElementPropertyJSON",   node_get_element_property_json);

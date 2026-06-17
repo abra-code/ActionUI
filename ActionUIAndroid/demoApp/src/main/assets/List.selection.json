@@ -2,7 +2,7 @@
   "type": "VStack",
   "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
   "children": [
-    { "type": "Text", "properties": { "text": "Selectable List - tap Load, then tap a row to select it (a toast shows the selection):" } },
+    { "type": "Text", "properties": { "text": "Selectable List - tap Load, then tap a row to select it, or use the second row of buttons to select programmatically by index or by content (a toast shows each result):" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12 },
@@ -10,6 +10,15 @@
         { "type": "Button", "properties": { "title": "Load", "actionID": "list.demo.load" } },
         { "type": "Button", "properties": { "title": "Append", "actionID": "list.demo.append" } },
         { "type": "Button", "properties": { "title": "Clear", "actionID": "list.demo.clear" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Select #4", "actionID": "list.demo.select.index" } },
+        { "type": "Button", "properties": { "title": "Find Rust", "actionID": "list.demo.select.content" } },
+        { "type": "Button", "properties": { "title": "Deselect", "actionID": "list.demo.deselect" } }
       ]
     },
     {
