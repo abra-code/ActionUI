@@ -975,6 +975,45 @@
     max-width: 100%;
 }
 
+/* Map: greedy like SwiftUI's Map / AVKit's player - fills the frame the parent
+   offers (bound the height with a frame in a scroll column). The default provider
+   (MapEmbed.js) is an <iframe> + an absolutely-positioned "Open in Maps" pill; a
+   JS provider (providers/map-maplibre.js) mounts its map canvas into the same box.
+   overflow:hidden + border-radius:inherit clip rounded corners (cornerRadius). */
+.aui-map {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 240px; /* a usable default when no frame.height is given */
+    border: 1px solid var(--aui-color-border, #d2d2d7);
+    border-radius: inherit;
+    overflow: hidden;
+    background: #e8eaed;
+}
+.aui-map-frame {
+    flex: 1 1 auto;
+    width: 100%;
+    border: 0;
+}
+.aui-map-open {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    z-index: 1;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font: 600 12px/1.2 -apple-system, system-ui, sans-serif;
+    color: #fff;
+    background: var(--aui-color-accent, #007aff);
+    text-decoration: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.aui-map-open:hover { filter: brightness(1.06); }
+/* MapLibre annotation popup (providers/map-maplibre.js): title bold over subtitle. */
+.aui-map-popup-title { font-weight: 600; }
+.aui-map-popup-subtitle { color: var(--aui-color-secondary, #6e6e73); font-size: 12px; }
+
 /* ---- Group-A batch: structural / utility passthroughs ---- */
 
 /* EmptyView renders nothing (SwiftUI EmptyView / the Android no-op). */

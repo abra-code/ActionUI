@@ -78,7 +78,12 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   list — fill/stroke/text/image, paths, gradients, transforms, clips, shadow/blur,
   layers — the same drawing rendering on SwiftUI and Compose),
   GeometryReader (a greedy box that fills its frame and reports its measured size to
-  the host as `states["size"]`, read via `getElementState`), and the
+  the host as `states["size"]`, read via `getElementState`),
+  Map (a pluggable provider, the Android "link one module" model: the
+  dependency-free default `src/Views/MapEmbed.js` is an OpenStreetMap embed + a
+  platform-aware "Open in Maps" handoff, and importing `providers/map-maplibre.js`
+  after `ActionUI.js` swaps in a full MapLibre map — markers + the user-pan value
+  bridge — from the same JSON), and the
   structural/utility passthroughs Group (transparent, via `display:contents`),
   EmptyView, Link (a native `<a>`), ShareLink (the Web Share API), and
   ContentUnavailableView (an empty-state hero glyph + title + description).

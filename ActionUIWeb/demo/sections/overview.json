@@ -279,6 +279,22 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Map (the dependency-free default: an OpenStreetMap embed + a platform-aware 'Open in Maps' handoff to the native maps app). The Recenter button drives the host->view value bridge. Add ?maplibre to the URL to swap in a full MapLibre map (markers + a live pan->host bridge) from the same JSON. Bound its height with a frame:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Map",
+      "id": 420,
+      "properties": {
+        "coordinate": { "latitude": 37.3349, "longitude": -122.0090 },
+        "annotations": [
+          { "coordinate": { "latitude": 37.3349, "longitude": -122.0090 }, "title": "Apple Park", "subtitle": "Cupertino, CA" }
+        ],
+        "valueChangeActionID": "mapMoved",
+        "cornerRadius": 10,
+        "frame": { "maxWidth": 480, "height": 260 }
+      }
+    },
+    { "type": "Button", "properties": { "title": "Recenter the map", "systemImage": "mappin.and.ellipse", "actionID": "mapRecenter" } },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "ContentUnavailableView (empty-state: hero glyph, title, description) and the search variant:", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "HStack",

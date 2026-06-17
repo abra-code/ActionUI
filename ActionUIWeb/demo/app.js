@@ -76,6 +76,15 @@ document.getElementById("aui-diag-clear").addEventListener("click", () => {
 
 const app = new Application({ name: "ActionUIWeb Demo" });
 const win = await Window.fromURL("./ui.json", undefined, logger);
+
+// Map provider: by default Map uses the built-in dependency-free embed
+// (Views/MapEmbed.js). Add ?maplibre to the URL to LINK the full MapLibre provider
+// instead - it registers "Map" last and wins (the pluggable-provider model). Must
+// run before present() so the override is registered before the tree is built.
+if (new URLSearchParams(location.search).has("maplibre")) {
+    await import("../providers/map-maplibre.js");
+}
+
 app.presentWindow(win, document.getElementById("root"));
 
 // Open on the Overview section (the LoadableViews all preload as the split's
@@ -282,6 +291,20 @@ app.action("demoCoverDismissed", () => win.setString(20, 0, "Full screen cover d
 
 // Canvas: a tap on a Canvas with an actionID fires it (viewID = canvas id).
 app.action("canvasTapped", () => win.setString(20, 0, "Canvas tapped."));
+
+// Map: the value is the center as a JSON coordinate string. setString re-centers
+// (the host->view direction works on every provider, including the embed default);
+// the embed is display-only, so user pans do NOT report back - load ?maplibre to
+// get the full map where a user pan fires `mapMoved` and updates the value.
+app.action("mapRecenter", () => {
+    const onApplePark = win.getString(420).includes("37.33");
+    const next = onApplePark
+        ? '{"latitude":51.5074,"longitude":-0.1278}' // London
+        : '{"latitude":37.3349,"longitude":-122.0090}'; // Apple Park
+    win.setString(420, 0, next);
+    win.setString(20, 0, `Map recentered to ${onApplePark ? "London" : "Apple Park"}.`);
+});
+app.action("mapMoved", () => win.setString(20, 0, `Map center: ${win.getString(420)}.`));
 
 // GeometryReader: the host reads the container's measured size on demand from
 // states["size"] ([width, height], CSS px) - the same getElementState call on

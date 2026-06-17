@@ -34,6 +34,10 @@ import "./Views/AsyncImage.js";
 import "./Views/VideoPlayer.js";
 import "./Views/WebView.js";
 import "./Views/Canvas.js";
+// Map's dependency-free default provider (an OSM embed + native-maps handoff). It
+// registers "Map"; importing a richer provider module (providers/map-maplibre.js)
+// after this overrides it (last registration wins) — the pluggable-provider model.
+import "./Views/MapEmbed.js";
 import "./Views/Label.js";
 import "./Views/Slider.js";
 import "./Views/Stepper.js";
