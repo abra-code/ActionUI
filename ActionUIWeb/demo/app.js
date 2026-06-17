@@ -78,11 +78,18 @@ const app = new Application({ name: "ActionUIWeb Demo" });
 const win = await Window.fromURL("./ui.json", undefined, logger);
 
 // Map provider: by default Map uses the built-in dependency-free embed
-// (Views/MapEmbed.js). Add ?maplibre to the URL to LINK the full MapLibre provider
-// instead - it registers "Map" last and wins (the pluggable-provider model). Must
+// (Views/MapEmbed.js). LINK a richer provider to override it - it registers "Map"
+// last and wins (the pluggable-provider model). ?maplibre loads the key-free
+// MapLibre provider; ?google=YOUR_KEY loads the Google provider (it needs the
+// host's own API key, passed here via the global the provider falls back to). Must
 // run before present() so the override is registered before the tree is built.
-if (new URLSearchParams(location.search).has("maplibre")) {
+const mapParams = new URLSearchParams(location.search);
+if (mapParams.has("maplibre")) {
     await import("../providers/map-maplibre.js");
+} else if (mapParams.has("google")) {
+    const key = mapParams.get("google");
+    if (key) window.AUI_GOOGLE_MAPS_API_KEY = key;
+    await import("../providers/map-google.js");
 }
 
 app.presentWindow(win, document.getElementById("root"));
@@ -294,8 +301,8 @@ app.action("canvasTapped", () => win.setString(20, 0, "Canvas tapped."));
 
 // Map: the value is the center as a JSON coordinate string. setString re-centers
 // (the host->view direction works on every provider, including the embed default);
-// the embed is display-only, so user pans do NOT report back - load ?maplibre to
-// get the full map where a user pan fires `mapMoved` and updates the value.
+// the embed is display-only, so user pans do NOT report back - load ?maplibre (or
+// ?google=YOUR_KEY) to get the full map where a user pan fires `mapMoved`.
 app.action("mapRecenter", () => {
     const onApplePark = win.getString(420).includes("37.33");
     const next = onApplePark
