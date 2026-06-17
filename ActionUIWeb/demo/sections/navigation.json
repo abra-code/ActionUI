@@ -53,11 +53,11 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop). browserHistory:web is on, so the browser Back button pops a push, then switches section:", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "NavigationStack",
       "id": 160,
-      "properties": { "frame": { "maxWidth": "infinity" } },
+      "properties": { "browserHistory:web": true, "frame": { "maxWidth": "infinity" } },
       "content": {
         "type": "VStack",
         "id": 164,

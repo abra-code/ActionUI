@@ -10,11 +10,11 @@
         { "type": "Text", "properties": { "text": "ActionUIWeb Demo", "font": "title", "font:web": "largeTitle" } }
       ]
     },
-    { "type": "Text", "properties": { "text": "A NavigationSplitView shell — each section is a separate JSON file loaded by a LoadableView.", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "A NavigationSplitView shell — each section is a separate JSON file loaded by a LoadableView. browserHistory:web is on, so the browser Back/Forward buttons switch sections.", "foregroundColor": "secondary" } },
     {
       "type": "NavigationSplitView",
       "id": 1000,
-      "properties": { "columnVisibility": "all", "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+      "properties": { "columnVisibility": "all", "browserHistory:web": true, "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
       "sidebar": {
         "type": "List",
         "id": 1001,

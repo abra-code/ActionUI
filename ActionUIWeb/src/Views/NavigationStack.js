@@ -37,10 +37,18 @@
 // each is built through the registry; the stack adds only a `‹ Back` affordance
 // above a destination (the selectable-List root, whose rows are built directly,
 // still gets a navTitleHeader here).
+//
+// Browser back/forward (opt-in, web-only): `browserHistory:web: true` makes a
+// user push add a browser-history entry, routes the in-app Back through
+// history.back(), and restores the path on popstate (Helpers/NavigationHistory.js
+// owns the single global history). Off by default - Back keeps its page behavior
+// unless the author opts in. Programmatic setState syncs the current entry rather
+// than adding a Back target (see the helper's header for the rule).
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { NAV_PUSH_EVENT } from "./NavigationLink.js";
+import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 
 const NAV_PATH_KEY = "navigationPath";
 
@@ -53,7 +61,16 @@ register("NavigationStack", {
     // addressable by id like the authored ones.
     insertableContainers: { destinations: ContainerShape.FLAT },
 
-    validateProperties: (properties) => ({ ...properties }),
+    validateProperties: (properties, logger) => {
+        const validated = { ...properties };
+        // Web-only opt-in (authored `browserHistory:web`): no Swift/Kotlin
+        // counterpart, so this is validated here rather than mirrored.
+        if (validated.browserHistory !== undefined && typeof validated.browserHistory !== "boolean") {
+            logger.log("NavigationStack browserHistory (web) must be a Boolean; ignoring", "warning");
+            delete validated.browserHistory;
+        }
+        return validated;
+    },
 
     initialStates: () => ({ [NAV_PATH_KEY]: [] }),
 
@@ -74,6 +91,14 @@ register("NavigationStack", {
 
         let path = []; // dest ids, root-to-top; empty = root
 
+        // Opt-in browser back/forward (authored `browserHistory:web`, off by
+        // default). When on: a user push adds a history entry, the in-app Back
+        // routes through history.back() (so in-app and browser Back agree), and a
+        // popstate restores the path. See Helpers/NavigationHistory.js.
+        const historyEnabled = properties.browserHistory === true;
+        let historyHandle = null; // set after the state binding, when enabled
+        const commitHistory = (mode) => { if (historyHandle) historyHandle.commit(mode); };
+
         // --- root pane ---
         const rootPane = document.createElement("div");
         rootPane.className = "aui-nav-stack-pane";
@@ -86,15 +111,22 @@ register("NavigationStack", {
             }
             path = [...path, id];
             showTop();
+            commitHistory("push"); // user-initiated forward navigation
         };
+        // Reached only from the in-app Back button when history is OFF (when ON
+        // the button calls history.back() and popstate drives the pop).
         const pop = () => {
             if (path.length === 0) return;
             path = path.slice(0, -1);
             showTop();
         };
-        const setPath = (newPath) => {
+        // Programmatic / reconciling path set. `fromHistory` true = a popstate
+        // restore (do not write history back); otherwise a host setState, which
+        // syncs the current entry (replace), never adding a Back target.
+        const setPath = (newPath, fromHistory = false) => {
             path = Array.isArray(newPath) ? newPath.filter((id) => destMap.has(id)) : [];
             showTop();
+            if (!fromHistory) commitHistory("replace");
         };
 
         const selectableChildren = selectableListChildren(content);
@@ -164,7 +196,10 @@ register("NavigationStack", {
             back.type = "button";
             back.className = "aui-nav-stack-back";
             back.textContent = "‹ Back";
-            back.addEventListener("click", () => pop());
+            back.addEventListener("click", () => {
+                if (historyEnabled) window.history.back();
+                else pop();
+            });
             bar.appendChild(back);
             pane.appendChild(bar);
             const body = document.createElement("div");
@@ -230,10 +265,21 @@ register("NavigationStack", {
                     destPanes.delete(id);
                     destMap.delete(id);
                     destOrder.splice(i, 1);
-                    if (path.includes(id)) { path = path.filter((p) => p !== id); showTop(); }
+                    if (path.includes(id)) { path = path.filter((p) => p !== id); showTop(); commitHistory("replace"); }
                     return true;
                 },
             });
+
+            // Opt-in browser history: capture/restore the path. Registering folds
+            // the current path into the active entry; restore reconciles without
+            // writing history back (fromHistory).
+            if (historyEnabled) {
+                historyHandle = registerNavigationHistory(element.id, {
+                    capture: () => [...path],
+                    restore: (saved) => setPath(Array.isArray(saved) ? saved : [], true),
+                });
+                node._auiDestroy = () => historyHandle.release();
+            }
         }
 
         showTop();

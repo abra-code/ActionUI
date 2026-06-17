@@ -36,6 +36,12 @@
 // (Android instead fires the NSV's own actionID with context = destId — divergence
 // documented in Private/Web_Porting_Notes.md.)
 //
+// Browser back/forward (opt-in, web-only): `browserHistory:web: true` makes a user
+// sidebar selection a browser-history entry, so Back returns to the previously
+// selected destination; a popstate restores selectedDestination (not the actionID).
+// Off by default. Helpers/NavigationHistory.js owns the single global history and
+// the user-vs-programmatic rule (programmatic setState syncs, never pushes).
+//
 // Best-effort vs. Apple. `columnVisibility` drives a container attribute the CSS
 // reads ("detail" collapses to the detail pane; other values show all columns) and
 // `style` ("balanced"/"prominentDetail"/"automatic") a data-attribute the skin
@@ -43,6 +49,7 @@
 // deferred responsive part — element/structure parity ships now.
 
 import { register } from "../Common/ActionUIRegistry.js";
+import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 
 const VALID_COLUMN_VISIBILITIES = ["automatic", "all", "doubleColumn", "detail"];
 const VALID_STYLES = ["automatic", "balanced", "prominentDetail"];
@@ -88,6 +95,12 @@ register("NavigationSplitView", {
         if (typeof validated.style === "string" && !VALID_STYLES.includes(validated.style)) {
             logger.log(`Invalid NavigationSplitView style: ${validated.style}; defaulting to 'automatic'`, "warning");
             validated.style = "automatic";
+        }
+        // Web-only opt-in (authored `browserHistory:web`): no Swift/Kotlin
+        // counterpart, validated here rather than mirrored.
+        if (validated.browserHistory !== undefined && typeof validated.browserHistory !== "boolean") {
+            logger.log("NavigationSplitView browserHistory (web) must be a Boolean; ignoring", "warning");
+            delete validated.browserHistory;
         }
 
         return validated;
@@ -138,6 +151,13 @@ register("NavigationSplitView", {
         const destinationNodes = [];
         let defaultDetailNode = null;
 
+        // Opt-in browser back/forward (authored `browserHistory:web`, off by
+        // default): a user selection adds a history entry, a popstate restores the
+        // selection. See Helpers/NavigationHistory.js.
+        const historyEnabled = properties.browserHistory === true;
+        let historyHandle = null; // set after the state binding, when enabled
+        const commitHistory = (mode) => { if (historyHandle) historyHandle.commit(mode); };
+
         const showDetail = () => {
             if (!selectionDriven) return;
             const target = destinationsById.get(selectedDestination) ?? null;
@@ -151,6 +171,12 @@ register("NavigationSplitView", {
                 row.setAttribute("aria-selected", on ? "true" : "false");
             });
             showDetail();
+        };
+        // Reconcile the selection from a history entry: no commit (it came from
+        // history) and no actionID (a restore, like setState - not a user click).
+        const restoreSelection = (destId) => {
+            selectedDestination = Number.isInteger(destId) ? destId : 0;
+            applySelection();
         };
 
         if (selectionDriven) {
@@ -170,6 +196,7 @@ register("NavigationSplitView", {
                 if (fromUser && typeof sidebarActionID === "string") {
                     ctx.model.dispatchAction(sidebarActionID, sidebarID, 0, null);
                 }
+                if (fromUser) commitHistory("push"); // user selection = forward nav
             };
 
             // Detail host: the default detail plus one node per destination, built
@@ -245,12 +272,25 @@ register("NavigationSplitView", {
                     if (key === "selectedDestination") {
                         selectedDestination = Number.isInteger(value) ? value : 0;
                         applySelection();
+                        commitHistory("replace"); // programmatic sync of the current entry
                     } else if (key === "columnVisibility") {
                         columnVisibility = typeof value === "string" ? value : "all";
                         applyColumnVisibility();
                     }
                 },
             });
+
+            // Opt-in browser history: capture/restore selectedDestination only
+            // (columnVisibility is presentation, not navigation). Registering
+            // folds the current selection into the active entry; restore
+            // reconciles without writing history back or firing an actionID.
+            if (historyEnabled) {
+                historyHandle = registerNavigationHistory(element.id, {
+                    capture: () => selectedDestination,
+                    restore: (saved) => restoreSelection(saved),
+                });
+                node._auiDestroy = () => historyHandle.release();
+            }
         }
 
         applySelection();
