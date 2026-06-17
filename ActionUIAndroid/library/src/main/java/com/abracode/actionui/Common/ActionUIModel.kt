@@ -830,4 +830,54 @@ object ActionUIModel {
             element
         }
     }
+
+    /**
+     * Selects element [viewID]'s row at the 0-based [index] by writing the row's column
+     * values to [ViewModel.value] without altering the rows. An index outside the row range
+     * clears the selection. Fires no action. Mirrors the Swift `selectElementRow(index:)`.
+     * Returns the selected row's values, or null if the index was out of range / not a Table/List.
+     */
+    fun selectElementRow(windowUUID: String = "", viewID: Int, index: Int): List<String>? {
+        val viewModel = viewModel(windowUUID, viewID) ?: return null
+        val content = getElementRows(windowUUID, viewID)
+        if (index < 0 || index >= content.size) {
+            clearElementSelection(windowUUID, viewID)
+            return null
+        }
+        val rowValues = content[index]
+        if (viewModel.value != rowValues) {
+            viewModel.mutationToken += 1
+            viewModel.value = rowValues
+        }
+        logger.log("Selected row $index for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+        return rowValues
+    }
+
+    /**
+     * Selects the first row whose column value matches [text] (exact, case-sensitive).
+     * When [column] is null, matches any column; otherwise matches the given 0-based column
+     * only. Fires no action. Mirrors the Swift `selectElementRow(matching:column:)`.
+     * Returns the 0-based index of the selected row, or null if no row matched.
+     */
+    fun selectElementRow(windowUUID: String = "", viewID: Int, text: String, column: Int? = null): Int? {
+        val content = getElementRows(windowUUID, viewID)
+        val idx = content.indexOfFirst { row ->
+            if (column != null) column in row.indices && row[column] == text
+            else row.contains(text)
+        }
+        if (idx < 0) return null
+        selectElementRow(windowUUID, viewID, idx)
+        return idx
+    }
+
+    /** Clears element [viewID]'s selection (sets [ViewModel.value] to an empty list when a
+     * non-empty list selection exists). Mirrors the Swift `clearElementSelection`. */
+    fun clearElementSelection(windowUUID: String = "", viewID: Int) {
+        val viewModel = viewModel(windowUUID, viewID) ?: return
+        val selected = viewModel.value as? List<*> ?: return
+        if (selected.isNotEmpty()) {
+            viewModel.mutationToken += 1
+            viewModel.value = emptyList<String>()
+        }
+    }
 }

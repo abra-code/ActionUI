@@ -2,15 +2,34 @@
   "type": "VStack",
   "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
   "children": [
-    { "type": "Text", "properties": { "text": "Table is macOS-only. On Android it renders nothing - use a List for tabular data:" } },
+    { "type": "Text", "properties": { "text": "Table is macOS-only - on Android it renders nothing, so the table area below stays blank. The buttons still drive the row and selection APIs on the underlying data model: tap Load Data, then use the second row to select programmatically. Each handler reports its result in a toast, proving selection works even with no visible table." } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Load Data", "actionID": "table.demo.load" } },
+        { "type": "Button", "properties": { "title": "Append", "actionID": "table.demo.append" } },
+        { "type": "Button", "properties": { "title": "Clear", "actionID": "table.demo.clear" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Select #3", "actionID": "table.demo.select.index" } },
+        { "type": "Button", "properties": { "title": "Find Engineer", "actionID": "table.demo.select.content" } },
+        { "type": "Button", "properties": { "title": "Deselect", "actionID": "table.demo.deselect" } }
+      ]
+    },
     {
       "type": "Table",
       "id": 1,
       "properties": {
-        "columns": ["Name", "Type"],
-        "columnTypes": [ { "viewType": "Text" }, { "viewType": "Text" } ]
+        "columns": ["Name", "Role", "Department"],
+        "columnTypes": [ { "viewType": "Text" }, { "viewType": "Text" }, { "viewType": "Text" } ],
+        "actionID": "table.demo.selection.changed"
       }
     },
-    { "type": "Text", "properties": { "text": "(Nothing renders between these two lines on Android.)" } }
+    { "type": "Text", "properties": { "text": "(Nothing renders between the buttons and this line on Android.)" } }
   ]
 }
