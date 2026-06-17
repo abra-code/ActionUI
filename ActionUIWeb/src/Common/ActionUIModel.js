@@ -124,6 +124,85 @@ export class ActionUIModel {
         binding.setState(key, value);
     }
 
+    // ---- Element selection API (Table / List) ----
+    //
+    // Programmatic row selection for content-backed Table and List elements.
+    // Web analog of ActionUIModel.swift's selection API. On the web the selection
+    // rides as the element **value** — the selected row's columns tab-joined ("" =
+    // nothing selected; see Views/List.js / Views/Table.js) — and the rows live in
+    // the "content" state. So these read the rows, then write the selection through
+    // the value binding, which is silent: like Apple, programmatic selection does
+    // NOT fire the element's actionID (no selection-changed feedback loop). Read the
+    // result back with getElementValue. They apply to Table and the data-driven List
+    // modes (itemType / template); a heterogeneous-children List has no row content,
+    // so its selection is by child id and these are a no-op there.
+
+    // The [[String]] content rows of a content-backed Table/List, or null when the
+    // view is not one (mirrors Swift's `states["content"] as? [[String]]` guard).
+    elementContentRows(viewID) {
+        const binding = this.stateBindings.get(viewID);
+        if (binding) {
+            const rows = binding.getState("content");
+            if (Array.isArray(rows)) return rows;
+        }
+        const states = this.states.get(viewID);
+        if (states && Array.isArray(states.content)) return states.content;
+        return null;
+    }
+
+    // Selects a row by its 0-based index in the element's content rows. An index
+    // outside 0..<rowCount clears the selection. Returns the selected row's column
+    // values, or null (not a Table/List, or the index was out of range).
+    selectElementRow(viewID, index) {
+        const content = this.elementContentRows(viewID);
+        if (content === null) {
+            this.logger.log(`selectElementRow: element ${viewID} is not a Table/List (no row content)`, "warning");
+            return null;
+        }
+        if (!Number.isInteger(index) || index < 0 || index >= content.length) {
+            this.logger.log(`selectElementRow: index ${index} out of range (0..<${content.length}) for element ${viewID}; clearing selection`, "debug");
+            this.clearElementSelection(viewID);
+            return null;
+        }
+        const rowValues = content[index];
+        this.setElementValue(viewID, 0, rowValues.join("\t")); // silent: no actionID dispatch
+        this.logger.log(`Selected row ${index} for element ${viewID}`, "debug");
+        return rowValues;
+    }
+
+    // Selects the first row whose column value equals `text` (exact, case-sensitive).
+    // `column` < 0 (or null) matches ANY column; otherwise the given 0-based column
+    // only. Returns the 0-based matched index, or -1 if no row matched (selection
+    // unchanged).
+    selectElementRowWithContent(viewID, text, column = -1) {
+        const content = this.elementContentRows(viewID);
+        if (content === null) {
+            this.logger.log(`selectElementRowWithContent: element ${viewID} is not a Table/List (no row content)`, "warning");
+            return -1;
+        }
+        const col = column == null ? -1 : column;
+        const index = content.findIndex((row) =>
+            col >= 0 ? (col < row.length && row[col] === text) : row.includes(text));
+        if (index < 0) {
+            this.logger.log(`selectElementRowWithContent: no row matches "${text}"${col >= 0 ? ` in column ${col}` : ""} for element ${viewID}`, "debug");
+            return -1;
+        }
+        this.selectElementRow(viewID, index);
+        return index;
+    }
+
+    // Clears the current selection of a Table/List (no-op if nothing is selected).
+    clearElementSelection(viewID) {
+        const content = this.elementContentRows(viewID);
+        if (content === null) {
+            this.logger.log(`clearElementSelection: element ${viewID} is not a Table/List`, "warning");
+            return;
+        }
+        if (this.getElementValue(viewID) === "") return; // already cleared
+        this.setElementValue(viewID, 0, ""); // silent
+        this.logger.log(`Cleared selection for element ${viewID}`, "debug");
+    }
+
     // User interaction entry point called by view implementations.
     // Mirrors the Swift action callback signature:
     // (actionID, windowUUID, viewID, viewPartID, context)

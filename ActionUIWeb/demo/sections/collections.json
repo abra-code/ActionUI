@@ -24,6 +24,16 @@
       "id": 45,
       "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "frame": { "maxWidth": "infinity" } }
     },
+    { "type": "Text", "properties": { "text": "Programmatic selection (silent: fires no actionID; the host updates status itself):", "foregroundColor": "secondary", "font": "footnote" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Select #3", "buttonStyle": "bordered", "actionID": "listSelectIndex" } },
+        { "type": "Button", "properties": { "title": "Find \"Medium\"", "buttonStyle": "bordered", "actionID": "listSelectContent" } },
+        { "type": "Button", "properties": { "title": "Deselect", "buttonStyle": "bordered", "actionID": "listDeselect" } }
+      ]
+    },
     { "type": "Divider" },
     { "type": "Text", "properties": { "text": "List (template repeater; $1/$2 column references, rows via the rows API):", "foregroundColor": "secondary", "font": "callout" } },
     {
@@ -69,6 +79,16 @@
         "actionID": "tableSelect",
         "frame": { "maxWidth": "infinity" }
       }
+    },
+    { "type": "Text", "properties": { "text": "Programmatic selection (silent: select by index, find by content in the Name column, or deselect):", "foregroundColor": "secondary", "font": "footnote" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Select #2", "buttonStyle": "bordered", "actionID": "tableSelectIndex" } },
+        { "type": "Button", "properties": { "title": "Find \"Notes.txt\"", "buttonStyle": "bordered", "actionID": "tableSelectContent" } },
+        { "type": "Button", "properties": { "title": "Deselect", "buttonStyle": "bordered", "actionID": "tableDeselect" } }
+      ]
     },
     { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Insertion API (add / remove views at runtime):", "foregroundColor": "secondary", "font": "callout" } },

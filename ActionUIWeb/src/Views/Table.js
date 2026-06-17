@@ -16,7 +16,10 @@
 // Selection (value bridge). Like List, the selected row is carried as a String:
 // its columns tab-joined ("" = nothing selected), read/written with
 // get/setString(tableID) — Android's string transport for the Apple [String]
-// value. The table-level actionID fires on selection change (no context; the host
+// value. A row can also be selected programmatically (without replacing the rows,
+// firing no actionID) via the model selection API — selectElementRow(index) /
+// selectElementRowWithContent(text, column) / clearElementSelection.
+// The table-level actionID fires on selection change (no context; the host
 // reads the value, matching Apple). doubleClickActionID fires on a double-click of
 // the selected row with the row index as context. A Button cell fires its own
 // columnTypes[c].actionID and consumes the click, so per-cell actions and row

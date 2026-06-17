@@ -24,7 +24,11 @@
 // the selection is carried as a **String**. In children mode it is the
 // stringified id of the selected child; in the data-driven modes it is the
 // selected row's columns tab-joined ("" = nothing selected). A host reads/writes
-// it with get/setString(listID). Selection is interactive only when a list-level
+// it with get/setString(listID). A row can also be selected programmatically
+// (without replacing the rows, firing no actionID) via the model selection API —
+// selectElementRow(index) / selectElementRowWithContent(text, column) /
+// clearElementSelection (the data-driven modes only; heterogeneous children select
+// by child id). Selection is interactive only when a list-level
 // `actionID` is present (Apple's selectable mode): clicking a row selects it,
 // highlights it, and fires `actionID` (the host then reads the selection — Apple
 // fires with no context and reads model.value, so the web matches and sends none).

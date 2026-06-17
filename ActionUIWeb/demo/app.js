@@ -250,6 +250,36 @@ app.action("tmplListSelect", () => {
     win.setString(20, 0, win.getString(55) ? `Folder: ${row[0]}.` : "No folder selected.");
 });
 
+// Programmatic selection (Table 100 / homogeneous List 45). It is silent — no
+// selection action fires — so each handler updates the status itself from the
+// method's return: selectElementRow returns the selected row's columns (or null
+// when the index is out of range, which clears); selectElementRowWithContent
+// returns the 0-based match index (or -1).
+app.action("listSelectIndex", () => {
+    const row = win.selectElementRow(45, 2); // index 2 -> "High"
+    win.setString(20, 0, row ? `List selected #3: ${row.join(" / ")}.` : "List: index out of range (cleared).");
+});
+app.action("listSelectContent", () => {
+    const index = win.selectElementRowWithContent(45, "Medium"); // any column
+    win.setString(20, 0, index >= 0 ? `List found "Medium" at row ${index}.` : `List: "Medium" not found.`);
+});
+app.action("listDeselect", () => {
+    win.clearElementSelection(45);
+    win.setString(20, 0, "List selection cleared.");
+});
+app.action("tableSelectIndex", () => {
+    const row = win.selectElementRow(100, 1); // index 1 -> "Photo.jpg"
+    win.setString(20, 0, row ? `Table selected #2: ${row[0]}.` : "Table: index out of range (cleared).");
+});
+app.action("tableSelectContent", () => {
+    const index = win.selectElementRowWithContent(100, "Notes.txt", 0); // Name column
+    win.setString(20, 0, index >= 0 ? `Table found "Notes.txt" at row ${index}.` : `Table: "Notes.txt" not found.`);
+});
+app.action("tableDeselect", () => {
+    win.clearElementSelection(100);
+    win.setString(20, 0, "Table selection cleared.");
+});
+
 // ScrollViewReader: the scroll target is the reader's Int value (the web's
 // runtime proxy.scrollTo), so a button scroll is just setInt(readerID, rowID).
 // Re-sending the same id re-scrolls, so each press works after scrolling away.

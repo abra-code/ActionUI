@@ -188,6 +188,21 @@ export class Window {
         return this.getElementRows(viewID).reduce((max, row) => Math.max(max, Array.isArray(row) ? row.length : 0), 0);
     }
 
+    // Selection bridge — programmatic row selection for Table and the data-driven
+    // List modes, shimmable to the window.ActionUI shape (ActionUIWebKitJSBridge.js).
+    // Selection is silent: like Apple, it does NOT fire the element's actionID, so
+    // the host updates any status UI itself. selectElementRow takes a 0-based index
+    // (out of range clears the selection) and returns the selected row's column
+    // values, or null. selectElementRowWithContent selects the first row whose column
+    // equals text (exact, case-sensitive); column is 0-based, -1 (default) matches
+    // any column; it returns the 0-based matched index, or -1. clearElementSelection
+    // deselects. Read the selection back with getString(viewID).
+    selectElementRow(viewID, index) { return this.model.selectElementRow(viewID, index); }
+    selectElementRowWithContent(viewID, text, column = -1) {
+        return this.model.selectElementRowWithContent(viewID, text, column);
+    }
+    clearElementSelection(viewID) { this.model.clearElementSelection(viewID); }
+
     // Structural mutations — same names/signature as the Node.js adapter's Window.
     // `element`/`cells` accept a JS object/array or a JSON string; `container` may
     // be null to auto-derive the unique container of the right shape; `position`
