@@ -72,6 +72,19 @@
    resolver skips them). See Private/ActionUI-Web-Layout-Engine.md (Stage 2b). */
 .aui-frame-align { display: grid; }
 
+/* View-valued overlay / background decorations (Helpers/DecorationModifier.js).
+   The wrapper is a grid box: the element is its single in-flow grid item and so
+   defines the box size (a fill/greedy element still fills it via the grid item's
+   default stretch). The decoration layers are position:absolute; inset:0 siblings,
+   so they cover the element box without adding to its size (Apple: a decoration
+   never changes layout). isolation:isolate keeps the z-index:-1 background layer
+   within this box. Each layer is a flex box; justify/align (set inline from the
+   alignment) place the decoration content, while a bare greedy shape fills it. */
+.aui-decorated { position: relative; isolation: isolate; display: grid; }
+.aui-deco { position: absolute; inset: 0; display: flex; }
+.aui-deco-background { z-index: -1; }  /* behind the element + its own background color */
+.aui-deco-overlay { z-index: 1; }      /* above the element */
+
 .aui-spacer { flex-grow: 1; align-self: stretch; }
 
 /* maxWidth/maxHeight ".infinity" -> fill the proposal (the

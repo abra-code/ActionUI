@@ -60,6 +60,30 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Overlay / background (view-valued decorations):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16, "alignment": "center" },
+      "children": [
+        {
+          "type": "Text",
+          "properties": { "text": "Background view", "padding": 12, "foregroundColor": "white", "cornerRadius": 10 },
+          "background": { "type": "RoundedRectangle", "properties": { "cornerRadius": 10, "fill": "indigo" } }
+        },
+        {
+          "type": "Image",
+          "properties": { "systemName": "bell.fill", "imageScale": "large", "foregroundColor": "secondary", "frame": { "width": 44, "height": 44 }, "overlayAlignment": "topTrailing" },
+          "overlay": { "type": "Text", "properties": { "text": "3", "foregroundColor": "white", "background": "red", "cornerRadius": 8, "padding": { "top": 1, "bottom": 1, "leading": 6, "trailing": 6 }, "font": "caption2" } }
+        },
+        {
+          "type": "Text",
+          "properties": { "text": "Both", "padding": 14, "foregroundColor": "white", "overlayAlignment": "bottomTrailing" },
+          "background": { "type": "Capsule", "properties": { "fill": "teal" } },
+          "overlay": { "type": "Image", "properties": { "systemName": "checkmark.circle.fill", "foregroundColor": "white" } }
+        }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Grid (explicit rows, key/value):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Grid",

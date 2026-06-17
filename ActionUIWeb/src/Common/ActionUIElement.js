@@ -17,15 +17,18 @@
 // its detail targets; "destination" is NavigationLink's inline push target;
 // "toolbar" is the array of ToolbarItem/ToolbarItemGroup chrome carriers any view
 // may declare. "sheet"/"fullScreenCover"/"popover" are the element-level
-// presentation modifiers any view may carry (Helpers/PresentationModifier.js). The
-// remaining Apple/Android keys (overlay, background, ...) come with the elements
-// that need them.
+// presentation modifiers any view may carry (Helpers/PresentationModifier.js).
+// "overlay"/"background" are the view-valued decoration subviews any view may
+// carry (Helpers/DecorationModifier.js) — drawn over / behind the element without
+// affecting its layout size. Note "background" is also a string *property* (a
+// color); the subview form (an object) is the decoration view, and the two can
+// coexist (the color paints in front of the background view, per Apple).
 
 let negativeIDCounter = -1;
 
 const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar"];
 const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination",
-    "sheet", "fullScreenCover", "popover"];
+    "sheet", "fullScreenCover", "popover", "overlay", "background"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.
