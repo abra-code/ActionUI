@@ -189,6 +189,26 @@ public struct ActionUICpp {
         model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
     }
 
+    /// Selects a row by its 0-based index in a Table/List element's content.
+    /// An index outside 0..<rowCount clears the selection. Does not fire the element's actionID.
+    /// - Returns: The selected row's column values, or nil if the view is not a Table/List or the index was out of range.
+    @MainActor @discardableResult public static func selectElementRow(windowUUID: String, viewID: Int, index: Int) -> [String]? {
+        return model.selectElementRow(windowUUID: windowUUID, viewID: viewID, index: index)
+    }
+
+    /// Selects the first row whose column value matches `text` (exact, case-sensitive).
+    /// When `column` is nil, matches any column; otherwise matches the given 0-based column only.
+    /// Does not fire the element's actionID.
+    /// - Returns: The 0-based index of the selected row, or nil if no row matched.
+    @MainActor @discardableResult public static func selectElementRow(windowUUID: String, viewID: Int, matching text: String, column: Int? = nil) -> Int? {
+        return model.selectElementRow(windowUUID: windowUUID, viewID: viewID, matching: text, column: column)
+    }
+
+    /// Clears the current selection of a Table/List view element.
+    @MainActor public static func clearElementSelection(windowUUID: String, viewID: Int) {
+        model.clearElementSelection(windowUUID: windowUUID, viewID: viewID)
+    }
+
     /// Gets a structural property value for a view element by property name.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.

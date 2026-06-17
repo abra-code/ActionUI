@@ -37,6 +37,36 @@
       ]
     },
     {
+      "type": "HStack",
+      "properties": { "spacing": 12, "padding": { "leading": 16, "trailing": 16 } },
+      "children": [
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Select Row #3",
+            "actionID": "table.demo.select.index",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Find \"Engineer\" (Role)",
+            "actionID": "table.demo.select.content",
+            "buttonStyle": "bordered"
+          }
+        },
+        {
+          "type": "Button",
+          "properties": {
+            "title": "Deselect",
+            "actionID": "table.demo.deselect",
+            "buttonStyle": "bordered"
+          }
+        }
+      ]
+    },
+    {
       "type": "Table",
       "id": 1,
       "properties": {
@@ -44,6 +74,14 @@
         "widths": [160, 130, 150],
         "padding": "default",
         "actionID": "table.demo.selection.changed"
+      }
+    },
+    {
+      "type": "Text",
+      "id": 2,
+      "properties": {
+        "text": "Selected: (none)",
+        "padding": { "leading": 16, "trailing": 16, "bottom": 8 }
       }
     }
   ]

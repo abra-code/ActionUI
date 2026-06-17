@@ -130,6 +130,32 @@ import AppKit
 ///   - Description: Appends rows to a table/list view element's existing content.
 ///   - Example: `ActionUI.appendElementRows("window-12345", 1, [["Charlie", "22"]]);`
 ///
+/// - `selectElementRow(windowUUID, viewID, index)` (async)
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `index`: Number - 0-based row index to select; out-of-range clears the selection.
+///   - Returns: Promise<Array<String>|null> - The selected row's values, or null.
+///   - Description: Selects a Table/List row by index without altering rows; fires no actionID.
+///   - Example: `ActionUI.selectElementRow("window-12345", 1, 3).then(r => console.log(r));`
+///
+/// - `selectElementRowWithContent(windowUUID, viewID, text, column)` (async)
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `text`: String - Value matched (exact) against a row's column value(s).
+///     - `column`: Number - 0-based column to match; a negative value matches any column.
+///   - Returns: Promise<Number> - 0-based index of the selected row, or -1 if no match.
+///   - Description: Selects the first matching Table/List row without altering rows; fires no actionID.
+///   - Example: `ActionUI.selectElementRowWithContent("window-12345", 1, "Report.pdf", -1);`
+///
+/// - `clearElementSelection(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Description: Clears the current selection of a Table/List view element.
+///   - Example: `ActionUI.clearElementSelection("window-12345", 1);`
+///
 /// - `getElementProperty(windowUUID, viewID, propertyName)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -564,6 +590,49 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 ActionUIWebKitJS.model.appendElementRows(windowUUID: windowUUID, viewID: viewID, rows: rows)
             } else {
                 print("Invalid arguments for appendElementRows: \(args)")
+            }
+        case "selectElementRow":
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let index = numberAsInt(args[2]) {
+                let selected = ActionUIWebKitJS.model.selectElementRow(windowUUID: windowUUID, viewID: viewID, index: index)
+                let id = body["id"] as? String ?? ""
+                let json: String
+                if let selected = selected, let data = try? JSONSerialization.data(withJSONObject: selected), let str = String(data: data, encoding: .utf8) {
+                    json = str
+                } else {
+                    json = "null"
+                }
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                    if let error = error {
+                        print("selectElementRow response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for selectElementRow: \(args)")
+            }
+        case "selectElementRowWithContent":
+            if args.count == 4, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let text = args[2] as? String,
+               let column = numberAsInt(args[3]) {
+                let col: Int? = (column >= 0) ? column : nil
+                let matched = ActionUIWebKitJS.model.selectElementRow(windowUUID: windowUUID, viewID: viewID, matching: text, column: col) ?? -1
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(matched)})") { _, error in
+                    if let error = error {
+                        print("selectElementRowWithContent response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for selectElementRowWithContent: \(args)")
+            }
+        case "clearElementSelection":
+            if args.count == 2, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]) {
+                ActionUIWebKitJS.model.clearElementSelection(windowUUID: windowUUID, viewID: viewID)
+            } else {
+                print("Invalid arguments for clearElementSelection: \(args)")
             }
         case "getElementProperty":
             if args.count == 3, let windowUUID = args[0] as? String,

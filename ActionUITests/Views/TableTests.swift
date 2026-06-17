@@ -186,6 +186,73 @@ final class TableTests: XCTestCase {
         ])
     }
 
+    // MARK: - Row selection tests
+
+    func testTableSelectRowByIndex() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"], ["Carol", "40"]])
+        let selected = model.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 1)
+        XCTAssertEqual(selected, ["Bob", "25"], "selectElementRow should return the selected row's values")
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], ["Bob", "25"],
+                       "Selected value should be the chosen row")
+        // Rows must be untouched by selection
+        XCTAssertEqual(model.getElementRows(windowUUID: windowUUID, viewID: 1),
+                       [["Alice", "30"], ["Bob", "25"], ["Carol", "40"]], "Selection must not alter rows")
+    }
+
+    func testTableSelectRowByIndexOutOfRangeClears() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        _ = model.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 0)
+        let cleared = model.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 99)
+        XCTAssertNil(cleared, "Out-of-range index should return nil")
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], [],
+                       "Out-of-range selection should clear the selection")
+    }
+
+    func testTableSelectRowByContentAnyColumn() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"], ["Carol", "40"]])
+        let idx = model.selectElementRow(windowUUID: windowUUID, viewID: 1, matching: "25")
+        XCTAssertEqual(idx, 1, "Should match the row whose value is 25 in any column")
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], ["Bob", "25"])
+    }
+
+    func testTableSelectRowByContentSpecificColumn() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        // "30" appears in column 1 of row 0 and as a name in column 0 of row 2
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"], ["30", "99"]])
+        let idxCol1 = model.selectElementRow(windowUUID: windowUUID, viewID: 1, matching: "30", column: 1)
+        XCTAssertEqual(idxCol1, 0, "Matching column 1 should select Alice's row")
+        let idxCol0 = model.selectElementRow(windowUUID: windowUUID, viewID: 1, matching: "30", column: 0)
+        XCTAssertEqual(idxCol0, 2, "Matching column 0 should select the row whose name is 30")
+    }
+
+    func testTableSelectRowByContentNoMatchLeavesSelection() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        _ = model.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 0)
+        let idx = model.selectElementRow(windowUUID: windowUUID, viewID: 1, matching: "nope")
+        XCTAssertNil(idx, "No match should return nil")
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], ["Alice", "30"],
+                       "A failed content match must leave the existing selection unchanged")
+    }
+
+    func testTableClearSelection() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        _ = model.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 1)
+        model.clearElementSelection(windowUUID: windowUUID, viewID: 1)
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], [],
+                       "clearElementSelection should empty the selection")
+    }
+
     func testTableGetColumnCountFromContent() throws {
         try loadTableElement(columns: ["Name", "Age"])
         let model = ActionUIModel.shared

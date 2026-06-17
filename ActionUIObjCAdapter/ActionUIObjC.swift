@@ -234,6 +234,39 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         }
     }
 
+    /// Programmatically selects a row by its 0-based index in a Table/List element's content.
+    /// An index outside 0..<rowCount clears the selection. Does not fire the element's actionID.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - index: 0-based row index to select.
+    @MainActor @objc public class func selectElementRowWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, index: NSInteger) {
+        model.selectElementRow(windowUUID: windowUUID as String, viewID: Int(viewID), index: Int(index))
+    }
+
+    /// Programmatically selects the first row whose column value matches `text` (exact, case-sensitive).
+    /// When `column` is negative, matches any column; otherwise matches the given 0-based column only.
+    /// Does not fire the element's actionID.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - matchingText: The text to match against a row's column value(s).
+    ///   - column: 0-based column to match, or a negative value to match any column.
+    /// - Returns: The 0-based index of the selected row, or -1 if no row matched.
+    @MainActor @objc public class func selectElementRowWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger, matchingText: NSString, column: NSInteger) -> NSInteger {
+        let col: Int? = (column >= 0) ? Int(column) : nil
+        let idx = model.selectElementRow(windowUUID: windowUUID as String, viewID: Int(viewID), matching: matchingText as String, column: col)
+        return NSInteger(idx ?? -1)
+    }
+
+    /// Clears the current selection of a Table/List element.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    @MainActor @objc public class func clearElementSelectionWithWindowUUID(_ windowUUID: NSString, viewID: NSInteger) {
+        model.clearElementSelection(windowUUID: windowUUID as String, viewID: Int(viewID))
+    }
+
     /// Gets a structural property value for a view element by property name.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.

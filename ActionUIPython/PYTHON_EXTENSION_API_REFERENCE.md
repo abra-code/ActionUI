@@ -108,6 +108,18 @@ bool  actionUIAppendElementRowsJSON(const char* windowUUID, int64_t viewID, cons
 // JSON format: [["cell1","cell2"],["cell3","cell4"],...]
 ```
 
+### Element selection (Table / List; programmatic, fires no action)
+
+```c
+// Select by 0-based index; out-of-range clears the selection. Returns true if a row was selected.
+bool    actionUISelectElementRowByIndex    (const char* windowUUID, int64_t viewID, int64_t index);
+// Select the first row whose column equals text (exact). column < 0 matches any column.
+// Returns the 0-based matched row index, or -1 if no row matched.
+int64_t actionUISelectElementRowWithContent(const char* windowUUID, int64_t viewID,
+                                            const char* text, int64_t column);
+void    actionUIClearElementSelection      (const char* windowUUID, int64_t viewID);
+```
+
 ### Element properties
 
 ```c

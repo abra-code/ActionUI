@@ -375,6 +375,11 @@ native.clearElementRows(uuid, viewId)
 native.setElementRowsJSON(uuid, viewId, rowsJSON)
 native.appendElementRowsJSON(uuid, viewId, rowsJSON)
 
+// Element selection (Table / List; programmatic, fires no action)
+native.selectElementRowByIndex(uuid, viewId, index)            // bool: true if a row was selected; out-of-range clears
+native.selectElementRowWithContent(uuid, viewId, text, column) // int: 0-based matched row index, or -1; column<0 = any column
+native.clearElementSelection(uuid, viewId)
+
 // Element properties (JSON strings)
 native.getElementPropertyJSON(uuid, viewId, name)
 native.setElementPropertyJSON(uuid, viewId, name, valueJSON)

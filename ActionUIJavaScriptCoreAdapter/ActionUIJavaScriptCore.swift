@@ -131,6 +131,32 @@ import AppKit
 ///   - Description: Appends rows to a table/list view element's existing content.
 ///   - Example: `ActionUI.appendElementRows("window-12345", 1, [["Charlie", "22"]]);`
 ///
+/// - `selectElementRow(windowUUID, viewID, index)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `index`: Number - 0-based row index to select; out-of-range clears the selection.
+///   - Returns: Array<String> - The selected row's values, or null if out of range / not a Table/List.
+///   - Description: Selects a Table/List row by index without altering rows; fires no actionID.
+///   - Example: `ActionUI.selectElementRow("window-12345", 1, 3);`
+///
+/// - `selectElementRowWithContent(windowUUID, viewID, text, column)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `text`: String - Value matched (exact) against a row's column value(s).
+///     - `column`: Number - 0-based column to match; a negative value matches any column.
+///   - Returns: Number - 0-based index of the selected row, or -1 if no row matched.
+///   - Description: Selects the first matching Table/List row without altering rows; fires no actionID.
+///   - Example: `ActionUI.selectElementRowWithContent("window-12345", 1, "Report.pdf", -1);`
+///
+/// - `clearElementSelection(windowUUID, viewID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///   - Description: Clears the current selection of a Table/List view element.
+///   - Example: `ActionUI.clearElementSelection("window-12345", 1);`
+///
 /// - `getElementProperty(windowUUID, viewID, propertyName)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -366,6 +392,27 @@ public class ActionUIJavaScriptCore {
             }
         }
         actionUIObject.setValue(appendElementRows, forProperty: "appendElementRows")
+
+        // selectElementRow(windowUUID, viewID, index) -> selected row values, or null
+        let selectElementRow: @convention(block) (String, Double, Double) -> JSValue = { windowUUID, viewID, index in
+            let selected = ActionUIJavaScriptCore.model.selectElementRow(windowUUID: windowUUID, viewID: Int(viewID), index: Int(index))
+            return JSValue(object: selected ?? NSNull(), in: self.context)
+        }
+        actionUIObject.setValue(selectElementRow, forProperty: "selectElementRow")
+
+        // selectElementRowWithContent(windowUUID, viewID, text, column) -> matched 0-based index, or -1.
+        // A negative column matches any column; otherwise matches the given 0-based column only.
+        let selectElementRowWithContent: @convention(block) (String, Double, String, Double) -> Int = { windowUUID, viewID, text, column in
+            let col: Int? = (column >= 0) ? Int(column) : nil
+            return ActionUIJavaScriptCore.model.selectElementRow(windowUUID: windowUUID, viewID: Int(viewID), matching: text, column: col) ?? -1
+        }
+        actionUIObject.setValue(selectElementRowWithContent, forProperty: "selectElementRowWithContent")
+
+        // clearElementSelection(windowUUID, viewID)
+        let clearElementSelection: @convention(block) (String, Double) -> Void = { windowUUID, viewID in
+            ActionUIJavaScriptCore.model.clearElementSelection(windowUUID: windowUUID, viewID: Int(viewID))
+        }
+        actionUIObject.setValue(clearElementSelection, forProperty: "clearElementSelection")
 
         // getElementProperty(windowUUID, viewID, propertyName) -> value
         let getElementProperty: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, propertyName in

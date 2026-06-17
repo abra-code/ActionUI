@@ -152,6 +152,16 @@ class Window {
     appendRows(viewId, rows) { _actionui.appendElementRowsJSON(this.uuid, viewId, JSON.stringify(rows)); }
     clearRows(viewId)        { _actionui.clearElementRows(this.uuid, viewId); }
 
+    // Element selection (Table / List) — programmatic, fires no actionID
+    // selectRow: 0-based index; out-of-range clears the selection. Returns true if a row was selected.
+    selectRow(viewId, index) { return _actionui.selectElementRowByIndex(this.uuid, viewId, index); }
+    // selectRowWithContent: select the first row whose column equals text (exact). column is 0-based;
+    // pass null/undefined or a negative value to match any column. Returns the 0-based index, or -1.
+    selectRowWithContent(viewId, text, column = -1) {
+        return _actionui.selectElementRowWithContent(this.uuid, viewId, text, column == null ? -1 : column);
+    }
+    clearSelection(viewId)   { _actionui.clearElementSelection(this.uuid, viewId); }
+
     // Element properties
     getProperty(viewId, name) {
         const raw = _actionui.getElementPropertyJSON(this.uuid, viewId, name);

@@ -76,6 +76,52 @@
             });
         },
 
+        // Select a Table/List row by 0-based index (async; resolves to the selected row's
+        // values, or null when the index is out of range / the view is not a Table/List).
+        selectElementRow: function(windowUUID, viewID, index) {
+            return new Promise(function(resolve, reject) {
+                const id = Math.random().toString(36).substring(2);
+                window.addEventListener('message', function handler(event) {
+                    if (event.data.id === id) {
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.result);
+                    }
+                });
+                window.webkit.messageHandlers.actionUI.postMessage({
+                    method: 'selectElementRow',
+                    id: id,
+                    args: [windowUUID, viewID, index]
+                });
+            });
+        },
+
+        // Select the first Table/List row whose column matches text (async; resolves to the
+        // 0-based row index, or -1 if no match). column is 0-based; pass -1 to match any column.
+        selectElementRowWithContent: function(windowUUID, viewID, text, column = -1) {
+            return new Promise(function(resolve, reject) {
+                const id = Math.random().toString(36).substring(2);
+                window.addEventListener('message', function handler(event) {
+                    if (event.data.id === id) {
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.result);
+                    }
+                });
+                window.webkit.messageHandlers.actionUI.postMessage({
+                    method: 'selectElementRowWithContent',
+                    id: id,
+                    args: [windowUUID, viewID, text, column]
+                });
+            });
+        },
+
+        // Clear the Table/List selection (fire-and-forget)
+        clearElementSelection: function(windowUUID, viewID) {
+            window.webkit.messageHandlers.actionUI.postMessage({
+                method: 'clearElementSelection',
+                args: [windowUUID, viewID]
+            });
+        },
+
         // Register action handler
         registerActionHandler: function(actionID, handlerFunction) {
             window.ActionUI.actionHandlers[actionID] = handlerFunction;

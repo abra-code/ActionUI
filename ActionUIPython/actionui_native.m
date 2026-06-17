@@ -673,6 +673,36 @@ static PyObject* py_append_element_rows_json(PyObject* self, PyObject* args) {
     return PyBool_FromLong(actionUIAppendElementRowsJSON(windowUUID, viewID, rowsJSON));
 }
 
+// MARK: - Python API: Element Selection
+
+static PyObject* py_select_element_row_by_index(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long viewID;
+    long long index;
+    if (PyArg_ParseTuple(args, "sLL", &windowUUID, &viewID, &index) == 0)
+        return NULL;
+    return PyBool_FromLong(actionUISelectElementRowByIndex(windowUUID, viewID, index));
+}
+
+static PyObject* py_select_element_row_with_content(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long viewID;
+    const char* text;
+    long long column;
+    if (PyArg_ParseTuple(args, "sLsL", &windowUUID, &viewID, &text, &column) == 0)
+        return NULL;
+    return PyLong_FromLongLong(actionUISelectElementRowWithContent(windowUUID, viewID, text, column));
+}
+
+static PyObject* py_clear_element_selection(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    long long viewID;
+    if (PyArg_ParseTuple(args, "sL", &windowUUID, &viewID) == 0)
+        return NULL;
+    actionUIClearElementSelection(windowUUID, viewID);
+    Py_RETURN_NONE;
+}
+
 // MARK: - Python API: Element Properties
 
 static PyObject* py_get_element_property_json(PyObject* self, PyObject* args) {
@@ -1027,6 +1057,11 @@ static PyMethodDef ActionUIMethods[] = {
     {"clear_element_rows",          py_clear_element_rows,          METH_VARARGS, "clear_element_rows(windowUUID, viewID)"},
     {"set_element_rows_json",       py_set_element_rows_json,       METH_VARARGS, "set_element_rows_json(windowUUID, viewID, rowsJSON)"},
     {"append_element_rows_json",    py_append_element_rows_json,    METH_VARARGS, "append_element_rows_json(windowUUID, viewID, rowsJSON)"},
+
+    /* Element selection */
+    {"select_element_row_by_index",     py_select_element_row_by_index,     METH_VARARGS, "select_element_row_by_index(windowUUID, viewID, index) -> bool"},
+    {"select_element_row_with_content", py_select_element_row_with_content, METH_VARARGS, "select_element_row_with_content(windowUUID, viewID, text, column) -> int"},
+    {"clear_element_selection",         py_clear_element_selection,         METH_VARARGS, "clear_element_selection(windowUUID, viewID)"},
 
     /* Element properties */
     {"get_element_property_json",   py_get_element_property_json,   METH_VARARGS, "get_element_property_json(windowUUID, viewID, name) -> str|None"},
