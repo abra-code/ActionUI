@@ -11,9 +11,12 @@
 //   cornerRadius     Number
 //   font             Named text style ("largeTitle".."caption2") — CSS class
 //   frame            {width, height, minWidth, idealWidth, maxWidth,
-//                    minHeight, idealHeight, maxHeight} — clamped against the
-//                    viewport per the SwiftUI rules; "infinity" accepted for
-//                    maxWidth/maxHeight (see applyFrame).
+//                    minHeight, idealHeight, maxHeight, alignment} — sizes
+//                    clamped against the viewport per the SwiftUI rules;
+//                    "infinity" accepted for maxWidth/maxHeight (see applyFrame).
+//                    alignment positions the content within a larger frame box
+//                    ("leading".."bottomTrailing"); leaf-oriented (a node that
+//                    lays out its own children keeps that layout — see applyFrame).
 //   help             String tooltip -> title attribute
 //   actionID         Handled by individual views (interaction semantics differ
 //                    per control); plain display views get a click action here.
@@ -57,6 +60,29 @@ const FONT_TEXT_STYLES = new Set([
     "body", "callout", "footnote", "caption", "caption2",
 ]);
 
+// SwiftUI frame alignment -> CSS place-content / place-items ("<block> <inline>",
+// i.e. vertical then horizontal), the same vocabulary ZStack/GeometryReader use.
+const FRAME_ALIGN = {
+    leading: "center start", center: "center center", trailing: "center end",
+    top: "start center", bottom: "end center",
+    topLeading: "start start", topTrailing: "start end",
+    bottomLeading: "end start", bottomTrailing: "end end",
+};
+// Verbatim copy of View.swift's validAlignments order, so the warning text matches.
+const FRAME_ALIGN_VALID = ["leading", "center", "trailing", "top", "bottom",
+    "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"];
+const FRAME_ALIGN_LIST_TEXT = `[${FRAME_ALIGN_VALID.map((a) => `"${a}"`).join(", ")}]`;
+
+// Nodes that lay out their own children (a flex/grid container) keep that layout;
+// turning them into a frame-alignment grid box would collapse it. Frame alignment
+// is therefore leaf-oriented (the design doc's "leaf-only" step), a documented
+// divergence for containers. See Private/ActionUI-Web-Layout-Engine.md (Stage 2b).
+const SELF_LAYOUT_CLASSES = ["aui-stack", "aui-zstack", "aui-grid", "aui-geometry-reader", "aui-list"];
+
+function nodeManagesOwnLayout(node) {
+    return SELF_LAYOUT_CLASSES.some((c) => node.classList.contains(c));
+}
+
 export function resolveColor(value, logger) {
     if (typeof value !== "string") return null;
     if (NAMED_COLORS[value]) return NAMED_COLORS[value];
@@ -91,7 +117,13 @@ function applyPadding(node, padding, logger) {
 // larger one), min -> the hard floor. A fixed width/height is rigid. maxWidth/
 // maxHeight ".infinity" -> a fill class the parent stack resolves per axis (grow
 // along its main axis, stretch across its cross axis).
-function applyFrame(node, frame) {
+//
+// `alignment` positions the (possibly smaller) content within the frame box. We
+// stay single-node (no wrapper, so background/border keep filling the framed
+// size) and make the node a grid box (.aui-frame-align) whose content is placed
+// by place-content/place-items. Leaf-oriented: a node that lays out its own
+// children (stack/grid/...) keeps that layout and ignores frame.alignment.
+function applyFrame(node, frame, logger) {
     // --- width axis ---
     if (typeof frame.width === "number") {
         node.style.width = `${frame.width}px`;            // fixed: exactly this wide
@@ -124,6 +156,32 @@ function applyFrame(node, frame) {
     if (typeof frame.width === "number" || typeof frame.height === "number") {
         node.style.flexShrink = "0";
     }
+
+    applyFrameAlignment(node, frame.alignment, logger);
+}
+
+// Positions content within a larger frame box. Validation is folded in at the
+// point of use (the "validate where you read" discipline): a wrong type / value
+// logs the same warning string as View.swift validateProperties and is skipped.
+function applyFrameAlignment(node, alignment, logger) {
+    if (alignment === undefined) return;
+    if (typeof alignment !== "string") {
+        logger.log(`Invalid type for frame.alignment: expected String, got ${typeof alignment}, ignoring alignment`, "warning");
+        return;
+    }
+    if (!FRAME_ALIGN_VALID.includes(alignment)) {
+        logger.log(`Invalid value for frame.alignment: expected one of ${FRAME_ALIGN_LIST_TEXT}, got ${alignment}, ignoring alignment`, "warning");
+        return;
+    }
+    // A container manages its own children's layout; converting it to a grid box
+    // would collapse it, so frame.alignment is leaf-oriented (documented divergence).
+    if (nodeManagesOwnLayout(node)) return;
+    // .aui-frame-align is display:grid via a class, so an inline display:none from
+    // `hidden` (set earlier in applyViewModifiers) still wins by specificity.
+    node.classList.add("aui-frame-align");
+    const place = FRAME_ALIGN[alignment];
+    node.style.placeContent = place;
+    node.style.placeItems = place;
 }
 
 // Interactive controls wire actionID themselves with control-specific
@@ -157,7 +215,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
     }
 
     if (typeof properties.frame === "object" && properties.frame !== null) {
-        applyFrame(node, properties.frame);
+        applyFrame(node, properties.frame, logger);
     }
 
     if (properties.disabled === true) {

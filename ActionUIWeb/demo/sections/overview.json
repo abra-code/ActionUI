@@ -48,6 +48,18 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Frame alignment (content placed within a larger frame):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Text", "properties": { "text": "TL", "background": "#e3f0ff", "cornerRadius": 6, "frame": { "width": 84, "height": 56, "alignment": "topLeading" } } },
+        { "type": "Text", "properties": { "text": "top", "background": "#e3f0ff", "cornerRadius": 6, "frame": { "width": 84, "height": 56, "alignment": "top" } } },
+        { "type": "Text", "properties": { "text": "C", "background": "#e3f0ff", "cornerRadius": 6, "frame": { "width": 84, "height": 56, "alignment": "center" } } },
+        { "type": "Text", "properties": { "text": "BT", "background": "#e3f0ff", "cornerRadius": 6, "frame": { "width": 84, "height": 56, "alignment": "bottomTrailing" } } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Grid (explicit rows, key/value):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "Grid",

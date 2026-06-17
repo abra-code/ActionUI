@@ -65,6 +65,13 @@
 .aui-geometry-reader { display: grid; flex-grow: 1; align-self: stretch; min-width: 0; min-height: 0; }
 .aui-geometry-reader > * { grid-area: 1 / 1; }
 
+/* frame(alignment:) — position content within a larger frame box. The node
+   becomes a grid box; place-content/place-items (set inline from the JSON) place
+   the content. A class (not inline display) so an inline display:none from
+   `hidden` still wins. Leaf-oriented: stacks/grids keep their own layout (the
+   resolver skips them). See Private/ActionUI-Web-Layout-Engine.md (Stage 2b). */
+.aui-frame-align { display: grid; }
+
 .aui-spacer { flex-grow: 1; align-self: stretch; }
 
 /* maxWidth/maxHeight ".infinity" -> fill the proposal (the
