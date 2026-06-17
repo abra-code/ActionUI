@@ -9,6 +9,10 @@
 # reuses the already-generated map that ActionUIAndroid commits — both platforms
 # then resolve `systemName` against an identical table.
 #
+# To refresh that upstream map from a new origin mapping, run
+# Tools/material_symbols/regen-symbol-map.sh (the generator's wrapper); it rebuilds
+# the Android map and then calls this script to propagate it here.
+#
 # This copies that canonical Android map into ActionUIWeb/assets/symbols/,
 # validating it first. Plain POSIX sh on purpose: a one-file copy should not add
 # a Node/Python runtime dependency to a project that otherwise has none.

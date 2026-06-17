@@ -47,6 +47,9 @@ Usage:
       [--min-score N]    drop matches scored below N (0-100); default 60
                          (pass 0 to keep the full lower-confidence tail)
 
+  For the common case, regen-symbol-map.sh (next to this script) wraps this with
+  the conventional origin/codepoints/out paths and then syncs the web copy.
+
 Exit codes: 0 on success; 2 on bad input / unreadable files.
 """
 

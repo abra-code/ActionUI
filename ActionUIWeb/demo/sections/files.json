@@ -18,7 +18,7 @@
         "onHoverActionID": "zoneHovered"
       },
       "children": [
-        { "type": "Image", "properties": { "systemName": "arrow.up.doc", "imageScale": "large", "foregroundColor": "accentColor" } },
+        { "type": "Image", "properties": { "systemName": "arrow.up.document", "imageScale": "large", "foregroundColor": "accentColor" } },
         { "type": "Text", "properties": { "text": "Drag files here", "font": "headline" } },
         { "type": "Text", "properties": { "text": "or use a button below", "foregroundColor": "secondary", "font": "footnote" } }
       ]
