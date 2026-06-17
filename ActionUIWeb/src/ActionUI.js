@@ -264,6 +264,7 @@ export class Application {
         this.handlers = new Map(); // actionID -> handler
         this.defaultHandler = null;
         this.windows = new Map();  // uuid -> Window
+        this.logger = new ConsoleLogger();
     }
 
     presentWindow(win, container) {
@@ -283,4 +284,87 @@ export class Application {
     registerHandler(actionID, handler) { return this.action(actionID, handler); }
     unregisterHandler(actionID) { this.handlers.delete(actionID); return this; }
     setDefaultHandler(handler) { this.defaultHandler = handler; return this; }
+
+    // File panels. The native app.openPanel (ActionUINodeJS/index.js) returns an
+    // array of filesystem PATHS synchronously. The web has neither: a picker yields
+    // File objects (name + bytes), reading is async, and access is user-gesture
+    // gated. So this returns a Promise<File[] | null> (null on cancel). The File
+    // objects carry their bytes (file.text() / .arrayBuffer()), which is how the
+    // host actually uploads. config mirrors the native call shape; keys with no web
+    // analog are ignored: title, prompt, message, identifier, directory,
+    // showsHiddenFiles, treatsFilePackagesAsDirectories, canCreateDirectories,
+    // allowsOtherFileTypes.
+    openPanel(config = {}) {
+        return new Promise((resolve) => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.style.display = "none";
+            if (config.allowsMultiple) input.multiple = true;
+            // Directory selection: only when directories are the sole target.
+            if (config.canChooseDirectories === true && config.canChooseFiles === false) {
+                input.webkitdirectory = true;
+            }
+            const accept = utTypesToAccept(config.allowedTypes);
+            if (accept) input.accept = accept;
+
+            let settled = false;
+            const settle = (result) => {
+                if (settled) return;
+                settled = true;
+                input.remove();
+                resolve(result);
+            };
+            input.addEventListener("change", () => {
+                const files = Array.from(input.files);
+                settle(files.length > 0 ? files : null);
+            });
+            // Modern browsers fire "cancel" when the picker is dismissed.
+            input.addEventListener("cancel", () => settle(null));
+
+            document.body.appendChild(input);
+            input.click();
+        });
+    }
+
+    // savePanel is deferred on web: a download needs the content up front and the
+    // File System Access save picker is Chromium-only, so there is no clean
+    // universal "return a path to write to". Honest no-op so a shared host that
+    // calls it degrades gracefully rather than throwing. See Web_Porting_Notes.md.
+    savePanel(_config = {}) {
+        this.logger.log("savePanel is not supported on web (deferred); see Web_Porting_Notes.md (File panels)", "warning");
+        return null;
+    }
+}
+
+// Map native allowedTypes (file extensions like "json" and UTType identifiers like
+// "public.image") to an <input accept> string. Unknown UTTypes are skipped. Returns
+// null when nothing maps (an unrestricted picker).
+const UT_TYPE_MIME = {
+    "public.image": "image/*",
+    "public.movie": "video/*",
+    "public.audio": "audio/*",
+    "public.video": "video/*",
+    "public.pdf": "application/pdf",
+    "public.json": "application/json",
+    "public.plain-text": "text/plain",
+    "public.text": "text/plain",
+    "public.utf8-plain-text": "text/plain",
+    "public.html": "text/html",
+};
+
+function utTypesToAccept(allowedTypes) {
+    if (!Array.isArray(allowedTypes) || allowedTypes.length === 0) return null;
+    const tokens = [];
+    for (const t of allowedTypes) {
+        if (typeof t !== "string" || t.length === 0) continue;
+        if (t.includes(".")) {
+            // A UTType identifier (e.g. "public.image"); map to a MIME, else skip.
+            const mime = UT_TYPE_MIME[t];
+            if (mime) tokens.push(mime);
+        } else {
+            // A bare file extension (e.g. "json", "txt") -> ".json".
+            tokens.push("." + t);
+        }
+    }
+    return tokens.length > 0 ? Array.from(new Set(tokens)).join(",") : null;
 }

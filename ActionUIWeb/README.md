@@ -47,7 +47,10 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   model with viewID->DOM binding records instead of a virtual DOM — for both
   element values and named element states (`ActionUIModel.js`), baseline View modifier subset — padding, font text
   styles, colors, frame, cornerRadius, opacity, hidden, disabled, help, generic
-  actionID (`ModifierResolver.js`), the element-level presentation modifiers —
+  actionID, and the drag/drop reception modifiers `onHover` / `onDrop` /
+  `onDropTargeted` (HTML5 DnD + pointer events; a dropped file's bytes ride along
+  in a web-only `files` context field so the host can upload) (`ModifierResolver.js`),
+  the element-level presentation modifiers —
   `sheet` / `fullScreenCover` (a native `<dialog>`) and `popover` (a top-layer
   panel), each opened off the carrier's own state
   (`Helpers/PresentationModifier.js`, `Helpers/PopoverPlacement.js`),
@@ -107,6 +110,9 @@ a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
   `presentConfirmationDialog` / `dismissDialog` (a native `<dialog>` from pure
   data) and `presentModal` / `dismissModal` (a JSON sub-document loaded into a
   sheet / `fullScreenCover` `<dialog>`, its controls bound into the window model),
+  the file panel `openPanel(config)` (a hidden `<input type=file>`; async on web, so
+  it returns a `Promise<File[]>` rather than the native synchronous path array -
+  `File` objects carry their bytes for upload; `savePanel` is a deferred no-op),
   `app.action(id, fn)`,
   `setDefaultHandler`. Action handlers receive
   `(actionID, windowUUID, viewID, viewPartID, context)` as on all platforms.

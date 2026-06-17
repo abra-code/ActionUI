@@ -17,6 +17,16 @@
 //   help             String tooltip -> title attribute
 //   actionID         Handled by individual views (interaction semantics differ
 //                    per control); plain display views get a click action here.
+//   onHoverActionID  String -> fires on pointer enter/exit, context {isHovering}.
+//   onDropActionID   String -> fires when a valid drop lands, context
+//                    {items:[String], location:{x,y}} plus a web-only files:[File]
+//                    so the host can read bytes and upload (other platforms lack it,
+//                    having only a path string). Requires non-empty onDropTypes.
+//   onDropTypes      [String] of UTType identifiers accepted as a drop target.
+//   onDropTargetedActionID  String -> fires when a drag enters/exits, context
+//                    {isTargeted}. See Helpers/DropHelper.swift (Apple canonical)
+//                    and HoverDrop_Design.md; web type-filtering is coarse (the DnD
+//                    spec hides item contents during dragover).
 
 const NAMED_COLORS = {
     // SwiftUI color names -> CSS custom properties resolved in theme.css,
@@ -164,4 +174,123 @@ export function applyViewModifiers(node, element, properties, ctx) {
             ctx.model.dispatchAction(properties.actionID, element.id);
         });
     }
+
+    applyHoverDrop(node, element, properties, ctx);
+}
+
+// UTType identifiers that the web treats as a plain-text drag (DataTransfer
+// "text/plain"); anything else in onDropTypes is treated as a file drag. Mirrors
+// DropHelper.swift's utf8PlainText/plainText -> file-url priority, but coarsely:
+// the HTML5 DnD spec hides item contents during dragover, so we cannot filter by
+// concrete type until the drop actually lands.
+const DROP_TEXT_TYPES = new Set([
+    "public.utf8-plain-text", "public.plain-text", "public.text", "public.rtf",
+]);
+
+function dropTypesAccept(types) {
+    let text = false;
+    let files = false;
+    for (const t of types) {
+        if (DROP_TEXT_TYPES.has(t)) text = true;
+        else files = true; // file-url / url / image / folder / data / item / ...
+    }
+    return { text, files };
+}
+
+// onHover / onDrop / onDropTargeted base modifiers (Apple: View.swift +
+// Helpers/DropHelper.swift). Validation is folded in at the point of use ("validate
+// where you read"): a present-but-wrong-typed property logs the same warning string
+// as Swift and is skipped. Listeners are GC'd with the node, so no cleanup hook is
+// needed (unlike a Map provider instance).
+function applyHoverDrop(node, element, properties, ctx) {
+    const { logger } = ctx;
+
+    // onHover -> pointerenter/pointerleave (do not bubble across children, matching
+    // .onHover). isHovering travels as the action context dict.
+    if (properties.onHoverActionID !== undefined) {
+        if (typeof properties.onHoverActionID === "string") {
+            const actionID = properties.onHoverActionID;
+            node.addEventListener("pointerenter", () => {
+                ctx.model.dispatchAction(actionID, element.id, 0, { isHovering: true });
+            });
+            node.addEventListener("pointerleave", () => {
+                ctx.model.dispatchAction(actionID, element.id, 0, { isHovering: false });
+            });
+        } else {
+            logger.log(`Invalid type for onHoverActionID: expected String, got ${typeof properties.onHoverActionID}, ignoring`, "warning");
+        }
+    }
+
+    // onDropActionID / onDropTypes / onDropTargetedActionID. A view is a drop target
+    // only when onDropActionID is a String AND onDropTypes is a non-empty [String]
+    // (matches the View.swift gate). Validate each independently so wrong types log
+    // the verbatim Swift warning.
+    let onDropActionID = null;
+    if (properties.onDropActionID !== undefined) {
+        if (typeof properties.onDropActionID === "string") onDropActionID = properties.onDropActionID;
+        else logger.log(`Invalid type for onDropActionID: expected String, got ${typeof properties.onDropActionID}, ignoring`, "warning");
+    }
+
+    let onDropTypes = null;
+    if (properties.onDropTypes !== undefined) {
+        if (Array.isArray(properties.onDropTypes) && properties.onDropTypes.length > 0
+            && properties.onDropTypes.every((t) => typeof t === "string")) {
+            onDropTypes = properties.onDropTypes;
+        } else {
+            logger.log(`Invalid type for onDropTypes: expected non-empty [String], got ${typeof properties.onDropTypes}, ignoring`, "warning");
+        }
+    }
+
+    let onDropTargetedActionID = null;
+    if (properties.onDropTargetedActionID !== undefined) {
+        if (typeof properties.onDropTargetedActionID === "string") onDropTargetedActionID = properties.onDropTargetedActionID;
+        else logger.log(`Invalid type for onDropTargetedActionID: expected String, got ${typeof properties.onDropTargetedActionID}, ignoring`, "warning");
+    }
+
+    if (!onDropActionID || !onDropTypes) return; // not a drop target
+
+    const accept = dropTypesAccept(onDropTypes);
+
+    // dragenter/dragleave fire once per descendant, so track depth and only report
+    // the 0<->1 transition as the targeted state change.
+    let depth = 0;
+    const setTargeted = (isTargeted) => {
+        if (!onDropTargetedActionID) return;
+        ctx.model.dispatchAction(onDropTargetedActionID, element.id, 0, { isTargeted });
+    };
+
+    node.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        depth += 1;
+        if (depth === 1) setTargeted(true);
+    });
+    node.addEventListener("dragleave", () => {
+        depth = Math.max(0, depth - 1);
+        if (depth === 0) setTargeted(false);
+    });
+    node.addEventListener("dragover", (e) => {
+        e.preventDefault(); // required to permit a drop
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    });
+    node.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (depth !== 0) { depth = 0; setTargeted(false); }
+
+        const dt = e.dataTransfer;
+        const fileList = dt && accept.files ? Array.from(dt.files) : [];
+        const items = [];
+        if (dt && accept.text) {
+            const text = dt.getData("text/plain");
+            if (text) items.push(text);
+        }
+        // items carries file NAMES (the web's closest analog to Apple's file path);
+        // the real File objects ride along in `files` so the host can upload bytes.
+        for (const f of fileList) items.push(f.name);
+
+        ctx.model.dispatchAction(onDropActionID, element.id, 0, {
+            items,
+            location: { x: e.offsetX, y: e.offsetY },
+            files: fileList,
+        });
+    });
 }

@@ -105,7 +105,7 @@ win.setState(1000, "selectedDestination", 1100);
 
 // NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
 // context — read the selected destination id from the split view's state.
-const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation" };
+const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload" };
 app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
@@ -127,6 +127,39 @@ app.action("collectionsLoaded", () => {
         ["Flagged", "flag"], ["Trash", "trash"], ["Archive", "archivebox"],
     ]);
 });
+
+// The Upload section: drag-and-drop + file panels, both feeding a (mock) upload.
+// The renderer only fires the actions; targeting visuals are host policy, so the
+// demo decorates its drop element (501) with the .aui-drop-zone class once the
+// section loads and toggles .is-targeted from onDropTargetedActionID.
+app.action("filesLoaded", () => {
+    win.model.findNode(501)?.classList.add("aui-drop-zone");
+});
+app.action("dropTargeted", (ctx) => {
+    win.model.findNode(501)?.classList.toggle("is-targeted", !!ctx.context?.isTargeted);
+});
+app.action("zoneHovered", (ctx) => {
+    win.setString(20, 0, ctx.context?.isHovering ? "Drop zone: drop files to upload." : "Ready.");
+});
+app.action("filesDropped", (ctx) => {
+    // items = file names (or dragged text); files = the real File objects (web-only).
+    const items = ctx.context?.items ?? [];
+    const files = ctx.context?.files ?? [];
+    win.model.findNode(501)?.classList.remove("is-targeted");
+    win.setString(510, 0, items.length ? `Dropped ${files.length || items.length}: ${items.join(", ")}` : "Dropped (no readable items).");
+    // A real host would upload here, e.g.:
+    //   for (const f of files) await fetch("/upload", { method: "POST", body: f });
+});
+
+// File panel (app.openPanel) - async on web, resolving to File[] (or null on cancel).
+async function pick(opts) {
+    const files = await app.openPanel(opts);
+    if (!files) { win.setString(510, 0, "File panel cancelled."); return; }
+    win.setString(510, 0, `Picked ${files.length}: ${files.map((f) => f.name).join(", ")}`);
+    // Upload the same way: for (const f of files) await fetch("/upload", { method:"POST", body:f });
+}
+app.action("pickFiles", () => pick({ allowsMultiple: true }));
+app.action("pickImages", () => pick({ allowsMultiple: true, allowedTypes: ["public.image"] }));
 
 app.action("greet", () => {
     const name = win.getString(1).trim();

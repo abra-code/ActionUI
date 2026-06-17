@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Upload", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "File panels and drag-and-drop both hand files to the host. The drop zone fires onDrop with the file names (items) plus the real File objects (a web-only field, so the host can read bytes and upload); 'Choose files' opens a file panel (app.openPanel, a Promise<File[]> on web). The very same onDrop JSON drives .onDrop on Apple.", "foregroundColor": "secondary" } },
+    {
+      "type": "VStack",
+      "id": 501,
+      "properties": {
+        "alignment": "center",
+        "spacing": 8,
+        "padding": "default",
+        "frame": { "maxWidth": "infinity", "height": 150 },
+        "onDropActionID": "filesDropped",
+        "onDropTypes": ["public.file-url", "public.image", "public.utf8-plain-text"],
+        "onDropTargetedActionID": "dropTargeted",
+        "onHoverActionID": "zoneHovered"
+      },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "arrow.up.doc", "imageScale": "large", "foregroundColor": "accentColor" } },
+        { "type": "Text", "properties": { "text": "Drag files here", "font": "headline" } },
+        { "type": "Text", "properties": { "text": "or use a button below", "foregroundColor": "secondary", "font": "footnote" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Choose files", "systemImage": "folder", "buttonStyle": "borderedProminent", "actionID": "pickFiles" } },
+        { "type": "Button", "properties": { "title": "Choose images", "systemImage": "photo", "buttonStyle": "bordered", "actionID": "pickImages" } }
+      ]
+    },
+    { "type": "Text", "id": 510, "properties": { "text": "No files selected yet.", "foregroundColor": "secondary", "font": "callout" } }
+  ]
+}
