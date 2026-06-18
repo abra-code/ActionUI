@@ -57,19 +57,25 @@ private func runOnMainActorAsync(_ operation: @escaping @MainActor () -> Void) {
 /// Safe to call from any thread (deadlock-protected)
 @inline(__always)
 private func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
+    // The result may be a non-Sendable bridging value (Any?, a SwiftUI view, a C pointer, ...), so it
+    // cannot cross the main-actor boundary directly under Swift 6. Move it back through a
+    // nonisolated(unsafe) box: this is sound because both paths are fully synchronous (direct execution
+    // or DispatchQueue.main.sync), so there is never concurrent access to `result`.
+    nonisolated(unsafe) var result: T!
     if Thread.isMainThread {
         // Already on main thread - execute directly (zero overhead)
-        return MainActor.assumeIsolated {
-            operation()
+        MainActor.assumeIsolated {
+            result = operation()
         }
     } else {
         // On background thread - must block and wait
-        return DispatchQueue.main.sync {
+        DispatchQueue.main.sync {
             MainActor.assumeIsolated {
-                operation()
+                result = operation()
             }
         }
     }
+    return result
 }
 
 // MARK: - String Helpers
@@ -89,7 +95,9 @@ public func actionUIGetVersion() -> UnsafeMutablePointer<CChar>? {
 
 // MARK: - Logging
 
-private var cLoggerCallback: ActionUILoggerCallback? = nil
+// nonisolated(unsafe): C bridging state set/read across the @_cdecl entry points. This retains the
+// adapter's existing single-threaded-caller assumption (no new locking is introduced).
+private nonisolated(unsafe) var cLoggerCallback: ActionUILoggerCallback? = nil
 
 private class CLoggerBridge: ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
@@ -139,8 +147,10 @@ public func actionUILog(_ message: UnsafePointer<CChar>, _ level: ActionUILogLev
 
 // MARK: - Action Handling
 
-private var actionHandlers: [String: ActionUIActionHandler] = [:]
-private var defaultActionHandler: ActionUIActionHandler? = nil
+// nonisolated(unsafe): see cLoggerCallback. Registered from the @_cdecl entry points, read from the
+// bridged action handler (invoked on the main actor).
+private nonisolated(unsafe) var actionHandlers: [String: ActionUIActionHandler] = [:]
+private nonisolated(unsafe) var defaultActionHandler: ActionUIActionHandler? = nil
 
 private func bridgeActionHandler(actionID: String, windowUUID: String, viewID: Int, viewPartID: Int, context: Any?) {
     let handler = actionHandlers[actionID] ?? defaultActionHandler
@@ -222,7 +232,8 @@ public func actionUIRemoveDefaultActionHandler() {
 
 // MARK: - Error Handling
 
-private var lastError: String? = nil
+// nonisolated(unsafe): see cLoggerCallback. Set via setError/clearError, read via the last-error getter.
+private nonisolated(unsafe) var lastError: String? = nil
 
 private func setError(_ message: String) {
     lastError = message

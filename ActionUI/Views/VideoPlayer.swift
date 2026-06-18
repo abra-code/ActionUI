@@ -46,31 +46,13 @@ struct VideoPlayer: ActionUIViewConstruction {
         // Use viewModel.value if set, otherwise use initialValue
         let urlString = Self.initialValue(model) as? String ?? ""
         if let url = URL(string: urlString) {
-            // Hoist autoplay out of the main-actor closure below: [String: Any] is non-Sendable.
+            // Hoist autoplay out of the closure: [String: Any] is non-Sendable.
             let autoplay = properties["autoplay"] as? Bool
-            // buildView is part of the @MainActor ActionUIViewConstruction protocol and is always invoked
-            // on the main actor by the registry, but its stored closure type is nonisolated. Assume that
-            // isolation so AVKit's VideoPlayer initializer (which carries main-actor-isolated default
-            // arguments) can be constructed under Swift 6. Behavior is unchanged.
-            return MainActor.assumeIsolated { () -> any SwiftUI.View in
-                let player = AVPlayer(url: url)
-                let videoPlayer = AVKit.VideoPlayer(player: player)
-
-                // Handle autoplay with a delayed MainActor task
-                if let autoplay {
-                    Task { @MainActor in
-                        // Delay to allow view to settle
-                        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                        if autoplay {
-                            player.play()
-                        } else {
-                            player.pause()
-                        }
-                    }
-                }
-
-                return videoPlayer
-            }
+            // Construction is delegated to a dedicated SwiftUI view: AVKit's VideoPlayer initializer
+            // carries main-actor-isolated default arguments that cannot be resolved from this nonisolated
+            // buildView closure under Swift 6. A View struct's body is @MainActor-isolated, so the AVKit
+            // view (and the player it owns) are built there instead.
+            return VideoPlayerContent(url: url, autoplay: autoplay)
         } else {
             logger.log("VideoPlayer missing or invalid URL, displaying error Label", .error)
             return SwiftUI.Label("Missing or invalid URL", systemImage: "exclamationmark.triangle")
@@ -93,3 +75,37 @@ struct VideoPlayer: ActionUIViewConstruction {
         return initialValue
     }
 }
+
+#if canImport(AVKit)
+// SwiftUI view that constructs and owns the AVKit VideoPlayer.
+//
+// AVKit's VideoPlayer initializer carries main-actor-isolated default arguments that cannot be evaluated
+// from the nonisolated buildView closure under Swift 6 ("default argument cannot be both main actor-isolated
+// and nonisolated"). A View struct's body is @MainActor-isolated, so the AVKit view can be built here. The
+// AVPlayer is held in @State so it is created once and survives re-renders rather than being rebuilt.
+private struct VideoPlayerContent: SwiftUI.View {
+    let autoplay: Bool?
+    @State private var player: AVPlayer
+
+    init(url: URL, autoplay: Bool?) {
+        self.autoplay = autoplay
+        _player = State(initialValue: AVPlayer(url: url))
+    }
+
+    var body: some SwiftUI.View {
+        AVKit.VideoPlayer(player: player)
+            .onAppear {
+                guard let autoplay else { return }
+                // Delay to allow the view to settle, matching the original timing.
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                    if autoplay {
+                        player.play()
+                    } else {
+                        player.pause()
+                    }
+                }
+            }
+    }
+}
+#endif

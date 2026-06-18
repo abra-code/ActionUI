@@ -52,9 +52,7 @@ struct PhaseAnimator: ActionUIViewConstruction {
         let timerInterval = (properties.double(forKey: "timerInterval")) ?? 1.0
         let stateKey = (properties["stateKey"] as? String) ?? "counter"
         let animationDict = (properties["animation"] as? [String: Any]) ?? ["type": "linear", "duration": 1.0]
-        
-        @State var animationTrigger: Int = 0
-        
+
         // Define animation
         let animation: Animation
         let type = animationDict["type"] as? String ?? "linear"
@@ -88,7 +86,44 @@ struct PhaseAnimator: ActionUIViewConstruction {
             animation = .linear(duration: 1.0)
         }
         
-        return SwiftUI.PhaseAnimator(
+        return PhaseAnimatorContent(
+            content: content,
+            values: values,
+            trigger: trigger,
+            timerInterval: timerInterval,
+            stateKey: stateKey,
+            animation: animation,
+            windowUUID: windowUUID,
+            model: model
+        )
+    }
+
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+        return view
+    }
+}
+
+// SwiftUI view that owns the animation trigger as real @State.
+//
+// @State only persists across re-renders when it lives on a View's stored property; the previous
+// implementation declared `@State var animationTrigger` as a local variable inside the nonisolated
+// buildView closure, which (a) never actually persisted (latent bug) and (b) cannot satisfy Swift 6's
+// data-race rules because the backing storage was captured by multiple nonisolated modifier closures.
+// Moving it onto this view fixes both: body is @MainActor-isolated, so every modifier closure shares
+// the same main-actor-isolated trigger.
+private struct PhaseAnimatorContent: SwiftUI.View {
+    let content: any ActionUIElementBase
+    let values: [Double]
+    let trigger: String
+    let timerInterval: Double
+    let stateKey: String
+    let animation: Animation
+    let windowUUID: String
+    let model: ViewModel
+    @State private var animationTrigger: Int = 0
+
+    var body: some SwiftUI.View {
+        SwiftUI.PhaseAnimator(
             values,
             trigger: animationTrigger,
             content: { value in
@@ -122,9 +157,5 @@ struct PhaseAnimator: ActionUIViewConstruction {
                 animationTrigger = newValue
             }
         }
-    }
-    
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
-        return view
     }
 }

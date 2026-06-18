@@ -50,21 +50,21 @@ struct KeyframeAnimator: ActionUIViewConstruction {
     static var insertableContainers: [String: ContainerShape]? = nil
 
     static var valueType: Any.Type = Void.self
-    
+
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, _ in
         return properties
     }
-    
+
     static var initialStates: (ViewModel) -> [String: Any] = { model in
         var states: [String: Any] = model.states
-        
+
         if states.isEmpty {
             states["currentRepeatCount"] = 0
         }
-        
+
         return states
     }
-    
+
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let initialValue = (properties["initialValue"] as? [String: Any]).map {
@@ -82,26 +82,105 @@ struct KeyframeAnimator: ActionUIViewConstruction {
         let autoreverses = (repeatDict?["autoreverses"] as? Bool) ?? false
         let delay = (properties.double(forKey: "delay")) ?? 0.0
         let keyframes = (properties["keyframes"] as? [String: [String: Any]]) ?? [:]
-        
-        @State var animationTrigger: Int = 0
-        @State var currentRepeatCount: Int = model.states["currentRepeatCount"] as? Int ?? 0
-        
-        // Helper to start animation
-        func startAnimation() {
-            if delay > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    withAnimation {
-                        animationTrigger += 1
-                    }
-                }
-            } else {
+        let initialRepeatCount = model.states["currentRepeatCount"] as? Int ?? 0
+
+        return KeyframeAnimatorContent(
+            content: content,
+            initialValue: initialValue,
+            trigger: trigger,
+            timerInterval: timerInterval,
+            stateKey: stateKey,
+            count: count,
+            autoreverses: autoreverses,
+            delay: delay,
+            keyframes: keyframes,
+            windowUUID: windowUUID,
+            model: model,
+            initialRepeatCount: initialRepeatCount
+        )
+    }
+
+    // Helper to parse percentage strings (e.g., "0%" -> 0.0, "100%" -> 1.0)
+    // fileprivate so the extracted KeyframeAnimatorContent view (same file) can reuse it.
+    fileprivate static func parsePercent(_ percent: String) -> Double {
+        let cleaned = percent.replacingOccurrences(of: "%", with: "")
+        return (Double(cleaned) ?? 0.0) / 100.0
+    }
+}
+
+// SwiftUI view that owns the animation trigger and repeat counter as real @State.
+//
+// @State only persists across re-renders when it lives on a View's stored property; the previous
+// implementation declared `@State var animationTrigger` / `@State var currentRepeatCount` as local
+// variables inside the nonisolated buildView closure, which (a) never actually persisted (latent bug)
+// and (b) cannot satisfy Swift 6's data-race rules because the backing storage was captured by multiple
+// nonisolated modifier closures. body is @MainActor-isolated, so every modifier closure and the
+// startAnimation() helper share the same main-actor-isolated state.
+private struct KeyframeAnimatorContent: SwiftUI.View {
+    let content: any ActionUIElementBase
+    let initialValue: AnimationValues
+    let trigger: String
+    let timerInterval: Double
+    let stateKey: String
+    let count: Int
+    let autoreverses: Bool
+    let delay: Double
+    let keyframes: [String: [String: Any]]
+    let windowUUID: String
+    let model: ViewModel
+
+    @State private var animationTrigger: Int = 0
+    @State private var currentRepeatCount: Int
+
+    init(
+        content: any ActionUIElementBase,
+        initialValue: AnimationValues,
+        trigger: String,
+        timerInterval: Double,
+        stateKey: String,
+        count: Int,
+        autoreverses: Bool,
+        delay: Double,
+        keyframes: [String: [String: Any]],
+        windowUUID: String,
+        model: ViewModel,
+        initialRepeatCount: Int
+    ) {
+        self.content = content
+        self.initialValue = initialValue
+        self.trigger = trigger
+        self.timerInterval = timerInterval
+        self.stateKey = stateKey
+        self.count = count
+        self.autoreverses = autoreverses
+        self.delay = delay
+        self.keyframes = keyframes
+        self.windowUUID = windowUUID
+        self.model = model
+        _currentRepeatCount = State(initialValue: initialRepeatCount)
+    }
+
+    // @MainActor so it can mutate the @State; the delayed branch uses a main-actor Task (inheriting this
+    // isolation) rather than a @Sendable DispatchQueue closure, which would illegally capture this
+    // non-Sendable view.
+    @MainActor
+    private func startAnimation() {
+        if delay > 0 {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 withAnimation {
                     animationTrigger += 1
                 }
             }
+        } else {
+            withAnimation {
+                animationTrigger += 1
+            }
         }
-        
-        return SwiftUI.KeyframeAnimator(
+    }
+
+    var body: some SwiftUI.View {
+        SwiftUI.KeyframeAnimator(
             initialValue: initialValue,
             trigger: animationTrigger
         ) { contentValue in
@@ -114,12 +193,12 @@ struct KeyframeAnimator: ActionUIViewConstruction {
             }
         } keyframes: { _ in
             KeyframeTrack(\AnimationValues.opacity) {
-                for (percent, keyframe) in keyframes.sorted(by: { Self.parsePercent($0.key) < Self.parsePercent($1.key) }) {
+                for (_, keyframe) in keyframes.sorted(by: { KeyframeAnimator.parsePercent($0.key) < KeyframeAnimator.parsePercent($1.key) }) {
                     let type = keyframe["type"] as? String ?? "linear"
                     let valueDict = keyframe["value"] as? [String: Any] ?? [:]
                     let opacity = valueDict.double(forKey: "opacity") ?? initialValue.opacity
                     let duration = keyframe.double(forKey: "duration") ?? 0.5
-                    
+
                     switch type {
                     case "spring":
                         let response = keyframe.double(forKey: "response") ?? 0.5
@@ -135,12 +214,12 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 }
             }
             KeyframeTrack(\AnimationValues.scale) {
-                for (percent, keyframe) in keyframes.sorted(by: { Self.parsePercent($0.key) < Self.parsePercent($1.key) }) {
+                for (_, keyframe) in keyframes.sorted(by: { KeyframeAnimator.parsePercent($0.key) < KeyframeAnimator.parsePercent($1.key) }) {
                     let type = keyframe["type"] as? String ?? "linear"
                     let valueDict = keyframe["value"] as? [String: Any] ?? [:]
                     let scale = valueDict.double(forKey: "scale") ?? initialValue.scale
                     let duration = keyframe.double(forKey: "duration") ?? 0.5
-                    
+
                     switch type {
                     case "spring":
                         let response = keyframe.double(forKey: "response") ?? 0.5
@@ -156,12 +235,12 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 }
             }
             KeyframeTrack(\AnimationValues.rotation) {
-                for (percent, keyframe) in keyframes.sorted(by: { Self.parsePercent($0.key) < Self.parsePercent($1.key) }) {
+                for (_, keyframe) in keyframes.sorted(by: { KeyframeAnimator.parsePercent($0.key) < KeyframeAnimator.parsePercent($1.key) }) {
                     let type = keyframe["type"] as? String ?? "linear"
                     let valueDict = keyframe["value"] as? [String: Any] ?? [:]
                     let rotation = valueDict.double(forKey: "rotation") ?? initialValue.rotation
                     let duration = keyframe.double(forKey: "duration") ?? 0.5
-                    
+
                     switch type {
                     case "spring":
                         let response = keyframe.double(forKey: "response") ?? 0.5
@@ -211,11 +290,5 @@ struct KeyframeAnimator: ActionUIViewConstruction {
                 model.value = newValue
             }
         }
-    }
-    
-    // Helper to parse percentage strings (e.g., "0%" -> 0.0, "100%" -> 1.0)
-    private static func parsePercent(_ percent: String) -> Double {
-        let cleaned = percent.replacingOccurrences(of: "%", with: "")
-        return (Double(cleaned) ?? 0.0) / 100.0
     }
 }

@@ -46,40 +46,54 @@ private func runOnMainActorAsync(_ operation: @escaping @MainActor () -> Void) {
 /// the main queue's lock).
 @inline(__always)
 private func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
+    // Both branches are fully synchronous and run entirely on the main thread,
+    // so the result is produced and consumed without any cross-thread transfer.
+    // Moving it back out through a nonisolated(unsafe) box avoids the spurious
+    // T: Sendable requirement Swift 6 would otherwise impose on the closure's
+    // return value.
+    nonisolated(unsafe) var result: T!
     if Thread.isMainThread {
-        return MainActor.assumeIsolated { operation() }
+        MainActor.assumeIsolated { result = operation() }
     } else {
-        return DispatchQueue.main.sync {
-            MainActor.assumeIsolated { operation() }
+        DispatchQueue.main.sync {
+            MainActor.assumeIsolated { result = operation() }
         }
     }
+    return result
 }
 
 // MARK: - Registered C callbacks (module-level singletons)
 
-private var willFinishLaunchingHandler: ActionUIAppLifecycleHandler? = nil
-private var didFinishLaunchingHandler:  ActionUIAppLifecycleHandler? = nil
-private var willBecomeActiveHandler:    ActionUIAppLifecycleHandler? = nil
-private var didBecomeActiveHandler:     ActionUIAppLifecycleHandler? = nil
-private var willResignActiveHandler:    ActionUIAppLifecycleHandler? = nil
-private var didResignActiveHandler:     ActionUIAppLifecycleHandler? = nil
-private var willTerminateHandler:       ActionUIAppLifecycleHandler? = nil
-private var shouldTerminateHandler:     ActionUIAppShouldTerminateHandler? = nil
-private var windowWillCloseHandler:     ActionUIAppWindowHandler? = nil
-private var windowWillPresentHandler:   ActionUIAppWindowHandler? = nil
+// These callbacks form the C bridging surface.  The host (e.g. a Python
+// script) registers them during setup, before actionUIAppRun() starts the run
+// loop, and thereafter they are read only on the main thread from the
+// application / window delegate.  nonisolated(unsafe) preserves that existing
+// single-threaded-caller contract without introducing new locking.
+private nonisolated(unsafe) var willFinishLaunchingHandler: ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var didFinishLaunchingHandler:  ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var willBecomeActiveHandler:    ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var didBecomeActiveHandler:     ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var willResignActiveHandler:    ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var didResignActiveHandler:     ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var willTerminateHandler:       ActionUIAppLifecycleHandler? = nil
+private nonisolated(unsafe) var shouldTerminateHandler:     ActionUIAppShouldTerminateHandler? = nil
+private nonisolated(unsafe) var windowWillCloseHandler:     ActionUIAppWindowHandler? = nil
+private nonisolated(unsafe) var windowWillPresentHandler:   ActionUIAppWindowHandler? = nil
 
 // MARK: - Application name (set before run)
 
 /// Custom application name.  When set, overrides processName in the menu bar.
-var appName: String? = nil
+nonisolated(unsafe) var appName: String? = nil
 
 /// Custom application icon.  Applied in actionUIAppRun before
 /// setActivationPolicy(.regular) so the dock picks it up immediately.
-var appIcon: NSImage? = nil
+nonisolated(unsafe) var appIcon: NSImage? = nil
 
 // MARK: - Window registry (UUID to NSWindow)
 
-private var windows: [String: NSWindow] = [:]
+// Mutated and read only on the main thread (delegate callbacks and the
+// main-actor window operations); nonisolated(unsafe) documents that contract.
+private nonisolated(unsafe) var windows: [String: NSWindow] = [:]
 
 /// Returns the UUID of the key (frontmost) window, or an empty string if none.
 @MainActor
@@ -90,6 +104,10 @@ func keyWindowUUID() -> String {
 
 // MARK: - Application delegate
 
+// AppKit application / window delegate — inherently main-thread.  Isolating the
+// whole class to the main actor makes `shared` concurrency-safe and lets every
+// delegate callback touch NSApp / NSWindow without per-call hops.
+@MainActor
 final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     static let shared = ActionUIApplicationDelegate()
@@ -321,20 +339,25 @@ public func actionUIAppSetIcon(_ path: UnsafePointer<CChar>) {
 /// Must be called from the main thread.
 @_cdecl("actionUIAppRun")
 public func actionUIAppRun() {
-    let app = NSApplication.shared
+    // A @_cdecl function cannot be @MainActor, but this entry point is
+    // documented to be called from the main thread, so assume the isolation
+    // explicitly to drive the main-actor NSApplication APIs below.
+    MainActor.assumeIsolated {
+        let app = NSApplication.shared
 
-    // Apply the custom icon *before* setActivationPolicy so the dock shows
-    // it from the moment the app appears, rather than flashing the default
-    // icon first.  For non-framework Python (no .app bundle) this is the
-    // only opportunity — once the activation policy is set, the window
-    // server has already latched the icon.
-    if let icon = appIcon {
-        app.applicationIconImage = icon
+        // Apply the custom icon *before* setActivationPolicy so the dock shows
+        // it from the moment the app appears, rather than flashing the default
+        // icon first.  For non-framework Python (no .app bundle) this is the
+        // only opportunity — once the activation policy is set, the window
+        // server has already latched the icon.
+        if let icon = appIcon {
+            app.applicationIconImage = icon
+        }
+
+        app.setActivationPolicy(.regular)
+        app.delegate = ActionUIApplicationDelegate.shared
+        app.run()
     }
-
-    app.setActivationPolicy(.regular)
-    app.delegate = ActionUIApplicationDelegate.shared
-    app.run()
 }
 
 /// Request graceful termination (equivalent to Cmd-Q).

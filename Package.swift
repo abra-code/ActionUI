@@ -1,5 +1,6 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
+// Tools-version 6.0 selects the Swift 6 language mode by default for every target in this package.
 //
 // ActionUI SPM Package
 // Source distribution for https://github.com/abra-code/ActionUI

@@ -32,13 +32,20 @@ import ActionUIMenuBar
 
 @inline(__always)
 private func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
+    // Both branches are fully synchronous and run entirely on the main thread,
+    // so the result is produced and consumed without any cross-thread transfer.
+    // Moving it back out through a nonisolated(unsafe) box avoids the spurious
+    // T: Sendable requirement Swift 6 would otherwise impose on the closure's
+    // return value.
+    nonisolated(unsafe) var result: T!
     if Thread.isMainThread {
-        return MainActor.assumeIsolated { operation() }
+        MainActor.assumeIsolated { result = operation() }
     } else {
-        return DispatchQueue.main.sync {
-            MainActor.assumeIsolated { operation() }
+        DispatchQueue.main.sync {
+            MainActor.assumeIsolated { result = operation() }
         }
     }
+    return result
 }
 
 // MARK: - ActionUIModel menu dispatch
