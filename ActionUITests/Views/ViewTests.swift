@@ -112,7 +112,57 @@ final class ViewTests: XCTestCase {
             XCTFail("frame should be a dictionary")
         }
     }
-    
+
+    // MARK: - searchable
+
+    func testSearchableValid() throws {
+        let properties: [String: Any] = [
+            "searchable": ["prompt": "Search receivers", "actionID": "home.search"]
+        ]
+        let validated = View.validateProperties(properties, logger)
+        let searchable = validated["searchable"] as? [String: Any]
+        XCTAssertNotNil(searchable, "valid searchable dict should be preserved")
+        XCTAssertEqual(searchable?["actionID"] as? String, "home.search")
+        XCTAssertEqual(searchable?["prompt"] as? String, "Search receivers")
+    }
+
+    func testSearchablePromptOptional() throws {
+        // actionID alone is sufficient; prompt is optional.
+        let properties: [String: Any] = ["searchable": ["actionID": "home.search"]]
+        let validated = View.validateProperties(properties, logger)
+        let searchable = validated["searchable"] as? [String: Any]
+        XCTAssertEqual(searchable?["actionID"] as? String, "home.search")
+        XCTAssertNil(searchable?["prompt"], "prompt may be omitted")
+    }
+
+    func testSearchableMissingActionIDDropped() throws {
+        // Missing required actionID -> entire searchable dropped.
+        let properties: [String: Any] = ["searchable": ["prompt": "Search"]]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["searchable"], "searchable without actionID should be dropped")
+    }
+
+    func testSearchableEmptyActionIDDropped() throws {
+        let properties: [String: Any] = ["searchable": ["actionID": ""]]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["searchable"], "searchable with empty actionID should be dropped")
+    }
+
+    func testSearchableInvalidTypeDropped() throws {
+        let properties: [String: Any] = ["searchable": "not a dict"]
+        let validated = View.validateProperties(properties, logger)
+        XCTAssertNil(validated["searchable"], "non-dictionary searchable should be dropped")
+    }
+
+    func testSearchableInvalidPromptTypeStripped() throws {
+        // Valid actionID but non-String prompt -> keep actionID, drop prompt.
+        let properties: [String: Any] = ["searchable": ["actionID": "home.search", "prompt": 42]]
+        let validated = View.validateProperties(properties, logger)
+        let searchable = validated["searchable"] as? [String: Any]
+        XCTAssertEqual(searchable?["actionID"] as? String, "home.search")
+        XCTAssertNil(searchable?["prompt"], "non-String prompt should be stripped while keeping actionID")
+    }
+
     func testValidatePropertiesInvalid() throws {
         let properties: [String: Any] = [
             "padding": "10",
