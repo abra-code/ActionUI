@@ -362,6 +362,59 @@ object ActionUIModel {
         logger.log("dismissModal: windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
+    // MARK: - Window-level toast (snackbar)
+    //
+    // The Android port of the Swift `presentToast` / `dismissToast` surface. Like a
+    // dialog these are pure data (a message, a duration, and an optional inline
+    // action); they set [WindowModel.windowToast] (Compose snapshot state), which the
+    // window's [com.abracode.actionui.Helpers.WindowToastHost] renders as a native
+    // bottom Material3 Snackbar. The queue / one-at-a-time behavior is identical to
+    // Apple; only the host's placement differs (top banner on Apple, bottom snackbar
+    // here) - see [WindowToast].
+
+    /**
+     * Presents a transient, auto-dismissing toast over [windowUUID]'s window. If a
+     * toast is already visible the new one is queued and shown after the current
+     * dismisses (rapid posts coalesce into an ordered sequence). Pass [actionTitle]
+     * and [actionID] together to add one inline action button (e.g. "Undo"); supplying
+     * only one yields a message-only toast. No-op (with an error log) when no window is
+     * registered for [windowUUID]. Mirrors the Swift `presentToast`.
+     */
+    fun presentToast(
+        windowUUID: String = "",
+        message: String,
+        duration: Double = 4.0,
+        actionTitle: String? = null,
+        actionID: String? = null,
+    ) {
+        val windowModel = windowModels[windowUUID]
+        if (windowModel == null) {
+            logger.log("presentToast: No WindowModel for windowUUID: $windowUUID", LoggerLevel.error)
+            return
+        }
+        val action = if (actionTitle != null && actionID != null) ToastAction(actionTitle, actionID) else null
+        val toast = WindowToast(message, duration, action)
+        if (windowModel.windowToast == null) {
+            windowModel.windowToast = toast
+        } else {
+            windowModel.toastQueue.add(toast)
+        }
+        logger.log("presentToast: '$message' for windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * Dismisses the current toast and promotes the next queued toast if any. The toast
+     * host calls this for you when the snackbar auto-dismisses or its inline action is
+     * tapped. No-op when no window is registered for [windowUUID]. Mirrors the Swift
+     * `dismissToast`.
+     */
+    fun dismissToast(windowUUID: String = "") {
+        val windowModel = windowModels[windowUUID] ?: return
+        windowModel.windowToast =
+            if (windowModel.toastQueue.isEmpty()) null else windowModel.toastQueue.removeAt(0)
+        logger.log("dismissToast: windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
     // MARK: - Element Value API
 
     /** Resolves a [ViewModel], logging a warning and returning null if absent. */
