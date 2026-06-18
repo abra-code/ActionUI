@@ -167,57 +167,18 @@ class WindowModel: ObservableObject {
             }
         }
 
-        if let subviews = element.subviews {
-            for key in ["children", "destinations"] {
-                if let children = subviews[key] as? [any ActionUIElementBase] {
-                    for child in children {
-                        let childViewModels = populateViewModels(from: child)
-                        for (id, viewModel) in childViewModels {
-                            targetViewModels[id] = viewModel
-                        }
-                    }
-                }
-            }
-
-            if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
-                for row in rows.flatMap({ $0 }) {
-                    let rowViewModels = populateViewModels(from: row)
-                    for (id, viewModel) in rowViewModels {
-                        targetViewModels[id] = viewModel
-                    }
-                }
-            }
-            // Note: "template" is intentionally excluded — it is a stateless blueprint.
-            for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
-                if let child = subviews[key] as? any ActionUIElementBase {
-                    let childViewModels = populateViewModels(from: child)
-                    for (id, viewModel) in childViewModels {
-                        targetViewModels[id] = viewModel
-                    }
-                }
-            }
-            if let commands = subviews["commands"] as? [any ActionUIElementBase] {
-                for child in commands {
-                    let childViewModels = populateViewModels(from: child)
-                    for (id, viewModel) in childViewModels {
-                        targetViewModels[id] = viewModel
-                    }
-                }
-            }
-            // Populate ViewModels for toolbar items and their content/children.
-            // Each ToolbarItem/ToolbarItemGroup gets its own ViewModel (captures validated placement).
-            // The recursive call handles "content" (ToolbarItem single view) and
-            // "children" (ToolbarItemGroup array) automatically via the standard subview traversal.
-            if let toolbarItems = subviews["toolbar"] as? [any ActionUIElementBase] {
-                for item in toolbarItems {
-                    let itemViewModels = populateViewModels(from: item)
-                    for (id, viewModel) in itemViewModels {
-                        targetViewModels[id] = viewModel
-                    }
-                }
+        // Recurse over every named container (children/destinations/toolbar/commands,
+        // rows, and all single-child keys incl. overlay/background) via the single
+        // shared traversal. "template" is excluded by design (stateless blueprint).
+        // ToolbarItem/ToolbarItemGroup content & children are handled automatically
+        // because childElements walks them too.
+        for child in element.childElements {
+            let childViewModels = populateViewModels(from: child)
+            for (id, childModel) in childViewModels {
+                targetViewModels[id] = childModel
             }
         }
-        
+
         return targetViewModels
     }
 
@@ -436,23 +397,12 @@ class WindowModel: ObservableObject {
         }
     }
 
-    // Collect ids from a freshly-decoded ActionUIElement subtree (used for conflict checks
-    // and cascade cleanup). Walks the same container keys as populateViewModels.
-    private func collectAllElementIDs(in element: ActionUIElement) -> Set<Int> {
+    // Collect ids from an element subtree (used for conflict checks and cascade
+    // cleanup) via the single shared descendant traversal (see childElements).
+    private func collectAllElementIDs(in element: any ActionUIElementBase) -> Set<Int> {
         var ids: Set<Int> = [element.id]
-        guard let subviews = element.subviews else { return ids }
-        for key in ["children", "destinations", "toolbar", "commands"] {
-            if let arr = subviews[key] as? [ActionUIElement] {
-                for child in arr { ids.formUnion(collectAllElementIDs(in: child)) }
-            }
-        }
-        if let rows = subviews["rows"] as? [[ActionUIElement]] {
-            for row in rows { for child in row { ids.formUnion(collectAllElementIDs(in: child)) } }
-        }
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
-            if let child = subviews[key] as? ActionUIElement {
-                ids.formUnion(collectAllElementIDs(in: child))
-            }
+        for child in element.childElements {
+            ids.formUnion(collectAllElementIDs(in: child))
         }
         return ids
     }
@@ -467,21 +417,21 @@ class WindowModel: ObservableObject {
     private func locateElementHelper(in element: ActionUIElement, id: Int) -> ActionUIElement? {
         if element.id == id { return element }
         let subviews = effectiveSubviews(of: element)
-        for key in ["children", "destinations", "toolbar", "commands"] {
+        for key in ActionUISubviewContainers.arrayKeys {
             if let arr = subviews[key] as? [ActionUIElement] {
                 for child in arr {
                     if let found = locateElementHelper(in: child, id: id) { return found }
                 }
             }
         }
-        if let rows = subviews["rows"] as? [[ActionUIElement]] {
+        if let rows = subviews[ActionUISubviewContainers.rowsKey] as? [[ActionUIElement]] {
             for row in rows {
                 for child in row {
                     if let found = locateElementHelper(in: child, id: id) { return found }
                 }
             }
         }
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
+        for key in ActionUISubviewContainers.singleKeys {
             if let child = subviews[key] as? ActionUIElement,
                let found = locateElementHelper(in: child, id: id) { return found }
         }
@@ -513,7 +463,7 @@ class WindowModel: ObservableObject {
 
     private func locateParentHelper(in element: ActionUIElement, childID: Int) -> ParentLocation? {
         let subviews = effectiveSubviews(of: element)
-        for key in ["children", "destinations", "toolbar", "commands"] {
+        for key in ActionUISubviewContainers.arrayKeys {
             if let arr = subviews[key] as? [ActionUIElement] {
                 for child in arr where child.id == childID {
                     return ParentLocation(parent: element, parentID: element.id, container: key, shape: .flat, rowIndex: nil, colIndex: nil, removedElement: child)
@@ -523,7 +473,7 @@ class WindowModel: ObservableObject {
                 }
             }
         }
-        if let rows = subviews["rows"] as? [[ActionUIElement]] {
+        if let rows = subviews[ActionUISubviewContainers.rowsKey] as? [[ActionUIElement]] {
             for r in rows.indices {
                 for c in rows[r].indices where rows[r][c].id == childID {
                     return ParentLocation(parent: element, parentID: element.id, container: "rows", shape: .rows, rowIndex: r, colIndex: c, removedElement: rows[r][c])
@@ -535,7 +485,7 @@ class WindowModel: ObservableObject {
                 }
             }
         }
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover", "overlay", "background"] {
+        for key in ActionUISubviewContainers.singleKeys {
             if let child = subviews[key] as? ActionUIElement {
                 // Single-element containers: child cannot be removed via removeElement (use setElementProperty / LoadableView swap).
                 if child.id == childID { return nil }

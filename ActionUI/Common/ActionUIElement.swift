@@ -350,8 +350,15 @@ extension ActionUIElement: Equatable {
             return false
         }
         
-        // Compare all subviews keys
-        for key in ["children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "commands", "destinations", "template", "sheet", "fullScreenCover", "toolbar"] {
+        // Compare all subviews keys. Driven from the shared container registry plus
+        // "template" (which the descendant traversal omits but equality must include).
+        // The per-key switch matches each value by its runtime shape, so key order is
+        // irrelevant — adding a container to ActionUISubviewContainers covers == too.
+        let comparableKeys = ActionUISubviewContainers.arrayKeys
+            + [ActionUISubviewContainers.rowsKey]
+            + ActionUISubviewContainers.singleKeys
+            + ["template"]
+        for key in comparableKeys {
             let lhsValue = lhsSubviews[key]
             let rhsValue = rhsSubviews[key]
             
@@ -383,107 +390,56 @@ extension ActionUIElement: Equatable {
     }
 }
 
+// Canonical declaration of an element's subview containers, grouped by shape.
+// Single source of truth for every descendant traversal (id collection, lookup,
+// view-model population) so adding a new container key is a one-line change here
+// rather than an edit to each hand-written walk — the drift that previously let
+// "overlay"/"background"/"toolbar"/"commands" fall out of individual walks.
+//
+// `template` is intentionally absent: it is a stateless per-row blueprint, never
+// registered in the ViewModel pool nor traversed as a live child. Structural ops
+// that DO need it (Codable, normalizeTemplateID, ==) handle it explicitly.
+enum ActionUISubviewContainers {
+    /// Container keys holding an array of child elements.
+    static let arrayKeys = ["children", "destinations", "toolbar", "commands"]
+    /// Container key holding an array-of-arrays of child elements (Grid rows).
+    static let rowsKey = "rows"
+    /// Container keys holding a single child element.
+    static let singleKeys = ["content", "destination", "sidebar", "detail", "label",
+                             "popover", "sheet", "fullScreenCover", "overlay", "background"]
+}
+
+extension ActionUIElementBase {
+    // All direct child elements across every named container, in a stable order.
+    // The one traversal shared by all descendant walks — see ActionUISubviewContainers.
+    // `template` is excluded by design (stateless blueprint).
+    var childElements: [any ActionUIElementBase] {
+        guard let subviews, !subviews.isEmpty else { return [] }
+        var result: [any ActionUIElementBase] = []
+        for key in ActionUISubviewContainers.arrayKeys {
+            if let arr = subviews[key] as? [any ActionUIElementBase] {
+                result.append(contentsOf: arr)
+            }
+        }
+        if let rows = subviews[ActionUISubviewContainers.rowsKey] as? [[any ActionUIElementBase]] {
+            for row in rows { result.append(contentsOf: row) }
+        }
+        for key in ActionUISubviewContainers.singleKeys {
+            if let child = subviews[key] as? any ActionUIElementBase {
+                result.append(child)
+            }
+        }
+        return result
+    }
+}
+
 // Extension to find an element by ID in the element hierarchy
 // Design decision: Recursive search supports nested JSON structures, enabling validation of properties for views at any depth
 extension ActionUIElementBase {
     func findElement(by viewID: Int) -> (any ActionUIElementBase)? {
-        // Check if the current element matches the ID
-        if self.id == viewID {
-            return self
-        }
-        
-        // Check all possible subview keys, if any
-        guard let subviews, !subviews.isEmpty else {
-            return nil
-        }
-        
-        // Search in "children" (array of elements)
-        if let children = subviews["children"] as? [any ActionUIElementBase] {
-            for child in children {
-                if let found = child.findElement(by: viewID) {
-                    return found
-                }
-            }
-        }
-
-        // Search in "destinations" (array of elements)
-        if let destinations = subviews["destinations"] as? [any ActionUIElementBase] {
-            for child in destinations {
-                if let found = child.findElement(by: viewID) {
-                    return found
-                }
-            }
-        }
-
-        // Search in "toolbar" (array of ToolbarItem elements)
-        if let toolbarItems = subviews["toolbar"] as? [any ActionUIElementBase] {
-            for item in toolbarItems {
-                if let found = item.findElement(by: viewID) {
-                    return found
-                }
-            }
-        }
-
-        // Search in "rows" (array of arrays of elements)
-        if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
-            for row in rows {
-                for child in row {
-                    if let found = child.findElement(by: viewID) {
-                        return found
-                    }
-                }
-            }
-        }
-        
-        // Search in "commands" (array of elements)
-        if let commands = subviews["commands"] as? [any ActionUIElementBase] {
-            for command in commands {
-                if let found = command.findElement(by: viewID) {
-                    return found
-                }
-            }
-        }
-        
-        // Search in single-child keys: "content", "destination", "sidebar", "detail", "label", "popover"
-        if let content = subviews["content"] as? any ActionUIElementBase,
-           let found = content.findElement(by: viewID) {
-            return found
-        }
-        if let destination = subviews["destination"] as? any ActionUIElementBase,
-           let found = destination.findElement(by: viewID) {
-            return found
-        }
-        if let sidebar = subviews["sidebar"] as? any ActionUIElementBase,
-           let found = sidebar.findElement(by: viewID) {
-            return found
-        }
-        if let detail = subviews["detail"] as? any ActionUIElementBase,
-           let found = detail.findElement(by: viewID) {
-            return found
-        }
-        if let detail = subviews["label"] as? any ActionUIElementBase,
-           let found = detail.findElement(by: viewID) {
-            return found
-        }
-        if let popover = subviews["popover"] as? any ActionUIElementBase,
-           let found = popover.findElement(by: viewID) {
-            return found
-        }
-        if let sheet = subviews["sheet"] as? any ActionUIElementBase,
-           let found = sheet.findElement(by: viewID) {
-            return found
-        }
-        if let cover = subviews["fullScreenCover"] as? any ActionUIElementBase,
-           let found = cover.findElement(by: viewID) {
-            return found
-        }
-        if let overlay = subviews["overlay"] as? any ActionUIElementBase,
-           let found = overlay.findElement(by: viewID) {
-            return found
-        }
-        if let background = subviews["background"] as? any ActionUIElementBase,
-           let found = background.findElement(by: viewID) {
-            return found
+        if self.id == viewID { return self }
+        for child in childElements {
+            if let found = child.findElement(by: viewID) { return found }
         }
         return nil
     }

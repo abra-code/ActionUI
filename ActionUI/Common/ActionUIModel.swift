@@ -673,32 +673,8 @@ public class ActionUIModel: ObservableObject {
         if element.id > 0 {
             result[element.id] = element.type
         }
-        guard let subviews = element.subviews else { return }
-        
-        for key in ["children", "destinations"] {
-            if let children = subviews[key] as? [any ActionUIElementBase] {
-                for child in children {
-                    collectElementInfo(from: child, into: &result)
-                }
-            }
-        }
-        
-        if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
-            for row in rows {
-                for child in row {
-                    collectElementInfo(from: child, into: &result)
-                }
-            }
-        }
-        if let commands = subviews["commands"] as? [any ActionUIElementBase] {
-            for command in commands {
-                collectElementInfo(from: command, into: &result)
-            }
-        }
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover"] {
-            if let child = subviews[key] as? any ActionUIElementBase {
-                collectElementInfo(from: child, into: &result)
-            }
+        for child in element.childElements {
+            collectElementInfo(from: child, into: &result)
         }
     }
 
@@ -826,19 +802,8 @@ public class ActionUIModel: ObservableObject {
     // Recursively collect all element IDs from an element tree (used for modal ViewModel cleanup).
     private func collectAllElementIDs(from element: any ActionUIElementBase) -> Set<Int> {
         var ids: Set<Int> = [element.id]
-        guard let subviews = element.subviews else { return ids }
-        for key in ["children", "destinations"] {
-            if let children = subviews[key] as? [any ActionUIElementBase] {
-                for child in children { ids.formUnion(collectAllElementIDs(from: child)) }
-            }
-        }
-        if let rows = subviews["rows"] as? [[any ActionUIElementBase]] {
-            for row in rows { for child in row { ids.formUnion(collectAllElementIDs(from: child)) } }
-        }
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "sheet", "fullScreenCover"] {
-            if let child = subviews[key] as? any ActionUIElementBase {
-                ids.formUnion(collectAllElementIDs(from: child))
-            }
+        for child in element.childElements {
+            ids.formUnion(collectAllElementIDs(from: child))
         }
         return ids
     }
