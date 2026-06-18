@@ -31,7 +31,11 @@
 //   columnTypes      Per-column { viewType, actionContext, actionID,
 //                    dataInterpretation }; padded to columns with Text.
 //   widths / minWidths  [Int] ideal / minimum column widths; the widest-ideal
-//                    column fills remaining space.
+//                    column auto-sizes to fill the frame (macOS), the rest take
+//                    their ideal. Every column is user-resizable by dragging its
+//                    header border (down to the resolved minimum); the table is
+//                    wrapped in a scroller, so resizing past the frame (or adding
+//                    rows) scrolls rather than clips. Resizing needs visible headers.
 //   actionID / doubleClickActionID  selection / double-click actions.
 
 import { register } from "../Common/ActionUIRegistry.js";
@@ -130,36 +134,133 @@ register("Table", {
         const columnTypes = Array.isArray(properties.columnTypes) ? properties.columnTypes : [];
         const widths = Array.isArray(properties.widths) ? properties.widths : null;
         const minWidths = Array.isArray(properties.minWidths) ? properties.minWidths : null;
+        // columnHeadersVisibility: "hidden" suppresses the header row entirely;
+        // "visible" / "automatic" show it. A static (build-time) choice, matching
+        // Apple/Android - there is no runtime toggle.
         const headersHidden = properties.columnHeadersVisibility === "hidden";
+
+        // A scroll container wraps the table so it can grow past its frame: when the
+        // columns are wider, or the rows taller, than the bounded frame, the wrapper
+        // scrolls (horizontally / vertically) instead of clipping. The frame and the
+        // data-aui-id land on this wrapper (it is the returned node); the header is
+        // sticky so it stays visible while the rows scroll. (macOS SwiftUI.Table is
+        // itself scroll-backed; this is the web equivalent.)
+        const scroll = document.createElement("div");
+        scroll.className = "aui-table-scroll";
+        markHandlesAction(scroll); // selection owns the table's actionID (opt out of the generic click handler)
 
         const table = document.createElement("table");
         table.className = "aui-table";
-        markHandlesAction(table); // selection owns the table's actionID
+        scroll.appendChild(table);
 
-        // Column sizing: the widest ideal width fills remaining space; others get
-        // a fixed width. min-widths floor each column. (Approximate; resizing is
-        // skin work, deferred.)
+        // Column sizing. The widest-ideal column auto-sizes to fill the frame width
+        // (matching macOS SwiftUI.Table); the others take their ideal width. Every
+        // column is user-resizable by dragging its right-edge header handle.
+        // `.aui-table` is `table-layout: fixed`, so the <col> widths are authoritative
+        // and a drag is honored exactly.
+        //
+        // Widths are JS-managed (colWidths) rather than left to CSS so we can have BOTH
+        // an auto-filling widest column AND a resize that pushes the table past the
+        // frame (CSS alone gives one or the other: a width:100% table absorbs into its
+        // auto column and never overflows). A ResizeObserver re-fills the widest column
+        // when the frame changes; a drag sets the dragged column's width and the
+        // wrapper scrolls once the total exceeds the frame. Dragging during a frame
+        // that has room does not shrink other columns (the divider tracks the cursor) -
+        // a deliberate, more predictable divergence from macOS' live column absorb.
         const idealWidths = columns.map((_, i) => (widths && Number.isInteger(widths[i])) ? widths[i] : 100);
-        const maxIdeal = idealWidths.length ? Math.max(...idealWidths) : 100;
+        // Resolved minimum per column: an explicit minWidths entry, else min(ideal, 10)
+        // (the Table.swift default). The floor a drag cannot cross.
+        const resolvedMins = columns.map((_, i) =>
+            (minWidths && Number.isInteger(minWidths[i])) ? minWidths[i] : Math.min(idealWidths[i], 10));
+        // The widest-ideal column flexes (auto-fills the frame); first wins a tie.
+        const maxIdeal = idealWidths.length ? Math.max(...idealWidths) : 0;
+        const flexIndex = idealWidths.indexOf(maxIdeal);
+        // Live width per column. Starts at the ideal (floored at the resolved minimum);
+        // relayout() widens the flex column to fill once the frame is measured.
+        const colWidths = idealWidths.map((w, i) => Math.max(w, resolvedMins[i]));
+        // Set true when the user drags the flex column itself: it then keeps that manual
+        // width and stops auto-filling (the host took control of the widest column).
+        let flexPinned = false;
+
+        const colEls = [];
         const colgroup = document.createElement("colgroup");
         columns.forEach((_, i) => {
             const col = document.createElement("col");
-            const isFill = idealWidths[i] === maxIdeal;
-            if (!isFill) col.style.width = `${idealWidths[i]}px`;
-            const min = (minWidths && Number.isInteger(minWidths[i])) ? minWidths[i] : null;
-            if (min !== null) col.style.minWidth = `${min}px`;
+            if (minWidths && Number.isInteger(minWidths[i])) col.style.minWidth = `${minWidths[i]}px`;
             colgroup.appendChild(col);
+            colEls.push(col);
         });
         table.appendChild(colgroup);
 
+        // Push the live widths to the <col>s and size the table to their sum, so the
+        // table is exactly as wide as its columns - the wrapper scrolls when that sum
+        // exceeds the frame.
+        const applyWidths = () => {
+            let sum = 0;
+            colWidths.forEach((w, i) => { colEls[i].style.width = `${w}px`; sum += w; });
+            table.style.width = `${sum}px`;
+        };
+
+        // Re-fill the flex (widest) column so the table fills the frame width. `shrink`
+        // lets it shrink back toward its ideal (used on a frame resize); without it the
+        // flex column only grows to fill freed space (used on drag release), so
+        // widening another column scrolls rather than silently shrinking the widest.
+        const relayout = ({ shrink } = {}) => {
+            const avail = scroll.clientWidth;
+            if (flexIndex >= 0 && !flexPinned && avail > 0) {
+                const othersSum = colWidths.reduce((s, w, i) => (i === flexIndex ? s : s + w), 0);
+                const fill = Math.max(idealWidths[flexIndex], resolvedMins[flexIndex], avail - othersSum);
+                colWidths[flexIndex] = shrink ? fill : Math.max(colWidths[flexIndex], fill);
+            }
+            applyWidths();
+        };
+
+        // Drag a column's right-edge handle to resize it. Pointer capture keeps the
+        // drag tracking even when the pointer leaves the thin handle. The dragged
+        // column tracks the cursor and the wrapper scrolls when the table outgrows the
+        // frame; dragging the flex column pins it, and on release the flex column grows
+        // to fill any freed space. (setPointerCapture / releasePointerCapture are
+        // guarded so the headless test DOM still drives the move/up path.)
+        const startResize = (colIndex, handle, event) => {
+            event.preventDefault?.();
+            event.stopPropagation?.(); // a header drag, never a row selection
+            const startX = event.clientX;
+            const startWidth = colWidths[colIndex];
+            if (colIndex === flexIndex) flexPinned = true;
+            handle.setPointerCapture?.(event.pointerId);
+            scroll.classList.add("aui-table-resizing");
+            const onMove = (moveEvent) => {
+                colWidths[colIndex] = Math.max(resolvedMins[colIndex], startWidth + (moveEvent.clientX - startX));
+                applyWidths();
+            };
+            const onUp = (upEvent) => {
+                handle.releasePointerCapture?.(upEvent.pointerId);
+                scroll.classList.remove("aui-table-resizing");
+                handle.removeEventListener("pointermove", onMove);
+                handle.removeEventListener("pointerup", onUp);
+                relayout(); // grow the widest column to fill any freed space
+            };
+            handle.addEventListener("pointermove", onMove);
+            handle.addEventListener("pointerup", onUp);
+        };
+
+        // The header row (suppressed entirely when columnHeadersVisibility is
+        // "hidden"). Every column gets a drag handle on its right edge (the widest
+        // column too - dragging it pins its width). Resizing needs a visible header to
+        // grab, so a hidden-header table is not resizable.
         if (!headersHidden) {
             const thead = document.createElement("thead");
             const headRow = document.createElement("tr");
-            for (const name of columns) {
+            columns.forEach((name, i) => {
                 const th = document.createElement("th");
                 th.textContent = String(name);
+                const handle = document.createElement("div");
+                handle.className = "aui-table-resizer";
+                handle.setAttribute("aria-hidden", "true");
+                handle.addEventListener("pointerdown", (event) => startResize(i, handle, event));
+                th.appendChild(handle);
                 headRow.appendChild(th);
-            }
+            });
             thead.appendChild(headRow);
             table.appendChild(thead);
         }
@@ -272,8 +373,15 @@ register("Table", {
             });
         }
 
+        applyWidths(); // seed the <col> widths before the frame is measured
         renderBody();
-        return table;
+        // Keep the widest column filling the frame as the frame / window resizes
+        // (also performs the first fill once the wrapper has a measured width).
+        if (typeof ResizeObserver !== "undefined") {
+            const observer = new ResizeObserver(() => relayout({ shrink: true }));
+            observer.observe(scroll);
+        }
+        return scroll;
     },
 });
 

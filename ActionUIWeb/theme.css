@@ -545,23 +545,79 @@
 
 /* A multi-column data table (the macOS Table; the web is a desktop target, so it
    renders a real <table> rather than the Android no-op). Rows arrive via the rows
-   API into states["content"]; selection highlights a <tr>. */
-.aui-table {
+   API into states["content"]; selection highlights a <tr>.
+
+   The table lives inside `.aui-table-scroll`, the bounded scroll container (the
+   element's frame and border/chrome live here). When the columns are wider, or the
+   rows taller, than the frame the wrapper scrolls instead of clipping - the web
+   analog of SwiftUI.Table's own scroll view. The <table> itself is sized to the sum
+   of its column widths by Table.js, so it can exceed the wrapper. */
+.aui-table-scroll {
     width: 100%;
-    border-collapse: collapse;
+    overflow: auto;
     border: 1px solid var(--aui-control-border);
     border-radius: var(--aui-control-radius);
     background: var(--aui-control-background);
-    overflow: hidden;
+}
+.aui-table {
+    /* Fixed layout makes the <colgroup> widths authoritative, so a column resize
+       (Table.js writes the dragged <col>'s width) is honored exactly. The table's
+       own width is set to the column-width sum by Table.js (not 100%), so it can
+       grow past the wrapper and trigger a horizontal scroll. */
+    table-layout: fixed;
+    border-collapse: collapse;
 }
 .aui-table thead th {
+    /* Sticky so the header stays visible while the rows scroll; an opaque-enough
+       background hides the rows passing behind it. Sticky also establishes the
+       containing block the absolutely-positioned resize handle anchors to. */
+    position: sticky;
+    top: 0;
+    z-index: 1;
     text-align: left;
     font-weight: 600;
     color: var(--aui-color-secondary);
     padding: 5px 10px;
     border-bottom: 1px solid var(--aui-control-border);
-    background: color-mix(in srgb, var(--aui-control-border) 22%, transparent);
+    background: color-mix(in srgb, var(--aui-control-border) 22%, var(--aui-control-background));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+/* Column resize handle: a wide grab strip on the header's right edge with an
+   always-visible separator line, so it reads as a draggable column divider at rest
+   (not just on hover). The line thickens to the accent color on hover/drag, and the
+   cursor is col-resize. The drag math lives in Table.js (pointer events + pointer
+   capture). */
+.aui-table-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 9px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none; /* let pointermove drive the drag, not a scroll/zoom */
+}
+.aui-table-resizer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 2px;
+    /* Visible at rest: a header column separator that signals "draggable". */
+    background: var(--aui-control-border);
+    transition: background 0.1s ease, width 0.1s ease;
+}
+.aui-table-resizer:hover::after,
+.aui-table-scroll.aui-table-resizing .aui-table-resizer::after {
+    background: var(--aui-color-accent);
+    width: 3px;
+}
+/* While dragging, keep the col-resize cursor everywhere and suppress text
+   selection of the headers/cells. */
+.aui-table-scroll.aui-table-resizing { cursor: col-resize; user-select: none; }
 .aui-table tbody td {
     padding: 5px 10px;
     border-bottom: 1px solid var(--aui-control-border);
