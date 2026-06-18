@@ -1,0 +1,58 @@
+{
+  "type": "NavigationStack",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 12.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "searchable",
+          "font": "title2"
+        }
+      },
+      {
+        "type": "Text",
+        "id": 99,
+        "properties": {
+          "text": "Type in the search field above the list. Each change emits the query to the host via actionID; the host echoes it back here.",
+          "font": "footnote",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "List",
+        "id": 100,
+        "properties": {
+          "navigationTitle": "Receivers",
+          "searchable": {
+            "prompt": "Search receivers",
+            "actionID": "demo.search"
+          }
+        },
+        "children": [
+          {
+            "type": "Label",
+            "properties": { "title": "Ada Lovelace", "systemImage": "person.circle" }
+          },
+          {
+            "type": "Label",
+            "properties": { "title": "Alan Turing", "systemImage": "person.circle" }
+          },
+          {
+            "type": "Label",
+            "properties": { "title": "Grace Hopper", "systemImage": "person.circle" }
+          },
+          {
+            "type": "Label",
+            "properties": { "title": "Katherine Johnson", "systemImage": "person.circle" }
+          }
+        ]
+      }
+    ]
+  }
+}
