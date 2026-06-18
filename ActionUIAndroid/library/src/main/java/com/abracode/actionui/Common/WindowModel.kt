@@ -74,6 +74,25 @@ class WindowModel(
     var windowModal: WindowModal? by mutableStateOf(null)
 
     /**
+     * The currently visible window-level toast, or `null` when none is showing.
+     * Backed by Compose snapshot state so [ActionUIModel.presentToast] /
+     * [ActionUIModel.dismissToast] recompose the toast host
+     * ([com.abracode.actionui.Helpers.WindowToastHost]). Mirrors the Swift
+     * `@Published var windowToast`.
+     */
+    var windowToast: WindowToast? by mutableStateOf(null)
+
+    /**
+     * Toasts waiting for the current one to dismiss. `presentToast` appends here
+     * when a toast is already visible and `dismissToast` promotes the head, so
+     * rapid posts coalesce into an ordered, one-at-a-time sequence rather than
+     * clobbering each other. Mutated only from the main thread; not snapshot state
+     * (the host observes [windowToast], the queue is bookkeeping). Mirrors the
+     * Swift `toastQueue`.
+     */
+    val toastQueue: MutableList<WindowToast> = mutableListOf()
+
+    /**
      * Adopts [root] as the window's element and (re)builds the [ViewModel] pool
      * from it, seeding each value-bearing element's initial value. Mirrors the
      * Swift `loadDescription`, minus the decoding (the caller decodes).

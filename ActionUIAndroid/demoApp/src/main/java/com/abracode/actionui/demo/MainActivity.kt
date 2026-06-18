@@ -458,6 +458,32 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        // Toast.json: window-level toasts presented by the host via presentToast.
+        // "toast.show" posts a plain message; "toast.undo.show" adds an inline Undo
+        // action whose actionID ("toast.undo") routes back through the action layer and
+        // updates the in-document result text (viewID 99); "toast.queue" posts three in
+        // quick succession to show they queue and play one at a time. On Android these
+        // render as native bottom Material snackbars (see WindowToastHost).
+        ActionUIModel.registerActionHandler("toast.show") { _, windowUUID, _, _, _ ->
+            ActionUIModel.presentToast(windowUUID = windowUUID, message = "All done for the day")
+        }
+        ActionUIModel.registerActionHandler("toast.undo.show") { _, windowUUID, _, _, _ ->
+            ActionUIModel.presentToast(
+                windowUUID = windowUUID,
+                message = "Completed evening chores",
+                actionTitle = "Undo",
+                actionID = "toast.undo",
+            )
+        }
+        ActionUIModel.registerActionHandler("toast.queue") { _, windowUUID, _, _, _ ->
+            ActionUIModel.presentToast(windowUUID = windowUUID, message = "Morning tasks complete", duration = 2.0)
+            ActionUIModel.presentToast(windowUUID = windowUUID, message = "Afternoon tasks complete", duration = 2.0)
+            ActionUIModel.presentToast(windowUUID = windowUUID, message = "Evening tasks complete", duration = 2.0)
+        }
+        ActionUIModel.registerActionHandler("toast.undo") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 99, value = "Undo tapped - entry restored.")
+        }
+
         // Modal.json: window-level modals load a JSON sub-document from assets
         // (MODAL_CONTENT_ASSET) and present it as a bottom sheet or full-screen cover.
         // The modal's Close button fires "modal.close" -> dismissModal. The cover also

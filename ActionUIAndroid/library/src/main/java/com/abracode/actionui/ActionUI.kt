@@ -37,6 +37,7 @@ import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.ToolbarHost
 import com.abracode.actionui.Helpers.WindowDialogHost
 import com.abracode.actionui.Helpers.WindowModalHost
+import com.abracode.actionui.Helpers.WindowToastHost
 import com.abracode.actionui.Helpers.classifyLoadableSource
 import com.abracode.actionui.Helpers.hasRootToolbarChrome
 import com.abracode.actionui.Helpers.loadLocalDescription
@@ -218,6 +219,7 @@ object ActionUI {
             // subview whose carrier's visible state flips true.
             WindowDialogHost(windowModel)
             WindowModalHost(windowModel)
+            WindowToastHost(windowModel)
             ElementModalsHost(element)
         }
     }

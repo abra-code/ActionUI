@@ -1,0 +1,29 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Toast / Snackbar", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "A transient, auto-dismissing message presented by the host via ActionUIModel.presentToast. It auto-dismisses, queues rapid posts, and can carry one inline action. On Android it shows as a native bottom Material snackbar (on Apple it is a top banner). Triggering it from a button is only for the demo - a toast is for events that happen without direct user action.", "font": "subheadline", "foregroundStyle": "secondary" } },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": { "title": "Show toast", "systemImage": "bell", "actionID": "toast.show" }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": { "title": "Show toast with Undo", "systemImage": "arrow.uturn.backward", "actionID": "toast.undo.show" }
+    },
+    {
+      "type": "Button",
+      "id": 3,
+      "properties": { "title": "Post 3 quickly (queue)", "systemImage": "square.stack.3d.up", "actionID": "toast.queue" }
+    },
+    { "type": "Divider" },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": { "text": "Tap a button to post a toast. Undo feedback appears here.", "font": "footnote", "foregroundStyle": "secondary" }
+    }
+  ]
+}
