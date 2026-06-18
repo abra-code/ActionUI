@@ -27,6 +27,7 @@ import { wrapWithToolbar } from "../Helpers/ToolbarHelper.js";
 import { applyPresentationModifiers } from "../Helpers/PresentationModifier.js";
 import { applyDecorations } from "../Helpers/DecorationModifier.js";
 import { wrapWithSearchable } from "../Helpers/SearchableModifier.js";
+import { applyAnimation } from "../Helpers/AnimationModifier.js";
 
 const constructions = new Map();
 
@@ -65,6 +66,11 @@ export function buildElementView(element, ctx) {
         }
     }
     applyViewModifiers(node, element, properties, ctx);
+    // The `animation` modifier: arm a CSS transition on the element node so a later
+    // visual mutation (e.g. setElementProperty, which mutates this same node) eases
+    // to the new value. After the decorative modifiers, before the structural
+    // wrappers - the element node, not a wrapper, is what carries the visual style.
+    applyAnimation(node, properties, ctx.logger);
     // Element-level presentation modifiers (sheet / fullScreenCover / popover):
     // attaches the presented surface + its visibility state binding to the carrier
     // node. A no-op unless one of those subviews is declared.

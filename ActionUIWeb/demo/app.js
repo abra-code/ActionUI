@@ -111,7 +111,7 @@ win.setState(1000, "selectedDestination", 1100);
 
 // NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
 // context — read the selected destination id from the split view's state.
-const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload", 1105: "Properties" };
+const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload", 1105: "Properties", 1106: "Animation" };
 app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
@@ -150,6 +150,37 @@ app.action("propSquare",      () => win.setElementProperty(PROP_TARGET, "cornerR
 app.action("propTargetTapped", () => win.setString(20, 0, "Target button (1201) tapped."));
 app.action("propDisable",     () => win.setElementProperty(1201, "disabled", true));
 app.action("propEnable",      () => win.setElementProperty(1201, "disabled", false));
+
+// animation.json — the same shapes/curves as Swift's View.animation.json. Each button
+// mutates a property via win.setElementProperty; the shape's animation modifier eases
+// the change (web animates by CSS property, not by a watched value key, so e.g. shape
+// 102's Scale also animates - a documented divergence).
+// `a` is the shape's rest value (its initial JSON value), `b` the changed one. Compare
+// against `b` so the FIRST click goes to `b` (a visible change) - comparing against `a`
+// would make the first click resolve to `a`, which already matches the initial value,
+// so nothing would move until the second click.
+const animPrev = {};
+const toggleProp = (key, id, name, a, b) => {
+    const next = animPrev[key] === b ? a : b;
+    animPrev[key] = next;
+    win.setElementProperty(id, name, next);
+};
+app.action("anim.demo.101.opacity", () => toggleProp("101op", 101, "opacity", 1, 0.3));
+app.action("anim.demo.101.scale",   () => toggleProp("101sc", 101, "scaleEffect", 1, 1.5));
+app.action("anim.demo.102.opacity", () => toggleProp("102op", 102, "opacity", 1, 0.3));
+app.action("anim.demo.102.scale",   () => toggleProp("102sc", 102, "scaleEffect", 1, 1.5));
+app.action("anim.demo.103.scale",   () => toggleProp("103sc", 103, "scaleEffect", 1, 1.4));
+const ANIM_COLORS = ["purple", "orange", "blue", "green", "pink"];
+let animColorIdx = 0;
+app.action("anim.demo.104.color", () => {
+    animColorIdx = (animColorIdx + 1) % ANIM_COLORS.length;
+    win.setElementProperty(104, "foregroundColor", ANIM_COLORS[animColorIdx]);
+});
+let animRotation = 0;
+app.action("anim.demo.105.rotate", () => {
+    animRotation += 90;
+    win.setElementProperty(105, "rotationEffect", animRotation);
+});
 
 // Menu bar (MainMenu.json) commands. The "Go" menu drives the split's selected
 // destination (same state the sidebar selection writes); the rest set status or

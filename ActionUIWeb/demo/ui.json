@@ -25,7 +25,8 @@
           { "type": "Label", "id": 1012, "properties": { "title": "Collections", "systemImage": "list.bullet.rectangle", "destinationViewId": 1102 } },
           { "type": "Label", "id": 1013, "properties": { "title": "Navigation", "systemImage": "rectangle.split.3x1", "destinationViewId": 1103 } },
           { "type": "Label", "id": 1014, "properties": { "title": "Upload", "systemImage": "arrow.up.document", "destinationViewId": 1104 } },
-          { "type": "Label", "id": 1015, "properties": { "title": "Properties", "systemImage": "paintbrush", "destinationViewId": 1105 } }
+          { "type": "Label", "id": 1015, "properties": { "title": "Properties", "systemImage": "paintbrush", "destinationViewId": 1105 } },
+          { "type": "Label", "id": 1016, "properties": { "title": "Animation", "systemImage": "wand.and.rays", "destinationViewId": 1106 } }
         ]
       },
       "detail": { "type": "Text", "properties": { "text": "Pick a section from the sidebar.", "foregroundColor": "secondary" } },
@@ -35,7 +36,8 @@
         { "type": "LoadableView", "id": 1102, "properties": { "name": "sections/collections.json", "viewDidLoadActionID": "collectionsLoaded" } },
         { "type": "LoadableView", "id": 1103, "properties": { "name": "sections/navigation.json" } },
         { "type": "LoadableView", "id": 1104, "properties": { "name": "sections/files.json", "viewDidLoadActionID": "filesLoaded" } },
-        { "type": "LoadableView", "id": 1105, "properties": { "name": "sections/setproperty.json" } }
+        { "type": "LoadableView", "id": 1105, "properties": { "name": "sections/setproperty.json" } },
+        { "type": "LoadableView", "id": 1106, "properties": { "name": "sections/animation.json" } }
       ]
     },
     { "type": "Divider" },

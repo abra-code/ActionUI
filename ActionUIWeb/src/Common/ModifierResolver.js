@@ -220,6 +220,10 @@ const PROPERTY_APPLIERS = {
     },
     foregroundColor: (node, value, logger) => { node.style.color = resolveColor(value, logger) ?? ""; },
     background: (node, value, logger) => { node.style.backgroundColor = resolveColor(value, logger) ?? ""; },
+    // The independent CSS `scale` / `rotate` transform properties (not `transform`),
+    // so the two compose without clobbering each other and each animates on its own.
+    scaleEffect: (node, value) => { node.style.scale = typeof value === "number" ? String(value) : ""; },
+    rotationEffect: (node, value) => { node.style.rotate = typeof value === "number" ? `${value}deg` : ""; },
 };
 // `foregroundStyle` is the canonical name; `foregroundColor` is its alias - both set color.
 PROPERTY_APPLIERS.foregroundStyle = PROPERTY_APPLIERS.foregroundColor;
@@ -267,6 +271,12 @@ export function applyViewModifiers(node, element, properties, ctx) {
     if (typeof properties.frame === "object" && properties.frame !== null) {
         applyFrame(node, properties.frame, logger);
     }
+
+    // scaleEffect / rotationEffect -> the independent CSS scale / rotate transform
+    // properties (SwiftUI .scaleEffect / .rotationEffect). Animatable, and the
+    // setElementProperty bridge mutates the same two for runtime animation.
+    if (typeof properties.scaleEffect === "number") node.style.scale = String(properties.scaleEffect);
+    if (typeof properties.rotationEffect === "number") node.style.rotate = `${properties.rotationEffect}deg`;
 
     if (properties.disabled === true) {
         node.classList.add("aui-disabled");

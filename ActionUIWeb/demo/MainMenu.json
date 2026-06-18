@@ -13,7 +13,7 @@
     "type": "CommandMenu",
     "properties": { "name": "Tools" },
     "children": [
-      { "type": "Button", "properties": { "title": "Run Report", "actionID": "tools.report", "systemImage": "doc.text",
+      { "type": "Button", "properties": { "title": "Run Report", "actionID": "tools.report", "systemImage": "text.document",
           "keyboardShortcut": { "key": "r", "modifiers": ["command", "shift"] } } },
       { "type": "Divider" },
       { "type": "Button", "properties": { "title": "Clear Log", "actionID": "tools.clearLog", "systemImage": "trash" } }
