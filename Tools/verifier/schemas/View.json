@@ -204,6 +204,9 @@
     "textSelection":             { "types": ["string"], "required": false, "enum": ["enabled","disabled"] },
     "multilineTextAlignment":    { "types": ["string"], "required": false, "enum": ["leading","center","trailing"] },
     "zIndex":                    { "types": ["number"], "required": false },
-    "weight":                    { "types": ["number"], "required": false, "platforms": ["android"], "description": "Flex weight of a child within a Row/Column (Jetpack Compose). No SwiftUI equivalent; suffix as 'weight:android' in cross-platform documents." }
+    "weight":                    { "types": ["number"], "required": false, "platforms": ["android"], "description": "Flex weight of a child within a Row/Column (Jetpack Compose). No SwiftUI equivalent; suffix as 'weight:android' in cross-platform documents." },
+    "onForegroundActionID":      { "types": ["string"], "required": false, "platforms": ["web"], "description": "ActionUIWeb page lifecycle: fires when the page becomes visible again (visibilitychange). Window-level (viewID 0). Suffix as 'onForegroundActionID:web'." },
+    "onBackgroundActionID":      { "types": ["string"], "required": false, "platforms": ["web"], "description": "ActionUIWeb page lifecycle: fires when the page becomes hidden - tab/app switch or close (visibilitychange). The reliable 'persist now' point. Window-level (viewID 0). Suffix as 'onBackgroundActionID:web'." },
+    "onTerminateActionID":       { "types": ["string"], "required": false, "platforms": ["web"], "description": "ActionUIWeb page lifecycle: fires when the page is being unloaded (pagehide). Window-level (viewID 0). Suffix as 'onTerminateActionID:web'." }
   }
 }

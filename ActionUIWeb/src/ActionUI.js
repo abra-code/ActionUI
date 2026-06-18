@@ -19,6 +19,7 @@ import { presentDialog, dismissActiveDialog } from "./Scenes/DialogHost.js";
 import { presentModal, dismissActiveModal, ModalStyle } from "./Scenes/ModalHost.js";
 import { presentToast, dismissActiveToast } from "./Scenes/ToastHost.js";
 import { parseMenuBar, buildAppShell } from "./Scenes/MenuBar.js";
+import { installLifecycleHooks } from "./Helpers/LifecycleHooks.js";
 
 // Register all built-in view types (side-effect imports).
 import "./Views/VStack.js";
@@ -150,6 +151,11 @@ export class Window {
         // inserted subtrees and query the live tree by id.
         this.model.setRenderContext(this.rootNode, ctx.build, this.rootElement.id);
         container.replaceChildren(this.rootNode);
+        // Page-lifecycle action hooks declared on the document root
+        // (onForeground/onBackground/onTerminateActionID:web). Re-installed on each
+        // present(); the prior cleanup removes any stale listeners first.
+        this._lifecycleCleanup?.();
+        this._lifecycleCleanup = installLifecycleHooks(this.rootElement.properties, this.model, this.logger);
         return this;
     }
 

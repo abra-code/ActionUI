@@ -117,6 +117,22 @@ app.action("sectionSelect", () => {
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
 });
 
+// Page lifecycle hooks (ui.json root, :web). onBackground fires when the tab is
+// hidden (switch tab/app, or close) — the reliable point to persist; onForeground
+// when it returns to view; onTerminate on pagehide. The demo records when it was
+// hidden and reports it on return (switch tabs and come back to see it).
+let lastHiddenAt = null;
+app.action("appBackground", () => {
+    lastHiddenAt = new Date();
+    logger.log("Lifecycle: backgrounded — a host would persist state here.", "info");
+});
+app.action("appForeground", () => {
+    win.setString(20, 0, lastHiddenAt ? `Resumed (was hidden at ${lastHiddenAt.toLocaleTimeString()}).` : "Active.");
+});
+app.action("appTerminate", () => {
+    logger.log("Lifecycle: page unloading (pagehide).", "info");
+});
+
 // Menu bar (MainMenu.json) commands. The "Go" menu drives the split's selected
 // destination (same state the sidebar selection writes); the rest set status or
 // reuse existing demo behavior. All dispatch at the app level (viewID 0).
