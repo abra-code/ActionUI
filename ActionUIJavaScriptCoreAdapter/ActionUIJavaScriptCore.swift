@@ -216,6 +216,22 @@ import AppKit
 ///   - Description: Dismisses the active window-level alert or confirmation dialog. SwiftUI does this automatically when a button is tapped.
 ///   - Example: `ActionUI.dismissDialog("win-123");`
 ///
+/// - `presentToast(windowUUID, message, duration, actionTitle, actionID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `message`: String - The toast text.
+///     - `duration`: Number or null - Seconds before auto-dismiss; pass null for the 4.0s default.
+///     - `actionTitle`: String or null - Optional inline action button title (e.g. "Undo"); pass together with actionID.
+///     - `actionID`: String or null - Optional actionID fired when the inline action button is tapped.
+///   - Description: Presents a transient, auto-dismissing toast pinned above the window content; queued if one is already visible.
+///   - Example: `ActionUI.presentToast("win-123", "Saved", null, "Undo", "task.undo");`
+///
+/// - `dismissToast(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Dismisses the current toast and shows the next queued one if any.
+///   - Example: `ActionUI.dismissToast("win-123");`
+///
 /// - `getElementState(windowUUID, viewID, key)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -564,6 +580,22 @@ public class ActionUIJavaScriptCore {
             ActionUIJavaScriptCore.model.dismissDialog(windowUUID: windowUUID)
         }
         actionUIObject.setValue(dismissDialog, forProperty: "dismissDialog")
+
+        // presentToast(windowUUID, message, duration, actionTitle, actionID)
+        // duration/actionTitle/actionID are optional: pass null/undefined to use defaults.
+        let presentToast: @convention(block) (String, String, JSValue, JSValue, JSValue) -> Void = { windowUUID, message, jsDuration, jsActionTitle, jsActionID in
+            let duration: TimeInterval = (!jsDuration.isNull && !jsDuration.isUndefined) ? jsDuration.toDouble() : 4.0
+            let actionTitle: String? = (!jsActionTitle.isNull && !jsActionTitle.isUndefined) ? jsActionTitle.toString() : nil
+            let actionID: String? = (!jsActionID.isNull && !jsActionID.isUndefined) ? jsActionID.toString() : nil
+            ActionUIJavaScriptCore.model.presentToast(windowUUID: windowUUID, message: message, duration: duration, actionTitle: actionTitle, actionID: actionID)
+        }
+        actionUIObject.setValue(presentToast, forProperty: "presentToast")
+
+        // dismissToast(windowUUID)
+        let dismissToast: @convention(block) (String) -> Void = { windowUUID in
+            ActionUIJavaScriptCore.model.dismissToast(windowUUID: windowUUID)
+        }
+        actionUIObject.setValue(dismissToast, forProperty: "dismissToast")
     }
 
     private func setupStructuralMutationMethods(actionUIObject: JSValue) {

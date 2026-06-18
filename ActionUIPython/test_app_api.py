@@ -59,6 +59,8 @@ def test_module_api_surface():
         "present_alert",
         "present_confirmation_dialog",
         "dismiss_dialog",
+        "present_toast",
+        "dismiss_toast",
     ]
 
     for name in expected:

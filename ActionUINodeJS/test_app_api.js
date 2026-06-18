@@ -57,6 +57,7 @@ function testNativeAPISurface() {
         // Modal presentation
         'presentModal', 'dismissModal',
         'presentAlert', 'presentConfirmationDialog', 'dismissDialog',
+        'presentToast', 'dismissToast',
         // UI loading
         'loadHostingController',
         // App lifecycle setters
@@ -112,6 +113,7 @@ function testJSAPISurface(app, win) {
         'getElementInfo',
         'presentModal', 'dismissModal',
         'presentAlert', 'presentConfirmationDialog', 'dismissDialog',
+        'presentToast', 'dismissToast',
     ];
     for (const m of winMethods) {
         check(`window.${m} is a function`, typeof win[m] === 'function');

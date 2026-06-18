@@ -283,6 +283,12 @@ win.presentAlert(title, message, buttons)
 // buttons — array of { title, role?, actionId? }
 win.presentConfirmationDialog(title, message, buttons)
 win.dismissDialog()
+
+win.presentToast(message, duration, actionTitle, actionId)
+// duration    — seconds before auto-dismiss (default 4.0)
+// actionTitle — optional inline action button title (e.g. 'Undo'); pass with actionId
+// actionId    — optional actionID fired when the inline action button is tapped
+win.dismissToast()
 ```
 
 ### `ActionContext`
@@ -399,6 +405,8 @@ native.dismissModal(uuid)
 native.presentAlert(uuid, title, message, buttonsJSON)
 native.presentConfirmationDialog(uuid, title, message, buttonsJSON)
 native.dismissDialog(uuid)
+native.presentToast(uuid, message, duration, actionTitle, actionId)
+native.dismissToast(uuid)
 
 // UI loading (returns viewPtr or null)
 native.loadHostingController(url, uuid, isContentView)

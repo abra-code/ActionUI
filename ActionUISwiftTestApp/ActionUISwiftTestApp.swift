@@ -374,6 +374,26 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Discarded.")
         }
 
+        // Toast demo handlers
+        ActionUISwift.registerActionHandler(actionID: "demo.showToast") { _, windowUUID, _, _, _ in
+            ActionUISwift.presentToast(windowUUID: windowUUID, message: "All done for the day")
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.showToastUndo") { _, windowUUID, _, _, _ in
+            ActionUISwift.presentToast(
+                windowUUID: windowUUID,
+                message: "Completed evening chores",
+                actionTitle: "Undo",
+                actionID: "demo.toast.undo"
+            )
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.showToastQueue") { _, windowUUID, _, _, _ in
+            ActionUISwift.presentToast(windowUUID: windowUUID, message: "Morning tasks complete", duration: 2.0)
+            ActionUISwift.presentToast(windowUUID: windowUUID, message: "Afternoon tasks complete", duration: 2.0)
+            ActionUISwift.presentToast(windowUUID: windowUUID, message: "Evening tasks complete", duration: 2.0)
+        }
+        ActionUISwift.registerActionHandler(actionID: "demo.toast.undo") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Undo tapped - entry restored.")
+        }
         // HoverDrop demo handlers
         // IDs: 1=hover card, 2=hover status text,
         //      3=text drop zone, 4=text zone label, 5=text result panel, 6=text result content,

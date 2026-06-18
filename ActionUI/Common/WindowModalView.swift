@@ -18,9 +18,36 @@ struct WindowModalView: SwiftUI.View {
     let content: AnyView
     let windowUUID: String
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // Window content plus the top-pinned toast overlay. Top placement follows the Apple
+    // transient-banner idiom (banners slide from the top on iOS/macOS), not the Material snackbar's
+    // bottom placement. The conditional insertion lives here (not inside ToastOverlayView) so SwiftUI
+    // runs the transition; reduce-motion swaps the slide for a plain fade. Keyed on the toast id so a
+    // replacing toast re-runs the transition.
+    //
+    // The fill frame is what makes "top" mean the top of the window rather than the top of the
+    // content: an overlay is laid out within its host's bounds, and a root element that sizes to its
+    // intrinsic content (e.g. a centered VStack) would otherwise pin the banner to the middle of the
+    // window. Expanding to fill anchors the overlay's top edge to the window's safe area on iOS /
+    // the content area below the title bar on macOS. The default .center alignment of the frame
+    // leaves the wrapped content visually where SwiftUI already placed it (root content is centered),
+    // so this does not change how existing windows lay out their content.
+    private var decoratedContent: some SwiftUI.View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .top) {
+                if let toast = windowModel.windowToast {
+                    ToastOverlayView(toast: toast, windowUUID: windowUUID)
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.35), value: windowModel.windowToast?.id)
+    }
+
     var body: some SwiftUI.View {
 #if os(iOS)
-        content
+        decoratedContent
             .sheet(item: sheetBinding) { modal in modalContent(for: modal) }
             .fullScreenCover(item: fullCoverBinding) { modal in modalContent(for: modal) }
             .alert(
@@ -44,7 +71,7 @@ struct WindowModalView: SwiftUI.View {
             }
 #else
         // macOS: fullScreenCover unavailable — window-level fullScreenCover falls back to sheet
-        content
+        decoratedContent
             .sheet(item: anyModalBinding) { modal in modalContent(for: modal) }
             .alert(
                 windowModel.windowDialog?.title ?? "",

@@ -20,6 +20,10 @@ class WindowModel: ObservableObject {
     @Published var windowModal: WindowModal? = nil
     /// Active window-level dialog (alert or confirmationDialog). Set by ActionUIModel.presentAlert / presentConfirmationDialog.
     @Published var windowDialog: WindowDialog? = nil
+    /// Currently visible window-level toast. Set by ActionUIModel.presentToast; cleared by dismissToast.
+    @Published var windowToast: WindowToast? = nil
+    /// Pending toasts waiting for the current one to dismiss (coalesces rapid posts; shown one at a time).
+    var toastQueue: [WindowToast] = []
     let windowUUID: String
     private let logger: any ActionUILogger
 
