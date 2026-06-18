@@ -111,7 +111,7 @@ win.setState(1000, "selectedDestination", 1100);
 
 // NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
 // context — read the selected destination id from the split view's state.
-const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload" };
+const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload", 1105: "Properties" };
 app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
@@ -132,6 +132,24 @@ app.action("appForeground", () => {
 app.action("appTerminate", () => {
     logger.log("Lifecycle: page unloading (pagehide).", "info");
 });
+
+// setproperty.json — host-driven runtime visual mutation via win.setElementProperty.
+// Each handler changes one visual property on the live target node (id 1200), in
+// place (no rebuild); the disabled pair toggles a real control (id 1201).
+const PROP_TARGET = 1200;
+app.action("propFade",        () => win.setElementProperty(PROP_TARGET, "opacity", 0.3));
+app.action("propRestore",     () => win.setElementProperty(PROP_TARGET, "opacity", 1));
+app.action("propHide",        () => win.setElementProperty(PROP_TARGET, "hidden", true));
+app.action("propShow",        () => win.setElementProperty(PROP_TARGET, "hidden", false));
+app.action("propRedText",     () => win.setElementProperty(PROP_TARGET, "foregroundColor", "red"));
+app.action("propDefaultText", () => win.setElementProperty(PROP_TARGET, "foregroundColor", "primary"));
+app.action("propBlueBg",      () => win.setElementProperty(PROP_TARGET, "background", "#3b82f6"));
+app.action("propGrayBg",      () => win.setElementProperty(PROP_TARGET, "background", "#e5e7eb"));
+app.action("propRound",       () => win.setElementProperty(PROP_TARGET, "cornerRadius", 24));
+app.action("propSquare",      () => win.setElementProperty(PROP_TARGET, "cornerRadius", 0));
+app.action("propTargetTapped", () => win.setString(20, 0, "Target button (1201) tapped."));
+app.action("propDisable",     () => win.setElementProperty(1201, "disabled", true));
+app.action("propEnable",      () => win.setElementProperty(1201, "disabled", false));
 
 // Menu bar (MainMenu.json) commands. The "Go" menu drives the split's selected
 // destination (same state the sidebar selection writes); the rest set status or

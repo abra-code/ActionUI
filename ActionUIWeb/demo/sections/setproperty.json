@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "setElementProperty", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "Each button calls win.setElementProperty(id, name, value) from app.js to mutate the live element's visual property at runtime - no rebuild, the same node is changed in place. Supported: opacity, hidden, cornerRadius, foregroundColor, background, disabled, help.", "foregroundColor": "secondary" } },
+    { "type": "Divider" },
+    {
+      "type": "Text",
+      "id": 1200,
+      "properties": { "text": "I am the target element (id 1200).", "padding": 16, "background": "#e5e7eb", "cornerRadius": 6, "frame": { "maxWidth": "infinity" } }
+    },
+    { "type": "Text", "properties": { "text": "Opacity / visibility:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Fade", "buttonStyle": "bordered", "actionID": "propFade" } },
+        { "type": "Button", "properties": { "title": "Restore", "buttonStyle": "bordered", "actionID": "propRestore" } },
+        { "type": "Button", "properties": { "title": "Hide", "buttonStyle": "bordered", "actionID": "propHide" } },
+        { "type": "Button", "properties": { "title": "Show", "buttonStyle": "bordered", "actionID": "propShow" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Color / shape:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Red text", "buttonStyle": "bordered", "actionID": "propRedText" } },
+        { "type": "Button", "properties": { "title": "Default text", "buttonStyle": "bordered", "actionID": "propDefaultText" } },
+        { "type": "Button", "properties": { "title": "Blue bg", "buttonStyle": "bordered", "actionID": "propBlueBg" } },
+        { "type": "Button", "properties": { "title": "Gray bg", "buttonStyle": "bordered", "actionID": "propGrayBg" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Round corners", "buttonStyle": "bordered", "actionID": "propRound" } },
+        { "type": "Button", "properties": { "title": "Square corners", "buttonStyle": "bordered", "actionID": "propSquare" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "disabled (on a real control - tap it, then disable it):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Button", "id": 1201, "properties": { "title": "Tap me (id 1201)", "buttonStyle": "borderedProminent", "actionID": "propTargetTapped" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Disable", "buttonStyle": "bordered", "actionID": "propDisable" } },
+        { "type": "Button", "properties": { "title": "Enable", "buttonStyle": "bordered", "actionID": "propEnable" } }
+      ]
+    }
+  ]
+}

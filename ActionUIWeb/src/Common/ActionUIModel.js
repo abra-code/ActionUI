@@ -33,6 +33,7 @@ import {
 import { ActionUIElement } from "./ActionUIElement.js";
 import { PlatformFilter } from "./PlatformFilter.js";
 import { getInsertableContainers } from "./ActionUIRegistry.js";
+import { applyElementProperty } from "./ModifierResolver.js";
 
 export class ActionUIModel {
     constructor(windowUUID, logger) {
@@ -43,6 +44,7 @@ export class ActionUIModel {
         this.states = new Map();        // viewID -> { key: value } (fallback when unbound)
         this.stateBindings = new Map(); // viewID -> { getState(key), setState(key, value) }
         this.containerBindings = new Map(); // viewID -> { containerName: binding } (insertion)
+        this.propertyOverrides = new Map(); // viewID -> { propertyName: value } (setElementProperty)
         this.actionDispatcher = null;   // set by Application
         // Render context for runtime mutations — set once the window is presented.
         this.rootNode = null;           // the window's root DOM node (the id registry)
@@ -122,6 +124,28 @@ export class ActionUIModel {
             return;
         }
         binding.setState(key, value);
+    }
+
+    // Runtime property mutation: applies [propertyName]=[value] to the mounted node
+    // for [viewID] (web analog of the Swift/Kotlin setElementProperty). Web has no
+    // reactive re-render, so this mutates the live node directly via the surgical
+    // per-property appliers (ModifierResolver.applyElementProperty) - only the
+    // animatable / host-driven *visual* View properties (opacity, hidden,
+    // cornerRadius, foregroundColor/Style, background, disabled, help); an
+    // unsupported name warns and is a no-op. Same-node by design, so it does not
+    // disturb input focus/scroll and a future `animation` transition can ease it.
+    // The override is recorded per id (cleared on removeElement).
+    setElementProperty(viewID, propertyName, value) {
+        const node = this.findNode(viewID);
+        if (!node) {
+            this.logger.log(`setElementProperty: no element with id ${viewID}`, "warning");
+            return;
+        }
+        if (applyElementProperty(node, propertyName, value, this.logger)) {
+            const overrides = this.propertyOverrides.get(viewID) ?? {};
+            overrides[propertyName] = value;
+            this.propertyOverrides.set(viewID, overrides);
+        }
     }
 
     // ---- Element selection API (Table / List) ----
@@ -379,5 +403,6 @@ export class ActionUIModel {
         this.states.delete(id);
         this.stateBindings.delete(id);
         this.containerBindings.delete(id);
+        this.propertyOverrides.delete(id);
     }
 }

@@ -190,6 +190,56 @@ export function markHandlesAction(node) {
     node.dataset.auiHandlesAction = "1";
 }
 
+// Per-property appliers for runtime `setElementProperty` mutations — each sets ONE
+// visual View property on an already-mounted node, bidirectionally (so a host can
+// turn a property on AND off). Deliberately surgical (not a re-run of
+// applyViewModifiers): re-running that additive pass would clobber styles a view's
+// own buildView set (e.g. a shape's fill) and double-bind its listeners. Covers the
+// animatable / host-driven visual properties; properties read inside an element's
+// buildView (Text `text`, Button `title`, ...) are not here — those are the value
+// bridge's job. Each applier resets to the CSS default when the value is absent.
+const PROPERTY_APPLIERS = {
+    opacity: (node, value) => { node.style.opacity = typeof value === "number" ? String(value) : ""; },
+    hidden: (node, value) => { node.style.display = value === true ? "none" : ""; },
+    cornerRadius: (node, value) => {
+        if (typeof value === "number") {
+            node.style.borderRadius = `${value}px`;
+            node.style.overflow = "hidden";
+        } else {
+            node.style.borderRadius = "";
+            node.style.overflow = "";
+        }
+    },
+    help: (node, value) => { node.title = typeof value === "string" ? value : ""; },
+    disabled: (node, value) => {
+        const on = value === true;
+        node.classList.toggle("aui-disabled", on);
+        if ("disabled" in node) node.disabled = on;
+        const control = node.querySelector?.("button, input, textarea, select");
+        if (control) control.disabled = on;
+    },
+    foregroundColor: (node, value, logger) => { node.style.color = resolveColor(value, logger) ?? ""; },
+    background: (node, value, logger) => { node.style.backgroundColor = resolveColor(value, logger) ?? ""; },
+};
+// `foregroundStyle` is the canonical name; `foregroundColor` is its alias - both set color.
+PROPERTY_APPLIERS.foregroundStyle = PROPERTY_APPLIERS.foregroundColor;
+
+// Applies one runtime property mutation to [node]. Returns true if [name] is a
+// host-settable visual property (and was applied), false (with a warning) otherwise.
+export function applyElementProperty(node, name, value, logger) {
+    const applier = PROPERTY_APPLIERS[name];
+    if (!applier) {
+        logger.log(
+            `setElementProperty: '${name}' is not a host-settable visual property on web; ignored ` +
+            `(supported: ${Object.keys(PROPERTY_APPLIERS).join(", ")}).`,
+            "warning",
+        );
+        return false;
+    }
+    applier(node, value, logger);
+    return true;
+}
+
 export function applyViewModifiers(node, element, properties, ctx) {
     const { logger } = ctx;
 

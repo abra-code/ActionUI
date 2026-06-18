@@ -180,6 +180,15 @@ export class Window {
     getState(viewID, key)        { return this.model.getElementState(viewID, key); }
     setState(viewID, key, value) { this.model.setElementState(viewID, key, value); }
 
+    // Property bridge — runtime mutation of a visual View property (same name as
+    // the Swift/Kotlin setElementProperty). Web has no reactive re-render, so this
+    // mutates the live node directly; it covers the host-driven visual properties
+    // (opacity, hidden, cornerRadius, foregroundColor/Style, background, disabled,
+    // help). See ActionUIModel.setElementProperty / ModifierResolver.applyElementProperty.
+    setElementProperty(viewID, propertyName, value) {
+        this.model.setElementProperty(viewID, propertyName, value);
+    }
+
     // Rows bridge — the data backing collection elements (Table now; List's
     // itemType/template modes next). Rows live in the `content` state as a
     // [[String]] (the Apple states["content"] contract), so these are sugar over
