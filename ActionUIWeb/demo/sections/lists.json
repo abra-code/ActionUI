@@ -2,8 +2,8 @@
   "type": "VStack",
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
-    { "type": "Text", "properties": { "text": "Collections", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Rows for the data-driven collections are pushed from app.js once this section loads (viewDidLoadActionID).", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "Lists", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "List in all three modes plus a data-driven grid. Rows for the data-driven collections are pushed from app.js once this section loads (viewDidLoadActionID).", "foregroundColor": "secondary" } },
     { "type": "Divider" },
     { "type": "Text", "properties": { "text": "List (selectable children; a Button row keeps its own action):", "foregroundColor": "secondary", "font": "callout" } },
     {
@@ -79,69 +79,6 @@
           { "type": "Text", "properties": { "text": "$1", "font": "footnote" } }
         ]
       }
-    },
-    { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Table (rows via the rows API; an Image column and per-row Button):", "foregroundColor": "secondary", "font": "callout" } },
-    {
-      "type": "Table",
-      "id": 100,
-      "properties": {
-        "columns": ["Name", "Kind", "Action"],
-        "columnTypes": [
-          { "viewType": "Text" },
-          { "viewType": "Image", "dataInterpretation": "systemName" },
-          { "viewType": "Button", "actionContext": "rowIndex", "actionID": "tableRowAction" }
-        ],
-        "widths": [150, 60, 80],
-        "actionID": "tableSelect",
-        "frame": { "maxWidth": "infinity" }
-      }
-    },
-    { "type": "Text", "properties": { "text": "Programmatic selection (silent: select by index, find by content in the Name column, or deselect):", "foregroundColor": "secondary", "font": "footnote" } },
-    {
-      "type": "HStack",
-      "properties": { "spacing": 8 },
-      "children": [
-        { "type": "Button", "properties": { "title": "Select #2", "buttonStyle": "bordered", "actionID": "tableSelectIndex" } },
-        { "type": "Button", "properties": { "title": "Find \"Notes.txt\"", "buttonStyle": "bordered", "actionID": "tableSelectContent" } },
-        { "type": "Button", "properties": { "title": "Deselect", "buttonStyle": "bordered", "actionID": "tableDeselect" } }
-      ]
-    },
-    { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Insertion API (add / remove views at runtime):", "foregroundColor": "secondary", "font": "callout" } },
-    { "type": "Text", "properties": { "text": "The buttons call win.insertElement / removeElement against the VStack id 200. Inserted views are live - addressable, styled, and counted - with no rebuild of the surrounding tree.", "foregroundColor": "secondary" } },
-    {
-      "type": "VStack",
-      "id": 200,
-      "properties": { "alignment": "leading", "spacing": 6, "padding": 10, "frame": { "maxWidth": "infinity" } },
-      "children": [
-        { "type": "Label", "id": 201, "properties": { "title": "Seed row A", "systemImage": "circle.fill" } },
-        { "type": "Label", "id": 202, "properties": { "title": "Seed row B", "systemImage": "circle.fill" } }
-      ]
-    },
-    {
-      "type": "HStack",
-      "properties": { "spacing": 8 },
-      "children": [
-        { "type": "Button", "properties": { "title": "Append", "systemImage": "plus", "buttonStyle": "bordered", "actionID": "insAppend" } },
-        { "type": "Button", "properties": { "title": "Prepend", "systemImage": "arrow.up", "buttonStyle": "bordered", "actionID": "insPrepend" } },
-        { "type": "Button", "properties": { "title": "Remove last", "systemImage": "minus", "buttonStyle": "bordered", "actionID": "insRemoveLast" } }
-      ]
-    },
-    { "type": "Text", "id": 210, "properties": { "text": "No insertions yet.", "foregroundColor": "secondary", "font": "footnote" } },
-    { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "insertRow into a Grid (id 220; rows have no id, so whole rows append/prepend):", "foregroundColor": "secondary", "font": "callout" } },
-    {
-      "type": "Grid",
-      "id": 220,
-      "properties": { "alignment": "leading", "horizontalSpacing": 16, "verticalSpacing": 4 },
-      "rows": [
-        [
-          { "type": "Text", "properties": { "text": "Name", "foregroundColor": "secondary" } },
-          { "type": "Text", "properties": { "text": "Note", "foregroundColor": "secondary" } }
-        ]
-      ]
-    },
-    { "type": "Button", "properties": { "title": "Add Grid row", "systemImage": "plus", "buttonStyle": "bordered", "actionID": "insAddRow" } }
+    }
   ]
 }

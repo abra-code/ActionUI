@@ -1,0 +1,51 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Forms", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "Form with Section, LabeledContent, GroupBox, DisclosureGroup:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Form",
+      "properties": { "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "Section",
+          "properties": { "header": "Account" },
+          "children": [
+            {
+              "type": "LabeledContent",
+              "properties": { "title": "Username" },
+              "children": [
+                { "type": "TextField", "id": 90, "properties": { "prompt": "name@example.com", "frame": { "width": 200 } } }
+              ]
+            },
+            {
+              "type": "LabeledContent",
+              "properties": { "title": "Plan" },
+              "children": [
+                { "type": "Text", "properties": { "text": "Pro", "font": "headline" } }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "GroupBox",
+          "properties": { "title": "Notifications" },
+          "children": [
+            { "type": "Toggle", "properties": { "title": "Email digests", "isOn": true, "style": "checkbox" } },
+            { "type": "Toggle", "properties": { "title": "Push alerts", "style": "checkbox" } }
+          ]
+        },
+        {
+          "type": "DisclosureGroup",
+          "id": 91,
+          "properties": { "title": "Advanced", "valueChangeActionID": "advancedToggled" },
+          "children": [
+            { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } },
+            { "type": "Button", "properties": { "title": "Reset defaults", "systemImage": "arrow.counterclockwise", "actionID": "reset" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

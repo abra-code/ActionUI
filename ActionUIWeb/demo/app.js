@@ -110,8 +110,15 @@ app.presentWindow(win, document.getElementById("root"));
 win.setState(1000, "selectedDestination", 1100);
 
 // NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
-// context — read the selected destination id from the split view's state.
-const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload", 1105: "Properties", 1106: "Animation", 1107: "Windows" };
+// context — read the selected destination id from the split view's state. The demo
+// is split into many small, feature-focused sections (one JSON file each) rather
+// than a few crammed ones; this maps each destination id to its label.
+const SECTION_NAMES = {
+    1100: "Overview", 1101: "Shapes & Layout", 1102: "Scrolling", 1103: "Text Input",
+    1104: "Controls", 1105: "Pickers", 1106: "Forms", 1107: "Lists", 1108: "Table",
+    1109: "Insertion", 1110: "Navigation", 1111: "Media & Web", 1112: "Presentation",
+    1113: "Properties", 1114: "Animation", 1115: "Upload", 1116: "Windows",
+};
 app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
@@ -278,9 +285,9 @@ function goSection(dest) {
     win.setString(20, 0, `Section: ${SECTION_NAMES[dest]}.`);
 }
 app.action("go.overview", () => goSection(1100));
-app.action("go.controls", () => goSection(1101));
-app.action("go.collections", () => goSection(1102));
-app.action("go.navigation", () => goSection(1103));
+app.action("go.controls", () => goSection(1104));
+app.action("go.lists", () => goSection(1107));
+app.action("go.navigation", () => goSection(1110));
 app.action("tools.report", () => win.setString(20, 0, "Running report..."));
 app.action("tools.clearLog", () => document.getElementById("aui-diag-clear").click());
 app.action("file.import", () => pick({ allowsMultiple: true }));
@@ -288,14 +295,9 @@ app.action("account.profile", () => win.setString(20, 0, "Account: Profile."));
 app.action("account.settings", () => win.setString(20, 0, "Account: Settings."));
 app.action("account.signOut", () => win.setString(20, 0, "Account: signed out."));
 
-// The Collections section is data-driven: once its JSON loads, its List/Table
+// The Lists section is data-driven: once its JSON loads, its List/LazyVGrid
 // bindings exist, so push their rows through the rows API (states["content"]).
-app.action("collectionsLoaded", () => {
-    win.setElementRows(100, [
-        ["Budget.xlsx", "tablecells", "Open"],
-        ["Photo.jpg", "photo", "Open"],
-        ["Notes.txt", "text.document", "Open"],
-    ]);
+app.action("listsLoaded", () => {
     win.setElementRows(45, [["Low"], ["Medium"], ["High"]]);
     win.setElementRows(55, [["Inbox", "tray"], ["Drafts", "text.document"], ["Sent", "paperplane"]]);
     // LazyVGrid template mode: one substituted instance per row, flowing into the grid.
@@ -303,6 +305,43 @@ app.action("collectionsLoaded", () => {
         ["Inbox", "tray"], ["Drafts", "text.document"], ["Sent", "paperplane"],
         ["Flagged", "flag"], ["Trash", "trash"], ["Archive", "archivebox"],
     ]);
+});
+
+// The Table section: a base dataset (enough rows to overflow the table's bounded
+// frame and show the vertical scroller), pushed once the section loads and reloaded
+// by "Load Data". "Append Row" grows it past the frame; "Clear" empties it. Mirrors
+// the Apple ActionUISwiftTestApp Table.json demo (load / append / clear).
+const TABLE_BASE_ROWS = [
+    ["Budget.xlsx", "tablecells", "Open"],
+    ["Photo.jpg", "photo", "Open"],
+    ["Notes.txt", "text.document", "Open"],
+    ["Slides.key", "rectangle.on.rectangle", "Open"],
+    ["Archive.zip", "archivebox", "Open"],
+    ["Soundtrack.m4a", "music.note", "Open"],
+    ["Trailer.mp4", "film", "Open"],
+    ["Projects", "folder", "Open"],
+];
+let tableAppendSeq = 0;
+app.action("tableLoaded", () => {
+    win.setElementRows(100, TABLE_BASE_ROWS);
+    // The static headerless table (id 108) - a design-time columnHeadersVisibility
+    // "hidden", so it just needs its rows pushed once.
+    win.setElementRows(108, [["Renderer", "DOM + CSS"], ["Rows", "data-driven"], ["Header", "hidden"]]);
+});
+app.action("tableLoad", () => {
+    tableAppendSeq = 0;
+    win.setElementRows(100, TABLE_BASE_ROWS);
+    win.setString(20, 0, `Loaded ${TABLE_BASE_ROWS.length} rows (scroll the table to see them all).`);
+});
+app.action("tableAppend", () => {
+    tableAppendSeq += 1;
+    win.appendElementRows(100, [[`Item ${tableAppendSeq}.dat`, "text.document", "Open"]]);
+    win.setString(20, 0, `Appended a row - ${win.getElementRows(100).length} total (the table grows and scrolls).`);
+});
+app.action("tableClear", () => {
+    tableAppendSeq = 0;
+    win.clearElementRows(100);
+    win.setString(20, 0, "Table cleared.");
 });
 
 // The Upload section: drag-and-drop + file panels, both feeding a (mock) upload.

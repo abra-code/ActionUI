@@ -5,7 +5,7 @@
     "children": [
       { "type": "Button", "properties": { "title": "Overview", "actionID": "go.overview", "systemImage": "house" } },
       { "type": "Button", "properties": { "title": "Controls", "actionID": "go.controls", "systemImage": "slider.horizontal.3" } },
-      { "type": "Button", "properties": { "title": "Collections", "actionID": "go.collections", "systemImage": "square.grid.2x2" } },
+      { "type": "Button", "properties": { "title": "Lists", "actionID": "go.lists", "systemImage": "list.bullet" } },
       { "type": "Button", "properties": { "title": "Navigation", "actionID": "go.navigation", "systemImage": "map" } }
     ]
   },

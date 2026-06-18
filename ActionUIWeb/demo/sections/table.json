@@ -1,0 +1,55 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Table", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "A real <table> (the web is a desktop target, so it follows macOS rather than the Android no-op). The widest-ideal column auto-sizes to fill; the visible separator on each header's right edge is a drag handle - grab it to resize that column. The table sits in its own scroller (bounded here to maxHeight 200), so adding rows or widening columns past the frame scrolls instead of clipping.", "foregroundColor": "secondary" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Load Data", "systemImage": "tray.and.arrow.down", "buttonStyle": "bordered", "actionID": "tableLoad" } },
+        { "type": "Button", "properties": { "title": "Append Row", "systemImage": "plus", "buttonStyle": "bordered", "actionID": "tableAppend" } },
+        { "type": "Button", "properties": { "title": "Clear", "systemImage": "trash", "buttonStyle": "bordered", "actionID": "tableClear" } }
+      ]
+    },
+    {
+      "type": "Table",
+      "id": 100,
+      "properties": {
+        "columns": ["Name", "Kind", "Action"],
+        "columnTypes": [
+          { "viewType": "Text" },
+          { "viewType": "Image", "dataInterpretation": "systemName" },
+          { "viewType": "Button", "actionContext": "rowIndex", "actionID": "tableRowAction" }
+        ],
+        "widths": [200, 60, 80],
+        "minWidths": [90, 44, 64],
+        "actionID": "tableSelect",
+        "frame": { "maxWidth": 460, "maxHeight": 200 }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Programmatic selection (silent: select by index, find by content in the Name column, or deselect):", "foregroundColor": "secondary", "font": "footnote" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Select #2", "buttonStyle": "bordered", "actionID": "tableSelectIndex" } },
+        { "type": "Button", "properties": { "title": "Find \"Notes.txt\"", "buttonStyle": "bordered", "actionID": "tableSelectContent" } },
+        { "type": "Button", "properties": { "title": "Deselect", "buttonStyle": "bordered", "actionID": "tableDeselect" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Headerless table (columnHeadersVisibility: \"hidden\") - a static, design-time choice (as on Apple/Android): the header row is suppressed, so there is nothing to grab and the columns are not resizable.", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Table",
+      "id": 108,
+      "properties": {
+        "columns": ["Key", "Value"],
+        "columnHeadersVisibility": "hidden",
+        "widths": [110, 160],
+        "frame": { "maxWidth": 320 }
+      }
+    }
+  ]
+}
