@@ -1330,3 +1330,75 @@
 .aui-dialog-button:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
 .aui-dialog-button-default:hover { background: color-mix(in srgb, var(--aui-color-accent) 88%, #000); }
 .aui-dialog-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* ---- Scenes: window-level toast (snackbar) ---- */
+/* A transient, non-modal banner (Scenes/ToastHost.js). NOT a <dialog>: it must not
+   steal focus or block, so it is a positioned <div> and therefore sits BELOW any open
+   top-layer <dialog>/modal (acceptable). Placement is a CSS concern: top-pinned by
+   default (Apple's transient-banner idiom), and .aui-toast-bottom flips it to the
+   bottom Material placement (added by JS in an Android browser). A dark card on both
+   schemes, matching Swift's Color(white: 0.15) and the dark Material snackbar. The
+   -50% X-translate is kept in every transform state so the toast never jumps sideways
+   as it animates. */
+.aui-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(520px, calc(100vw - 32px));
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #262626;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    font-family: var(--aui-font);
+    font-size: 13px;
+    /* Hidden (initial + exit) state: shifted up and transparent. */
+    opacity: 0;
+    transform: translate(-50%, -12px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.aui-toast.is-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+/* Bottom (Material) placement: slides up from below the fold. */
+.aui-toast-bottom {
+    top: auto;
+    bottom: 16px;
+    transform: translate(-50%, 12px);
+}
+.aui-toast-bottom.is-visible { transform: translate(-50%, 0); }
+.aui-toast-message {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.aui-toast-action {
+    flex: 0 0 auto;
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--aui-color-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 6px;
+}
+.aui-toast-action:hover { background: rgba(255, 255, 255, 0.12); }
+.aui-toast-action:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* Reduced motion: fade only (no slide), kept fast but a real opacity transition so
+   transitionend still fires (the JS keeps a fallback timeout regardless). */
+@media (prefers-reduced-motion: reduce) {
+    .aui-toast,
+    .aui-toast-bottom {
+        transform: translate(-50%, 0);
+        transition: opacity 0.12s ease;
+    }
+    .aui-toast.is-visible,
+    .aui-toast-bottom.is-visible { transform: translate(-50%, 0); }
+}

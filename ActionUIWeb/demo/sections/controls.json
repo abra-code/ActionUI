@@ -33,6 +33,16 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Window-level toast (a transient non-modal snackbar; rapid posts queue and show one at a time):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Show Toast", "systemImage": "bell", "buttonStyle": "bordered", "actionID": "showToast" } },
+        { "type": "Button", "properties": { "title": "Toast with Undo", "systemImage": "arrow.uturn.backward", "buttonStyle": "bordered", "actionID": "showToastUndo" } }
+      ]
+    },
+    { "type": "Divider" },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },

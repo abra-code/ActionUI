@@ -17,6 +17,7 @@ import { PlatformFilter } from "./Common/PlatformFilter.js";
 import { InsertPosition } from "./Common/ActionUIInsertion.js";
 import { presentDialog, dismissActiveDialog } from "./Scenes/DialogHost.js";
 import { presentModal, dismissActiveModal, ModalStyle } from "./Scenes/ModalHost.js";
+import { presentToast, dismissActiveToast } from "./Scenes/ToastHost.js";
 import { parseMenuBar, buildAppShell } from "./Scenes/MenuBar.js";
 
 // Register all built-in view types (side-effect imports).
@@ -251,6 +252,29 @@ export class Window {
         }, this.model, this.logger);
     }
     dismissModal() { dismissActiveModal(this.rootNode, this.model); }
+
+    // Window-level toast (snackbar) - same names/signature as the Node.js adapter's
+    // Window. A transient, auto-dismissing non-modal banner; if one is already visible
+    // the new one is queued and shown after it dismisses. Pass `actionTitle` and
+    // `actionId` TOGETHER to add one inline action button (e.g. "Undo") that fires
+    // `actionId` (viewID 0, no context) and then dismisses; supplying only one yields a
+    // message-only toast. Placement (top default, bottom on Android) is a CSS concern.
+    // See Scenes/ToastHost.js.
+    presentToast(message, duration = 4.0, actionTitle = null, actionId = null) {
+        if (!this.rootNode) {
+            this.logger.log("presentToast: window not presented yet; call present() first", "error");
+            return;
+        }
+        const action = (actionTitle != null && actionId != null)
+            ? { title: String(actionTitle), actionID: String(actionId) }
+            : undefined;
+        presentToast(this.rootNode, {
+            message: message == null ? "" : String(message),
+            duration,
+            action,
+        }, this.model, this.logger);
+    }
+    dismissToast() { dismissActiveToast(this.rootNode, this.model, this.logger); }
 
     _presentDialog(style, title, message, buttons) {
         if (!this.rootNode) {

@@ -378,6 +378,14 @@ app.action("showConfirm", () => {
 });
 app.action("confirmDelete", () => win.setString(20, 0, "File deleted."));
 
+// Window-level toast: a transient non-modal snackbar (Scenes/ToastHost.js). The
+// signature mirrors the Node adapter: presentToast(message, duration, actionTitle,
+// actionId). Pass actionTitle + actionId together for one inline action button that
+// fires its actionID (then dismisses); rapid posts queue and show one at a time.
+app.action("showToast", () => win.presentToast("All tasks complete"));
+app.action("showToastUndo", () => win.presentToast("Completed evening tasks", 5.0, "Undo", "toastUndo"));
+app.action("toastUndo", () => win.setString(20, 0, "Undo tapped."));
+
 // Element-level presentation modifiers (Overview): a 'popover'/'sheet'/
 // 'fullScreenCover' subview opens off the carrier's state. The dismiss actions
 // fire on any close; the "Done"/"Close" buttons close programmatically via
