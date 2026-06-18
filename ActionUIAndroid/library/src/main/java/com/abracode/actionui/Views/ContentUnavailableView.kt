@@ -18,6 +18,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
+import com.abracode.actionui.Helpers.ChromeSymbolIcon
 import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.selectLabelIcon
@@ -85,7 +86,8 @@ object ContentUnavailableView : ActionUIViewConstruction {
             description = props?.stringProperty("description")
         }
 
-        // Hero icon (custom variant only; the search variant has no icon on Apple).
+        // Hero icon. The search variant shows the built-in magnifier (Apple's
+        // ContentUnavailableView.search), the custom variant its authored symbol.
         val imageScale = props?.stringProperty("imageScale")
         val imageRegistry = LocalActionUIImageRegistry.current
         val iconSource = remember(props, imageRegistry) {
@@ -100,15 +102,24 @@ object ContentUnavailableView : ActionUIViewConstruction {
             // Large secondary symbol above the message (sized for a hero, not a font run).
             // accessibilityLabel rides [modifier] as semantics via the shared
             // pipeline; a glyph-level copy would be announced twice.
-            LabelIcon(
-                source = iconSource,
-                imageScale = imageScale,
-                contentDescription = null,
-                elementName = "ContentUnavailableView",
-                defaultSizeSp = HERO_ICON_SIZE_SP,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                logger = logger,
-            )
+            if (isSearch) {
+                ChromeSymbolIcon(
+                    name = "search",
+                    contentDescription = null,
+                    sizeSp = HERO_ICON_SIZE_SP,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LabelIcon(
+                    source = iconSource,
+                    imageScale = imageScale,
+                    contentDescription = null,
+                    elementName = "ContentUnavailableView",
+                    defaultSizeSp = HERO_ICON_SIZE_SP,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    logger = logger,
+                )
+            }
             M3Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
             if (!description.isNullOrEmpty()) {
                 M3Text(

@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.ChromeSymbolIcon
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.LocalActionUITint
@@ -41,8 +42,8 @@ import java.util.Locale
  * inventory once pencilled in is unnecessary.)
  *
  * Compose has no native stepper, so it is composed from a label and two
- * [OutlinedButton]s ("-" / "+") - no icon assets, keeping it off the
- * image/icon-resolution track. Property mapping:
+ * [OutlinedButton]s carrying the Material Symbols `remove` / `add` glyphs (both
+ * from the app's icon font, so the pair matches). Property mapping:
  *
  *   * `value` - initial value (Double, defaults to `0.0`), seeded into the
  *     element's [com.abracode.actionui.Common.ViewModel] at populate time.
@@ -120,16 +121,19 @@ object Stepper : ActionUIViewConstruction {
                 onClick = { commit(steppedValue(current, config.step, increment = false, range = config.range)) },
                 enabled = canDecrement,
                 colors = buttonColors,
-            ) { M3Text("-") }
+            ) { ChromeSymbolIcon("remove", contentDescription = "Decrement", sizeSp = STEPPER_GLYPH_SIZE_SP) }
             Spacer(Modifier.width(4.dp))
             OutlinedButton(
                 onClick = { commit(steppedValue(current, config.step, increment = true, range = config.range)) },
                 enabled = canIncrement,
                 colors = buttonColors,
-            ) { M3Text("+") }
+            ) { ChromeSymbolIcon("add", contentDescription = "Increment", sizeSp = STEPPER_GLYPH_SIZE_SP) }
         }
     }
 }
+
+/** Glyph size inside the +/- buttons; matches Material's `ButtonDefaults.IconSize` (18dp). */
+private const val STEPPER_GLYPH_SIZE_SP = 18f
 
 /** Resolved, validated stepper bounds (optional) and step size. */
 internal data class StepperConfig(val range: Pair<Double, Double>?, val step: Double)

@@ -33,10 +33,6 @@ dependencies {
     api(libs.androidx.compose.ui)
     api(libs.androidx.compose.ui.graphics)
     api(libs.androidx.compose.material3)
-    // The curated core Material icon set (first-party AndroidX, ~40 common
-    // glyphs). material3 no longer pulls it transitively, so declare it; used by
-    // SearchableHelper's field (Search / Clear).
-    implementation(libs.androidx.compose.material.icons.core)
     api(libs.androidx.compose.material3.adaptive)
     api(libs.androidx.compose.material3.adaptive.layout)
     api(libs.androidx.compose.material3.adaptive.navigation)

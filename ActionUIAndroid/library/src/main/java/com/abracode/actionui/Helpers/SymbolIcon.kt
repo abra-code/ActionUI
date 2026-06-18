@@ -146,6 +146,41 @@ internal fun MaterialNameIcon(
 }
 
 /**
+ * Draws a fixed control-chrome glyph (a search magnifier, a list-row chevron, a
+ * stepper +/-, a disclosure arrow) from the bundled Material Symbols Rounded font
+ * - the *same* first-party icon language every author-facing icon uses, so the
+ * chrome matches the content. [name] is a Material Symbol name (e.g. `search`,
+ * `close`, `chevron_right`, `keyboard_arrow_down`, `add`, `remove`); the axes are
+ * the app defaults so weight/fill read like the rest of the UI. Sizes in sp like
+ * an inline glyph, tints with [LocalContentColor]; apply rotation/RTL choice at
+ * the call site via [modifier] / the [name]. Draws nothing if the name is unknown
+ * (the bundled font carries the common chrome symbols).
+ */
+@Composable
+internal fun ChromeSymbolIcon(
+    name: String,
+    contentDescription: String?,
+    sizeSp: Float = CHROME_ICON_SIZE_SP,
+    tint: Color = LocalContentColor.current,
+    modifier: Modifier = Modifier,
+) {
+    MaterialNameIcon(
+        name = name,
+        weight = MATERIAL_WEIGHT_DEFAULT,
+        fill = MATERIAL_FILL_DEFAULT,
+        grade = MATERIAL_GRADE_DEFAULT,
+        explicitSizeSp = sizeSp,
+        imageScale = null,
+        contentDescription = contentDescription,
+        tint = tint,
+        modifier = modifier,
+    )
+}
+
+/** Standard Material control-icon size; matches the 24dp `Icon` slot convention. */
+internal const val CHROME_ICON_SIZE_SP = 24f
+
+/**
  * Draws the leading / standalone icon for an image-label control (`Label`,
  * `Button`, `NavigationLink`, `Tab`, `ContentUnavailableView`) from an
  * already-picked [source] ([selectLabelIcon]). The single place the whole

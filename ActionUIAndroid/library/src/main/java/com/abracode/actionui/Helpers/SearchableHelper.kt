@@ -3,11 +3,7 @@ package com.abracode.actionui.Helpers
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
@@ -55,10 +51,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * **Native.** The field is a Material3 filled [TextField] dressed as the Material
  * search field: the first-party [SearchBarDefaults.inputFieldShape] (the stadium
  * pill), a tonal `surfaceContainerHigh` container with no underline, a leading
- * magnifier ([Icons.Filled.Search]) and, while the query is non-empty, a trailing
- * clear button ([Icons.Filled.Clear]) (the glyphs are the first-party
- * `material-icons-core` set). It is deliberately *not* the Material3 `SearchBar`:
- * that component expands on focus into a separate full-screen / docked surface for
+ * magnifier (`search`) and, while the query is non-empty, a trailing clear button
+ * (`close`). The glyphs come from the bundled Material Symbols Rounded font via
+ * [ChromeSymbolIcon] - the same icon language every other ActionUI icon uses, so
+ * the chrome matches the content (rather than the visually distinct classic
+ * Material Icons set). It is deliberately *not* the Material3 `SearchBar`: that
+ * component expands on focus into a separate full-screen / docked surface for
  * search suggestions, whereas `searchable` filters the very list below it (Apple's
  * `.searchable` semantics) - so a persistent inline filter field is the right
  * Material idiom here, wearing the SearchBar's own shape and colors.
@@ -111,11 +109,11 @@ private fun SearchField(config: SearchableConfig, elementID: Int) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
         singleLine = true,
         placeholder = config.prompt?.let { { M3Text(it) } },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        leadingIcon = { ChromeSymbolIcon("search", contentDescription = null) },
         trailingIcon = if (query.isNotEmpty()) {
             {
                 IconButton(onClick = { update("") }) {
-                    Icon(Icons.Filled.Clear, contentDescription = "Clear search")
+                    ChromeSymbolIcon("close", contentDescription = "Clear search")
                 }
             }
         } else {
