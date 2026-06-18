@@ -1159,6 +1159,46 @@ class Window:
         """
         _actionui.dismiss_dialog(self.uuid)
 
+    def present_toast(self,
+                      message: str,
+                      duration: float = 4.0,
+                      action_title: Optional[str] = None,
+                      action_id: Optional[str] = None):
+        """Present a transient, auto-dismissing toast (snackbar).
+
+        The toast is pinned above the window content and dismisses itself
+        after *duration* seconds.  If a toast is already visible, the new one
+        is queued and shown after the current dismisses (rapid posts coalesce
+        into an ordered sequence).
+
+        Args:
+            message:      The toast text.
+            duration:     Seconds before auto-dismiss (default ``4.0``).
+            action_title: Optional inline action button title (e.g. ``"Undo"``).
+                          Supply together with *action_id*.
+            action_id:    Optional actionID fired when the inline action button
+                          is tapped (then the toast dismisses).
+
+        Example::
+
+            window.present_toast("All changes synced")
+
+            window.present_toast(
+                "Logged Evening meds",
+                action_title="Undo",
+                action_id="task.undo",
+            )
+        """
+        _actionui.present_toast(self.uuid, message, duration, action_title, action_id)
+
+    def dismiss_toast(self):
+        """Dismiss the current toast, showing the next queued one if any.
+
+        The auto-dismiss timer and the inline action button call this for you;
+        use it only to dismiss a toast programmatically.
+        """
+        _actionui.dismiss_toast(self.uuid)
+
     # ------------------------------------------------------------------
     # Properties
     # ------------------------------------------------------------------

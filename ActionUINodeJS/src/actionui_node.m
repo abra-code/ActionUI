@@ -1137,6 +1137,52 @@ static napi_value node_dismiss_dialog(napi_env env, napi_callback_info info) {
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
+/* presentToast(windowUUID, message[, duration[, actionTitle[, actionID]]]) -> true
+   duration is a number (seconds, default 4.0); actionTitle/actionID are optional
+   strings supplied together to add one inline action button. */
+static napi_value node_present_toast(napi_env env, napi_callback_info info) {
+    size_t argc = 5; napi_value argv[5];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128], message[4096]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid,    sizeof(uuid),    &len);
+    napi_get_value_string_utf8(env, argv[1], message, sizeof(message), &len);
+
+    double duration = 4.0;
+    if (argc >= 3) {
+        napi_valuetype vtype; napi_typeof(env, argv[2], &vtype);
+        if (vtype == napi_number) {
+            napi_get_value_double(env, argv[2], &duration);
+        }
+    }
+    char actionTitle[512]; const char* actionTitle_ptr = NULL;
+    if (argc >= 4) {
+        napi_valuetype vtype; napi_typeof(env, argv[3], &vtype);
+        if (vtype == napi_string) {
+            napi_get_value_string_utf8(env, argv[3], actionTitle, sizeof(actionTitle), &len);
+            actionTitle_ptr = actionTitle;
+        }
+    }
+    char actionID[512]; const char* actionID_ptr = NULL;
+    if (argc >= 5) {
+        napi_valuetype vtype; napi_typeof(env, argv[4], &vtype);
+        if (vtype == napi_string) {
+            napi_get_value_string_utf8(env, argv[4], actionID, sizeof(actionID), &len);
+            actionID_ptr = actionID;
+        }
+    }
+    (void)actionUIPresentToast(uuid, message, duration, actionTitle_ptr, actionID_ptr);
+    napi_value t; napi_get_boolean(env, true, &t); return t;
+}
+
+static napi_value node_dismiss_toast(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    actionUIDismissToast(uuid);
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
 // MARK: - N-API: UI Loading
 
 static napi_value node_load_hosting_controller(napi_env env, napi_callback_info info) {
@@ -1696,6 +1742,8 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "presentAlert",             node_present_alert);
     EXPORT_FN(exports, "presentConfirmationDialog",node_present_confirmation_dialog);
     EXPORT_FN(exports, "dismissDialog",            node_dismiss_dialog);
+    EXPORT_FN(exports, "presentToast",             node_present_toast);
+    EXPORT_FN(exports, "dismissToast",             node_dismiss_toast);
 
     /* UI loading */
     EXPORT_FN(exports, "loadHostingController",    node_load_hosting_controller);

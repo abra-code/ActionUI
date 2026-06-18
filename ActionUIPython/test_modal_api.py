@@ -3,10 +3,10 @@
 Smoke tests for the modal/alert/dialog Python bridge.
 
 Exercises present_modal, dismiss_modal, present_alert,
-present_confirmation_dialog, and dismiss_dialog at the
-Python / C binding layer without starting a real NSApplication
-run loop.  No UI is displayed — these tests verify API surface,
-type correctness, serialisation, and that unknown UUIDs do not crash.
+present_confirmation_dialog, dismiss_dialog, present_toast, and
+dismiss_toast at the Python / C binding layer without starting a real
+NSApplication run loop.  No UI is displayed — these tests verify API
+surface, type correctness, serialisation, and that unknown UUIDs do not crash.
 """
 
 import sys
@@ -43,6 +43,8 @@ def test_c_api_surface():
         "present_alert",
         "present_confirmation_dialog",
         "dismiss_dialog",
+        "present_toast",
+        "dismiss_toast",
     ]
 
     for name in expected:
@@ -130,7 +132,7 @@ def test_dialog_button_construction():
 
 
 def test_window_modal_api_exists():
-    """Window must expose all five modal methods with the expected signatures."""
+    """Window must expose all modal/toast methods with the expected signatures."""
     print("\n=== Window modal API surface ===")
 
     # Create an Application (may already exist)
@@ -146,7 +148,7 @@ def test_window_modal_api_exists():
 
     for method_name in ("present_modal", "dismiss_modal",
                         "present_alert", "present_confirmation_dialog",
-                        "dismiss_dialog"):
+                        "dismiss_dialog", "present_toast", "dismiss_toast"):
         check(f"Window has method '{method_name}'",
               callable(getattr(W, method_name, None)))
 
@@ -172,6 +174,14 @@ def test_window_modal_api_exists():
     check("present_confirmation_dialog has 'title' param",   "title" in params)
     check("present_confirmation_dialog has 'message' param", "message" in params)
     check("present_confirmation_dialog has 'buttons' param", "buttons" in params)
+
+    # Verify parameter names for present_toast
+    sig = inspect.signature(W.present_toast)
+    params = list(sig.parameters.keys())
+    check("present_toast has 'message' param",      "message" in params)
+    check("present_toast has 'duration' param",     "duration" in params)
+    check("present_toast has 'action_title' param", "action_title" in params)
+    check("present_toast has 'action_id' param",    "action_id" in params)
 
 
 _FAKE_UUID = "00000000-0000-0000-0000-000000000000"
@@ -265,6 +275,36 @@ def test_dismiss_dialog_unknown_uuid():
         check(f"dismiss_dialog(unknown UUID) raised {type(e).__name__}: {e}", False)
 
 
+def test_present_toast_variants():
+    """present_toast must not crash for any combination of optional args."""
+    print("\n=== present_toast: variant signatures (unknown UUID) ===")
+
+    # message only (defaults: duration=4.0, no inline action)
+    try:
+        _actionui.present_toast(_FAKE_UUID, "All changes synced", 4.0, None, None)
+        check("present_toast(message only) does not crash", True)
+    except Exception as e:
+        check(f"present_toast(message only) raised {type(e).__name__}: {e}", False)
+
+    # custom duration + inline action (title + actionID)
+    try:
+        _actionui.present_toast(_FAKE_UUID, "Logged Evening meds", 5.0, "Undo", "task.undo")
+        check("present_toast(duration + inline action) does not crash", True)
+    except Exception as e:
+        check(f"present_toast(full) raised {type(e).__name__}: {e}", False)
+
+
+def test_dismiss_toast_unknown_uuid():
+    """dismiss_toast on an unknown UUID must not crash."""
+    print("\n=== dismiss_toast: unknown UUID does not crash ===")
+
+    try:
+        _actionui.dismiss_toast(_FAKE_UUID)
+        check("dismiss_toast(unknown UUID) does not crash", True)
+    except Exception as e:
+        check(f"dismiss_toast(unknown UUID) raised {type(e).__name__}: {e}", False)
+
+
 def test_window_present_alert_none_buttons():
     """Window.present_alert with buttons=None must not crash on unknown UUID."""
     print("\n=== Window.present_alert / present_confirmation_dialog: None buttons ===")
@@ -309,6 +349,18 @@ def test_window_present_alert_none_buttons():
     except Exception as e:
         check(f"Window.dismiss_dialog raised {type(e).__name__}: {e}", False)
 
+    try:
+        win.present_toast("Saved", action_title="Undo", action_id="task.undo")
+        check("Window.present_toast(with inline action) does not crash", True)
+    except Exception as e:
+        check(f"Window.present_toast raised {type(e).__name__}: {e}", False)
+
+    try:
+        win.dismiss_toast()
+        check("Window.dismiss_toast(unknown UUID) does not crash", True)
+    except Exception as e:
+        check(f"Window.dismiss_toast raised {type(e).__name__}: {e}", False)
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -332,6 +384,8 @@ def main():
     test_present_alert_variants()
     test_present_confirmation_dialog_variants()
     test_dismiss_dialog_unknown_uuid()
+    test_present_toast_variants()
+    test_dismiss_toast_unknown_uuid()
     test_window_present_alert_none_buttons()
 
     print()

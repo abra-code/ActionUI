@@ -1,0 +1,64 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 20.0,
+    "alignment": "center",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Toast / Snackbar",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Window-level (Tier 2): a transient, auto-dismissing message pinned above content. Triggered programmatically via ActionUISwift.presentToast from any action handler. Auto-dismisses, announces under VoiceOver, and queues rapid posts.",
+        "font": "subheadline",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 1,
+      "properties": {
+        "title": "Show Toast",
+        "buttonStyle": "bordered",
+        "actionID": "demo.showToast"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 2,
+      "properties": {
+        "title": "Show Toast with Undo",
+        "buttonStyle": "bordered",
+        "actionID": "demo.showToastUndo"
+      }
+    },
+    {
+      "type": "Button",
+      "id": 3,
+      "properties": {
+        "title": "Post 3 Quickly (queue)",
+        "buttonStyle": "borderedProminent",
+        "actionID": "demo.showToastQueue"
+      }
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": {
+        "text": "Tap a button to post a toast. Undo feedback appears here.",
+        "font": "footnote",
+        "foregroundStyle": "secondary"
+      }
+    }
+  ]
+}

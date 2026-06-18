@@ -1401,6 +1401,47 @@ public func actionUIDismissDialog(_ windowUUID: UnsafePointer<CChar>) {
     }
 }
 
+/// Presents a transient, auto-dismissing toast (snackbar) pinned above the window content.
+/// If a toast is already visible the new one is queued and shown after it dismisses.
+/// - Parameters:
+///   - windowUUID: Null-terminated UTF-8 window identifier.
+///   - message: Null-terminated UTF-8 toast text.
+///   - duration: Seconds before auto-dismiss; pass 4.0 for the default.
+///   - actionTitle: Optional null-terminated UTF-8 inline action button title (e.g. "Undo"); pass NULL to omit. Supply together with actionID.
+///   - actionID: Optional null-terminated UTF-8 actionID fired when the inline action button is tapped; pass NULL to omit.
+/// - Returns: `true` on success.
+@_cdecl("actionUIPresentToast")
+public func actionUIPresentToast(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ message: UnsafePointer<CChar>,
+    _ duration: Double,
+    _ actionTitle: UnsafePointer<CChar>?,
+    _ actionID: UnsafePointer<CChar>?
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID  = String(cString: windowUUID)
+    let swiftMessage     = String(cString: message)
+    let swiftActionTitle = actionTitle.map { String(cString: $0) }
+    let swiftActionID    = actionID.map { String(cString: $0) }
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.presentToast(windowUUID: swiftWindowUUID, message: swiftMessage, duration: duration, actionTitle: swiftActionTitle, actionID: swiftActionID)
+    }
+    return true
+}
+
+/// Dismisses the current toast for the given window, showing the next queued toast if any.
+/// The auto-dismiss timer and the inline action button call this for you.
+/// - Parameter windowUUID: Null-terminated UTF-8 window identifier.
+@_cdecl("actionUIDismissToast")
+public func actionUIDismissToast(_ windowUUID: UnsafePointer<CChar>) {
+    let swiftWindowUUID = String(cString: windowUUID)
+    runOnMainActorAsync {
+        ActionUIModel.shared.dismissToast(windowUUID: swiftWindowUUID)
+    }
+}
+
 // MARK: - Memory Management
 
 @_cdecl("actionUIFreeString")

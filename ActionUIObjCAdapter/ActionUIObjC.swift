@@ -486,6 +486,24 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         model.dismissDialog(windowUUID: windowUUID as String)
     }
 
+    /// Presents a transient, auto-dismissing toast (snackbar) pinned above the window content.
+    /// If a toast is already visible the new one is queued and shown after it dismisses.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - message: The toast text.
+    ///   - duration: Seconds before auto-dismiss (pass 4.0 for the default).
+    ///   - actionTitle: Optional inline action button title (e.g. "Undo"). Pass nil to omit; supply together with actionID.
+    ///   - actionID: Optional actionID fired when the inline action button is tapped. Pass nil to omit.
+    @MainActor @objc public class func presentToastWithWindowUUID(_ windowUUID: NSString, message: NSString, duration: TimeInterval, actionTitle: NSString?, actionID: NSString?) {
+        model.presentToast(windowUUID: windowUUID as String, message: message as String, duration: duration, actionTitle: actionTitle as String?, actionID: actionID as String?)
+    }
+
+    /// Dismisses the current toast for the given window, showing the next queued toast if any.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor @objc public class func dismissToastWithWindowUUID(_ windowUUID: NSString) {
+        model.dismissToast(windowUUID: windowUUID as String)
+    }
+
     /// Converts an NSArray of ActionUIObjCDialogButton to [ActionUI.DialogButton]. Returns nil if array is nil or empty.
     private class func dialogButtons(from array: NSArray?) -> [ActionUI.DialogButton]? {
         guard let array, array.count > 0 else { return nil }

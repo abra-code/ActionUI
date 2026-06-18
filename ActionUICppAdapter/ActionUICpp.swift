@@ -360,6 +360,24 @@ public struct ActionUICpp {
         model.dismissDialog(windowUUID: windowUUID)
     }
 
+    /// Presents a transient, auto-dismissing toast (snackbar) pinned above the window content.
+    /// If a toast is already visible the new one is queued and shown after it dismisses.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - message: The toast text.
+    ///   - duration: Seconds before auto-dismiss (default 4.0).
+    ///   - actionTitle: Optional inline action button title (e.g. "Undo"); pass together with actionID.
+    ///   - actionID: Optional actionID fired when the inline action button is tapped.
+    @MainActor public static func presentToast(windowUUID: String, message: String, duration: TimeInterval = 4.0, actionTitle: String? = nil, actionID: String? = nil) {
+        model.presentToast(windowUUID: windowUUID, message: message, duration: duration, actionTitle: actionTitle, actionID: actionID)
+    }
+
+    /// Dismisses the current toast for the given window, showing the next queued toast if any.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    @MainActor public static func dismissToast(windowUUID: String) {
+        model.dismissToast(windowUUID: windowUUID)
+    }
+
     #if canImport(AppKit)
     /// Loads an NSView hosting a SwiftUI view from a JSON or plist description at the given URL (local or remote).
     /// Available only on macOS.

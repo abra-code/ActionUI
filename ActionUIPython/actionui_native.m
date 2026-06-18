@@ -984,6 +984,35 @@ static PyObject* py_dismiss_dialog(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+/*
+ * present_toast(windowUUID, message[, duration[, actionTitle[, actionID]]])
+ *   duration   : float    — seconds before auto-dismiss (default 4.0)
+ *   actionTitle: str|None  — optional inline action button title (e.g. "Undo");
+ *                            supply together with actionID
+ *   actionID   : str|None  — optional actionID fired when the inline button is tapped
+ * Returns True on success.
+ */
+static PyObject* py_present_toast(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    const char* message;
+    double      duration    = 4.0;   /* optional, defaults to 4.0s */
+    const char* actionTitle = NULL;  /* optional */
+    const char* actionID    = NULL;  /* optional */
+    if (PyArg_ParseTuple(args, "ss|dzz",
+                         &windowUUID, &message, &duration, &actionTitle, &actionID) == 0)
+        return NULL;
+    (void)actionUIPresentToast(windowUUID, message, duration, actionTitle, actionID);
+    Py_RETURN_TRUE;
+}
+
+/* dismiss_toast(windowUUID) */
+static PyObject* py_dismiss_toast(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    if (PyArg_ParseTuple(args, "s", &windowUUID) == 0) return NULL;
+    actionUIDismissToast(windowUUID);
+    Py_RETURN_NONE;
+}
+
 // MARK: - Python API: UI Loading
 
 /*
@@ -1103,6 +1132,11 @@ static PyMethodDef ActionUIMethods[] = {
      "Presents a window-level confirmation dialog. buttonsJSON: JSON array of {title,role?,actionID?}."},
     {"dismiss_dialog",              py_dismiss_dialog,              METH_VARARGS,
      "dismiss_dialog(windowUUID) — dismiss the active window-level alert or confirmation dialog."},
+    {"present_toast",               py_present_toast,               METH_VARARGS,
+     "present_toast(windowUUID, message[, duration[, actionTitle[, actionID]]]) -> True\n"
+     "Presents a transient, auto-dismissing toast pinned above the window content; queued if one is already visible."},
+    {"dismiss_toast",               py_dismiss_toast,               METH_VARARGS,
+     "dismiss_toast(windowUUID) — dismiss the current toast, showing the next queued one if any."},
 
     /* UI loading */
     {"load_hosting_controller",     py_load_hosting_controller,     METH_VARARGS,

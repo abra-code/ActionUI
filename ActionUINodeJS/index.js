@@ -251,6 +251,22 @@ class Window {
 
     dismissDialog() { _actionui.dismissDialog(this.uuid); }
 
+    /**
+     * Present a transient, auto-dismissing toast (snackbar) pinned above the
+     * window content. If a toast is already visible the new one is queued and
+     * shown after the current dismisses.
+     * @param {string} message - The toast text.
+     * @param {number} [duration=4.0] - Seconds before auto-dismiss.
+     * @param {string|null} [actionTitle=null] - Optional inline action button title (e.g. "Undo"); pass together with actionId.
+     * @param {string|null} [actionId=null] - Optional actionID fired when the inline action button is tapped.
+     */
+    presentToast(message, duration = 4.0, actionTitle = null, actionId = null) {
+        _actionui.presentToast(this.uuid, message, duration, actionTitle, actionId);
+    }
+
+    /** Dismiss the current toast, showing the next queued one if any. */
+    dismissToast() { _actionui.dismissToast(this.uuid); }
+
     get viewPtr() { return this._viewPtr; }
 }
 

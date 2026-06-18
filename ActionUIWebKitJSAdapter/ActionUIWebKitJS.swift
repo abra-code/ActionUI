@@ -214,6 +214,22 @@ import AppKit
 ///   - Description: Dismisses the active window-level alert or confirmation dialog. SwiftUI dismisses automatically on button tap.
 ///   - Example: `ActionUI.dismissDialog("win-123");`
 ///
+/// - `presentToast(windowUUID, message, duration, actionTitle, actionID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `message`: String - The toast text.
+///     - `duration`: Number or null - Seconds before auto-dismiss; omit or pass null for the 4.0s default.
+///     - `actionTitle`: String or null - Optional inline action button title (e.g. "Undo"); pass together with actionID.
+///     - `actionID`: String or null - Optional actionID fired when the inline action button is tapped.
+///   - Description: Presents a transient, auto-dismissing toast pinned above the window content; queued if one is already visible. Fire-and-forget.
+///   - Example: `ActionUI.presentToast("win-123", "Saved", null, "Undo", "task.undo");`
+///
+/// - `dismissToast(windowUUID)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///   - Description: Dismisses the current toast and shows the next queued one if any.
+///   - Example: `ActionUI.dismissToast("win-123");`
+///
 /// - `insertElement(windowUUID, parentID, json, container, position, positionParam)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -752,6 +768,22 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 ActionUIWebKitJS.model.dismissDialog(windowUUID: windowUUID)
             } else {
                 print("Invalid arguments for dismissDialog: \(args)")
+            }
+        case "presentToast":
+            // args: [windowUUID, message, duration?, actionTitle?, actionID?]
+            if args.count >= 2, let windowUUID = args[0] as? String, let message = args[1] as? String {
+                let duration: TimeInterval = (args.count >= 3 ? (args[2] as? NSNumber)?.doubleValue : nil) ?? 4.0
+                let actionTitle = args.count >= 4 ? args[3] as? String : nil
+                let actionID    = args.count >= 5 ? args[4] as? String : nil
+                ActionUIWebKitJS.model.presentToast(windowUUID: windowUUID, message: message, duration: duration, actionTitle: actionTitle, actionID: actionID)
+            } else {
+                print("Invalid arguments for presentToast: \(args)")
+            }
+        case "dismissToast":
+            if args.count >= 1, let windowUUID = args[0] as? String {
+                ActionUIWebKitJS.model.dismissToast(windowUUID: windowUUID)
+            } else {
+                print("Invalid arguments for dismissToast: \(args)")
             }
         case "insertElement":
             // args: [windowUUID, parentID, json, container?, position?, positionParam?]

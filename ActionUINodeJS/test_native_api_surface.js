@@ -261,6 +261,8 @@ function testModalNoop(uuid) {
         () => native.presentAlert(uuid, 'title', 'message', null),
         () => native.presentConfirmationDialog(uuid, 'title', 'message', '[]'),
         () => native.dismissDialog(uuid),
+        () => native.presentToast(uuid, 'message', 4.0, 'Undo', 'demo.undo'),
+        () => native.dismissToast(uuid),
     ];
     for (const fn of calls) {
         try { fn(); } catch {}

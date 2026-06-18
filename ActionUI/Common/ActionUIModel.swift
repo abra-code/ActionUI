@@ -782,6 +782,47 @@ public class ActionUIModel: ObservableObject {
         logger.log("dismissDialog: windowUUID: \(windowUUID)", .debug)
     }
 
+    // MARK: - Window-Level Toast (snackbar)
+
+    /// Present a transient, auto-dismissing toast pinned above content. If a toast is already
+    /// visible, the new one is queued and shown after the current dismisses (coalesces rapid posts).
+    /// Pass actionTitle + actionID together to add one inline action button (e.g. "Undo").
+    public func presentToast(
+        windowUUID: String,
+        message: String,
+        duration: TimeInterval = 4.0,
+        actionTitle: String? = nil,
+        actionID: String? = nil
+    ) {
+        guard let windowModel = windowModels[windowUUID] else {
+            logger.log("presentToast: No WindowModel for windowUUID: \(windowUUID)", .error)
+            return
+        }
+        var action: ToastAction? = nil
+        if let actionTitle, let actionID {
+            action = ToastAction(title: actionTitle, actionID: actionID)
+        }
+        let toast = WindowToast(message: message, duration: duration, action: action)
+        if windowModel.windowToast == nil {
+            windowModel.windowToast = toast
+        } else {
+            windowModel.toastQueue.append(toast)
+        }
+        logger.log("presentToast: '\(message)' for windowUUID: \(windowUUID)", .debug)
+    }
+
+    /// Dismiss the current toast. If more toasts are queued, the next one is shown.
+    /// Normally called by the toast view's auto-dismiss timer or its inline action button.
+    public func dismissToast(windowUUID: String) {
+        guard let windowModel = windowModels[windowUUID] else { return }
+        if windowModel.toastQueue.isEmpty {
+            windowModel.windowToast = nil
+        } else {
+            windowModel.windowToast = windowModel.toastQueue.removeFirst()
+        }
+        logger.log("dismissToast: windowUUID: \(windowUUID)", .debug)
+    }
+
     // Recursively collect all element IDs from an element tree (used for modal ViewModel cleanup).
     private func collectAllElementIDs(from element: any ActionUIElementBase) -> Set<Int> {
         var ids: Set<Int> = [element.id]
