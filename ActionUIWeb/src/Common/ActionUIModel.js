@@ -405,4 +405,21 @@ export class ActionUIModel {
         this.containerBindings.delete(id);
         this.propertyOverrides.delete(id);
     }
+
+    // Drops every binding/value/state/override and the render context, leaving the
+    // model inert. Used when a window is closed (Window.dismiss / Application.
+    // closeWindow): the model holds no DOM listeners itself (those live on the nodes
+    // it built, removed with the root), so clearing its maps is the full teardown.
+    dispose() {
+        this.values.clear();
+        this.bindings.clear();
+        this.states.clear();
+        this.stateBindings.clear();
+        this.containerBindings.clear();
+        this.propertyOverrides.clear();
+        this.actionDispatcher = null;
+        this.rootNode = null;
+        this.buildFn = null;
+        this.rootElementId = null;
+    }
 }

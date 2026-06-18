@@ -35,6 +35,13 @@ export function register(type, construction) {
     constructions.set(type, construction);
 }
 
+// The registered construction for a type (or undefined). Exposed for tests so a
+// view's validateProperties / initialValue / initialStates can be exercised without
+// going through the full DOM build; the renderer itself uses buildElementView.
+export function getConstruction(type) {
+    return constructions.get(type);
+}
+
 // The container declarations for a type, or null when it accepts no insertions.
 // Mirrors ActionUIRegistry.getInsertableContainers(forElementType:).
 export function getInsertableContainers(type) {

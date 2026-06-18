@@ -111,7 +111,7 @@ win.setState(1000, "selectedDestination", 1100);
 
 // NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
 // context — read the selected destination id from the split view's state.
-const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload", 1105: "Properties", 1106: "Animation" };
+const SECTION_NAMES = { 1100: "Overview", 1101: "Controls", 1102: "Collections", 1103: "Navigation", 1104: "Upload", 1105: "Properties", 1106: "Animation", 1107: "Windows" };
 app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");
     win.setString(20, 0, dest ? `Section: ${SECTION_NAMES[dest] ?? dest}.` : "No section selected.");
@@ -180,6 +180,94 @@ let animRotation = 0;
 app.action("anim.demo.105.rotate", () => {
     animRotation += 90;
     win.setElementProperty(105, "rotationEffect", animRotation);
+});
+
+// windows.json - presentWindow with multiple in-document surfaces. Each panel is a
+// full, independent Window (own uuid + own model) presented by the SAME Application
+// into a placeholder host node from the section (1300 / 1301). They share the app's
+// action registry, so a panel's button routes here; ctx.windowUUID disambiguates
+// which surface fired (app.getWindow(uuid) recovers it). app.closeWindow tears a
+// panel down (unmount + dispose its model) and drops it from app.windows. Auxiliary
+// surfaces pass { appShell: false } so the menu-bar app shell stays on the main
+// window only. Note each panel addresses viewID 1 / 10 in its OWN model, independent
+// of the main window's ids - that is the point of separate surfaces.
+const panelADescription = {
+    type: "VStack",
+    properties: { alignment: "leading", spacing: 6, padding: 12, background: "#eff6ff", cornerRadius: 8, frame: { maxWidth: "infinity" } },
+    children: [
+        { type: "Text", properties: { text: "Panel A", font: "headline" } },
+        { type: "Text", id: 1, properties: { text: "Independent surface. Set my text from the host.", foregroundColor: "secondary", font: "callout" } },
+        { type: "Button", properties: { title: "Ping from inside A", buttonStyle: "bordered", actionID: "panelPing" } },
+    ],
+};
+const panelBDescription = {
+    type: "VStack",
+    properties: { alignment: "leading", spacing: 6, padding: 12, background: "#f0fdf4", cornerRadius: 8, frame: { maxWidth: "infinity" } },
+    children: [
+        { type: "Text", properties: { text: "Panel B", font: "headline" } },
+        { type: "Text", id: 10, properties: { text: "Count: 0", font: "callout" } },
+        { type: "Button", properties: { title: "Ping from inside B", buttonStyle: "bordered", actionID: "panelPing" } },
+    ],
+};
+const panels = {};   // hostId -> Window
+const panelLabels = {}; // uuid -> "A" | "B" (so panelPing can name its source)
+let panelBCount = 0;
+
+function restoreHost(hostId, label) {
+    const host = win.model.findNode(hostId);
+    if (!host) return;
+    const note = document.createElement("div");
+    note.style.color = "var(--aui-secondary, #6b7280)";
+    note.style.font = "var(--aui-font-callout, inherit)";
+    note.textContent = label;
+    host.replaceChildren(note);
+}
+
+function openPanel(hostId, description, label) {
+    if (panels[hostId]) { win.setString(20, 0, `Panel ${label} already open.`); return; }
+    const host = win.model.findNode(hostId);
+    if (!host) { win.setString(20, 0, `Host ${hostId} not found.`); return; }
+    const panel = Window.fromJSON(description, undefined, logger);
+    app.presentWindow(panel, host, { appShell: false }); // auxiliary surface: no menu-bar shell
+    panels[hostId] = panel;
+    panelLabels[panel.uuid] = label;
+    win.setString(20, 0, `Opened panel ${label} (uuid ${panel.uuid.slice(0, 8)}); ${app.windowList.length} windows total.`);
+}
+
+function closePanel(hostId, label) {
+    const panel = panels[hostId];
+    if (!panel) { win.setString(20, 0, `Panel ${label} is not open.`); return; }
+    delete panelLabels[panel.uuid];
+    app.closeWindow(panel);          // unmounts the panel + disposes its model
+    delete panels[hostId];
+    restoreHost(hostId, `Panel ${label} not open.`);
+    if (hostId === 1301) panelBCount = 0;
+    win.setString(20, 0, `Closed panel ${label}; ${app.windowList.length} windows total.`);
+}
+
+app.action("winOpenA", () => openPanel(1300, panelADescription, "A"));
+app.action("winOpenB", () => openPanel(1301, panelBDescription, "B"));
+app.action("winCloseA", () => closePanel(1300, "A"));
+app.action("winCloseB", () => closePanel(1301, "B"));
+app.action("winCloseAll", () => { closePanel(1300, "A"); closePanel(1301, "B"); });
+app.action("winDriveA", () => {
+    const panel = panels[1300];
+    if (!panel) { win.setString(20, 0, "Open panel A first."); return; }
+    panel.setString(1, 0, `Set by the host at ${new Date().toLocaleTimeString()}.`);
+    win.setString(20, 0, "Drove panel A's own model (its viewID 1).");
+});
+app.action("winDriveB", () => {
+    const panel = panels[1301];
+    if (!panel) { win.setString(20, 0, "Open panel B first."); return; }
+    panelBCount += 1;
+    panel.setString(10, 0, `Count: ${panelBCount}`);
+    win.setString(20, 0, `Drove panel B's own model (its viewID 10) -> ${panelBCount}.`);
+});
+// Shared handler for both panels' inner button: identify the source surface from the
+// dispatched windowUUID (the surface a sub-window action carries), not a per-panel id.
+app.action("panelPing", (ctx) => {
+    const which = panelLabels[ctx.windowUUID] ?? "?";
+    win.setString(20, 0, `Ping from panel ${which} (window ${ctx.windowUUID.slice(0, 8)}).`);
 });
 
 // Menu bar (MainMenu.json) commands. The "Go" menu drives the split's selected

@@ -1,0 +1,67 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "presentWindow - multiple surfaces", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "One Application can present several Windows into different DOM containers. Each is an independent surface with its own uuid and its own model, driven by reference - the web's honest 'multi-window'. (Separate OS windows via window.open run in another realm and cannot be driven this way; out of scope - see the porting notes.) The two cards below are full sub-Windows mounted into placeholder hosts in this section.", "foregroundColor": "secondary" } },
+    { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "alignment": "leading", "spacing": 6, "frame": { "maxWidth": "infinity" } },
+          "children": [
+            { "type": "Text", "properties": { "text": "Host A", "font": "callout", "foregroundColor": "secondary" } },
+            {
+              "type": "VStack",
+              "id": 1300,
+              "properties": { "alignment": "leading", "spacing": 6, "padding": 12, "background": "#f3f4f6", "cornerRadius": 8, "frame": { "maxWidth": "infinity", "minHeight": 96 } },
+              "children": [
+                { "type": "Text", "properties": { "text": "Panel A not open.", "foregroundColor": "secondary", "font": "callout" } }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "VStack",
+          "properties": { "alignment": "leading", "spacing": 6, "frame": { "maxWidth": "infinity" } },
+          "children": [
+            { "type": "Text", "properties": { "text": "Host B", "font": "callout", "foregroundColor": "secondary" } },
+            {
+              "type": "VStack",
+              "id": 1301,
+              "properties": { "alignment": "leading", "spacing": 6, "padding": 12, "background": "#f3f4f6", "cornerRadius": 8, "frame": { "maxWidth": "infinity", "minHeight": 96 } },
+              "children": [
+                { "type": "Text", "properties": { "text": "Panel B not open.", "foregroundColor": "secondary", "font": "callout" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Open / close (presentWindow + app.closeWindow):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Open A", "buttonStyle": "bordered", "actionID": "winOpenA" } },
+        { "type": "Button", "properties": { "title": "Open B", "buttonStyle": "bordered", "actionID": "winOpenB" } },
+        { "type": "Button", "properties": { "title": "Close A", "buttonStyle": "bordered", "actionID": "winCloseA" } },
+        { "type": "Button", "properties": { "title": "Close B", "buttonStyle": "bordered", "actionID": "winCloseB" } },
+        { "type": "Button", "properties": { "title": "Close all", "buttonStyle": "bordered", "actionID": "winCloseAll" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Drive each surface by reference (note: both panels use viewID 1/10 in their OWN model, independent of the main window):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Set A text", "buttonStyle": "borderedProminent", "actionID": "winDriveA" } },
+        { "type": "Button", "properties": { "title": "Increment B", "buttonStyle": "borderedProminent", "actionID": "winDriveB" } }
+      ]
+    }
+  ]
+}

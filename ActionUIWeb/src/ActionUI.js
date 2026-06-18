@@ -159,6 +159,20 @@ export class Window {
         return this;
     }
 
+    // Tears the window down: runs the page-lifecycle cleanup, unmounts the root node,
+    // and disposes the model (drops every binding/state/value/override + the render
+    // context). The window can be re-presented afterwards with present(). Idempotent.
+    // Application.closeWindow calls this and also drops the registry entry; a host
+    // that presented a window directly (no Application) can call it itself.
+    dismiss() {
+        this._lifecycleCleanup?.();
+        this._lifecycleCleanup = null;
+        this.rootNode?.remove();
+        this.rootNode = null;
+        this.model.dispose();
+        return this;
+    }
+
     // Value bridge — same names as the Node.js adapter.
     getValue(viewID, viewPartID = 0)        { return this.model.getElementValue(viewID, viewPartID); }
     setValue(viewID, viewPartID = 0, value) { this.model.setElementValue(viewID, viewPartID, value); }
@@ -350,7 +364,16 @@ export class Application {
         return this.setMenuBar(await response.text(), logger);
     }
 
-    presentWindow(win, container) {
+    // Presents a window into a DOM container and tracks it (by uuid) so the host can
+    // drive and later close it. One Application can present several windows - multiple
+    // independent in-document surfaces (own uuid + own model each), all sharing this
+    // action registry; the dispatched ActionContext.windowUUID disambiguates which
+    // surface fired. (That is the web's honest "multi-window": separate OS windows via
+    // window.open run in a different realm and cannot be driven by reference - out of
+    // scope, see Web_Porting_Notes.md.) `options.appShell` (default true) wraps the
+    // window in the menu-bar app shell when one is set; auxiliary surfaces pass
+    // `{ appShell: false }` so the shell stays on the primary window only.
+    presentWindow(win, container, { appShell = true } = {}) {
         win.model.actionDispatcher = (actionID, windowUUID, viewID, viewPartID, context) => {
             const handler = this.handlers.get(actionID) ?? this.defaultHandler;
             if (handler) {
@@ -362,14 +385,33 @@ export class Application {
         this.windows.set(win.uuid, win);
         // With a menu bar, wrap the window in an app shell (top app bar + drawer +
         // account menu) and present into its stage; menu commands dispatch at the
-        // app level (viewID 0). Without one, mount the window directly (unchanged).
-        if (this.menuBar) {
+        // app level (viewID 0). Without one (or when opted out), mount directly.
+        if (this.menuBar && appShell) {
             const dispatch = (actionID) => win.model.dispatchAction(actionID, 0);
             const { shell, stage } = buildAppShell(this.menuBar, this.name, dispatch, win.logger);
             container.replaceChildren(shell);
             return win.present(stage);
         }
         return win.present(container);
+    }
+
+    // The presented window for a uuid (or undefined) - e.g. to recover the surface a
+    // dispatched action came from via ActionContext.windowUUID.
+    getWindow(uuid) { return this.windows.get(uuid); }
+
+    // Every presented window, in presentation order.
+    get windowList() { return Array.from(this.windows.values()); }
+
+    // Closes a presented window (a Window or its uuid): tears it down (Window.dismiss
+    // unmounts + disposes the model) and drops it from the registry. A window this
+    // Application did not present is ignored. Returns true when one was closed.
+    closeWindow(winOrUuid) {
+        const uuid = typeof winOrUuid === "string" ? winOrUuid : winOrUuid?.uuid;
+        const win = this.windows.get(uuid);
+        if (!win) return false;
+        win.dismiss();
+        this.windows.delete(uuid);
+        return true;
     }
 
     action(actionID, handler) { this.handlers.set(actionID, handler); return this; }
