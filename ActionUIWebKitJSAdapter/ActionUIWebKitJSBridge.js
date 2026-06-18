@@ -122,6 +122,59 @@
             });
         },
 
+        // Get a single state value for a view (async; resolves to the value or null)
+        getElementState: function(windowUUID, viewID, key) {
+            return new Promise(function(resolve, reject) {
+                const id = Math.random().toString(36).substring(2);
+                window.addEventListener('message', function handler(event) {
+                    if (event.data.id === id) {
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.result);
+                    }
+                });
+                window.webkit.messageHandlers.actionUI.postMessage({
+                    method: 'getElementState',
+                    id: id,
+                    args: [windowUUID, viewID, key]
+                });
+            });
+        },
+
+        // Get a single state value as a string (async; resolves to the string or '')
+        getElementStateAsString: function(windowUUID, viewID, key) {
+            return new Promise(function(resolve, reject) {
+                const id = Math.random().toString(36).substring(2);
+                window.addEventListener('message', function handler(event) {
+                    if (event.data.id === id) {
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.result);
+                    }
+                });
+                window.webkit.messageHandlers.actionUI.postMessage({
+                    method: 'getElementStateAsString',
+                    id: id,
+                    args: [windowUUID, viewID, key]
+                });
+            });
+        },
+
+        // Set a single state value (fire-and-forget). Rejected natively if the new value's
+        // type differs from the existing value's type for that key.
+        setElementState: function(windowUUID, viewID, key, value) {
+            window.webkit.messageHandlers.actionUI.postMessage({
+                method: 'setElementState',
+                args: [windowUUID, viewID, key, value]
+            });
+        },
+
+        // Set a single state value by parsing a string into the existing value's type (fire-and-forget)
+        setElementStateFromString: function(windowUUID, viewID, key, value) {
+            window.webkit.messageHandlers.actionUI.postMessage({
+                method: 'setElementStateFromString',
+                args: [windowUUID, viewID, key, value]
+            });
+        },
+
         // Register action handler
         registerActionHandler: function(actionID, handlerFunction) {
             window.ActionUI.actionHandlers[actionID] = handlerFunction;

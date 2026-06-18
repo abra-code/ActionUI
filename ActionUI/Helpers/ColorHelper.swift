@@ -161,7 +161,7 @@ class ColorHelper {
             return .link
         case "selection":
         	return .selection
-        case "windowBackground":
+        case "windowbackground":
         	return .windowBackground
         default:
             if let color = resolveColor(string) {

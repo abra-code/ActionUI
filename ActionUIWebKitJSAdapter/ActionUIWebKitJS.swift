@@ -717,6 +717,69 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
             } else {
                 print("Invalid arguments for getElementValueAsString: \(args)")
             }
+        case "getElementState":
+            // args: [windowUUID, viewID, key]
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let key = args[2] as? String {
+                let value = ActionUIWebKitJS.model.getElementState(windowUUID: windowUUID, viewID: viewID, key: key)
+                let id = body["id"] as? String ?? ""
+                let json: String
+                if let value = value, JSONSerialization.isValidJSONObject(value) {
+                    json = (try? JSONSerialization.string(with: value)) ?? "null"
+                } else if let stringValue = value as? String {
+                    json = "\"\(stringValue.jsonEscaped)\""
+                } else if let boolValue = value as? Bool {
+                    json = boolValue ? "true" : "false"
+                } else if let numberValue = value as? NSNumber {
+                    json = numberValue.stringValue
+                } else {
+                    json = "null"
+                }
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                    if let error = error {
+                        print("getElementState response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementState: \(args)")
+            }
+        case "getElementStateAsString":
+            // args: [windowUUID, viewID, key]
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let key = args[2] as? String {
+                let value = ActionUIWebKitJS.model.getElementStateAsString(windowUUID: windowUUID, viewID: viewID, key: key) ?? ""
+                let escaped = value.jsonEscaped
+                let id = body["id"] as? String ?? ""
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: '\(escaped)'})") { _, error in
+                    if let error = error {
+                        print("getElementStateAsString response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementStateAsString: \(args)")
+            }
+        case "setElementState":
+            // args: [windowUUID, viewID, key, value]
+            if args.count == 4, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let key = args[2] as? String {
+                let value = args[3]
+                ActionUIWebKitJS.model.setElementState(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
+            } else {
+                print("Invalid arguments for setElementState: \(args)")
+            }
+        case "setElementStateFromString":
+            // args: [windowUUID, viewID, key, value]
+            if args.count == 4, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let key = args[2] as? String,
+               let value = args[3] as? String {
+                ActionUIWebKitJS.model.setElementStateFromString(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
+            } else {
+                print("Invalid arguments for setElementStateFromString: \(args)")
+            }
         case "presentModal":
             // args: [windowUUID, jsonString, format, style, onDismissActionID?]
             if args.count >= 4,

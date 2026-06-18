@@ -13,6 +13,7 @@
 
 import XCTest
 import SwiftUI
+import WebKit
 @testable import ActionUI
 
 @MainActor
