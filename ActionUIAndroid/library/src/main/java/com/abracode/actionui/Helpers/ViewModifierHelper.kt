@@ -26,9 +26,11 @@ import kotlinx.serialization.json.JsonObject
  * subview-carrying modifiers, the Android mirror of the view-based modifiers
  * in Apple's `View.swift`:
  *
- *   * `popover` - the anchored presentation; wrapped first (outermost) because
- *     a Compose `Popup` anchors to the layout node it is composed in
- *     (`PopoverHelper.kt`).
+ *   * `searchable` - the List / NavigationStack search field; wrapped outermost
+ *     in a `Column` above the content ([BuildViewWithSearchable],
+ *     `SearchableHelper.kt`).
+ *   * `popover` - the anchored presentation; wrapped because a Compose `Popup`
+ *     anchors to the layout node it is composed in (`PopoverHelper.kt`).
  *   * `overlay` / `background` - the decoration subviews, composed here in a
  *     `Box` around the element ([BuildViewWithDecorations]).
  *
@@ -101,13 +103,21 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // Identity modifier outside a reader.
     val targeted = scrollTargetModifier(effective, modifier)
     val animator = rememberElementAnimator(effective)
+    val logger = LocalActionUILogger.current
+    // The `searchable` modifier (List / NavigationStack): wrap the element with a
+    // search field above its content (SearchableHelper.kt). Resolved before the
+    // popover/decoration split because it owns the outermost Column; the element
+    // then continues through the decoration path inside.
+    resolveSearchable(effective.properties, logger)?.let { searchable ->
+        BuildViewWithSearchable(effective, searchable, targeted, animator)
+        return
+    }
     if (effective.popover != null) {
         // PopoverHelper applies the outer half to the anchor Box itself and
         // routes the carrier through BuildViewWithDecorations.
         BuildViewWithPopover(effective, targeted, animator)
         return
     }
-    val logger = LocalActionUILogger.current
     BuildViewWithDecorations(effective, targeted.applyOuterProperties(effective.properties, logger, animator), animator)
 }
 

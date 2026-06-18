@@ -428,6 +428,17 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "TabView $viewID selected tab $context", Toast.LENGTH_SHORT).show()
         }
 
+        // View.searchable.json: the search query arrives as the action context on
+        // each change (the List declares searchable -> a field above it). Echo it
+        // into viewID 99's text. Apple updates that Text via setElementValue; on
+        // Android a Text renders its "text" property (it has no value binding), so
+        // the host echoes through setElementProperty instead.
+        ActionUIModel.registerActionHandler("demo.search") { _, windowUUID, _, _, context ->
+            val query = context as? String ?: ""
+            val echo = if (query.isEmpty()) "Query cleared." else "Query: \"$query\""
+            ActionUIModel.setElementProperty(windowUUID = windowUUID, viewID = 99, propertyName = "text", value = echo)
+        }
+
         // Dialog.json: window-level dialogs presented by the host. "dialog.alert"
         // raises a destructive alert; "dialog.confirm" raises a multi-option
         // confirmation dialog. The dialog buttons' own actionIDs (dialog.deleted /

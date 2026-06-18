@@ -1,14 +1,11 @@
 package com.abracode.actionui.Views
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,7 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
@@ -29,6 +25,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.buildChildModifier
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.ChromeSymbolIcon
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
@@ -50,9 +47,8 @@ import com.abracode.actionui.Helpers.templateRows
  * value) side of the bridge.
  *
  * Compose has no `DisclosureGroup`, so it is composed from a clickable header
- * [androidx.compose.foundation.layout.Row] (`title` + a rotating chevron drawn
- * with [Canvas], avoiding any icon-resolution dependency) and, when expanded, a
- * [Column] of `children`.
+ * [androidx.compose.foundation.layout.Row] (`title` + a rotating Material Symbols
+ * chevron) and, when expanded, a [Column] of `children`.
  *
  * **Supported properties.**
  *   * `title` - header label String (defaults to `""`).
@@ -141,24 +137,17 @@ object DisclosureGroup : ActionUIViewConstruction {
 }
 
 /**
- * A small triangular disclosure indicator: points right when collapsed, rotates
- * to point down when expanded. Drawn with [Canvas] (no icon asset) and tinted
- * with the inherited [LocalContentColor], so it follows `foregroundStyle`.
+ * The native Material expand/collapse affordance: a downward chevron when
+ * collapsed (tap to expand), rotated to point up when expanded. The `keyboard_arrow_down`
+ * glyph comes from the Material Symbols font (the app's icon language) via
+ * [ChromeSymbolIcon], tinted with the inherited content color so it follows
+ * `foregroundStyle`; the up/down orientation is RTL-neutral.
  */
 @Composable
 private fun DisclosureChevron(expanded: Boolean) {
-    val color = LocalContentColor.current
-    Canvas(
-        modifier = Modifier
-            .size(10.dp)
-            .rotate(if (expanded) 90f else 0f)
-    ) {
-        val path = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(size.width, size.height / 2f)
-            lineTo(0f, size.height)
-            close()
-        }
-        drawPath(path, color = color)
-    }
+    ChromeSymbolIcon(
+        name = "keyboard_arrow_down",
+        contentDescription = null,
+        modifier = Modifier.rotate(if (expanded) 180f else 0f),
+    )
 }

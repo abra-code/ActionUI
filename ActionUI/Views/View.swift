@@ -118,6 +118,7 @@
      "fullScreenCoverOnDismissActionID": "cover.dismissed", // Optional: String for action identifier triggered when the full-screen cover is dismissed. Only meaningful when "fullScreenCover" subview is present.
      "overlayAlignment": "topTrailing",   // Optional: Alignment for the "overlay" subview ("center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"). Defaults to "center".
      "backgroundAlignment": "center", // Optional: Alignment for the "backgroundView" subview. Same values as overlayAlignment. Defaults to "center".
+     "searchable": { "prompt": "Search", "actionID": "view.search" }, // Optional: Adds a search field (.searchable) to a List / NavigationStack. "actionID" (required String) fires on each query change with the query string as the action context; "prompt" (optional String) is the placeholder. The host filters and re-pushes rows.
      "toolbarTitleDisplayMode": "automatic", // Optional: Navigation title display mode; "automatic", "inline", "large", "inlineLarge". Defaults to "automatic".
                                             // "inline" renders a compact title in the navigation bar.
                                             // "large" renders a large expandable title (iOS/iPadOS style).
@@ -809,6 +810,26 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate searchable: must be a dict with a non-empty String "actionID"; "prompt" optional String.
+        if let searchable = properties["searchable"] {
+            if let dict = searchable as? [String: Any] {
+                if let actionID = dict["actionID"] as? String, !actionID.isEmpty {
+                    if let prompt = dict["prompt"], !(prompt is String) {
+                        logger.log("Invalid searchable.prompt: expected String, dropping prompt", .warning)
+                        var cleaned = dict
+                        cleaned["prompt"] = nil
+                        validatedProperties["searchable"] = cleaned
+                    }
+                } else {
+                    logger.log("Invalid searchable: requires a non-empty String 'actionID', ignoring", .warning)
+                    validatedProperties["searchable"] = nil
+                }
+            } else {
+                logger.log("Invalid type for searchable: expected dictionary, got \(type(of: searchable)), ignoring", .warning)
+                validatedProperties["searchable"] = nil
+            }
+        }
+
         // Validate sheetOnDismissActionID
         if let sheetDismiss = properties["sheetOnDismissActionID"], !(sheetDismiss is String) {
             logger.log("Invalid type for sheetOnDismissActionID: expected String, got \(type(of: sheetDismiss)), ignoring", .warning)
@@ -1456,6 +1477,19 @@ struct View: ActionUIViewConstruction {
                 windowUUID: windowUUID,
                 elementID: element.id,
                 onDismissActionID: onDismissActionID
+            )
+        }
+
+        // Apply searchable modifier: adds a search field to List / NavigationStack content.
+        // The query is owned by SearchableModifierView and emitted to actionID on each change.
+        if let searchable = properties["searchable"] as? [String: Any],
+           let actionID = searchable["actionID"] as? String {
+            modifiedView = SearchableModifierView(
+                content: AnyView(modifiedView),
+                windowUUID: windowUUID,
+                elementID: element.id,
+                actionID: actionID,
+                prompt: searchable["prompt"] as? String
             )
         }
 

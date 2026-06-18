@@ -12,13 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
+import com.abracode.actionui.Helpers.ChromeSymbolIcon
 import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.intProperty
@@ -44,8 +46,8 @@ import com.abracode.actionui.Helpers.stringProperty
  * **Degrades vs. Apple.** Outside a `NavigationStack` (no [LocalNavPush]) a tap
  * is a no-op and warns. A link with neither a `destinationViewId` nor an
  * id-bearing inline `destination` has no addressable target and warns on tap.
- * Renders a title + chevron row (the trailing chevron is a plain `Text(">")` tap
- * affordance, avoiding an extra icon dependency).
+ * Renders a title + a native drill-in chevron (the Material Symbols `chevron_right`,
+ * mirrored to `chevron_left` under RTL).
  */
 object NavigationLink : ActionUIViewConstruction {
 
@@ -92,8 +94,15 @@ object NavigationLink : ActionUIViewConstruction {
                 Spacer(Modifier.width(8.dp))
             }
             M3Text(text = title, modifier = Modifier.weight(1f))
-            // Plain chevron glyph as a tap affordance (avoids an extra icon dependency).
-            M3Text(text = ">", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End)
+            // Native drill-in chevron, from the Material Symbols font (the app's icon
+            // language); direction-aware so it points the right way under RTL, and
+            // tinted onSurfaceVariant like a standard Material list-row affordance.
+            val chevron = if (LocalLayoutDirection.current == LayoutDirection.Rtl) "chevron_left" else "chevron_right"
+            ChromeSymbolIcon(
+                name = chevron,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -394,6 +394,14 @@ struct ActionUISwiftTestApp: App {
         ActionUISwift.registerActionHandler(actionID: "demo.toast.undo") { _, windowUUID, _, _, _ in
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Undo tapped - entry restored.")
         }
+
+        // Searchable demo handler: the search query arrives as the action context on each change.
+        ActionUISwift.registerActionHandler(actionID: "demo.search") { _, windowUUID, _, _, context in
+            let query = context as? String ?? ""
+            let echo = query.isEmpty ? "Query cleared." : "Query: \"\(query)\""
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: echo)
+        }
+
         // HoverDrop demo handlers
         // IDs: 1=hover card, 2=hover status text,
         //      3=text drop zone, 4=text zone label, 5=text result panel, 6=text result content,
