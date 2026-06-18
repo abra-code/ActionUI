@@ -91,11 +91,14 @@ struct DisclosureGroup: ActionUIViewConstruction {
                 guard model.states["isExpanded"] as? Bool != newValue else {
                     return
                 }
+                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
+                // must not be captured into the main-actor closure below (Swift 6 sending rule).
+                let valueChangeActionID = properties["valueChangeActionID"] as? String
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {
                     model.states["isExpanded"] = newValue
-                    if let valueChangeActionID = properties["valueChangeActionID"] as? String {
+                    if let valueChangeActionID {
                         ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                     }
                 }

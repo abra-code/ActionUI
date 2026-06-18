@@ -58,13 +58,16 @@ struct Toggle: ActionUIViewConstruction {
                 guard model.value as? Bool != newValue else {
                     return
                 }
+                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
+                // must not be captured into the main-actor closure below (Swift 6 sending rule).
+                let actionID = properties["actionID"] as? String
                 // DispatchQueue.main.async avoids "publishing changes from within view updates" warning.
                 // actionID is fired here in the binding setter (not via .onChange) so it only triggers
                 // on user interaction. .onChange would also fire on programmatic value changes,
                 // which can cause cascading actions and unexpected behavior.
                 DispatchQueue.main.async {
                     model.value = newValue
-                    if let actionID = properties["actionID"] as? String {
+                    if let actionID {
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
                     }
                 }

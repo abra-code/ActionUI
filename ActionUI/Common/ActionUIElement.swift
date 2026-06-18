@@ -38,8 +38,12 @@
 import SwiftUI
 import Foundation
 
-// Protocol defining the structure of an ActionUIElementBase, used for JSON-based UI construction
-public protocol ActionUIElementBase: Identifiable, Codable {
+// Protocol defining the structure of an ActionUIElementBase, used for JSON-based UI construction.
+// Sendable: elements are effectively-immutable JSON-derived data passed into SwiftUI's @Sendable
+// binding/action closures. The concrete type is a value-type struct (see ActionUIElement), so this
+// conformance is safe; the only non-Sendable members are the [String: Any] payload dictionaries,
+// which carry value semantics.
+public protocol ActionUIElementBase: Identifiable, Codable, Sendable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
@@ -71,8 +75,12 @@ protocol ActionUIViewConstruction : ActionUIPropertyValidation {
 }
 
 
-// Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views and other elements
-public struct ActionUIElement: ActionUIElementBase {
+// Concrete implementation of ActionUIElementBase with data for constructing SwiftUI views and other elements.
+// @unchecked Sendable: this is a value-type struct whose only non-Sendable stored members are the
+// [String: Any] properties/subviews payloads. Those are JSON-derived data with value semantics (copied,
+// never shared by reference), so concurrent use across isolation domains cannot race. The compiler
+// can't prove [String: Any] is Sendable, hence the explicit unchecked annotation.
+public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     public let id: Int
     public let type: String
     public let properties: [String: Any]

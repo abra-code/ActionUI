@@ -46,23 +46,31 @@ struct VideoPlayer: ActionUIViewConstruction {
         // Use viewModel.value if set, otherwise use initialValue
         let urlString = Self.initialValue(model) as? String ?? ""
         if let url = URL(string: urlString) {
-            let player = AVPlayer(url: url)
-            let videoPlayer = AVKit.VideoPlayer(player: player)
-            
-            // Handle autoplay with a delayed MainActor task
-            if let autoplay = properties["autoplay"] as? Bool {
-                Task { @MainActor in
-                    // Delay to allow view to settle
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                    if autoplay {
-                        player.play()
-                    } else {
-                        player.pause()
+            // Hoist autoplay out of the main-actor closure below: [String: Any] is non-Sendable.
+            let autoplay = properties["autoplay"] as? Bool
+            // buildView is part of the @MainActor ActionUIViewConstruction protocol and is always invoked
+            // on the main actor by the registry, but its stored closure type is nonisolated. Assume that
+            // isolation so AVKit's VideoPlayer initializer (which carries main-actor-isolated default
+            // arguments) can be constructed under Swift 6. Behavior is unchanged.
+            return MainActor.assumeIsolated { () -> any SwiftUI.View in
+                let player = AVPlayer(url: url)
+                let videoPlayer = AVKit.VideoPlayer(player: player)
+
+                // Handle autoplay with a delayed MainActor task
+                if let autoplay {
+                    Task { @MainActor in
+                        // Delay to allow view to settle
+                        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                        if autoplay {
+                            player.play()
+                        } else {
+                            player.pause()
+                        }
                     }
                 }
+
+                return videoPlayer
             }
-            
-            return videoPlayer
         } else {
             logger.log("VideoPlayer missing or invalid URL, displaying error Label", .error)
             return SwiftUI.Label("Missing or invalid URL", systemImage: "exclamationmark.triangle")

@@ -100,11 +100,14 @@ struct Stepper: ActionUIViewConstruction {
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
                 guard model.value as? Double != newValue else { return }
+                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
+                // must not be captured into the main-actor closure below (Swift 6 sending rule).
+                let actionID = properties["actionID"] as? String
                 // DispatchQueue.main.async avoids "publishing changes from within view updates" warning.
                 // actionID fires only on user interaction (binding setter), not programmatic updates.
                 DispatchQueue.main.async {
                     model.value = newValue
-                    if let actionID = properties["actionID"] as? String {
+                    if let actionID {
                         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: newValue)
                     }
                 }

@@ -221,11 +221,14 @@ struct Table: ActionUIViewConstruction {
                 }
         
                 guard (model.value as? [String]) != selectedRowValues else { return }
-        
+
+                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
+                // must not be captured into the main-actor closure below (Swift 6 sending rule).
+                let actionID = properties["actionID"] as? String
                 DispatchQueue.main.async {
                     model.value = selectedRowValues
-        
-                    if let actionID = properties["actionID"] as? String {
+
+                    if let actionID {
                         ActionUIModel.shared.actionHandler(
                             actionID,
                             windowUUID: windowUUID,
@@ -245,13 +248,16 @@ struct Table: ActionUIViewConstruction {
                     let viewType = colType["viewType"] as? String ?? "Text"
                     let dataInterpretation = colType["dataInterpretation"] as? String
                     let actionContext = colType["actionContext"] as? String ?? "title"
+                    // Extract the button actionID here: colType is a non-Sendable [String: Any] and
+                    // must not be captured into the Button's main-actor action closure (Swift 6 sending rule).
+                    let buttonActionID = colType["actionID"] as? String
                     SwiftUI.Group {
                         switch viewType {
                         case "Text":
                             SwiftUI.Text(value)
                         case "Button":
                             SwiftUI.Button {
-                                if let buttonActionID = colType["actionID"] as? String {
+                                if let buttonActionID {
                                     let context: Any = {
                                         switch actionContext {
                                         case "rowIndex": return rowData.firstIndex(where: { $0.id == row.id }) ?? -1

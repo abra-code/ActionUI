@@ -346,9 +346,12 @@ struct List: ActionUIViewConstruction {
                           content.indices.contains(newIndex) else { return }
                     let selectedRowValues = content[newIndex]
                     guard (model.value as? [String]) != selectedRowValues else { return }
+                    // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
+                    // must not be captured into the main-actor closure below (Swift 6 sending rule).
+                    let actionID = properties["actionID"] as? String
                     DispatchQueue.main.async {
                         model.value = selectedRowValues
-                        if let actionID = properties["actionID"] as? String {
+                        if let actionID {
                             ActionUIModel.shared.actionHandler(
                                 actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0
                             )
@@ -455,9 +458,12 @@ struct List: ActionUIViewConstruction {
 
                     guard (model.value as? [String]) != selectedRowValues else { return }
 
+                    // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
+                    // must not be captured into the main-actor closure below (Swift 6 sending rule).
+                    let actionID = properties["actionID"] as? String
                     DispatchQueue.main.async {
                         model.value = selectedRowValues
-                        if let actionID = properties["actionID"] as? String {
+                        if let actionID {
                             ActionUIModel.shared.actionHandler(
                                 actionID,
                                 windowUUID: windowUUID,
