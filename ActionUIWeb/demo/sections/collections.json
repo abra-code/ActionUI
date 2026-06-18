@@ -18,6 +18,23 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List with searchable (the field above emits each query change to the host via actionID; the status line below echoes it):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 47,
+      "properties": {
+        "searchable": { "prompt": "Search receivers", "actionID": "collectionsSearch" },
+        "listStyle": "inset",
+        "frame": { "maxWidth": "infinity" }
+      },
+      "children": [
+        { "type": "Label", "properties": { "title": "Ada Lovelace", "systemImage": "person.circle" } },
+        { "type": "Label", "properties": { "title": "Alan Turing", "systemImage": "person.circle" } },
+        { "type": "Label", "properties": { "title": "Grace Hopper", "systemImage": "person.circle" } },
+        { "type": "Label", "properties": { "title": "Katherine Johnson", "systemImage": "person.circle" } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "List",

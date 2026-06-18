@@ -238,6 +238,14 @@ app.action("tableSelect", () => {
 });
 app.action("tableRowAction", (ctx) => win.setString(20, 0, `Open row ${ctx.context}.`));
 
+// searchable List (id 47): the query arrives as the action context on each change.
+// Apple/Android echo it into an in-document Text; the web demo echoes to the shared
+// status line (id 20), matching how the other collections actions report.
+app.action("collectionsSearch", (ctx) => {
+    const query = ctx.context ?? "";
+    win.setString(20, 0, query ? `Search: "${query}".` : "Search cleared.");
+});
+
 // Homogeneous List selection: no context — read the value (the selected row,
 // tab-joined; a single column here).
 app.action("homListSelect", () => {

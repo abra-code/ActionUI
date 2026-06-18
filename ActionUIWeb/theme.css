@@ -894,6 +894,27 @@
 .aui-textfield::placeholder, .aui-securefield::placeholder { color: var(--aui-color-secondary); }
 .aui-textfield:disabled, .aui-securefield:disabled { opacity: 0.4; }
 
+/* searchable: an inline search field above the List / NavigationStack it modifies
+   (the .searchable / Android search-field idiom on web). A native
+   <input type="search"> — the browser's own clear affordance + search semantics —
+   fronted by a leading Material Symbols magnifier. */
+.aui-searchable { display: flex; flex-direction: column; min-height: 0; align-self: stretch; gap: 8px; }
+.aui-search-bar {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+}
+.aui-search-bar:focus-within { box-shadow: var(--aui-focus-ring); }
+.aui-search-icon { color: var(--aui-color-secondary); }
+.aui-search-field {
+    font: inherit; color: var(--aui-color-primary);
+    background: transparent; border: none; outline: none;
+    flex: 1; min-width: 0;
+}
+.aui-search-field::placeholder { color: var(--aui-color-secondary); }
+
 /* TextEditor: a <textarea> in the shared box. The default height bounds the
    editor so it scrolls internally (an inline frame.height overrides it); the
    resize grip is the browser's own — native platform character. */
