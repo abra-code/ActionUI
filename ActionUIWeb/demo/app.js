@@ -560,7 +560,9 @@ app.action("insertDestination", () => {
 });
 
 // Toolbar chrome actions: a toolbar Button fires its actionID with { title }.
-["toolbarEdit", "toolbarCancel", "toolbarDone", "toolbarAdd", "toolbarShare", "toolbarFilter"].forEach((id) => {
+// The secondaryAction items (Archive / Move / Duplicate) arrive via the overflow menu.
+["toolbarEdit", "toolbarCancel", "toolbarDone", "toolbarAdd", "toolbarShare", "toolbarFilter",
+ "toolbarArchive", "toolbarMove", "toolbarDuplicate"].forEach((id) => {
     app.action(id, (ctx) => win.setString(20, 0, `Toolbar: ${ctx.context?.title ?? id}.`));
 });
 

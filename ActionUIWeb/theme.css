@@ -760,6 +760,35 @@
 .aui-toolbar-principal { flex: 1; min-width: 0; display: flex; align-items: center; }
 .aui-toolbar-trailing { justify-content: flex-end; }
 .aui-toolbar-title { font-weight: 600; font-size: 1.05em; }
+/* Navigation-title size modes (toolbarTitleDisplayMode). automatic/inline keep the
+   compact in-bar title; large/inlineLarge render a big title on its own row beneath
+   the action bar (the iOS large-title idiom). inlineLarge's collapse-on-scroll is
+   not modeled - it renders large (documented best-effort). */
+.aui-toolbar-largetitle {
+    font-weight: 700;
+    font-size: 1.7em;
+    line-height: 1.2;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+/* When a large title carries its own row, the action bar above it is just the
+   controls (no border/spacing doubling with the title row). */
+.aui-toolbar-host[data-aui-title-mode="large"] .aui-toolbar-top,
+.aui-toolbar-host[data-aui-title-mode="inlineLarge"] .aui-toolbar-top { border-bottom: none; margin-bottom: 0; }
+
+/* Overflow ("...") menu: the trigger is a borderless app-bar action; the panel
+   reuses Menu's dropdown chrome (.aui-menu-items) and its items are full-width,
+   left-aligned rows. */
+.aui-toolbar-overflow { position: relative; display: inline-flex; }
+.aui-toolbar-overflow-trigger { font-size: 1.15em; padding: 4px 6px; }
+.aui-toolbar-overflow-items .aui-toolbar-overflow-item {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--aui-color-primary);
+    padding: 6px 10px;
+}
+.aui-toolbar-overflow-items .aui-toolbar-overflow-item:hover { background: var(--aui-color-accent); color: #ffffff; }
 /* App-bar action: borderless, accent-colored (the toolbar idiom; the registered
    Button is a styled pill, wrong inside a bar). */
 .aui-toolbar-button {
