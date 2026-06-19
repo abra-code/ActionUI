@@ -15,8 +15,10 @@
 // built once and toggled with `display`, so each tab keeps its state across
 // switches (Apple keeps tab views alive). `style` "sidebarAdaptable" is honored
 // as a left sidebar rail — the tab items run down the side and the content fills
-// the rest (Apple's adaptive sidebar, rendered as the desktop/expanded form; the
-// narrow-window collapse to a strip is the deferred responsive part). The other
+// the rest (Apple's adaptive sidebar, the expanded form). It is adaptive: a
+// ResizeObserver collapses the rail back to a top strip when the TabView gets
+// narrow (the `.aui-tabview-compact` class reverts the rail CSS), matching Apple's
+// sidebar-when-wide / tab-bar-when-narrow. The other
 // styles (page / verticalPage / grouped / tabBarOnly) are validated and stashed
 // (data-attribute) but not honored — the top strip is used, the Android stance.
 // Tab icons (systemImage / materialName:web)
@@ -203,6 +205,22 @@ register("TabView", {
         }
 
         node.append(bar, contentArea);
+
+        // sidebarAdaptable is adaptive: the left rail collapses back to a top strip
+        // when the TabView gets too narrow (Apple's sidebar-when-wide, tab-bar-when-
+        // narrow). A ResizeObserver toggles `.aui-tabview-compact` (the CSS reverts
+        // the rail overrides); guarded so the headless test DOM stays expanded. Only
+        // the rail layout has a narrow form - the top strip is already compact.
+        if (sidebarLayout && typeof ResizeObserver !== "undefined") {
+            const COMPACT_WIDTH = 440;
+            const observer = new ResizeObserver((entries) => {
+                const width = entries[0]?.contentRect?.width;
+                if (typeof width === "number") node.classList.toggle("aui-tabview-compact", width < COMPACT_WIDTH);
+            });
+            observer.observe(node);
+            node._auiDestroy = () => observer.disconnect();
+        }
+
         return node;
     },
 });

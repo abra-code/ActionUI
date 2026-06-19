@@ -45,8 +45,15 @@
 // Best-effort vs. Apple. `columnVisibility` drives a container attribute the CSS
 // reads ("detail" collapses to the detail pane; other values show all columns) and
 // `style` ("balanced"/"prominentDetail"/"automatic") a data-attribute the skin
-// reads. The adaptive width-class collapse (iPad-expand / iPhone-collapse) is the
-// deferred responsive part — element/structure parity ships now.
+// reads.
+//
+// Adaptive width-class collapse (the iPad-expand / iPhone-collapse). A
+// ResizeObserver watches the split's own width and toggles a compact mode below
+// COMPACT_WIDTH (data-compact / data-compact-pane, read by the CSS). A
+// selection-driven split then shows one column at a time - the sidebar until a row
+// is picked, then the detail with a "‹ Back" affordance that deselects — while a
+// static split stacks its panes vertically. Guarded so the headless test DOM (no
+// ResizeObserver) stays in the expanded form.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
@@ -158,6 +165,55 @@ register("NavigationSplitView", {
         let historyHandle = null; // set after the state binding, when enabled
         const commitHistory = (mode) => { if (historyHandle) historyHandle.commit(mode); };
 
+        // Adaptive width-class collapse (the deferred responsive part of Apple's
+        // NavigationSplitView: expanded columns when wide, a single navigable column
+        // when narrow). A ResizeObserver (wired below, guarded) toggles `compact`
+        // when the split's own width drops below COMPACT_WIDTH; the CSS reads
+        // data-compact / data-compact-pane. Selection-driven splits show one column
+        // at a time (the sidebar until a row is picked, then the detail with a Back
+        // affordance); static splits stack vertically. The data-driven `display`
+        // toggling of destination nodes is untouched - compact only governs which
+        // *pane* shows.
+        const COMPACT_WIDTH = 640;
+        let compact = false;
+        // In compact the sidebar fills the column (its declared rail width / the
+        // applyColumnWidth inline styles would otherwise pin it narrow); restore
+        // re-applies the declared width when expanding.
+        const fillSidebarWidth = () => {
+            sidebarPane.style.flex = "1 1 auto";
+            sidebarPane.style.width = "auto";
+            sidebarPane.style.minWidth = "0";
+            sidebarPane.style.maxWidth = "none";
+        };
+        const restoreSidebarWidth = () => {
+            sidebarPane.style.flex = "";
+            sidebarPane.style.width = "";
+            sidebarPane.style.minWidth = "";
+            sidebarPane.style.maxWidth = "";
+            applyColumnWidth(sidebarPane, sidebar, ctx.logger); // re-apply the declared rail width, if any
+        };
+        // Reflects compact + the current selection into the data-attributes the CSS
+        // reads. Idempotent, so it is safe to call from applySelection and resize.
+        const applyPaneVisibility = () => {
+            if (!compact) {
+                delete node.dataset.compact;
+                delete node.dataset.compactPane;
+                return;
+            }
+            node.dataset.compact = "true";
+            if (selectionDriven) {
+                node.dataset.compactPane = selectedDestination !== 0 ? "detail" : "sidebar";
+            } else {
+                delete node.dataset.compactPane; // static: the CSS stacks the panes vertically
+            }
+        };
+        const setCompact = (next) => {
+            if (next === compact) return;
+            compact = next;
+            if (compact) fillSidebarWidth(); else restoreSidebarWidth();
+            applyPaneVisibility();
+        };
+
         const showDetail = () => {
             if (!selectionDriven) return;
             const target = destinationsById.get(selectedDestination) ?? null;
@@ -171,6 +227,7 @@ register("NavigationSplitView", {
                 row.setAttribute("aria-selected", on ? "true" : "false");
             });
             showDetail();
+            applyPaneVisibility(); // a selection flips the visible pane when compact
         };
         // Reconcile the selection from a history entry: no commit (it came from
         // history) and no actionID (a restore, like setState - not a user click).
@@ -198,6 +255,24 @@ register("NavigationSplitView", {
                 }
                 if (fromUser) commitHistory("push"); // user selection = forward nav
             };
+
+            // Compact-mode Back: returns to the sidebar (deselects). Fires the
+            // sidebar actionID (so the host sees selectedDestination = 0, the
+            // selection convention) but syncs history rather than pushing - a back
+            // gesture, not forward nav. Shown only in compact+detail (CSS).
+            const goBackToSidebar = () => {
+                if (selectedDestination === 0) return;
+                selectedDestination = 0;
+                applySelection();
+                if (typeof sidebarActionID === "string") ctx.model.dispatchAction(sidebarActionID, sidebarID, 0, null);
+                commitHistory("replace");
+            };
+            const backButton = document.createElement("button");
+            backButton.type = "button";
+            backButton.className = "aui-nav-split-back";
+            backButton.textContent = "‹ Back";
+            backButton.addEventListener("click", goBackToSidebar);
+            detailPane.appendChild(backButton); // first child, above the detail content
 
             // Detail host: the default detail plus one node per destination, built
             // once and toggled by display.
@@ -291,6 +366,20 @@ register("NavigationSplitView", {
                 });
                 node._auiDestroy = () => historyHandle.release();
             }
+        }
+
+        // Adaptive collapse: watch the split's own width and toggle compact when it
+        // crosses COMPACT_WIDTH. Guarded so the headless test DOM (which lacks
+        // ResizeObserver) stays expanded; composed with any existing teardown
+        // (history release). contentRect.width is the content-box width.
+        if (typeof ResizeObserver !== "undefined") {
+            const observer = new ResizeObserver((entries) => {
+                const width = entries[0]?.contentRect?.width;
+                if (typeof width === "number") setCompact(width < COMPACT_WIDTH);
+            });
+            observer.observe(node);
+            const prevDestroy = node._auiDestroy;
+            node._auiDestroy = () => { observer.disconnect(); if (prevDestroy) prevDestroy(); };
         }
 
         applySelection();

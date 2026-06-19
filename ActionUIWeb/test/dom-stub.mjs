@@ -5,8 +5,9 @@
 // runtime itself - see test/README.md). This stub covers the slice of the DOM the
 // renderer actually touches: element `style`, `classList`, `dataset`, `append` /
 // `appendChild`, `addEventListener`, `setAttribute`, and a no-op `querySelector`,
-// plus a `document` (createElement + visibilitychange events) and a `window`
-// (matchMedia + pagehide events).
+// plus a `document` (createElement + visibilitychange events), a `window`
+// (matchMedia + pagehide events), and a `ResizeObserver` that never auto-fires (a
+// test drives it via the controller's `fireResize`).
 //
 // It is intentionally NOT a real DOM: there is no layout, no rendering, no CSSOM.
 // The tests assert DOM *mutations* (which styles/classes/attributes/listeners a
@@ -45,6 +46,13 @@ export function makeElement(tag = "div") {
         setAttribute(key, val) { el[key] = val; },
         append(...nodes) { nodes.forEach((n) => { if (n) n.parentNode = el; }); el.children.push(...nodes); },
         appendChild(node) { if (node) node.parentNode = el; el.children.push(node); return node; },
+        insertBefore(node, ref) {
+            if (!node) return node;
+            node.parentNode = el;
+            const i = ref ? el.children.indexOf(ref) : -1;
+            if (i < 0) el.children.push(node); else el.children.splice(i, 0, node);
+            return node;
+        },
         replaceChildren(...nodes) {
             el.children.forEach((n) => { if (n && n.parentNode === el) n.parentNode = null; });
             nodes.forEach((n) => { if (n) n.parentNode = el; });
@@ -64,12 +72,30 @@ export function makeElement(tag = "div") {
     return el;
 }
 
+// A minimal ResizeObserver stub: it records observed targets and the callback but
+// never fires on its own (real layout is a browser concern), so code guarded by
+// `typeof ResizeObserver !== "undefined"` builds without auto-resizing - e.g. the
+// Table never auto-fills, NavigationSplitView/TabView stay expanded - until a test
+// explicitly drives it via the controller's `fireResize`.
+class ResizeObserverStub {
+    constructor(callback) {
+        this.callback = callback;
+        this.targets = [];
+        ResizeObserverStub.instances.push(this);
+    }
+    observe(target) { this.targets.push(target); }
+    unobserve(target) { this.targets = this.targets.filter((t) => t !== target); }
+    disconnect() { this.targets = []; }
+}
+ResizeObserverStub.instances = [];
+
 // Installs `global.document` and `global.window`, returning a controller the test
 // uses to drive and inspect them. Call once per test for isolation.
 export function installDom() {
     const created = [];
     let visibility = "visible";
     let reducedMotion = false;
+    ResizeObserverStub.instances = []; // reset for isolation
 
     const makeTarget = () => {
         const events = {};
@@ -97,11 +123,19 @@ export function installDom() {
 
     global.document = documentShim;
     global.window = windowShim;
+    global.ResizeObserver = ResizeObserverStub;
 
     return {
         created,
         document: documentShim,
         window: windowShim,
+        // Fire any ResizeObserver observing `target` with a content-box `width`,
+        // driving the width-class collapse code (NavigationSplitView / TabView).
+        fireResize: (target, width) => {
+            for (const obs of ResizeObserverStub.instances) {
+                if (obs.targets.includes(target)) obs.callback([{ target, contentRect: { width } }], obs);
+            }
+        },
         findCreated: (pred) => created.find(pred),
         fireDocument: (name, ev) => docTarget.fire(name, ev),
         fireWindow: (name, ev) => winTarget.fire(name, ev),

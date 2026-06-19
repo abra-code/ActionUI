@@ -10,7 +10,7 @@
         { "type": "Text", "properties": { "text": "ActionUIWeb Demo", "font": "title", "font:web": "largeTitle" } }
       ]
     },
-    { "type": "Text", "properties": { "text": "A NavigationSplitView shell - each section is a separate, feature-focused JSON file loaded by a LoadableView. browserHistory:web is on, so the browser Back/Forward buttons switch sections.", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "A NavigationSplitView shell - each section is a separate, feature-focused JSON file loaded by a LoadableView. browserHistory:web is on, so the browser Back/Forward buttons switch sections. The shell is responsive: narrow the window and it collapses to a single column (a Back arrow returns to the section list); the sidebarAdaptable TabView in Navigation likewise collapses its rail to a top strip.", "foregroundColor": "secondary" } },
     {
       "type": "NavigationSplitView",
       "id": 1000,

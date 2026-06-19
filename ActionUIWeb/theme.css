@@ -253,6 +253,30 @@
 }
 .aui-tabview-sidebar .aui-tabview-content { flex: 1; padding-top: 0; padding-left: 14px; }
 
+/* Narrow-window collapse of the sidebarAdaptable rail back to a top strip (the
+   adaptive half of Apple's sidebarAdaptable: sidebar when wide, tab bar when
+   narrow). TabView.js toggles .aui-tabview-compact via a ResizeObserver; these
+   rules revert the rail overrides above to the default top-strip layout. */
+.aui-tabview-sidebar.aui-tabview-compact { flex-direction: column; }
+.aui-tabview-sidebar.aui-tabview-compact .aui-tabbar-sidebar {
+    flex-direction: row;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-tabview-sidebar.aui-tabview-compact .aui-tab {
+    justify-content: center;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    margin-right: 0;
+    margin-bottom: -1px;
+}
+.aui-tabview-sidebar.aui-tabview-compact .aui-tab-selected {
+    border-left-color: transparent;
+    border-bottom-color: var(--aui-color-accent);
+}
+.aui-tabview-sidebar.aui-tabview-compact .aui-tabview-content { flex: 1; padding-top: 10px; padding-left: 0; }
+
 /* ---- Menu ---- */
 
 /* A pull-down: a <button> trigger styled like a Button, with the item list a
@@ -691,6 +715,34 @@
 .aui-nav-split[data-column-visibility="detail"] .aui-nav-split-content { display: none; }
 /* style=prominentDetail → a narrower sidebar so the detail dominates. */
 .aui-nav-split[data-aui-split-style="prominentDetail"] .aui-nav-split-sidebar { min-width: 150px; }
+
+/* Adaptive width-class collapse (NavigationSplitView.js: a ResizeObserver toggles
+   data-compact below COMPACT_WIDTH). The panes stack vertically; a selection-driven
+   split shows one column at a time via data-compact-pane (the sidebar, then the
+   detail with a Back affordance), a static split stacks both. The sidebar's rail
+   width is dropped in JS (it is set inline), so the visible column fills. */
+.aui-nav-split[data-compact="true"] { flex-direction: column; }
+.aui-nav-split[data-compact="true"] .aui-nav-split-content { border-right: none; }
+/* selection-driven: one pane at a time */
+.aui-nav-split[data-compact="true"][data-compact-pane="sidebar"] .aui-nav-split-detail,
+.aui-nav-split[data-compact="true"][data-compact-pane="sidebar"] .aui-nav-split-content { display: none; }
+.aui-nav-split[data-compact="true"][data-compact-pane="detail"] .aui-nav-split-sidebar,
+.aui-nav-split[data-compact="true"][data-compact-pane="detail"] .aui-nav-split-content { display: none; }
+/* Back affordance: only in compact detail mode (the iOS back-to-sidebar gesture). */
+.aui-nav-split-back {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--aui-color-accent);
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-bottom: 6px;
+    align-self: flex-start;
+    display: none;
+}
+.aui-nav-split[data-compact="true"][data-compact-pane="detail"] .aui-nav-split-back { display: inline-block; }
+.aui-nav-split-back:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
 
 /* ---- NavigationStack / NavigationLink ---- */
 
