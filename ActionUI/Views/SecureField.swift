@@ -78,15 +78,15 @@ struct SecureField: ActionUIViewConstruction {
             }
         }
 
-        let textBinding = Binding(
+        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+        // not the non-Sendable [String: Any] properties payload.
+        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let textBinding = mainActorBinding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
                 guard model.value as? String != newValue else {
                     return
                 }
-                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                let valueChangeActionID = properties["valueChangeActionID"] as? String
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {

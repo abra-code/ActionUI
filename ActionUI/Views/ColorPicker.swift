@@ -54,15 +54,15 @@ struct ColorPicker: ActionUIViewConstruction {
         let initialColor = Self.initialValue(model) as? Color ?? Color.clear
         let title = properties["title"] as? String ?? ""
         
-        let colorBinding = Binding(
+        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+        // not the non-Sendable [String: Any] properties payload.
+        let actionID = properties["actionID"] as? String
+        let colorBinding = mainActorBinding(
             get: { model.value as? Color ?? initialColor },
             set: { newValue in
                 guard model.value as? Color != newValue else {
                     return
                 }
-                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                let actionID = properties["actionID"] as? String
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                 // "publishing changes from within view updates" warning
                 DispatchQueue.main.async {

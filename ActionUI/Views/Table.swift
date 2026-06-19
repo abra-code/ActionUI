@@ -198,7 +198,10 @@ struct Table: ActionUIViewConstruction {
             TableRowData(id: "row-\(index)", values: row)
         }
         
-        let selectionBinding = Binding<Set<String>>(
+        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+        // not the non-Sendable [String: Any] properties payload.
+        let actionID = properties["actionID"] as? String
+        let selectionBinding: Binding<Set<String>> = mainActorBinding(
             get: {
                 guard let selectedRow = model.value as? [String],
                       !selectedRow.isEmpty else {
@@ -221,10 +224,6 @@ struct Table: ActionUIViewConstruction {
                 }
         
                 guard (model.value as? [String]) != selectedRowValues else { return }
-
-                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                let actionID = properties["actionID"] as? String
                 DispatchQueue.main.async {
                     model.value = selectedRowValues
 
