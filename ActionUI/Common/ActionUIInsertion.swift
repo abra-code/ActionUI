@@ -19,7 +19,7 @@ public enum InsertPosition {
 // Shape of a container container. Determines whether the container holds a flat array of elements
 // (children, destinations, toolbar, commands, columns) or a 2-D array of element rows
 // (Grid's `rows`).
-public enum ContainerShape {
+public enum ContainerShape: Sendable {
     case flat
     case rows
 }

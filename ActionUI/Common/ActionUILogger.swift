@@ -3,7 +3,7 @@ import Foundation
 
 /// Protocol for logging messages in the ActionUI library with specified severity levels.
 /// Used for debugging, error reporting, and informational logging during view rendering and validation.
-public protocol ActionUILogger {
+public protocol ActionUILogger: Sendable {
     /// Logs a message with the specified severity level.
     /// - Parameters:
     ///   - message: The message to log.

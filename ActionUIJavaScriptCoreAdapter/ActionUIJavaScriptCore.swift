@@ -273,7 +273,7 @@ import AppKit
 
 /// Objective-C compatible logger protocol for JavaScript bridging, but since JavaScript uses functions, we use a JSValue-based bridge.
 /// Design decision: Allows JavaScript to provide a logger function that gets called with message and level.
-private class JSLoggerBridge: ActionUILogger {
+private final class JSLoggerBridge: ActionUILogger, @unchecked Sendable {
     let loggerFunction: JSValue
     
     init(loggerFunction: JSValue) {

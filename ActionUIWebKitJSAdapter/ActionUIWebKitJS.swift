@@ -268,7 +268,7 @@ import AppKit
 private let messageHandlerName = "actionUI"
 
 /// Logger bridge to forward native logs to JavaScript.
-private class WebKitJSLoggerBridge: ActionUILogger {
+private final class WebKitJSLoggerBridge: ActionUILogger, @unchecked Sendable {
     weak var adapter: ActionUIWebKitJS?
     
     init(adapter: ActionUIWebKitJS) {
@@ -289,11 +289,14 @@ private class WebKitJSLoggerBridge: ActionUILogger {
             null;
         }
         """
-        adapter.webView.evaluateJavaScript(js) { result, error in
-            if let error = error {
-                print("Logger call error: \(error)")
-            } else {
+        // evaluateJavaScript is main-actor-isolated; hop to the main actor to call it.
+        // ActionUIWebKitJS is @MainActor (hence Sendable), so capturing it here is safe.
+        Task { @MainActor in
+            do {
+                let result = try await adapter.webView.evaluateJavaScript(js)
                 print("Logger call result: \(result ?? "nil")")
+            } catch {
+                print("Logger call error: \(error)")
             }
         }
     }

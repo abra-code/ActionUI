@@ -139,7 +139,7 @@ struct ActionUIVerifier {
 }
 
 // Custom logger for verifier tool
-private class VerifierLogger: ActionUILogger {
+private final class VerifierLogger: ActionUILogger, @unchecked Sendable {
     private var hasErrors = false
     private var hasWarnings = false
     

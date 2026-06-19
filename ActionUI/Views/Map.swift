@@ -172,7 +172,7 @@ struct Map: ActionUIViewConstruction {
             )
         } ?? []
         
-        func extractRegion(from pos: MapKit.MapCameraPosition) -> MKCoordinateRegion? {
+        @Sendable func extractRegion(from pos: MapKit.MapCameraPosition) -> MKCoordinateRegion? {
             let children = Mirror(reflecting: pos).children
             for child in children {
                 if let r = child.value as? MKCoordinateRegion { return r }

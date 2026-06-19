@@ -21,7 +21,7 @@ import AppKit
 }
 
 /// Private bridge class to convert ActionUIObjCLogger to ActionUILogger.
-private class ObjCLoggerBridge: ActionUILogger {
+private final class ObjCLoggerBridge: ActionUILogger, @unchecked Sendable {
     let objCLogger: any ActionUIObjCLogger
     
     init(objCLogger: any ActionUIObjCLogger) {

@@ -19,7 +19,7 @@ import CoreServices
 import UniformTypeIdentifiers
 import CoreGraphics
 
-class CustomLogger: ActionUI.ActionUILogger {
+final class CustomLogger: ActionUI.ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
         print("[ActionUI][\(level)] \(message)")
     }
@@ -165,32 +165,36 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         }
 
         let workItem = DispatchWorkItem {
-            let windowNumber = window.windowNumber
-            guard windowNumber > 0 else {
-                print("Error: Invalid window number")
-                return
-            }
+            // Scheduled on the main queue (DispatchQueue.main.asyncAfter below), so assume
+            // main-actor isolation to touch window.windowNumber and NSApp.
+            MainActor.assumeIsolated {
+                let windowNumber = window.windowNumber
+                guard windowNumber > 0 else {
+                    print("Error: Invalid window number")
+                    return
+                }
 
-            let image = CGWindowListCreateImage(CGRect.zero, .optionIncludingWindow, CGWindowID(windowNumber), [])
-            guard let cgImage = image else {
-                print("Error: Failed to capture window")
-                return
-            }
+                let image = CGWindowListCreateImage(CGRect.zero, .optionIncludingWindow, CGWindowID(windowNumber), [])
+                guard let cgImage = image else {
+                    print("Error: Failed to capture window")
+                    return
+                }
 
-            let url = URL(fileURLWithPath: path)
-            guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-                print("Error: Failed to create image destination")
-                return
-            }
-            CGImageDestinationAddImage(destination, cgImage, nil)
+                let url = URL(fileURLWithPath: path)
+                guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+                    print("Error: Failed to create image destination")
+                    return
+                }
+                CGImageDestinationAddImage(destination, cgImage, nil)
 
-            guard CGImageDestinationFinalize(destination) else {
-                print("Error: Failed to save PNG")
-                return
-            }
+                guard CGImageDestinationFinalize(destination) else {
+                    print("Error: Failed to save PNG")
+                    return
+                }
 
-            print("Screenshot saved to: \(path)")
-            NSApp.terminate(nil)
+                print("Screenshot saved to: \(path)")
+                NSApp.terminate(nil)
+            }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
     }

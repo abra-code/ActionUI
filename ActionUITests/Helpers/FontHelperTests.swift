@@ -14,14 +14,14 @@ import SwiftUI
 final class FontHelperTests: XCTestCase {
     private var logger: XCTestLogger!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         logger = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     // MARK: - String form: named text styles

@@ -17,8 +17,8 @@ final class WindowGroupTests: XCTestCase {
     private var consoleLogger: ConsoleLogger!
     private var windowUUID: String!
     
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
@@ -28,13 +28,13 @@ final class WindowGroupTests: XCTestCase {
         windowUUID = UUID().uuidString
     }
     
-    override func tearDown() {
+    override func tearDown() async throws {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
         consoleLogger = nil
         windowUUID = nil
-        super.tearDown()
+        try await super.tearDown()
     }
     
     func testWindowGroupConstruction() throws {

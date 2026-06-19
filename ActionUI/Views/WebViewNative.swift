@@ -23,6 +23,9 @@ import WebKit
 
 /// Configuration helpers shared by the native (WKWebView) and SwiftUI (WebPage) backings.
 /// Keeping these here avoids duplicating user-script resolution between the two code paths.
+/// Main-actor isolated: it constructs main-actor WebKit objects (WKWebViewConfiguration,
+/// WKUserScript, WKUserContentController); both call sites are already on the main actor.
+@MainActor
 enum WebViewSupport {
     /// Builds WKUserScript objects from the validated `userScripts` property array.
     /// Returns an empty array when no (valid) scripts are present.
@@ -369,13 +372,15 @@ extension WKWebViewRepresentable {
         func webView(_ webView: WKWebView,
                      runOpenPanelWith parameters: WKOpenPanelParameters,
                      initiatedByFrame frame: WKFrameInfo,
-                     completionHandler: @escaping ([URL]?) -> Void) {
+                     completionHandler: @escaping @MainActor ([URL]?) -> Void) {
             let openPanel = NSOpenPanel()
             openPanel.allowsMultipleSelection = parameters.allowsMultipleSelection
             openPanel.canChooseDirectories = parameters.allowsDirectories
             openPanel.canChooseFiles = true
             openPanel.begin { result in
-                completionHandler(result == .OK ? openPanel.urls : nil)
+                MainActor.assumeIsolated {
+                    completionHandler(result == .OK ? openPanel.urls : nil)
+                }
             }
         }
         #endif

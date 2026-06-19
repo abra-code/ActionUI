@@ -99,7 +99,7 @@ public func actionUIGetVersion() -> UnsafeMutablePointer<CChar>? {
 // adapter's existing single-threaded-caller assumption (no new locking is introduced).
 private nonisolated(unsafe) var cLoggerCallback: ActionUILoggerCallback? = nil
 
-private class CLoggerBridge: ActionUILogger {
+private final class CLoggerBridge: ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
         guard let callback = cLoggerCallback else { return }
         

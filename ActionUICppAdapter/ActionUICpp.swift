@@ -30,7 +30,8 @@ public typealias ActionUICppActionHandler = (String, String, Int, Int, Any?) -> 
 
 /// Logger closure type for C++.
 /// Design decision: Closure type maps to std::function<void(std::string, int)> in C++, avoiding protocol interoperability issues.
-public typealias ActionUICppLogger = (String, Int) -> Void
+/// @Sendable because CppLoggerAdapter wraps it and conforms to ActionUILogger (Sendable); the C++ caller's single-threaded contract makes this safe.
+public typealias ActionUICppLogger = @Sendable (String, Int) -> Void
 
 /// Adapter struct to conform to ActionUILogger protocol, wrapping the C++-compatible ActionUICppLogger closure.
 private struct CppLoggerAdapter: ActionUILogger {

@@ -8,8 +8,8 @@ final class RectangleTests: XCTestCase {
     private var logger: XCTestLogger!
     private var windowUUID: String!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
@@ -18,12 +18,12 @@ final class RectangleTests: XCTestCase {
         windowUUID = UUID().uuidString
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
         logger = nil
         windowUUID = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     func testValidatePropertiesValid() {
