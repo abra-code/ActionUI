@@ -49,6 +49,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { buildTemplateRow } from "../Helpers/TemplateHelper.js";
+import { commonRowPrefix } from "../Helpers/RowDiff.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { flatContainerBinding } from "../Helpers/InsertionHelper.js";
 
@@ -308,37 +309,52 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         if (fromUser) ctx.model.dispatchAction(properties.actionID, element.id, 0, null);
     };
 
-    const renderRows = () => {
-        rowNodes = rows.map((row, index) => {
-            const rowNode = document.createElement("div");
-            rowNode.className = "aui-list-row";
-            applyRowStyle(rowNode, rowStyle);
-            rowNode.appendChild(renderCell(row, index));
-            if (selectable) {
-                rowNode.setAttribute("role", "option");
-                rowNode.setAttribute("aria-selected", "false");
-                rowNode.tabIndex = 0;
-                rowNode.addEventListener("click", (event) => {
-                    const control = event.target.closest?.(INTERACTIVE_SELECTOR);
-                    if (control && rowNode.contains(control)) return;
+    const buildRowNode = (row, index) => {
+        const rowNode = document.createElement("div");
+        rowNode.className = "aui-list-row";
+        applyRowStyle(rowNode, rowStyle);
+        rowNode.appendChild(renderCell(row, index));
+        if (selectable) {
+            rowNode.setAttribute("role", "option");
+            rowNode.setAttribute("aria-selected", "false");
+            rowNode.tabIndex = 0;
+            rowNode.addEventListener("click", (event) => {
+                const control = event.target.closest?.(INTERACTIVE_SELECTOR);
+                if (control && rowNode.contains(control)) return;
+                selectRow(index, true);
+            });
+            rowNode.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
                     selectRow(index, true);
-                });
-                rowNode.addEventListener("keydown", (event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectRow(index, true);
-                    }
-                });
-                rowNode.addEventListener("dblclick", () => {
-                    if (typeof properties.doubleClickActionID === "string" && rowValue(row) === selectedRow) {
-                        ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, index);
-                    }
-                });
-            }
-            return rowNode;
-        });
+                }
+            });
+            rowNode.addEventListener("dblclick", () => {
+                if (typeof properties.doubleClickActionID === "string" && rowValue(row) === selectedRow) {
+                    ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, index);
+                }
+            });
+        }
+        return rowNode;
+    };
+
+    // Apply a new rows array with a common-prefix diff (Helpers/RowDiff.js) instead
+    // of a full rebuild: an append (the rows API re-sends the whole array) keeps
+    // every unchanged prefix row - its node, selection styling and wiring - in place
+    // and builds only the new tail; a prepend / mid-list edit rebuilds from the first
+    // change (which re-bakes the shifted per-row indices in the click/dblclick
+    // handlers). The diff preserves the selection across an append.
+    const applyRows = (next) => {
+        next = Array.isArray(next) ? next : [];
+        const keep = commonRowPrefix(rows, next);
+        while (rowNodes.length > keep) { rowNodes[rowNodes.length - 1].remove(); rowNodes.pop(); }
+        for (let index = keep; index < next.length; index++) {
+            const rowNode = buildRowNode(next[index], index);
+            rowNodes.push(rowNode);
+            node.appendChild(rowNode);
+        }
+        rows = next;
         node.classList.toggle("aui-list-empty", rows.length === 0);
-        node.replaceChildren(...rowNodes);
         // A rows change that drops the selected row clears the selection.
         if (selectedRow !== "" && !rows.some((row) => rowValue(row) === selectedRow)) selectedRow = "";
         applySelectionStyles();
@@ -346,14 +362,10 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
 
     if (element.id > 0) {
         // The rows store: set/append/clearElementRows route through here and
-        // re-render the rows in place.
+        // re-render the rows in place (incrementally - see applyRows).
         ctx.model.bindState(element.id, {
             getState: (key) => (key === "content" ? rows : undefined),
-            setState: (key, value) => {
-                if (key !== "content") return;
-                rows = Array.isArray(value) ? value : [];
-                renderRows();
-            },
+            setState: (key, value) => { if (key === "content") applyRows(value); },
         });
         // The selection value: the selected row tab-joined; highlighted silently
         // when set programmatically.
@@ -366,7 +378,7 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         });
     }
 
-    renderRows();
+    applyRows([]);
     return node;
 }
 

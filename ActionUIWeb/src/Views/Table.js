@@ -41,6 +41,7 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
+import { commonRowPrefix } from "../Helpers/RowDiff.js";
 
 const CELL_VIEW_TYPES = ["Text", "Button", "Image", "AsyncImage"];
 const DATA_INTERPRETATIONS = ["path", "systemName", "assetName", "resourceName", "mixed"];
@@ -328,24 +329,38 @@ register("Table", {
             return td;
         };
 
-        const renderBody = () => {
-            const trs = rows.map((row, rowIndex) => {
-                const tr = document.createElement("tr");
-                tr.setAttribute("role", "row");
-                const rowIndexRef = () => rowIndex;
-                columns.forEach((_, colIndex) => {
-                    tr.appendChild(buildCell(row[colIndex] ?? "", colIndex, rowIndexRef));
-                });
-                tr.addEventListener("click", () => selectIndex(rowIndex, true));
-                tr.addEventListener("dblclick", () => {
-                    if (typeof properties.doubleClickActionID === "string" && rowIndex === selectedIndex) {
-                        ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, rowIndex);
-                    }
-                });
-                return tr;
+        const buildRow = (row, rowIndex) => {
+            const tr = document.createElement("tr");
+            tr.setAttribute("role", "row");
+            const rowIndexRef = () => rowIndex;
+            columns.forEach((_, colIndex) => {
+                tr.appendChild(buildCell(row[colIndex] ?? "", colIndex, rowIndexRef));
             });
-            trNodes = trs;
-            tbody.replaceChildren(...trs);
+            tr.addEventListener("click", () => selectIndex(rowIndex, true));
+            tr.addEventListener("dblclick", () => {
+                if (typeof properties.doubleClickActionID === "string" && rowIndex === selectedIndex) {
+                    ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, rowIndex);
+                }
+            });
+            return tr;
+        };
+
+        // Apply a new rows array with a common-prefix diff (Helpers/RowDiff.js)
+        // instead of rebuilding the whole <tbody>: an append (the rows API re-sends
+        // the whole array) keeps every unchanged prefix <tr> - its cells, selection
+        // styling and baked row index - in place and builds only the new tail; a
+        // prepend / mid-list edit rebuilds from the first change. Column auto-fill is
+        // width-based (row-count independent), so an append needs no relayout.
+        const applyRows = (next) => {
+            next = Array.isArray(next) ? next : [];
+            const keep = commonRowPrefix(rows, next);
+            while (trNodes.length > keep) { trNodes[trNodes.length - 1].remove(); trNodes.pop(); }
+            for (let rowIndex = keep; rowIndex < next.length; rowIndex++) {
+                const tr = buildRow(next[rowIndex], rowIndex);
+                trNodes.push(tr);
+                tbody.appendChild(tr);
+            }
+            rows = next;
             // A re-render drops the prior selection if its row no longer exists.
             if (selectedIndex >= rows.length) selectedIndex = -1;
             applySelectionStyles();
@@ -353,14 +368,10 @@ register("Table", {
 
         if (element.id > 0) {
             // The rows store: set/append/clearElementRows route through here and
-            // re-render the body in place.
+            // re-render the body in place (incrementally - see applyRows).
             ctx.model.bindState(element.id, {
                 getState: (key) => (key === "content" ? rows : undefined),
-                setState: (key, value) => {
-                    if (key !== "content") return;
-                    rows = Array.isArray(value) ? value : [];
-                    renderBody();
-                },
+                setState: (key, value) => { if (key === "content") applyRows(value); },
             });
             // The selection value: tab-joined selected row; set by value match.
             ctx.model.bind(element.id, {
@@ -374,7 +385,7 @@ register("Table", {
         }
 
         applyWidths(); // seed the <col> widths before the frame is measured
-        renderBody();
+        applyRows([]);
         // Keep the widest column filling the frame as the frame / window resizes
         // (also performs the first fill once the wrapper has a measured width).
         if (typeof ResizeObserver !== "undefined") {

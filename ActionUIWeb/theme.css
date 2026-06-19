@@ -97,10 +97,30 @@
 .aui-vstack > .aui-fill-height { flex: 1 1 0; min-height: 0; }
 .aui-hstack > .aui-fill-height { align-self: stretch; }
 
-/* Lazy stacks share the flex layout (and Divider orientation) of their eager
-   twins; the .aui-lazy* classes are markers for any future lazy-only styling.
-   On web they render eagerly — virtualization is deferred (Phase 4). */
+/* Lazy stacks/grids share the flex/grid layout (and Divider orientation) of their
+   eager twins; the .aui-lazy* classes mark the lazy-only styling. They are eager in
+   the DOM (no windowing), but each row gets content-visibility:auto so the browser
+   skips layout/paint for offscreen rows - the platform's built-in laziness, while
+   keeping the rows in the DOM (Ctrl-F / the a11y tree / text selection still work).
+   contain-intrinsic-size reserves an estimated box before a row first renders
+   (scrollbar/offset stability); the `auto` keyword then remembers each row's real
+   size once it has rendered, so the estimate only applies to never-seen rows - right
+   for variable-height rows like chat bubbles. content-visibility:auto is a no-op when
+   the whole list fits on screen. True windowing is a separate opt-in path (see
+   Private/ActionUIWeb_LazyVirtualization_Plan.md). .aui-list-row gets the same
+   treatment: SwiftUI's List is itself lazy (its UITableView/NSTableView backing
+   recycles cells), so the web List rows deserve offscreen-skipping too. (A real
+   <table> cannot - CSS containment is not defined for internal table elements, so
+   content-visibility is ignored on <tr>; Table laziness needs true windowing.) */
 .aui-lazyvstack, .aui-lazyhstack { /* reuse .aui-vstack / .aui-hstack rules */ }
+.aui-lazyvstack > *,
+.aui-lazyhstack > *,
+.aui-lazyvgrid > *,
+.aui-lazyhgrid > *,
+.aui-list-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 44px;
+}
 
 /* ScrollView: a viewport whose overflow is set per-axis inline by the view.
    showsIndicators:false hides the scrollbars (the .scrollIndicators(.hidden)

@@ -33,6 +33,7 @@
 
 import { ActionUIElement } from "../Common/ActionUIElement.js";
 import { buildElementView } from "../Common/ActionUIRegistry.js";
+import { commonRowPrefix } from "./RowDiff.js";
 
 const COLUMN_REF = /\$(\d+)/g;
 
@@ -97,27 +98,34 @@ export function buildTemplateRow(template, row, rowIndex, parentID, ctx) {
 }
 
 // Wires a container's `template` data-driven mode: one substituted template
-// instance per row in states["content"] (set via the rows API), re-rendered in
-// place on every rows change. The container `node` keeps its own layout (flex /
-// grid); the instances are its direct children. Used by the Lazy stacks/grids
-// (List has its own selectable variant in buildDataRows). valueType stays none -
-// the rows live in the "content" state, not the value. Returns `node`.
+// instance per row in states["content"] (set via the rows API). The container
+// `node` keeps its own layout (flex / grid); the instances are its direct children.
+// Used by the Lazy stacks/grids (List has its own selectable variant in
+// buildDataRows). valueType stays none - the rows live in the "content" state, not
+// the value. Returns `node`.
+//
+// A rows change is applied with a common-prefix diff (Helpers/RowDiff.js), not a
+// full rebuild: an append (the streaming hot path, where the rows API re-sends the
+// whole array) keeps every unchanged prefix instance in place and builds only the
+// new tail; a truncation drops the tail; a prepend / mid-list edit rebuilds from the
+// first change.
 export function renderTemplateRows(node, element, template, ctx) {
     let rows = [];
-    const renderRows = () => {
-        node.replaceChildren(...rows.map((row, index) =>
-            buildTemplateRow(template, row, index, element.id, ctx)));
+    const applyRows = (next) => {
+        next = Array.isArray(next) ? next : [];
+        const keep = commonRowPrefix(rows, next);
+        while (node.children.length > keep) node.children[node.children.length - 1].remove();
+        for (let index = keep; index < next.length; index++) {
+            node.appendChild(buildTemplateRow(template, next[index], index, element.id, ctx));
+        }
+        rows = next;
     };
     if (element.id > 0) {
         ctx.model.bindState(element.id, {
             getState: (key) => (key === "content" ? rows : undefined),
-            setState: (key, value) => {
-                if (key !== "content") return;
-                rows = Array.isArray(value) ? value : [];
-                renderRows();
-            },
+            setState: (key, value) => { if (key === "content") applyRows(value); },
         });
     }
-    renderRows();
+    applyRows([]);
     return node;
 }
