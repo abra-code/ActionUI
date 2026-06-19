@@ -1,0 +1,84 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Lists", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "List in all three modes plus a data-driven grid. Rows for the data-driven collections are pushed from app.js once this section loads (viewDidLoadActionID).", "foregroundColor": "secondary" } },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (selectable children; a Button row keeps its own action):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 46,
+      "properties": { "actionID": "listSelect", "listStyle": "inset", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Label", "id": 41, "properties": { "title": "Inbox", "systemImage": "tray" } },
+        { "type": "Label", "id": 42, "properties": { "title": "Drafts", "systemImage": "text.document" } },
+        { "type": "Label", "id": 43, "properties": { "title": "Sent", "systemImage": "paperplane" } },
+        { "type": "Button", "id": 44, "properties": { "title": "Compose", "systemImage": "square.and.pencil", "actionID": "listCompose" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List with searchable (the field above emits each query change to the host via actionID; the status line below echoes it):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 47,
+      "properties": {
+        "searchable": { "prompt": "Search receivers", "actionID": "collectionsSearch" },
+        "listStyle": "inset",
+        "frame": { "maxWidth": "infinity" }
+      },
+      "children": [
+        { "type": "Label", "properties": { "title": "Ada Lovelace", "systemImage": "person.circle" } },
+        { "type": "Label", "properties": { "title": "Alan Turing", "systemImage": "person.circle" } },
+        { "type": "Label", "properties": { "title": "Grace Hopper", "systemImage": "person.circle" } },
+        { "type": "Label", "properties": { "title": "Katherine Johnson", "systemImage": "person.circle" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 45,
+      "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "frame": { "maxWidth": "infinity" } }
+    },
+    { "type": "Text", "properties": { "text": "Programmatic selection (silent: fires no actionID; the host updates status itself):", "foregroundColor": "secondary", "font": "footnote" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Select #3", "buttonStyle": "bordered", "actionID": "listSelectIndex" } },
+        { "type": "Button", "properties": { "title": "Find \"Medium\"", "buttonStyle": "bordered", "actionID": "listSelectContent" } },
+        { "type": "Button", "properties": { "title": "Deselect", "buttonStyle": "bordered", "actionID": "listDeselect" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List (template repeater; $1/$2 column references, rows via the rows API):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 55,
+      "properties": { "actionID": "tmplListSelect", "frame": { "maxWidth": "infinity" } },
+      "template": {
+        "type": "HStack",
+        "children": [
+          { "type": "Image", "properties": { "systemName": "$2" } },
+          { "type": "Text", "properties": { "text": "$1" } }
+        ]
+      }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "LazyVGrid (data-driven template mode; one substituted instance per row from the rows API, flowing into the grid):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "LazyVGrid",
+      "id": 56,
+      "properties": { "columns": [{ "flexible": true }, { "flexible": true }, { "flexible": true }], "spacing": 10, "frame": { "maxWidth": "infinity" } },
+      "template": {
+        "type": "VStack",
+        "properties": { "spacing": 4, "padding": 8 },
+        "children": [
+          { "type": "Image", "properties": { "systemName": "$2", "imageScale": "large", "foregroundColor": "accentColor" } },
+          { "type": "Text", "properties": { "text": "$1", "font": "footnote" } }
+        ]
+      }
+    }
+  ]
+}

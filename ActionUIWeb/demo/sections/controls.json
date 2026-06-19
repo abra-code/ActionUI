@@ -1,0 +1,50 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Controls", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "Value controls bound through the model: a counter, a slider that drives a progress bar and two gauges, and a stepper.", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Text", "properties": { "text": "Counter:" } },
+        { "type": "Button", "properties": { "systemImage": "minus", "actionID": "decrement" } },
+        { "type": "Text", "id": 10, "properties": { "text": "0", "font": "headline" } },
+        { "type": "Button", "properties": { "systemImage": "plus", "actionID": "increment" } },
+        { "type": "Spacer" },
+        { "type": "Button", "properties": { "title": "Reset", "systemImage": "arrow.counterclockwise", "buttonStyle": "borderless", "foregroundColor": "red", "actionID": "reset" } }
+      ]
+    },
+    { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Volume", "systemImage": "speaker.wave.2.fill" } },
+        { "type": "Slider", "id": 30, "properties": { "value": 40, "range": { "min": 0, "max": 100 }, "step": 1, "valueChangeActionID": "volumeChanged", "frame": { "maxWidth": "infinity" } } },
+        { "type": "Text", "id": 31, "properties": { "text": "40", "font": "headline" } }
+      ]
+    },
+    { "type": "ProgressView", "id": 70, "properties": { "title": "Buffering", "value": 0.4, "total": 1.0 } },
+    { "type": "ProgressView", "properties": { "title": "Working…" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        { "type": "Gauge", "id": 96, "properties": { "title": "Vol", "style": "accessoryCircular", "value": 40, "range": { "min": 0, "max": 100 } } },
+        { "type": "Gauge", "id": 97, "properties": { "title": "Volume level", "value": 40, "range": { "min": 0, "max": 100 }, "frame": { "maxWidth": "infinity" } } },
+        { "type": "Gauge", "properties": { "style": "accessoryLinearCapacity", "value": 0.8, "frame": { "width": 80 } } }
+      ]
+    },
+    { "type": "Divider" },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Stepper", "id": 40, "properties": { "value": 3, "range": { "min": 0, "max": 10 }, "step": 1, "labelFormat": "Quantity: %.0f", "actionID": "quantityChanged" } },
+        { "type": "Spacer" }
+      ]
+    }
+  ]
+}

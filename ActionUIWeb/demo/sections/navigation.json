@@ -1,0 +1,153 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Navigation", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "TabView (sidebarAdaptable: a left rail, selection-bound, badges):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "TabView",
+      "id": 130,
+      "properties": { "selection": 0, "actionID": "tabChanged", "style": "sidebarAdaptable", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "Tab",
+          "properties": { "title": "Home", "systemImage": "house" },
+          "content": {
+            "type": "VStack",
+            "properties": { "alignment": "leading", "spacing": 6 },
+            "children": [
+              { "type": "Text", "properties": { "text": "Home", "font": "headline" } },
+              { "type": "Text", "properties": { "text": "Each tab keeps its own state across switches.", "foregroundColor": "secondary" } }
+            ]
+          }
+        },
+        {
+          "type": "Tab",
+          "properties": { "title": "Settings", "systemImage": "gearshape", "badge": 3 },
+          "content": { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } }
+        },
+        {
+          "type": "Tab",
+          "properties": { "title": "About", "systemImage": "info.circle", "badge": "!" },
+          "content": { "type": "Text", "properties": { "text": "ActionUIWeb — three renderers, one JSON." } }
+        }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Menu (pull-down: icons, a section, a divider):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Menu",
+      "id": 170,
+      "properties": { "title": "Actions" },
+      "children": [
+        { "type": "Button", "properties": { "title": "New", "systemImage": "plus", "actionID": "menuNew" } },
+        { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "menuDuplicate" } },
+        { "type": "Divider" },
+        {
+          "type": "Section",
+          "properties": { "header": "Danger" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "actionID": "menuDelete" } }
+          ]
+        }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop). browserHistory:web is on, so the browser Back button pops a push, then switches section:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "NavigationStack",
+      "id": 160,
+      "properties": { "browserHistory:web": true, "frame": { "maxWidth": "infinity" } },
+      "content": {
+        "type": "VStack",
+        "id": 164,
+        "properties": { "alignment": "leading", "spacing": 0, "navigationTitle": "Library" },
+        "children": [
+          { "type": "NavigationLink", "properties": { "title": "Profile", "systemImage": "person.crop.circle", "destinationViewId": 161 } },
+          { "type": "NavigationLink", "properties": { "title": "Settings", "systemImage": "gearshape", "destinationViewId": 162 } },
+          {
+            "type": "NavigationLink",
+            "properties": { "title": "Inline note", "systemImage": "text.document" },
+            "destination": {
+              "type": "VStack",
+              "id": 163,
+              "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Note" },
+              "children": [
+                { "type": "Text", "properties": { "text": "This destination was declared inline on the link.", "font": "headline" } },
+                { "type": "Text", "properties": { "text": "Inline destinations are hoisted by id (the Android/web constraint).", "foregroundColor": "secondary" } }
+              ]
+            }
+          }
+        ]
+      },
+      "destinations": [
+        {
+          "type": "VStack",
+          "id": 161,
+          "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Profile" },
+          "children": [
+            { "type": "Label", "properties": { "title": "Ada Lovelace", "systemImage": "person.crop.circle" } },
+            { "type": "Text", "properties": { "text": "Pushed by reference (destinationViewId 161). The toolbar action lives in the title bar.", "foregroundColor": "secondary" } }
+          ],
+          "toolbar": [
+            { "type": "ToolbarItem", "properties": { "placement": "primaryAction" }, "content": { "type": "Button", "properties": { "title": "Edit", "systemImage": "pencil", "actionID": "toolbarEdit" } } }
+          ]
+        },
+        {
+          "type": "VStack",
+          "id": 162,
+          "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Settings" },
+          "children": [
+            { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } },
+            { "type": "Text", "properties": { "text": "Each pushed pane keeps its state across navigation.", "foregroundColor": "secondary" } }
+          ],
+          "toolbar": [
+            { "type": "ToolbarItem", "properties": { "placement": "cancellationAction" }, "content": { "type": "Button", "properties": { "title": "Cancel", "actionID": "toolbarCancel" } } },
+            { "type": "ToolbarItem", "properties": { "placement": "confirmationAction" }, "content": { "type": "Button", "properties": { "title": "Done", "actionID": "toolbarDone" } } }
+          ]
+        }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Toolbar (chrome on any view: leading / trailing group / bottom bar). toolbarTitleDisplayMode 'large' renders a big title row; secondaryAction items collapse into the trailing overflow ('...') menu:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "VStack",
+      "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Documents", "toolbarTitleDisplayMode": "large", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "A toolbar/navigationTitle wraps any view in screen chrome (no NavigationStack needed)." } }
+      ],
+      "toolbar": [
+        { "type": "ToolbarItem", "properties": { "placement": "topBarLeading" }, "content": { "type": "Button", "properties": { "title": "Add", "systemImage": "plus", "actionID": "toolbarAdd" } } },
+        {
+          "type": "ToolbarItemGroup",
+          "properties": { "placement": "primaryAction" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "toolbarShare" } },
+            { "type": "Button", "properties": { "title": "Filter", "systemImage": "line.3.horizontal.decrease", "actionID": "toolbarFilter" } }
+          ]
+        },
+        {
+          "type": "ToolbarItemGroup",
+          "properties": { "placement": "secondaryAction" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "actionID": "toolbarArchive" } },
+            { "type": "Button", "properties": { "title": "Move", "systemImage": "folder", "actionID": "toolbarMove" } },
+            { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "toolbarDuplicate" } }
+          ]
+        },
+        { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundColor": "secondary" } } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Runtime insertion into the exotic containers (Apple declares these insertable): add a tab to the TabView above, an item to the Menu above (re-open it), or a destination to the NavigationStack (a Library row is added alongside the push target, so it persists after Back):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        { "type": "Button", "properties": { "title": "Add Tab", "systemImage": "plus.rectangle", "buttonStyle": "bordered", "actionID": "insertTab" } },
+        { "type": "Button", "properties": { "title": "Add Menu Item", "systemImage": "plus.circle", "buttonStyle": "bordered", "actionID": "insertMenuItem" } },
+        { "type": "Button", "properties": { "title": "Add + Open Destination", "systemImage": "plus.square.on.square", "buttonStyle": "bordered", "actionID": "insertDestination" } }
+      ]
+    }
+  ]
+}

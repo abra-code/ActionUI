@@ -1,0 +1,1582 @@
+/* theme.css — ActionUIWeb default theme (PoC).
+   Tokenized via CSS custom properties; macOS-flavored, honest about being web.
+   Adapts to light/dark automatically like SwiftUI semantic colors. */
+
+:root {
+    --aui-color-accent: #007aff;
+    --aui-color-primary: #1d1d1f;
+    --aui-color-secondary: #6e6e73;
+    --aui-color-red: #ff3b30;
+    --aui-color-orange: #ff9500;
+    --aui-color-yellow: #ffcc00;
+    --aui-color-green: #34c759;
+    --aui-color-mint: #00c7be;
+    --aui-color-teal: #30b0c7;
+    --aui-color-cyan: #32ade6;
+    --aui-color-blue: #007aff;
+    --aui-color-indigo: #5856d6;
+    --aui-color-purple: #af52de;
+    --aui-color-pink: #ff2d55;
+    --aui-color-brown: #a2845e;
+    --aui-color-gray: #8e8e93;
+
+    --aui-window-background: #ececec;
+    --aui-control-background: #ffffff;
+    --aui-control-border: #d2d2d7;
+    --aui-control-radius: 6px;
+    --aui-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aui-color-accent) 35%, transparent);
+    --aui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --aui-color-primary: #f5f5f7;
+        --aui-color-secondary: #98989d;
+        --aui-window-background: #2d2d2d;
+        --aui-control-background: #1d1d1f;
+        --aui-control-border: #48484a;
+    }
+}
+
+/* ---- window host ---- */
+
+.aui-window {
+    font-family: var(--aui-font);
+    font-size: 13px;
+    color: var(--aui-color-primary);
+    background: var(--aui-window-background);
+    box-sizing: border-box;
+}
+.aui-window *, .aui-window *::before, .aui-window *::after { box-sizing: inherit; }
+
+/* ---- layout ---- */
+
+.aui-stack { display: flex; }
+.aui-vstack { flex-direction: column; }
+.aui-hstack { flex-direction: row; }
+
+.aui-zstack { display: grid; }
+.aui-zstack > * { grid-area: 1 / 1; place-self: center; }
+
+/* GeometryReader: a greedy container (fills the proposal, the .aui-shape idiom)
+   that places its single content child by alignment via place-self (set inline
+   per the JSON, default topLeading). An explicit numeric frame pins the box (the
+   view sets flex-grow:0 inline), the same discipline the shapes use. */
+.aui-geometry-reader { display: grid; flex-grow: 1; align-self: stretch; min-width: 0; min-height: 0; }
+.aui-geometry-reader > * { grid-area: 1 / 1; }
+
+/* frame(alignment:) — position content within a larger frame box. The node
+   becomes a grid box; place-content/place-items (set inline from the JSON) place
+   the content. A class (not inline display) so an inline display:none from
+   `hidden` still wins. Leaf-oriented: stacks/grids keep their own layout (the
+   resolver skips them). See Private/ActionUI-Web-Layout-Engine.md (Stage 2b). */
+.aui-frame-align { display: grid; }
+
+/* View-valued overlay / background decorations (Helpers/DecorationModifier.js).
+   The wrapper is a grid box: the element is its single in-flow grid item and so
+   defines the box size (a fill/greedy element still fills it via the grid item's
+   default stretch). The decoration layers are position:absolute; inset:0 siblings,
+   so they cover the element box without adding to its size (Apple: a decoration
+   never changes layout). isolation:isolate keeps the z-index:-1 background layer
+   within this box. Each layer is a flex box; justify/align (set inline from the
+   alignment) place the decoration content, while a bare greedy shape fills it. */
+.aui-decorated { position: relative; isolation: isolate; display: grid; }
+.aui-deco { position: absolute; inset: 0; display: flex; }
+.aui-deco-background { z-index: -1; }  /* behind the element + its own background color */
+.aui-deco-overlay { z-index: 1; }      /* above the element */
+
+.aui-spacer { flex-grow: 1; align-self: stretch; }
+
+/* maxWidth/maxHeight ".infinity" -> fill the proposal (the
+   .frame(maxWidth/maxHeight: .infinity) analog). View modifiers run before the
+   node is attached, so the parent stack resolves the axis here: grow along its
+   main axis, stretch across its cross axis. A view that fills only one axis hugs
+   its content on the other. See Private/ActionUI-Web-Layout-Engine.md. */
+.aui-vstack > .aui-fill-width  { align-self: stretch; }
+.aui-hstack > .aui-fill-width  { flex: 1 1 0; min-width: 0; }
+.aui-vstack > .aui-fill-height { flex: 1 1 0; min-height: 0; }
+.aui-hstack > .aui-fill-height { align-self: stretch; }
+
+/* Lazy stacks/grids share the flex/grid layout (and Divider orientation) of their
+   eager twins; the .aui-lazy* classes mark the lazy-only styling. They are eager in
+   the DOM (no windowing), but each row gets content-visibility:auto so the browser
+   skips layout/paint for offscreen rows - the platform's built-in laziness, while
+   keeping the rows in the DOM (Ctrl-F / the a11y tree / text selection still work).
+   contain-intrinsic-size reserves an estimated box before a row first renders
+   (scrollbar/offset stability); the `auto` keyword then remembers each row's real
+   size once it has rendered, so the estimate only applies to never-seen rows - right
+   for variable-height rows like chat bubbles. content-visibility:auto is a no-op when
+   the whole list fits on screen. True windowing is a separate opt-in path (see
+   Private/ActionUIWeb_LazyVirtualization_Plan.md). .aui-list-row gets the same
+   treatment: SwiftUI's List is itself lazy (its UITableView/NSTableView backing
+   recycles cells), so the web List rows deserve offscreen-skipping too. (A real
+   <table> cannot - CSS containment is not defined for internal table elements, so
+   content-visibility is ignored on <tr>; Table laziness needs true windowing.) */
+.aui-lazyvstack, .aui-lazyhstack { /* reuse .aui-vstack / .aui-hstack rules */ }
+.aui-lazyvstack > *,
+.aui-lazyhstack > *,
+.aui-lazyvgrid > *,
+.aui-lazyhgrid > *,
+.aui-list-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 44px;
+}
+
+/* ScrollView: a viewport whose overflow is set per-axis inline by the view.
+   showsIndicators:false hides the scrollbars (the .scrollIndicators(.hidden)
+   analog) while keeping the content scrollable. */
+.aui-scroll { max-height: 100%; max-width: 100%; }
+.aui-scroll-no-indicators { scrollbar-width: none; }
+.aui-scroll-no-indicators::-webkit-scrollbar { display: none; }
+
+/* ScrollViewReader: a passthrough wrapper that does not scroll itself (its
+   child does). Flex column + min-height:0 so a filling child ScrollView
+   (maxHeight ".infinity" → .aui-fill-height) can take the reader's height. */
+.aui-scroll-reader { display: flex; flex-direction: column; min-height: 0; }
+.aui-scroll-reader > .aui-fill-height { flex: 1 1 0; min-height: 0; }
+
+/* Grids → CSS grid. The track lists (grid-template-columns/rows), flow,
+   gaps, and place-items are set inline by each view from its JSON; Grid also
+   writes explicit grid-row/grid-column on each cell so uneven rows stay aligned.
+   LazyVGrid grows down (template-columns), LazyHGrid across (template-rows +
+   auto-flow:column), Grid is explicit GridRows. */
+.aui-grid { display: grid; }
+
+/* Form containers. All five reuse the stack flex rules (.aui-vstack /
+   .aui-hstack) for direction and Divider orientation; these classes add the
+   grouping looks. */
+
+/* Form: a leading-aligned column of rows. Non-scrolling (wrap in a ScrollView);
+   the 8px row gap approximates SwiftUI's grouped row spacing. */
+.aui-form { align-items: flex-start; gap: 8px; }
+
+/* Section: an optional header label above the rows, styled like a section
+   label (small, secondary, semibold — the Material titleSmall analog). */
+.aui-section { align-items: flex-start; }
+.aui-section-header {
+    color: var(--aui-color-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 0 4px;
+}
+
+/* GroupBox: the default SwiftUI style — a bordered rounded box with a subtle
+   fill, the title label above the content. */
+.aui-groupbox {
+    align-items: flex-start;
+    gap: 8px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: 8px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--aui-color-gray) 7%, transparent);
+}
+.aui-groupbox-title { font-weight: 600; }
+
+/* LabeledContent: leading title, trailing content. The title flexes to push
+   the children to the trailing edge (the SwiftUI label-left/content-right
+   layout); the row stretches like the Android weighted Row. */
+.aui-labeled-content { align-items: center; gap: 8px; align-self: stretch; }
+.aui-labeled-content-title { flex: 1; white-space: nowrap; }
+
+/* DisclosureGroup: native <details>/<summary>. The native disclosure marker
+   leads the title (SwiftUI's chevron trails — accepted platform character).
+   Content insets mirror the Android start-16/top-8 padding. */
+.aui-disclosure { align-self: stretch; }
+.aui-disclosure-title { cursor: pointer; user-select: none; }
+.aui-disclosure-content { align-items: flex-start; gap: 8px; padding: 8px 0 0 16px; }
+
+.aui-divider { background: var(--aui-control-border); align-self: stretch; }
+.aui-vstack > .aui-divider { height: 1px; }
+.aui-hstack > .aui-divider { width: 1px; }
+
+/* ---- shapes ---- */
+
+/* Stateless shape primitives (Rectangle, RoundedRectangle, Capsule, Circle,
+   Ellipse): zero-content divs painted inline by the views (fill → background,
+   stroke → inner border). A SwiftUI shape is greedy — it accepts the full
+   proposal — so a bare shape stretches and grows; an explicit frame pins it
+   (the view sets flex-grow:0 inline). */
+.aui-shape { flex-grow: 1; align-self: stretch; min-width: 0; min-height: 0; }
+.aui-capsule { border-radius: 9999px; }
+.aui-ellipse { border-radius: 50%; }
+/* Circle stays circular in a non-square box (SwiftUI inscribes it: diameter =
+   min(width, height), centered), where border-radius:50% would give an
+   ellipse. The box is a size container so the disc can take
+   min(100cqw, 100cqh) — the inscribed diameter — in pure CSS. */
+.aui-circle { container-type: size; display: grid; place-items: center; }
+.aui-circle-disc { width: min(100cqw, 100cqh); aspect-ratio: 1; border-radius: 50%; }
+
+/* ---- TabView ---- */
+
+/* A top tab strip over a content area (the macOS TabView convention; Android/iOS
+   put the bar at the bottom). The view toggles each panel's `display` inline. */
+.aui-tabview { display: flex; flex-direction: column; align-self: stretch; }
+.aui-tabbar {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-tab {
+    font: inherit;
+    color: var(--aui-color-secondary);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px; /* overlap the bar's bottom border so the active underline sits on it */
+    padding: 6px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+}
+.aui-tab:hover { color: var(--aui-color-primary); }
+.aui-tab:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: var(--aui-control-radius); }
+.aui-tab-selected {
+    color: var(--aui-color-accent);
+    border-bottom-color: var(--aui-color-accent);
+}
+.aui-tab-icon { font-size: 1.18em; }
+/* A small count/text bubble trailing the title, like SwiftUI's .badge. */
+.aui-tab-badge {
+    min-width: 1.3em;
+    padding: 0 0.4em;
+    border-radius: 999px;
+    background: var(--aui-color-red);
+    color: #ffffff;
+    font-size: 0.75em;
+    line-height: 1.4;
+    text-align: center;
+}
+.aui-tabview-content { padding-top: 10px; }
+
+/* `style: sidebarAdaptable` — the tab items run down a left rail and the content
+   fills the rest (the desktop/expanded form of Apple's adaptive sidebar). The
+   active marker moves from a bottom underline to a leading edge. */
+.aui-tabview-sidebar { flex-direction: row; align-items: stretch; }
+.aui-tabbar-sidebar {
+    flex-direction: column;
+    gap: 1px;
+    min-width: 150px;
+    border-bottom: none;
+    border-right: 1px solid var(--aui-control-border);
+}
+.aui-tabview-sidebar .aui-tab {
+    justify-content: flex-start;
+    border-bottom: none;
+    border-left: 2px solid transparent;
+    margin-bottom: 0;
+    margin-right: -1px; /* overlap the rail's right border so the active edge sits on it */
+}
+.aui-tabview-sidebar .aui-tab-selected {
+    border-bottom-color: transparent;
+    border-left-color: var(--aui-color-accent);
+}
+.aui-tabview-sidebar .aui-tabview-content { flex: 1; padding-top: 0; padding-left: 14px; }
+
+/* Narrow-window collapse of the sidebarAdaptable rail back to a top strip (the
+   adaptive half of Apple's sidebarAdaptable: sidebar when wide, tab bar when
+   narrow). TabView.js toggles .aui-tabview-compact via a ResizeObserver; these
+   rules revert the rail overrides above to the default top-strip layout. */
+.aui-tabview-sidebar.aui-tabview-compact { flex-direction: column; }
+.aui-tabview-sidebar.aui-tabview-compact .aui-tabbar-sidebar {
+    flex-direction: row;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-tabview-sidebar.aui-tabview-compact .aui-tab {
+    justify-content: center;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    margin-right: 0;
+    margin-bottom: -1px;
+}
+.aui-tabview-sidebar.aui-tabview-compact .aui-tab-selected {
+    border-left-color: transparent;
+    border-bottom-color: var(--aui-color-accent);
+}
+.aui-tabview-sidebar.aui-tabview-compact .aui-tabview-content { flex: 1; padding-top: 10px; padding-left: 0; }
+
+/* ---- Menu ---- */
+
+/* A pull-down: a <button> trigger styled like a Button, with the item list a
+   top-layer popover (Popover API) that overlays content. A trailing caret marks
+   it as a menu. The dropdown lives in the browser top layer so it escapes every
+   ancestor overflow/clip (e.g. the NavigationSplitView pane's overflow:scroll),
+   the way a SwiftUI Menu pull-down escapes its window. */
+.aui-menu { position: relative; display: inline-block; }
+.aui-menu-trigger {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 12px;
+    cursor: pointer;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+    user-select: none;
+}
+.aui-menu-trigger:hover { filter: brightness(0.97); }
+.aui-menu-trigger:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-menu-caret { font-size: 0.7em; opacity: 0.7; }
+
+/* The dropdown panel: shared visual styling (positioning differs by mode). */
+.aui-menu-items {
+    z-index: 10;
+    min-width: 168px;
+    padding: 4px;
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    flex-direction: column;
+}
+/* Top-layer popover: override the UA centering (inset:0; margin:auto) so JS can
+   anchor it to the trigger via top/left; shown as a flex column only when open. */
+.aui-menu-items[popover] { position: fixed; margin: 0; inset: auto; }
+.aui-menu-items:popover-open { display: flex; }
+/* Fallback (no Popover API): a fixed, JS-placed panel toggled by .is-open (the
+   shared makeFloatingPanel adds the class to the panel). No top layer, so an
+   overflow ancestor of the host can clip it - the behavior before the top layer. */
+.aui-menu-items:not([popover]) { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-menu-items.is-open:not([popover]) { display: flex; }
+.aui-menu-item {
+    font: inherit;
+    text-align: left;
+    color: var(--aui-color-primary);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+.aui-menu-item:hover { background: var(--aui-color-accent); color: #ffffff; }
+.aui-menu-divider { border: none; border-top: 1px solid var(--aui-control-border); margin: 4px 6px; }
+.aui-menu-section-header {
+    color: var(--aui-color-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 10px 2px;
+}
+
+/* ---- App shell: top app bar + hamburger drawer + account menu ---- */
+/* The application menu bar (MainMenu.json) rendered as modern web chrome
+   (Scenes/MenuBar.js): a thin top app bar over a centering stage that holds the
+   window. The shell fills the host container's height so the stage is a
+   definite-height region and the window's own frame clamp still resolves. */
+.aui-app-shell {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--aui-font);
+    background: var(--aui-window-background);
+}
+.aui-appbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 10px;
+    background: var(--aui-control-background);
+    border-bottom: 1px solid var(--aui-control-border);
+    z-index: 2; /* above the stage's window content */
+}
+.aui-appbar-title { font-size: 15px; font-weight: 600; color: var(--aui-color-primary); }
+.aui-appbar-spacer { flex: 1 1 auto; }
+/* Hamburger: three CSS bars (no glyph-font dependency). */
+.aui-hamburger {
+    appearance: none; border: none; background: transparent; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 8px; padding: 8px;
+    display: inline-flex; flex-direction: column; justify-content: space-between;
+}
+.aui-hamburger:hover { background: color-mix(in srgb, var(--aui-color-primary) 8%, transparent); }
+.aui-hamburger:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-hamburger-bar { display: block; height: 2px; border-radius: 1px; background: var(--aui-color-primary); }
+.aui-account-button {
+    appearance: none; border: none; background: transparent; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 50%; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--aui-color-primary); font-size: 22px;
+}
+.aui-account-button:hover { background: color-mix(in srgb, var(--aui-color-primary) 8%, transparent); }
+.aui-account-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* The stage: re-creates the centering, definite-height host the window sits in;
+   the window pins to the top under the app bar and scrolls within if tall. */
+.aui-app-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: auto;
+    scrollbar-gutter: stable;
+}
+/* When shelled, the window is no longer the standalone card. */
+.aui-app-shell .aui-window { box-shadow: none; border-radius: 0; }
+
+/* Drawer + dimmed backdrop, absolutely placed within the shell. */
+.aui-drawer-backdrop {
+    position: absolute; inset: 0; z-index: 5;
+    background: rgba(0, 0, 0, 0.32);
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+.aui-app-shell.is-drawer-open .aui-drawer-backdrop { opacity: 1; visibility: visible; }
+.aui-drawer {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 6;
+    width: min(280px, 82%);
+    background: var(--aui-control-background);
+    border-right: 1px solid var(--aui-control-border);
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.2);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 8px 16px;
+}
+.aui-app-shell.is-drawer-open .aui-drawer { transform: translateX(0); }
+.aui-drawer-head {
+    font-size: 17px; font-weight: 700; color: var(--aui-color-primary);
+    padding: 10px 10px 12px;
+}
+.aui-drawer-empty { color: var(--aui-color-secondary); padding: 8px 10px; }
+.aui-drawer-section { padding: 6px 0; }
+.aui-drawer-section + .aui-drawer-section { border-top: 1px solid var(--aui-control-border); }
+.aui-drawer-section-title {
+    color: var(--aui-color-secondary);
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 6px 10px 4px;
+}
+
+/* The account menu: a top-layer popover (shared makeFloatingPanel machinery). */
+.aui-account-menu {
+    z-index: 10;
+    min-width: 180px;
+    padding: 4px;
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    flex-direction: column;
+}
+.aui-account-menu[popover] { position: fixed; margin: 0; inset: auto; }
+.aui-account-menu:popover-open { display: flex; }
+.aui-account-menu:not([popover]) { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-account-menu.is-open:not([popover]) { display: flex; }
+
+/* Menu items shared by the drawer and the account popover. */
+.aui-menubar-item {
+    font: inherit; text-align: left; width: 100%;
+    color: var(--aui-color-primary); background: transparent; border: none;
+    border-radius: 6px; padding: 7px 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 0.55em;
+}
+.aui-menubar-item:hover { background: var(--aui-color-accent); color: #ffffff; }
+.aui-menubar-item:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-menubar-item.is-disabled { color: var(--aui-color-secondary); cursor: default; }
+.aui-menubar-item.is-disabled:hover { background: transparent; color: var(--aui-color-secondary); }
+.aui-menubar-divider { border: none; border-top: 1px solid var(--aui-control-border); margin: 4px 6px; }
+
+/* ---- Element-level presentation: popover / sheet / fullScreenCover ---- */
+/* The `.popover` modifier: a shared top-layer floating panel
+   (Helpers/PopoverPlacement.js), the same machinery as Menu, anchored to the
+   carrier and holding the built `popover` subview. */
+.aui-popover-panel {
+    z-index: 10;
+    min-width: 60px;
+    max-width: min(360px, 90vw);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+/* Top layer: override the UA centering so JS can anchor it via top/left. */
+.aui-popover-panel[popover] { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-popover-panel:popover-open { display: block; }
+/* Fallback (no Popover API): fixed + JS-placed, toggled by .is-open. */
+.aui-popover-panel:not([popover]) { position: fixed; margin: 0; inset: auto; display: none; }
+.aui-popover-panel.is-open:not([popover]) { display: block; }
+
+/* The `.sheet` / `.fullScreenCover` modifiers (and the host-API presentModal,
+   Scenes/ModalHost.js): a native <dialog> shown with showModal() - the browser's
+   own top-layer modal with a ::backdrop and Escape-to-cancel. The content is the
+   built subview/sub-document, which brings its own padding. */
+.aui-modal {
+    border: none;
+    padding: 0;
+    color: var(--aui-color-text, inherit);
+    background: var(--aui-color-surface, #fff);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+}
+.aui-modal::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(1px);
+}
+/* sheet: a centered card (the desktop/macOS sheet shape, not iOS's bottom sheet). */
+.aui-modal-sheet {
+    border-radius: 12px;
+    min-width: 320px;
+    max-width: min(560px, 92vw);
+    max-height: 86vh;
+    overflow: auto;
+}
+/* fullScreenCover: fills the viewport (no OS cover on a desktop target). */
+.aui-modal-cover {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    overflow: auto;
+}
+
+/* ---- List ---- */
+
+/* A vertical collection of rows. Rows come from embedded children, or — in the
+   data-driven modes — from states["content"] via the rows API (homogeneous
+   itemType cells; the template repeater lands next). Each row carries a bottom
+   separator (the macOS list rule) suppressed on the last row; selectable rows
+   highlight on selection and stay keyboard-focusable. The inset/sidebar styles
+   add the SwiftUI inset. */
+.aui-list {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    background: var(--aui-control-background);
+    overflow: hidden;
+}
+.aui-list-row {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-list-row:last-child { border-bottom: none; }
+.aui-list-row-no-separator { border-bottom: none; }
+.aui-list-row-selected { background: var(--aui-color-accent); color: #ffffff; }
+.aui-list[role="listbox"] .aui-list-row { cursor: default; }
+.aui-list-row:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-list-style-inset, .aui-list-style-sidebar { padding: 4px; }
+.aui-list-style-inset .aui-list-row, .aui-list-style-sidebar .aui-list-row {
+    border-bottom: none;
+    border-radius: 5px;
+}
+.aui-list-empty { min-height: 28px; }
+/* Homogeneous itemType Button cell (a borderless action inside a row). */
+.aui-list-button {
+    font: inherit;
+    color: var(--aui-color-accent);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+.aui-list-row-selected .aui-list-button { color: #ffffff; }
+
+/* ---- Table ---- */
+
+/* A multi-column data table (the macOS Table; the web is a desktop target, so it
+   renders a real <table> rather than the Android no-op). Rows arrive via the rows
+   API into states["content"]; selection highlights a <tr>.
+
+   The table lives inside `.aui-table-scroll`, the bounded scroll container (the
+   element's frame and border/chrome live here). When the columns are wider, or the
+   rows taller, than the frame the wrapper scrolls instead of clipping - the web
+   analog of SwiftUI.Table's own scroll view. The <table> itself is sized to the sum
+   of its column widths by Table.js, so it can exceed the wrapper. */
+.aui-table-scroll {
+    width: 100%;
+    overflow: auto;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    background: var(--aui-control-background);
+}
+.aui-table {
+    /* Fixed layout makes the <colgroup> widths authoritative, so a column resize
+       (Table.js writes the dragged <col>'s width) is honored exactly. The table's
+       own width is set to the column-width sum by Table.js (not 100%), so it can
+       grow past the wrapper and trigger a horizontal scroll. */
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+.aui-table thead th {
+    /* Sticky so the header stays visible while the rows scroll; an opaque-enough
+       background hides the rows passing behind it. Sticky also establishes the
+       containing block the absolutely-positioned resize handle anchors to. */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    font-weight: 600;
+    color: var(--aui-color-secondary);
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--aui-control-border);
+    background: color-mix(in srgb, var(--aui-control-border) 22%, var(--aui-control-background));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Column resize handle: a wide grab strip on the header's right edge with an
+   always-visible separator line, so it reads as a draggable column divider at rest
+   (not just on hover). The line thickens to the accent color on hover/drag, and the
+   cursor is col-resize. The drag math lives in Table.js (pointer events + pointer
+   capture). */
+.aui-table-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 9px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none; /* let pointermove drive the drag, not a scroll/zoom */
+}
+.aui-table-resizer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 2px;
+    /* Visible at rest: a header column separator that signals "draggable". */
+    background: var(--aui-control-border);
+    transition: background 0.1s ease, width 0.1s ease;
+}
+.aui-table-resizer:hover::after,
+.aui-table-scroll.aui-table-resizing .aui-table-resizer::after {
+    background: var(--aui-color-accent);
+    width: 3px;
+}
+/* While dragging, keep the col-resize cursor everywhere and suppress text
+   selection of the headers/cells. */
+.aui-table-scroll.aui-table-resizing { cursor: col-resize; user-select: none; }
+.aui-table tbody td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-table tbody tr:last-child td { border-bottom: none; }
+.aui-table tbody tr { cursor: default; }
+.aui-table-row-selected td { background: var(--aui-color-accent); color: #ffffff; }
+.aui-table-button {
+    font: inherit;
+    color: var(--aui-color-accent);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+}
+.aui-table-row-selected .aui-table-button { color: #ffffff; }
+/* Shared image-cell sizing for the data-driven collections (Table, List itemType). */
+.aui-data-image { max-width: 28px; max-height: 28px; vertical-align: middle; }
+
+/* ---- NavigationSplitView ---- */
+
+/* A multi-column layout: a sidebar rail, an optional middle content pane, and a
+   detail pane. The desktop/expanded form is shown; the adaptive collapse on narrow
+   windows is the deferred responsive part. `columnVisibility="detail"` collapses to
+   the detail pane; `style=prominentDetail` narrows the rail. */
+.aui-nav-split {
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    min-height: 200px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    overflow: hidden;
+}
+/* Panes shrink (min-width/height:0 defeats the default min-*:auto) and scroll
+   internally, so a tall section scrolls inside a fixed-height detail pane rather
+   than growing the split (and the window). */
+.aui-nav-split-sidebar {
+    min-width: 180px;
+    flex: 0 0 auto;
+    padding: 4px;
+    border-right: 1px solid var(--aui-control-border);
+    background: color-mix(in srgb, var(--aui-control-border) 14%, transparent);
+    min-height: 0;
+    overflow: auto;
+}
+/* overflow-y:scroll keeps the vertical scrollbar track permanently reserved, so
+   switching between a scrolling (tall, e.g. Controls) and a non-scrolling (short)
+   section never reflows the pane by the scrollbar width. This is the classic,
+   universally-supported reservation - unlike scrollbar-gutter:stable it does not
+   depend on the browser/scrollbar mode honoring that newer property (it is a
+   no-op under overlay scrollbars and older engines). Under overlay scrollbars it
+   still costs nothing (the bar floats); under classic scrollbars the track is
+   always present, so the width is identical across sections. overflow-x:hidden
+   prevents an accidental horizontal scrollbar from adding a second axis of jump. */
+.aui-nav-split-content { flex: 1 1 0; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; padding: 12px; border-right: 1px solid var(--aui-control-border); }
+.aui-nav-split-detail { flex: 2 1 0; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; padding: 12px; }
+.aui-nav-split-row {
+    padding: 6px 10px;
+    border-radius: var(--aui-control-radius);
+    cursor: default;
+}
+.aui-nav-split-sidebar [role="option"] { cursor: pointer; }
+.aui-nav-split-row:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-nav-split-row-selected { background: var(--aui-color-accent); color: #ffffff; }
+/* columnVisibility=detail → show the detail pane only (best-effort). */
+.aui-nav-split[data-column-visibility="detail"] .aui-nav-split-sidebar,
+.aui-nav-split[data-column-visibility="detail"] .aui-nav-split-content { display: none; }
+/* style=prominentDetail → a narrower sidebar so the detail dominates. */
+.aui-nav-split[data-aui-split-style="prominentDetail"] .aui-nav-split-sidebar { min-width: 150px; }
+
+/* Adaptive width-class collapse (NavigationSplitView.js: a ResizeObserver toggles
+   data-compact below COMPACT_WIDTH). The panes stack vertically; a selection-driven
+   split shows one column at a time via data-compact-pane (the sidebar, then the
+   detail with a Back affordance), a static split stacks both. The sidebar's rail
+   width is dropped in JS (it is set inline), so the visible column fills. */
+.aui-nav-split[data-compact="true"] { flex-direction: column; }
+.aui-nav-split[data-compact="true"] .aui-nav-split-content { border-right: none; }
+/* selection-driven: one pane at a time */
+.aui-nav-split[data-compact="true"][data-compact-pane="sidebar"] .aui-nav-split-detail,
+.aui-nav-split[data-compact="true"][data-compact-pane="sidebar"] .aui-nav-split-content { display: none; }
+.aui-nav-split[data-compact="true"][data-compact-pane="detail"] .aui-nav-split-sidebar,
+.aui-nav-split[data-compact="true"][data-compact-pane="detail"] .aui-nav-split-content { display: none; }
+/* Back affordance: only in compact detail mode (the iOS back-to-sidebar gesture). */
+.aui-nav-split-back {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--aui-color-accent);
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-bottom: 6px;
+    align-self: flex-start;
+    display: none;
+}
+.aui-nav-split[data-compact="true"][data-compact-pane="detail"] .aui-nav-split-back { display: inline-block; }
+.aui-nav-split-back:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* ---- NavigationStack / NavigationLink ---- */
+
+/* Push navigation: panes stacked in the DOM, only the top one shown (display
+   toggled by NavigationStack.js). The stack and each pane are flex columns so a
+   filling child still works; min-height:0 lets a child scroll rather than grow
+   the stack. */
+.aui-nav-stack { display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+.aui-nav-stack-pane { display: flex; flex-direction: column; min-height: 0; }
+.aui-nav-stack-body { min-height: 0; }
+/* The header/back bar: a title row on the root, a back button + title on a
+   destination (the simple header; the real navigation bar arrives with toolbar). */
+.aui-nav-stack-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-nav-stack-title { font-weight: 600; }
+.aui-nav-stack-back {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--aui-color-accent);
+    font: inherit;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: var(--aui-control-radius);
+}
+.aui-nav-stack-back:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* A link row: full-width tap target, leading icon + title + trailing chevron. */
+.aui-nav-link {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+.aui-nav-link:last-child { border-bottom: none; }
+.aui-nav-link:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-nav-link-title { flex: 1; }
+.aui-nav-link-chevron { color: var(--aui-color-secondary); }
+
+/* ---- Toolbar (ToolbarHelper screen chrome) ---- */
+
+/* A `toolbar`/`navigationTitle` wraps the view in this host: a top bar
+   (leading | title-or-principal | trailing), the body, an optional bottom bar.
+   Flex column + min-height:0 so a scrolling body still scrolls rather than
+   growing the host. */
+.aui-toolbar-host { display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+.aui-toolbar-body { min-height: 0; }
+.aui-toolbar-bar { display: flex; align-items: center; gap: 8px; }
+.aui-toolbar-top { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--aui-control-border); }
+.aui-toolbar-bottom { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--aui-control-border); justify-content: center; }
+.aui-toolbar-leading, .aui-toolbar-trailing { display: flex; align-items: center; gap: 4px; }
+.aui-toolbar-principal { flex: 1; min-width: 0; display: flex; align-items: center; }
+.aui-toolbar-trailing { justify-content: flex-end; }
+.aui-toolbar-title { font-weight: 600; font-size: 1.05em; }
+/* Navigation-title size modes (toolbarTitleDisplayMode). automatic/inline keep the
+   compact in-bar title; large/inlineLarge render a big title on its own row beneath
+   the action bar (the iOS large-title idiom). inlineLarge's collapse-on-scroll is
+   not modeled - it renders large (documented best-effort). */
+.aui-toolbar-largetitle {
+    font-weight: 700;
+    font-size: 1.7em;
+    line-height: 1.2;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--aui-control-border);
+}
+/* When a large title carries its own row, the action bar above it is just the
+   controls (no border/spacing doubling with the title row). */
+.aui-toolbar-host[data-aui-title-mode="large"] .aui-toolbar-top,
+.aui-toolbar-host[data-aui-title-mode="inlineLarge"] .aui-toolbar-top { border-bottom: none; margin-bottom: 0; }
+
+/* Overflow ("...") menu: the trigger is a borderless app-bar action; the panel
+   reuses Menu's dropdown chrome (.aui-menu-items) and its items are full-width,
+   left-aligned rows. */
+.aui-toolbar-overflow { position: relative; display: inline-flex; }
+.aui-toolbar-overflow-trigger { font-size: 1.15em; padding: 4px 6px; }
+.aui-toolbar-overflow-items .aui-toolbar-overflow-item {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--aui-color-primary);
+    padding: 6px 10px;
+}
+.aui-toolbar-overflow-items .aui-toolbar-overflow-item:hover { background: var(--aui-color-accent); color: #ffffff; }
+/* App-bar action: borderless, accent-colored (the toolbar idiom; the registered
+   Button is a styled pill, wrong inside a bar). */
+.aui-toolbar-button {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--aui-color-accent);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--aui-control-radius);
+}
+.aui-toolbar-button:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
+.aui-toolbar-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* ---- LoadableView ---- */
+
+/* A dynamic include: a sub-document fetched and rendered inline. A plain block
+   wrapper (so baseline modifiers on the element still apply); the
+   spinner/error/deferred placeholders show while loading or on failure. */
+.aui-loadable { display: block; }
+.aui-loadable-loading { color: var(--aui-color-secondary); padding: 12px; }
+.aui-loadable-error { color: var(--aui-color-red); padding: 12px; }
+.aui-loadable-deferred { color: var(--aui-color-secondary); padding: 12px; }
+
+/* ---- font text styles (SwiftUI named styles, approximate metrics) ---- */
+
+.aui-font-largeTitle  { font-size: 26px; font-weight: 400; }
+.aui-font-title       { font-size: 22px; font-weight: 400; }
+.aui-font-title2      { font-size: 17px; font-weight: 400; }
+.aui-font-title3      { font-size: 15px; font-weight: 400; }
+.aui-font-headline    { font-size: 13px; font-weight: 700; }
+.aui-font-subheadline { font-size: 11px; font-weight: 400; }
+.aui-font-body        { font-size: 13px; font-weight: 400; }
+.aui-font-callout     { font-size: 12px; font-weight: 400; }
+.aui-font-footnote    { font-size: 10px; font-weight: 400; }
+.aui-font-caption     { font-size: 10px; font-weight: 400; }
+.aui-font-caption2    { font-size: 10px; font-weight: 500; }
+
+/* ---- Button ---- */
+
+.aui-button {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 12px;
+    cursor: pointer;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+    /* icon + title sit inline with SwiftUI Label-like spacing (gap only bites
+       when both are present). */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+}
+.aui-button:hover { filter: brightness(0.97); }
+.aui-button:active { filter: brightness(0.92); }
+.aui-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+.aui-button-borderedProminent {
+    background: var(--aui-color-accent);
+    border-color: var(--aui-color-accent);
+    color: #ffffff;
+}
+.aui-button-borderless, .aui-button-plain {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+.aui-button-destructive { color: var(--aui-color-red); }
+.aui-button-borderedProminent.aui-button-destructive {
+    background: var(--aui-color-red);
+    border-color: var(--aui-color-red);
+    color: #ffffff;
+}
+.aui-button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- Slider ---- */
+
+.aui-slider {
+    /* Native range control, tinted to the accent (foregroundColor overrides via
+       the inline accent-color the modifier resolver may set). */
+    accent-color: var(--aui-color-accent);
+    width: 100%;
+    cursor: pointer;
+}
+.aui-slider:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: 4px; }
+.aui-slider:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- ProgressView ---- */
+
+/* Determinate bar (a <progress> with a value) or, with no value, the browser's
+   animated indeterminate bar — the web counterpart of the SwiftUI/Material
+   spinner. A title stacks above it in a column. */
+.aui-progress { display: flex; flex-direction: column; gap: 4px; }
+.aui-progress-title { color: var(--aui-color-primary); }
+.aui-progress-bar {
+    accent-color: var(--aui-color-accent);
+    width: 100%;
+}
+
+/* ---- Gauge ---- */
+
+/* A read-only level indicator. Linear styles are a native <meter> — the DOM's
+   own gauge element — tinted via the vendor bar pseudos (<meter> ignores
+   accent-color); circular styles are a conic-gradient ring drawn in
+   currentColor (accent by default, so foregroundColor tints it) with the
+   title centered in the hole. */
+.aui-gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.aui-gauge-title { color: var(--aui-color-primary); }
+/* appearance:none lets the bar pseudos take over from the browser's green/
+   yellow/red meter look; the element's own background is the Firefox track,
+   ::-webkit-meter-bar the WebKit one. */
+.aui-gauge-bar {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: var(--aui-control-border);
+    border: none;
+    border-radius: 4px;
+}
+.aui-gauge-bar::-webkit-meter-bar { background: var(--aui-control-border); border: none; border-radius: 4px; height: 8px; }
+.aui-gauge-bar::-webkit-meter-optimum-value { background: var(--aui-color-accent); border-radius: 4px; }
+.aui-gauge-bar::-moz-meter-bar { background: var(--aui-color-accent); border-radius: 4px; }
+
+.aui-gauge-circular {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    color: var(--aui-color-accent);
+}
+.aui-gauge-circular > * { grid-area: 1 / 1; }
+.aui-gauge-ring {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(currentColor calc(var(--aui-gauge-fill, 0) * 1turn), var(--aui-control-border) 0);
+    -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+    mask: radial-gradient(closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+}
+.aui-gauge-ring-title { font-size: 10px; color: var(--aui-color-primary); }
+
+/* ---- Stepper ---- */
+
+.aui-stepper { display: inline-flex; align-items: center; gap: 0.5em; }
+.aui-stepper-label { color: var(--aui-color-primary); white-space: nowrap; }
+.aui-stepper-controls { display: inline-flex; }
+.aui-stepper-button {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+}
+/* Joined as a single segmented control, like the macOS ± stepper. */
+.aui-stepper-decrement { border-radius: var(--aui-control-radius) 0 0 var(--aui-control-radius); }
+.aui-stepper-increment { border-radius: 0 var(--aui-control-radius) var(--aui-control-radius) 0; border-left: none; }
+.aui-stepper-button:hover:not(:disabled) { filter: brightness(0.97); }
+.aui-stepper-button:active:not(:disabled) { filter: brightness(0.92); }
+.aui-stepper-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); position: relative; }
+.aui-stepper-button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---- TextField ---- */
+
+/* SecureField shares TextField's box; it differs only in type="password".
+   TextEditor is the multi-line member of the family (a <textarea>). */
+.aui-textfield, .aui-securefield {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+    min-width: 0;
+}
+.aui-textfield:focus-visible, .aui-securefield:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-textfield::placeholder, .aui-securefield::placeholder { color: var(--aui-color-secondary); }
+.aui-textfield:disabled, .aui-securefield:disabled { opacity: 0.4; }
+
+/* searchable: an inline search field above the List / NavigationStack it modifies
+   (the .searchable / Android search-field idiom on web). A native
+   <input type="search"> — the browser's own clear affordance + search semantics —
+   fronted by a leading Material Symbols magnifier. */
+.aui-searchable { display: flex; flex-direction: column; min-height: 0; align-self: stretch; gap: 8px; }
+.aui-search-bar {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+}
+.aui-search-bar:focus-within { box-shadow: var(--aui-focus-ring); }
+.aui-search-icon { color: var(--aui-color-secondary); }
+.aui-search-field {
+    font: inherit; color: var(--aui-color-primary);
+    background: transparent; border: none; outline: none;
+    flex: 1; min-width: 0;
+}
+.aui-search-field::placeholder { color: var(--aui-color-secondary); }
+
+/* TextEditor: a <textarea> in the shared box. The default height bounds the
+   editor so it scrolls internally (an inline frame.height overrides it); the
+   resize grip is the browser's own — native platform character. */
+.aui-texteditor {
+    height: 140px;
+    resize: vertical;
+}
+
+.aui-labeled-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.aui-labeled-field > .aui-textfield, .aui-labeled-field > .aui-securefield,
+.aui-labeled-field > .aui-picker { flex: 1; }
+.aui-field-label { color: var(--aui-color-primary); white-space: nowrap; }
+
+/* DatePicker: the native <input type="date"> in the shared control box. */
+.aui-datepicker {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+    accent-color: var(--aui-color-accent);
+    min-width: 0;
+}
+.aui-datepicker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-datepicker:disabled { opacity: 0.4; }
+
+/* ColorPicker: the native <input type="color"> as a compact color well. */
+.aui-colorpicker {
+    width: 44px;
+    height: 24px;
+    padding: 2px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    background: var(--aui-control-background);
+    cursor: pointer;
+}
+.aui-colorpicker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-colorpicker:disabled { opacity: 0.4; cursor: default; }
+
+/* Picker renders as the native dropdown; styles other than the default menu are
+   deferred skin work. It reuses the shared control box. */
+.aui-picker {
+    font: inherit;
+    color: var(--aui-color-primary);
+    background: var(--aui-control-background);
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 3px 8px;
+    min-width: 0;
+}
+.aui-picker:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+.aui-picker:disabled { opacity: 0.4; }
+
+/* radioGroup pickerStyle: a native <fieldset> of <input type="radio">. The
+   options stack in a column, or a row with horizontalRadioGroupLayout. */
+.aui-picker-radio {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    padding: 8px 12px;
+    min-width: 0;
+}
+.aui-picker-radio.aui-picker-radio-horizontal { flex-flow: row wrap; align-items: center; gap: 16px; }
+.aui-picker-legend { padding: 0 4px; color: var(--aui-color-primary); }
+.aui-radio { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.aui-radio > input { accent-color: var(--aui-color-accent); }
+.aui-radio-section-title { color: var(--aui-color-secondary); font-size: 0.9em; margin-top: 4px; }
+.aui-radio-divider { width: 100%; border: none; border-top: 1px solid var(--aui-control-border); margin: 2px 0; }
+
+/* segmented pickerStyle: the radio group styled as a joined button bar — the
+   native, no-infra analog of SwiftUI's .segmented. The radios are visually
+   hidden; the labels are the segments, with the checked one filled. */
+.aui-picker-segmented {
+    display: inline-flex;
+    border: 1px solid var(--aui-control-border);
+    border-radius: var(--aui-control-radius);
+    overflow: hidden;
+}
+.aui-picker-segmented .aui-segment {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 12px;
+    cursor: pointer;
+    user-select: none;
+    border-left: 1px solid var(--aui-control-border);
+    /* contain the position:absolute hidden <input> below: without a positioned
+       wrapper its containing block falls back to the document, so it anchors at
+       its static flow position (deep in a tall section) and inflates the document
+       scroll height - escaping an ancestor ScrollView/overflow clip. */
+    position: relative;
+}
+.aui-picker-segmented .aui-segment:first-child { border-left: none; }
+.aui-picker-segmented .aui-segment > input { position: absolute; opacity: 0; pointer-events: none; }
+.aui-picker-segmented .aui-segment:has(> input:checked) { background: var(--aui-color-accent); color: #fff; }
+.aui-picker-segmented .aui-segment:has(> input:focus-visible) { box-shadow: inset 0 0 0 2px var(--aui-color-accent); }
+
+/* ---- Toggle ---- */
+
+/* position:relative contains the position:absolute hidden <input> below; without
+   it the input's containing block is the document, so it anchors at its static
+   flow position (deep in a tall section) and inflates the document scroll height,
+   escaping an ancestor ScrollView/overflow clip (the NavigationSplitView detail
+   pane "Controls grows the page" bug). */
+.aui-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; position: relative; }
+.aui-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.aui-toggle.aui-disabled, .aui-toggle:has(input:disabled) { opacity: 0.4; cursor: default; }
+
+/* switch style */
+.aui-toggle-switch .aui-toggle-visual {
+    width: 38px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--aui-control-border);
+    position: relative;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+}
+.aui-toggle-switch .aui-toggle-visual::after {
+    content: "";
+    position: absolute;
+    top: 1px; left: 1px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+}
+.aui-toggle-switch input:checked ~ .aui-toggle-visual { background: var(--aui-color-green); }
+.aui-toggle-switch input:checked ~ .aui-toggle-visual::after { transform: translateX(16px); }
+.aui-toggle-switch input:focus-visible ~ .aui-toggle-visual { box-shadow: var(--aui-focus-ring); }
+
+/* checkbox style */
+.aui-toggle-checkbox .aui-toggle-visual {
+    width: 14px; height: 14px;
+    border: 1px solid var(--aui-control-border);
+    border-radius: 3px;
+    background: var(--aui-control-background);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.aui-toggle-checkbox input:checked ~ .aui-toggle-visual {
+    background: var(--aui-color-accent);
+    border-color: var(--aui-color-accent);
+}
+.aui-toggle-checkbox input:checked ~ .aui-toggle-visual::after {
+    content: "✓";
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1;
+}
+.aui-toggle-checkbox input:focus-visible ~ .aui-toggle-visual { box-shadow: var(--aui-focus-ring); }
+
+/* ---- Image & symbols ---- */
+
+.aui-image {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.aui-image > img { display: block; max-width: 100%; }
+
+/* AsyncImage: an <img> with the SwiftUI AsyncImagePhase placeholder/success
+   shape. The box clips its (resizable) image to the frame, like a SwiftUI
+   resizable AsyncImage filling its bounds. */
+.aui-async-image {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.aui-async-image > img { display: block; max-width: 100%; }
+
+/* VideoPlayer: a native <video controls>. Greedy like AVKit's player - fills
+   the frame the parent offers (bound the height with a frame in a scroll
+   column). The error row replaces the player on a missing/invalid URL. */
+.aui-video-player {
+    display: flex;
+    width: 100%;
+}
+.aui-video-player > video {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    background: #000;
+    border-radius: inherit;
+}
+.aui-video-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+    color: var(--aui-color-red);
+}
+
+/* WebView: the web's own native analog, a native <iframe>. Greedy like the
+   WKWebView/Android WebView - fills the frame the parent offers (bound the height
+   with a frame in a scroll column). */
+.aui-webview {
+    display: flex;
+    width: 100%;
+}
+.aui-webview-frame {
+    display: block;
+    width: 100%;
+    min-height: 240px; /* a usable default when no frame.height is given */
+    border: 1px solid var(--aui-color-border, #d2d2d7);
+    border-radius: inherit;
+    background: #fff;
+}
+
+/* Canvas: a native <canvas> driving the shared draw-command list. The backing
+   store is sized to the box * devicePixelRatio in JS; here it is just a block of
+   the frame's size (default 300x150 like the HTML element when no frame is given).
+   border-radius (the cornerRadius modifier) clips the canvas - it is replaced
+   content, so rounded corners apply to the drawing. */
+.aui-canvas {
+    display: block;
+    max-width: 100%;
+}
+
+/* Map: greedy like SwiftUI's Map / AVKit's player - fills the frame the parent
+   offers (bound the height with a frame in a scroll column). The default provider
+   (MapEmbed.js) is an <iframe> + an absolutely-positioned "Open in Maps" pill; a
+   JS provider (providers/map-maplibre.js) mounts its map canvas into the same box.
+   overflow:hidden + border-radius:inherit clip rounded corners (cornerRadius). */
+.aui-map {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 240px; /* a usable default when no frame.height is given */
+    border: 1px solid var(--aui-color-border, #d2d2d7);
+    border-radius: inherit;
+    overflow: hidden;
+    background: #e8eaed;
+}
+.aui-map-frame {
+    flex: 1 1 auto;
+    width: 100%;
+    border: 0;
+}
+.aui-map-open {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    z-index: 1;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font: 600 12px/1.2 -apple-system, system-ui, sans-serif;
+    color: #fff;
+    background: var(--aui-color-accent, #007aff);
+    text-decoration: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.aui-map-open:hover { filter: brightness(1.06); }
+/* MapLibre annotation popup (providers/map-maplibre.js): title bold over subtitle. */
+.aui-map-popup-title { font-weight: 600; }
+.aui-map-popup-subtitle { color: var(--aui-color-secondary, #6e6e73); font-size: 12px; }
+
+/* ---- Group-A batch: structural / utility passthroughs ---- */
+
+/* EmptyView renders nothing (SwiftUI EmptyView / the Android no-op). */
+.aui-empty { display: none; }
+
+/* Group is a transparent passthrough: display:contents removes its box so the
+   children participate in the parent's layout directly (see Group.js). */
+.aui-group { display: contents; }
+
+/* Link is the platform's own <a> (opens in a new tab). */
+.aui-link {
+    color: var(--aui-color-accent);
+    text-decoration: none;
+    cursor: pointer;
+}
+.aui-link:hover { text-decoration: underline; }
+.aui-link:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); border-radius: 2px; }
+
+/* ShareLink: a borderless accent button (icon + "Share"), like the toolbar
+   button, invoking the Web Share API. */
+.aui-sharelink {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--aui-color-accent);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em;
+    padding: 4px 8px;
+    border-radius: var(--aui-control-radius);
+}
+.aui-sharelink:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
+.aui-sharelink:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* ContentUnavailableView: a centered empty-state block - hero glyph over a bold
+   title and a secondary description. */
+.aui-content-unavailable {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--aui-color-secondary);
+}
+.aui-content-unavailable-icon {
+    font-size: 2.6em;
+    color: var(--aui-color-secondary);
+    margin-bottom: 4px;
+}
+.aui-content-unavailable-title {
+    font-weight: 600;
+    font-size: 1.1em;
+    color: var(--aui-color-text, inherit);
+}
+.aui-content-unavailable-description { font-size: 0.95em; }
+
+/* ---- Label ---- */
+
+.aui-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34em; /* icon → title, like SwiftUI Label (gap only bites with both) */
+}
+
+/* The Material Symbols web font (OFL). The font resource itself is loaded by
+   the host page (see demo/index.html — Google Fonts or a self-hosted
+   @font-face); this class only configures rendering, so styling stays in the
+   library while the variable-font asset is a deployment choice. */
+.aui-symbol {
+    font-family: "Material Symbols Rounded", sans-serif;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px; /* default; imageScale overrides below */
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    /* Sized relative to the surrounding font, like an SF Symbol image (the box is
+       ~1.18x the font size). This makes a glyph track its context — body text, or
+       a Button's label — and turns imageScale into a multiplier (small/large =
+       0.8x/1.28x of the medium box), mirroring the Android factors. */
+    font-size: 1.18em;
+}
+.aui-symbol-small  { font-size: 0.94em; }
+.aui-symbol-medium { font-size: 1.18em; }
+.aui-symbol-large  { font-size: 1.51em; }
+/* Debug-mode placeholder for an unmapped SF Symbol (SymbolIcon.markMissingGlyph):
+   a tinted, outlined broken-image glyph so the gap is visible, not silent. */
+.aui-symbol-missing { color: var(--aui-color-red); outline: 1px dashed var(--aui-color-red); outline-offset: 1px; }
+
+/* ---- misc ---- */
+
+.aui-disabled { pointer-events: none; }
+
+.aui-unknown {
+    border: 1px dashed var(--aui-color-orange);
+    color: var(--aui-color-orange);
+    border-radius: var(--aui-control-radius);
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+/* ---- Scenes: window-level dialogs (alert / confirmationDialog) ---- */
+/* A native <dialog> shown with showModal(): the browser's own top-layer modal
+   with a ::backdrop and Escape-to-cancel. See Scenes/DialogHost.js. */
+.aui-dialog {
+    border: none;
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 280px;
+    max-width: 90vw;
+    color: var(--aui-color-text, inherit);
+    background: var(--aui-color-surface, #fff);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+}
+.aui-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(1px);
+}
+.aui-dialog-title {
+    display: block;
+    font-size: 1.05em;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.aui-dialog-message {
+    margin: 0 0 16px;
+    color: var(--aui-color-secondary);
+    font-size: 0.95em;
+}
+.aui-dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+/* confirmationDialog: stack the buttons (the action-sheet shape). */
+.aui-dialog-confirmationDialog .aui-dialog-buttons {
+    flex-direction: column-reverse;
+    align-items: stretch;
+}
+.aui-dialog-button {
+    appearance: none;
+    font: inherit;
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: var(--aui-control-radius);
+    border: 1px solid var(--aui-color-border, #d2d2d7);
+    background: var(--aui-color-surface, #fff);
+    color: var(--aui-color-accent);
+}
+.aui-dialog-button-default {
+    background: var(--aui-color-accent);
+    border-color: var(--aui-color-accent);
+    color: #fff;
+}
+.aui-dialog-button-destructive {
+    color: var(--aui-color-red);
+    border-color: color-mix(in srgb, var(--aui-color-red) 50%, transparent);
+}
+.aui-dialog-button:hover { background: color-mix(in srgb, var(--aui-color-accent) 12%, transparent); }
+.aui-dialog-button-default:hover { background: color-mix(in srgb, var(--aui-color-accent) 88%, #000); }
+.aui-dialog-button:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* ---- Scenes: window-level toast (snackbar) ---- */
+/* A transient, non-modal banner (Scenes/ToastHost.js). NOT a <dialog>: it must not
+   steal focus or block, so it is a positioned <div> and therefore sits BELOW any open
+   top-layer <dialog>/modal (acceptable). Placement is a CSS concern: top-pinned by
+   default (Apple's transient-banner idiom), and .aui-toast-bottom flips it to the
+   bottom Material placement (added by JS in an Android browser). A dark card on both
+   schemes, matching Swift's Color(white: 0.15) and the dark Material snackbar. The
+   -50% X-translate is kept in every transform state so the toast never jumps sideways
+   as it animates. */
+.aui-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(520px, calc(100vw - 32px));
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #262626;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    font-family: var(--aui-font);
+    font-size: 13px;
+    /* Hidden (initial + exit) state: shifted up and transparent. */
+    opacity: 0;
+    transform: translate(-50%, -12px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.aui-toast.is-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+/* Bottom (Material) placement: slides up from below the fold. */
+.aui-toast-bottom {
+    top: auto;
+    bottom: 16px;
+    transform: translate(-50%, 12px);
+}
+.aui-toast-bottom.is-visible { transform: translate(-50%, 0); }
+.aui-toast-message {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.aui-toast-action {
+    flex: 0 0 auto;
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--aui-color-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 6px;
+}
+.aui-toast-action:hover { background: rgba(255, 255, 255, 0.12); }
+.aui-toast-action:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
+
+/* Reduced motion: fade only (no slide), kept fast but a real opacity transition so
+   transitionend still fires (the JS keeps a fallback timeout regardless). */
+@media (prefers-reduced-motion: reduce) {
+    .aui-toast,
+    .aui-toast-bottom {
+        transform: translate(-50%, 0);
+        transition: opacity 0.12s ease;
+    }
+    .aui-toast.is-visible,
+    .aui-toast-bottom.is-visible { transform: translate(-50%, 0); }
+}

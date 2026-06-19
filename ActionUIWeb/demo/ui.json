@@ -1,0 +1,66 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12, "padding": 20, "onBackgroundActionID:web": "appBackground", "onForegroundActionID:web": "appForeground", "onTerminateActionID:web": "appTerminate", "frame": { "minWidth": 480, "idealWidth": 760, "maxWidth": 900, "minHeight": 520, "idealHeight": 680, "maxHeight": 900 } },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "star.fill", "imageScale": "large", "foregroundColor": "yellow" } },
+        { "type": "Text", "properties": { "text": "ActionUIWeb Demo", "font": "title", "font:web": "largeTitle" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "A NavigationSplitView shell - each section is a separate, feature-focused JSON file loaded by a LoadableView. browserHistory:web is on, so the browser Back/Forward buttons switch sections. The shell is responsive: narrow the window and it collapses to a single column (a Back arrow returns to the section list); the sidebarAdaptable TabView in Navigation likewise collapses its rail to a top strip.", "foregroundColor": "secondary" } },
+    {
+      "type": "NavigationSplitView",
+      "id": 1000,
+      "properties": { "columnVisibility": "all", "browserHistory:web": true, "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+      "sidebar": {
+        "type": "List",
+        "id": 1001,
+        "properties": { "actionID": "sectionSelect", "navigationSplitViewColumnWidth": { "ideal": 210, "min": 190, "max": 250 } },
+        "children": [
+          { "type": "Label", "id": 1010, "properties": { "title": "Overview", "systemImage": "square.grid.2x2", "destinationViewId": 1100 } },
+          { "type": "Label", "id": 1011, "properties": { "title": "Shapes & Layout", "systemImage": "squareshape", "destinationViewId": 1101 } },
+          { "type": "Label", "id": 1012, "properties": { "title": "Scrolling", "systemImage": "arrow.up.and.down.text.horizontal", "destinationViewId": 1102 } },
+          { "type": "Label", "id": 1013, "properties": { "title": "Text Input", "systemImage": "character.cursor.ibeam", "destinationViewId": 1103 } },
+          { "type": "Label", "id": 1014, "properties": { "title": "Controls", "systemImage": "slider.horizontal.3", "destinationViewId": 1104 } },
+          { "type": "Label", "id": 1015, "properties": { "title": "Pickers", "systemImage": "checklist", "destinationViewId": 1105 } },
+          { "type": "Label", "id": 1016, "properties": { "title": "Forms", "systemImage": "list.bullet.rectangle.portrait", "destinationViewId": 1106 } },
+          { "type": "Label", "id": 1017, "properties": { "title": "Lists", "systemImage": "list.bullet", "destinationViewId": 1107 } },
+          { "type": "Label", "id": 1018, "properties": { "title": "Table", "systemImage": "tablecells", "destinationViewId": 1108 } },
+          { "type": "Label", "id": 1019, "properties": { "title": "Insertion", "systemImage": "plus.rectangle.on.rectangle", "destinationViewId": 1109 } },
+          { "type": "Label", "id": 1020, "properties": { "title": "Navigation", "systemImage": "rectangle.split.3x1", "destinationViewId": 1110 } },
+          { "type": "Label", "id": 1021, "properties": { "title": "Media & Web", "systemImage": "photo.on.rectangle", "destinationViewId": 1111 } },
+          { "type": "Label", "id": 1022, "properties": { "title": "Presentation", "systemImage": "rectangle.stack", "destinationViewId": 1112 } },
+          { "type": "Label", "id": 1023, "properties": { "title": "Properties", "systemImage": "paintbrush", "destinationViewId": 1113 } },
+          { "type": "Label", "id": 1024, "properties": { "title": "Animation", "systemImage": "wand.and.rays", "destinationViewId": 1114 } },
+          { "type": "Label", "id": 1025, "properties": { "title": "Upload", "systemImage": "arrow.up.document", "destinationViewId": 1115 } },
+          { "type": "Label", "id": 1026, "properties": { "title": "Windows", "systemImage": "rectangle.on.rectangle", "destinationViewId": 1116 } }
+        ]
+      },
+      "detail": { "type": "Text", "properties": { "text": "Pick a section from the sidebar.", "foregroundColor": "secondary" } },
+      "destinations": [
+        { "type": "LoadableView", "id": 1100, "properties": { "name": "sections/overview.json" } },
+        { "type": "LoadableView", "id": 1101, "properties": { "name": "sections/shapes-layout.json" } },
+        { "type": "LoadableView", "id": 1102, "properties": { "name": "sections/scrolling.json" } },
+        { "type": "LoadableView", "id": 1103, "properties": { "name": "sections/text-input.json" } },
+        { "type": "LoadableView", "id": 1104, "properties": { "name": "sections/controls.json" } },
+        { "type": "LoadableView", "id": 1105, "properties": { "name": "sections/pickers.json" } },
+        { "type": "LoadableView", "id": 1106, "properties": { "name": "sections/forms.json" } },
+        { "type": "LoadableView", "id": 1107, "properties": { "name": "sections/lists.json", "viewDidLoadActionID": "listsLoaded" } },
+        { "type": "LoadableView", "id": 1108, "properties": { "name": "sections/table.json", "viewDidLoadActionID": "tableLoaded" } },
+        { "type": "LoadableView", "id": 1109, "properties": { "name": "sections/insertion.json" } },
+        { "type": "LoadableView", "id": 1110, "properties": { "name": "sections/navigation.json" } },
+        { "type": "LoadableView", "id": 1111, "properties": { "name": "sections/media.json" } },
+        { "type": "LoadableView", "id": 1112, "properties": { "name": "sections/presentation.json" } },
+        { "type": "LoadableView", "id": 1113, "properties": { "name": "sections/setproperty.json" } },
+        { "type": "LoadableView", "id": 1114, "properties": { "name": "sections/animation.json" } },
+        { "type": "LoadableView", "id": 1115, "properties": { "name": "sections/files.json", "viewDidLoadActionID": "filesLoaded" } },
+        { "type": "LoadableView", "id": 1116, "properties": { "name": "sections/windows.json" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
+  ]
+}
