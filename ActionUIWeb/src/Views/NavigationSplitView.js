@@ -57,6 +57,7 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
+import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 
 const VALID_COLUMN_VISIBILITIES = ["automatic", "all", "doubleColumn", "detail"];
 const VALID_STYLES = ["automatic", "balanced", "prominentDetail"];
@@ -287,13 +288,19 @@ register("NavigationSplitView", {
             }
 
             // Sidebar rows built from the List's children (the List itself is not built).
+            // selectableRows keeps the destination-bearing rows in order so the arrow
+            // keys can move selection to the adjacent one (skipping any non-selectable
+            // header rows).
             sidebarPane.setAttribute("role", "listbox");
+            const selectableRows = []; // [{ row, destId }] in sidebar order
             for (const child of sidebarChildren) {
                 const row = document.createElement("div");
                 row.className = "aui-nav-split-row";
                 row.appendChild(ctx.build(child));
                 const destId = Number.isInteger(child.properties?.destinationViewId) ? child.properties.destinationViewId : null;
                 if (destId !== null) {
+                    const rowIndex = selectableRows.length;
+                    selectableRows.push({ row, destId });
                     row.dataset.auiDestId = String(destId);
                     rowsByDest.set(destId, row);
                     row.setAttribute("role", "option");
@@ -304,7 +311,14 @@ register("NavigationSplitView", {
                         if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             selectDestination(destId, true);
+                            return;
                         }
+                        // Arrow / Home / End move selection+focus to the adjacent
+                        // sidebar row - else the key scrolls the sidebar pane.
+                        navigateRowsOnKey(event, rowIndex, selectableRows.length, (target) => {
+                            selectDestination(selectableRows[target].destId, true);
+                            selectableRows[target].row.focus();
+                        });
                     });
                 }
                 sidebarPane.appendChild(row);

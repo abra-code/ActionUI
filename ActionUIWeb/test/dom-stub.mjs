@@ -4,7 +4,8 @@
 // suit and add zero third-party dependencies (the only "dependency" is the Node.js
 // runtime itself - see test/README.md). This stub covers the slice of the DOM the
 // renderer actually touches: element `style`, `classList`, `dataset`, `append` /
-// `appendChild`, `addEventListener`, `setAttribute`, and a no-op `querySelector`,
+// `appendChild` / `insertBefore`, `addEventListener`, `setAttribute`, `focus` /
+// `blur` (tracked via `document.activeElement`), and a no-op `querySelector`,
 // plus a `document` (createElement + visibilitychange events), a `window`
 // (matchMedia + pagehide events), and a `ResizeObserver` that never auto-fires (a
 // test drives it via the controller's `fireResize`).
@@ -15,6 +16,10 @@
 // is, and what a unit test can pin down. For real rendering/animation/layout you need
 // a browser (a future, optional Playwright tier). If hand-stubbing ever gets tedious,
 // jsdom drops in as a single devDependency with no test changes.
+
+// The currently-focused stub element (the analog of document.activeElement), set by
+// el.focus() and exposed via documentShim.activeElement. Reset per installDom.
+let focusedElement = null;
 
 // A fake element exposing the surface the renderer uses.
 export function makeElement(tag = "div") {
@@ -64,7 +69,20 @@ export function makeElement(tag = "div") {
         },
         addEventListener(name, fn) { (events[name] ||= new Set()).add(fn); },
         removeEventListener(name, fn) { events[name]?.delete(fn); },
+        focus() { focusedElement = el; },          // tracked via document.activeElement
+        blur() { if (focusedElement === el) focusedElement = null; },
         querySelector() { return null; },
+        // Minimal descendant query: a single class (".foo") or tag selector. Enough
+        // for List's children-mode applySelectionStyles (querySelectorAll(".aui-list-row")).
+        querySelectorAll(selector) {
+            const matches = (n) => typeof selector === "string" && (selector.startsWith(".")
+                ? (typeof n.className === "string" && n.className.split(/\s+/).includes(selector.slice(1)))
+                : n.tagName === selector.toUpperCase());
+            const out = [];
+            const walk = (n) => { for (const c of n.children) { if (matches(c)) out.push(c); walk(c); } };
+            walk(el);
+            return out;
+        },
         // --- test helpers (not part of the DOM API) ---
         fire(name, ev = {}) { [...(events[name] || [])].forEach((fn) => fn({ target: el, ...ev })); },
         listenerCount(name) { return events[name] ? events[name].size : 0; },
@@ -96,6 +114,7 @@ export function installDom() {
     let visibility = "visible";
     let reducedMotion = false;
     ResizeObserverStub.instances = []; // reset for isolation
+    focusedElement = null;             // reset focus tracking
 
     const makeTarget = () => {
         const events = {};
@@ -114,6 +133,7 @@ export function installDom() {
     const documentShim = {
         ...docTarget.api,
         get visibilityState() { return visibility; },
+        get activeElement() { return focusedElement; },
         createElement(tag) { const el = makeElement(tag); created.push(el); return el; },
     };
     const windowShim = {

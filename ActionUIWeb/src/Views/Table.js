@@ -42,6 +42,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { commonRowPrefix } from "../Helpers/RowDiff.js";
+import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 
 const CELL_VIEW_TYPES = ["Text", "Button", "Image", "AsyncImage"];
 const DATA_INTERPRETATIONS = ["path", "systemName", "assetName", "resourceName", "mixed"];
@@ -332,6 +333,7 @@ register("Table", {
         const buildRow = (row, rowIndex) => {
             const tr = document.createElement("tr");
             tr.setAttribute("role", "row");
+            tr.tabIndex = 0; // focusable, so the row keyboard pattern can drive selection
             const rowIndexRef = () => rowIndex;
             columns.forEach((_, colIndex) => {
                 tr.appendChild(buildCell(row[colIndex] ?? "", colIndex, rowIndexRef));
@@ -341,6 +343,19 @@ register("Table", {
                 if (typeof properties.doubleClickActionID === "string" && rowIndex === selectedIndex) {
                     ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, rowIndex);
                 }
+            });
+            tr.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    selectIndex(rowIndex, true);
+                    return;
+                }
+                // Arrow / Home / End move the selection (and focus) to the adjacent
+                // row - else the key scrolls the table's scroll wrapper.
+                navigateRowsOnKey(event, rowIndex, trNodes.length, (target) => {
+                    selectIndex(target, true);
+                    trNodes[target].focus();
+                });
             });
             return tr;
         };

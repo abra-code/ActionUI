@@ -50,6 +50,7 @@ import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { buildTemplateRow } from "../Helpers/TemplateHelper.js";
 import { commonRowPrefix } from "../Helpers/RowDiff.js";
+import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { flatContainerBinding } from "../Helpers/InsertionHelper.js";
 
@@ -248,7 +249,15 @@ function buildChildrenRows(node, element, properties, ctx, children, selectable,
                 if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     selectRow(row.dataset.auiRowId, true);
+                    return;
                 }
+                // Arrow / Home / End move selection+focus to the adjacent row. The
+                // current position is resolved live (insertion can reorder `slots`).
+                const i = slots.findIndex((slot) => slot.dom === row);
+                navigateRowsOnKey(event, i, slots.length, (target) => {
+                    selectRow(slots[target].dom.dataset.auiRowId, true); // string id, like the click path
+                    slots[target].dom.focus();
+                });
             });
         }
         return row;
@@ -327,7 +336,14 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
                 if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     selectRow(index, true);
+                    return;
                 }
+                // Arrow / Home / End move the selection (and focus) to the adjacent
+                // row, the listbox keyboard pattern - else the key scrolls the parent.
+                navigateRowsOnKey(event, index, rowNodes.length, (target) => {
+                    selectRow(target, true);
+                    rowNodes[target].focus();
+                });
             });
             rowNode.addEventListener("dblclick", () => {
                 if (typeof properties.doubleClickActionID === "string" && rowValue(row) === selectedRow) {
