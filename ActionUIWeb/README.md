@@ -12,20 +12,6 @@ and Android (`com/abracode/actionui/`) implementations file-for-file (`Common/`,
 `Helpers/`, `Views/`, one file per element type) so the three renderers stay
 diffable.
 
-## Symbol map
-
-`Image`'s `systemName` resolution uses the SF -> Material map at
-`assets/symbols/sf_to_material.map`. It is **committed** (small, and the
-GitHub-hosted demo needs it), so no setup is required after cloning. It is a
-generated artifact copied from ActionUIAndroid; refresh it when the upstream
-mapping changes:
-
-```sh
-cd ActionUIWeb
-sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndroid
-# or: sh scripts/sync-symbol-map.sh /path/to/sf_to_material.map
-```
-
 ## Run the demo
 
 ES modules and `fetch` require an HTTP server (not `file://`):
@@ -48,6 +34,20 @@ that needs Node; the library and demo ship with zero runtime dependencies.
 ```sh
 cd ActionUIWeb
 npm test        # node --test test/*.test.mjs - 142 tests
+```
+
+## Symbol map
+
+`Image`'s `systemName` resolution uses the SF -> Material map at
+`assets/symbols/sf_to_material.map`. It is **committed** (small, and the
+GitHub-hosted demo needs it), so no setup is required after cloning. It is a
+generated artifact copied from ActionUIAndroid; refresh it when the upstream
+mapping changes:
+
+```sh
+cd ActionUIWeb
+sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndroid
+# or: sh scripts/sync-symbol-map.sh /path/to/sf_to_material.map
 ```
 
 ## What is implemented
