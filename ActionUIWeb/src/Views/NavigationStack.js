@@ -216,6 +216,27 @@ register("NavigationStack", {
             node.appendChild(pane);
         }
 
+        // Push/pop transition. The stack swaps panes by display; a short
+        // directional slide + fade on the incoming pane gives the push/pop the
+        // native feel. lastPathLen tracks depth so we animate only on a real
+        // depth change - push (deeper) enters from the right, pop (shallower)
+        // from the left - never on the first render or a same-depth reconcile.
+        // Guarded for the headless test DOM (no element.animate) and reduced
+        // motion; the 24px slide is small and clipped where an ancestor clips
+        // overflow-x (the NavigationSplitView detail pane does).
+        let lastPathLen = null;
+        const reduceMotion = () =>
+            typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const animatePaneIn = (pane, fromRight) => {
+            if (!pane || typeof pane.animate !== "function" || reduceMotion()) return;
+            pane.animate(
+                [{ transform: `translateX(${fromRight ? 24 : -24}px)`, opacity: 0 },
+                 { transform: "translateX(0)", opacity: 1 }],
+                { duration: 220, easing: "ease-out" },
+            );
+        };
+
         const showTop = () => {
             const top = path.length ? path[path.length - 1] : null;
             rootPane.style.display = top === null ? "" : "none";
@@ -226,6 +247,10 @@ register("NavigationStack", {
                 row.classList.toggle("aui-list-row-selected", on);
                 row.setAttribute("aria-selected", on ? "true" : "false");
             });
+            if (lastPathLen !== null && path.length !== lastPathLen) {
+                animatePaneIn(top === null ? rootPane : destPanes.get(top), path.length > lastPathLen);
+            }
+            lastPathLen = path.length;
         };
 
         // Push events bubble up from NavigationLinks (and selectable rows reach
