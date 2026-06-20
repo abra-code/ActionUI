@@ -96,13 +96,13 @@ struct Stepper: ActionUIViewConstruction {
             label = properties["label"] as? String ?? ""
         }
 
-        let valueBinding = Binding(
+        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+        // not the non-Sendable [String: Any] properties payload.
+        let actionID = properties["actionID"] as? String
+        let valueBinding = mainActorBinding(
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
                 guard model.value as? Double != newValue else { return }
-                // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                let actionID = properties["actionID"] as? String
                 // DispatchQueue.main.async avoids "publishing changes from within view updates" warning.
                 // actionID fires only on user interaction (binding setter), not programmatic updates.
                 DispatchQueue.main.async {

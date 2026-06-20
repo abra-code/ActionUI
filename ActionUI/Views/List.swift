@@ -325,7 +325,10 @@ struct List: ActionUIViewConstruction {
             }
 
             // Selection binding: same index-based pattern as homogeneous list
-            let selectionBinding = Binding<Set<Int>>(
+            // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+            // not the non-Sendable [String: Any] properties payload.
+            let actionID = properties["actionID"] as? String
+            let selectionBinding: Binding<Set<Int>> = mainActorBinding(
                 get: {
                     guard let selectedRow = model.value as? [String],
                           !selectedRow.isEmpty,
@@ -346,9 +349,6 @@ struct List: ActionUIViewConstruction {
                           content.indices.contains(newIndex) else { return }
                     let selectedRowValues = content[newIndex]
                     guard (model.value as? [String]) != selectedRowValues else { return }
-                    // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                    // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                    let actionID = properties["actionID"] as? String
                     DispatchQueue.main.async {
                         model.value = selectedRowValues
                         if let actionID {
@@ -430,7 +430,10 @@ struct List: ActionUIViewConstruction {
             let elementID = element.id
 
             // Indices are 0..<displayItems.count — stable even with duplicate display strings
-            let selectionBinding = Binding<Set<Int>>(
+            // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+            // not the non-Sendable [String: Any] properties payload.
+            let actionID = properties["actionID"] as? String
+            let selectionBinding: Binding<Set<Int>> = mainActorBinding(
                 get: {
                     guard let selectedRow = model.value as? [String],
                           !selectedRow.isEmpty,
@@ -457,10 +460,6 @@ struct List: ActionUIViewConstruction {
                     let selectedRowValues = content[newIndex]
 
                     guard (model.value as? [String]) != selectedRowValues else { return }
-
-                    // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                    // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                    let actionID = properties["actionID"] as? String
                     DispatchQueue.main.async {
                         model.value = selectedRowValues
                         if let actionID {

@@ -207,7 +207,7 @@ struct TextField: ActionUIViewConstruction {
         }
 
         // Standard text TextField
-        let textBinding = Binding(
+        let textBinding = mainActorBinding(
             get: { model.value as? String ?? initialValue },
             set: { newValue in
                 guard model.value as? String != newValue else {

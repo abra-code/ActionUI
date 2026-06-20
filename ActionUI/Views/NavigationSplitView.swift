@@ -117,7 +117,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
             let childToDestination = maps.childToDestination
             let destinationToChild = maps.destinationToChild
 
-            let selectionBinding = Binding<Int?>(
+            let selectionBinding: Binding<Int?> = mainActorBinding(
                 get: {
                     // Reverse-map: states stores destination ID, List expects child element ID
                     if let destId = model.states["selectedDestination"] as? Int {

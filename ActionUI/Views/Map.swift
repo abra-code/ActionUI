@@ -180,7 +180,10 @@ struct Map: ActionUIViewConstruction {
             return nil
         }
 
-        let positionBinding = Binding<MapKit.MapCameraPosition>(
+        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+        // not the non-Sendable [String: Any] properties payload.
+        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let positionBinding: Binding<MapKit.MapCameraPosition> = mainActorBinding(
             get: {
                 if let coord = model.value as? CLLocationCoordinate2D {
                     return .region(MKCoordinateRegion(center: coord, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
@@ -195,9 +198,6 @@ struct Map: ActionUIViewConstruction {
                           prevCoord.longitude == coord.longitude {
                         return
                     }
-                    // Hoist the actionID lookup out of the async block: [String: Any] is non-Sendable and
-                    // must not be captured into the main-actor closure below (Swift 6 sending rule).
-                    let valueChangeActionID = properties["valueChangeActionID"] as? String
                     // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                     // "publishing changes from within view updates" warning
                     DispatchQueue.main.async {
