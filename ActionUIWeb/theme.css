@@ -398,8 +398,11 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 48px;
-    padding: 0 10px;
+    /* Extend into the top safe area on a notched phone: the bar background fills
+       the notch strip while the controls stay centered in the lower 48px (env()
+       is 0 on a non-notched / desktop screen). */
+    height: calc(48px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 10px 0;
     background: var(--aui-control-background);
     border-bottom: 1px solid var(--aui-control-border);
     z-index: 2; /* above the stage's window content */
@@ -909,7 +912,7 @@
 .aui-toolbar-body { min-height: 0; }
 .aui-toolbar-bar { display: flex; align-items: center; gap: 8px; }
 .aui-toolbar-top { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--aui-control-border); }
-.aui-toolbar-bottom { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--aui-control-border); justify-content: center; }
+.aui-toolbar-bottom { padding-top: 8px; padding-bottom: env(safe-area-inset-bottom); margin-top: 8px; border-top: 1px solid var(--aui-control-border); justify-content: center; }
 .aui-toolbar-leading, .aui-toolbar-trailing { display: flex; align-items: center; gap: 4px; }
 .aui-toolbar-principal { flex: 1; min-width: 0; display: flex; align-items: center; }
 .aui-toolbar-trailing { justify-content: flex-end; }
@@ -1602,7 +1605,8 @@
    as it animates. */
 .aui-toast {
     position: fixed;
-    top: 16px;
+    /* Clear the notch on a phone (env() is 0 on a non-notched / desktop screen). */
+    top: calc(env(safe-area-inset-top) + 16px);
     left: 50%;
     z-index: 1000;
     display: flex;
@@ -1628,7 +1632,8 @@
 /* Bottom (Material) placement: slides up from below the fold. */
 .aui-toast-bottom {
     top: auto;
-    bottom: 16px;
+    /* Clear the home indicator on a phone. */
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
     transform: translate(-50%, 12px);
 }
 .aui-toast-bottom.is-visible { transform: translate(-50%, 0); }
