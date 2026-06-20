@@ -29,6 +29,15 @@ import { makeFloatingPanel } from "../Helpers/PopoverPlacement.js";
 import { interpretiveFlatBinding } from "../Helpers/InsertionHelper.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 
+// True at phone width - the compact size class where a Menu pull-down presents as
+// a bottom action sheet rather than an anchored dropdown (the bottom-sheet theme
+// rules use the same 480px breakpoint). Feature-detected so the headless test DOM
+// keeps the anchored path.
+function isCompactWidth() {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function"
+        && window.matchMedia("(max-width: 480px)").matches;
+}
+
 // The dropdown is a shared top-layer floating panel (Helpers/PopoverPlacement.js):
 // it renders in the browser top layer (the Popover API), escaping every ancestor
 // overflow/clip (e.g. the NavigationSplitView pane), and falls back to a
@@ -88,7 +97,14 @@ register("Menu", {
         // The whole menu (trigger + items) counts as "inside" for outside-click
         // dismissal; the trigger toggles it.
         const panel = makeFloatingPanel(items, trigger, { containmentRoots: [menu] });
-        trigger.addEventListener("click", () => { if (panel.open) panel.close(); else panel.show(); });
+        trigger.addEventListener("click", () => {
+            if (panel.open) { panel.close(); return; }
+            // Compact (phone): present as a bottom action sheet (the iOS idiom),
+            // not an anchored dropdown - the theme overrides the JS placement when
+            // the class is set; the controller still owns open/close + light-dismiss.
+            items.classList.toggle("aui-menu-sheet", isCompactWidth());
+            panel.show();
+        });
         const dismiss = () => panel.close();
 
         // Each child maps to one slot of one-or-more DOM nodes (a Section expands
