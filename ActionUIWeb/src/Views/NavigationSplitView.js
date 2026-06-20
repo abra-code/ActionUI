@@ -177,6 +177,27 @@ register("NavigationSplitView", {
         // *pane* shows.
         const COMPACT_WIDTH = 640;
         let compact = false;
+        // Pane-transition animation. In compact, switching the visible pane
+        // (sidebar <-> detail) is otherwise an instant display swap; a short
+        // slide + fade on the incoming pane gives navigation the push/pop feel
+        // users expect from a native app. lastShownPane tracks the current pane
+        // so we animate only on a real switch - not the first compaction or a
+        // resize - and pick direction: forward (sidebar -> detail) enters from
+        // the right, back (detail -> sidebar) from the left. Guarded for the
+        // headless test DOM (no element.animate) and for reduced-motion;
+        // .aui-nav-split overflow:hidden clips the slide so it adds no scrollbar.
+        let lastShownPane = null;
+        const reduceMotion = () =>
+            typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const animatePaneIn = (pane, fromRight) => {
+            if (typeof pane.animate !== "function" || reduceMotion()) return;
+            pane.animate(
+                [{ transform: `translateX(${fromRight ? 24 : -24}px)`, opacity: 0 },
+                 { transform: "translateX(0)", opacity: 1 }],
+                { duration: 220, easing: "ease-out" },
+            );
+        };
         // In compact the sidebar fills the column (its declared rail width / the
         // applyColumnWidth inline styles would otherwise pin it narrow); restore
         // re-applies the declared width when expanding.
@@ -199,13 +220,20 @@ register("NavigationSplitView", {
             if (!compact) {
                 delete node.dataset.compact;
                 delete node.dataset.compactPane;
+                lastShownPane = null; // re-entering compact should not animate the first show
                 return;
             }
             node.dataset.compact = "true";
             if (selectionDriven) {
-                node.dataset.compactPane = selectedDestination !== 0 ? "detail" : "sidebar";
+                const pane = selectedDestination !== 0 ? "detail" : "sidebar";
+                node.dataset.compactPane = pane;
+                if (lastShownPane !== null && lastShownPane !== pane) {
+                    animatePaneIn(pane === "detail" ? detailPane : sidebarPane, pane === "detail");
+                }
+                lastShownPane = pane;
             } else {
                 delete node.dataset.compactPane; // static: the CSS stacks the panes vertically
+                lastShownPane = null;
             }
         };
         const setCompact = (next) => {
