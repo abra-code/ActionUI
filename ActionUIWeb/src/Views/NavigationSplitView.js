@@ -243,11 +243,31 @@ register("NavigationSplitView", {
             applyPaneVisibility();
         };
 
+        // Cross-fade the detail content when the shown destination changes in the
+        // expanded (two-column) layout - selecting another sidebar row is otherwise
+        // an instant display swap. Skipped when compact (the pane slide already
+        // animates that transition) and on the first show. A gentle fade + small
+        // rise, reusing the reduced-motion / animate guards above. lastDetailNode
+        // tracks the visible detail node so we animate only on a real change.
+        let lastDetailNode = null;
+        const animateDetailIn = (el) => {
+            if (typeof el.animate !== "function" || reduceMotion()) return;
+            el.animate(
+                [{ opacity: 0, transform: "translateY(8px)" },
+                 { opacity: 1, transform: "translateY(0)" }],
+                { duration: 200, easing: "ease-out" },
+            );
+        };
         const showDetail = () => {
             if (!selectionDriven) return;
             const target = destinationsById.get(selectedDestination) ?? null;
             defaultDetailNode.style.display = target ? "none" : "";
             destinationNodes.forEach((n) => { n.style.display = (n === target) ? "" : "none"; });
+            const shown = target ?? defaultDetailNode;
+            if (!compact && lastDetailNode !== null && lastDetailNode !== shown) {
+                animateDetailIn(shown);
+            }
+            lastDetailNode = shown;
         };
         const applySelection = () => {
             rowsByDest.forEach((row, destId) => {

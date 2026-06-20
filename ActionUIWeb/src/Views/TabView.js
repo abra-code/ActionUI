@@ -91,6 +91,25 @@ register("TabView", {
         let selected = 0;
         const clamp = (index) => (panels.length === 0 ? 0 : Math.min(Math.max(index, 0), panels.length - 1));
 
+        // Cross-fade the incoming tab panel on a switch - selecting a tab is
+        // otherwise an instant display swap. lastShownIndex tracks the visible
+        // tab so we animate only on a real change (not the initial show or a
+        // re-show of the same tab). A gentle fade + small rise, matching the
+        // NavigationSplitView detail cross-fade. Guarded for the headless test
+        // DOM (no element.animate) and for reduced-motion.
+        let lastShownIndex = null;
+        const reduceMotion = () =>
+            typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const animatePanelIn = (panel) => {
+            if (typeof panel.animate !== "function" || reduceMotion()) return;
+            panel.animate(
+                [{ opacity: 0, transform: "translateY(8px)" },
+                 { opacity: 1, transform: "translateY(0)" }],
+                { duration: 200, easing: "ease-out" },
+            );
+        };
+
         // Switches the visible tab and the strip's selected state. No dispatch /
         // model write here — getValue reads `selected` live, so a user click and a
         // programmatic setValue both route through this single place.
@@ -103,6 +122,10 @@ register("TabView", {
                 button.tabIndex = on ? 0 : -1;
             });
             panels.forEach((panel, i) => { panel.style.display = i === index ? "" : "none"; });
+            if (lastShownIndex !== null && lastShownIndex !== index && panels[index]) {
+                animatePanelIn(panels[index]);
+            }
+            lastShownIndex = index;
         };
 
         // Builds a tab's strip button + content panel and inserts both at `atIndex`.
