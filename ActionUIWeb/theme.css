@@ -1763,6 +1763,23 @@
         padding: 10px 8px;
     }
 
+    /* Toolbar / app-bar actions. A toolbar Button and the overflow ("...") trigger
+       are frequently icon-only, so they need a square ~44px target, not just a tall
+       one - hence min-width too, centered. The overflow menu rows get the row
+       treatment. This finishes the touch-target audit for the toolbar (the other
+       controls were already covered above). */
+    .aui-toolbar-button,
+    .aui-toolbar-overflow-trigger {
+        min-height: var(--aui-touch-target);
+        min-width: var(--aui-touch-target);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .aui-toolbar-overflow-items .aui-toolbar-overflow-item {
+        min-height: var(--aui-touch-target);
+    }
+
     /* The switch and slider get finger-sized affordances. The enlarged
        switch keeps the thumb travel exact: 50 - 26 - 2*2 inset = 20. */
     .aui-toggle-switch .aui-toggle-visual { width: 50px; height: 30px; border-radius: 15px; }
