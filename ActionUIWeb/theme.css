@@ -1602,6 +1602,14 @@
     --aui-touch-target: 44px;
 }
 
+/* On coarse pointers the controls grow to the touch target, so the default 6px
+   corner radius reads as under-rounded at ~44px. Bump the token to match. It
+   feeds every control (buttons, fields, menus, steppers, segmented, the
+   nav-split frame), so the rounding stays proportional across the board. */
+@media (pointer: coarse) {
+    :root { --aui-control-radius: 10px; }
+}
+
 /* ---- Coarse pointer: enlarge hit targets ----
    `pointer: coarse` means touch is the primary input. Grow the interactive
    controls to --aui-touch-target and open up row padding so taps land
