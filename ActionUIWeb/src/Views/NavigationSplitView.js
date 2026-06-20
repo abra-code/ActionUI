@@ -59,6 +59,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 import { prefersReducedMotion } from "../Helpers/Modality.js";
+import { attachEdgeBackSwipe } from "../Helpers/EdgeSwipe.js";
 
 const VALID_COLUMN_VISIBILITIES = ["automatic", "all", "doubleColumn", "detail"];
 const VALID_STYLES = ["automatic", "balanced", "prominentDetail"];
@@ -320,6 +321,11 @@ register("NavigationSplitView", {
             backButton.textContent = "‹ Back";
             backButton.addEventListener("click", goBackToSidebar);
             detailPane.appendChild(backButton); // first child, above the detail content
+
+            // Left-edge swipe-back (the iOS idiom), the gesture twin of the Back
+            // button - only in the compact one-column flow (where Back exists) and
+            // only while a detail is shown.
+            attachEdgeBackSwipe(node, () => node.dataset.compact === "true" && selectedDestination !== 0, goBackToSidebar);
 
             // Detail host: the default detail plus one node per destination, built
             // once and toggled by display.

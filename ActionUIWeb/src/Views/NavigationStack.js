@@ -50,6 +50,7 @@ import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { NAV_PUSH_EVENT } from "./NavigationLink.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 import { prefersReducedMotion } from "../Helpers/Modality.js";
+import { attachEdgeBackSwipe } from "../Helpers/EdgeSwipe.js";
 
 const NAV_PATH_KEY = "navigationPath";
 
@@ -256,6 +257,15 @@ register("NavigationStack", {
         node.addEventListener(NAV_PUSH_EVENT, (event) => {
             event.stopPropagation();
             push(event.detail);
+        });
+
+        // Left-edge swipe-back (the iOS interactive-pop idiom): pop the top pane,
+        // the same action as the Back button. Only when there is something to pop;
+        // routes through history.back() when browserHistory is on, so a swipe, the
+        // button, and the browser Back all agree.
+        attachEdgeBackSwipe(node, () => path.length > 0, () => {
+            if (historyEnabled) window.history.back();
+            else pop();
         });
 
         // State binding: getState returns the live path; a host setState
