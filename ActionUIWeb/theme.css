@@ -1813,5 +1813,9 @@
     .aui-datepicker {
         font-size: 16px;
     }
+    /* The textarea's manual resize grip is a desktop hover/precision affordance and
+       is awkward on touch (it also eats the bottom-right corner); drop it on coarse
+       and let the frame / content height drive the size. */
+    .aui-texteditor { resize: none; }
     .aui-window { -webkit-tap-highlight-color: transparent; }
 }

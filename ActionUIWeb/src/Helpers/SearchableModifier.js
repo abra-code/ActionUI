@@ -69,6 +69,14 @@ export function wrapWithSearchable(bodyNode, element, properties, ctx) {
     const input = document.createElement("input");
     input.type = "search";
     input.className = "aui-search-field";
+    // Mobile soft-keyboard hygiene for a search field (its semantics are intrinsic,
+    // not author-declared): a search-optimized keyboard with a "search" return key,
+    // and no auto-capitalize / correct / spellcheck mangling the query.
+    input.inputMode = "search";
+    input.enterKeyHint = "search";
+    input.autocapitalize = "none";
+    input.setAttribute("autocorrect", "off"); // Safari-only attribute, no IDL property
+    input.spellcheck = false;
     if (config.prompt) input.placeholder = config.prompt;
     markHandlesAction(input); // wires its own action; opt out of the generic click handler
     // Emit the query on every change (user types or clears), the query string as the
