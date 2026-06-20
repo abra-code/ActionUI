@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Toolbar", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "Toolbar (chrome on any view: leading / trailing group / bottom bar). toolbarTitleDisplayMode 'large' renders a big title row; secondaryAction items collapse into the trailing overflow ('...') menu:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "VStack",
+      "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Documents", "toolbarTitleDisplayMode": "large", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "A toolbar/navigationTitle wraps any view in screen chrome (no NavigationStack needed)." } }
+      ],
+      "toolbar": [
+        { "type": "ToolbarItem", "properties": { "placement": "topBarLeading" }, "content": { "type": "Button", "properties": { "title": "Add", "systemImage": "plus", "actionID": "toolbarAdd" } } },
+        {
+          "type": "ToolbarItemGroup",
+          "properties": { "placement": "primaryAction" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "toolbarShare" } },
+            { "type": "Button", "properties": { "title": "Filter", "systemImage": "line.3.horizontal.decrease", "actionID": "toolbarFilter" } }
+          ]
+        },
+        {
+          "type": "ToolbarItemGroup",
+          "properties": { "placement": "secondaryAction" },
+          "children": [
+            { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "actionID": "toolbarArchive" } },
+            { "type": "Button", "properties": { "title": "Move", "systemImage": "folder", "actionID": "toolbarMove" } },
+            { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "toolbarDuplicate" } }
+          ]
+        },
+        { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundColor": "secondary" } } }
+      ]
+    }
+  ]
+}

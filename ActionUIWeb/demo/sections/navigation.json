@@ -109,36 +109,6 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Toolbar (chrome on any view: leading / trailing group / bottom bar). toolbarTitleDisplayMode 'large' renders a big title row; secondaryAction items collapse into the trailing overflow ('...') menu:", "foregroundColor": "secondary", "font": "callout" } },
-    {
-      "type": "VStack",
-      "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Documents", "toolbarTitleDisplayMode": "large", "frame": { "maxWidth": "infinity" } },
-      "children": [
-        { "type": "Text", "properties": { "text": "A toolbar/navigationTitle wraps any view in screen chrome (no NavigationStack needed)." } }
-      ],
-      "toolbar": [
-        { "type": "ToolbarItem", "properties": { "placement": "topBarLeading" }, "content": { "type": "Button", "properties": { "title": "Add", "systemImage": "plus", "actionID": "toolbarAdd" } } },
-        {
-          "type": "ToolbarItemGroup",
-          "properties": { "placement": "primaryAction" },
-          "children": [
-            { "type": "Button", "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "toolbarShare" } },
-            { "type": "Button", "properties": { "title": "Filter", "systemImage": "line.3.horizontal.decrease", "actionID": "toolbarFilter" } }
-          ]
-        },
-        {
-          "type": "ToolbarItemGroup",
-          "properties": { "placement": "secondaryAction" },
-          "children": [
-            { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "actionID": "toolbarArchive" } },
-            { "type": "Button", "properties": { "title": "Move", "systemImage": "folder", "actionID": "toolbarMove" } },
-            { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "toolbarDuplicate" } }
-          ]
-        },
-        { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundColor": "secondary" } } }
-      ]
-    },
-    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Runtime insertion into the exotic containers (Apple declares these insertable): add a tab to the TabView above, an item to the Menu above (re-open it), or a destination to the NavigationStack (a Library row is added alongside the push target, so it persists after Back):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "HStack",
@@ -147,6 +117,17 @@
         { "type": "Button", "properties": { "title": "Add Tab", "systemImage": "plus.rectangle", "buttonStyle": "bordered", "actionID": "insertTab" } },
         { "type": "Button", "properties": { "title": "Add Menu Item", "systemImage": "plus.circle", "buttonStyle": "bordered", "actionID": "insertMenuItem" } },
         { "type": "Button", "properties": { "title": "Add + Open Destination", "systemImage": "plus.square.on.square", "buttonStyle": "bordered", "actionID": "insertDestination" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "Link (a native <a> that navigates externally), ShareLink (the Web Share API), and EmptyView (renders nothing):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16, "alignment": "center" },
+      "children": [
+        { "type": "Link", "properties": { "title": "Visit swift.org", "url": "https://www.swift.org" } },
+        { "type": "ShareLink", "properties": { "item": "https://www.swift.org", "subject": "The Swift website" } },
+        { "type": "EmptyView", "properties": {} }
       ]
     }
   ]

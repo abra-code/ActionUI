@@ -857,6 +857,14 @@
    width is dropped in JS (it is set inline), so the visible column fills. */
 .aui-nav-split[data-compact="true"] { flex-direction: column; }
 .aui-nav-split[data-compact="true"] .aui-nav-split-content { border-right: none; }
+/* When the split is one column (its own width is compact) it is the full-width
+   screen, not a card: drop the rounded border so the sidebar list reaches the
+   screen edges (the shell runs the split edge-to-edge), and remove the sidebar
+   pane's inset / right border so rows align flush - their own padding keeps the
+   text inset, the iOS full-width list look. The detail pane keeps its padding, so
+   section content stays readable. A wide (two-column) split keeps its card. */
+.aui-nav-split[data-compact="true"] { border: none; border-radius: 0; }
+.aui-nav-split[data-compact="true"] .aui-nav-split-sidebar { padding: 0; border-right: none; }
 /* selection-driven: one pane at a time */
 .aui-nav-split[data-compact="true"][data-compact-pane="sidebar"] .aui-nav-split-detail,
 .aui-nav-split[data-compact="true"][data-compact-pane="sidebar"] .aui-nav-split-content { display: none; }

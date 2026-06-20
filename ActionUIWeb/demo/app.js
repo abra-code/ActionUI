@@ -112,11 +112,11 @@ app.presentWindow(win, document.getElementById("root"));
 // user inside Overview with no visible section list. Leaving it unselected (0)
 // lands on the sidebar - the section list - which is the right small-screen
 // landing. The split compacts below 640px of its own width (NavigationSplitView
-// COMPACT_WIDTH); the window content width is the viewport minus the root's two
-// 20px side paddings, so a viewport >= 680px means the split renders regular.
-// Generic, not device-specific: a phone in portrait lands on the list, while a
-// wide layout (landscape phone, tablet, desktop) preselects Overview.
-if (window.matchMedia("(min-width: 680px)").matches) {
+// COMPACT_WIDTH); the root shell now has zero side padding, so the window content
+// width is the viewport itself and a viewport >= 640px means the split renders
+// regular. Generic, not device-specific: a phone in portrait lands on the list,
+// while a wide layout (landscape phone, tablet, desktop) preselects Overview.
+if (window.matchMedia("(min-width: 640px)").matches) {
     win.setState(1000, "selectedDestination", 1100);
 }
 
@@ -125,10 +125,11 @@ if (window.matchMedia("(min-width: 680px)").matches) {
 // is split into many small, feature-focused sections (one JSON file each) rather
 // than a few crammed ones; this maps each destination id to its label.
 const SECTION_NAMES = {
-    1100: "Overview", 1101: "Shapes & Layout", 1102: "Scrolling", 1103: "Text Input",
+    1100: "Overview", 1117: "Symbols", 1102: "Scrolling", 1103: "Text Input",
     1104: "Controls", 1105: "Pickers", 1106: "Forms", 1107: "Lists", 1108: "Table",
-    1109: "Insertion", 1110: "Navigation", 1111: "Media & Web", 1112: "Presentation",
-    1113: "Properties", 1114: "Animation", 1115: "Upload", 1116: "Windows",
+    1101: "Shapes & Layout", 1109: "Insertion", 1110: "Navigation", 1119: "Toolbar",
+    1111: "Media & Web", 1112: "Presentation", 1113: "Properties", 1114: "Animation",
+    1115: "Upload", 1116: "Windows", 1118: "Unavailable Views",
 };
 app.action("sectionSelect", () => {
     const dest = win.getState(1000, "selectedDestination");

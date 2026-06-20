@@ -1,0 +1,36 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Symbols", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "Icon glyphs are Image with a systemName (an SF Symbol) or an explicit materialName. ActionUI maps each SF Symbol to the closest Material Symbol; a name with no mapping renders nothing and logs a warning in the Diagnostics panel below. Turn on 'Debug glyphs' (then reload) to draw a broken-image placeholder in its place.", "foregroundColor": "secondary" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Image", "properties": { "systemName": "heart.fill", "imageScale": "large", "foregroundColor": "red" } },
+        { "type": "Image", "properties": { "systemName": "gearshape", "imageScale": "large", "foregroundColor": "secondary" } },
+        { "type": "Image", "properties": { "systemName": "trash", "imageScale": "large", "foregroundColor": "secondary" } },
+        { "type": "Image", "properties": { "materialName": "rocket_launch", "imageScale": "large", "foregroundColor": "accentColor" } }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 16 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Favorites", "systemImage": "star.fill", "foregroundColor": "yellow" } },
+        { "type": "Label", "properties": { "title": "Trash", "systemImage": "trash", "foregroundColor": "secondary" } }
+      ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "An unmapped SF Symbol vs. an explicit Material glyph:", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "VStack",
+      "properties": { "alignment": "leading", "spacing": 6 },
+      "children": [
+        { "type": "Label", "properties": { "title": "Unmapped: systemImage \"example.unmapped.symbol\"", "systemImage": "example.unmapped.symbol" } },
+        { "type": "Label", "properties": { "title": "Explicit Material glyph: materialName \"description\"", "materialName": "description" } }
+      ]
+    }
+  ]
+}

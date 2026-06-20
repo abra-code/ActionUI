@@ -54,6 +54,22 @@
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
         }
+        /* ---- App-area content inset (demo chrome, framework-owned) ----
+           The margin between the ActionUI content and the app-area (card) edges is
+           the app framework's responsibility - like a window's content insets / safe
+           area - not the content document's. So ui.json renders at padding 0 and the
+           demo shell insets it here, on the stage the window mounts into. The app bar
+           stays full-width (it is a sibling above the stage); only the content below
+           is inset. scrollbar-gutter:auto overrides the renderer's end-only
+           `stable`, which reserved a gutter on the right and shifted the centered
+           window left toward the inner shadow (the asymmetry) - the menubar stage has
+           a definite-height window that scrolls internally, so the stage never
+           scrolls and needs no reserved gutter. Removed on a phone (below), where the
+           content goes edge-to-edge. */
+        .aui-app-shell .aui-app-stage {
+            padding: 14px 16px 16px;
+            scrollbar-gutter: auto;
+        }
 
         /* ---- Drop zone (demo chrome) ----
            Targeting visuals are host policy: the renderer just fires
@@ -141,6 +157,8 @@
                 height: 100% !important;
                 max-height: 100% !important;
             }
+            /* Phone: content goes edge-to-edge, so drop the framework inset. */
+            .aui-app-shell .aui-app-stage { padding: 0; }
         }
     </style>
 </head>
