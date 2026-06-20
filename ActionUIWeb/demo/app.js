@@ -106,8 +106,19 @@ await app.setMenuBarFromURL("./MainMenu.json", logger);
 app.presentWindow(win, document.getElementById("root"));
 
 // Open on the Overview section (the LoadableViews all preload as the split's
-// destinations; this just selects which one is shown first).
-win.setState(1000, "selectedDestination", 1100);
+// destinations; this just selects which one is shown first) - but ONLY on a
+// regular (wide) layout. In a compact layout the split shows one column at a
+// time, so a preselected destination would skip past the sidebar and land the
+// user inside Overview with no visible section list. Leaving it unselected (0)
+// lands on the sidebar - the section list - which is the right small-screen
+// landing. The split compacts below 640px of its own width (NavigationSplitView
+// COMPACT_WIDTH); the window content width is the viewport minus the root's two
+// 20px side paddings, so a viewport >= 680px means the split renders regular.
+// Generic, not device-specific: a phone in portrait lands on the list, while a
+// wide layout (landscape phone, tablet, desktop) preselects Overview.
+if (window.matchMedia("(min-width: 680px)").matches) {
+    win.setState(1000, "selectedDestination", 1100);
+}
 
 // NavigationSplitView sidebar selection: the sidebar List's actionID fires with no
 // context — read the selected destination id from the split view's state. The demo
