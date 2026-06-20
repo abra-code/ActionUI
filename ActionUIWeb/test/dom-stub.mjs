@@ -10,6 +10,12 @@
 // (matchMedia + pagehide events), and a `ResizeObserver` that never auto-fires (a
 // test drives it via the controller's `fireResize`).
 //
+// matchMedia is controllable, mirroring `fireResize`: it resolves a
+// `prefers-reduced-motion` query against `setReducedMotion(on)` and a
+// `min-width` / `max-width` query against `setViewportWidth(px)` (default a wide
+// 1024, so compact-width branches are off unless a test opts in). This lets the
+// pure modality predicates (Helpers/Modality.js) be exercised headlessly.
+//
 // It is intentionally NOT a real DOM: there is no layout, no rendering, no CSSOM.
 // The tests assert DOM *mutations* (which styles/classes/attributes/listeners a
 // function sets), not pixels or computed layout - that is what the renderer's logic
@@ -113,6 +119,7 @@ export function installDom() {
     const created = [];
     let visibility = "visible";
     let reducedMotion = false;
+    let viewportWidth = 1024; // a wide (desktop) default: compact-width queries are false unless a test opts in
     ResizeObserverStub.instances = []; // reset for isolation
     focusedElement = null;             // reset focus tracking
 
@@ -138,8 +145,20 @@ export function installDom() {
     };
     const windowShim = {
         ...winTarget.api,
-        matchMedia(query) { return { matches: query.includes("reduced-motion") ? reducedMotion : false }; },
+        matchMedia(query) { return { matches: evaluateMedia(query) }; },
     };
+
+    // Resolve the slice of media queries the renderer asks about: reduced-motion
+    // against the flag, and min/max-width against the current viewport width.
+    // Anything else is treated as not matching.
+    function evaluateMedia(query) {
+        if (query.includes("reduced-motion")) return reducedMotion;
+        const max = query.match(/max-width:\s*(\d+)/);
+        if (max) return viewportWidth <= Number(max[1]);
+        const min = query.match(/min-width:\s*(\d+)/);
+        if (min) return viewportWidth >= Number(min[1]);
+        return false;
+    }
 
     global.document = documentShim;
     global.window = windowShim;
@@ -163,6 +182,7 @@ export function installDom() {
         windowListenerCount: (name) => winTarget.count(name),
         setVisibility: (state) => { visibility = state; },
         setReducedMotion: (on) => { reducedMotion = on; },
+        setViewportWidth: (px) => { viewportWidth = px; },
     };
 }
 

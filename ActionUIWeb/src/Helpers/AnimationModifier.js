@@ -26,6 +26,8 @@
 //   * Respects `prefers-reduced-motion: reduce` (arms nothing, so mutations are
 //     instant).
 
+import { prefersReducedMotion } from "./Modality.js";
+
 const VALID_CURVES = [
     "default", "linear", "easeIn", "easeOut", "easeInOut",
     "spring", "bouncy", "smooth", "snappy", "interactiveSpring",
@@ -119,10 +121,7 @@ export function resolveAnimation(animation, logger) {
 export function applyAnimation(node, properties, logger) {
     const anim = resolveAnimation(properties.animation, logger);
     if (!anim) return;
-    if (typeof window !== "undefined" && window.matchMedia &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        return;
-    }
+    if (prefersReducedMotion()) return;
     node.style.transitionProperty = ANIMATED_PROPERTIES;
     node.style.transitionDuration = `${anim.duration}s`;
     node.style.transitionTimingFunction = anim.timing;

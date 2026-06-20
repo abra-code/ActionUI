@@ -35,17 +35,11 @@
 //     to the carrier but renders the content independently too.
 
 import { makeFloatingPanel } from "./PopoverPlacement.js";
+// At phone width Apple presents a popover as a sheet (and the bottom-sheet theme
+// rules for .sheet apply at the same 480px breakpoint).
+import { isCompactWidth } from "./Modality.js";
 
 const POPOVER_EDGES = new Set(["top", "bottom", "leading", "trailing"]);
-
-// True at phone width - the compact size class where Apple presents a popover as a
-// sheet (and where the bottom-sheet theme rules for .sheet apply). Matches the
-// 480px breakpoint of those rules. Feature-detected so the headless test DOM (no
-// matchMedia) keeps the anchored-popover path.
-function isCompactWidth() {
-    return typeof window !== "undefined" && typeof window.matchMedia === "function"
-        && window.matchMedia("(max-width: 480px)").matches;
-}
 
 // Applies any sheet/fullScreenCover/popover presentation declared on `element`.
 // A no-op for the (overwhelmingly common) element with none. Returns nothing -

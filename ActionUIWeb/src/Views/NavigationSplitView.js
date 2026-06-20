@@ -58,6 +58,7 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
+import { prefersReducedMotion } from "../Helpers/Modality.js";
 
 const VALID_COLUMN_VISIBILITIES = ["automatic", "all", "doubleColumn", "detail"];
 const VALID_STYLES = ["automatic", "balanced", "prominentDetail"];
@@ -187,11 +188,8 @@ register("NavigationSplitView", {
         // headless test DOM (no element.animate) and for reduced-motion;
         // .aui-nav-split overflow:hidden clips the slide so it adds no scrollbar.
         let lastShownPane = null;
-        const reduceMotion = () =>
-            typeof window !== "undefined" && typeof window.matchMedia === "function" &&
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const animatePaneIn = (pane, fromRight) => {
-            if (typeof pane.animate !== "function" || reduceMotion()) return;
+            if (typeof pane.animate !== "function" || prefersReducedMotion()) return;
             pane.animate(
                 [{ transform: `translateX(${fromRight ? 24 : -24}px)`, opacity: 0 },
                  { transform: "translateX(0)", opacity: 1 }],
@@ -251,7 +249,7 @@ register("NavigationSplitView", {
         // tracks the visible detail node so we animate only on a real change.
         let lastDetailNode = null;
         const animateDetailIn = (el) => {
-            if (typeof el.animate !== "function" || reduceMotion()) return;
+            if (typeof el.animate !== "function" || prefersReducedMotion()) return;
             el.animate(
                 [{ opacity: 0, transform: "translateY(8px)" },
                  { opacity: 1, transform: "translateY(0)" }],

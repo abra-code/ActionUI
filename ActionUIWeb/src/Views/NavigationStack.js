@@ -49,6 +49,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { NAV_PUSH_EVENT } from "./NavigationLink.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
+import { prefersReducedMotion } from "../Helpers/Modality.js";
 
 const NAV_PATH_KEY = "navigationPath";
 
@@ -225,11 +226,8 @@ register("NavigationStack", {
         // motion; the 24px slide is small and clipped where an ancestor clips
         // overflow-x (the NavigationSplitView detail pane does).
         let lastPathLen = null;
-        const reduceMotion = () =>
-            typeof window !== "undefined" && typeof window.matchMedia === "function" &&
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const animatePaneIn = (pane, fromRight) => {
-            if (!pane || typeof pane.animate !== "function" || reduceMotion()) return;
+            if (!pane || typeof pane.animate !== "function" || prefersReducedMotion()) return;
             pane.animate(
                 [{ transform: `translateX(${fromRight ? 24 : -24}px)`, opacity: 0 },
                  { transform: "translateX(0)", opacity: 1 }],

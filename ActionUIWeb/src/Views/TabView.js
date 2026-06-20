@@ -31,6 +31,7 @@ import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
 import { interpretiveFlatBinding } from "../Helpers/InsertionHelper.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { tabTitle, tabBadge } from "./Tab.js";
+import { prefersReducedMotion } from "../Helpers/Modality.js";
 
 // The full SwiftUI style set; only "automatic" (the strip) is honored on web,
 // the rest are accepted-and-stashed (the Android stance).
@@ -98,11 +99,8 @@ register("TabView", {
         // NavigationSplitView detail cross-fade. Guarded for the headless test
         // DOM (no element.animate) and for reduced-motion.
         let lastShownIndex = null;
-        const reduceMotion = () =>
-            typeof window !== "undefined" && typeof window.matchMedia === "function" &&
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const animatePanelIn = (panel) => {
-            if (typeof panel.animate !== "function" || reduceMotion()) return;
+            if (typeof panel.animate !== "function" || prefersReducedMotion()) return;
             panel.animate(
                 [{ opacity: 0, transform: "translateY(8px)" },
                  { opacity: 1, transform: "translateY(0)" }],

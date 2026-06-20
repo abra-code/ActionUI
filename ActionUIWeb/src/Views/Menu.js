@@ -28,15 +28,9 @@ import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
 import { makeFloatingPanel } from "../Helpers/PopoverPlacement.js";
 import { interpretiveFlatBinding } from "../Helpers/InsertionHelper.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
-
-// True at phone width - the compact size class where a Menu pull-down presents as
-// a bottom action sheet rather than an anchored dropdown (the bottom-sheet theme
-// rules use the same 480px breakpoint). Feature-detected so the headless test DOM
-// keeps the anchored path.
-function isCompactWidth() {
-    return typeof window !== "undefined" && typeof window.matchMedia === "function"
-        && window.matchMedia("(max-width: 480px)").matches;
-}
+// At phone width a Menu pull-down presents as a bottom action sheet rather than an
+// anchored dropdown (the bottom-sheet theme rules use the same 480px breakpoint).
+import { isCompactWidth } from "../Helpers/Modality.js";
 
 // The dropdown is a shared top-layer floating panel (Helpers/PopoverPlacement.js):
 // it renders in the browser top layer (the Popover API), escaping every ancestor
