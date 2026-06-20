@@ -4,14 +4,17 @@
 // Properties: title (String label), text (String initial value),
 // prompt (String placeholder), actionID (fires on Enter and on focus loss,
 // matching the documented macOS commit behavior), valueChangeActionID
-// (fires on every value change, user or programmatic).
+// (fires on every value change, user or programmatic), textContentType (the Apple
+// UITextContentType raw value; on the web it drives the HTML autocomplete token and
+// the soft-keyboard inputmode through the shared TextContentType map).
 // Not yet implemented on web (validation deferred, not ported): axis/lineLimit
-// (multi-line), numeric format modes (format/fractionLength/currencyCode/value),
-// textContentType. See Web_Porting_Notes.md.
+// (multi-line), numeric format modes (format/fractionLength/currencyCode/value).
+// See Web_Porting_Notes.md.
 // Observable value: the field string.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
+import { applyTextContentType } from "../Helpers/TextContentType.js";
 
 register("TextField", {
     valueType: "string",
@@ -33,6 +36,12 @@ register("TextField", {
             logger.log("TextField text must be a String; ignoring", "warning");
             delete validated.text;
         }
+        // Mirrors TextField.swift: only a type check (any String passes; an unknown
+        // value is a harmless no-op when mapped, as on iOS).
+        if (validated.textContentType !== undefined && typeof validated.textContentType !== "string") {
+            logger.log("TextField textContentType must be a String; defaulting to nil", "warning");
+            delete validated.textContentType;
+        }
         return validated;
     },
 
@@ -44,6 +53,7 @@ register("TextField", {
         input.className = "aui-textfield";
         input.value = properties.text ?? "";
         if (properties.prompt) input.placeholder = properties.prompt;
+        applyTextContentType(input, properties.textContentType); // autofill + soft-keyboard hints
 
         const dispatchValueChange = () => {
             if (typeof properties.valueChangeActionID === "string") {

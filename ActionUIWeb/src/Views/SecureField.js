@@ -19,13 +19,11 @@
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
+import { AUTOCOMPLETE } from "../Helpers/TextContentType.js";
 
-// textContentType → HTML autocomplete token (the masked-entry equivalents).
-const AUTOCOMPLETE = {
-    password: "current-password",
-    newPassword: "new-password",
-    oneTimeCode: "one-time-code",
-};
+// SecureField accepts only the masked-entry content types; their autocomplete
+// tokens come from the shared TextContentType map (a subset of its full table).
+const SECURE_CONTENT_TYPES = ["password", "newPassword", "oneTimeCode"];
 
 register("SecureField", {
     valueType: "string",
@@ -48,7 +46,7 @@ register("SecureField", {
         }
         // textContentType: only the secure set is allowed, else dropped.
         if (typeof validated.textContentType === "string"
-            && Object.prototype.hasOwnProperty.call(AUTOCOMPLETE, validated.textContentType)) {
+            && SECURE_CONTENT_TYPES.includes(validated.textContentType)) {
             // keep as-is
         } else if (validated.textContentType !== undefined) {
             logger.log("SecureField textContentType must be 'password', 'newPassword', or 'oneTimeCode'; defaulting to nil", "warning");
