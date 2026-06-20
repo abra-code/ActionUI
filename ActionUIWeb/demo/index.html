@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ActionUIWeb Demo</title>
     <!-- Material Symbols web font (OFL), with the variable axes ActionUIWeb
          uses (opsz, wght, FILL, GRAD). Self-host for offline use; the .aui-symbol
@@ -78,6 +78,8 @@
             font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
             background: rgba(28, 28, 30, 0.92); color: #e8e8ea;
             backdrop-filter: blur(8px); border-top: 1px solid rgba(0, 0, 0, 0.4);
+            /* Keep the bar clear of the home-indicator / gesture area on phones. */
+            padding-bottom: env(safe-area-inset-bottom);
         }
         .aui-diag-bar { display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
         .aui-diag-toggle, .aui-diag-clear {
@@ -104,6 +106,42 @@
         .aui-diag-warning .aui-diag-level { color: #ffd60a; }
         .aui-diag-error .aui-diag-level { color: #ff453a; }
         .aui-diag-info .aui-diag-level { color: #64d2ff; }
+
+        /* ---- Phone presentation (demo chrome) ----
+           On a phone the centered "card" idiom does not fit: drop the radius,
+           shadow, and centering and let the window go edge-to-edge, filling the
+           viewport. The renderer's window frame is applied as inline styles
+           (ModifierResolver.applyFrame), so the full-bleed size overrides use
+           !important to win over those inline width/height values - this is demo
+           presentation policy, not renderer layout. The relaxed frame mins in
+           ui.json (minWidth / minHeight 320) already keep the window from
+           forcing scroll on a phone; this just removes the card framing so it
+           reads as an app, not a floating panel. The bottom reservation keeps
+           content above the fixed diagnostics bar plus the home-indicator safe
+           area.
+
+           Model-agnostic, not tuned to any device: today's phones are at most
+           ~430 CSS px in their short dimension, so the query fires whenever
+           EITHER axis is phone-sized - max-width covers portrait, max-height
+           covers landscape - while a tablet/desktop (both axes large) keeps the
+           card. */
+        @media (max-width: 480px), (max-height: 480px) {
+            #root {
+                padding: 0;
+                padding-bottom: calc(38px + env(safe-area-inset-bottom));
+                align-items: stretch;
+                justify-content: stretch;
+            }
+            #root > .aui-window,
+            #root > .aui-app-shell {
+                border-radius: 0;
+                box-shadow: none;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                max-height: 100% !important;
+            }
+        }
     </style>
 </head>
 <body>
