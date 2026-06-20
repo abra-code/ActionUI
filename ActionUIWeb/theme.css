@@ -273,29 +273,35 @@
 }
 .aui-tabview-sidebar .aui-tabview-content { flex: 1; padding-top: 0; padding-left: 14px; }
 
-/* Narrow-window collapse of the sidebarAdaptable rail back to a top strip (the
-   adaptive half of Apple's sidebarAdaptable: sidebar when wide, tab bar when
-   narrow). TabView.js toggles .aui-tabview-compact via a ResizeObserver; these
-   rules revert the rail overrides above to the default top-strip layout. */
-.aui-tabview-sidebar.aui-tabview-compact { flex-direction: column; }
+/* Narrow-window collapse of the sidebarAdaptable rail to a BOTTOM tab bar - the
+   adaptive half of Apple's sidebarAdaptable in the iPhone idiom (a sidebar when
+   wide, a bottom tab bar when narrow). TabView.js toggles .aui-tabview-compact
+   via a ResizeObserver. column-reverse lays the content above and the tab strip
+   along the bottom; the strip reads as a bottom bar - a top border, a subtle
+   background, evenly distributed tabs, and a safe-area inset so it clears the
+   home indicator - with the active marker moved to each tab's top edge. */
+.aui-tabview-sidebar.aui-tabview-compact { flex-direction: column-reverse; }
 .aui-tabview-sidebar.aui-tabview-compact .aui-tabbar-sidebar {
     flex-direction: row;
     min-width: 0;
     border-right: none;
-    border-bottom: 1px solid var(--aui-control-border);
+    border-top: 1px solid var(--aui-control-border);
+    background: color-mix(in srgb, var(--aui-control-border) 14%, transparent);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 .aui-tabview-sidebar.aui-tabview-compact .aui-tab {
+    flex: 1 1 0;
     justify-content: center;
     border-left: none;
-    border-bottom: 2px solid transparent;
+    border-top: 2px solid transparent;
     margin-right: 0;
-    margin-bottom: -1px;
+    margin-top: -1px; /* overlap the strip's top border so the active edge sits on it */
 }
 .aui-tabview-sidebar.aui-tabview-compact .aui-tab-selected {
     border-left-color: transparent;
-    border-bottom-color: var(--aui-color-accent);
+    border-top-color: var(--aui-color-accent);
 }
-.aui-tabview-sidebar.aui-tabview-compact .aui-tabview-content { flex: 1; padding-top: 10px; padding-left: 0; }
+.aui-tabview-sidebar.aui-tabview-compact .aui-tabview-content { flex: 1; padding-top: 0; padding-bottom: 10px; padding-left: 0; }
 
 /* ---- Menu ---- */
 

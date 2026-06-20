@@ -16,9 +16,9 @@
 // switches (Apple keeps tab views alive). `style` "sidebarAdaptable" is honored
 // as a left sidebar rail — the tab items run down the side and the content fills
 // the rest (Apple's adaptive sidebar, the expanded form). It is adaptive: a
-// ResizeObserver collapses the rail back to a top strip when the TabView gets
-// narrow (the `.aui-tabview-compact` class reverts the rail CSS), matching Apple's
-// sidebar-when-wide / tab-bar-when-narrow. The other
+// ResizeObserver collapses the rail to a bottom tab bar when the TabView gets
+// narrow (the `.aui-tabview-compact` class restyles it via the theme), matching
+// Apple's sidebar-when-wide / tab-bar-when-narrow (the iPhone idiom). The other
 // styles (page / verticalPage / grouped / tabBarOnly) are validated and stashed
 // (data-attribute) but not honored — the top strip is used, the Android stance.
 // Tab icons (systemImage / materialName:web)
