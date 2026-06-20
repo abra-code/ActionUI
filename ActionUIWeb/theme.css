@@ -614,16 +614,37 @@
         animation: aui-sheet-up 0.24s ease-out;
     }
     .aui-menu-items.aui-menu-sheet .aui-menu-item { padding: 12px 14px; border-radius: 8px; }
+
+    /* Dim scrim behind the bottom sheet. The .sheet is a <dialog> and already gets
+       a modal scrim (.aui-modal::backdrop); the popover and menu sheets are manual
+       Popover-API panels, so they have no scrim by default - dim their ::backdrop to
+       match, so a phone bottom sheet reads as a layer above the content rather than
+       floating on it. A tap on the dim is an outside pointerdown, which the panel
+       controller already treats as light-dismiss. (No ::backdrop exists on the
+       no-Popover-API fallback path, so it stays scrimless there - acceptable, since
+       every compact-capable mobile browser supports the Popover API.) */
+    .aui-popover-panel.aui-popover-sheet::backdrop,
+    .aui-menu-items.aui-menu-sheet::backdrop {
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(1px);
+        animation: aui-backdrop-in 0.24s ease-out;
+    }
 }
 @keyframes aui-sheet-up {
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }
 }
+@keyframes aui-backdrop-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
 /* Reduced motion: present the bottom sheet without the slide. */
 @media (prefers-reduced-motion: reduce) {
     .aui-modal-sheet,
     .aui-popover-panel.aui-popover-sheet,
-    .aui-menu-items.aui-menu-sheet { animation: none; }
+    .aui-menu-items.aui-menu-sheet,
+    .aui-popover-panel.aui-popover-sheet::backdrop,
+    .aui-menu-items.aui-menu-sheet::backdrop { animation: none; }
 }
 
 /* ---- List ---- */
