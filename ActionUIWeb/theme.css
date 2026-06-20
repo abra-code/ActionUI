@@ -548,6 +548,50 @@
     overflow: auto;
 }
 
+/* ---- Compact (phone): overlays present from the bottom ----
+   On a phone the centered-card .sheet and the anchored .popover are the wrong
+   idiom: Apple presents a .sheet as a bottom sheet and a .popover as a sheet in a
+   compact size class. Mirror that below the phone breakpoint (the same 480px the
+   demo uses to go full-bleed). fullScreenCover already fills the viewport, so it
+   needs nothing here. PresentationModifier adds .aui-popover-sheet on compact so
+   the popover skips its anchored placement (the !important overrides the inline
+   top/left it writes); these rules then shape both into a bottom sheet. */
+@media (max-width: 480px) {
+    .aui-modal-sheet {
+        position: fixed;
+        top: auto; bottom: 0; left: 0; right: 0;
+        margin: 0;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        max-height: 90vh;
+        border-radius: 14px 14px 0 0;
+        padding-bottom: env(safe-area-inset-bottom);
+        animation: aui-sheet-up 0.24s ease-out;
+    }
+    .aui-popover-panel.aui-popover-sheet {
+        top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        max-height: 80vh;
+        overflow: auto;
+        border-radius: 14px 14px 0 0;
+        padding-bottom: env(safe-area-inset-bottom);
+        animation: aui-sheet-up 0.24s ease-out;
+    }
+}
+@keyframes aui-sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+/* Reduced motion: present the bottom sheet without the slide. */
+@media (prefers-reduced-motion: reduce) {
+    .aui-modal-sheet,
+    .aui-popover-panel.aui-popover-sheet { animation: none; }
+}
+
 /* ---- List ---- */
 
 /* A vertical collection of rows. Rows come from embedded children, or — in the

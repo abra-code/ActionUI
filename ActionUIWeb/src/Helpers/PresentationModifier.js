@@ -38,6 +38,15 @@ import { makeFloatingPanel } from "./PopoverPlacement.js";
 
 const POPOVER_EDGES = new Set(["top", "bottom", "leading", "trailing"]);
 
+// True at phone width - the compact size class where Apple presents a popover as a
+// sheet (and where the bottom-sheet theme rules for .sheet apply). Matches the
+// 480px breakpoint of those rules. Feature-detected so the headless test DOM (no
+// matchMedia) keeps the anchored-popover path.
+function isCompactWidth() {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function"
+        && window.matchMedia("(max-width: 480px)").matches;
+}
+
 // Applies any sheet/fullScreenCover/popover presentation declared on `element`.
 // A no-op for the (overwhelmingly common) element with none. Returns nothing -
 // the carrier `node` is returned unchanged by the caller; this only attaches
@@ -150,6 +159,11 @@ function wirePopoverPresentation(node, element, contentElement, properties, ctx,
             (ctx.model.rootNode ?? document.body).appendChild(panel); // top-layer overlay sibling
             appended = true;
         }
+        // Compact (phone): present as a bottom sheet, the way Apple presents a
+        // popover in a compact size class. The class makes the theme override the
+        // anchored placement with a bottom-sheet shape; the controller still owns
+        // open/close + light-dismiss, and its placement call is simply overridden.
+        panel.classList.toggle("aui-popover-sheet", isCompactWidth());
         controller.show();
     };
 
