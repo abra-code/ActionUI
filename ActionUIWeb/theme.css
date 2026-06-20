@@ -183,6 +183,22 @@
 @media (max-width: 480px) {
     .aui-labeled-content { flex-direction: column; align-items: stretch; gap: 4px; }
     .aui-labeled-content-title { flex: none; white-space: normal; }
+
+    /* Inset-grouped Form (the iOS phone idiom): a Form renders its Sections as
+       rounded, subtly-filled cards instead of a flat stack, so grouped rows read as
+       a unit - matching the GroupBox card already used alongside them. Wider gaps
+       separate the groups. Desktop keeps the flat macOS-style stack. The section
+       header sits at the card's top here; a faithful header-above-the-card layout
+       would need a row wrapper in Section.js (a later refinement). A List is already
+       a rounded card, so it needs nothing. */
+    .aui-form { gap: 18px; }
+    .aui-form > .aui-section {
+        border: 1px solid var(--aui-control-border);
+        border-radius: 10px;
+        padding: 2px 12px 10px;
+        background: color-mix(in srgb, var(--aui-color-gray) 7%, transparent);
+    }
+    .aui-form > .aui-section > .aui-section-header { padding-top: 10px; }
 }
 
 /* DisclosureGroup: native <details>/<summary>. The native disclosure marker
