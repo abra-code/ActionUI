@@ -1629,6 +1629,16 @@
         padding-bottom: 10px;
     }
 
+    /* Compact Back affordances: the NavigationSplitView "back to sidebar" and
+       the NavigationStack back button are small inline text buttons that a phone
+       only surfaces in the compact (one-column) flow. Give them a real touch
+       target now that the small-screen landing routes users through them. */
+    .aui-nav-split-back,
+    .aui-nav-stack-back {
+        min-height: var(--aui-touch-target);
+        padding: 10px 8px;
+    }
+
     /* The switch and slider get finger-sized affordances. The enlarged
        switch keeps the thumb travel exact: 50 - 26 - 2*2 inset = 20. */
     .aui-toggle-switch .aui-toggle-visual { width: 50px; height: 30px; border-radius: 15px; }
