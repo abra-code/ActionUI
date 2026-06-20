@@ -1580,3 +1580,87 @@
     .aui-toast.is-visible,
     .aui-toast-bottom.is-visible { transform: translate(-50%, 0); }
 }
+
+/* ====================================================================
+   Touch + small-screen foundation (mobile adaptation - Part 1)
+   --------------------------------------------------------------------
+   Two orthogonal axes, deliberately kept separate:
+     - WIDTH adaptivity lives with each container (NavigationSplitView and
+       TabView observe their OWN width and collapse) - it is not here.
+     - INPUT-MODALITY adaptivity lives here. It keys off the pointer/hover
+       media features, NOT the viewport, so a wide touchscreen (tablet,
+       kiosk) still gets big hit targets while a narrow desktop window does
+       not. See Private/ActionUIWeb_Mobile_Adaptation_Plan.md, Part 1.
+
+   These rules are last in the file so that, at equal specificity, they win
+   over the base control rules above them.
+   ==================================================================== */
+
+:root {
+    /* Minimum comfortable touch target. Apple HIG is 44pt; the row-like
+       controls grow past it, also satisfying Material's 48. */
+    --aui-touch-target: 44px;
+}
+
+/* ---- Coarse pointer: enlarge hit targets ----
+   `pointer: coarse` means touch is the primary input. Grow the interactive
+   controls to --aui-touch-target and open up row padding so taps land
+   without precision. A fine pointer (desktop) is left untouched. */
+@media (pointer: coarse) {
+    .aui-button,
+    .aui-stepper-button,
+    .aui-picker,
+    .aui-datepicker,
+    .aui-colorpicker,
+    .aui-menu-item,
+    .aui-menubar-item,
+    .aui-tab,
+    .aui-picker-segmented .aui-segment {
+        min-height: var(--aui-touch-target);
+    }
+
+    /* Row-like controls: comfortable tap height via padding, so the row
+       separator / selection background still spans the full row. */
+    .aui-list-row,
+    .aui-nav-link,
+    .aui-nav-split-row {
+        min-height: var(--aui-touch-target);
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    /* The switch and slider get finger-sized affordances. The enlarged
+       switch keeps the thumb travel exact: 50 - 26 - 2*2 inset = 20. */
+    .aui-toggle-switch .aui-toggle-visual { width: 50px; height: 30px; border-radius: 15px; }
+    .aui-toggle-switch .aui-toggle-visual::after { top: 2px; left: 2px; width: 26px; height: 26px; }
+    .aui-toggle-switch input:checked ~ .aui-toggle-visual::after { transform: translateX(20px); }
+    .aui-slider { height: var(--aui-touch-target); }
+
+    /* Wider table-column resizer so the drag handle is touchable. */
+    .aui-table-resizer { width: 16px; }
+}
+
+/* ---- No hover: never hide an affordance behind :hover ----
+   On touch there is no hover, so any reveal-on-hover cue needs a resting
+   form. The table resizer already shows a separator at rest; render it as
+   active (accent) so the column boundary is discoverable without a pointer. */
+@media (hover: none) {
+    .aui-table-resizer::after { background: var(--aui-color-accent); }
+}
+
+/* ---- Mobile text-input hygiene ----
+   The window font is 13px and fields inherit it; iOS Safari auto-zooms a
+   focused field whose text is < 16px. Bump the editable controls to 16px on
+   coarse pointers to suppress that zoom, and remove the blue tap flash on
+   the custom controls. */
+@media (pointer: coarse) {
+    .aui-textfield,
+    .aui-securefield,
+    .aui-search-field,
+    .aui-texteditor,
+    .aui-picker,
+    .aui-datepicker {
+        font-size: 16px;
+    }
+    .aui-window { -webkit-tap-highlight-color: transparent; }
+}
