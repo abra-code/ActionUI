@@ -222,6 +222,29 @@ export function buildAppShell(model, appName, dispatch, logger) {
     // Escape closes the drawer (the account popover owns its own Escape handling).
     document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeDrawer(); });
 
+    // Swipe-left to close on touch (the mobile drawer idiom, alongside the backdrop
+    // tap and Escape): a clearly horizontal leftward drag past a small threshold
+    // dismisses the open drawer. Passive listeners, so vertical scrolling of the
+    // drawer is never blocked; a no-op when the drawer is already closed.
+    let swipeStartX = null;
+    let swipeStartY = null;
+    drawer.addEventListener("touchstart", (event) => {
+        const touch = event.touches && event.touches[0];
+        swipeStartX = touch ? touch.clientX : null;
+        swipeStartY = touch ? touch.clientY : null;
+    }, { passive: true });
+    drawer.addEventListener("touchend", (event) => {
+        if (swipeStartX === null) return;
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) {
+            const dx = touch.clientX - swipeStartX;
+            const dy = touch.clientY - swipeStartY;
+            if (dx <= -40 && Math.abs(dx) > Math.abs(dy)) closeDrawer(); // leftward, horizontal-dominant
+        }
+        swipeStartX = null;
+        swipeStartY = null;
+    }, { passive: true });
+
     shell.append(bar, stage, backdrop, drawer);
 
     if (model.account) {

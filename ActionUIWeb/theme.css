@@ -460,7 +460,15 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    padding: 8px 8px 16px;
+    /* The drawer is full-height and hugs the left edge (riding over the app bar), so
+       it clears the notch (top), the home indicator (bottom), and a landscape
+       left-notch (left). env() is 0 off a notched phone, so this stays 8px 8px 16px
+       8px there - the original padding. */
+    padding:
+        calc(8px + env(safe-area-inset-top))
+        8px
+        calc(16px + env(safe-area-inset-bottom))
+        calc(8px + env(safe-area-inset-left));
 }
 .aui-app-shell.is-drawer-open .aui-drawer { transform: translateX(0); }
 .aui-drawer-head {
