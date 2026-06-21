@@ -266,7 +266,7 @@ public class ActionUIModel: ObservableObject {
         } else if let value = viewModel.value {
             if valueType == Bool.self, let boolValue = value as? Bool {
                 return boolValue.description
-            } else if valueType == Color.self, let color = value as? Color {
+            } else if valueType == SwiftUI.Color.self, let color = value as? SwiftUI.Color {
                 return ColorHelper.colorToHex(color) ?? ""
             } else if valueType == Double.self, let doubleValue = value as? Double {
                 return String(doubleValue)
@@ -326,7 +326,7 @@ public class ActionUIModel: ObservableObject {
                 logger.log("Invalid string for Bool value: \(value) for viewID: \(viewID)", .warning)
                 return
             }
-        } else if valueType == Color.self {
+        } else if valueType == SwiftUI.Color.self {
             if let color = ColorHelper.resolveColor(value) {
                 convertedValue = color
             } else {

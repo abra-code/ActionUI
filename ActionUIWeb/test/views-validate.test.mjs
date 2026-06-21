@@ -15,7 +15,7 @@ before(async () => {
 });
 
 const ALL_TYPES = [
-    "AsyncImage", "Button", "Canvas", "Capsule", "Circle", "ColorPicker", "ContentUnavailableView",
+    "AsyncImage", "Button", "Canvas", "Capsule", "Circle", "Color", "ColorPicker", "ContentUnavailableView",
     "DatePicker", "DisclosureGroup", "Divider", "Ellipse", "EmptyView", "Form", "Gauge",
     "GeometryReader", "Grid", "Group", "GroupBox", "HStack", "Image", "Label", "LabeledContent",
     "LazyHGrid", "LazyHStack", "LazyVGrid", "LazyVStack", "Link", "List", "LoadableView", "Map",

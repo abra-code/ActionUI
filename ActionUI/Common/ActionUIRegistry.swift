@@ -50,6 +50,7 @@ public class ActionUIRegistry {
         registerView(Canvas.self)
         registerView(Capsule.self)
         registerView(Circle.self)
+        registerView(Color.self)
         registerView(ColorPicker.self)
         registerView(ContentUnavailableView.self)
         registerView(ControlGroup.self)

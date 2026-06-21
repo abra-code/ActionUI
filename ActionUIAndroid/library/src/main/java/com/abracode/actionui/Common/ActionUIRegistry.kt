@@ -5,6 +5,7 @@ import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.Canvas
 import com.abracode.actionui.Views.Capsule
 import com.abracode.actionui.Views.Circle
+import com.abracode.actionui.Views.Color
 import com.abracode.actionui.Views.ColorPicker
 import com.abracode.actionui.Views.ContentUnavailableView
 import com.abracode.actionui.Views.ControlGroup
@@ -83,6 +84,7 @@ object ActionUIRegistry {
         register("RoundedRectangle", RoundedRectangle)
         register("Capsule", Capsule)
         register("Circle", Circle)
+        register("Color", Color)
         register("Ellipse", Ellipse)
         register("ProgressView", ProgressView)
         register("Gauge", Gauge)

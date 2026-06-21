@@ -16,6 +16,25 @@
         { "type": "Ellipse", "properties": { "fill": "orange", "frame": { "width": 56, "height": 32 } } }
       ]
     },
+    { "type": "Text", "properties": { "text": "Color as a View (a greedy solid-color block - named, hex, or color.opacity; sized via frame):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12, "alignment": "center" },
+      "children": [
+        { "type": "Color", "properties": { "color": "blue", "frame": { "width": 56, "height": 36 }, "cornerRadius": 8 } },
+        { "type": "Color", "properties": { "color": "#34C759", "frame": { "width": 56, "height": 36 }, "cornerRadius": 8 } },
+        {
+          "type": "ZStack",
+          "properties": { "frame": { "width": 96, "height": 36 } },
+          "children": [
+            { "type": "Text", "properties": { "text": "tinted", "font": "caption" } },
+            { "type": "Color", "properties": { "color": "yellow.opacity(0.4)", "cornerRadius": 8 } }
+          ]
+        }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "A Color as a thin colored bar (240 x 2):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Color", "properties": { "color": "red", "frame": { "width": 240, "height": 2 } } },
     { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Frame alignment (content placed within a larger frame):", "foregroundColor": "secondary", "font": "callout" } },
     {
@@ -95,7 +114,7 @@
     {
       "type": "GeometryReader",
       "id": 410,
-      "properties": { "alignment": "center", "background": "secondary", "cornerRadius": 12, "frame": { "maxWidth": "infinity", "height": 90 } },
+      "properties": { "alignment": "center", "background": "secondary", "cornerRadius": 12, "frame": { "maxWidth": "infinity", "minHeight": 90, "maxHeight": 90 } },
       "content": {
         "type": "VStack",
         "properties": { "alignment": "center", "spacing": 8 },

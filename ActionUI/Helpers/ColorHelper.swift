@@ -11,7 +11,7 @@ class ColorHelper {
     // Supports named colors (e.g., "red", "orange", "clear", "accentColor") and hex formats (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
     // Returns nil if the string is invalid
     // Design decision: Includes all SwiftUI predefined colors with direct dot notation for compatibility and flexibility
-    static func resolveColor(_ string: String?) -> Color? {
+    static func resolveColor(_ string: String?) -> SwiftUI.Color? {
         guard let string = string else {
             return nil
         }
@@ -20,7 +20,7 @@ class ColorHelper {
         
         // Named color mapping
         // Design decision: Maps all SwiftUI predefined colors (standard and semantic) to support comprehensive color input
-        let namedColors: [String: Color] = [
+        let namedColors: [String: SwiftUI.Color] = [
             "red": .red,
             "blue": .blue,
             "green": .green,
@@ -91,13 +91,13 @@ class ColorHelper {
             return nil
         }
         
-        return Color(red: r, green: g, blue: b, opacity: a)
+        return SwiftUI.Color(red: r, green: g, blue: b, opacity: a)
     }
     
     // Converts a SwiftUI Color to a hex string
     // Returns #RRGGBB for opaque colors, #RRGGBBAA for non-opaque
     // Design decision: Uses platform-specific APIs (NSColor/UIColor) for accurate RGBA extraction
-    static func colorToHex(_ color: Color) -> String? {
+    static func colorToHex(_ color: SwiftUI.Color) -> String? {
         #if os(macOS)
         guard let nsColor = NSColor(color).usingColorSpace(.sRGB) else { return nil }
         let r = Int(nsColor.redComponent * 255.0)

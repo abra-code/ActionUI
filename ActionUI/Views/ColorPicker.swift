@@ -22,7 +22,7 @@ struct ColorPicker: ActionUIViewConstruction {
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
     static var insertableContainers: [String: ContainerShape]? = nil
 
-    static var valueType: Any.Type = Color.self // Value is the selected color
+    static var valueType: Any.Type = SwiftUI.Color.self // Value is the selected color
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
@@ -51,16 +51,16 @@ struct ColorPicker: ActionUIViewConstruction {
     // Builds the ColorPicker view, binding selection to state
     // Design decision: Initializes value as validatedProperties["selectedColor"] or Color.clear if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let initialColor = Self.initialValue(model) as? Color ?? Color.clear
+        let initialColor = Self.initialValue(model) as? SwiftUI.Color ?? SwiftUI.Color.clear
         let title = properties["title"] as? String ?? ""
         
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
         let actionID = properties["actionID"] as? String
         let colorBinding = mainActorBinding(
-            get: { model.value as? Color ?? initialColor },
+            get: { model.value as? SwiftUI.Color ?? initialColor },
             set: { newValue in
-                guard model.value as? Color != newValue else {
+                guard model.value as? SwiftUI.Color != newValue else {
                     return
                 }
                 // Use DispatchQueue.main.async to guarantee deferred execution and avoid
@@ -78,9 +78,9 @@ struct ColorPicker: ActionUIViewConstruction {
     }
     
     static var initialValue: (ViewModel) -> Any? = { model in
-        if let initalValue = model.value as? Color {
+        if let initalValue = model.value as? SwiftUI.Color {
             return initalValue
         }
-        return ColorHelper.resolveColor(model.validatedProperties["selectedColor"] as? String) ?? Color.clear
+        return ColorHelper.resolveColor(model.validatedProperties["selectedColor"] as? String) ?? SwiftUI.Color.clear
     }
 }

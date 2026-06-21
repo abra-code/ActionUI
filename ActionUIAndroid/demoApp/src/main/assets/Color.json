@@ -1,0 +1,30 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16.0, "alignment": "leading", "padding": 20.0 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Color as a View", "font": "title2" } },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "SwiftUI's Color is itself a View - a greedy block that fills the space. Use it for a tinted block, a colored divider, or a translucent overlay. Give it a frame to size it.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    { "type": "Text", "properties": { "text": "A named color, sized:", "font": "callout", "foregroundStyle": "secondary" } },
+    { "type": "Color", "properties": { "color": "blue", "frame": { "width": 120.0, "height": 60.0 }, "cornerRadius": 8.0 } },
+    { "type": "Text", "properties": { "text": "A thin colored bar (240 x 2):", "font": "callout", "foregroundStyle": "secondary" } },
+    { "type": "Color", "properties": { "color": "red", "frame": { "width": 240.0, "height": 2.0 } } },
+    { "type": "Text", "properties": { "text": "A hex color:", "font": "callout", "foregroundStyle": "secondary" } },
+    { "type": "Color", "properties": { "color": "#34C759", "frame": { "width": 120.0, "height": 40.0 }, "cornerRadius": 8.0 } },
+    { "type": "Text", "properties": { "text": "A translucent block over content (color.opacity):", "font": "callout", "foregroundStyle": "secondary" } },
+    {
+      "type": "ZStack",
+      "properties": { "frame": { "width": 200.0, "height": 60.0 } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Behind the tint", "font": "headline" } },
+        { "type": "Color", "properties": { "color": "yellow.opacity(0.4)", "cornerRadius": 8.0 } }
+      ]
+    }
+  ]
+}

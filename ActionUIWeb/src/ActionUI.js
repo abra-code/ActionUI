@@ -68,6 +68,7 @@ import "./Views/RoundedRectangle.js";
 import "./Views/Capsule.js";
 import "./Views/Circle.js";
 import "./Views/Ellipse.js";
+import "./Views/Color.js";
 import "./Views/Tab.js";
 import "./Views/TabView.js";
 import "./Views/Menu.js";
