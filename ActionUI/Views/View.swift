@@ -144,7 +144,15 @@
     ],
     "contextMenuPreview": {                 // Optional: a single arbitrary view shown enlarged above the menu on long-press
       "type": "Image", "properties": { "systemName": "photo", "imageScale": "large" }   //   (iOS only; macOS right-click menus have no preview). Any element — an Image, an HStack of items, etc.
-    }
+    },
+    // swipeActions is an OPTIONAL TOP-LEVEL subview key (sibling of "properties"): leading/trailing swipe-to-action
+    // Buttons on a List row (delete / complete / flag) — SwiftUI's `.swipeActions(edge:allowsFullSwipe:)`. Honored
+    // only inside a List. Each Button carries its own title / systemImage / role / tint / actionID, plus an optional
+    // "edge" ("leading"/"trailing", default trailing) and "allowsFullSwipe" (default true; full swipe fires the edge's first button).
+    "swipeActions": [
+      { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "row.flag" } },
+      { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "row.delete" } }
+    ]
   }
 
  NOTE:
@@ -1451,6 +1459,29 @@ struct View: ActionUIViewConstruction {
                 modifiedView = AnyView(modifiedView).contextMenu { items }
             }
 #endif
+        }
+
+        // swipeActions: leading/trailing swipe-to-action Buttons on a List row - the
+        // mobile delete/complete/flag idiom. Like contextMenu, a subview slot of real
+        // Button elements (each carries its own title / systemImage / role / tint /
+        // actionID); SwiftUI's `.swipeActions(edge:allowsFullSwipe:)` is a ViewBuilder
+        // of Buttons. Each Button may declare `edge` ("leading"/"trailing", default
+        // trailing); we partition by edge and call .swipeActions once per edge. A full
+        // swipe triggers the first button of that edge, so `allowsFullSwipe` (default
+        // true) is read from the first button declaring it on that edge. Honored only
+        // inside a List - attached elsewhere it is a clean no-op, matching SwiftUI.
+        if let swipeButtons = element.subviews?["swipeActions"] as? [any ActionUIElementBase], !swipeButtons.isEmpty {
+            for edge in [HorizontalEdge.leading, HorizontalEdge.trailing] {
+                let edgeName = (edge == .leading) ? "leading" : "trailing"
+                let edgeButtons = swipeButtons.filter {
+                    let declared = ($0.properties["edge"] as? String) ?? "trailing"
+                    return declared == edgeName
+                }
+                guard !edgeButtons.isEmpty else { continue }
+                let allowsFullSwipe = edgeButtons.compactMap { $0.properties["allowsFullSwipe"] as? Bool }.first ?? true
+                let buttons = SwipeActionsButtons(items: edgeButtons, windowUUID: windowUUID)
+                modifiedView = AnyView(modifiedView).swipeActions(edge: edge, allowsFullSwipe: allowsFullSwipe) { buttons }
+            }
         }
 
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {

@@ -1,0 +1,71 @@
+{
+  "type": "NavigationStack",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 12.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "swipeActions Modifier",
+          "font": "title2"
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "Swipe a row left for trailing actions, right for leading. swipeActions is a TOP-LEVEL subview key holding real Buttons (not a descriptor array) — modeled after SwiftUI's .swipeActions(edge:allowsFullSwipe:). Each Button carries its own role / tint / actionID, plus an optional edge and allowsFullSwipe. Only honored inside a List.",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "Text",
+        "id": 720,
+        "properties": {
+          "text": "No action yet.",
+          "font": "callout",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "List",
+        "id": 721,
+        "properties": {
+          "navigationTitle": "Inbox"
+        },
+        "children": [
+          {
+            "type": "Label",
+            "properties": { "title": "Welcome aboard", "systemImage": "envelope" },
+            "swipeActions": [
+              { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "swipe.demo.flag" } },
+              { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "swipe.demo.delete" } }
+            ]
+          },
+          {
+            "type": "Label",
+            "properties": { "title": "Your weekly digest", "systemImage": "newspaper" },
+            "swipeActions": [
+              { "type": "Button", "properties": { "title": "Pin", "systemImage": "pin", "tint": "blue", "edge": "leading", "actionID": "swipe.demo.pin" } },
+              { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "tint": "indigo", "edge": "trailing", "actionID": "swipe.demo.archive" } },
+              { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "swipe.demo.delete" } }
+            ]
+          },
+          {
+            "type": "Label",
+            "properties": { "title": "Reminder: tap to confirm", "systemImage": "bell" },
+            "swipeActions": [
+              { "type": "Button", "properties": { "title": "Mark Read", "systemImage": "checkmark.circle", "tint": "green", "edge": "leading", "actionID": "swipe.demo.read" } },
+              { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "allowsFullSwipe": false, "actionID": "swipe.demo.delete" } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

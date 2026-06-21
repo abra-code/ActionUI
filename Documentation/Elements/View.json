@@ -65,5 +65,9 @@
   "contextMenuPreview": {
     "type": "Image",
     "properties": { "systemName": "photo", "imageScale": "large" }
-  }
+  },
+  "swipeActions": [
+    { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "view.flag" } },
+    { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "view.delete" } }
+  ]
 }

@@ -110,7 +110,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions
     }
     
     public init(from decoder: Decoder) throws {
@@ -134,7 +134,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         // `contextMenu` is an array subview (the menu's action items) because SwiftUI's
         // `.contextMenu(menuItems:preview:)` takes a ViewBuilder of items; see the
         // single-child `contextMenuPreview` below for the optional preview half.
-        for key in ["children", "destinations", "toolbar", "contextMenu"] {
+        // `swipeActions` is likewise an array subview (the swipe action Buttons) - SwiftUI's
+        // `.swipeActions(edge:allowsFullSwipe:)` is a ViewBuilder of Buttons; each Button
+        // carries an optional `edge` ("leading"/"trailing") read at apply time (View.swift).
+        for key in ["children", "destinations", "toolbar", "contextMenu", "swipeActions"] {
             if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = children
@@ -200,8 +203,8 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             return
         }
         
-        // Encode children, destinations, toolbar, and contextMenu arrays
-        for key in ["children", "destinations", "toolbar", "contextMenu"] {
+        // Encode children, destinations, toolbar, contextMenu, and swipeActions arrays
+        for key in ["children", "destinations", "toolbar", "contextMenu", "swipeActions"] {
             if let children = subviews[key] as? [ActionUIElement] {
                 try container.encodeIfPresent(children, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -415,7 +418,7 @@ extension ActionUIElement: Equatable {
 // that DO need it (Codable, normalizeTemplateID, ==) handle it explicitly.
 enum ActionUISubviewContainers {
     /// Container keys holding an array of child elements.
-    static let arrayKeys = ["children", "destinations", "toolbar", "commands", "contextMenu"]
+    static let arrayKeys = ["children", "destinations", "toolbar", "commands", "contextMenu", "swipeActions"]
     /// Container key holding an array-of-arrays of child elements (Grid rows).
     static let rowsKey = "rows"
     /// Container keys holding a single child element.

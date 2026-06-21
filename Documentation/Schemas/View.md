@@ -150,7 +150,13 @@ JSON schema and usage documentation for `View`.
     ],
     "contextMenuPreview": {                 // Optional: a single arbitrary view shown enlarged above the menu (iOS only;
       "type": "Image", "properties": { "systemName": "photo", "imageScale": "large" }   //   macOS right-click menus have no preview). Any element — an Image, an HStack of items, etc.
-    }
+    },
+    // swipeActions (optional): leading/trailing swipe-to-action Buttons on a List row — SwiftUI's
+    // `.swipeActions(edge:allowsFullSwipe:)`. A TOP-LEVEL subview key (sibling of "properties"), honored only inside a List.
+    "swipeActions": [                       // An array of real Button elements. Each carries its own title / systemImage / role / tint / actionID,
+      { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "row.flag" } },     //   plus an optional "edge" ("leading"/"trailing", default trailing) and
+      { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "row.delete" } }  //   "allowsFullSwipe" (default true; a full swipe fires that edge's first button).
+    ]
   }
 
 //  NOTE:

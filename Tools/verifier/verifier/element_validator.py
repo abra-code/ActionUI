@@ -20,9 +20,10 @@ _STRUCTURAL_KEYS = {"type", "id", "properties"}
 
 # Universal subview keys any element may carry (from View schema). contextMenu (the
 # menu's action-item array) and contextMenuPreview (the optional preview view) mirror
-# SwiftUI's `.contextMenu(menuItems:preview:)` two-builder shape; both are element
-# subtrees, not properties, so they are validated recursively here.
-_UNIVERSAL_SUBVIEW_KEYS = {"overlay", "sheet", "popover", "fullScreenCover", "background", "backgroundView", "toolbar", "contextMenu", "contextMenuPreview"}
+# SwiftUI's `.contextMenu(menuItems:preview:)` two-builder shape; swipeActions (the
+# leading/trailing swipe action-Button array) mirrors `.swipeActions(edge:allowsFullSwipe:)`.
+# All are element subtrees, not properties, so they are validated recursively here.
+_UNIVERSAL_SUBVIEW_KEYS = {"overlay", "sheet", "popover", "fullScreenCover", "background", "backgroundView", "toolbar", "contextMenu", "contextMenuPreview", "swipeActions"}
 
 # Annotation-only keys: intentional JSON "comments"; silently allowed everywhere
 _ANNOTATION_KEYS = {"description", "note", "comment", "info"}

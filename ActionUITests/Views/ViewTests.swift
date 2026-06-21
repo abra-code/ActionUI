@@ -242,6 +242,79 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(element.subviews?["contextMenuPreview"])
     }
 
+    // MARK: - swipeActions (top-level subview key)
+
+    func testSwipeActionsSubviewDecode() throws {
+        // swipeActions is an ARRAY subview of real Button elements - mirroring SwiftUI's
+        // `.swipeActions(edge:allowsFullSwipe:)`, a ViewBuilder of Buttons. Each Button
+        // carries its own title / systemImage / role / tint / actionID, plus the
+        // swipe-specific `edge` and `allowsFullSwipe` read at apply time (View.swift).
+        let json = """
+        {
+            "id": 1,
+            "type": "Text",
+            "properties": { "text": "Inbox row" },
+            "swipeActions": [
+                { "id": 2, "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "row.flag" } },
+                { "id": 3, "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "allowsFullSwipe": false, "actionID": "row.delete" } }
+            ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+
+        let actions = try XCTUnwrap(element.subviews?["swipeActions"] as? [ActionUIElement])
+        XCTAssertEqual(actions.count, 2)
+        XCTAssertEqual(actions[0].type, "Button")
+        XCTAssertEqual(actions[0].properties["edge"] as? String, "leading")
+        XCTAssertEqual(actions[0].properties["tint"] as? String, "orange")
+        XCTAssertEqual(actions[1].properties["role"] as? String, "destructive")
+        XCTAssertEqual(actions[1].properties["edge"] as? String, "trailing")
+        XCTAssertEqual(actions[1].properties["allowsFullSwipe"] as? Bool, false)
+    }
+
+    func testSwipeActionsAreTraversedChildren() throws {
+        // The swipe Buttons must be in the shared childElements walk so their ids register
+        // in the window's ViewModel pool (each Button needs its actionID wiring).
+        let json = """
+        {
+            "id": 1, "type": "Text", "properties": { "text": "Row" },
+            "swipeActions": [ { "id": 2, "type": "Button", "properties": { "title": "Delete", "role": "destructive", "actionID": "del" } } ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        let childIDs = element.childElements.map { $0.id }
+        XCTAssertTrue(childIDs.contains(2), "swipe action button id is a traversed child")
+    }
+
+    func testSwipeActionsRoundTripEncode() throws {
+        // swipeActions is an array subview key, so it must survive an encode/decode round trip
+        // (the editor and setElement paths re-serialize elements).
+        let json = """
+        {
+            "id": 1, "type": "Text", "properties": { "text": "Row" },
+            "swipeActions": [ { "id": 2, "type": "Button", "properties": { "title": "Delete", "actionID": "del" } } ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        let reEncoded = try JSONEncoder(logger: logger).encode(element)
+        let roundTripped = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: reEncoded)
+        let actions = try XCTUnwrap(roundTripped.subviews?["swipeActions"] as? [ActionUIElement])
+        XCTAssertEqual(actions.count, 1)
+        XCTAssertEqual(actions[0].properties["actionID"] as? String, "del")
+    }
+
+    func testSwipeActionsAbsent() throws {
+        let json = """
+        {"id": 1, "type": "Text", "properties": { "text": "Row" }}
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        XCTAssertNil(element.subviews?["swipeActions"])
+    }
+
     func testValidatePropertiesInvalid() throws {
         let properties: [String: Any] = [
             "padding": "10",

@@ -181,6 +181,20 @@ struct ActionUISwiftTestApp: App {
             }
         }
 
+        // swipeActions demo (View.swipeActions.json): each swipe Button fires its OWN
+        // actionID (viewID = the Button's id). The status label (720) echoes which action
+        // ran - the host would actually delete/flag/archive the row in a real app.
+        let swipeActions: [String: String] = [
+            "swipe.demo.flag": "Flag", "swipe.demo.delete": "Delete",
+            "swipe.demo.pin": "Pin", "swipe.demo.archive": "Archive",
+            "swipe.demo.read": "Mark Read",
+        ]
+        for (actionID, label) in swipeActions {
+            ActionUISwift.registerActionHandler(actionID: actionID) { _, windowUUID, _, _, _ in
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 720, value: "Swiped \"\(label)\".")
+            }
+        }
+
         // VStack template demo handlers (VStack.template.json)
         // IDs: 10 = VStack+Label, 20 = VStack+HStack, 30 = HStack chips, 99 = status label
         let vstackTemplateRows: [[String]] = [
