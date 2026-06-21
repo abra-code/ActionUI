@@ -127,4 +127,13 @@ class ViewModel {
      * Empty for the overwhelmingly common case of a never-mutated element.
      */
     val dynamicSubviews: SnapshotStateMap<String, Any> = mutableStateMapOf()
+
+    /**
+     * Pull-to-refresh: this view and all its descendant ids, captured when a refresh starts
+     * (see [ActionUIModel.beginRefresh]). A client mutation to any of them ends the refresh, so
+     * updating a `ScrollView`'s inner content counts, not only a mutation to the container's own
+     * id. Null when no refresh is in flight. Plain (not snapshot) state - only the boolean
+     * `states[`[ActionUIModel.REFRESHING_STATE_KEY]`]` drives the indicator's recomposition.
+     */
+    var refreshSubtreeIDs: Set<Int>? = null
 }

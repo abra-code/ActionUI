@@ -27,7 +27,8 @@
       "properties": {
         "itemType": { "viewType": "Text" },
         "frame": { "height": 240 },
-        "actionID": "list.demo.selection.changed"
+        "actionID": "list.demo.selection.changed",
+        "onRefreshActionID": "list.demo.refresh"
       }
     }
   ]

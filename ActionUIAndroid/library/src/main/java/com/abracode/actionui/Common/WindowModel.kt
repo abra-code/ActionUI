@@ -389,6 +389,15 @@ class WindowModel(
         }
 
     /**
+     * Ids of the subtree rooted at [viewID] (including itself), or null if the view is not in
+     * this window. Pull-to-refresh uses it so a client mutation anywhere inside a refreshing
+     * view (e.g. a `ScrollView`'s content) is recognized as the end signal. Mirrors Swift's
+     * `WindowModel.subtreeIDs(of:)`.
+     */
+    internal fun subtreeIDs(viewID: Int): Set<Int>? =
+        locateElement(viewID)?.let { collectAllElementIDs(it) }
+
+    /**
      * Every positive element id within [element]'s subtree (itself + descendants
      * across all registered containers; the per-row `template` excepted, as in
      * [populateViewModels]). Used for id-conflict checks and cascade cleanup.

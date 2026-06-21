@@ -3,6 +3,8 @@ package com.abracode.actionui.demo
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -115,6 +117,24 @@ class MainActivity : ComponentActivity() {
                 ),
             )
             ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = 1, value = emptyList<String>())
+        }
+        // Pull-to-refresh (the List's onRefreshActionID fires this on a pull). Simulate an
+        // async fetch: the indicator stays until we deliver rows, since setElementRows
+        // targeting the refreshing list ends the refresh (no explicit "done" call needed).
+        // Mirrors the Swift test app's list.demo.refresh handler.
+        ActionUIModel.registerActionHandler("list.demo.refresh") { _, windowUUID, viewID, _, _ ->
+            Handler(Looper.getMainLooper()).postDelayed({
+                val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date())
+                ActionUIModel.setElementRows(
+                    windowUUID = windowUUID, viewID = viewID,
+                    rows = listOf(
+                        listOf("Refreshed at $stamp"), listOf("Swift"), listOf("Python"),
+                        listOf("Kotlin"), listOf("TypeScript"), listOf("Rust"), listOf("Go"),
+                    ),
+                )
+                ActionUIModel.setElementValue(windowUUID = windowUUID, viewID = viewID, value = emptyList<String>())
+            }, 1200)
         }
         ActionUIModel.registerActionHandler("list.demo.append") { _, windowUUID, _, _, _ ->
             val item = listExtraItems[listAppendIndex % listExtraItems.size]

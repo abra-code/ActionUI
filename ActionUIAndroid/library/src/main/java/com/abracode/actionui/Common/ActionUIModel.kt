@@ -87,6 +87,20 @@ object ActionUIModel {
      */
     const val ROWS_STATE_KEY = "content"
 
+    /**
+     * The `states` key under which a scrollable view holds its pull-to-refresh flag, as a
+     * [Boolean]. Snapshot state, so the `PullToRefreshBox` reading it (see List / ScrollView)
+     * recomposes when [beginRefresh] sets it true and an end signal sets it false.
+     */
+    const val REFRESHING_STATE_KEY = "refreshing"
+
+    /**
+     * Safety net mirroring Swift's `ActionUIModel.refreshTimeoutSeconds`: a refresh whose
+     * client never signals completion ends after this delay so the indicator cannot hang. The
+     * renderers drive the timeout from a `LaunchedEffect`. A `var` only so tests can lower it.
+     */
+    var refreshTimeoutMillis: Long = 60_000
+
     /** Registered handlers for specific actionIDs. */
     private val actionHandlers = mutableMapOf<String, ActionUIActionHandler>()
 
@@ -161,6 +175,42 @@ object ActionUIModel {
                     "No handler registered for actionID '$actionID' and no default handler set",
                     LoggerLevel.warning
                 )
+            }
+        }
+    }
+
+    // MARK: - Pull-to-refresh
+
+    /**
+     * Entry point for a scrollable view's pull gesture (see List / ScrollView). Marks the view
+     * refreshing - flipping the snapshot-backed [REFRESHING_STATE_KEY] so the `PullToRefreshBox`
+     * keeps its indicator - captures the view's subtree for the end signal, and fires
+     * [onRefreshActionID]. The indicator retracts when the client delivers data to this view or
+     * anything inside it (any mutation, see [endRefreshTargeting]) or the renderer's safety
+     * timeout fires. Unlike Apple there is no suspension: Compose state drives the indicator.
+     */
+    fun beginRefresh(windowUUID: String = "", viewID: Int, onRefreshActionID: String) {
+        val windowModel = windowModels[windowUUID] ?: return
+        val viewModel = windowModel.viewModels[viewID] ?: return
+        // Capture the subtree once so a mutation to any descendant ends the refresh.
+        viewModel.refreshSubtreeIDs = windowModel.subtreeIDs(viewID) ?: setOf(viewID)
+        viewModel.states[REFRESHING_STATE_KEY] = true
+        actionHandler(onRefreshActionID, windowUUID = windowUUID, viewID = viewID, viewPartID = 0)
+    }
+
+    /**
+     * Ends any in-flight refresh whose captured subtree includes [viewID]. Called from the
+     * element-mutation APIs so the client's natural response to a refresh (delivering fresh data
+     * to the view, or to anything inside it) retracts the indicator with no dedicated API; the
+     * renderer's timeout calls it with the refreshing view's own id. Idempotent.
+     */
+    internal fun endRefreshTargeting(windowUUID: String, viewID: Int) {
+        val windowModel = windowModels[windowUUID] ?: return
+        for (viewModel in windowModel.viewModels.values) {
+            val subtree = viewModel.refreshSubtreeIDs ?: continue
+            if (viewID in subtree) {
+                viewModel.refreshSubtreeIDs = null
+                viewModel.states[REFRESHING_STATE_KEY] = false
             }
         }
     }
@@ -445,6 +495,7 @@ object ActionUIModel {
         val viewModel = viewModel(windowUUID, viewID) ?: return
         viewModel.mutationToken += 1
         viewModel.value = value
+        endRefreshTargeting(windowUUID, viewID)
         logger.log("Set value for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
@@ -578,6 +629,7 @@ object ActionUIModel {
         }
         viewModel.mutationToken += 1
         viewModel.states[key] = value
+        endRefreshTargeting(windowUUID, viewID)
         logger.log("Set state '$key' for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
@@ -622,6 +674,7 @@ object ActionUIModel {
             }
         }
         viewModel.states[key] = converted
+        endRefreshTargeting(windowUUID, viewID)
         logger.log("Set state '$key' from string for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
@@ -702,6 +755,7 @@ object ActionUIModel {
     fun setElementRows(windowUUID: String = "", viewID: Int, rows: List<List<String>>) {
         val viewModel = viewModel(windowUUID, viewID) ?: return
         viewModel.states[ROWS_STATE_KEY] = rows
+        endRefreshTargeting(windowUUID, viewID)
         logger.log("Set ${rows.size} row(s) for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
@@ -711,6 +765,7 @@ object ActionUIModel {
         val viewModel = viewModel(windowUUID, viewID) ?: return
         val existing = (viewModel.states[ROWS_STATE_KEY] as? List<List<String>>) ?: emptyList()
         viewModel.states[ROWS_STATE_KEY] = existing + rows
+        endRefreshTargeting(windowUUID, viewID)
         logger.log("Appended ${rows.size} row(s) for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 

@@ -28,6 +28,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.RefreshableScrollContainer
 import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.applyScrollContentBackground
@@ -69,6 +70,11 @@ import kotlinx.serialization.json.JsonObject
  * highlights it, and fires `actionID` with the row as `context`. Single-selection
  * only. Per-row `Button` actions still fire independently (the inner control
  * consumes its own tap).
+ *
+ * **Pull-to-refresh.** When the element carries an `onRefreshActionID`, the LazyColumn is
+ * wrapped in a Material3 pull-to-refresh box (see [RefreshableScrollContainer]); a pull fires
+ * the actionID and the indicator stays until the client delivers fresh rows. Apple parity is
+ * the `.refreshable` modifier on the same element.
  *
  * **Deferred vs. Apple (documented).**
  *   * **Children-mode selection.** Heterogeneous `children` are arbitrary,
@@ -133,38 +139,42 @@ object ListView : ActionUIViewConstruction {
         val listState = rememberLazyListState()
         RegisterLazyScrollHandle(element, listState, vertical = true)
 
-        when {
-            template != null -> {
-                val rows = templateRows(element.id)
-                LazyColumn(state = listState, modifier = listModifier) {
-                    itemsIndexed(rows) { index, row ->
-                        SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
-                            TemplateHelper.BuildTemplateRow(
-                                template = template, row = row, parentID = element.id, rowIndex = index,
-                            )
+        // Pull-to-refresh wraps the scroll viewport when onRefreshActionID is set; otherwise
+        // this renders the LazyColumn unchanged (see RefreshableScrollContainer).
+        RefreshableScrollContainer(element) {
+            when {
+                template != null -> {
+                    val rows = templateRows(element.id)
+                    LazyColumn(state = listState, modifier = listModifier) {
+                        itemsIndexed(rows) { index, row ->
+                            SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
+                                TemplateHelper.BuildTemplateRow(
+                                    template = template, row = row, parentID = element.id, rowIndex = index,
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            children.isNotEmpty() -> {
-                LazyColumn(state = listState, modifier = listModifier) {
-                    items(children) { child ->
-                        val builder = ActionUIRegistry.lookup(child.type) ?: return@items
-                        ProvideTextStyleEnvironment(child.properties, logger) {
-                            builder.BuildViewWithModifiers(child, Modifier)
+                children.isNotEmpty() -> {
+                    LazyColumn(state = listState, modifier = listModifier) {
+                        items(children) { child ->
+                            val builder = ActionUIRegistry.lookup(child.type) ?: return@items
+                            ProvideTextStyleEnvironment(child.properties, logger) {
+                                builder.BuildViewWithModifiers(child, Modifier)
+                            }
                         }
                     }
                 }
-            }
 
-            else -> {
-                val rows = templateRows(element.id)
-                val itemType = resolveItemType(props, logger)
-                LazyColumn(state = listState, modifier = listModifier) {
-                    itemsIndexed(rows) { index, row ->
-                        SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
-                            HomogeneousRow(itemType, row.firstOrNull().orEmpty(), index, element.id)
+                else -> {
+                    val rows = templateRows(element.id)
+                    val itemType = resolveItemType(props, logger)
+                    LazyColumn(state = listState, modifier = listModifier) {
+                        itemsIndexed(rows) { index, row ->
+                            SelectableRow(selectable, selected = selection == row, onClick = { onSelect(index, row) }) {
+                                HomogeneousRow(itemType, row.firstOrNull().orEmpty(), index, element.id)
+                            }
                         }
                     }
                 }

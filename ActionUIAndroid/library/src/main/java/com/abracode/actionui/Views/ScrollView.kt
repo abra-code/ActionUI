@@ -16,6 +16,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
+import com.abracode.actionui.Helpers.RefreshableScrollContainer
 import com.abracode.actionui.Helpers.rememberPlainScrollRegistration
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -50,6 +51,9 @@ import com.abracode.actionui.Helpers.stringProperty
  *     honored**: Compose's scroll modifiers draw no persistent scrollbar on
  *     Android and expose no toggle, so there is nothing to show or hide (see the
  *     divergence note in `Private/Android_Porting_Notes.md`).
+ *   * `onRefreshActionID` - when set, wraps the viewport in a Material3 pull-to-refresh box
+ *     (see [RefreshableScrollContainer]); a pull fires the actionID and the indicator stays
+ *     until the client updates this view or anything inside it. Apple parity is `.refreshable`.
  *   * plus the universal modifiers resolved by `applyCommonProperties` (via
  *     [modifier]), notably `frame` to bound the viewport.
  *
@@ -102,9 +106,13 @@ object ScrollView : ActionUIViewConstruction {
             if (applied.vertical) scrollModifier = scrollModifier.verticalScroll(verticalState)
             if (applied.horizontal) scrollModifier = scrollModifier.horizontalScroll(horizontalState)
 
-            Box(modifier = scrollModifier) {
-                ProvideTextStyleEnvironment(content.properties, logger) {
-                    builder.BuildViewWithModifiers(content, Modifier)
+            // Pull-to-refresh wraps the scroll Box when onRefreshActionID is set; otherwise
+            // this renders the Box unchanged (see RefreshableScrollContainer).
+            RefreshableScrollContainer(element) {
+                Box(modifier = scrollModifier) {
+                    ProvideTextStyleEnvironment(content.properties, logger) {
+                        builder.BuildViewWithModifiers(content, Modifier)
+                    }
                 }
             }
         }
