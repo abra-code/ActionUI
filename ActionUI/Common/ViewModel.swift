@@ -32,11 +32,32 @@ class ViewModel: ObservableObject {
     // [[ActionUIElement]] for row containers. nil while the parent has no dynamic mutations.
     var dynamicSubviews: [String: Any]? = nil
 
+    // Pull-to-refresh state. A scrollable view's `.refreshable` action calls
+    // ActionUIModel.runRefresh, which suspends on this continuation until the client signals
+    // the refresh is done. `refreshSubtreeIDs` holds this view and all its descendant ids,
+    // captured when the refresh starts: a client mutation (setElementRows, setElementValue,
+    // etc.) to any of them ends the refresh, so updating a ScrollView's inner content counts,
+    // not only a mutation to the container's own id. Both are nil when no refresh is in flight.
+    var refreshContinuation: CheckedContinuation<Void, Never>? = nil
+    var refreshSubtreeIDs: Set<Int>? = nil
+
     init() {
         self.value = nil
         self.states = [:]
         self.validatedProperties = [:]
         self.elementType = ""
+    }
+
+    // Ends an in-flight pull-to-refresh, resuming the suspended `.refreshable` action so its
+    // spinner retracts. Idempotent: a no-op when no refresh is in flight, so it is safe to
+    // call from every client mutation and from the safety timeout.
+    func endRefresh() {
+        guard refreshSubtreeIDs != nil else { return }
+        refreshSubtreeIDs = nil
+        if let continuation = refreshContinuation {
+            refreshContinuation = nil
+            continuation.resume()
+        }
     }
 
     // Validate properties for the given element, updating validatedProperties

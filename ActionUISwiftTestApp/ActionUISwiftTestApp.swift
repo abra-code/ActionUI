@@ -116,6 +116,19 @@ struct ActionUISwiftTestApp: App {
             ])
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
         }
+        // Pull-to-refresh: the List's onRefreshActionID fires this on a pull. We simulate an
+        // async fetch — the spinner stays up until we deliver rows, since setElementRows
+        // targeting the refreshing list ends the refresh (no explicit "done" call needed).
+        ActionUISwift.registerActionHandler(actionID: "list.demo.refresh") { _, windowUUID, viewID, _, _ in
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                let stamp = Date().formatted(date: .omitted, time: .standard)
+                ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: viewID, rows: [
+                    ["Refreshed at \(stamp)"], ["Swift"], ["Python"], ["Kotlin"], ["TypeScript"], ["Rust"], ["Go"]
+                ])
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
+            }
+        }
         ActionUISwift.registerActionHandler(actionID: "list.demo.append") { _, windowUUID, _, _, _ in
             let item = listExtraItems[listAppendIndex % listExtraItems.count]
             listAppendIndex += 1

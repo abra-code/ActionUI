@@ -14,6 +14,7 @@
       },
       "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
       "doubleClickActionID": "list.double.click",  // Optional: String for double-click action (macOS only, context = row index)
+      "onRefreshActionID": "list.refresh",      // Optional: String. When set, enables pull-to-refresh; fires this actionID on pull. The spinner stays until the client delivers fresh data to this list or anything inside it (any setElementRows/appendElementRows/clearElementRows/setElementValue/setElementState call targeting this list or a descendant), or a safety timeout elapses.
       // List styling
       "listStyle": "plain",                   // Optional: list style — platform availability below
                                               //   "automatic"    — all platforms (system default)
@@ -243,6 +244,12 @@ struct List: ActionUIViewConstruction {
         } else if properties["doubleClickActionID"] != nil {
             logger.log("List doubleClickActionID must be a string; ignoring", .warning)
             validatedProperties["doubleClickActionID"] = nil
+        }
+
+        // Validate onRefreshActionID (pull-to-refresh) — must be a string
+        if properties["onRefreshActionID"] != nil && !(properties["onRefreshActionID"] is String) {
+            logger.log("List onRefreshActionID must be a string; ignoring", .warning)
+            validatedProperties["onRefreshActionID"] = nil
         }
 
         // Validate listStyle — allowed values are platform-specific
@@ -499,8 +506,14 @@ struct List: ActionUIViewConstruction {
         }
     }
 
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
+        if let onRefreshActionID = properties["onRefreshActionID"] as? String {
+            let viewID = element.id
+            modifiedView = modifiedView.refreshable {
+                await ActionUIModel.shared.runRefresh(windowUUID: windowUUID, viewID: viewID, actionID: onRefreshActionID)
+            }
+        }
         if let style = properties["listStyle"] as? String {
             switch style {
             case "plain":

@@ -73,6 +73,61 @@ public class ActionUIModel: ObservableObject {
         }
     }
     
+    // MARK: - Pull-to-refresh
+
+    // Safety net: if the client never signals completion, end the refresh after this many
+    // seconds so the spinner cannot hang indefinitely. Generous, since the spinner normally
+    // ends as soon as the client delivers refreshed data (any mutation to the refreshing view
+    // or its subtree). Kept an internal constant rather than a JSON property to avoid widening
+    // the schema; promote it to a property only if a real need appears.
+    // A `var` (not `let`) only so tests can lower it; production never mutates it.
+    static var refreshTimeoutSeconds: Double = 60
+
+    // Entry point for a scrollable view's `.refreshable` action (see List/ScrollView).
+    // Marks the view refreshing, fires onRefreshActionID, then suspends until the client signals
+    // completion — any element mutation targeting this view or its subtree (see endRefreshTargeting)
+    // — or the safety timeout elapses. The `await` suspends the task and releases the main actor,
+    // so the client's main-actor callbacks (e.g. setElementRows) run and end the refresh; the
+    // main thread is never blocked, so there is no deadlock.
+    public func runRefresh(windowUUID: String, viewID: Int, actionID: String) async {
+        guard let windowModel = windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[viewID] else {
+            logger.log("runRefresh: no view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+
+        // Capture the subtree once so a mutation to any descendant ends the refresh.
+        viewModel.refreshSubtreeIDs = windowModel.subtreeIDs(of: viewID) ?? [viewID]
+
+        // Safety net: end the refresh if the client never signals within the timeout.
+        let timeoutTask = Task { @MainActor [weak viewModel] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.refreshTimeoutSeconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            viewModel?.endRefresh()
+        }
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            viewModel.refreshContinuation = continuation
+            // Fire AFTER registering the continuation: a client that responds synchronously
+            // from its handler (calling setElementRows inline) then finds the continuation and
+            // resumes it, rather than the signal being missed before we suspend.
+            actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0)
+        }
+        timeoutTask.cancel()
+    }
+
+    // Ends any in-flight refresh whose captured subtree includes viewID. Called from the
+    // element-mutation APIs so the client's natural response to a refresh (delivering fresh
+    // data to the view, or to anything inside it) retracts the spinner with no dedicated API.
+    private func endRefreshTargeting(windowUUID: String, viewID: Int) {
+        guard let windowModel = windowModels[windowUUID] else { return }
+        for viewModel in windowModel.viewModels.values {
+            if let subtree = viewModel.refreshSubtreeIDs, subtree.contains(viewID) {
+                viewModel.endRefresh()
+            }
+        }
+    }
+
     // Load a view description from JSON or plist data for a specific windowUUID
     internal func loadDescription(from data: Data, format: String, windowUUID: String) throws -> ActionUIElement {
         let windowModel = windowModels[windowUUID] ?? WindowModel(windowUUID: windowUUID, logger: logger)
@@ -177,8 +232,9 @@ public class ActionUIModel: ObservableObject {
             logger.log("Set value for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         }
         windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
     }
-    
+
     // Converts control value to a string representation for scripting
     // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
     public func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0, contentType: String? = nil) -> String? {
@@ -393,6 +449,7 @@ public class ActionUIModel: ObservableObject {
         viewModel.mutationToken &+= 1
         viewModel.states[key] = value
         windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Set state '\(key)' for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
     }
 
@@ -457,6 +514,7 @@ public class ActionUIModel: ObservableObject {
         viewModel.objectWillChange.send()
         viewModel.states[key] = converted
         windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Set state '\(key)' from string for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
     }
 
@@ -522,6 +580,7 @@ public class ActionUIModel: ObservableObject {
             viewModel.value = [] as [String]
         }
         windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Set \(rows.count) rows for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
     }
 
@@ -538,6 +597,7 @@ public class ActionUIModel: ObservableObject {
             viewModel.value = [] as [String]
         }
         windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Cleared table rows for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
     }
 
@@ -552,6 +612,7 @@ public class ActionUIModel: ObservableObject {
         let existingContent = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states["content"] = existingContent + rows
         windowModel.viewModels[viewID] = viewModel
+        endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Appended \(rows.count) rows to table viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
     }
 

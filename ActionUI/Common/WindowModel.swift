@@ -397,6 +397,14 @@ class WindowModel: ObservableObject {
         }
     }
 
+    // Ids of the element subtree rooted at viewID (including viewID itself), or nil if the
+    // view is not in this window. Used by pull-to-refresh so a client mutation anywhere
+    // inside a refreshing view (e.g. a ScrollView's content) is recognized as the end signal.
+    func subtreeIDs(of viewID: Int) -> Set<Int>? {
+        guard let element = locateElement(byID: viewID) else { return nil }
+        return collectAllElementIDs(in: element)
+    }
+
     // Collect ids from an element subtree (used for conflict checks and cascade
     // cleanup) via the single shared descendant traversal (see childElements).
     private func collectAllElementIDs(in element: any ActionUIElementBase) -> Set<Int> {

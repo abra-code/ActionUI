@@ -78,7 +78,8 @@
           "x": 2.0,
           "y": 2.0
         },
-        "actionID": "list.demo.selection.changed"
+        "actionID": "list.demo.selection.changed",
+        "onRefreshActionID": "list.demo.refresh"
       }
     },
     {

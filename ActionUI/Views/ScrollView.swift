@@ -9,7 +9,8 @@
    },
    "properties": {
      "axis": "vertical",  // Optional: "vertical", "horizontal", or "both"; defaults to "vertical"
-     "showsIndicators": true // Optional: Boolean for scroll indicators, defaults to true
+     "showsIndicators": true, // Optional: Boolean for scroll indicators, defaults to true
+     "onRefreshActionID": "scroll.refresh" // Optional: String. When set, enables pull-to-refresh; fires this actionID on pull. The spinner stays until the client delivers fresh data to this view or anything inside it (any setElementRows/setElementValue/setElementState call targeting this view or a descendant), or a safety timeout elapses.
    }
    // Note: These properties are specific to ScrollView. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
@@ -44,7 +45,13 @@ struct ScrollView: ActionUIViewConstruction {
             logger.log("ScrollView showsIndicators must be a Boolean; defaulting to true", .warning)
             validatedProperties["showsIndicators"] = true
         }
-        
+
+        // Validate onRefreshActionID (pull-to-refresh) — must be a string
+        if properties["onRefreshActionID"] != nil && !(properties["onRefreshActionID"] is String) {
+            logger.log("ScrollView onRefreshActionID must be a string; ignoring", .warning)
+            validatedProperties["onRefreshActionID"] = nil
+        }
+
         return validatedProperties
     }
     
@@ -70,10 +77,16 @@ struct ScrollView: ActionUIViewConstruction {
         }
     }
     
-    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
         if let showsIndicators = properties["showsIndicators"] as? Bool {
             modifiedView = modifiedView.scrollIndicators(showsIndicators ? .automatic : .hidden)
+        }
+        if let onRefreshActionID = properties["onRefreshActionID"] as? String {
+            let viewID = element.id
+            modifiedView = modifiedView.refreshable {
+                await ActionUIModel.shared.runRefresh(windowUUID: windowUUID, viewID: viewID, actionID: onRefreshActionID)
+            }
         }
         return modifiedView
     }
