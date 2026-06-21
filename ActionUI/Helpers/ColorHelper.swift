@@ -45,7 +45,19 @@ class ColorHelper {
         if let namedColor = namedColors[normalized] {
             return namedColor
         }
-        
+
+        // SwiftUI's `<color>.opacity(<fraction>)` (e.g. "gray.opacity(0.15)") - the canonical
+        // way to make a translucent tint. Strip the suffix, resolve the base color, apply the
+        // fraction. Web/Android mirror this (CSS color-mix / Color.copy(alpha:)).
+        if normalized.hasSuffix(")"), let opRange = normalized.range(of: ".opacity(") {
+            let base = String(normalized[..<opRange.lowerBound])
+            let inner = normalized[opRange.upperBound..<normalized.index(before: normalized.endIndex)]
+            if let fraction = Double(inner.trimmingCharacters(in: .whitespaces)),
+               let baseColor = resolveColor(base) {
+                return baseColor.opacity(min(1, max(0, fraction)))
+            }
+        }
+
         // Hex color parsing
         let hexSanitized = normalized.replacingOccurrences(of: "#", with: "")
         

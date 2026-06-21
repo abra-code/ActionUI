@@ -37,6 +37,14 @@ import kotlin.math.roundToInt
 internal fun parseColor(name: String): Color? {
     val trimmed = name.trim()
     if (trimmed.startsWith("#")) return parseHexColor(trimmed)
+    // SwiftUI's `<color>.opacity(<fraction>)` (e.g. "gray.opacity(0.15)") - the canonical way
+    // to make a translucent tint. Resolve the base color and scale its alpha by the fraction.
+    // Mirrors Swift's Color.opacity(_:) and web's CSS color-mix.
+    Regex("""^(.+)\.opacity\(\s*([0-9]*\.?[0-9]+)\s*\)$""").matchEntire(trimmed)?.let { m ->
+        val base = parseColor(m.groupValues[1]) ?: return null
+        val fraction = m.groupValues[2].toFloatOrNull()?.coerceIn(0f, 1f) ?: return null
+        return base.copy(alpha = base.alpha * fraction)
+    }
     return when (trimmed.lowercase()) {
         "black"                  -> Color.Black
         "white"                  -> Color.White

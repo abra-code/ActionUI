@@ -16,6 +16,20 @@ test("resolveColor: named -> CSS var, hex pass-through, unknown warns -> null", 
     assert.ok(logger.warned("Unknown color"));
 });
 
+test("resolveColor: SwiftUI <color>.opacity(<fraction>) -> color-mix toward transparent", () => {
+    const logger = makeLogger();
+    assert.equal(resolveColor("gray.opacity(0.15)", logger),
+        "color-mix(in srgb, var(--aui-color-gray) 15%, transparent)");
+    assert.equal(resolveColor("#ff0000.opacity(0.5)", logger),
+        "color-mix(in srgb, #ff0000 50%, transparent)");
+    assert.equal(resolveColor("black.opacity(1)", logger),
+        "color-mix(in srgb, #000000 100%, transparent)");
+    assert.equal(logger.warningCount(), 0, "a valid base color does not warn");
+    // an unknown base still surfaces the real problem
+    assert.equal(resolveColor("bogus.opacity(0.3)", logger), null);
+    assert.ok(logger.warned("Unknown color"));
+});
+
 function applied(properties, element = { id: 1 }) {
     const node = makeElement();
     const dispatched = [];

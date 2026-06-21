@@ -89,6 +89,16 @@ export function resolveColor(value, logger) {
     if (typeof value !== "string") return null;
     if (NAMED_COLORS[value]) return NAMED_COLORS[value];
     if (/^#[0-9a-fA-F]{3,8}$/.test(value)) return value;
+    // SwiftUI's `<color>.opacity(<fraction>)` (e.g. "gray.opacity(0.15)") - fade the base
+    // color toward transparent. Mirrors SwiftUI's Color.opacity(_:); CSS color-mix handles
+    // the base being a `var()` semantic color (which rgba()/hex math can't).
+    const op = value.match(/^(.+)\.opacity\(\s*([0-9]*\.?[0-9]+)\s*\)$/);
+    if (op) {
+        const base = resolveColor(op[1], logger); // warns itself if the base is unknown
+        if (base === null) return null;
+        const pct = Math.round(Math.min(1, Math.max(0, parseFloat(op[2]))) * 100);
+        return `color-mix(in srgb, ${base} ${pct}%, transparent)`;
+    }
     logger.log(`Unknown color "${value}"`, "warning");
     return null;
 }

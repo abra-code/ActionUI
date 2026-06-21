@@ -1071,14 +1071,24 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.font(FontHelper.resolveFont(font, logger))
         }
         
-        // Use foregroundStyle with resolveShapeStyle
-        if let foregroundStyle = properties["foregroundStyle"] as? String, let style = ColorHelper.resolveShapeStyle(foregroundStyle) {
-            modifiedView = modifiedView.foregroundStyle(style)
+        // Use foregroundStyle with resolveShapeStyle. A present-but-unresolvable color string
+        // warns (matching the web renderer) so an unsupported SwiftUI color idiom surfaces at
+        // authoring time instead of silently rendering nothing.
+        if let foregroundStyle = properties["foregroundStyle"] as? String {
+            if let style = ColorHelper.resolveShapeStyle(foregroundStyle) {
+                modifiedView = modifiedView.foregroundStyle(style)
+            } else if !foregroundStyle.isEmpty {
+                logger.log("Unknown color \"\(foregroundStyle)\"", .warning)
+            }
         }
-        
+
         // Use tint with resolveShapeStyle
-        if let tint = properties["tint"] as? String, let style = ColorHelper.resolveShapeStyle(tint) {
-            modifiedView = modifiedView.tint(style)
+        if let tint = properties["tint"] as? String {
+            if let style = ColorHelper.resolveShapeStyle(tint) {
+                modifiedView = modifiedView.tint(style)
+            } else if !tint.isEmpty {
+                logger.log("Unknown color \"\(tint)\"", .warning)
+            }
         }
         
         if let disabled = properties["disabled"] as? Bool {
@@ -1090,8 +1100,12 @@ struct View: ActionUIViewConstruction {
         }
         
         // Use background with resolveShapeStyle
-        if let background = properties["background"] as? String, let style = ColorHelper.resolveShapeStyle(background) {
-            modifiedView = modifiedView.background(style)
+        if let background = properties["background"] as? String {
+            if let style = ColorHelper.resolveShapeStyle(background) {
+                modifiedView = modifiedView.background(style)
+            } else if !background.isEmpty {
+                logger.log("Unknown color \"\(background)\"", .warning)
+            }
         }
 
         // Apply view-based backgroundView modifier

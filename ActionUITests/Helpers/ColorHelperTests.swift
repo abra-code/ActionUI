@@ -14,6 +14,14 @@ final class ColorHelperTests: XCTestCase {
         XCTAssertNil(ColorHelper.resolveColor("notacolor"))
     }
 
+    func testResolveColorOpacitySuffix() {
+        // SwiftUI's `<color>.opacity(<fraction>)` resolves the base color and applies the fraction.
+        XCTAssertEqual(ColorHelper.resolveColor("gray.opacity(0.15)"), Color.gray.opacity(0.15))
+        XCTAssertEqual(ColorHelper.resolveColor("red.opacity(0.5)"), Color.red.opacity(0.5))
+        XCTAssertNotNil(ColorHelper.resolveColor("#00FF00.opacity(0.5)"), "opacity on a hex base resolves")
+        XCTAssertNil(ColorHelper.resolveColor("notacolor.opacity(0.3)"), "unknown base -> nil")
+    }
+
     func testResolveColorHexRGB() {
         // #RGB format
         let color = ColorHelper.resolveColor("#F00")

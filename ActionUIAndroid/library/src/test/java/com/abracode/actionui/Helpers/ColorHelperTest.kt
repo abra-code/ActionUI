@@ -158,4 +158,14 @@ class ColorHelperTest {
         assertEquals(0.5f, hsvToColor(0f, 1f, 1f, 0.5f).alpha, 0.004f)
         assertEquals(0f, hsvToColor(0f, 1f, 1f, 0f).alpha, 0.004f)
     }
+
+    @Test
+    fun `parseColor handles the SwiftUI opacity suffix`() {
+        // `<color>.opacity(<fraction>)`: resolve the base color and scale its alpha.
+        val gray = parseColor("gray.opacity(0.15)")!!
+        assertEquals(0.15f, gray.alpha, 0.004f)
+        assertEquals(Color.Gray.red, gray.red, 0.004f)
+        assertEquals(0.5f, parseColor("red.opacity(0.5)")!!.alpha, 0.004f)
+        assertNull(parseColor("notacolor.opacity(0.3)"))
+    }
 }
