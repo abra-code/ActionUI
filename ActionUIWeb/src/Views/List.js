@@ -40,6 +40,10 @@
 //   itemType         { viewType, actionContext, actionID, dataInterpretation } —
 //                    homogeneous cell config.
 //   actionID         Fires on selection change (enables selectable mode).
+//   onRefreshActionID String; when set, enables pull-to-refresh: a downward pull at
+//                    the top fires this actionID and an indicator stays up until the
+//                    client delivers fresh rows to this list or anything inside it
+//                    (the web side of SwiftUI's .refreshable; see PullToRefreshHelper).
 //   doubleClickActionID  macOS double-click; row index as context (data modes).
 //   listStyle        "automatic"|"plain"|"inset"|"sidebar" (the macOS set).
 //   listRowBackground / listRowSeparator / listRowSeparatorTint / listRowInsets
@@ -69,6 +73,10 @@ const INTERACTIVE_SELECTOR = "button, input, select, textarea, a";
 register("List", {
     // The selected child id / row, as a String ("" = nothing selected). See header.
     valueType: "string",
+
+    // Opts into the pull-to-refresh build wrapper (Helpers/PullToRefreshHelper.js):
+    // a no-op unless `onRefreshActionID` is set. Apple parity is `.refreshable`.
+    refreshable: true,
 
     // Children mode accepts runtime insertions (insertElement / removeElement);
     // each inserted child is wrapped in a row and joins selection like the
@@ -103,6 +111,12 @@ register("List", {
         if (validated.doubleClickActionID !== undefined && typeof validated.doubleClickActionID !== "string") {
             logger.log("List doubleClickActionID must be a string; ignoring", "warning");
             delete validated.doubleClickActionID;
+        }
+
+        // onRefreshActionID (pull-to-refresh) — must be a string, else dropped.
+        if (validated.onRefreshActionID !== undefined && typeof validated.onRefreshActionID !== "string") {
+            logger.log("List onRefreshActionID must be a string; ignoring", "warning");
+            delete validated.onRefreshActionID;
         }
 
         // listStyle — must be a String valid on this (macOS-flavored) platform.

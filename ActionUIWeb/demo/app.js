@@ -456,6 +456,21 @@ app.action("homListSelect", () => {
     win.setString(20, 0, win.getString(45) ? `Priority: ${win.getString(45)}.` : "No priority selected.");
 });
 
+// Pull-to-refresh (the List's onRefreshActionID fires this on a pull). Simulate an
+// async fetch: the indicator stays up until we deliver rows, since setElementRows
+// targeting the refreshing list ends the refresh (no explicit "done" call needed).
+// Mirrors the Swift/Android demo refresh handlers.
+let listRefreshSeq = 0;
+app.action("listRefresh", () => {
+    win.setString(20, 0, "Refreshing list...");
+    setTimeout(() => {
+        listRefreshSeq += 1;
+        const stamp = new Date().toLocaleTimeString();
+        win.setElementRows(45, [[`Refreshed #${listRefreshSeq} (${stamp})`], ["Low"], ["Medium"], ["High"]]);
+        win.setString(20, 0, `List refreshed at ${stamp}.`);
+    }, 1000);
+});
+
 // Template List selection: the value is the selected row tab-joined (label, symbol).
 app.action("tmplListSelect", () => {
     const row = win.getString(55).split("\t");

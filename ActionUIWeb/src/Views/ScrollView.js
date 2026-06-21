@@ -13,6 +13,10 @@
 //   showsIndicators  Boolean (default true); when false the scrollbars are
 //                    hidden (scrollbar-width / ::-webkit-scrollbar), the web
 //                    counterpart of SwiftUI's .scrollIndicators(.hidden).
+//   onRefreshActionID String; when set, enables pull-to-refresh: a downward pull at
+//                    the top fires this actionID and an indicator stays up until the
+//                    client updates this view or anything inside it (the web side of
+//                    SwiftUI's .refreshable; see Helpers/PullToRefreshHelper.js).
 
 import { register } from "../Common/ActionUIRegistry.js";
 
@@ -25,6 +29,10 @@ const OVERFLOW_FOR_AXIS = {
 
 register("ScrollView", {
     valueType: "none",
+
+    // Opts into the pull-to-refresh build wrapper (Helpers/PullToRefreshHelper.js):
+    // a no-op unless `onRefreshActionID` is set. Apple parity is `.refreshable`.
+    refreshable: true,
 
     // Mirrors ScrollView.swift validateProperties (warning text included verbatim).
     validateProperties: (properties, logger) => {
@@ -42,6 +50,12 @@ register("ScrollView", {
         } else {
             logger.log("ScrollView showsIndicators must be a Boolean; defaulting to true", "warning");
             validated.showsIndicators = true;
+        }
+
+        // onRefreshActionID (pull-to-refresh) - must be a string, else dropped.
+        if (validated.onRefreshActionID !== undefined && typeof validated.onRefreshActionID !== "string") {
+            logger.log("ScrollView onRefreshActionID must be a string; ignoring", "warning");
+            delete validated.onRefreshActionID;
         }
 
         return validated;

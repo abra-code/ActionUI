@@ -45,11 +45,17 @@ export class ActionUIModel {
         this.stateBindings = new Map(); // viewID -> { getState(key), setState(key, value) }
         this.containerBindings = new Map(); // viewID -> { containerName: binding } (insertion)
         this.propertyOverrides = new Map(); // viewID -> { propertyName: value } (setElementProperty)
+        this.refreshes = new Map();     // viewID -> { subtreeIds: Set, onEnd, timeout } (pull-to-refresh)
         this.actionDispatcher = null;   // set by Application
         // Render context for runtime mutations — set once the window is presented.
         this.rootNode = null;           // the window's root DOM node (the id registry)
         this.buildFn = null;            // (element) => HTMLElement, the registry recursion
         this.rootElementId = null;      // guards against removing the root
+        // Pull-to-refresh safety net (ms): a refresh whose client never signals
+        // completion ends after this delay so the indicator cannot hang. Mirrors
+        // Swift's `refreshTimeoutSeconds` / Android's `refreshTimeoutMillis`; a
+        // mutable field only so tests can lower it (production never changes it).
+        this.refreshTimeoutMs = 60000;
     }
 
     // Wires the render context the insertion API needs: the root node (queried by
@@ -100,6 +106,7 @@ export class ActionUIModel {
         } else {
             this.logger.log(`setElementValue: no element with id ${viewID}`, "warning");
         }
+        this.endRefreshTargeting(viewID); // a value delivered to a refreshing view (or descendant) ends its pull
     }
 
     getElementState(viewID, key) {
@@ -119,11 +126,12 @@ export class ActionUIModel {
         states[key] = value;
         this.states.set(viewID, states);
         const binding = this.stateBindings.get(viewID);
-        if (!binding) {
+        if (binding) {
+            binding.setState(key, value);
+        } else {
             this.logger.log(`setElementState: no element with id ${viewID}`, "warning");
-            return;
         }
-        binding.setState(key, value);
+        this.endRefreshTargeting(viewID); // fresh rows/state delivered to a refreshing view (or descendant) ends its pull
     }
 
     // Runtime property mutation: applies [propertyName]=[value] to the mounted node
@@ -233,6 +241,67 @@ export class ActionUIModel {
     dispatchAction(actionID, viewID, viewPartID = 0, context = null) {
         if (!actionID) return;
         this.actionDispatcher?.(actionID, this.windowUUID, viewID, viewPartID, context);
+    }
+
+    // ---- Pull-to-refresh ----
+    //
+    // Web analog of Swift's `ActionUIModel.runRefresh` + Android's `beginRefresh`.
+    // The scrollable view (List / ScrollView, see Helpers/PullToRefreshHelper.js)
+    // owns the indicator DOM and the pull gesture; the model owns the *lifecycle*.
+    // On a pull, the view calls beginRefresh with an `onEnd` that retracts its
+    // indicator; the model captures the view's subtree and fires the actionID. The
+    // refresh ends — onEnd runs — when the client delivers data to this view or
+    // anything inside it (any setElementValue/setElementState, which both call
+    // endRefreshTargeting) or the safety timeout elapses. No dedicated "done" API,
+    // matching Apple/Android: the client's natural response retracts the indicator.
+
+    // Ids of the subtree rooted at viewID (itself + every mounted descendant), or
+    // null if the view is not mounted. The DOM is the element tree on the web, so
+    // this reads it directly (mirrors Swift/Android `WindowModel.subtreeIDs`). The
+    // subtree is what makes ScrollView work: its content's id, not the container's
+    // own, is the one a client mutates.
+    subtreeIds(viewID) {
+        const node = this.findNode(viewID);
+        if (!node) return null;
+        return new Set(this.collectMountedIds(viewID, node));
+    }
+
+    // Starts a refresh for viewID: captures its subtree, arms the safety timeout,
+    // then fires the actionID. The timeout and action fire AFTER the record is
+    // stored so a client that responds synchronously from its handler (calling
+    // setElementValue/Rows inline) finds the in-flight record and ends it, rather
+    // than the signal being missed. `onEnd` retracts the view's indicator.
+    beginRefresh(viewID, actionID, onEnd) {
+        this.endRefresh(viewID); // restart cleanly if one is somehow already in flight
+        const subtreeIds = this.subtreeIds(viewID) ?? new Set([viewID]);
+        const timeout = setTimeout(() => this.endRefreshTargeting(viewID), this.refreshTimeoutMs);
+        if (timeout && typeof timeout.unref === "function") timeout.unref(); // do not keep Node alive (tests)
+        this.refreshes.set(viewID, { subtreeIds, onEnd, timeout });
+        this.dispatchAction(actionID, viewID, 0, null);
+    }
+
+    // Ends any in-flight refresh whose captured subtree includes viewID. Called from
+    // the element-mutation APIs (setElementValue / setElementState) so the client's
+    // natural response to a refresh retracts the indicator; the safety timeout calls
+    // it with the refreshing view's own id. Idempotent.
+    endRefreshTargeting(viewID) {
+        if (this.refreshes.size === 0) return;
+        const ending = [];
+        for (const [refreshID, record] of this.refreshes) {
+            if (record.subtreeIds.has(viewID)) ending.push(refreshID);
+        }
+        for (const refreshID of ending) this.endRefresh(refreshID);
+    }
+
+    // Ends the refresh rooted at refreshID: clears its timeout and runs its onEnd
+    // (retracting the indicator). A no-op when none is in flight, so it is safe to
+    // call from every mutation, the timeout, element cleanup, and dispose.
+    endRefresh(refreshID) {
+        const record = this.refreshes.get(refreshID);
+        if (!record) return;
+        this.refreshes.delete(refreshID);
+        clearTimeout(record.timeout);
+        record.onEnd?.();
     }
 
     // ---- Runtime structural mutations (insertElement / insertRow / removeElement) ----
@@ -398,6 +467,7 @@ export class ActionUIModel {
 
     // Drops every binding/value/state record for a removed element id.
     cleanupElement(id) {
+        this.endRefresh(id); // clears any in-flight refresh timer rooted at this id
         this.values.delete(id);
         this.bindings.delete(id);
         this.states.delete(id);
@@ -411,6 +481,8 @@ export class ActionUIModel {
     // closeWindow): the model holds no DOM listeners itself (those live on the nodes
     // it built, removed with the root), so clearing its maps is the full teardown.
     dispose() {
+        for (const record of this.refreshes.values()) clearTimeout(record.timeout);
+        this.refreshes.clear();
         this.values.clear();
         this.bindings.clear();
         this.states.clear();

@@ -35,11 +35,11 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable). Pull down from the top to refresh (touch devices): the host fetches and re-delivers rows, retracting the indicator.", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "List",
       "id": 45,
-      "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "frame": { "maxWidth": "infinity" } }
+      "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "onRefreshActionID": "listRefresh", "frame": { "maxWidth": "infinity" } }
     },
     { "type": "Text", "properties": { "text": "Programmatic selection (silent: fires no actionID; the host updates status itself):", "foregroundColor": "secondary", "font": "footnote" } },
     {

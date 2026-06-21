@@ -135,6 +135,34 @@
 .aui-scroll-reader { display: flex; flex-direction: column; min-height: 0; }
 .aui-scroll-reader > .aui-fill-height { flex: 1 1 0; min-height: 0; }
 
+/* Pull-to-refresh (List / ScrollView with onRefreshActionID). A flex column whose
+   leading indicator grows with a downward pull at the top (height driven inline by
+   Helpers/PullToRefreshHelper.js); the glyph spins while the refresh runs. Height 0
+   at rest, so the non-refresh layout is unchanged. The settle transition is
+   suppressed while the finger is tracking (.is-dragging). */
+.aui-refresh { display: flex; flex-direction: column; align-self: stretch; min-height: 0; }
+.aui-refresh > .aui-scroll, .aui-refresh > .aui-list { flex: 1 1 auto; min-height: 0; }
+.aui-refresh-spinner {
+    flex: none; height: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    transition: height 0.2s ease;
+}
+.aui-refresh.is-dragging .aui-refresh-spinner { transition: none; }
+.aui-refresh-glyph {
+    width: 18px; height: 18px; box-sizing: border-box; margin: 9px 0;
+    border: 2px solid var(--aui-control-border);
+    border-top-color: var(--aui-color-accent);
+    border-radius: 50%;
+    opacity: 0.55;
+}
+.aui-refresh.is-armed .aui-refresh-glyph,
+.aui-refresh.is-refreshing .aui-refresh-glyph { opacity: 1; }
+.aui-refresh.is-refreshing .aui-refresh-glyph { animation: aui-refresh-spin 0.7s linear infinite; }
+@keyframes aui-refresh-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .aui-refresh.is-refreshing .aui-refresh-glyph { animation: none; }
+}
+
 /* Grids → CSS grid. The track lists (grid-template-columns/rows), flow,
    gaps, and place-items are set inline by each view from its JSON; Grid also
    writes explicit grid-row/grid-column on each cell so uneven rows stay aligned.

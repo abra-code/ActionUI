@@ -28,6 +28,7 @@ import { applyPresentationModifiers } from "../Helpers/PresentationModifier.js";
 import { applyDecorations } from "../Helpers/DecorationModifier.js";
 import { wrapWithSearchable } from "../Helpers/SearchableModifier.js";
 import { applyAnimation } from "../Helpers/AnimationModifier.js";
+import { wrapWithPullToRefresh } from "../Helpers/PullToRefreshHelper.js";
 
 const constructions = new Map();
 
@@ -82,11 +83,19 @@ export function buildElementView(element, ctx) {
     // attaches the presented surface + its visibility state binding to the carrier
     // node. A no-op unless one of those subviews is declared.
     applyPresentationModifiers(node, element, properties, ctx);
+    // Pull-to-refresh (List / ScrollView, which opt in via `construction.refreshable`):
+    // wraps the scroll viewport in an indicator + pull gesture when the element carries
+    // an `onRefreshActionID`. Innermost of the wrappers so the indicator sits inside any
+    // searchable field / toolbar chrome (the iOS placement). A no-op otherwise; the
+    // data-aui-id stays on the inner node, so host addressing is unaffected.
+    const refreshed = construction.refreshable
+        ? wrapWithPullToRefresh(node, element, properties, ctx)
+        : node;
     // View-valued overlay / background decorations: wraps the node in a decoration
     // box (the element + absolute decoration layers behind/above it). A no-op
     // unless an overlay/background subview is declared; the data-aui-id stays on
     // the inner node, so host addressing is unaffected (like the toolbar wrap).
-    const decorated = applyDecorations(node, element, properties, ctx);
+    const decorated = applyDecorations(refreshed, element, properties, ctx);
     // The `searchable` modifier (List / NavigationStack) wraps the node with a
     // search field above its content. Inside the toolbar wrap, so on a List with a
     // navigationTitle the field sits below the title bar (the iOS placement). A
