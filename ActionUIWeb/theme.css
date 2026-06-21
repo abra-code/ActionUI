@@ -1118,7 +1118,10 @@
     border: none;
     background: none;
     color: var(--aui-color-accent);
-    font: inherit;
+    /* An explicit nav-control size (the iOS back idiom), matching .aui-nav-split-back: font:inherit
+       picked up the compressed 13px body size, too small for a primary back affordance. */
+    font-family: inherit;
+    font-size: 17px;
     cursor: pointer;
     padding: 2px 4px;
     border-radius: var(--aui-control-radius);
