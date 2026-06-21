@@ -34,7 +34,7 @@ let negativeIDCounter = -1;
 // `.swipeActions(edge:allowsFullSwipe:)`, a ViewBuilder of real Button elements.
 const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar", "contextMenu", "swipeActions"];
 const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination",
-    "sheet", "fullScreenCover", "popover", "overlay", "background", "contextMenuPreview"];
+    "sheet", "fullScreenCover", "popover", "overlay", "background", "contextMenuPreview", "safeAreaInset"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.

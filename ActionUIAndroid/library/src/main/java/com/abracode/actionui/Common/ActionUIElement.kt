@@ -104,6 +104,10 @@ interface ActionUIElementBase {
     // carries its own title / systemImage / role / tint / actionID, plus an optional `edge`
     // ("leading"/"trailing", default trailing) and `allowsFullSwipe`.
     val swipeActions: List<ActionUIElement>?
+    // safeAreaInset mirrors SwiftUI's `.safeAreaInset(edge:alignment:spacing:)`: a single view placed
+    // in the safe area on an edge, with the main content insetting to avoid it. The inset view's own
+    // properties parameterize it: `safeAreaEdge` ("top"/"bottom"/"leading"/"trailing", default bottom).
+    val safeAreaInset: ActionUIElement?
 }
 
 @Serializable
@@ -127,7 +131,8 @@ data class ActionUIElement(
     override val background: ActionUIElement? = null,
     override val contextMenu: List<ActionUIElement>? = null,
     override val contextMenuPreview: ActionUIElement? = null,
-    override val swipeActions: List<ActionUIElement>? = null
+    override val swipeActions: List<ActionUIElement>? = null,
+    override val safeAreaInset: ActionUIElement? = null
 ) : ActionUIElementBase
 
 /**
@@ -154,4 +159,5 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     contextMenu?.let { addAll(it) }
     contextMenuPreview?.let { add(it) }
     swipeActions?.let { addAll(it) }
+    safeAreaInset?.let { add(it) }
 }

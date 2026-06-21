@@ -36,6 +36,30 @@
     { "type": "Text", "properties": { "text": "A Color as a thin colored bar (240 x 2):", "foregroundColor": "secondary", "font": "callout" } },
     { "type": "Color", "properties": { "color": "red", "frame": { "width": 240, "height": 2 } } },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "safeAreaInset (a bar pinned at an edge; the content takes the rest). Below is the layout in a bounded box; the real screen-edge clearance (under the home indicator) needs the page to fill the viewport - open the fullscreen demo and hide Safari's toolbar:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Link", "properties": { "title": "Open the fullscreen SafeArea demo", "url": "safe-area.html" } },
+    {
+      "type": "ScrollView",
+      "properties": { "frame": { "maxWidth": "infinity", "minHeight": 140, "maxHeight": 140 }, "background": "#f2f2f7", "cornerRadius": 10 },
+      "content": {
+        "type": "VStack",
+        "properties": { "spacing": 8, "alignment": "leading", "padding": 12 },
+        "children": [
+          { "type": "Text", "properties": { "text": "Scroll me - the blue bar never covers this." } },
+          { "type": "Text", "properties": { "text": "Line 2" } },
+          { "type": "Text", "properties": { "text": "Line 3" } },
+          { "type": "Text", "properties": { "text": "Line 4" } },
+          { "type": "Text", "properties": { "text": "Line 5" } },
+          { "type": "Text", "properties": { "text": "Last line" } }
+        ]
+      },
+      "safeAreaInset": {
+        "type": "HStack",
+        "properties": { "safeAreaEdge": "bottom", "padding": 10, "background": "accentColor" },
+        "children": [ { "type": "Text", "properties": { "text": "Bottom bar (safeAreaInset)", "foregroundColor": "white" } } ]
+      }
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Frame alignment (content placed within a larger frame):", "foregroundColor": "secondary", "font": "callout" } },
     {
       "type": "HStack",

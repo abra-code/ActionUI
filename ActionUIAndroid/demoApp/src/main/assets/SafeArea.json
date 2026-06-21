@@ -1,0 +1,52 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 12.0, "alignment": "leading", "padding": 16.0, "frame": { "maxWidth": "infinity" } },
+  "children": [
+    { "type": "Text", "properties": { "text": "ignoresSafeArea / safeAreaInset", "font": "title2" } },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ignoresSafeArea lets a view draw into the safe area; safeAreaInset pins a bar at an edge while the content insets to clear it. This in-app browser scrolls the document inside a top bar, so the true screen-edge clearance shows only when a document is the window root - the layouts are shown here in bounded blocks.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    { "type": "Text", "properties": { "text": "A teal Color block (greedy fill) with ignoresSafeArea:", "font": "caption", "foregroundStyle": "secondary" } },
+    {
+      "type": "ZStack",
+      "properties": { "frame": { "maxWidth": "infinity", "minHeight": 110.0, "maxHeight": 110.0 }, "ignoresSafeArea": true, "cornerRadius": 12.0 },
+      "children": [
+        { "type": "Color", "properties": { "color": "teal.opacity(0.3)" } },
+        { "type": "Text", "properties": { "text": "teal Color", "font": "headline" } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "A ScrollView with a bottom safeAreaInset bar (scroll - the bar never covers the content):", "font": "caption", "foregroundStyle": "secondary" } },
+    {
+      "type": "ScrollView",
+      "properties": { "frame": { "maxWidth": "infinity", "minHeight": 240.0, "maxHeight": 240.0 }, "background": "#eef1f4", "cornerRadius": 12.0 },
+      "content": {
+        "type": "VStack",
+        "properties": { "spacing": 12.0, "alignment": "leading", "padding": 12.0 },
+        "children": [
+          { "type": "Text", "properties": { "text": "Row 1 - scroll to the bottom" } },
+          { "type": "Text", "properties": { "text": "Row 2" } },
+          { "type": "Text", "properties": { "text": "Row 3" } },
+          { "type": "Text", "properties": { "text": "Row 4" } },
+          { "type": "Text", "properties": { "text": "Row 5" } },
+          { "type": "Text", "properties": { "text": "Row 6" } },
+          { "type": "Text", "properties": { "text": "Row 7" } },
+          { "type": "Text", "properties": { "text": "Row 8" } },
+          { "type": "Text", "properties": { "text": "Row 9" } },
+          { "type": "Text", "properties": { "text": "Row 10 - the bar never covers this" } }
+        ]
+      },
+      "safeAreaInset": {
+        "type": "HStack",
+        "properties": { "safeAreaEdge": "bottom", "padding": 14.0, "background": "#0A84FF", "frame": { "maxWidth": "infinity" } },
+        "children": [
+          { "type": "Text", "properties": { "text": "Bottom bar (safeAreaInset)", "foregroundStyle": "white", "font": "headline" } }
+        ]
+      }
+    }
+  ]
+}

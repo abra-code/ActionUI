@@ -30,6 +30,7 @@ import { wrapWithSearchable } from "../Helpers/SearchableModifier.js";
 import { applyAnimation } from "../Helpers/AnimationModifier.js";
 import { wrapWithPullToRefresh } from "../Helpers/PullToRefreshHelper.js";
 import { wrapWithSwipeActions } from "../Helpers/SwipeActionsModifier.js";
+import { wrapWithSafeAreaInset } from "../Helpers/SafeAreaModifier.js";
 
 const constructions = new Map();
 
@@ -102,12 +103,16 @@ export function buildElementView(element, ctx) {
     // swipeActions subview is declared; the data-aui-id stays on the inner node, so host
     // addressing is unaffected (like the decoration/toolbar wraps).
     const swiped = wrapWithSwipeActions(decorated, element, properties, ctx);
+    // safeAreaInset: wraps the node so the inset subview sits at an edge (with that edge's safe-area
+    // padding) and the content takes the rest. A no-op unless a safeAreaInset subview is declared;
+    // data-aui-id stays on the inner node, like the other wraps.
+    const safeAreaInset = wrapWithSafeAreaInset(swiped, element, properties, ctx);
     // The `searchable` modifier (List / NavigationStack) wraps the node with a
     // search field above its content. Inside the toolbar wrap, so on a List with a
     // navigationTitle the field sits below the title bar (the iOS placement). A
     // no-op unless a valid `searchable` is declared; data-aui-id stays on the inner
     // node, so host addressing is unaffected.
-    const searched = wrapWithSearchable(swiped, element, properties, ctx);
+    const searched = wrapWithSearchable(safeAreaInset, element, properties, ctx);
     // A `toolbar` / `navigationTitle` wraps the node in screen chrome (a top bar
     // + optional bottom bar). The data-aui-id stays on the inner node, so host
     // addressing (value/state/scroll) is unaffected by the wrap.

@@ -864,6 +864,14 @@ struct JSONSelectorView: View {
                 .navigationTitle("JSON Selector")
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("json_selector_list")
+                // Test hook: `-openResource <Name>` opens that document's fullScreenCover on launch,
+                // so a document can be screenshotted edge-to-edge without GUI navigation.
+                .onAppear {
+                    if let idx = CommandLine.arguments.firstIndex(of: "-openResource"),
+                       idx + 1 < CommandLine.arguments.count {
+                        selectedResource = CommandLine.arguments[idx + 1]
+                    }
+                }
                 .fullScreenCover(isPresented: Binding(
                     get: { selectedResource != nil },
                     set: { if !$0 { selectedResource = nil } }

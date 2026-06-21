@@ -32,6 +32,7 @@
 //                    spec hides item contents during dragover).
 
 import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
+import { applyIgnoresSafeArea } from "../Helpers/SafeAreaModifier.js";
 
 const NAMED_COLORS = {
     // SwiftUI color names -> CSS custom properties resolved in theme.css,
@@ -312,6 +313,10 @@ export function applyViewModifiers(node, element, properties, ctx) {
     // declared. The Apple parity is `.contextMenu`; the Android parity is the
     // long-press DropdownMenu.
     applyContextMenu(node, element, properties, ctx);
+
+    // ignoresSafeArea: extend this view into the safe area (negative env() margins on the chosen
+    // edges). A no-op when absent/false, or on a non-notched / desktop screen (env() is 0).
+    applyIgnoresSafeArea(node, properties);
 }
 
 // UTType identifiers that the web treats as a plain-text drag (DataTransfer

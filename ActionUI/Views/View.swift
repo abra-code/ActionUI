@@ -134,6 +134,10 @@
      "multilineTextAlignment": "center",   // Optional: "leading", "center", or "trailing". Controls text alignment for multi-line text.
       "zIndex": 0.0,                        // Optional: Number for layer ordering within a container (e.g. ZStack)
                                             // Higher values render in front of lower values. Defaults to 0.0.
+      "ignoresSafeArea": true,             // Optional: extend this view into the safe area (e.g. a background under the
+                                            // notch / home indicator). true = all edges+regions; or an object to narrow:
+                                            // { "edges": "top"|"bottom"|"leading"|"trailing"|"horizontal"|"vertical"|"all",
+                                            //   "regions": "all"|"container"|"keyboard" }. SwiftUI's .ignoresSafeArea(_:edges:).
     },
     // contextMenu / contextMenuPreview are OPTIONAL TOP-LEVEL subview keys (siblings of "properties", NOT properties),
     // attachable to ANY view. They mirror SwiftUI's `.contextMenu(menuItems:preview:)`, which is itself two ViewBuilders:
@@ -152,7 +156,15 @@
     "swipeActions": [
       { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "row.flag" } },
       { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "row.delete" } }
-    ]
+    ],
+    // safeAreaInset is an OPTIONAL TOP-LEVEL subview key (sibling of "properties"): a single view placed in the safe area
+    // on an edge, with the main content insetting to avoid it (SwiftUI's .safeAreaInset(edge:alignment:spacing:) — e.g. a
+    // bottom bar that scrollable content clears). The inset view's own properties parameterize it (safe-area-specific names):
+    // "safeAreaEdge" ("top"/"bottom"/"leading"/"trailing", default bottom), "safeAreaAlignment", and "safeAreaSpacing".
+    "safeAreaInset": {
+      "type": "HStack", "properties": { "safeAreaEdge": "bottom", "padding": 10.0, "background": "bar" },
+      "children": [ { "type": "Text", "properties": { "text": "Bottom bar in the safe area" } } ]
+    }
   }
 
  NOTE:
@@ -200,6 +212,44 @@ private func resolveAlignment(_ string: String?) -> Alignment {
     case "bottomLeading": return .bottomLeading
     case "bottomTrailing":return .bottomTrailing
     default:              return .center
+    }
+}
+
+// safe-area helpers (ignoresSafeArea / safeAreaInset). Edges default to .all; regions to .all.
+private func resolveSafeAreaEdges(_ string: String?) -> Edge.Set {
+    switch string {
+    case "top":        return .top
+    case "bottom":     return .bottom
+    case "leading":    return .leading
+    case "trailing":   return .trailing
+    case "horizontal": return .horizontal
+    case "vertical":   return .vertical
+    default:           return .all
+    }
+}
+
+private func resolveSafeAreaRegions(_ string: String?) -> SafeAreaRegions {
+    switch string {
+    case "container": return .container
+    case "keyboard":  return .keyboard
+    default:          return .all
+    }
+}
+
+// safeAreaInset alignment: a top/bottom inset aligns horizontally, a leading/trailing inset vertically.
+private func resolveSafeAreaHorizontalAlignment(_ string: String?) -> HorizontalAlignment {
+    switch string {
+    case "leading":  return .leading
+    case "trailing": return .trailing
+    default:         return .center
+    }
+}
+
+private func resolveSafeAreaVerticalAlignment(_ string: String?) -> VerticalAlignment {
+    switch string {
+    case "top":    return .top
+    case "bottom": return .bottom
+    default:       return .center
     }
 }
 
@@ -267,7 +317,13 @@ struct View: ActionUIViewConstruction {
     
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
         var validatedProperties = properties
-        
+
+        // Validate ignoresSafeArea: a Bool (ignore all) or an object ({edges, regions}); else dropped.
+        if let ignore = properties["ignoresSafeArea"], !(ignore is Bool), !(ignore is [String: Any]) {
+            logger.log("ignoresSafeArea must be a Bool or an object with edges/regions; ignoring", .warning)
+            validatedProperties["ignoresSafeArea"] = nil
+        }
+
         // Validate padding
         if let padding = properties["padding"] {
             if properties.cgFloat(forKey: "padding") != nil {
@@ -1256,6 +1312,45 @@ struct View: ActionUIViewConstruction {
             let alignment = resolveAlignment(properties["overlayAlignment"] as? String)
             modifiedView = modifiedView.overlay(alignment: alignment) {
                 ActionUIView(element: overlayElement, model: overlayModel, windowUUID: windowUUID)
+            }
+        }
+
+        // ignoresSafeArea: let this view extend into the safe area (e.g. a background under the
+        // notch / home indicator). `true` ignores all regions on all edges; an object narrows
+        // `edges` (top/bottom/leading/trailing/horizontal/vertical/all) and `regions`
+        // (all/container/keyboard).
+        if let ignore = properties["ignoresSafeArea"] {
+            if let flag = ignore as? Bool {
+                if flag { modifiedView = AnyView(modifiedView).ignoresSafeArea() }
+            } else if let spec = ignore as? [String: Any] {
+                let regions = resolveSafeAreaRegions(spec["regions"] as? String)
+                let edges = resolveSafeAreaEdges(spec["edges"] as? String)
+                modifiedView = AnyView(modifiedView).ignoresSafeArea(regions, edges: edges)
+            }
+        }
+
+        // safeAreaInset: place a view in the safe area on an edge; the main content insets to
+        // avoid it (SwiftUI's `.safeAreaInset(edge:alignment:spacing:)` - e.g. a bottom bar that
+        // content scrolls clear of). The inset view's own properties parameterize it (safe-area-
+        // specific names so they don't collide with a stack's own `spacing` / a swipe `edge`):
+        // `safeAreaEdge` ("top"/"bottom"/"leading"/"trailing", default bottom), `safeAreaAlignment`,
+        // `safeAreaSpacing`.
+        if let insetElement = element.subviews?["safeAreaInset"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let insetModel = windowModel.viewModels[insetElement.id] {
+            let edge = (insetElement.properties["safeAreaEdge"] as? String) ?? "bottom"
+            let spacing = insetElement.properties.cgFloat(forKey: "safeAreaSpacing")
+            let alignName = insetElement.properties["safeAreaAlignment"] as? String
+            let content = ActionUIView(element: insetElement, model: insetModel, windowUUID: windowUUID)
+            switch edge {
+            case "top", "bottom":
+                let vEdge: VerticalEdge = (edge == "top") ? .top : .bottom
+                modifiedView = AnyView(modifiedView).safeAreaInset(edge: vEdge, alignment: resolveSafeAreaHorizontalAlignment(alignName), spacing: spacing) { content }
+            case "leading", "trailing":
+                let hEdge: HorizontalEdge = (edge == "leading") ? .leading : .trailing
+                modifiedView = AnyView(modifiedView).safeAreaInset(edge: hEdge, alignment: resolveSafeAreaVerticalAlignment(alignName), spacing: spacing) { content }
+            default:
+                modifiedView = AnyView(modifiedView).safeAreaInset(edge: .bottom, spacing: spacing) { content }
             }
         }
 

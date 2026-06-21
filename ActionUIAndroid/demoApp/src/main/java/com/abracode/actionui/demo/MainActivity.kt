@@ -685,15 +685,23 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DemoApp() {
     val context = LocalContext.current
-    // The synthetic RenderSource entry leads; the bundled assets follow (sorted).
-    val files = remember { listOf(RENDER_SOURCE_DEMO_LABEL) + listJsonAssets(context) }
+    // The synthetic RenderSource + SafeArea-fullscreen entries lead; the bundled assets follow (sorted).
+    // The full-bleed SafeArea document is reached only via its fullscreen entry and hidden from the normal
+    // (Scaffold-framed) list, where an edge-to-edge document cannot show its safe-area behavior.
+    val files = remember {
+        listOf(RENDER_SOURCE_DEMO_LABEL, SAFE_AREA_FULLSCREEN_LABEL) +
+            listJsonAssets(context).filterNot { it.equals(SAFE_AREA_FULLSCREEN_ASSET, ignoreCase = true) }
+    }
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = DEMO_PICKER_ROUTE) {
         composable(DEMO_PICKER_ROUTE) {
             JsonSelectorScreen(
                 files = files,
-                onSelect = { navController.navigate(DEMO_DETAIL_ROUTE_PREFIX + Uri.encode(it)) },
+                onSelect = {
+                    if (it == SAFE_AREA_FULLSCREEN_LABEL) navController.navigate(DEMO_FULLSCREEN_ROUTE)
+                    else navController.navigate(DEMO_DETAIL_ROUTE_PREFIX + Uri.encode(it))
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -707,9 +715,20 @@ fun DemoApp() {
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        // Fullscreen route: renders a document edge-to-edge with NO Scaffold / top bar / outer scroll, so
+        // its ignoresSafeArea / safeAreaInset reach the real screen edges (status bar / cutout / gesture nav).
+        composable(DEMO_FULLSCREEN_ROUTE) {
+            ExampleFullscreenScreen(
+                assetPath = SAFE_AREA_FULLSCREEN_ASSET,
+                onBack = { navController.popBackStack() },
+            )
+        }
     }
 }
 
 private const val DEMO_PICKER_ROUTE = "demo/picker"
 private const val DEMO_DETAIL_ROUTE_PREFIX = "demo/detail/"
+private const val DEMO_FULLSCREEN_ROUTE = "demo/fullscreen"
 private const val DEMO_ASSET_ARG = "asset"
+const val SAFE_AREA_FULLSCREEN_LABEL: String = "SafeArea (fullscreen)"
+private const val SAFE_AREA_FULLSCREEN_ASSET: String = "SafeArea.fullscreen.json"

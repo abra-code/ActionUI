@@ -101,7 +101,9 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // Inside a ScrollViewReader, an element with a positive id is a scroll
     // target: its coordinates register with the reader (ScrollReaderHelper.kt).
     // Identity modifier outside a reader.
-    val targeted = scrollTargetModifier(effective, modifier)
+    // ignoresSafeArea folds into the carrier: it consumes the chosen safe-drawing edges so a
+    // descendant safeAreaInset no longer pads for them (Android is edge-to-edge by default).
+    val targeted = scrollTargetModifier(effective, modifier).then(ignoresSafeAreaModifier(effective.properties))
     val animator = rememberElementAnimator(effective)
     val logger = LocalActionUILogger.current
     // The `searchable` modifier (List / NavigationStack): wrap the element with a
@@ -137,6 +139,13 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // rare same-row combo, as with the other modifier combos.)
     if (effective.swipeActions?.isNotEmpty() == true) {
         BuildViewWithSwipeActions(effective, targeted, animator)
+        return
+    }
+    // The `safeAreaInset` modifier: place a view in the safe area on an edge, the content taking
+    // the rest (SafeAreaHelper.kt). The wrapper owns the outer modifier; the element continues
+    // through BuildViewWithDecorations inside, like the other wrapping modifiers.
+    if (effective.safeAreaInset != null) {
+        BuildViewWithSafeAreaInset(effective, targeted, animator)
         return
     }
     BuildViewWithDecorations(effective, targeted.applyOuterProperties(effective.properties, logger, animator), animator)

@@ -1,0 +1,49 @@
+{
+  "type": "ZStack",
+  "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+  "children": [
+    { "type": "Color", "properties": { "color": "teal.opacity(0.3)", "ignoresSafeArea": true } },
+    {
+      "type": "VStack",
+      "properties": { "spacing": 0.0, "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+      "safeAreaInset": {
+        "type": "HStack",
+        "properties": { "safeAreaEdge": "bottom", "padding": 14.0, "background": "#0A84FF", "frame": { "maxWidth": "infinity" } },
+        "children": [
+          { "type": "Text", "properties": { "text": "Bottom bar (safeAreaInset)", "foregroundStyle": "white", "font": "headline" } }
+        ]
+      },
+      "children": [
+        {
+          "type": "ScrollView",
+          "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+          "safeAreaInset": {
+            "type": "HStack",
+            "properties": { "safeAreaEdge": "top", "padding": 14.0, "background": "#0A84FF", "frame": { "maxWidth": "infinity" } },
+            "children": [
+              { "type": "Text", "properties": { "text": "Top bar (safeAreaInset)", "foregroundStyle": "white", "font": "headline" } }
+            ]
+          },
+          "content": {
+            "type": "VStack",
+            "properties": { "spacing": 12.0, "alignment": "leading", "padding": 16.0 },
+            "children": [
+              { "type": "Text", "properties": { "text": "ignoresSafeArea / safeAreaInset (fullscreen)", "font": "title2" } },
+              { "type": "Text", "properties": { "text": "The teal fills the whole screen via ignoresSafeArea - it draws under the status bar / camera cutout (top) and the gesture-nav bar (bottom). The two blue bars are pinned by safeAreaInset: each clears its system inset (the teal shows in the inset region beyond it), and the content between scrolls clear of both.", "font": "footnote", "foregroundStyle": "secondary" } },
+              { "type": "Text", "properties": { "text": "Row 1 - scroll to the bottom" } },
+              { "type": "Text", "properties": { "text": "Row 2" } },
+              { "type": "Text", "properties": { "text": "Row 3" } },
+              { "type": "Text", "properties": { "text": "Row 4" } },
+              { "type": "Text", "properties": { "text": "Row 5" } },
+              { "type": "Text", "properties": { "text": "Row 6" } },
+              { "type": "Text", "properties": { "text": "Row 7" } },
+              { "type": "Text", "properties": { "text": "Row 8" } },
+              { "type": "Text", "properties": { "text": "Row 9" } },
+              { "type": "Text", "properties": { "text": "Row 10 - the bottom bar never covers this" } }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

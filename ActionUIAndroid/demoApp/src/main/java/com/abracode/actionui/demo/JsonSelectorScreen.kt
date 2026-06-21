@@ -1,9 +1,12 @@
 package com.abracode.actionui.demo
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -123,6 +126,10 @@ fun ExampleDetailScreen(
         Column(
             modifier = Modifier
                 .padding(innerPadding)
+                // Consume the insets the Scaffold already padded for, so a nested insets-aware
+                // component inside the document (a safeAreaInset bar's windowInsetsPadding) does not
+                // double-count the system bars and reserve a spurious second gap.
+                .consumeWindowInsets(innerPadding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
@@ -134,5 +141,22 @@ fun ExampleDetailScreen(
                 ActionUI.RenderAsset(assetPath = assetPath, modifier = Modifier.fillMaxWidth())
             }
         }
+    }
+}
+
+/**
+ * Renders a document edge-to-edge as the window root - no Scaffold, top bar, or outer scroll - so its
+ * ignoresSafeArea / safeAreaInset reach the real screen edges (status bar / camera cutout / gesture nav),
+ * which the Scaffold-framed [ExampleDetailScreen] cannot show. System back returns to the picker.
+ */
+@Composable
+fun ExampleFullscreenScreen(
+    assetPath: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BackHandler { onBack() }
+    Box(modifier.fillMaxSize()) {
+        ActionUI.RenderAsset(assetPath = assetPath, modifier = Modifier.fillMaxSize())
     }
 }

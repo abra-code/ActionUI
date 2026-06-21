@@ -110,7 +110,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions, safeAreaInset
     }
     
     public init(from decoder: Decoder) throws {
@@ -152,7 +152,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         // `contextMenuPreview` is the optional single arbitrary view shown above the
         // menu on long-press (SwiftUI's `.contextMenu` preview: ViewBuilder); the
         // action items live in the `contextMenu` array above.
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview", "safeAreaInset"] {
             if var child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if key == "template" {
                     child = ActionUIElement.normalizeTemplateIDs(child)
@@ -220,7 +220,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         }
         
         // Encode single child views
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview", "safeAreaInset"] {
             if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -268,7 +268,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         
         // Decode single child views for navigation components
         // Note: JSON specifies "content", "destination", "sidebar", "detail", "template" as top-level keys, but we move them to subviews
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "safeAreaInset"] {
             if let childDict = dictionary[key] as? [String: Any] {
                 do {
                     var childElement = try ActionUIElement(from: childDict, logger: logger)
@@ -424,7 +424,7 @@ enum ActionUISubviewContainers {
     /// Container keys holding a single child element.
     static let singleKeys = ["content", "destination", "sidebar", "detail", "label",
                              "popover", "sheet", "fullScreenCover", "overlay", "background",
-                             "contextMenuPreview"]
+                             "contextMenuPreview", "safeAreaInset"]
 }
 
 extension ActionUIElementBase {

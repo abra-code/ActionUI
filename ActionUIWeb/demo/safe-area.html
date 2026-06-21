@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) non-zero on a notched device
+         (so safeAreaInset / ignoresSafeArea have something to clear). In mobile Safari, hide the
+         toolbar (it collapses to a small island) or Add to Home Screen to see the real insets. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- iOS standalone web app: when this page is Added to the Home Screen and launched, it runs
+         WITHOUT Safari's chrome, and a translucent status bar lets the content draw under it - so the
+         teal bleeds into the safe areas and env(safe-area-inset-*) is fully real. In a regular Safari
+         TAB the page is confined between Safari's edge strips, so that bleed is not possible there. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>ActionUIWeb - SafeArea (fullscreen)</title>
+    <link rel="stylesheet" href="../theme.css">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; background: #000; }
+        /* The stage is the whole viewport, edge to edge - no app chrome - so the document's
+           ignoresSafeArea / safeAreaInset reach the physical screen edges. */
+        #root {
+            position: fixed;
+            inset: 0;
+            box-sizing: border-box;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+        /* The renderer applies the window frame as inline styles (ModifierResolver.applyFrame);
+           a dedicated fullscreen page always fills the viewport, so override them (as index.html
+           does on phones). */
+        #root > .aui-window {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            border-radius: 0;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+        import { Application, Window } from "../src/ActionUI.js";
+        import { ConsoleLogger } from "../src/Common/ConsoleLogger.js";
+        const logger = new ConsoleLogger();
+        const app = new Application({ name: "SafeArea (fullscreen)" });
+        const win = await Window.fromURL("./safe-area.json", undefined, logger);
+        app.presentWindow(win, document.getElementById("root"));
+    </script>
+</body>
+</html>

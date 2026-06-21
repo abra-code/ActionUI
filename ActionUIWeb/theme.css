@@ -836,6 +836,22 @@
 }
 .aui-swipe-stacked .aui-swipe-action-title { font-size: 11px; }
 
+/* ---- safeAreaInset (a view pinned in the safe area on an edge) ---- */
+
+/* The wrapper lays the inset bar and the content along the edge's axis (column for top/bottom,
+   row for leading/trailing - set inline). The content takes the remaining space; the bar wraps
+   to its content and carries that edge's env(safe-area-inset-*) padding (SafeAreaModifier.js) so
+   it clears the notch / home indicator. */
+.aui-safe-area-inset {
+    display: flex;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+}
+.aui-safe-area-content { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; }
+.aui-safe-area-content > * { flex: 1 1 0; min-width: 0; min-height: 0; }
+.aui-safe-area-bar { flex: 0 0 auto; }
+
 /* ---- Table ---- */
 
 /* A multi-column data table (the macOS Table; the web is a desktop target, so it

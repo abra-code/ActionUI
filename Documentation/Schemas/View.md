@@ -139,6 +139,10 @@ JSON schema and usage documentation for `View`.
                                             // Also propagates to child Text views when set on a container (VStack, HStack, etc.).
       "zIndex": 0.0,                        // Optional: Number for layer ordering within a container (e.g. ZStack)
                                             // Higher values render in front of lower values. Defaults to 0.0.
+      "ignoresSafeArea": true,             // Optional: extend this view into the safe area (e.g. a background under the notch /
+                                            // home indicator). true = all edges+regions; or an object to narrow:
+                                            // { "edges": "top"|"bottom"|"leading"|"trailing"|"horizontal"|"vertical"|"all",
+                                            //   "regions": "all"|"container"|"keyboard" }. SwiftUI's .ignoresSafeArea(_:edges:).
     },
     // contextMenu (optional): a context menu attached to ANY view — long-press (iOS) / right-click (macOS).
     // A TOP-LEVEL subview key (sibling of "properties"), modeled as two slots to match SwiftUI's
@@ -156,7 +160,15 @@ JSON schema and usage documentation for `View`.
     "swipeActions": [                       // An array of real Button elements. Each carries its own title / systemImage / role / tint / actionID,
       { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "row.flag" } },     //   plus an optional "edge" ("leading"/"trailing", default trailing) and
       { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "row.delete" } }  //   "allowsFullSwipe" (default true; a full swipe fires that edge's first button).
-    ]
+    ],
+    // safeAreaInset (optional): a single view placed in the safe area on an edge; the main content insets to avoid it
+    // (SwiftUI's `.safeAreaInset(edge:alignment:spacing:)` — e.g. a bottom bar that scrollable content clears). A TOP-LEVEL
+    // subview key. The inset view's own properties parameterize it (safe-area-specific names): "safeAreaEdge"
+    // ("top"/"bottom"/"leading"/"trailing", default bottom), "safeAreaAlignment", "safeAreaSpacing".
+    "safeAreaInset": {
+      "type": "HStack", "properties": { "safeAreaEdge": "bottom", "padding": 10.0, "background": "bar" },
+      "children": [ { "type": "Text", "properties": { "text": "Bottom bar in the safe area" } } ]
+    }
   }
 
 //  NOTE:

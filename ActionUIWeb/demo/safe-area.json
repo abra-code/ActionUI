@@ -1,0 +1,31 @@
+{
+  "type": "ScrollView",
+  "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+  "background": { "type": "Color", "properties": { "color": "teal.opacity(0.3)", "ignoresSafeArea": true } },
+  "content": {
+    "type": "VStack",
+    "properties": { "spacing": 12.0, "alignment": "leading", "padding": 16.0 },
+    "children": [
+      { "type": "Text", "properties": { "text": "ignoresSafeArea / safeAreaInset (fullscreen)", "font": "title2" } },
+      { "type": "Text", "properties": { "text": "For true edge-to-edge, Add this page to your Home Screen and launch it: it runs as a standalone web app, so the teal fills under the status bar and home indicator (ignoresSafeArea) and the bars clear those insets (safeAreaInset, color bleeding under them). In a regular Safari tab the page is confined between Safari's edge strips, so the background cannot bleed into them - the bottom bar still shows the safeAreaInset layout, and the content scrolls clear of it.", "font": "footnote", "foregroundStyle": "secondary" } },
+      { "type": "Text", "properties": { "text": "Row 1 - scroll to the bottom" } },
+      { "type": "Text", "properties": { "text": "Row 2" } },
+      { "type": "Text", "properties": { "text": "Row 3" } },
+      { "type": "Text", "properties": { "text": "Row 4" } },
+      { "type": "Text", "properties": { "text": "Row 5" } },
+      { "type": "Text", "properties": { "text": "Row 6" } },
+      { "type": "Text", "properties": { "text": "Row 7" } },
+      { "type": "Text", "properties": { "text": "Row 8" } },
+      { "type": "Text", "properties": { "text": "Row 9" } },
+      { "type": "Text", "properties": { "text": "Row 10 - the bar never covers this" } }
+    ]
+  },
+  "safeAreaInset": {
+    "type": "HStack",
+    "properties": { "safeAreaEdge": "bottom", "padding": 14.0, "frame": { "maxWidth": "infinity" } },
+    "background": { "type": "Color", "properties": { "color": "#0A84FF", "ignoresSafeArea": { "edges": "bottom" } } },
+    "children": [
+      { "type": "Text", "properties": { "text": "Bottom bar (safeAreaInset)", "foregroundStyle": "white", "font": "headline" } }
+    ]
+  }
+}
