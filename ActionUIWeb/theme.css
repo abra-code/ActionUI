@@ -811,6 +811,44 @@
     .aui-table tbody td { padding: 11px 12px; }
     .aui-table-scroll { -webkit-overflow-scrolling: touch; }
 }
+/* Opt-in (:web stackedCards) phone layout: a Table whose horizontal columns do not
+   fit a phone renders each row as a label:value card. The default Table keeps its
+   horizontal pan (the correctness-preserving behavior); this lossy convenience is
+   per-table opt-in. The row label is each cell's data-label (set in Table.js). */
+@media (max-width: 480px) {
+    .aui-table-stackable .aui-table { display: block; width: 100% !important; }
+    .aui-table-stackable .aui-table colgroup,
+    .aui-table-stackable .aui-table thead { display: none; } /* labels move into the cells */
+    .aui-table-stackable .aui-table tbody { display: block; }
+    .aui-table-stackable .aui-table tr {
+        display: block;
+        margin: 0 0 10px;
+        padding: 4px 12px;
+        border: 1px solid var(--aui-control-border);
+        border-radius: 10px;
+        background: var(--aui-control-background);
+    }
+    .aui-table-stackable .aui-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        text-align: right;
+        border-bottom: 1px solid var(--aui-control-border);
+    }
+    .aui-table-stackable .aui-table tr td:last-child { border-bottom: none; }
+    .aui-table-stackable .aui-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--aui-color-secondary);
+        text-align: left;
+    }
+    /* Selected card: color the whole card, not each cell (which would patch-fill). */
+    .aui-table-stackable .aui-table-row-selected { background: var(--aui-color-accent); }
+    .aui-table-stackable .aui-table-row-selected td { background: transparent; color: #ffffff; border-bottom-color: rgba(255, 255, 255, 0.3); }
+    .aui-table-stackable .aui-table-row-selected td::before { color: #ffffff; }
+}
 /* Shared image-cell sizing for the data-driven collections (Table, List itemType). */
 .aui-data-image { max-width: 28px; max-height: 28px; vertical-align: middle; }
 

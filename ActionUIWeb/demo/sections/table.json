@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Table", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "A real <table> (the web is a desktop target, so it follows macOS rather than the Android no-op). The widest-ideal column auto-sizes to fill; the visible separator on each header's right edge is a drag handle - grab it to resize that column. The table sits in its own scroller (bounded here to maxHeight 200), so adding rows or widening columns past the frame scrolls instead of clipping.", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "A real <table> (the web is a desktop target, so it follows macOS rather than the Android no-op). The widest-ideal column auto-sizes to fill; the visible separator on each header's right edge is a drag handle - grab it to resize that column. The table sits in its own scroller (bounded here to maxHeight 200), so adding rows or widening columns past the frame scrolls instead of clipping. On a phone this table opts into stackedCards:web, so each row becomes a label:value card (narrow the window to see it).", "foregroundColor": "secondary" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -26,6 +26,7 @@
         "widths": [200, 60, 80],
         "minWidths": [90, 44, 64],
         "actionID": "tableSelect",
+        "stackedCards:web": true,
         "frame": { "maxWidth": 460, "maxHeight": 200 }
       }
     },

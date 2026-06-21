@@ -125,6 +125,14 @@ register("Table", {
             delete validated.doubleClickActionID;
         }
 
+        // stackedCards (:web) — a boolean opt-in: on a phone-width screen the rows
+        // render as label:value cards instead of a horizontal table (a lossy web
+        // convenience, per the perf-not-parity principle). Web-only, no Apple analog.
+        if (validated.stackedCards !== undefined && typeof validated.stackedCards !== "boolean") {
+            logger.log("Table stackedCards must be a boolean; ignoring", "warning");
+            delete validated.stackedCards;
+        }
+
         return validated;
     },
 
@@ -140,6 +148,9 @@ register("Table", {
         // "visible" / "automatic" show it. A static (build-time) choice, matching
         // Apple/Android - there is no runtime toggle.
         const headersHidden = properties.columnHeadersVisibility === "hidden";
+        // Opt-in (:web) phone layout: render rows as label:value cards on a compact
+        // screen (CSS-driven; each cell carries its column name as data-label).
+        const stackedCards = properties.stackedCards === true;
 
         // A scroll container wraps the table so it can grow past its frame: when the
         // columns are wider, or the rows taller, than the bounded frame, the wrapper
@@ -149,6 +160,7 @@ register("Table", {
         // itself scroll-backed; this is the web equivalent.)
         const scroll = document.createElement("div");
         scroll.className = "aui-table-scroll";
+        if (stackedCards) scroll.classList.add("aui-table-stackable"); // CSS swaps to cards at phone width
         markHandlesAction(scroll); // selection owns the table's actionID (opt out of the generic click handler)
 
         const table = document.createElement("table");
@@ -335,8 +347,10 @@ register("Table", {
             tr.setAttribute("role", "row");
             tr.tabIndex = 0; // focusable, so the row keyboard pattern can drive selection
             const rowIndexRef = () => rowIndex;
-            columns.forEach((_, colIndex) => {
-                tr.appendChild(buildCell(row[colIndex] ?? "", colIndex, rowIndexRef));
+            columns.forEach((colName, colIndex) => {
+                const td = buildCell(row[colIndex] ?? "", colIndex, rowIndexRef);
+                if (stackedCards) td.dataset.label = String(colName); // the card's row label (CSS ::before)
+                tr.appendChild(td);
             });
             tr.addEventListener("click", () => selectIndex(rowIndex, true));
             tr.addEventListener("dblclick", () => {
