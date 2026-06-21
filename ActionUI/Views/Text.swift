@@ -17,7 +17,6 @@
 */
 
 import SwiftUI
-import Combine
 
 struct Text: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -48,12 +47,20 @@ struct Text: ActionUIViewConstruction {
         return validatedProperties
     }
 
-    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let initialText = properties["text"] as? String ?? ""
-        let initialAttr: AttributedString? = (properties["markdown"] as? String).flatMap {
-            (try? AttributedString(markdown: $0)) ?? AttributedString($0)
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { _, model, _, properties, _ in
+        // Runtime value (set via setElementValue) takes precedence - an AttributedString or a plain String;
+        // otherwise the markdown / text property. ActionUIView already owns the ViewModel as an
+        // @ObservedObject and re-builds this leaf when model.value changes, so no reactive container is needed.
+        if let attr = model.value as? AttributedString {
+            return SwiftUI.Text(attr)
         }
-        return TextContainer(model: model, initialAttr: initialAttr, initialText: initialText)
+        if let str = model.value as? String {
+            return SwiftUI.Text(str)
+        }
+        if let markdown = properties["markdown"] as? String {
+            return SwiftUI.Text((try? AttributedString(markdown: markdown)) ?? AttributedString(markdown))
+        }
+        return SwiftUI.Text(properties["text"] as? String ?? "")
     }
 
     static var initialValue: (ViewModel) -> Any? = { model in
@@ -63,24 +70,5 @@ struct Text: ActionUIViewConstruction {
             return (try? AttributedString(markdown: attrText)) ?? AttributedString(attrText)
         }
         return model.validatedProperties["text"] as? String ?? ""
-    }
-
-    /// Reactive container that re-renders when model.value changes to a String or AttributedString.
-    private struct TextContainer: SwiftUI.View {
-        @ObservedObject var model: ViewModel
-        let initialAttr: AttributedString?
-        let initialText: String
-
-        var body: some SwiftUI.View {
-            if let attr = model.value as? AttributedString {
-                SwiftUI.Text(attr)
-            } else if let str = model.value as? String {
-                SwiftUI.Text(str)
-            } else if let attr = initialAttr {
-                SwiftUI.Text(attr)
-            } else {
-                SwiftUI.Text(initialText)
-            }
-        }
     }
 }
