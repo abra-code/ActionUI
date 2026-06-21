@@ -1080,7 +1080,10 @@
     border: none;
     background: none;
     color: var(--aui-color-accent);
-    font: inherit;
+    /* An explicit nav-control size (the iOS back idiom): font:inherit picked up the
+       compressed 13px body size, which read as too small for a primary back affordance. */
+    font-family: inherit;
+    font-size: 17px;
     cursor: pointer;
     padding: 2px 4px;
     margin-bottom: 6px;
