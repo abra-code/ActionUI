@@ -941,6 +941,10 @@
 .aui-nav-split-content { flex: 1 1 0; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; padding: 12px; border-right: 1px solid var(--aui-control-border); }
 .aui-nav-split-detail { flex: 2 1 0; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: scroll; padding: 12px; }
 .aui-nav-split-row {
+    /* Section labels sit a step above the 13px window body - the sidebar is the
+       primary nav, so its rows read more like a list title than dense body text.
+       The label icon is em-relative (.aui-symbol = 1.18em), so it tracks this. */
+    font-size: 15px;
     padding: 6px 10px;
     border-radius: var(--aui-control-radius);
     cursor: default;
@@ -1864,6 +1868,11 @@
         padding-top: 10px;
         padding-bottom: 10px;
     }
+
+    /* Sidebar section labels grow another step on touch - on a phone the sidebar
+       is the full-screen landing list, so its rows read at iOS list-row scale
+       (~17px) rather than the desktop 15px. The em-relative icon follows. */
+    .aui-nav-split-row { font-size: 17px; }
 
     /* Compact Back affordances: the NavigationSplitView "back to sidebar" and
        the NavigationStack back button are small inline text buttons that a phone
