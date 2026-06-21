@@ -79,6 +79,59 @@
           { "type": "Text", "properties": { "text": "$1", "font": "footnote" } }
         ]
       }
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "List with swipeActions: swipe a row left for trailing actions, right for leading (drag with the mouse or a touch). Tap a revealed action to fire its actionID; a full swipe fires that edge's first action. The status line below echoes it.", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "List",
+      "id": 58,
+      "properties": { "listStyle": "inset", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "Label",
+          "properties": { "title": "Welcome aboard", "systemImage": "envelope" },
+          "swipeActions": [
+            { "type": "Button", "properties": { "title": "Flag", "systemImage": "flag", "tint": "orange", "edge": "leading", "actionID": "swipeFlag" } },
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "swipeDelete" } }
+          ]
+        },
+        {
+          "type": "Label",
+          "properties": { "title": "Your weekly digest", "systemImage": "newspaper" },
+          "swipeActions": [
+            { "type": "Button", "properties": { "title": "Pin", "systemImage": "pin", "tint": "blue", "edge": "leading", "actionID": "swipePin" } },
+            { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "tint": "indigo", "edge": "trailing", "actionID": "swipeArchive" } },
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "swipeDelete" } }
+          ]
+        },
+        {
+          "type": "Label",
+          "properties": { "title": "Reminder: tap to confirm", "systemImage": "bell" },
+          "swipeActions": [
+            { "type": "Button", "properties": { "title": "Mark Read", "systemImage": "checkmark.circle", "tint": "green", "edge": "leading", "actionID": "swipeRead" } },
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "allowsFullSwipe": false, "actionID": "swipeDelete" } }
+          ]
+        },
+        {
+          "type": "HStack",
+          "properties": { "spacing": 10, "alignment": "center", "frame": { "minHeight": 56 } },
+          "children": [
+            { "type": "Image", "properties": { "systemName": "building.2", "imageScale": "large", "foregroundColor": "secondary" } },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 2, "alignment": "leading" },
+              "children": [
+                { "type": "Text", "properties": { "text": "A taller row (title + subtitle)", "font": "body" } },
+                { "type": "Text", "properties": { "text": "When the row is tall, the actions stack the icon over the label (iOS Mail). Short rows above use an inline pill.", "font": "caption", "foregroundColor": "secondary" } }
+              ]
+            }
+          ],
+          "swipeActions": [
+            { "type": "Button", "properties": { "title": "Archive", "systemImage": "archivebox", "tint": "indigo", "edge": "trailing", "actionID": "swipeArchive" } },
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "edge": "trailing", "actionID": "swipeDelete" } }
+          ]
+        }
+      ]
     }
   ]
 }

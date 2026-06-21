@@ -625,6 +625,11 @@ app.action("demoPopoverShown", () => win.setString(20, 0, "Popover shown."));
 for (const [actionID, label] of [["ctxRename", "Rename"], ["ctxShare", "Share"], ["ctxDelete", "Delete"], ["ctxPin", "Pin"]]) {
     app.action(actionID, () => win.setString(20, 0, `Chose "${label}".`));
 }
+// swipeActions are real Button elements too, so each fires its OWN actionID. The status
+// line echoes which swipe action ran (a real app would delete/flag/archive the row).
+for (const [actionID, label] of [["swipeFlag", "Flag"], ["swipeDelete", "Delete"], ["swipePin", "Pin"], ["swipeArchive", "Archive"], ["swipeRead", "Mark Read"]]) {
+    app.action(actionID, () => win.setString(20, 0, `Swiped "${label}".`));
+}
 app.action("demoSheetClose", () => win.setState(301, "sheetVisible", false));
 app.action("demoSheetDismissed", () => win.setString(20, 0, "Sheet dismissed."));
 app.action("demoCoverClose", () => win.setState(302, "fullScreenCoverVisible", false));

@@ -29,6 +29,7 @@ import { applyDecorations } from "../Helpers/DecorationModifier.js";
 import { wrapWithSearchable } from "../Helpers/SearchableModifier.js";
 import { applyAnimation } from "../Helpers/AnimationModifier.js";
 import { wrapWithPullToRefresh } from "../Helpers/PullToRefreshHelper.js";
+import { wrapWithSwipeActions } from "../Helpers/SwipeActionsModifier.js";
 
 const constructions = new Map();
 
@@ -96,12 +97,17 @@ export function buildElementView(element, ctx) {
     // unless an overlay/background subview is declared; the data-aui-id stays on
     // the inner node, so host addressing is unaffected (like the toolbar wrap).
     const decorated = applyDecorations(refreshed, element, properties, ctx);
+    // swipeActions (List rows): wraps the node in a swipe-to-reveal container - the edge
+    // action panels behind an opaque, translating content layer. A no-op unless a
+    // swipeActions subview is declared; the data-aui-id stays on the inner node, so host
+    // addressing is unaffected (like the decoration/toolbar wraps).
+    const swiped = wrapWithSwipeActions(decorated, element, properties, ctx);
     // The `searchable` modifier (List / NavigationStack) wraps the node with a
     // search field above its content. Inside the toolbar wrap, so on a List with a
     // navigationTitle the field sits below the title bar (the iOS placement). A
     // no-op unless a valid `searchable` is declared; data-aui-id stays on the inner
     // node, so host addressing is unaffected.
-    const searched = wrapWithSearchable(decorated, element, properties, ctx);
+    const searched = wrapWithSearchable(swiped, element, properties, ctx);
     // A `toolbar` / `navigationTitle` wraps the node in screen chrome (a top bar
     // + optional bottom bar). The data-aui-id stays on the inner node, so host
     // addressing (value/state/scroll) is unaffected by the wrap.

@@ -40,7 +40,12 @@ export function makeElement(tag = "div") {
         textContent: "",
         className: "",
         disabled: false,
-        style: {},
+        // style is a plain bag of inline props; setProperty/getPropertyValue cover the
+        // CSSOM custom-property path the renderer uses (e.g. --aui-swipe-color, --aui-gauge-fill).
+        style: {
+            setProperty(name, val) { this[name] = val; },
+            getPropertyValue(name) { return this[name] ?? ""; },
+        },
         dataset: {},
         children: [],
         classList: {

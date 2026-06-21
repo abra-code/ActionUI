@@ -756,6 +756,86 @@
 }
 .aui-list-row-selected .aui-list-button { color: #ffffff; }
 
+/* ---- swipeActions (swipe-to-reveal row actions) ---- */
+
+/* The wrapping container (SwipeActionsModifier.js): the edge action panels sit behind an
+   opaque content layer that translates on a horizontal drag. overflow:hidden clips the
+   panels until the content slides off them. */
+.aui-swipe-row { position: relative; overflow: hidden; }
+.aui-swipe-content {
+    position: relative;        /* paints above the absolutely-positioned panels */
+    display: flex;
+    align-items: center;       /* keep the row content centered as the row settles */
+    /* Small floor for the inline pill so swipe rows stay as dense as normal list rows;
+       a row taller than STACK_MIN_HEIGHT switches to the stacked icon-circle + label
+       layout (SwipeActionsModifier.js toggles .aui-swipe-stacked). */
+    min-height: 28px;
+    background: var(--aui-control-background);  /* opaque, so the actions hide when closed */
+    touch-action: pan-y;       /* let vertical list scroll through; we own the horizontal axis */
+}
+/* iOS-style floating actions (not Android's edge-to-edge flat segments): centered in the row,
+   inset from the edge with a gap between, painting on the list row behind them. The action
+   color is published as --aui-swipe-color (set inline per Button). */
+.aui-swipe-actions {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+}
+.aui-swipe-actions-leading { left: 0; }
+.aui-swipe-actions-trailing { right: 0; }
+
+/* INLINE (short rows): icon + label side by side in one colored capsule pill. Compact so a
+   swipe row is no taller than a normal list row. */
+.aui-swipe-action {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 4px 12px;
+    color: #ffffff;
+    background: var(--aui-swipe-color, var(--aui-color-gray));
+}
+.aui-swipe-action-glyph { display: inline-flex; align-items: center; }
+.aui-swipe-action .aui-symbol { color: #ffffff; }
+.aui-swipe-action-title { line-height: 1; }
+
+/* STACKED (tall rows, iOS Mail): a colored icon pill with the label as plain text beneath;
+   the button itself is transparent and the label takes the row's text color. align-items
+   stretch makes the icon pill grow to the label's width - a stadium for a wide label, a
+   circle for a short one (iOS sizes it to the label, no JS measurement needed). */
+.aui-swipe-stacked .aui-swipe-action {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    border-radius: 0;
+    padding: 0;
+    background: none;
+    color: var(--aui-color-secondary);
+    text-align: center;
+}
+.aui-swipe-stacked .aui-swipe-action-glyph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    min-width: 32px;           /* circle floor for a short label; grows to the label width */
+    border-radius: 16px;       /* = height/2: a circle when square, a stadium when wider */
+    background: var(--aui-swipe-color, var(--aui-color-gray));
+    color: #ffffff;
+}
+.aui-swipe-stacked .aui-swipe-action-title { font-size: 11px; }
+
 /* ---- Table ---- */
 
 /* A multi-column data table (the macOS Table; the web is a desktop target, so it
@@ -1867,6 +1947,15 @@
         min-height: var(--aui-touch-target);
         padding-top: 10px;
         padding-bottom: 10px;
+    }
+
+    /* A swipe row carries its own large hit targets (the action pills) and the swipe
+       gesture itself, so it does not need the full touch row padding - keeping it dense
+       avoids the over-spaced look on a phone. */
+    .aui-list-row:has(.aui-swipe-row) {
+        min-height: 0;
+        padding-top: 4px;
+        padding-bottom: 4px;
     }
 
     /* Sidebar section labels grow another step on touch - on a phone the sidebar

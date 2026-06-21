@@ -30,7 +30,9 @@ let negativeIDCounter = -1;
 // a single one (the optional preview view) — mirroring SwiftUI's two-builder
 // `.contextMenu(menuItems:preview:)`. Modeled as element subtrees so a designer can
 // place real elements (an Image preview, an HStack), not a button-descriptor array.
-const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar", "contextMenu"];
+// "swipeActions" is likewise an array subview (the swipe action Buttons) — SwiftUI's
+// `.swipeActions(edge:allowsFullSwipe:)`, a ViewBuilder of real Button elements.
+const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar", "contextMenu", "swipeActions"];
 const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination",
     "sheet", "fullScreenCover", "popover", "overlay", "background", "contextMenuPreview"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
