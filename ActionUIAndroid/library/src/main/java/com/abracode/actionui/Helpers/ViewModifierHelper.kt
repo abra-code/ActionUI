@@ -129,6 +129,16 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
         BuildViewWithContextMenu(effective, targeted, animator)
         return
     }
+    // The `swipeActions` modifier (List rows): a horizontal swipe reveals the row's
+    // leading/trailing action Buttons; tapping one fires its actionID, and a full
+    // swipe of an `allowsFullSwipe` edge fires that edge's first Button (SwipeActionsHelper.kt).
+    // Like contextMenu, the wrapper takes the outer half and the carrier continues
+    // through BuildViewWithDecorations inside. (contextMenu above takes precedence in the
+    // rare same-row combo, as with the other modifier combos.)
+    if (effective.swipeActions?.isNotEmpty() == true) {
+        BuildViewWithSwipeActions(effective, targeted, animator)
+        return
+    }
     BuildViewWithDecorations(effective, targeted.applyOuterProperties(effective.properties, logger, animator), animator)
 }
 

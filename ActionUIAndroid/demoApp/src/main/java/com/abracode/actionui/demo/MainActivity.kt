@@ -66,6 +66,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // swipeActions demo (View.swipeActions.json): each swipe Button fires its OWN
+        // actionID; the toast echoes which action ran (a real app would delete/flag/archive the row).
+        mapOf(
+            "swipe.demo.flag" to "Flag", "swipe.demo.delete" to "Delete",
+            "swipe.demo.pin" to "Pin", "swipe.demo.archive" to "Archive",
+            "swipe.demo.read" to "Mark Read",
+        ).forEach { (actionID, label) ->
+            ActionUIModel.registerActionHandler(actionID) { _, _, _, _, _ ->
+                Toast.makeText(this, "Swiped \"$label\"", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // Demonstrate the host-side value bridge (View.stateBinding.json). "field.echo"
         // reads the TextField (viewID 1) out-of-band; "field.fill" writes it, and
         // because the value is the element's ViewModel state the field recomposes.

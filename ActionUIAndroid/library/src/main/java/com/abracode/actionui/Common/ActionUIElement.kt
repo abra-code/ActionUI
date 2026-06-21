@@ -99,6 +99,11 @@ interface ActionUIElementBase {
     // elements), contextMenuPreview is the optional single arbitrary view shown above the menu.
     val contextMenu: List<ActionUIElement>?
     val contextMenuPreview: ActionUIElement?
+    // swipeActions mirrors SwiftUI's `.swipeActions(edge:allowsFullSwipe:)`: an array of real
+    // Button elements revealed by swiping a List row (delete / complete / flag). Each Button
+    // carries its own title / systemImage / role / tint / actionID, plus an optional `edge`
+    // ("leading"/"trailing", default trailing) and `allowsFullSwipe`.
+    val swipeActions: List<ActionUIElement>?
 }
 
 @Serializable
@@ -121,7 +126,8 @@ data class ActionUIElement(
     override val overlay: ActionUIElement? = null,
     override val background: ActionUIElement? = null,
     override val contextMenu: List<ActionUIElement>? = null,
-    override val contextMenuPreview: ActionUIElement? = null
+    override val contextMenuPreview: ActionUIElement? = null,
+    override val swipeActions: List<ActionUIElement>? = null
 ) : ActionUIElementBase
 
 /**
@@ -147,4 +153,5 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     background?.let { add(it) }
     contextMenu?.let { addAll(it) }
     contextMenuPreview?.let { add(it) }
+    swipeActions?.let { addAll(it) }
 }
