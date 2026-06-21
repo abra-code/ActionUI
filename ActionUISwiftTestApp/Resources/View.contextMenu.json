@@ -1,0 +1,136 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 24.0,
+    "padding": 20.0
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "contextMenu Modifier",
+        "font": "title2"
+      }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Long-press (iOS) or right-click (macOS) an element below. contextMenu / contextMenuPreview are TOP-LEVEL subview keys holding real elements (not a button descriptor array) — modeled after SwiftUI's .contextMenu(menuItems:preview:). The chosen Button fires its own actionID.",
+        "font": "caption",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Text",
+      "id": 700,
+      "properties": {
+        "text": "No item chosen yet.",
+        "font": "callout",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "VStack",
+      "properties": {
+        "spacing": 16.0,
+        "padding": 16.0,
+        "background": "gray.opacity(0.1)",
+        "cornerRadius": 12.0
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "1. Menu items only — a list of action Buttons (right-click / long-press):",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 701,
+          "properties": {
+            "text": "A row of content",
+            "padding": 12.0,
+            "background": "gray.opacity(0.15)",
+            "cornerRadius": 8.0
+          },
+          "contextMenu": [
+            { "type": "Button", "properties": { "title": "Rename", "systemImage": "pencil", "actionID": "context.demo.rename" } },
+            { "type": "Button", "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "context.demo.share" } },
+            { "type": "Divider" },
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "actionID": "context.demo.delete" } }
+          ]
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "2. Menu items + a real image preview — a small thumbnail here, enlarged above the menu on iOS:",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Image",
+          "id": 702,
+          "properties": {
+            "resourceName": "abracadabra.png",
+            "resizable": true,
+            "contentMode": "fit",
+            "frame": { "width": 72.0, "height": 72.0 },
+            "cornerRadius": 8.0
+          },
+          "contextMenu": [
+            { "type": "Button", "properties": { "title": "Open", "systemImage": "arrow.up.forward.app", "actionID": "context.demo.open" } },
+            { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "actionID": "context.demo.delete" } }
+          ],
+          "contextMenuPreview": {
+            "type": "Image",
+            "properties": {
+              "resourceName": "abracadabra.png",
+              "resizable": true,
+              "contentMode": "fit",
+              "frame": { "width": 240.0, "height": 240.0 }
+            }
+          }
+        },
+        {
+          "type": "Divider"
+        },
+        {
+          "type": "Text",
+          "properties": {
+            "text": "3. An HStack preview — a couple of items side by side, only possible because the preview is an arbitrary view:",
+            "font": "caption",
+            "foregroundStyle": "secondary"
+          }
+        },
+        {
+          "type": "Text",
+          "id": 703,
+          "properties": {
+            "text": "Long-press for a rich preview",
+            "padding": 12.0,
+            "background": "gray.opacity(0.15)",
+            "cornerRadius": 8.0
+          },
+          "contextMenu": [
+            { "type": "Button", "properties": { "title": "Pin", "systemImage": "pin", "actionID": "context.demo.open" } }
+          ],
+          "contextMenuPreview": {
+            "type": "HStack",
+            "properties": { "spacing": 16.0, "padding": 16.0 },
+            "children": [
+              { "type": "Image", "properties": { "systemName": "star.fill", "foregroundStyle": "yellow", "imageScale": "large" } },
+              { "type": "Image", "properties": { "systemName": "heart.fill", "foregroundStyle": "pink", "imageScale": "large" } },
+              { "type": "Image", "properties": { "systemName": "bolt.fill", "foregroundStyle": "orange", "imageScale": "large" } }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

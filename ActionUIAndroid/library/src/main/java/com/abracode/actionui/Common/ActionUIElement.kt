@@ -94,6 +94,11 @@ interface ActionUIElementBase {
     val rows: List<List<ActionUIElement>>?
     val overlay: ActionUIElement?
     val background: ActionUIElement?
+    // contextMenu / contextMenuPreview mirror SwiftUI's `.contextMenu(menuItems:preview:)`,
+    // which is two ViewBuilders: contextMenu is the action-item array (real Button / Divider
+    // elements), contextMenuPreview is the optional single arbitrary view shown above the menu.
+    val contextMenu: List<ActionUIElement>?
+    val contextMenuPreview: ActionUIElement?
 }
 
 @Serializable
@@ -114,7 +119,9 @@ data class ActionUIElement(
     override val popover: ActionUIElement? = null,
     override val rows: List<List<ActionUIElement>>? = null,
     override val overlay: ActionUIElement? = null,
-    override val background: ActionUIElement? = null
+    override val background: ActionUIElement? = null,
+    override val contextMenu: List<ActionUIElement>? = null,
+    override val contextMenuPreview: ActionUIElement? = null
 ) : ActionUIElementBase
 
 /**
@@ -138,4 +145,6 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     rows?.forEach { addAll(it) }
     overlay?.let { add(it) }
     background?.let { add(it) }
+    contextMenu?.let { addAll(it) }
+    contextMenuPreview?.let { add(it) }
 }

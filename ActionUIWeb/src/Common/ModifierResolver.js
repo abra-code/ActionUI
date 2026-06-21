@@ -31,6 +31,8 @@
 //                    and HoverDrop_Design.md; web type-filtering is coarse (the DnD
 //                    spec hides item contents during dragover).
 
+import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
+
 const NAMED_COLORS = {
     // SwiftUI color names -> CSS custom properties resolved in theme.css,
     // so they adapt to light/dark mode like SwiftUI semantic colors.
@@ -294,6 +296,12 @@ export function applyViewModifiers(node, element, properties, ctx) {
     }
 
     applyHoverDrop(node, element, properties, ctx);
+
+    // contextMenu (any view): a right-click / long-press floating menu of action
+    // items (Helpers/ContextMenuModifier.js). A no-op unless a valid contextMenu is
+    // declared. The Apple parity is `.contextMenu`; the Android parity is the
+    // long-press DropdownMenu.
+    applyContextMenu(node, element, properties, ctx);
 }
 
 // UTType identifiers that the web treats as a plain-text drag (DataTransfer

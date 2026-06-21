@@ -55,6 +55,17 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Handled '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }
 
+        // contextMenu demo (View.contextMenu.json): the menu items are real Buttons, so
+        // each fires its OWN actionID; the toast echoes which action ran.
+        mapOf(
+            "context.demo.rename" to "Rename", "context.demo.share" to "Share",
+            "context.demo.delete" to "Delete", "context.demo.open" to "Open",
+        ).forEach { (actionID, label) ->
+            ActionUIModel.registerActionHandler(actionID) { _, _, _, _, _ ->
+                Toast.makeText(this, "Chose \"$label\"", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // Demonstrate the host-side value bridge (View.stateBinding.json). "field.echo"
         // reads the TextField (viewID 1) out-of-band; "field.fill" writes it, and
         // because the value is the element's ViewModel state the field recomposes.

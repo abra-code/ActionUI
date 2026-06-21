@@ -24,7 +24,7 @@
 // Private/Web_Porting_Notes.md (Menu).
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { selectLabelIcon, labelIcon } from "../Helpers/SymbolIcon.js";
+import { buildMenuChildNodes } from "../Helpers/MenuItems.js";
 import { makeFloatingPanel } from "../Helpers/PopoverPlacement.js";
 import { interpretiveFlatBinding } from "../Helpers/InsertionHelper.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
@@ -136,86 +136,3 @@ register("Menu", {
     },
 });
 
-// Classifies one Menu child by type, mirroring Android's menuItemKind.
-function menuItemKind(child) {
-    switch (child.type) {
-        case "Button": return "action";
-        case "Divider": return "divider";
-        case "Section": return "section";
-        default: return "other";
-    }
-}
-
-// Interprets one Menu child into its menu-item DOM node(s) (a Section expands to a
-// header + its nested items, flattened - the web collapses submenus to inline
-// items). `dismiss` closes the menu after an action. Children are interpreted (a
-// Button is an action declaration - title / icon / actionID - that the menu
-// presents as an item), not built through the registry as the filled controls they
-// would render standalone. Returns the node list so the caller can append it or
-// insert it at a runtime offset (the insertion API).
-function buildMenuChildNodes(child, ctx, dismiss) {
-    switch (menuItemKind(child)) {
-        case "action":
-            return [buildActionItem(child, ctx, dismiss)];
-        case "divider": {
-            const rule = document.createElement("hr");
-            rule.className = "aui-menu-divider";
-            return [rule];
-        }
-        case "section": {
-            const nodes = [];
-            const header = child.properties?.header;
-            if (typeof header === "string") {
-                const heading = document.createElement("div");
-                heading.className = "aui-menu-section-header";
-                heading.textContent = header;
-                nodes.push(heading);
-            }
-            for (const nested of child.children()) {
-                nodes.push(...buildMenuChildNodes(nested, ctx, dismiss));
-            }
-            return nodes;
-        }
-        default: {
-            ctx.logger.log(`Menu child '${child.type}' is not a menu item; showing a plain label`, "warning");
-            const props = child.properties ?? {};
-            const label = (typeof props.title === "string" && props.title)
-                || (typeof props.text === "string" && props.text)
-                || child.type;
-            const item = document.createElement("button");
-            item.type = "button";
-            item.className = "aui-menu-item aui-menu-item-plain";
-            item.textContent = label;
-            item.addEventListener("click", dismiss);
-            return [item];
-        }
-    }
-}
-
-// An action item: the button's title (+ icon through the shared glyph seam);
-// clicking dismisses the menu and dispatches the declared actionID.
-function buildActionItem(child, ctx, dismiss) {
-    const props = child.properties ?? {};
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "aui-menu-item";
-    item.setAttribute("role", "menuitem");
-
-    const icon = labelIcon(
-        selectLabelIcon(props, "assetImage", "Menu item", ctx.logger),
-        props, "Menu item", ctx.logger,
-    );
-    if (icon) item.appendChild(icon);
-
-    const text = document.createElement("span");
-    text.textContent = typeof props.title === "string" ? props.title : "";
-    item.appendChild(text);
-
-    item.addEventListener("click", () => {
-        dismiss();
-        if (typeof props.actionID === "string") {
-            ctx.model.dispatchAction(props.actionID, child.id);
-        }
-    });
-    return item;
-}

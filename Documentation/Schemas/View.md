@@ -139,6 +139,17 @@ JSON schema and usage documentation for `View`.
                                             // Also propagates to child Text views when set on a container (VStack, HStack, etc.).
       "zIndex": 0.0,                        // Optional: Number for layer ordering within a container (e.g. ZStack)
                                             // Higher values render in front of lower values. Defaults to 0.0.
+    },
+    // contextMenu (optional): a context menu attached to ANY view — long-press (iOS) / right-click (macOS).
+    // A TOP-LEVEL subview key (sibling of "properties"), modeled as two slots to match SwiftUI's
+    // `.contextMenu(menuItems:preview:)`, which is itself two ViewBuilders:
+    "contextMenu": [                        // The menu's action items: an array of real elements (Buttons carry their own
+      { "type": "Button", "properties": { "title": "Rename", "systemImage": "pencil", "actionID": "view.rename" } },   //   title / systemImage / role / actionID), plus Divider / Section / sub-Menu.
+      { "type": "Divider" },                //   These render as native menu rows.
+      { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "actionID": "view.delete" } }
+    ],
+    "contextMenuPreview": {                 // Optional: a single arbitrary view shown enlarged above the menu (iOS only;
+      "type": "Image", "properties": { "systemName": "photo", "imageScale": "large" }   //   macOS right-click menus have no preview). Any element — an Image, an HStack of items, etc.
     }
   }
 

@@ -620,6 +620,11 @@ app.action("toastUndo", () => win.setString(20, 0, "Undo tapped."));
 // fire on any close; the "Done"/"Close" buttons close programmatically via
 // setElementState, demonstrating host-driven dismissal.
 app.action("demoPopoverShown", () => win.setString(20, 0, "Popover shown."));
+// contextMenu items are real Button elements, so each fires its OWN actionID
+// (ctx.viewID = the Button's id). The status line echoes which action ran.
+for (const [actionID, label] of [["ctxRename", "Rename"], ["ctxShare", "Share"], ["ctxDelete", "Delete"], ["ctxPin", "Pin"]]) {
+    app.action(actionID, () => win.setString(20, 0, `Chose "${label}".`));
+}
 app.action("demoSheetClose", () => win.setState(301, "sheetVisible", false));
 app.action("demoSheetDismissed", () => win.setString(20, 0, "Sheet dismissed."));
 app.action("demoCoverClose", () => win.setState(302, "fullScreenCoverVisible", false));

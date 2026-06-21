@@ -134,6 +134,16 @@
      "multilineTextAlignment": "center",   // Optional: "leading", "center", or "trailing". Controls text alignment for multi-line text.
       "zIndex": 0.0,                        // Optional: Number for layer ordering within a container (e.g. ZStack)
                                             // Higher values render in front of lower values. Defaults to 0.0.
+    },
+    // contextMenu / contextMenuPreview are OPTIONAL TOP-LEVEL subview keys (siblings of "properties", NOT properties),
+    // attachable to ANY view. They mirror SwiftUI's `.contextMenu(menuItems:preview:)`, which is itself two ViewBuilders:
+    "contextMenu": [                        // The menu's action items: an array of real elements (Buttons carry their own
+      { "type": "Button", "properties": { "title": "Rename", "systemImage": "pencil", "actionID": "view.rename" } },  //   title / systemImage / role / actionID), plus Divider / Section / sub-Menu. These render as native menu rows.
+      { "type": "Divider" },
+      { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "actionID": "view.delete" } }
+    ],
+    "contextMenuPreview": {                 // Optional: a single arbitrary view shown enlarged above the menu on long-press
+      "type": "Image", "properties": { "systemName": "photo", "imageScale": "large" }   //   (iOS only; macOS right-click menus have no preview). Any element — an Image, an HStack of items, etc.
     }
   }
 
@@ -1404,6 +1414,29 @@ struct View: ActionUIViewConstruction {
 
         if let helpLabel = properties["help"] as? String {
             modifiedView = AnyView(modifiedView).help(helpLabel)
+        }
+
+        // contextMenu: a long-press (iOS) / right-click (macOS) menu attached to this view.
+        // Two subview slots, not a property array, because SwiftUI's
+        // `.contextMenu(menuItems:preview:)` is itself two ViewBuilders: the `contextMenu`
+        // array holds the menu's action items (real Button / Divider / Section elements,
+        // each carrying its own title / systemImage / role / actionID), and the optional
+        // `contextMenuPreview` is an arbitrary view shown above the menu - the only slot
+        // where free-form layout / a big Image renders richly on iOS (macOS has no preview).
+        if let menuItems = element.subviews?["contextMenu"] as? [any ActionUIElementBase], !menuItems.isEmpty {
+            let items = ContextMenuMenuItems(items: menuItems, windowUUID: windowUUID)
+#if os(macOS)
+            // macOS right-click menus have no preview (the SwiftUI preview: variant is
+            // unavailable there), so contextMenuPreview is ignored here - the native behavior.
+            modifiedView = AnyView(modifiedView).contextMenu { items }
+#else
+            if let previewElement = element.subviews?["contextMenuPreview"] as? any ActionUIElementBase {
+                let preview = ContextMenuPreviewContent(element: previewElement, windowUUID: windowUUID)
+                modifiedView = AnyView(modifiedView).contextMenu { items } preview: { preview }
+            } else {
+                modifiedView = AnyView(modifiedView).contextMenu { items }
+            }
+#endif
         }
 
         if let accessibilityLabel = properties["accessibilityLabel"] as? String {

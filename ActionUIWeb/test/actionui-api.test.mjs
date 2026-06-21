@@ -149,3 +149,33 @@ test("the menu-bar app shell wraps the primary window but not appShell:false sur
     app.presentWindow(panel, panelContainer, { appShell: false });
     assert.ok(panelContainer.children.includes(panel.rootNode), "auxiliary surface mounts directly, no shell");
 });
+
+// ---- window uuid generation (crypto.randomUUID secure-context fallback) ----
+// crypto.randomUUID() is secure-context-only - undefined on a plain-http origin that
+// is not localhost (the Android emulator's http://10.0.2.2, a LAN IP). generateUUID()
+// must still produce a valid uuid there, or every window build throws and blanks the app.
+
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function withCrypto(stub, fn) {
+    const real = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+    Object.defineProperty(globalThis, "crypto", { value: stub, configurable: true, writable: true });
+    try { fn(); } finally { Object.defineProperty(globalThis, "crypto", real); }
+}
+
+test("Window.uuid is a valid v4 UUID via crypto.randomUUID (secure context)", () => {
+    assert.match(Window.fromJSON({ type: "Text", id: 1 }, undefined, makeLogger()).uuid, UUID_V4_RE);
+});
+
+test("Window.uuid falls back when crypto.randomUUID is unavailable (insecure-context http origin)", () => {
+    const getRandomValues = globalThis.crypto.getRandomValues.bind(globalThis.crypto);
+    withCrypto({ getRandomValues }, () => { // crypto present but no randomUUID, as on http://10.0.2.2
+        assert.match(Window.fromJSON({ type: "Text", id: 1 }, undefined, makeLogger()).uuid, UUID_V4_RE);
+    });
+});
+
+test("Window.uuid falls back to Math.random when crypto is entirely absent", () => {
+    withCrypto(undefined, () => {
+        assert.match(Window.fromJSON({ type: "Text", id: 1 }, undefined, makeLogger()).uuid, UUID_V4_RE);
+    });
+});

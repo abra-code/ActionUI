@@ -118,6 +118,17 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
         BuildViewWithPopover(effective, targeted, animator)
         return
     }
+    // The `contextMenu` modifier (any view): a long-press floats a Material
+    // DropdownMenu of the element's `contextMenu` action-item subviews (plus the
+    // optional `contextMenuPreview` block) anchored to the element (ContextMenuHelper.kt).
+    // Like popover, the wrapping Box takes the outer half and the carrier continues
+    // through BuildViewWithDecorations inside. Requires at least one menu item (an
+    // Apple context menu is its action list; a preview alone is not one). (Searchable/
+    // popover above take precedence in the rare same-element combo, as with other combos.)
+    if (effective.contextMenu?.isNotEmpty() == true) {
+        BuildViewWithContextMenu(effective, targeted, animator)
+        return
+    }
     BuildViewWithDecorations(effective, targeted.applyOuterProperties(effective.properties, logger, animator), animator)
 }
 

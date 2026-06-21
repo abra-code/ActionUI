@@ -414,6 +414,28 @@
     gap: 0.5em;
 }
 .aui-menu-item:hover { background: var(--aui-color-accent); color: #ffffff; }
+/* contextMenu (Helpers/ContextMenuModifier.js) reuses the menu-item styling. A
+   "destructive" item is red, inverting to a red fill on hover (the system idiom). */
+.aui-menu-item-destructive { color: var(--aui-color-destructive, #d11); }
+.aui-menu-item-destructive:hover { background: var(--aui-color-destructive, #d11); color: #ffffff; }
+/* A contextMenu host (Helpers/ContextMenuModifier.js): suppress the platform's own
+   long-press behaviour so only our menu appears. -webkit-touch-callout:none kills iOS
+   Safari's long-press callout (Save Image / Copy / link preview); user-select:none kills
+   the text-selection magnifier. Desktop's native menu is cancelled via preventDefault. */
+.aui-context-menu-host {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+/* The optional contextMenuPreview subtree renders as a block above the items (the web
+   stand-in for SwiftUI's iOS lift-and-enlarge preview), separated by a hairline. */
+.aui-context-menu-preview {
+    padding: 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--aui-control-border);
+    display: flex;
+    justify-content: center;
+}
 .aui-menu-divider { border: none; border-top: 1px solid var(--aui-control-border); margin: 4px 6px; }
 .aui-menu-section-header {
     color: var(--aui-color-secondary);

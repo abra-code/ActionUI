@@ -163,6 +163,85 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(searchable?["prompt"], "non-String prompt should be stripped while keeping actionID")
     }
 
+    // MARK: - contextMenu / contextMenuPreview (top-level subview keys)
+
+    func testContextMenuSubviewsDecode() throws {
+        // contextMenu is an ARRAY subview (the menu's action items: real Button / Divider
+        // elements) and contextMenuPreview is a SINGLE arbitrary subview (the preview) -
+        // mirroring SwiftUI's `.contextMenu(menuItems:preview:)`, not a property descriptor.
+        let json = """
+        {
+            "id": 1,
+            "type": "Image",
+            "properties": { "systemName": "photo" },
+            "contextMenu": [
+                { "id": 2, "type": "Button", "properties": { "title": "Rename", "systemImage": "pencil", "actionID": "ctx.rename" } },
+                { "id": 3, "type": "Divider" },
+                { "id": 4, "type": "Button", "properties": { "title": "Delete", "role": "destructive", "actionID": "ctx.delete" } }
+            ],
+            "contextMenuPreview": {
+                "id": 5,
+                "type": "Image",
+                "properties": { "systemName": "photo", "imageScale": "large" }
+            }
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+
+        let items = try XCTUnwrap(element.subviews?["contextMenu"] as? [ActionUIElement])
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0].type, "Button")
+        XCTAssertEqual(items[0].properties["actionID"] as? String, "ctx.rename")
+        XCTAssertEqual(items[1].type, "Divider")
+        XCTAssertEqual(items[2].properties["role"] as? String, "destructive")
+
+        let preview = try XCTUnwrap(element.subviews?["contextMenuPreview"] as? ActionUIElement)
+        XCTAssertEqual(preview.type, "Image")
+        XCTAssertEqual(preview.properties["imageScale"] as? String, "large")
+    }
+
+    func testContextMenuItemsAndPreviewAreTraversedChildren() throws {
+        // The items and the preview must be in the shared childElements walk so their ids
+        // register in the window's ViewModel pool (Buttons need their actionID wiring).
+        let json = """
+        {
+            "id": 1, "type": "Text", "properties": { "text": "Hi" },
+            "contextMenu": [ { "id": 2, "type": "Button", "properties": { "title": "A", "actionID": "a" } } ],
+            "contextMenuPreview": { "id": 3, "type": "Image", "properties": { "systemName": "star" } }
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        let childIDs = element.childElements.map { $0.id }
+        XCTAssertTrue(childIDs.contains(2), "menu item id is a traversed child")
+        XCTAssertTrue(childIDs.contains(3), "preview id is a traversed child")
+    }
+
+    func testContextMenuPreviewOptional() throws {
+        // The preview is optional: a context menu can be just an action list.
+        let json = """
+        {
+            "id": 1, "type": "Text", "properties": { "text": "Hi" },
+            "contextMenu": [ { "id": 2, "type": "Button", "properties": { "title": "A", "actionID": "a" } } ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        XCTAssertNotNil(element.subviews?["contextMenu"])
+        XCTAssertNil(element.subviews?["contextMenuPreview"], "preview may be omitted")
+    }
+
+    func testContextMenuAbsent() throws {
+        let json = """
+        {"id": 1, "type": "Text", "properties": { "text": "Hi" }}
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let element = try JSONDecoder(logger: logger).decode(ActionUIElement.self, from: data)
+        XCTAssertNil(element.subviews?["contextMenu"])
+        XCTAssertNil(element.subviews?["contextMenuPreview"])
+    }
+
     func testValidatePropertiesInvalid() throws {
         let properties: [String: Any] = [
             "padding": "10",

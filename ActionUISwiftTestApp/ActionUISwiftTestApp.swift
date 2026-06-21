@@ -168,6 +168,19 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
         }
 
+        // contextMenu demo (View.contextMenu.json): the menu items are real Buttons, so
+        // each fires its OWN actionID (viewID = the Button's id). The status label (700)
+        // echoes which action ran.
+        let contextMenuActions: [String: String] = [
+            "context.demo.rename": "Rename", "context.demo.share": "Share",
+            "context.demo.delete": "Delete", "context.demo.open": "Open",
+        ]
+        for (actionID, label) in contextMenuActions {
+            ActionUISwift.registerActionHandler(actionID: actionID) { _, windowUUID, _, _, _ in
+                ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 700, value: "Chose \"\(label)\".")
+            }
+        }
+
         // VStack template demo handlers (VStack.template.json)
         // IDs: 10 = VStack+Label, 20 = VStack+HStack, 30 = HStack chips, 99 = status label
         let vstackTemplateRows: [[String]] = [

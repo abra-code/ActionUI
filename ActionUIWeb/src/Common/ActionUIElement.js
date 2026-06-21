@@ -26,9 +26,13 @@
 
 let negativeIDCounter = -1;
 
-const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar"];
+// "contextMenu" is an array subview (the menu's action items) and "contextMenuPreview"
+// a single one (the optional preview view) — mirroring SwiftUI's two-builder
+// `.contextMenu(menuItems:preview:)`. Modeled as element subtrees so a designer can
+// place real elements (an Image preview, an HStack), not a button-descriptor array.
+const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar", "contextMenu"];
 const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination",
-    "sheet", "fullScreenCover", "popover", "overlay", "background"];
+    "sheet", "fullScreenCover", "popover", "overlay", "background", "contextMenuPreview"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.

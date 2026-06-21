@@ -110,7 +110,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview
     }
     
     public init(from decoder: Decoder) throws {
@@ -131,7 +131,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
-        for key in ["children", "destinations", "toolbar"] {
+        // `contextMenu` is an array subview (the menu's action items) because SwiftUI's
+        // `.contextMenu(menuItems:preview:)` takes a ViewBuilder of items; see the
+        // single-child `contextMenuPreview` below for the optional preview half.
+        for key in ["children", "destinations", "toolbar", "contextMenu"] {
             if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = children
@@ -143,7 +146,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             subviews!["rows"] = rows
         }
         
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background"] {
+        // `contextMenuPreview` is the optional single arbitrary view shown above the
+        // menu on long-press (SwiftUI's `.contextMenu` preview: ViewBuilder); the
+        // action items live in the `contextMenu` array above.
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview"] {
             if var child = try container.decodeIfPresent(ActionUIElement.self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if key == "template" {
                     child = ActionUIElement.normalizeTemplateIDs(child)
@@ -194,8 +200,8 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             return
         }
         
-        // Encode children, destinations, and toolbar arrays
-        for key in ["children", "destinations", "toolbar"] {
+        // Encode children, destinations, toolbar, and contextMenu arrays
+        for key in ["children", "destinations", "toolbar", "contextMenu"] {
             if let children = subviews[key] as? [ActionUIElement] {
                 try container.encodeIfPresent(children, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -211,7 +217,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         }
         
         // Encode single child views
-        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background"] {
+        for key in ["content", "destination", "sidebar", "detail", "label", "popover", "template", "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview"] {
             if let child = subviews[key] as? ActionUIElement {
                 try container.encodeIfPresent(child, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -409,12 +415,13 @@ extension ActionUIElement: Equatable {
 // that DO need it (Codable, normalizeTemplateID, ==) handle it explicitly.
 enum ActionUISubviewContainers {
     /// Container keys holding an array of child elements.
-    static let arrayKeys = ["children", "destinations", "toolbar", "commands"]
+    static let arrayKeys = ["children", "destinations", "toolbar", "commands", "contextMenu"]
     /// Container key holding an array-of-arrays of child elements (Grid rows).
     static let rowsKey = "rows"
     /// Container keys holding a single child element.
     static let singleKeys = ["content", "destination", "sidebar", "detail", "label",
-                             "popover", "sheet", "fullScreenCover", "overlay", "background"]
+                             "popover", "sheet", "fullScreenCover", "overlay", "background",
+                             "contextMenuPreview"]
 }
 
 extension ActionUIElementBase {

@@ -97,6 +97,55 @@
         { "type": "Button", "properties": { "title": "Show Toast", "systemImage": "bell", "buttonStyle": "bordered", "actionID": "showToast" } },
         { "type": "Button", "properties": { "title": "Toast with Undo", "systemImage": "arrow.uturn.backward", "buttonStyle": "bordered", "actionID": "showToastUndo" } }
       ]
+    },
+    { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "contextMenu (any view): right-click on a desktop, or long-press on touch, to open an action menu. contextMenu / contextMenuPreview are TOP-LEVEL subview keys holding real elements (Buttons for actions; an arbitrary preview view), modeled after SwiftUI's .contextMenu(menuItems:preview:). Below, a small image thumbnail enlarges in the preview; each Button fires its actionID (echoed above).", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Image",
+      "id": 320,
+      "properties": {
+        "resourceName": "abracadabra.png",
+        "contentMode": "fit",
+        "frame": { "width": 72, "height": 72 },
+        "cornerRadius": 8
+      },
+      "contextMenu": [
+        { "type": "Button", "properties": { "title": "Rename", "systemImage": "pencil", "actionID": "ctxRename" } },
+        { "type": "Button", "properties": { "title": "Share", "systemImage": "square.and.arrow.up", "actionID": "ctxShare" } },
+        { "type": "Divider" },
+        { "type": "Button", "properties": { "title": "Delete", "systemImage": "trash", "role": "destructive", "actionID": "ctxDelete" } }
+      ],
+      "contextMenuPreview": {
+        "type": "Image",
+        "properties": {
+          "resourceName": "abracadabra.png",
+          "contentMode": "fit",
+          "frame": { "width": 240, "height": 240 }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "...and the preview is an arbitrary view, so it can be an HStack of items side by side (which a menu list can't lay out):", "foregroundColor": "secondary", "font": "callout" } },
+    {
+      "type": "Text",
+      "id": 321,
+      "properties": {
+        "text": "Right-click / long-press for a rich preview",
+        "padding": "default",
+        "background": "gray.opacity(0.15)",
+        "cornerRadius": 8
+      },
+      "contextMenu": [
+        { "type": "Button", "properties": { "title": "Pin", "systemImage": "pin", "actionID": "ctxPin" } }
+      ],
+      "contextMenuPreview": {
+        "type": "HStack",
+        "properties": { "spacing": 16, "padding": "default" },
+        "children": [
+          { "type": "Image", "properties": { "systemName": "star.fill", "foregroundColor": "yellow", "imageScale": "large" } },
+          { "type": "Image", "properties": { "systemName": "heart.fill", "foregroundColor": "pink", "imageScale": "large" } },
+          { "type": "Image", "properties": { "systemName": "bolt.fill", "foregroundColor": "orange", "imageScale": "large" } }
+        ]
+      }
     }
   ]
 }

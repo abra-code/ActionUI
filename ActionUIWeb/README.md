@@ -18,9 +18,22 @@ ES modules and `fetch` require an HTTP server (not `file://`):
 
 ```sh
 cd ActionUIWeb
-python3 -m http.server 8080
+python3 -m http.server 8080 --protocol HTTP/1.1
 # open http://localhost:8080/demo/
 ```
+
+The `--protocol HTTP/1.1` matters off-localhost. The demo loads ~100 small ES module
+files individually (no bundle, by design), and `http.server` defaults to HTTP/1.0 with
+no keep-alive - so every file pays a fresh TCP handshake. On loopback that is invisible,
+but over a higher-latency path (an Android emulator at `http://10.0.2.2:8080`, a phone
+over Wi-Fi, a LAN IP) it dominates: a measured cold load on an emulator was ~13 s with
+HTTP/1.0 vs ~1 s with HTTP/1.1 keep-alive (99 fresh connections vs 6 reused). The flag
+needs Python 3.11+; with an older Python use any keep-alive server (`npx http-server`,
+`npx serve`, `caddy file-server`).
+
+For an emulator, point the browser at `http://10.0.2.2:8080/demo/` (the emulator's alias
+for the host loopback - `127.0.0.1` there is the emulated device itself), or run
+`adb reverse tcp:8080 tcp:8080` to keep using `http://127.0.0.1:8080/demo/`.
 
 The demo is a `NavigationSplitView` shell (`demo/ui.json`); each sidebar section is
 a separate JSON file under `demo/sections/`, pulled in by a `LoadableView`.
