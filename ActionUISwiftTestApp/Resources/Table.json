@@ -73,7 +73,8 @@
         "columns": ["Name", "Role", "Department"],
         "widths": [160, 130, 150],
         "padding": "default",
-        "actionID": "table.demo.selection.changed"
+        "actionID": "table.demo.selection.changed",
+        "doubleClickActionID": "table.demo.double.click"
       }
     },
     {

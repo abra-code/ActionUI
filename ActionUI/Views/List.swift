@@ -371,12 +371,17 @@ struct List: ActionUIViewConstruction {
                 ForEach(rowViews.indices, id: \.self) { i in rowViews[i] }
             }
             #if canImport(AppKit)
-            .onTapGesture(count: 2) {
+            // .onTapGesture(count: 2) never fires for row clicks on macOS (rows consume
+            // the mouse events for selection); use the List's primaryAction instead, which
+            // is the supported double-click (and Return-key) hook.
+            .contextMenu(forSelectionType: Int.self) { _ in
+                // No context-menu items: used only for its primaryAction.
+            } primaryAction: { indices in
                 if let doubleClickActionID = doubleClickActionID,
-                   let selectedRow = model.value as? [String],
-                   !selectedRow.isEmpty,
-                   let content = model.states["content"] as? [[String]],
-                   let index = content.firstIndex(where: { $0 == selectedRow }) {
+                   let index = indices.first {
+                    if let content = model.states["content"] as? [[String]], content.indices.contains(index) {
+                        model.value = content[index]   // keep selection/value in sync for env export
+                    }
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
                 }
             }
@@ -494,11 +499,17 @@ struct List: ActionUIViewConstruction {
                 }
             }
             #if canImport(AppKit)
-            .onTapGesture(count: 2) {
+            // .onTapGesture(count: 2) never fires for row clicks on macOS (rows consume
+            // the mouse events for selection); use the List's primaryAction instead, which
+            // is the supported double-click (and Return-key) hook.
+            .contextMenu(forSelectionType: Int.self) { _ in
+                // No context-menu items: used only for its primaryAction.
+            } primaryAction: { indices in
                 if let doubleClickActionID = doubleClickActionID,
-                   let selectedRow = model.value as? [String],
-                   !selectedRow.isEmpty,
-                   let index = displayItems.firstIndex(of: selectedRow.first ?? "") {
+                   let index = indices.first {
+                    if let content = model.states["content"] as? [[String]], content.indices.contains(index) {
+                        model.value = content[index]   // keep selection/value in sync for env export
+                    }
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: index)
                 }
             }

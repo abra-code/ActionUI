@@ -291,11 +291,17 @@ struct Table: ActionUIViewConstruction {
             }
         }
         .tableColumnHeaders(columnHeadersVisibility)
-        .onTapGesture(count: 2) {
+        // Double-click handling. A plain .onTapGesture(count: 2) on a Table never
+        // fires for row clicks on macOS — the rows consume the mouse events for
+        // selection. The collection's own primaryAction is the supported double-click
+        // (and Return-key) hook, so route doubleClickActionID through it instead.
+        .contextMenu(forSelectionType: String.self) { _ in
+            // No context-menu items: this modifier is used only for its primaryAction.
+        } primaryAction: { ids in
             if let doubleClickActionID = properties["doubleClickActionID"] as? String,
-               let selectedRow = model.value as? [String],
-               !selectedRow.isEmpty,
-               let index = rowData.firstIndex(where: { $0.values == selectedRow }) {
+               let firstID = ids.first,
+               let index = rowData.firstIndex(where: { $0.id == firstID }) {
+                model.value = rowData[index].values   // keep selection/value in sync for env export
                 ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
             }
         }

@@ -79,6 +79,7 @@
           "y": 2.0
         },
         "actionID": "list.demo.selection.changed",
+        "doubleClickActionID": "list.demo.double.click",
         "onRefreshActionID": "list.demo.refresh"
       }
     },

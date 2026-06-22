@@ -106,6 +106,16 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.clearElementSelection(windowUUID: windowUUID, viewID: 1)
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selection cleared.")
         }
+        // Double-click demo: the framework routes a row double-click (and Return on a
+        // selected row) through the Table's primaryAction. The action context is the
+        // 0-based row index; the double-clicked row is the current selection.
+        ActionUISwift.registerActionHandler(actionID: "table.demo.double.click") { _, windowUUID, _, _, context in
+            let index = context as? Int ?? -1
+            let row = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String] ?? []
+            print("Double-click action executed: table.demo.double.click — row \(index): \(row.joined(separator: " / "))")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                value: "Double-clicked row \(index): \(row.joined(separator: " / "))")
+        }
 
         // List demo handlers
         var listAppendIndex = 0
@@ -166,6 +176,16 @@ struct ActionUISwiftTestApp: App {
         ActionUISwift.registerActionHandler(actionID: "list.demo.deselect") { _, windowUUID, _, _, _ in
             ActionUISwift.clearElementSelection(windowUUID: windowUUID, viewID: 1)
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2, value: "Selected: <none>")
+        }
+        // Double-click demo: the framework routes a row double-click (and Return on a
+        // selected row) through the List's primaryAction. The action context is the
+        // 0-based row index; the double-clicked row is the current selection.
+        ActionUISwift.registerActionHandler(actionID: "list.demo.double.click") { _, windowUUID, _, _, context in
+            let index = context as? Int ?? -1
+            let item = (ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String])?.first ?? ""
+            print("Double-click action executed: list.demo.double.click — row \(index): \(item)")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 2,
+                value: "Double-clicked row \(index): \(item)")
         }
 
         // contextMenu demo (View.contextMenu.json): the menu items are real Buttons, so
