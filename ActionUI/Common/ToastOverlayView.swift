@@ -18,7 +18,7 @@ struct ToastOverlayView: SwiftUI.View {
         SwiftUI.HStack(spacing: 12) {
             SwiftUI.Text(toast.message)
                 .font(.subheadline)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let action = toast.action {
@@ -34,10 +34,17 @@ struct ToastOverlayView: SwiftUI.View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        // A material card that adapts to light/dark (the macOS transient-banner look),
+        // rather than a fixed dark snackbar; a hairline border keeps it crisp over
+        // similar-toned content in light mode.
         .background(
             SwiftUI.RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(SwiftUI.Color(white: 0.15))
+                .fill(.regularMaterial)
                 .shadow(radius: 8, y: 2)
+        )
+        .overlay(
+            SwiftUI.RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(SwiftUI.Color.primary.opacity(0.12), lineWidth: 0.5)
         )
         .frame(maxWidth: 520)
         .padding(.horizontal, 16)
