@@ -65,6 +65,22 @@
                            //   When omitted, animation fires on any mutation (setElementProperty,
                            //   setElementState, setElementValue).
      },
+     "transition": "opacity", // Optional: how this view animates when it is inserted/removed at
+     "transition": {          //   runtime (via insertElement / removeElement). String shorthand
+                              //   ("opacity", "slide", "scale", "identity") or a dictionary:
+       "type": "move",        // Required: "opacity", "slide", "scale", "move", "offset",
+                              //   "identity", or "asymmetric".
+       "edge": "bottom",      // For "move": which edge to move from/to ("top"/"bottom"/"leading"/
+                              //   "trailing"; default "bottom").
+       "scale": 0.5,          // For "scale": start/end scale factor (Double; default 0).
+       "anchor": "center",    // For "scale": the scale anchor (UnitPoint; default "center").
+       "x": 0.0, "y": 20.0,   // For "offset": the start/end offset.
+       "insertion": "opacity",// For "asymmetric": the insertion transition (shorthand or dict).
+       "removal": { "type": "move", "edge": "bottom" } // For "asymmetric": the removal transition.
+     },
+     "transition": ["opacity", { "type": "scale" }], // Array form: the transitions combined.
+                              //   A view without `transition` is inserted/removed instantly (the
+                              //   default); declaring it makes that structural change animate.
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)
@@ -304,6 +320,84 @@ private func resolveAnimationWatchedValue(
     if let v = states[target] as? AnyHashable { return v }
     if target == "value", let v = viewValue as? AnyHashable { return v }
     return AnyHashable(0)
+}
+
+// A single edge for the `move` transition (vs resolveSafeAreaEdges, which builds an Edge.Set).
+private func resolveTransitionEdge(_ string: String?) -> Edge {
+    switch string {
+    case "top":      return .top
+    case "leading":  return .leading
+    case "trailing": return .trailing
+    default:         return .bottom
+    }
+}
+
+// Resolves a validated `transition` value (a normalized dict, or an array = combined) to an
+// AnyTransition. Mirrors the shorthand/dict/array/asymmetric grammar validated in validateProperties.
+// The element's `.transition()` plays only when the view is structurally inserted/removed inside an
+// animated transaction (WindowModel wraps insert/remove in withAnimation when `transition` is set).
+private func resolveTransition(_ value: Any) -> AnyTransition? {
+    if let array = value as? [Any] {
+        let parts = array.compactMap { resolveTransition($0) }
+        guard let first = parts.first else { return nil }
+        return parts.dropFirst().reduce(first) { $0.combined(with: $1) }
+    }
+    guard let dict = value as? [String: Any], let type = dict["type"] as? String else { return nil }
+    switch type {
+    case "identity": return .identity
+    case "opacity":  return .opacity
+    case "slide":    return .slide
+    case "scale":
+        if let factor = dict.cgFloat(forKey: "scale") {
+            return .scale(scale: factor, anchor: resolveUnitPoint(dict["anchor"] as? String))
+        }
+        return .scale
+    case "move":
+        return .move(edge: resolveTransitionEdge(dict["edge"] as? String))
+    case "offset":
+        return .offset(x: dict.cgFloat(forKey: "x") ?? 0.0, y: dict.cgFloat(forKey: "y") ?? 0.0)
+    case "asymmetric":
+        let insertion = dict["insertion"].flatMap { resolveTransition($0) } ?? .identity
+        let removal = dict["removal"].flatMap { resolveTransition($0) } ?? .identity
+        return .asymmetric(insertion: insertion, removal: removal)
+    default:
+        return nil
+    }
+}
+
+// Validates a `transition` value (shorthand String, dict, or array = combined), returning the
+// normalized form (strings -> {"type": s}; nested insertion/removal/array entries normalized too) or
+// nil if invalid. `validTransitionTypes` are the dict `type`s; the shorthands are the no-param ones.
+private let validTransitionTypes = ["opacity", "slide", "scale", "move", "offset", "identity", "asymmetric"]
+private func validateTransition(_ value: Any, _ logger: any ActionUILogger) -> Any? {
+    if let array = value as? [Any] {
+        let normalized = array.compactMap { validateTransition($0, logger) }
+        if normalized.isEmpty {
+            logger.log("transition array has no valid entries, ignoring", .warning)
+            return nil
+        }
+        return normalized
+    }
+    if let s = value as? String {
+        guard validTransitionTypes.contains(s) else {
+            logger.log("Invalid transition '\(s)', expected one of \(validTransitionTypes), ignoring", .warning)
+            return nil
+        }
+        return ["type": s]
+    }
+    guard var dict = value as? [String: Any] else {
+        logger.log("Invalid type for transition: expected String, Array, or dictionary, got \(type(of: value)), ignoring", .warning)
+        return nil
+    }
+    guard let type = dict["type"] as? String, validTransitionTypes.contains(type) else {
+        logger.log("transition.type '\(dict["type"] as? String ?? "(missing)")' must be one of \(validTransitionTypes), ignoring", .warning)
+        return nil
+    }
+    if type == "asymmetric" {
+        dict["insertion"] = dict["insertion"].flatMap { validateTransition($0, logger) } ?? ["type": "identity"]
+        dict["removal"] = dict["removal"].flatMap { validateTransition($0, logger) } ?? ["type": "identity"]
+    }
+    return dict
 }
 
 struct View: ActionUIViewConstruction {
@@ -1025,6 +1119,11 @@ struct View: ActionUIViewConstruction {
             }
         }
 
+        // Validate transition (the insert/remove animation) - normalize shorthand/array, drop invalid.
+        if let transition = properties["transition"] {
+            validatedProperties["transition"] = validateTransition(transition, logger)
+        }
+
         // Validate rotationEffect
         if let rotationEffect = properties["rotationEffect"] {
             if properties.double(forKey: "rotationEffect") == nil {
@@ -1418,6 +1517,13 @@ struct View: ActionUIViewConstruction {
                 viewValue: viewModel?.value
             )
             modifiedView = modifiedView.animation(anim, value: watched)
+        }
+
+        // Apply transition: how this view animates when inserted/removed at runtime. The transition
+        // plays only inside an animated transaction; WindowModel.insertElement/removeElement wrap the
+        // mutation in withAnimation when `transition` is declared (instant otherwise).
+        if let transitionConfig = properties["transition"], let transition = resolveTransition(transitionConfig) {
+            modifiedView = modifiedView.transition(transition)
         }
 
         // Handle openURLActionID with .onOpenURL modifier

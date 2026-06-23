@@ -217,6 +217,17 @@ class WindowModel: ObservableObject {
     // children list. The static element graph is left untouched — the merge happens in
     // ActionUIRegistry.buildView via applyDynamicSubviews(to:from:).
 
+    /// Runs a structural mutation, wrapping it in `withAnimation` when the inserted/removed
+    /// `element` declares a `transition` so SwiftUI plays that element's `.transition()`. Without a
+    /// declared transition the change applies instantly (the gap-#21 default - no behavior change).
+    private func runStructuralMutation(animatedFor element: any ActionUIElementBase, _ body: () -> Void) {
+        if element.properties["transition"] != nil {
+            withAnimation { body() }
+        } else {
+            body()
+        }
+    }
+
     /// Insert an element into a flat container. Returns the inserted element's id.
     func insertElement(_ newElement: ActionUIElement, parentID: Int, container: String, position: InsertPosition) throws -> Int {
         guard let parent = locateElement(byID: parentID) else {
@@ -235,15 +246,19 @@ class WindowModel: ObservableObject {
         }
 
         current.insert(newElement, at: index)
-        setDynamicContainer(on: parentModel, container: container, value: current)
+        // The inserted view's `.transition()` plays only inside an animated transaction, so a
+        // transition-bearing element animates its entrance; without one the insert is instant.
+        runStructuralMutation(animatedFor: newElement) {
+            self.setDynamicContainer(on: parentModel, container: container, value: current)
 
-        let newVMs = populateViewModels(from: newElement)
-        var merged = self.viewModels
-        for (id, vm) in newVMs { merged[id] = vm }
-        self.viewModels = merged
+            let newVMs = self.populateViewModels(from: newElement)
+            var merged = self.viewModels
+            for (id, vm) in newVMs { merged[id] = vm }
+            self.viewModels = merged
 
-        dynamicallyInsertedIDs[parentID, default: []].formUnion(Set(newVMs.keys))
-        parentModel.objectWillChange.send()
+            self.dynamicallyInsertedIDs[parentID, default: []].formUnion(Set(newVMs.keys))
+            parentModel.objectWillChange.send()
+        }
         logger.log("Inserted element id \(newElement.id) into parent \(parentID).\(container) at index \(index)", .debug)
         return newElement.id
     }
@@ -306,36 +321,40 @@ class WindowModel: ObservableObject {
             throw InsertError.parentNotFound(parentID: location.parentID)
         }
 
-        switch location.shape {
-        case .flat:
-            var current = effectiveFlatContainer(for: location.parent, model: parentModel, container: location.container)
-            if let idx = current.firstIndex(where: { $0.id == viewID }) {
-                current.remove(at: idx)
-                setDynamicContainer(on: parentModel, container: location.container, value: current)
-            }
-        case .rows:
-            var current = effectiveRowsContainer(for: location.parent, model: parentModel, container: location.container)
-            if let r = location.rowIndex, let c = location.colIndex,
-               r < current.count, c < current[r].count, current[r][c].id == viewID {
-                current[r].remove(at: c)
-                setDynamicContainer(on: parentModel, container: location.container, value: current)
-            }
-        }
-
         let descendantIDs = collectAllElementIDs(in: location.removedElement)
-        var updated = self.viewModels
-        for id in descendantIDs { updated.removeValue(forKey: id) }
-        self.viewModels = updated
+        // The removed view keeps its `.transition()`, so a transition-bearing element animates its
+        // exit when the removal runs inside an animated transaction; otherwise the removal is instant.
+        runStructuralMutation(animatedFor: location.removedElement) {
+            switch location.shape {
+            case .flat:
+                var current = self.effectiveFlatContainer(for: location.parent, model: parentModel, container: location.container)
+                if let idx = current.firstIndex(where: { $0.id == viewID }) {
+                    current.remove(at: idx)
+                    self.setDynamicContainer(on: parentModel, container: location.container, value: current)
+                }
+            case .rows:
+                var current = self.effectiveRowsContainer(for: location.parent, model: parentModel, container: location.container)
+                if let r = location.rowIndex, let c = location.colIndex,
+                   r < current.count, c < current[r].count, current[r][c].id == viewID {
+                    current[r].remove(at: c)
+                    self.setDynamicContainer(on: parentModel, container: location.container, value: current)
+                }
+            }
 
-        dynamicallyInsertedIDs[location.parentID]?.subtract(descendantIDs)
-        if dynamicallyInsertedIDs[location.parentID]?.isEmpty == true {
-            dynamicallyInsertedIDs.removeValue(forKey: location.parentID)
+            var updated = self.viewModels
+            for id in descendantIDs { updated.removeValue(forKey: id) }
+            self.viewModels = updated
+
+            self.dynamicallyInsertedIDs[location.parentID]?.subtract(descendantIDs)
+            if self.dynamicallyInsertedIDs[location.parentID]?.isEmpty == true {
+                self.dynamicallyInsertedIDs.removeValue(forKey: location.parentID)
+            }
+            for id in descendantIDs {
+                self.dynamicallyInsertedIDs.removeValue(forKey: id)
+                self.loadedSubViewIDs.removeValue(forKey: id)
+            }
+            parentModel.objectWillChange.send()
         }
-        for id in descendantIDs {
-            dynamicallyInsertedIDs.removeValue(forKey: id)
-            loadedSubViewIDs.removeValue(forKey: id)
-        }
-        parentModel.objectWillChange.send()
         logger.log("Removed element id \(viewID) from parent \(location.parentID).\(location.container); cleaned \(descendantIDs.count) viewModels", .debug)
     }
 

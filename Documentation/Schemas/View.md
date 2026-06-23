@@ -69,6 +69,27 @@ JSON schema and usage documentation for `View`.
                            //   When omitted, animation fires on any mutation (setElementProperty,
                            //   setElementState, setElementValue).
      },
+     "transition": "opacity", // Optional: how this view animates when it is inserted/removed at runtime
+     "transition": {          //   (via insertElement / removeElement). String shorthand ("opacity",
+                              //   "slide", "scale", "identity") or a dictionary:
+       "type": "move",        // Required: "opacity", "slide", "scale", "move", "offset", "identity",
+                              //   or "asymmetric".
+       "edge": "bottom",      // For "move": edge to move from/to ("top"/"bottom"/"leading"/"trailing"; default "bottom").
+       "scale": 0.5,          // For "scale": start/end scale factor (Double; default 0).
+       "anchor": "center",    // For "scale": the scale anchor (UnitPoint; default "center").
+       "x": 0.0, "y": 20.0,   // For "offset": the start/end offset.
+       "insertion": "opacity",// For "asymmetric": the insertion transition (shorthand or dict).
+       "removal": { "type": "move", "edge": "bottom" } // For "asymmetric": the removal transition.
+     },
+     "transition": ["opacity", { "type": "scale" }], // Array form: the transitions combined.
+                              //   A view without "transition" is inserted/removed instantly (the default).
+                              //   Platform note: Apple animates both insertion and removal; Android and Web
+                              //   animate the insertion (entrance) only - removal is instant there.
+                              //   Container note: stack containers (VStack/HStack/ZStack/LazyVStack/LazyHStack)
+                              //   honor the full transition (geometry + fade). SwiftUI's List substitutes its
+                              //   own row animation - on iOS only the opacity (fade) survives, custom geometry
+                              //   (move/slide/scale) is not honored, and macOS List does not animate row
+                              //   insert/remove at all - so use a stack container when you need the motion.
      "actionID": "view.action", // Optional: String for action identifier
      "valueChangeActionID": "view.valueChanged", // Optional: String for action triggered on any value change initiated by user
      "openURLActionID": "view.openURL", // Optional: String for action identifier triggered on open URL (via .onOpenURL modifier)

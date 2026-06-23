@@ -34,6 +34,7 @@ import { ActionUIElement } from "./ActionUIElement.js";
 import { PlatformFilter } from "./PlatformFilter.js";
 import { getInsertableContainers } from "./ActionUIRegistry.js";
 import { applyElementProperty } from "./ModifierResolver.js";
+import { playEnterTransition } from "../Helpers/TransitionModifier.js";
 
 export class ActionUIModel {
     constructor(windowUUID, logger) {
@@ -330,6 +331,11 @@ export class ActionUIModel {
         // they build what they need through their own closed-over render context.
         const node = binding.interpretive ? null : this.buildFn(element);
         binding.insert(node, element.id, index, element);
+        // The `transition` modifier: a freshly-inserted node plays its entrance (TransitionModifier.js).
+        // Removal/exit is instant - the diff drops the node (documented divergence from Apple).
+        if (node && element.properties?.transition != null) {
+            playEnterTransition(node, element.properties.transition);
+        }
         this.logger.log(`insertElement: id ${element.id} into ${parentID}.${name} at index ${index}`, "info");
         return element.id;
     }

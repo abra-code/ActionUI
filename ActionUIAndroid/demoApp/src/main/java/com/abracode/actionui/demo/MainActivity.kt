@@ -586,7 +586,7 @@ class MainActivity : ComponentActivity() {
             tryMutate("Append") {
                 ActionUIModel.insertElement(
                     windowUUID = windowUUID, parentID = 1,
-                    jsonString = """{"type":"Label","id":$id,"properties":{"title":"Inserted $id","systemImage":"sparkles"}}""",
+                    jsonString = """{"type":"Label","id":$id,"properties":{"title":"Inserted $id","systemImage":"sparkles","transition":["opacity",{"type":"move","edge":"leading"}]}}""",
                 )
                 insertedStackIds.addLast(id)
             }
@@ -596,7 +596,7 @@ class MainActivity : ComponentActivity() {
             tryMutate("Prepend") {
                 ActionUIModel.insertElement(
                     windowUUID = windowUUID, parentID = 1,
-                    jsonString = """{"type":"Label","id":$id,"properties":{"title":"Inserted $id","systemImage":"arrow.up"}}""",
+                    jsonString = """{"type":"Label","id":$id,"properties":{"title":"Inserted $id","systemImage":"arrow.up","transition":["opacity",{"type":"move","edge":"leading"}]}}""",
                     position = InsertPosition.Prepend,
                 )
                 insertedStackIds.addLast(id)

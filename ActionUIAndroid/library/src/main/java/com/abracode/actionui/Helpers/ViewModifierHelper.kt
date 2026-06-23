@@ -1,9 +1,14 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
@@ -94,6 +99,49 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     // declaration (if any) is resolved against the same effective element, so
     // chain targets and the watched trigger move in one recomposition.
     val effective = effectiveElement(element)
+    // The `transition` modifier (TransitionHelper.kt): a freshly-inserted element with a
+    // `transition` plays its entrance once via AnimatedVisibility (gated by wasDynamicallyInserted
+    // so initial-load views do not animate in). Removal/exit is instant - documented divergence
+    // from Apple (the diff drops the node before an exit can play).
+    //
+    // The entrance plays AT MOST ONCE per element: AnimatedVisibility's remember/LaunchedEffect state
+    // is keyed by composition position, so reordering the container (e.g. a later prepend that shifts
+    // this row down a slot) would otherwise re-init that state and replay the entrance. The
+    // WindowModel.transitionPlayed ledger (not composition-scoped) gates that off once the entrance
+    // has run, so a row animates in only when it is first inserted.
+    val windowModel = LocalWindowModel.current
+    val enter = if (effective.id > 0 && effective.properties?.get("transition") != null &&
+        windowModel?.wasDynamicallyInserted(effective.id) == true &&
+        windowModel.hasPlayedTransition(effective.id) == false
+    ) {
+        resolveEnterTransition(effective.properties?.get("transition"))
+    } else {
+        null
+    }
+    if (enter != null) {
+        val visibleState = remember(effective.id) { MutableTransitionState(false) }
+        LaunchedEffect(effective.id) { visibleState.targetState = true }
+        // Record the entrance as played once it settles, so it is not replayed on a later reorder.
+        LaunchedEffect(visibleState.isIdle) {
+            if (visibleState.isIdle && visibleState.currentState) {
+                windowModel?.markTransitionPlayed(effective.id)
+            }
+        }
+        AnimatedVisibility(visibleState = visibleState, enter = enter, exit = ExitTransition.None) {
+            this@BuildViewWithModifiers.BuildViewModifierChain(effective, modifier)
+        }
+    } else {
+        BuildViewModifierChain(effective, modifier)
+    }
+}
+
+/**
+ * The resolved modifier pipeline for [effective] (the host-merged element from
+ * [effectiveElement]). Split from [BuildViewWithModifiers] so the `transition`
+ * entrance can wrap it in an `AnimatedVisibility` without re-merging the element.
+ */
+@Composable
+private fun ActionUIViewConstruction.BuildViewModifierChain(effective: ActionUIElement, modifier: Modifier) {
     // The lifecycle action hooks (onAppearActionID / onDisappearActionID /
     // openURLActionID - ActionHookHelper.kt) attach here so they cover both
     // the popover route and the plain one.

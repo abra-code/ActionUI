@@ -1377,6 +1377,103 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(validated["animation"])
     }
 
+    // MARK: - transition validation
+
+    func testValidatePropertiesTransitionStringShorthand() throws {
+        let validated = View.validateProperties(["transition": "opacity"], logger)
+        if let t = validated["transition"] as? [String: Any] {
+            XCTAssertEqual(t["type"] as? String, "opacity", "shorthand should normalize to a dict")
+        } else {
+            XCTFail("transition should be normalized to a dict")
+        }
+    }
+
+    func testValidatePropertiesTransitionAllShorthands() throws {
+        for name in ["opacity", "slide", "scale", "identity"] {
+            let validated = View.validateProperties(["transition": name], logger)
+            XCTAssertNotNil(validated["transition"], "shorthand '\(name)' should be valid")
+        }
+    }
+
+    func testValidatePropertiesTransitionInvalidShorthand() throws {
+        let validated = View.validateProperties(["transition": "explode"], logger)
+        XCTAssertNil(validated["transition"])
+    }
+
+    func testValidatePropertiesTransitionMoveDict() throws {
+        let validated = View.validateProperties(["transition": ["type": "move", "edge": "bottom"]], logger)
+        if let t = validated["transition"] as? [String: Any] {
+            XCTAssertEqual(t["type"] as? String, "move")
+            XCTAssertEqual(t["edge"] as? String, "bottom")
+        } else {
+            XCTFail("move transition should be a dict")
+        }
+    }
+
+    func testValidatePropertiesTransitionDictMissingType() throws {
+        let validated = View.validateProperties(["transition": ["edge": "top"]], logger)
+        XCTAssertNil(validated["transition"])
+    }
+
+    func testValidatePropertiesTransitionDictInvalidType() throws {
+        let validated = View.validateProperties(["transition": ["type": "warp"]], logger)
+        XCTAssertNil(validated["transition"])
+    }
+
+    func testValidatePropertiesTransitionAsymmetricNormalizesHalves() throws {
+        let props: [String: Any] = ["transition": [
+            "type": "asymmetric",
+            "insertion": "opacity",
+            "removal": ["type": "move", "edge": "leading"]
+        ]]
+        let validated = View.validateProperties(props, logger)
+        guard let t = validated["transition"] as? [String: Any] else {
+            return XCTFail("asymmetric transition should be a dict")
+        }
+        XCTAssertEqual(t["type"] as? String, "asymmetric")
+        XCTAssertEqual((t["insertion"] as? [String: Any])?["type"] as? String, "opacity",
+                       "insertion shorthand should normalize to a dict")
+        XCTAssertEqual((t["removal"] as? [String: Any])?["type"] as? String, "move")
+    }
+
+    func testValidatePropertiesTransitionAsymmetricDefaultsMissingHalves() throws {
+        let validated = View.validateProperties(["transition": ["type": "asymmetric"]], logger)
+        guard let t = validated["transition"] as? [String: Any] else {
+            return XCTFail("asymmetric transition should remain valid")
+        }
+        XCTAssertEqual((t["insertion"] as? [String: Any])?["type"] as? String, "identity")
+        XCTAssertEqual((t["removal"] as? [String: Any])?["type"] as? String, "identity")
+    }
+
+    func testValidatePropertiesTransitionArrayCombined() throws {
+        let validated = View.validateProperties(["transition": ["opacity", ["type": "scale", "scale": 0.8]]], logger)
+        guard let arr = validated["transition"] as? [Any] else {
+            return XCTFail("array transition should stay an array")
+        }
+        XCTAssertEqual(arr.count, 2)
+        XCTAssertEqual((arr[0] as? [String: Any])?["type"] as? String, "opacity")
+        XCTAssertEqual((arr[1] as? [String: Any])?["type"] as? String, "scale")
+    }
+
+    func testValidatePropertiesTransitionArrayDropsInvalidEntries() throws {
+        let validated = View.validateProperties(["transition": ["opacity", "explode"]], logger)
+        guard let arr = validated["transition"] as? [Any] else {
+            return XCTFail("array with one valid entry should survive")
+        }
+        XCTAssertEqual(arr.count, 1, "the invalid entry should be dropped")
+        XCTAssertEqual((arr[0] as? [String: Any])?["type"] as? String, "opacity")
+    }
+
+    func testValidatePropertiesTransitionEmptyArrayDropped() throws {
+        let validated = View.validateProperties(["transition": ["explode", "warp"]], logger)
+        XCTAssertNil(validated["transition"])
+    }
+
+    func testValidatePropertiesTransitionInvalidType() throws {
+        let validated = View.validateProperties(["transition": 42], logger)
+        XCTAssertNil(validated["transition"])
+    }
+
     // MARK: - clipShape validation
 
     func testValidatePropertiesClipShapeCircle() throws {

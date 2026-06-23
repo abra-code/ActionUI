@@ -418,6 +418,9 @@ struct List: ActionUIViewConstruction {
                 // No List(selection:) binding — on iOS, selection binding intercepts taps and
                 // prevents NavigationLink from activating.
                 // Row styling properties are applied to each child view.
+                // rowTransitionAnimation: animate row insert/remove only when a child declares a
+                // `transition` (List needs the animation attached here, keyed by row identity, to play it).
+                let (rowAnimation, rowIDs) = SelectionListHelper.rowTransitionAnimation(children)
                 return SwiftUI.List {
                     ForEach(children, id: \.id) { child in
                         if let childModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[child.id] {
@@ -428,6 +431,7 @@ struct List: ActionUIViewConstruction {
                         }
                     }
                 }
+                .animation(rowAnimation, value: rowIDs)
             }
         } else {
             // Homogeneous list mode

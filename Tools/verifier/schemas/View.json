@@ -122,6 +122,27 @@
         }
       ]
     },
+    "transition": {
+      "required": false,
+      "description": "How the view animates when inserted/removed at runtime (insertElement/removeElement): a shorthand string, a transition dict, or an array (= the transitions combined)",
+      "oneOf": [
+        { "types": ["string"], "enum": ["opacity","slide","scale","identity"] },
+        {
+          "types": ["object"],
+          "properties": {
+            "type":      { "types": ["string"], "required": true, "enum": ["opacity","slide","scale","move","offset","identity","asymmetric"] },
+            "edge":      { "types": ["string"], "required": false, "enum": ["top","bottom","leading","trailing"], "description": "For 'move': which edge to move from/to" },
+            "scale":     { "types": ["number"], "required": false, "description": "For 'scale': start/end scale factor" },
+            "anchor":    { "types": ["string"], "required": false, "enum": ["center","leading","trailing","top","bottom","topLeading","topTrailing","bottomLeading","bottomTrailing"], "description": "For 'scale': the scale anchor" },
+            "x":         { "types": ["number"], "required": false, "description": "For 'offset': horizontal offset" },
+            "y":         { "types": ["number"], "required": false, "description": "For 'offset': vertical offset" },
+            "insertion": { "types": ["string","object"], "required": false, "description": "For 'asymmetric': the insertion transition" },
+            "removal":   { "types": ["string","object"], "required": false, "description": "For 'asymmetric': the removal transition" }
+          }
+        },
+        { "types": ["array"], "itemTypes": ["string","object"], "description": "The transitions combined" }
+      ]
+    },
     "foregroundColor": { "types": ["string"], "required": false, "description": "Alias for foregroundStyle; SwiftUI color, hex, or semantic style" },
     "imageScale":      { "types": ["string"], "required": false, "enum": ["small","medium","large"], "description": "SF Symbol image scale modifier" },
     "actionID":                       { "types": ["string"], "required": false },

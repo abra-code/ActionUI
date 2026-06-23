@@ -54,6 +54,30 @@ class WindowModel(
     private val dynamicallyInsertedIDs: MutableMap<Int, MutableSet<Int>> = mutableMapOf()
 
     /**
+     * Whether [id] belongs to a subtree inserted at runtime (via [insertElement] /
+     * [insertRow]) and not yet removed. Gates the `transition` entrance
+     * (`TransitionHelper.kt`) so only freshly-inserted views animate in, not
+     * initial-load views - matching Apple, where the entrance plays only inside the
+     * `withAnimation` transaction `WindowModel` wraps the insert in.
+     */
+    fun wasDynamicallyInserted(id: Int): Boolean =
+        dynamicallyInsertedIDs.values.any { id in it }
+
+    /**
+     * Ids whose `transition` entrance has already played, so it runs at most once
+     * (`TransitionHelper.kt` / `ViewModifierHelper.kt`). AnimatedVisibility's entrance
+     * state is keyed by composition position; without this ledger, reordering the
+     * container (e.g. a prepend that shifts an already-inserted row down a slot) would
+     * re-init that state and replay the entrance. Not composition-scoped, so it
+     * survives the reorder; cleared per id on [removeElement].
+     */
+    private val transitionPlayedIDs: MutableSet<Int> = mutableSetOf()
+
+    fun hasPlayedTransition(id: Int): Boolean = id in transitionPlayedIDs
+
+    fun markTransitionPlayed(id: Int) { transitionPlayedIDs.add(id) }
+
+    /**
      * The active window-level dialog (alert / confirmationDialog), or `null` when
      * none is presented. Backed by Compose snapshot state so
      * [ActionUIModel.presentAlert] / [ActionUIModel.presentConfirmationDialog] /
@@ -312,6 +336,7 @@ class WindowModel(
 
         val descendantIDs = collectAllElementIDs(location.removedElement)
         for (id in descendantIDs) viewModels.remove(id)
+        transitionPlayedIDs.removeAll(descendantIDs)
         dynamicallyInsertedIDs[location.parentID]?.removeAll(descendantIDs)
         if (dynamicallyInsertedIDs[location.parentID]?.isEmpty() == true) {
             dynamicallyInsertedIDs.remove(location.parentID)

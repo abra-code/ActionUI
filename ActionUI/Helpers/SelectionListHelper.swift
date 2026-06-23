@@ -24,6 +24,18 @@ struct SelectionListHelper {
         return (childToDestination, destinationToChild)
     }
 
+    /// `.animation(_, value:)` inputs for a heterogeneous List: SwiftUI's `List` virtualizes its rows
+    /// and does not pick up a row's `.transition()` from the ambient `withAnimation` alone (unlike a
+    /// VStack/LazyVStack, which honor child transitions directly) - the animation must be attached at
+    /// the List level, keyed by the row identity, for an inserted/removed row to play its transition.
+    /// Returns (animation, rowIDs); the animation is nil (no row animation - the existing default) unless
+    /// a child opts in by declaring a `transition`, so ordinary Lists are unaffected.
+    static func rowTransitionAnimation(_ children: [any ActionUIElementBase]) -> (Animation?, [Int]) {
+        let ids = children.map { $0.id }
+        let animate = children.contains { $0.properties["transition"] != nil }
+        return (animate ? .default : nil, ids)
+    }
+
     /// Builds a `List(selection:)` with a `ForEach` over heterogeneous children.
     /// When `listModel` is non-nil, the list element's view modifiers are applied to the result.
     /// When `rowModifier` is non-nil, it is applied to each child row (e.g. for listRowBackground etc.).
@@ -37,6 +49,7 @@ struct SelectionListHelper {
         windowUUID: String,
         rowModifier: ((AnyView) -> AnyView)? = nil
     ) -> some SwiftUI.View {
+        let (rowAnimation, rowIDs) = rowTransitionAnimation(children)
         let listView = SwiftUI.List(selection: selection) {
             ForEach(children, id: \.id) { child in
                 if let childModel = windowModel?.viewModels[child.id] {
@@ -45,6 +58,7 @@ struct SelectionListHelper {
                 }
             }
         }
+        .animation(rowAnimation, value: rowIDs)
         if let listModel = listModel {
             let listProps = ActionUIRegistry.shared.getValidatedProperties(element: listElement, model: listModel)
             ActionUIRegistry.shared.applyViewModifiers(to: listView, properties: listProps, element: listElement, model: listModel, windowUUID: windowUUID)

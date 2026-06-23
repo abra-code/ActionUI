@@ -527,13 +527,14 @@ const insStatus = () => win.setString(210, 0, insertedIds.length
 
 app.action("insAppend", () => {
     const id = insSeq++;
-    win.insertElement(200, { type: "Label", id, properties: { title: `Appended item ${id}`, systemImage: "list.bullet" } });
+    // transition: the inserted row eases in (move from leading + fade) - the entrance plays on insert.
+    win.insertElement(200, { type: "Label", id, properties: { title: `Appended item ${id}`, systemImage: "list.bullet", transition: ["opacity", { type: "move", edge: "leading" }] } });
     insertedIds.push(id);
     insStatus();
 });
 app.action("insPrepend", () => {
     const id = insSeq++;
-    win.insertElement(200, { type: "Label", id, properties: { title: `Prepended item ${id}`, systemImage: "arrow.up" } },
+    win.insertElement(200, { type: "Label", id, properties: { title: `Prepended item ${id}`, systemImage: "arrow.up", transition: ["opacity", { type: "move", edge: "leading" }] } },
         null, InsertPosition.PREPEND);
     insertedIds.push(id);
     insStatus();

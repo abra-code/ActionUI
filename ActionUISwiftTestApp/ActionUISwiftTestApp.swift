@@ -648,7 +648,7 @@ struct ActionUISwiftTestApp: App {
             do {
                 try ActionUISwift.insertElement(
                     windowUUID: windowUUID, parentID: 1,
-                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"Appended (id: \#(id))","systemImage":"\#(sym)"}}"#
+                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"Appended (id: \#(id))","systemImage":"\#(sym)","transition":"opacity"}}"#
                 )
                 listInsertedIDs.append(id)
                 ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Appended label id \(id)")
@@ -663,7 +663,7 @@ struct ActionUISwiftTestApp: App {
             do {
                 try ActionUISwift.insertElement(
                     windowUUID: windowUUID, parentID: 1,
-                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"Prepended (id: \#(id))","systemImage":"\#(sym)"}}"#,
+                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"Prepended (id: \#(id))","systemImage":"\#(sym)","transition":"opacity"}}"#,
                     position: .prepend
                 )
                 listInsertedIDs.append(id)
@@ -679,7 +679,7 @@ struct ActionUISwiftTestApp: App {
             do {
                 try ActionUISwift.insertElement(
                     windowUUID: windowUUID, parentID: 1,
-                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"After A (id: \#(id))","systemImage":"\#(sym)"}}"#,
+                    json: #"{"id":\#(id),"type":"Label","properties":{"title":"After A (id: \#(id))","systemImage":"\#(sym)","transition":"opacity"}}"#,
                     position: .after(siblingID: 10)
                 )
                 listInsertedIDs.append(id)
@@ -710,6 +710,9 @@ struct ActionUISwiftTestApp: App {
                   !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
             let bubbleDict: [String: Any] = [
                 "type": "HStack",
+                // transition: a sent bubble slides in from the trailing edge with a fade (insertElement
+                // runs inside withAnimation when a transition is declared).
+                "properties": ["transition": ["opacity", ["type": "move", "edge": "trailing"] as [String: Any]] as [Any]],
                 "children": [
                     ["type": "Spacer"] as [String: Any],
                     ["type": "Text", "properties": [
