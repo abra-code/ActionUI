@@ -29,7 +29,30 @@
 
 set -eo pipefail
 
-usage() { sed -n '2,/^$/p' "$0" | sed 's/^#\{0,1\} \{0,1\}//'; }
+usage() {
+    cat <<'EOF'
+test-viewer.sh - build (if needed) and exercise ActionUIViewer on sample JSONs.
+
+Usage:
+  Scripts/test-viewer.sh [OPTIONS] [NAME ...]
+
+  NAME ...   Sample JSONs to render (with or without .json), from
+             ActionUISwiftTestApp/Resources. Defaults to a standalone-friendly set.
+
+Options:
+  -p, --preview     Open live windows instead of screenshotting (close each to proceed).
+  -o, --out DIR     Screenshot output directory (default: a temp dir).
+  -m, --method M    Capture method: 'legacy' (default, no permission needed) or 'sck'
+                    (ScreenCaptureKit; requires Screen Recording permission).
+  -d, --delay SECS  Seconds to wait before capture (for WebView / VideoPlayer).
+  -r, --release     Use the release binary instead of debug.
+  -h, --help        Show this help.
+
+Note: ActionUIViewer is a standalone CLI with no app bundle, so JSONs that reference
+bundled resources (Image, Canvas, VideoPlayer, WebView, AsyncImage) render with missing
+content; the default set avoids these.
+EOF
+}
 
 config="debug"
 preview=0
@@ -46,7 +69,7 @@ while [[ $# -gt 0 ]]; do
         -m|--method)  method="$2"; shift 2 ;;
         -d|--delay)   delay="$2"; shift 2 ;;
         -h|--help)    usage; exit 0 ;;
-        -*)           echo "Unknown option: $1" >&2; usage; exit 2 ;;
+        -*)           echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
         *)            args+=("$1"); shift ;;
     esac
 done

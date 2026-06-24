@@ -31,6 +31,31 @@
 
 set -eu
 
+usage() {
+    cat <<'EOF'
+regen-symbol-map.sh - regenerate the SF->Material symbol map from the origin mapping.
+
+Usage:
+  sh regen-symbol-map.sh [OPTIONS] [ORIGIN_JSON]
+
+Arguments:
+  ORIGIN_JSON        Path to sf_to_material.json. Defaults to $SF_MATERIAL_MAP_JSON,
+                     then the sibling sf-symbols-material-map/out/sf_to_material.json.
+
+Options:
+  --min-score N      Drop mappings scoring below N (default: the generator's floor, 60).
+                     Use 0 to keep the full lower-confidence tail.
+  --no-web-sync      Regenerate the Android map only; skip the ActionUIWeb copy.
+  -h, --help         Show this help.
+
+Environment:
+  SF_MATERIAL_MAP_JSON   Origin JSON path (overridden by a positional argument).
+  ACTIONUI_ANDROID       ActionUIAndroid checkout (for codepoints + output map).
+
+Exit codes: 0 success; 2 bad/unreadable input.
+EOF
+}
+
 # Resolve paths relative to this script, so it works from any cwd.
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(cd -- "$script_dir/../.." && pwd)
@@ -56,7 +81,7 @@ while [ "$#" -ge 1 ]; do
         --no-web-sync)
             do_web_sync=0; shift ;;
         -h|--help)
-            sed -n '2,30p' "$0"; exit 0 ;;
+            usage; exit 0 ;;
         --)
             shift; break ;;
         -*)
