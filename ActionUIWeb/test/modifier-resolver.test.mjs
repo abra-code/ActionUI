@@ -30,6 +30,52 @@ test("resolveColor: SwiftUI <color>.opacity(<fraction>) -> color-mix toward tran
     assert.ok(logger.warned("Unknown color"));
 });
 
+test("resolveColor: Apple semantic styles -> --aui-* tokens (the full set)", () => {
+    const logger = makeLogger();
+    // Hierarchical content levels.
+    assert.equal(resolveColor("primary", logger), "var(--aui-color-primary)");
+    assert.equal(resolveColor("secondary", logger), "var(--aui-color-secondary)");
+    assert.equal(resolveColor("tertiary", logger), "var(--aui-tertiary)");
+    assert.equal(resolveColor("quaternary", logger), "var(--aui-quaternary)");
+    assert.equal(resolveColor("quinary", logger), "var(--aui-quinary)");
+    // foreground.* (and the bare foreground).
+    assert.equal(resolveColor("foreground", logger), "var(--aui-foreground)");
+    assert.equal(resolveColor("foreground.secondary", logger), "var(--aui-foreground-secondary)");
+    assert.equal(resolveColor("foreground.tertiary", logger), "var(--aui-foreground-tertiary)");
+    assert.equal(resolveColor("foreground.quaternary", logger), "var(--aui-foreground-quaternary)");
+    // Opaque layered surfaces.
+    assert.equal(resolveColor("background", logger), "var(--aui-background)");
+    assert.equal(resolveColor("background.secondary", logger), "var(--aui-background-secondary)");
+    assert.equal(resolveColor("background.tertiary", logger), "var(--aui-background-tertiary)");
+    assert.equal(resolveColor("background.quaternary", logger), "var(--aui-background-quaternary)");
+    assert.equal(resolveColor("windowBackground", logger), "var(--aui-window-background)");
+    // Translucent fills.
+    assert.equal(resolveColor("fill", logger), "var(--aui-fill)");
+    assert.equal(resolveColor("fill.secondary", logger), "var(--aui-fill-secondary)");
+    assert.equal(resolveColor("fill.tertiary", logger), "var(--aui-fill-tertiary)");
+    assert.equal(resolveColor("fill.quaternary", logger), "var(--aui-fill-quaternary)");
+    // Discrete roles.
+    assert.equal(resolveColor("separator", logger), "var(--aui-separator)");
+    assert.equal(resolveColor("tint", logger), "var(--aui-tint)");
+    assert.equal(resolveColor("link", logger), "var(--aui-link)");
+    assert.equal(resolveColor("placeholder", logger), "var(--aui-placeholder)");
+    assert.equal(resolveColor("selection", logger), "var(--aui-selection)");
+    assert.equal(logger.warningCount(), 0, "every documented semantic style resolves with no warning");
+});
+
+test("resolveColor: .opacity(f) works on a semantic base via color-mix", () => {
+    const logger = makeLogger();
+    // The base resolves to a var() token, then color-mix fades it - the path
+    // rgba()/hex math cannot take (CSS color-mix handles the var()).
+    assert.equal(resolveColor("secondary.opacity(0.5)", logger),
+        "color-mix(in srgb, var(--aui-color-secondary) 50%, transparent)");
+    assert.equal(resolveColor("fill.tertiary.opacity(0.25)", logger),
+        "color-mix(in srgb, var(--aui-fill-tertiary) 25%, transparent)");
+    assert.equal(resolveColor("tint.opacity(0.8)", logger),
+        "color-mix(in srgb, var(--aui-tint) 80%, transparent)");
+    assert.equal(logger.warningCount(), 0, "a valid semantic base does not warn");
+});
+
 function applied(properties, element = { id: 1 }) {
     const node = makeElement();
     const dispatched = [];

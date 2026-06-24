@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
@@ -86,7 +87,7 @@ internal fun ActionUIViewConstruction.BuildViewWithSafeAreaInset(
     // window root, as elsewhere.
     val carrier = modifier
         .applyOuterProperties(element.properties, logger, animator)
-        .applyInnerProperties(element.properties, logger, animator)
+        .applyInnerProperties(element.properties, logger, animator, MaterialTheme.colorScheme)
 
     if (edge == "top" || edge == "bottom") {
         Column(carrier) {

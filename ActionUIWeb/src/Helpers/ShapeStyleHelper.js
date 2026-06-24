@@ -12,13 +12,13 @@
 // present-but-unresolvable `fill` falls through to `stroke` (Apple only enters
 // the fill branch when the color resolves).
 //
-// Color vocabulary: named colors and hex via the shared resolveColor — the
-// same vocabulary the foregroundColor/background modifiers accept. Apple's
-// resolveShapeStyle additionally understands semantic styles ("tint",
-// "separator", "fill", …); like Android those are not resolved yet — they get
-// resolveColor's unknown-color warning and fall through to the foreground
-// fill. "primary"/"secondary" are in the shared color map, so they resolve.
-// See Private/Web_Porting_Notes.md (Shapes).
+// Color vocabulary: named colors, hex, AND Apple semantic styles ("tint",
+// "separator", "fill", "fill.tertiary", "background.secondary", ...) via the
+// shared resolveColor - the same vocabulary the foregroundColor/background
+// modifiers accept. resolveColor maps every semantic name to its --aui-* token
+// (theme.css, light + dark), so a semantic fill/stroke is theme-correct here
+// just as on Apple and Android; only a genuinely unknown color warns and falls
+// through to the foreground fill. See Private/Semantic_Color_Mapping_Design.md.
 //
 // File granularity: Android splits this into ShapeStyleHelper.kt (paint) +
 // Views/ShapeView.kt (DrawScope glue). On web a shape is a styled <div> —

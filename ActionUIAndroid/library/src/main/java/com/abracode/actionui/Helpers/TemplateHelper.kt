@@ -1,5 +1,6 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -114,7 +115,7 @@ object TemplateHelper {
         val builder = ActionUIRegistry.lookup(substituted.type) ?: return
         CompositionLocalProvider(LocalTemplateContext provides TemplateContext(parentID, rowIndex)) {
             ProvideTextStyleEnvironment(substituted.properties, logger) {
-                builder.BuildView(substituted, baseModifier.then(Modifier.applyCommonProperties(substituted.properties, logger)))
+                builder.BuildView(substituted, baseModifier.then(Modifier.applyCommonProperties(substituted.properties, logger, MaterialTheme.colorScheme)))
             }
         }
     }

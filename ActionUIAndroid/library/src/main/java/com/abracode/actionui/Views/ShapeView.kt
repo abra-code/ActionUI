@@ -56,8 +56,9 @@ internal fun ShapeView(
     val props = element.properties
     val logger = LocalActionUILogger.current
     // SwiftUI fills an unstyled shape with `.primary`; onSurface is its analog.
-    val defaultColor = MaterialTheme.colorScheme.onSurface
-    val paint = remember(props, defaultColor) { resolveShapePaint(props, defaultColor, logger) }
+    val colorScheme = MaterialTheme.colorScheme
+    val defaultColor = colorScheme.onSurface
+    val paint = remember(props, colorScheme) { resolveShapePaint(props, defaultColor, logger, colorScheme) }
 
     LayoutSpacer(
         modifier = modifier.fillMaxSize().drawBehind {

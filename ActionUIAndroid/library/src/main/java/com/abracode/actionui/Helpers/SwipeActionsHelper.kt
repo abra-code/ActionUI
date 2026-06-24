@@ -177,10 +177,11 @@ private fun SwipeActionButton(
     val role = props?.stringProperty("role")
     val tintName = props?.stringProperty("tint")
     // role:destructive paints the Material error color (the red destructive swipe); an explicit
-    // tint paints that color; otherwise the secondary container, like a neutral Material action.
+    // tint paints that color (named/hex OR an Apple semantic style via resolveColorOrSemantic);
+    // otherwise the secondary container, like a neutral Material action.
     val background = when {
         role == "destructive" -> MaterialTheme.colorScheme.error
-        tintName != null -> parseColor(tintName) ?: MaterialTheme.colorScheme.secondary
+        tintName != null -> resolveColorOrSemantic(tintName, MaterialTheme.colorScheme) ?: MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.secondary
     }
     val imageRegistry = LocalActionUIImageRegistry.current

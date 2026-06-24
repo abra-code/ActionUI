@@ -26,6 +26,50 @@
     --aui-control-radius: 6px;
     --aui-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aui-color-accent) 35%, transparent);
     --aui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+    /* ---- Apple semantic colors (adaptive, light values) ----
+       These mirror the full set ActionUI/Helpers/ColorHelper.swift resolveShapeStyle
+       accepts, so a semantic color name authored once renders theme-correct on
+       Apple, Android (Material roles), and here (these tokens). The hierarchical
+       grays (primary..quinary) and the fill.* set are translucent grays over the
+       label/gray ink - the macOS/iOS label- and fill-opacity ladders - written as
+       rgba so they composite over any backdrop, exactly like SwiftUI's hierarchical
+       styles. background.* are OPAQUE layered surfaces (the macOS window/content
+       tones). src/Common/ModifierResolver.js NAMED_COLORS points each semantic name
+       at the matching token; the .opacity(f) path then color-mixes the var(). See
+       Private/Semantic_Color_Mapping_Design.md for the canonical table. */
+
+    /* Hierarchical content levels (label ink at the iOS opacity ladder). */
+    --aui-primary: #1d1d1f;                          /* == --aui-color-primary (label) */
+    --aui-secondary: rgba(60, 60, 67, 0.60);         /* iOS secondaryLabel */
+    --aui-tertiary: rgba(60, 60, 67, 0.30);          /* iOS tertiaryLabel */
+    --aui-quaternary: rgba(60, 60, 67, 0.18);        /* iOS quaternaryLabel */
+    --aui-quinary: rgba(60, 60, 67, 0.10);           /* a 5th, fainter step */
+
+    /* foreground.* == the content levels (foreground is the primary style). */
+    --aui-foreground: var(--aui-primary);
+    --aui-foreground-secondary: var(--aui-secondary);
+    --aui-foreground-tertiary: var(--aui-tertiary);
+    --aui-foreground-quaternary: var(--aui-quaternary);
+
+    /* Opaque layered surfaces (macOS window/content tones). */
+    --aui-background: #ffffff;                        /* the content/control surface */
+    --aui-background-secondary: #f2f2f7;              /* iOS secondarySystemBackground */
+    --aui-background-tertiary: #e9e9ee;               /* iOS tertiarySystemBackground */
+    --aui-background-quaternary: #deded5;             /* a 4th grouped step */
+
+    /* Translucent fills (gray ink at the iOS fill-opacity ladder). */
+    --aui-fill: rgba(120, 120, 128, 0.20);           /* iOS systemFill */
+    --aui-fill-secondary: rgba(120, 120, 128, 0.16); /* iOS secondarySystemFill */
+    --aui-fill-tertiary: rgba(118, 118, 128, 0.12);  /* iOS tertiarySystemFill */
+    --aui-fill-quaternary: rgba(116, 116, 128, 0.08);/* iOS quaternarySystemFill */
+
+    /* Discrete semantic roles. */
+    --aui-separator: rgba(60, 60, 67, 0.29);         /* iOS separator (translucent) */
+    --aui-tint: var(--aui-color-accent);             /* the accent/tint role */
+    --aui-link: var(--aui-color-accent);             /* link == tint, the accent */
+    --aui-placeholder: rgba(60, 60, 67, 0.30);       /* iOS placeholderText */
+    --aui-selection: color-mix(in srgb, var(--aui-color-accent) 25%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,6 +79,29 @@
         --aui-window-background: #2d2d2d;
         --aui-control-background: #1d1d1f;
         --aui-control-border: #48484a;
+
+        /* ---- Apple semantic colors (dark values) ----
+           --aui-foreground* alias --aui-primary/secondary/... and --aui-tint /
+           --aui-link / --aui-selection track --aui-color-accent, so they adapt
+           automatically and are not re-declared here; only the absolute values flip. */
+        --aui-primary: #f5f5f7;
+        --aui-secondary: rgba(235, 235, 245, 0.60);  /* iOS dark secondaryLabel */
+        --aui-tertiary: rgba(235, 235, 245, 0.30);   /* iOS dark tertiaryLabel */
+        --aui-quaternary: rgba(235, 235, 245, 0.18);
+        --aui-quinary: rgba(235, 235, 245, 0.10);
+
+        --aui-background: #1d1d1f;
+        --aui-background-secondary: #2c2c2e;          /* iOS dark secondarySystemBackground */
+        --aui-background-tertiary: #3a3a3c;           /* iOS dark tertiarySystemBackground */
+        --aui-background-quaternary: #48484a;
+
+        --aui-fill: rgba(120, 120, 128, 0.36);        /* iOS dark systemFill */
+        --aui-fill-secondary: rgba(120, 120, 128, 0.32);
+        --aui-fill-tertiary: rgba(118, 118, 128, 0.24);
+        --aui-fill-quaternary: rgba(118, 118, 128, 0.18);
+
+        --aui-separator: rgba(84, 84, 88, 0.60);      /* iOS dark separator */
+        --aui-placeholder: rgba(235, 235, 245, 0.30); /* iOS dark placeholderText */
     }
 }
 

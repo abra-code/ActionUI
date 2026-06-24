@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -43,6 +44,7 @@ import com.abracode.actionui.Helpers.dpProperty
 import com.abracode.actionui.Helpers.floatProperty
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.parseColor
+import com.abracode.actionui.Helpers.resolveColorOrSemantic
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -137,12 +139,22 @@ import kotlinx.serialization.json.jsonPrimitive
  * names are ignored silently - they may be element-specific (e.g. `text` on
  * `Text`, `spacing` on `VStack`) and the element's own builder will pick them
  * up.
+ *
+ * [colorScheme] is the active `MaterialTheme.colorScheme`, captured at the
+ * (composition) call site and passed down so color properties (`background`,
+ * `shadow.color`, `border.color`) can resolve Apple **semantic** color names
+ * (`secondary`, `fill.tertiary`, `tint`, ...) to adaptive Material roles via
+ * [resolveColorOrSemantic]. `null` resolves literal colors only (the pure
+ * `parseColor` vocabulary) - the pre-semantic behavior, kept for callers with no
+ * theme in scope.
  */
 fun Modifier.applyCommonProperties(
     properties: JsonObject?,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger? = null,
+    colorScheme: ColorScheme? = null
 ): Modifier =
-    applyOuterProperties(properties, logger).applyInnerProperties(properties, logger)
+    applyOuterProperties(properties, logger)
+        .applyInnerProperties(properties, logger, colorScheme = colorScheme)
 
 /**
  * The outer half of the common-property chain - the wrappers that act on the
@@ -197,7 +209,8 @@ fun Modifier.applyOuterProperties(
 fun Modifier.applyInnerProperties(
     properties: JsonObject?,
     logger: ActionUILogger? = null,
-    animator: ElementAnimator? = null
+    animator: ElementAnimator? = null,
+    colorScheme: ColorScheme? = null
 ): Modifier {
     if (properties == null) return this
     var m: Modifier = this
@@ -217,12 +230,15 @@ fun Modifier.applyInnerProperties(
     (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger, animator) }
 
     // ---- Decoration: shadow, border, clip, background ----
-    m = m.applyShadow(properties)
-    m = m.applyBorder(properties)
+    m = m.applyShadow(properties, colorScheme)
+    m = m.applyBorder(properties, colorScheme)
     m = m.applyClipShape(properties, logger)
     properties.dpProperty("cornerRadius")?.let { m = m.clip(RoundedCornerShape(it)) }
     properties.stringProperty("background")?.let { name ->
-        val c = parseColor(name)
+        // Semantic names (e.g. "fill.tertiary", "background.secondary") resolve to
+        // adaptive Material roles when a colorScheme is in scope; otherwise the
+        // literal parseColor vocabulary. See resolveColorOrSemantic.
+        val c = resolveColorOrSemantic(name, colorScheme)
         if (c != null) m = m.background(animator?.color("background", c) ?: c)
         else logger?.log(
             "Unknown color '$name' for property 'background'. Property ignored.",
@@ -540,10 +556,10 @@ private fun Modifier.applyFlexibleAxis(
  * `radius` -> elevation, `color` -> ambient/spot color. The `x`/`y` offset has
  * no elevation-shadow equivalent and is ignored (see file header divergences).
  */
-private fun Modifier.applyShadow(properties: JsonObject): Modifier {
+private fun Modifier.applyShadow(properties: JsonObject, colorScheme: ColorScheme? = null): Modifier {
     val shadow = properties["shadow"] as? JsonObject ?: return this
     val radius = (shadow.numberProperty("radius") ?: 0.0).toFloat()
-    val color = shadow.stringProperty("color")?.let { parseColor(it) } ?: Color.Black
+    val color = shadow.stringProperty("color")?.let { resolveColorOrSemantic(it, colorScheme) } ?: Color.Black
     return this.shadow(
         elevation = radius.dp,
         shape = RectangleShape,
@@ -557,9 +573,9 @@ private fun Modifier.applyShadow(properties: JsonObject): Modifier {
  * `border` - `{ color, width }`. SwiftUI's `.border` is a rectangular stroke, so
  * the Compose mapping uses [RectangleShape] regardless of any `clipShape`.
  */
-private fun Modifier.applyBorder(properties: JsonObject): Modifier {
+private fun Modifier.applyBorder(properties: JsonObject, colorScheme: ColorScheme? = null): Modifier {
     val border = properties["border"] as? JsonObject ?: return this
-    val color = border.stringProperty("color")?.let { parseColor(it) } ?: Color.Black
+    val color = border.stringProperty("color")?.let { resolveColorOrSemantic(it, colorScheme) } ?: Color.Black
     val width = (border.numberProperty("width") ?: 1.0).toFloat()
     return this.border(width.dp, color, RectangleShape)
 }

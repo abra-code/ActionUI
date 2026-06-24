@@ -6,6 +6,7 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -267,10 +268,13 @@ internal fun ActionUIViewConstruction.BuildViewWithDecorations(
     animator: ElementAnimator? = null,
 ) {
     val logger = LocalActionUILogger.current
+    // Captured here (in composition) so the inner-property appliers can resolve
+    // Apple semantic color names to adaptive Material roles - see applyInnerProperties.
+    val colorScheme = MaterialTheme.colorScheme
     val overlayElement = element.overlay
     val backgroundElement = element.background
     if (overlayElement == null && backgroundElement == null) {
-        BuildView(element, modifier.applyInnerProperties(element.properties, logger, animator))
+        BuildView(element, modifier.applyInnerProperties(element.properties, logger, animator, colorScheme))
         return
     }
 
@@ -280,7 +284,7 @@ internal fun ActionUIViewConstruction.BuildViewWithDecorations(
         backgroundElement?.let {
             ElementContent(it, logger, decorationModifier(element.properties, "backgroundAlignment", it, logger))
         }
-        BuildView(element, Modifier.applyInnerProperties(element.properties, logger, animator))
+        BuildView(element, Modifier.applyInnerProperties(element.properties, logger, animator, colorScheme))
         overlayElement?.let {
             ElementContent(it, logger, decorationModifier(element.properties, "overlayAlignment", it, logger))
         }
