@@ -16,9 +16,11 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ChromeSymbolIcon
 import com.abracode.actionui.Helpers.LabelIcon
@@ -48,15 +50,31 @@ import com.abracode.actionui.Helpers.stringProperty
  * id-bearing inline `destination` has no addressable target and warns on tap.
  * Renders a title + a native drill-in chevron (the Material Symbols `chevron_right`,
  * mirrored to `chevron_left` under RTL).
+ *
+ * **Value bridge.** Like Apple, `NavigationLink` declares [ActionUIValueType.INT]
+ * (Apple's `Int?`): the value is the **push target id** (`destinationViewId`), so
+ * a host can re-point the link at runtime via
+ * `ActionUIModel.setElementValue(id, <Int>)`. A runtime value takes precedence
+ * over the `destinationViewId` property and the inline `destination` id; when
+ * none is set the authored target is used, so static usage is unchanged.
+ * `initialValue` returns the runtime value or the `destinationViewId` property,
+ * matching Apple's `NavigationLink.swift`.
  */
 object NavigationLink : ActionUIViewConstruction {
+    override val valueType = ActionUIValueType.INT
+
+    override fun initialValue(element: ActionUIElement): Any? =
+        element.properties?.intProperty("destinationViewId")
 
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val logger = LocalActionUILogger.current
         val props = element.properties
         val title = props?.stringProperty("title") ?: "Link"
-        val targetId = resolveLinkTarget(element)
+        // A runtime value (a host write) re-points the link; else the authored
+        // target. Apple parity: model.value (Int) wins over destinationViewId.
+        val runtimeTarget = LocalWindowModel.current?.viewModels?.get(element.id)?.value as? Int
+        val targetId = runtimeTarget ?: resolveLinkTarget(element)
         val push = LocalNavPush.current
 
         val imageScale = props?.stringProperty("imageScale")

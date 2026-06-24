@@ -9,9 +9,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.ImageSource
 import com.abracode.actionui.Helpers.MaterialNameIcon
@@ -21,6 +23,9 @@ import com.abracode.actionui.Helpers.resolveContentScale
 import com.abracode.actionui.Helpers.resolveResizableGlyphFrameDp
 import com.abracode.actionui.Helpers.selectImageSource
 import com.abracode.actionui.Helpers.stringProperty
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Renders a bundled raster image, a filesystem image, or a Material Symbol icon.
@@ -73,6 +78,17 @@ import com.abracode.actionui.Helpers.stringProperty
  * a second `contentDescription` from the same property would be announced
  * twice (the semantics merge by list concatenation).
  *
+ * **Value bridge.** Like Apple, `Image` declares [ActionUIValueType.STRING]
+ * (Apple's `String?`): a host can replace the source at runtime via
+ * `ActionUIModel.setElementValue(id, "...")`. A non-empty runtime value is
+ * interpreted with Apple's "mixed" heuristics ([mixedImageSourceProperties]):
+ * a path-like string (contains `/`) is a `filePath`, an image-extension name is
+ * a `resourceName` (assets/), and a bare name is a `systemName` glyph - and it
+ * overrides the static source properties. An empty / unset value falls back to
+ * the authored `systemName` / `assetName` / `resourceName` / `filePath`, so
+ * static usage is unchanged. `initialValue` returns only a pre-set runtime value
+ * (`null` means "use the static properties"), matching Apple's `Image.swift`.
+ *
  * Sample JSON:
  * ```
  * { "type": "Image", "properties": { "materialName:android": "favorite",
@@ -80,6 +96,13 @@ import com.abracode.actionui.Helpers.stringProperty
  * ```
  */
 object Image : ActionUIViewConstruction {
+    override val valueType = ActionUIValueType.STRING
+
+    // Non-null only when a runtime value was explicitly set; null means "use the
+    // static source properties" (the builder resolves those). Mirrors Apple's
+    // `Image.initialValue`, which returns `model.value as? String`.
+    override fun initialValue(element: ActionUIElement): Any? = null
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
@@ -87,8 +110,15 @@ object Image : ActionUIViewConstruction {
         val context = LocalContext.current
         val imageRegistry = LocalActionUIImageRegistry.current
 
-        // Source selection (+ its warnings) runs once per properties change.
-        val source = remember(props, imageRegistry) { selectImageSource(props, logger, imageRegistry) }
+        // A non-empty runtime value (a host write) overrides the static source,
+        // interpreted with Apple's "mixed" heuristics. Empty / unset -> the
+        // authored properties, so static usage is unaffected.
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        val runtimeValue = (viewModel?.value as? String)?.takeIf { it.isNotEmpty() }
+        val sourceProps = if (runtimeValue != null) mixedImageSourceProperties(runtimeValue) else props
+
+        // Source selection (+ its warnings) runs once per effective-source change.
+        val source = remember(sourceProps, imageRegistry) { selectImageSource(sourceProps, logger, imageRegistry) }
         val imageScale = props?.stringProperty("imageScale")
         // accessibilityLabel is applied as semantics on [modifier] by the
         // shared pipeline; the painter-level description stays null (see the
@@ -189,4 +219,34 @@ object Image : ActionUIViewConstruction {
             }
         }
     }
+}
+
+/**
+ * Maps a runtime value string into a single-source-key `properties` object using
+ * Apple's "mixed" interpretation ([ImageHelper] `init(from:interpretation:)`,
+ * `"mixed"`): a path-like string (contains `/`) becomes a `filePath`, an
+ * image-extension name a `resourceName` (an `assets/` file), and a bare name a
+ * `systemName` glyph (the SF->Material path, the closest portable Android analog
+ * of Apple's "asset catalog name, else SF Symbol" final fallback - Android's
+ * asset-catalog lookup needs the host registry and does not fall through, so a
+ * bare name routes straight to the glyph path that always resolves). The result
+ * is fed to the same [selectImageSource] the authored properties use, so the
+ * runtime source rides one resolution path. Pure, so it is unit-testable.
+ */
+internal fun mixedImageSourceProperties(value: String): JsonObject = buildJsonObject {
+    when {
+        value.contains("/") -> put("filePath", value)
+        hasImageFileExtension(value) -> put("resourceName", value)
+        else -> put("systemName", value)
+    }
+}
+
+/** A short list of raster image extensions, mirroring Apple's `validateImageFilePath` UTType check. */
+private val IMAGE_FILE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "bmp", "webp", "heic", "heif", "pdf")
+
+/** True when [name]'s extension is a known raster/PDF image extension (case-insensitive). */
+private fun hasImageFileExtension(name: String): Boolean {
+    val dot = name.lastIndexOf('.')
+    if (dot < 0 || dot == name.length - 1) return false
+    return name.substring(dot + 1).lowercase() in IMAGE_FILE_EXTENSIONS
 }

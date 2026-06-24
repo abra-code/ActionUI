@@ -9,9 +9,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
 import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Helpers.LabelIcon
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
@@ -47,6 +49,13 @@ import com.abracode.actionui.Helpers.stringProperty
  * (`ModifierResolver.applyCommonProperties`); the icon's `contentDescription`
  * stays null so the label is not announced a second time on the glyph node.
  *
+ * **Value-bearing.** Like Apple, `Label` declares [ActionUIValueType.STRING]:
+ * the mutable runtime value is the **title** string, so a host can change the
+ * label text at runtime via `ActionUIModel.setElementValue(id, "...")` and the
+ * row recomposes (the value is Compose snapshot state). When no runtime value
+ * is set the static `title` property is shown, so existing static usage is
+ * unchanged. The icon is not part of the value (Apple parity).
+ *
  * Sample JSON:
  * ```
  * { "type": "Label", "properties": { "title": "Favorites",
@@ -54,6 +63,10 @@ import com.abracode.actionui.Helpers.stringProperty
  * ```
  */
 object Label : ActionUIViewConstruction {
+    override val valueType = ActionUIValueType.STRING
+
+    override fun initialValue(element: ActionUIElement): Any? =
+        element.properties?.stringProperty("title") ?: ""
 
     /** Gap between the icon and the title, approximating SwiftUI `Label` spacing. */
     private val IconGap = 6.dp
@@ -63,7 +76,11 @@ object Label : ActionUIViewConstruction {
         val props = element.properties
         val logger = LocalActionUILogger.current
 
-        val title = props?.stringProperty("title") ?: ""
+        // ViewModel-backed title when a window is in scope (a host write
+        // recomposes); else the static `title` property. Apple parity:
+        // the runtime value is the title string.
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        val title = (viewModel?.value as? String) ?: props?.stringProperty("title") ?: ""
         val imageScale = props?.stringProperty("imageScale")
 
         // Icon selection (+ its deferred-source warning) runs once per change. A
