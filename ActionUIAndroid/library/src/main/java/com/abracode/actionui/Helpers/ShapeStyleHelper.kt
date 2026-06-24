@@ -1,5 +1,6 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
@@ -24,17 +25,16 @@ import kotlinx.serialization.json.JsonObject
  * through to `stroke` (Apple only enters the fill branch when the color
  * resolves).
  *
- * ## Color vocabulary (Phase 1)
+ * ## Color vocabulary
  *
- * Colors resolve through [parseColor] - named colors and `#RRGGBB` / `#AARRGGBB`
- * hex, the same vocabulary the universal `background` modifier accepts. Apple's
- * `resolveShapeStyle` additionally understands **semantic** styles (`primary`,
- * `secondary`, `tint`, `fill`, `separator`, ...) that are theme-derived; those are
- * **not** resolved here yet - they warn-and-skip and the [defaultColor]
- * (supplied by the builder as the theme's foreground analog) is used instead.
- * Because that default is the `.primary` analog, a `"fill": "primary"` still
- * renders the visually-correct color; only the other semantic styles diverge.
- * Tracked in `Private/Android_Porting_Notes.md` section 11.
+ * Colors resolve through [resolveColorOrSemantic]: Apple **semantic** styles
+ * (`primary`, `secondary`, `tint`, `fill`, `fill.tertiary`, `separator`, ...) map
+ * to adaptive Material 3 roles when a [ColorScheme] is supplied (the builder
+ * captures it from `MaterialTheme.colorScheme`), and literal named / `#RRGGBB` /
+ * `#RRGGBBAA` hex fall through to `parseColor` - the same combined vocabulary the
+ * universal `background` modifier now accepts. A genuinely unknown color still
+ * warns and falls back to the [defaultColor] (the theme's foreground analog,
+ * SwiftUI's `.primary` for an unstyled shape).
  */
 
 /** A resolved shape paint: a [color] applied either as a fill or as a stroke. */
@@ -52,18 +52,22 @@ internal data class ShapePaint(
  *   when a provided color string can't be parsed - the builder passes the
  *   theme's foreground analog (e.g. `MaterialTheme.colorScheme.onSurface`),
  *   matching SwiftUI's `.primary` default for an unstyled shape.
+ * @param colorScheme the active `MaterialTheme.colorScheme`, captured by the
+ *   builder so a semantic `fill`/`stroke` (e.g. `"tint"`, `"fill.tertiary"`)
+ *   resolves to its adaptive Material role. `null` resolves literal colors only.
  */
 internal fun resolveShapePaint(
     properties: JsonObject?,
     defaultColor: Color,
-    logger: ActionUILogger? = null
+    logger: ActionUILogger? = null,
+    colorScheme: ColorScheme? = null
 ): ShapePaint {
     if (properties != null) {
         properties.stringProperty("fill")?.let { fill ->
-            parseColor(fill)?.let { return ShapePaint(it, strokeWidthDp = null) }
+            resolveColorOrSemantic(fill, colorScheme)?.let { return ShapePaint(it, strokeWidthDp = null) }
             logger?.log(
-                "Unknown shape fill '$fill'. Named colors and #RRGGBB/#AARRGGBB hex " +
-                    "are supported; semantic styles (e.g. 'tint') are not yet. " +
+                "Unknown shape fill '$fill'. Named colors, #RRGGBB/#RRGGBBAA hex, and " +
+                    "Apple semantic styles (e.g. 'tint', 'fill.tertiary') are supported. " +
                     "Falling back to the default foreground color.",
                 LoggerLevel.warning
             )
@@ -71,14 +75,14 @@ internal fun resolveShapePaint(
             // taken when the color resolves).
         }
         properties.stringProperty("stroke")?.let { stroke ->
-            parseColor(stroke)?.let {
+            resolveColorOrSemantic(stroke, colorScheme)?.let {
                 val width = properties.floatProperty("strokeLineWidth") ?: 1f
                 return ShapePaint(it, strokeWidthDp = width)
             }
             logger?.log(
-                "Unknown shape stroke '$stroke'. Named colors and #RRGGBB/#AARRGGBB " +
-                    "hex are supported; semantic styles are not yet. Falling back to " +
-                    "the default foreground fill.",
+                "Unknown shape stroke '$stroke'. Named colors, #RRGGBB/#RRGGBBAA hex, " +
+                    "and Apple semantic styles are supported. Falling back to the default " +
+                    "foreground fill.",
                 LoggerLevel.warning
             )
         }

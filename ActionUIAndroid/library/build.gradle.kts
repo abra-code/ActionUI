@@ -6,11 +6,7 @@ plugins {
 
 android {
     namespace = "com.abracode.actionui"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31

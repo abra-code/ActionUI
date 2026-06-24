@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -65,9 +66,11 @@ import kotlinx.serialization.json.JsonPrimitive
  *   * A custom font *name* (SwiftUI's `.custom("Menlo", ...)`, or the `name` key
  *     of the dictionary form) has no portable Android equivalent without a
  *     bundled font resource; it is warned and the inherited/system font is used.
- *   * `foregroundStyle`/`tint` resolve only literal colors (via [parseColor]);
- *     theme-derived semantic styles (`primary`, `tint`, ...) are not resolved
- *     yet, matching the `background` modifier's current limitation.
+ *   * `foregroundStyle`/`tint` resolve both literal colors AND theme-derived Apple
+ *     semantic styles (`primary`, `secondary`, `tint`, `link`, `fill.*`, ...): the
+ *     `colorScheme` captured here is passed to `resolveColorOrSemantic`, so a
+ *     semantic name maps to an adaptive Material role exactly as the `background`
+ *     modifier now does.
  */
 val LocalActionUITint: ProvidableCompositionLocal<Color?> =
     compositionLocalOf { null }
@@ -91,9 +94,12 @@ fun ProvideTextStyleEnvironment(
         return
     }
 
+    // Captured in composition so foregroundStyle/tint can resolve Apple semantic
+    // color names (e.g. "secondary", "tint", "link") to adaptive Material roles.
+    val colorScheme = MaterialTheme.colorScheme
     val fontStyle = resolveFontStyle(properties["font"], logger)
-    val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", logger)
-    val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", logger)
+    val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", colorScheme, logger)
+    val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", colorScheme, logger)
     // `disabled: false` / `labelsHidden: false` provide nothing - SwiftUI ANDs
     // `isEnabled` down the tree (a child can never re-enable a subtree an
     // ancestor disabled), and `.labelsHidden()` has no inverse.
@@ -169,10 +175,21 @@ internal fun resolveTextSelection(name: String?, logger: ActionUILogger? = null)
         }
     }
 
-/** Resolves a `foregroundStyle`/`tint` color string, warning on an unknown color. */
-private fun resolveStyleColor(name: String?, property: String, logger: ActionUILogger?): Color? {
+/**
+ * Resolves a `foregroundStyle`/`tint` color string, warning on an unknown color.
+ * Apple semantic names (`secondary`, `tint`, `link`, `fill.tertiary`, ...) resolve
+ * to adaptive Material roles via [resolveColorOrSemantic] using the [colorScheme]
+ * captured at the (composable) call site; literal hex/named colors fall through to
+ * `parseColor`.
+ */
+private fun resolveStyleColor(
+    name: String?,
+    property: String,
+    colorScheme: ColorScheme,
+    logger: ActionUILogger?
+): Color? {
     if (name == null) return null
-    val color = parseColor(name)
+    val color = resolveColorOrSemantic(name, colorScheme)
     if (color == null) {
         logger?.log(
             "Unknown color '$name' for property '$property'. Property ignored.",

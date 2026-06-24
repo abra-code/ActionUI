@@ -5,11 +5,7 @@ plugins {
 
 android {
     namespace = "com.abracode.actionui.demo"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.abracode.actionui.demo"

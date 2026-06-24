@@ -35,10 +35,8 @@ import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
 import { applyIgnoresSafeArea } from "../Helpers/SafeAreaModifier.js";
 
 const NAMED_COLORS = {
-    // SwiftUI color names -> CSS custom properties resolved in theme.css,
+    // Standard SwiftUI color names -> CSS custom properties resolved in theme.css,
     // so they adapt to light/dark mode like SwiftUI semantic colors.
-    primary: "var(--aui-color-primary)",
-    secondary: "var(--aui-color-secondary)",
     accentColor: "var(--aui-color-accent)",
     red: "var(--aui-color-red)",
     orange: "var(--aui-color-orange)",
@@ -56,6 +54,37 @@ const NAMED_COLORS = {
     black: "#000000",
     gray: "var(--aui-color-gray)",
     clear: "transparent",
+
+    // Apple SEMANTIC styles (ActionUI/Helpers/ColorHelper.swift resolveShapeStyle)
+    // -> the --aui-* tokens defined in theme.css (light + dark, adaptive). The full
+    // set so a semantic color authored once renders theme-correct here exactly as on
+    // Apple and Android (Material roles). The .opacity(f) path below color-mixes the
+    // resolved var(). See Private/Semantic_Color_Mapping_Design.md for the table.
+    // (primary/secondary keep their existing --aui-color-* meaning, which already
+    // tracks the label ink; the rest are new tokens.)
+    primary: "var(--aui-color-primary)",
+    secondary: "var(--aui-color-secondary)",
+    tertiary: "var(--aui-tertiary)",
+    quaternary: "var(--aui-quaternary)",
+    quinary: "var(--aui-quinary)",
+    foreground: "var(--aui-foreground)",
+    "foreground.secondary": "var(--aui-foreground-secondary)",
+    "foreground.tertiary": "var(--aui-foreground-tertiary)",
+    "foreground.quaternary": "var(--aui-foreground-quaternary)",
+    background: "var(--aui-background)",
+    "background.secondary": "var(--aui-background-secondary)",
+    "background.tertiary": "var(--aui-background-tertiary)",
+    "background.quaternary": "var(--aui-background-quaternary)",
+    windowBackground: "var(--aui-window-background)",
+    fill: "var(--aui-fill)",
+    "fill.secondary": "var(--aui-fill-secondary)",
+    "fill.tertiary": "var(--aui-fill-tertiary)",
+    "fill.quaternary": "var(--aui-fill-quaternary)",
+    separator: "var(--aui-separator)",
+    tint: "var(--aui-tint)",
+    link: "var(--aui-link)",
+    placeholder: "var(--aui-placeholder)",
+    selection: "var(--aui-selection)",
 };
 
 const FONT_TEXT_STYLES = new Set([

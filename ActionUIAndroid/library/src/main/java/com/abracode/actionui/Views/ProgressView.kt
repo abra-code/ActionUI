@@ -9,7 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
+import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
@@ -35,10 +37,14 @@ import com.abracode.actionui.Helpers.stringProperty
  *   * plus the universal modifiers resolved by `applyCommonProperties`, applied
  *     to the enclosing [Column] via [modifier].
  *
- * **Deferred vs. Apple.** Apple's `states["progress"]` runtime override is **not**
- * ported - Android has no `ViewModel`/state layer yet (see
- * `Private/Android_Porting_Notes.md` section 6), so progress is taken from the static
- * JSON `value` only, the same Phase-1 stance `Image` takes for its runtime value.
+ * **Value bridge.** Like Apple, `ProgressView` declares [ActionUIValueType.DOUBLE]
+ * (Apple's `Double?`): a host can drive the progress at runtime via
+ * `ActionUIModel.setElementValue(id, <Double>)`. As on Apple, the
+ * `states["progress"]` override (set with `setElementState`) wins over the value
+ * bridge, which in turn wins over the static `value` property; setting the value
+ * `null` (no override and no property) reverts to the indeterminate spinner.
+ * `initialValue` seeds from a pre-set runtime value or the `value` property,
+ * matching Apple's `ProgressView.swift`. Static usage is unchanged.
  *
  * Sample JSON:
  * ```
@@ -47,15 +53,29 @@ import com.abracode.actionui.Helpers.stringProperty
  * ```
  */
 object ProgressView : ActionUIViewConstruction {
+    /** Apple's `states["progress"]` key: a runtime override of the displayed progress. */
+    private const val PROGRESS_STATE_KEY = "progress"
+
+    override val valueType = ActionUIValueType.DOUBLE
+
+    // Non-null only when a runtime value was set; null means "use the static
+    // value property" (the builder reads it). Mirrors Apple's
+    // `ProgressView.initialValue`, which returns `model.value as? Double`.
+    override fun initialValue(element: ActionUIElement): Any? = null
+
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
         val title = props?.stringProperty("title")
         val actionID = props?.stringProperty("actionID")
 
-        // Determinate only when value is valid (>= 0), total (default 1.0) is
-        // positive, and value <= total - mirrors Apple's buildView guard.
-        val value = props?.numberProperty("value")
+        // Effective progress (Apple precedence): states["progress"] override >
+        // the value bridge (a host write) > the static `value` property. Null at
+        // every level -> indeterminate.
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        val stateProgress = viewModel?.states?.get(PROGRESS_STATE_KEY) as? Double
+        val runtimeValue = viewModel?.value as? Double
+        val value = stateProgress ?: runtimeValue ?: props?.numberProperty("value")
         val total = props?.numberProperty("total") ?: if (value != null) 1.0 else null
         val determinate = value != null && value >= 0.0 &&
             total != null && total > 0.0 && value <= total

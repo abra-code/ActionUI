@@ -53,6 +53,10 @@ class ActionUIModelValueStateTest {
         ActionUIRegistry.register("FakeBoolean", FakeValueBuilder(ActionUIValueType.BOOLEAN))
         ActionUIRegistry.register("FakeInt", FakeValueBuilder(ActionUIValueType.INT))
         ActionUIRegistry.register("FakeDouble", FakeValueBuilder(ActionUIValueType.DOUBLE))
+        // A valueless (NONE) stand-in for the "warns on a valueless element"
+        // test. `Text` used to fill that role, but it is now STRING-valued
+        // (value-bridge parity with SwiftUI), so it cannot.
+        ActionUIRegistry.register("FakeNone", FakeValueBuilder(ActionUIValueType.NONE))
 
         val root = ActionUIElement(
             id = 100, type = "VStack",
@@ -61,7 +65,7 @@ class ActionUIModelValueStateTest {
                 ActionUIElement(id = 2, type = "FakeBoolean"),
                 ActionUIElement(id = 3, type = "FakeInt"),
                 ActionUIElement(id = 4, type = "FakeDouble"),
-                ActionUIElement(id = 5, type = "Text"),
+                ActionUIElement(id = 5, type = "FakeNone"),
                 ActionUIElement(id = 6, type = "DatePicker", properties = buildJsonObject { put("selectedDate", "2024-07-16") }),
                 ActionUIElement(id = 7, type = "ColorPicker", properties = buildJsonObject { put("selectedColor", "#FF8800") }),
                 ActionUIElement(id = 8, type = "List"),
@@ -116,7 +120,7 @@ class ActionUIModelValueStateTest {
 
     @Test
     fun `setElementValueFromString warns on a valueless element`() {
-        ActionUIModel.setElementValueFromString(viewID = 5, value = "x") // Text => NONE
+        ActionUIModel.setElementValueFromString(viewID = 5, value = "x") // FakeNone => NONE
         assertNull(ActionUIModel.getElementValue(viewID = 5))
         assertTrue(logger.warnings.any { it.contains("no value") })
     }

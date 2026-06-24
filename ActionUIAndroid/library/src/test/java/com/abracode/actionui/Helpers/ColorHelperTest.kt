@@ -1,8 +1,12 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -167,5 +171,107 @@ class ColorHelperTest {
         assertEquals(Color.Gray.red, gray.red, 0.004f)
         assertEquals(0.5f, parseColor("red.opacity(0.5)")!!.alpha, 0.004f)
         assertNull(parseColor("notacolor.opacity(0.3)"))
+    }
+
+    // --- Semantic color resolution (the composition-aware path) ---
+    //
+    // resolveSemanticColor maps Apple semantic names onto Material 3 roles drawn
+    // from a ColorScheme; lightColorScheme()/darkColorScheme() build real schemes
+    // in a pure JVM test (no Android Context). resolveColorOrSemantic is the
+    // combined entry point the appliers call: semantic first, then parseColor.
+
+    private val light = lightColorScheme()
+    private val dark = darkColorScheme()
+
+    @Test
+    fun `resolveSemanticColor maps the content levels to onSurface roles`() {
+        assertEquals(light.onSurface, resolveSemanticColor("primary", light))
+        assertEquals(light.onSurfaceVariant, resolveSemanticColor("secondary", light))
+        // foreground is the primary content style; foreground.secondary == secondary.
+        assertEquals(light.onSurface, resolveSemanticColor("foreground", light))
+        assertEquals(light.onSurfaceVariant, resolveSemanticColor("foreground.secondary", light))
+    }
+
+    @Test
+    fun `resolveSemanticColor maps background levels to surface-container tones`() {
+        assertEquals(light.surface, resolveSemanticColor("background", light))
+        assertEquals(light.surfaceContainerLow, resolveSemanticColor("background.secondary", light))
+        assertEquals(light.surfaceContainer, resolveSemanticColor("background.tertiary", light))
+        assertEquals(light.surfaceContainerHigh, resolveSemanticColor("background.quaternary", light))
+        assertEquals(light.surfaceDim, resolveSemanticColor("windowBackground", light))
+    }
+
+    @Test
+    fun `resolveSemanticColor maps fills to translucent onSurface`() {
+        // The iOS fill-opacity ladder over onSurface (0.20 / 0.16 / 0.12 / 0.08).
+        assertEquals(light.onSurface.copy(alpha = 0.20f), resolveSemanticColor("fill", light))
+        assertEquals(light.onSurface.copy(alpha = 0.16f), resolveSemanticColor("fill.secondary", light))
+        assertEquals(light.onSurface.copy(alpha = 0.12f), resolveSemanticColor("fill.tertiary", light))
+        assertEquals(light.onSurface.copy(alpha = 0.08f), resolveSemanticColor("fill.quaternary", light))
+    }
+
+    @Test
+    fun `resolveSemanticColor maps the discrete roles`() {
+        assertEquals(light.outlineVariant, resolveSemanticColor("separator", light))
+        assertEquals(light.primary, resolveSemanticColor("tint", light))
+        assertEquals(light.primary, resolveSemanticColor("link", light))
+        assertEquals(light.secondaryContainer, resolveSemanticColor("selection", light))
+        assertEquals(light.onSurfaceVariant.copy(alpha = 0.5f), resolveSemanticColor("placeholder", light))
+    }
+
+    @Test
+    fun `resolveSemanticColor is case-insensitive and trims`() {
+        assertEquals(light.onSurface, resolveSemanticColor("  PRIMARY  ", light))
+        assertEquals(light.surfaceContainer, resolveSemanticColor("Background.Tertiary", light))
+    }
+
+    @Test
+    fun `resolveSemanticColor returns null for a non-semantic name`() {
+        // Hex / literal named colors are NOT semantic - they belong to parseColor.
+        assertNull(resolveSemanticColor("#FF0000", light))
+        assertNull(resolveSemanticColor("magickaboo", light))
+    }
+
+    @Test
+    fun `semantic colors adapt to the scheme (light vs dark differ)`() {
+        // The whole point: no hardcoded hex, so the role tracks the theme.
+        assertNotEquals(resolveSemanticColor("background", light), resolveSemanticColor("background", dark))
+        assertNotEquals(resolveSemanticColor("primary", light), resolveSemanticColor("primary", dark))
+    }
+
+    @Test
+    fun `resolveColorOrSemantic tries semantic first then parseColor`() {
+        // Semantic wins when the name is a known semantic style...
+        assertEquals(light.onSurfaceVariant, resolveColorOrSemantic("secondary", light))
+        // ...and literal colors still resolve through parseColor.
+        assertEquals(Color.Red, resolveColorOrSemantic("red", light))
+        assertEquals(Color(0xFFFF0000.toInt()), resolveColorOrSemantic("#FF0000", light))
+        assertNull(resolveColorOrSemantic("notacolor", light))
+    }
+
+    @Test
+    fun `resolveColorOrSemantic with a null scheme is the pure parseColor path`() {
+        // No theme in scope -> semantic names are unknown, literals still work.
+        assertNull(resolveColorOrSemantic("secondary.opacity(0.5)", null)) // semantic base unresolvable
+        assertEquals(Color.Red, resolveColorOrSemantic("red", null))
+        // "secondary" IS a parseColor name on Apple? No - parseColor has no
+        // "secondary", so it returns null without a scheme.
+        assertNull(resolveColorOrSemantic("primary", null))
+    }
+
+    @Test
+    fun `resolveColorOrSemantic applies opacity to a semantic base`() {
+        // secondary.opacity(0.5) - resolve the role, scale its alpha by the fraction.
+        val faded = resolveColorOrSemantic("secondary.opacity(0.5)", light)!!
+        val base = light.onSurfaceVariant
+        assertEquals(base.alpha * 0.5f, faded.alpha, 0.004f)
+        assertEquals(base.red, faded.red, 0.004f)
+        assertEquals(base.green, faded.green, 0.004f)
+        assertEquals(base.blue, faded.blue, 0.004f)
+        // tint.opacity(0.25) - the accent role faded.
+        val tintFaded = resolveColorOrSemantic("tint.opacity(0.25)", light)!!
+        assertEquals(light.primary.alpha * 0.25f, tintFaded.alpha, 0.004f)
+        // A clearly-translucent result, not the opaque role.
+        assertTrue(faded.alpha < base.alpha)
     }
 }

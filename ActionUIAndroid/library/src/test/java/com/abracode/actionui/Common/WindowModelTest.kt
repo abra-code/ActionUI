@@ -65,16 +65,39 @@ class WindowModelTest {
     }
 
     @Test
-    fun `display and container elements get no seeded value`() {
+    fun `valueless display and container elements get no seeded value`() {
+        // A container (VStack) and a genuinely valueless display leaf (Spacer)
+        // are NONE-typed and seed no value. (Text is no longer in this set: it
+        // is now value-bearing, STRING, for value-bridge parity with SwiftUI.)
         val root = ActionUIElement(
             id = 1, type = "VStack",
-            children = listOf(ActionUIElement(id = 2, type = "Text"))
+            children = listOf(ActionUIElement(id = 2, type = "Spacer"))
         )
         val window = model()
         window.loadDescription(root)
 
         assertNull(window.viewModels[1]?.value)
         assertNull(window.viewModels[2]?.value)
+    }
+
+    @Test
+    fun `value-bearing display elements seed from their content property`() {
+        // Text and Label became value-bearing (STRING) for SwiftUI parity: their
+        // displayed content is the seeded ViewModel value, host-addressable by id.
+        val root = ActionUIElement(
+            id = 1, type = "VStack",
+            children = listOf(
+                ActionUIElement(id = 2, type = "Text",
+                    properties = buildJsonObject { put("text", "hello") }),
+                ActionUIElement(id = 3, type = "Label",
+                    properties = buildJsonObject { put("title", "Favorites") }),
+            )
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals("hello", window.viewModels[2]?.value)
+        assertEquals("Favorites", window.viewModels[3]?.value)
     }
 
     @Test

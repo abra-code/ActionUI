@@ -1,5 +1,6 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import java.util.Locale
 import kotlin.math.abs
@@ -30,9 +31,14 @@ import kotlin.math.roundToInt
  * (SwiftUI's exact component values are private).
  *
  * Returns `null` for any other input. Apple's `resolveShapeStyle` additionally
- * understands theme-derived **semantic** styles (`primary`, `tint`, ...); those
- * need a Compose theme and are not resolved here yet (see
- * `Private/Android_Porting_Notes.md` section 11).
+ * understands theme-derived **semantic** styles (`primary`, `tint`, ...). Those
+ * cannot be resolved here because [parseColor] is a pure, context-free function,
+ * while the Material adaptive roles live in `MaterialTheme.colorScheme` (readable
+ * only inside composition). [resolveSemanticColor] - which takes a [ColorScheme]
+ * captured at the modifier-application site - handles the semantic set, and
+ * [resolveColorOrSemantic] is the combined entry point callers use (semantic
+ * first, then this `parseColor` fallback). See `Private/Android_Porting_Notes.md`
+ * section 11 / the semantic-color entry.
  */
 internal fun parseColor(name: String): Color? {
     val trimmed = name.trim()
@@ -68,6 +74,108 @@ internal fun parseColor(name: String): Color? {
         else                     -> null
     }
 }
+
+/**
+ * Resolves an Apple **semantic** color name into an adaptive Compose [Color]
+ * drawn from a Material 3 [colorScheme]. This is the composition-aware companion
+ * to [parseColor]: Apple's `ColorHelper.resolveShapeStyle` understands a set of
+ * theme-derived styles (`primary`, `secondary`, `background`, `fill`, `tint`,
+ * `separator`, ...) that adapt to light/dark automatically; Material 3 supplies
+ * the same adaptive primitives, so the names map onto roles rather than to any
+ * hardcoded hex - light/dark and dynamic color then Just Work, as on Apple.
+ *
+ * The [colorScheme] must be captured inside composition (e.g.
+ * `MaterialTheme.colorScheme` at the modifier-application site); the function
+ * itself is pure so it stays unit-testable.
+ *
+ * ## Final mapping (Apple semantic -> Material 3 role)
+ *
+ * SwiftUI's hierarchical content levels (`primary`..`quinary`) are *translucent
+ * grays over the content color*; Apple's `fill.*` are likewise translucent grays;
+ * Apple's `background.*` are *opaque layered surfaces*. So:
+ *   * the content levels map to `onSurface`/`onSurfaceVariant` at decreasing
+ *     alpha (the iOS label-opacity ladder: 1.0 / ~0.6 / ~0.3 / ~0.18 / ~0.10),
+ *   * the `fill.*` levels map to `onSurface` at the iOS fill-opacity ladder
+ *     (~0.20 / 0.16 / 0.12 / 0.08) - the alpha-over-onSurface form tracks the
+ *     iOS translucent grays more faithfully than the opaque `surfaceContainer*`
+ *     tones would,
+ *   * the opaque `background.*` levels map to the Material surface-container
+ *     tonal roles (`surface` / `surfaceContainerLow` / `surfaceContainer` /
+ *     `surfaceContainerHigh`), which ARE the idiomatic Material layered surfaces.
+ *
+ * `tint` / `link` -> `primary` (the accent role; `tint` is also carried by
+ * `LocalActionUITint` for controls). `separator` -> `outlineVariant`.
+ * `placeholder` -> `onSurfaceVariant` @ 0.5. `selection` -> `secondaryContainer`.
+ * `windowBackground` -> `surfaceDim` (a dimmed surface, the desktop-window
+ * analog). `foreground.*` track the content levels (SwiftUI's `.foreground` is
+ * the primary content style); `background` (bare) -> `surface`.
+ *
+ * Returns `null` for any non-semantic name (the caller then tries [parseColor]).
+ */
+internal fun resolveSemanticColor(name: String, colorScheme: ColorScheme): Color? {
+    return when (name.trim().lowercase()) {
+        // ---- Hierarchical content levels (translucent over onSurface) ----
+        "primary"                 -> colorScheme.onSurface
+        "secondary"               -> colorScheme.onSurfaceVariant
+        "tertiary"                -> colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+        "quaternary"              -> colorScheme.onSurface.copy(alpha = 0.18f)
+        "quinary"                 -> colorScheme.onSurface.copy(alpha = 0.10f)
+        // ---- foreground.* == the content levels (foreground is the primary style) ----
+        "foreground"              -> colorScheme.onSurface
+        "foreground.secondary"    -> colorScheme.onSurfaceVariant
+        "foreground.tertiary"     -> colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+        "foreground.quaternary"   -> colorScheme.onSurface.copy(alpha = 0.18f)
+        // ---- Opaque layered surfaces -> Material surface-container tonal roles ----
+        "background"              -> colorScheme.surface
+        "background.secondary"    -> colorScheme.surfaceContainerLow
+        "background.tertiary"     -> colorScheme.surfaceContainer
+        "background.quaternary"   -> colorScheme.surfaceContainerHigh
+        "windowbackground"        -> colorScheme.surfaceDim
+        // ---- Translucent fills (over onSurface, the iOS fill-opacity ladder) ----
+        "fill"                    -> colorScheme.onSurface.copy(alpha = 0.20f)
+        "fill.secondary"          -> colorScheme.onSurface.copy(alpha = 0.16f)
+        "fill.tertiary"           -> colorScheme.onSurface.copy(alpha = 0.12f)
+        "fill.quaternary"         -> colorScheme.onSurface.copy(alpha = 0.08f)
+        // ---- Discrete semantic roles ----
+        "separator"               -> colorScheme.outlineVariant
+        "tint", "link"            -> colorScheme.primary
+        "placeholder"             -> colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        "selection"               -> colorScheme.secondaryContainer
+        else                      -> null
+    }
+}
+
+/**
+ * The combined color entry point for color-applying modifiers: tries the
+ * composition-aware [resolveSemanticColor] first (so a known Apple semantic name
+ * like `secondary` or `fill.tertiary` resolves to an adaptive Material role),
+ * then falls back to the pure [parseColor] (hex / named / `.opacity()`).
+ *
+ * Also makes the SwiftUI `<name>.opacity(<fraction>)` suffix work on a *semantic*
+ * base (e.g. `secondary.opacity(0.5)`, `tint.opacity(0.3)`): [parseColor] cannot
+ * resolve the semantic base, so the suffix is peeled here and the base is routed
+ * back through this function, scaling the resolved role's alpha by the fraction -
+ * mirroring SwiftUI's `Color.opacity(_:)` and the web `color-mix` path.
+ *
+ * Pass `colorScheme = null` to skip the semantic step entirely (the pre-existing
+ * pure behavior), e.g. from a non-composition context.
+ */
+internal fun resolveColorOrSemantic(name: String, colorScheme: ColorScheme?): Color? {
+    if (colorScheme == null) return parseColor(name)
+    val trimmed = name.trim()
+    resolveSemanticColor(trimmed, colorScheme)?.let { return it }
+    // `<semantic>.opacity(<fraction>)` - parseColor only handles a parseable base,
+    // so resolve a semantic base here and scale its alpha.
+    SEMANTIC_OPACITY_REGEX.matchEntire(trimmed)?.let { m ->
+        val base = resolveSemanticColor(m.groupValues[1], colorScheme) ?: return@let
+        val fraction = m.groupValues[2].toFloatOrNull()?.coerceIn(0f, 1f) ?: return@let
+        return base.copy(alpha = base.alpha * fraction)
+    }
+    return parseColor(name)
+}
+
+private val SEMANTIC_OPACITY_REGEX =
+    Regex("""^(.+)\.opacity\(\s*([0-9]*\.?[0-9]+)\s*\)$""")
 
 /**
  * Serializes [color] to a hex string in the canonical Apple form: `#RRGGBB` when
