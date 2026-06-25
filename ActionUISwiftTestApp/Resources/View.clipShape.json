@@ -49,15 +49,22 @@
 
       { "type": "Text", "properties": { "text": "clipShape: roundedRectangle cornerRadius:20 (Text bubble)", "font": "caption", "foregroundStyle": "secondary" } },
       {
-        "type": "Text",
+        "type": "HStack",
         "properties": {
-          "text": "Rounded bubble",
-          "foregroundStyle": "white",
-          "background": "blue",
-          "padding": "default",
-          "clipShape": { "type": "roundedRectangle", "cornerRadius": 20 },
           "frame": { "maxWidth": 220 }
-        }
+        },
+        "children": [
+          {
+            "type": "Text",
+            "properties": {
+              "text": "Rounded bubble",
+              "foregroundStyle": "white",
+              "background": "blue",
+              "padding": "default",
+              "clipShape": { "type": "roundedRectangle", "cornerRadius": 20 }
+            }
+          }
+        ]
       },
 
       { "type": "Text", "properties": { "text": "clipShape: roundedRectangle per-axis (cornerRadiusX:24 cornerRadiusY:8)", "font": "caption", "foregroundStyle": "secondary" } },

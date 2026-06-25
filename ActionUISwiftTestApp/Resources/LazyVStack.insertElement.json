@@ -26,15 +26,22 @@
             "children": [
               { "type": "Spacer" },
               {
-                "type": "Text",
+                "type": "HStack",
                 "properties": {
-                  "text": "Hello! 👋",
-                  "foregroundStyle": "white",
-                  "padding": "default",
-                  "background": "blue",
-                  "clipShape": { "type": "roundedRectangle", "cornerRadius": 12 },
-                  "frame": { "maxWidth": 260 }
-                }
+                  "frame": { "maxWidth": 260, "alignment": "trailing" }
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "properties": {
+                      "text": "Hello! 👋",
+                      "foregroundStyle": "white",
+                      "padding": "default",
+                      "background": "blue",
+                      "clipShape": { "type": "roundedRectangle", "cornerRadius": 12 }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -43,15 +50,22 @@
             "children": [
               { "type": "Spacer" },
               {
-                "type": "Text",
+                "type": "HStack",
                 "properties": {
-                  "text": "Type a message and tap Send.",
-                  "foregroundStyle": "white",
-                  "padding": "default",
-                  "background": "blue",
-                  "clipShape": { "type": "roundedRectangle", "cornerRadius": 12 },
-                  "frame": { "maxWidth": 260 }
-                }
+                  "frame": { "maxWidth": 260, "alignment": "trailing" }
+                },
+                "children": [
+                  {
+                    "type": "Text",
+                    "properties": {
+                      "text": "Type a message and tap Send.",
+                      "foregroundStyle": "white",
+                      "padding": "default",
+                      "background": "blue",
+                      "clipShape": { "type": "roundedRectangle", "cornerRadius": 12 }
+                    }
+                  }
+                ]
               }
             ]
           }

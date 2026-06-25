@@ -1262,49 +1262,16 @@ struct View: ActionUIViewConstruction {
             modifiedView = modifiedView.hidden()
         }
         
-        // Use background with resolveShapeStyle
-        if let background = properties["background"] as? String {
-            if let style = ColorHelper.resolveShapeStyle(background) {
-                modifiedView = modifiedView.background(style)
-            } else if !background.isEmpty {
-                logger.log("Unknown color \"\(background)\"", .warning)
-            }
-        }
-
-        // Apply view-based backgroundView modifier
-        if let bgElement = element.subviews?["background"] as? any ActionUIElementBase,
-           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
-           let bgModel = windowModel.viewModels[bgElement.id] {
-            let alignment = resolveAlignment(properties["backgroundAlignment"] as? String)
-            modifiedView = modifiedView.background(alignment: alignment) {
-                ActionUIView(element: bgElement, model: bgModel, windowUUID: windowUUID)
-            }
-        }
-
-        // cornerRadius and clipShape apply before frame so rounding clips the background fill,
-        // not the layout container — the canonical SwiftUI pattern for rounded-background views.
-        if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
-            modifiedView = modifiedView.cornerRadius(cornerRadius)
-        }
-
-        if let clipShape = properties["clipShape"] {
-            if let shapeName = clipShape as? String {
-                switch shapeName {
-                case "circle":   modifiedView = modifiedView.clipShape(SwiftUI.Circle())
-                case "capsule":  modifiedView = modifiedView.clipShape(SwiftUI.Capsule())
-                case "ellipse":  modifiedView = modifiedView.clipShape(SwiftUI.Ellipse())
-                default:         modifiedView = modifiedView.clipShape(SwiftUI.Rectangle()) // "rectangle"
-                }
-            } else if let shapeDict = clipShape as? [String: Any] {
-                if let radius = shapeDict.cgFloat(forKey: "cornerRadius") {
-                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerRadius: radius))
-                } else if let rx = shapeDict.cgFloat(forKey: "cornerRadiusX"),
-                          let ry = shapeDict.cgFloat(forKey: "cornerRadiusY") {
-                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerSize: CGSize(width: rx, height: ry)))
-                }
-            }
-        }
-
+        // frame is applied BEFORE the decoration below (background color/view,
+        // cornerRadius, clipShape) so a background FILLS the frame and the rounding/
+        // clip shapes that filled, sized box - the intuitive "sized box" semantics
+        // and the cross-platform contract shared with Web and Android (see
+        // Private/Layout_Engine_Parity.md). Padding is innermost (applied first
+        // above), so a padded element with NO frame is unchanged - the background
+        // still fills content+padding (the pill/badge idiom). Changing this from the
+        // old background-before-frame order is what makes a styled, fixed/flex-sized
+        // box keep its fill when its content is empty or short; the JSON adaptation
+        // for views that relied on the old hug is in Private/Layout_Fill_Migration.md.
         if let frame = properties["frame"] as? [String: Any] {
             let alignment = (frame["alignment"] as? String).flatMap { alignmentString -> Alignment? in
                 switch alignmentString {
@@ -1320,11 +1287,11 @@ struct View: ActionUIViewConstruction {
                 default: return nil
                 }
             } ?? .center
-            
+
             // Check for fixed frame keys
             let hasFixedFrameKeys = frame["width"] != nil || frame["height"] != nil
             let hasFlexibleFrameKeys = ["minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight"].contains { frame[$0] != nil }
-            
+
             if hasFixedFrameKeys {
                 let width = frame.cgFloat(forKey: "width")
                 let height = frame.cgFloat(forKey: "height")
@@ -1348,6 +1315,51 @@ struct View: ActionUIViewConstruction {
             } else {
                 // Apply frame with only alignment
                 modifiedView = modifiedView.frame(alignment: alignment)
+            }
+        }
+
+        // Use background with resolveShapeStyle. Applied AFTER frame, so it fills the
+        // framed size (was applied before frame, where it hugged the content).
+        if let background = properties["background"] as? String {
+            if let style = ColorHelper.resolveShapeStyle(background) {
+                modifiedView = modifiedView.background(style)
+            } else if !background.isEmpty {
+                logger.log("Unknown color \"\(background)\"", .warning)
+            }
+        }
+
+        // Apply view-based backgroundView modifier (also fills the framed size).
+        if let bgElement = element.subviews?["background"] as? any ActionUIElementBase,
+           let windowModel = ActionUIModel.shared.windowModels[windowUUID],
+           let bgModel = windowModel.viewModels[bgElement.id] {
+            let alignment = resolveAlignment(properties["backgroundAlignment"] as? String)
+            modifiedView = modifiedView.background(alignment: alignment) {
+                ActionUIView(element: bgElement, model: bgModel, windowUUID: windowUUID)
+            }
+        }
+
+        // cornerRadius then clipShape, applied after frame+background so they round /
+        // clip the filled, framed box (and, with no background, clip a sized element -
+        // e.g. an avatar Image - after it is sized, the correct SwiftUI order).
+        if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
+            modifiedView = modifiedView.cornerRadius(cornerRadius)
+        }
+
+        if let clipShape = properties["clipShape"] {
+            if let shapeName = clipShape as? String {
+                switch shapeName {
+                case "circle":   modifiedView = modifiedView.clipShape(SwiftUI.Circle())
+                case "capsule":  modifiedView = modifiedView.clipShape(SwiftUI.Capsule())
+                case "ellipse":  modifiedView = modifiedView.clipShape(SwiftUI.Ellipse())
+                default:         modifiedView = modifiedView.clipShape(SwiftUI.Rectangle()) // "rectangle"
+                }
+            } else if let shapeDict = clipShape as? [String: Any] {
+                if let radius = shapeDict.cgFloat(forKey: "cornerRadius") {
+                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerRadius: radius))
+                } else if let rx = shapeDict.cgFloat(forKey: "cornerRadiusX"),
+                          let ry = shapeDict.cgFloat(forKey: "cornerRadiusY") {
+                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerSize: CGSize(width: rx, height: ry)))
+                }
             }
         }
         
