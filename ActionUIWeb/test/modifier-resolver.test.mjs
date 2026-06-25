@@ -117,6 +117,57 @@ test("scaleEffect / rotationEffect set the CSS scale / rotate", () => {
     assert.equal(applied({ rotationEffect: 45 }).node.style.rotate, "45deg");
 });
 
+test("frame: fixed width/height set inline px sizes", () => {
+    const { node } = applied({ frame: { width: 180, height: 52 } });
+    assert.equal(node.style.width, "180px");
+    assert.equal(node.style.height, "52px");
+});
+
+test("frame: maxWidth infinity -> aui-fill-width (SwiftUI .frame(maxWidth: .infinity))", () => {
+    // The parent stack's CSS resolves this class per axis - flex:1 1 0 (share the
+    // remainder) along an HStack main axis, align-self:stretch across a VStack
+    // cross axis. The CSS contract is pinned in stack-fill.test.mjs.
+    const node = applied({ frame: { maxWidth: "infinity" } }).node;
+    assert.ok(node.classList.contains("aui-fill-width"), "maxWidth infinity tags the node fill-width");
+    assert.ok(!node.classList.contains("aui-fill-height"));
+});
+
+test("frame: maxHeight infinity -> aui-fill-height", () => {
+    const node = applied({ frame: { maxHeight: "infinity" } }).node;
+    assert.ok(node.classList.contains("aui-fill-height"), "maxHeight infinity tags the node fill-height");
+    assert.ok(!node.classList.contains("aui-fill-width"));
+});
+
+test("frame: a finite maxWidth GROWS to the cap (Issue B) and bounds at min(Npx, 100%)", () => {
+    // SwiftUI .frame(maxWidth: N) grows the view UP TO N, it does not only bound.
+    // So a bare finite maxWidth both caps AND tags the axis-aware fill class
+    // (flex:1 1 0 in an HStack, stretch in a VStack), bounded by the cap.
+    const { node } = applied({ frame: { maxWidth: 300 } });
+    assert.equal(node.style.maxWidth, "min(300px, 100%)");
+    assert.ok(node.classList.contains("aui-fill-width"), "a finite maxWidth grows to its cap");
+});
+
+test("frame: a finite maxWidth does NOT grow when the width is already pinned", () => {
+    // An explicit width / idealWidth on the same axis pins it; the cap then only bounds.
+    const pinned = applied({ frame: { idealWidth: 200, maxWidth: 300 } }).node;
+    assert.ok(!pinned.classList.contains("aui-fill-width"), "a pinned width is not overridden by grow-to-cap");
+});
+
+test("frame: minWidth sets a hard floor", () => {
+    assert.equal(applied({ frame: { minWidth: 120 } }).node.style.minWidth, "120px");
+});
+
+test("FILLS: a sized frame and a background land on the SAME node (background fills the frame)", () => {
+    // The cross-platform FILLS contract on Web: the renderer is single-node, so a
+    // frame's size and the background color sit on one element - the fill covers
+    // the framed box with no content-hugging wrapper, mirroring the reordered
+    // Apple pipeline (frame before background) and the Android sizing/decoration split.
+    const { node } = applied({ frame: { width: 180, height: 52 }, background: "green" });
+    assert.equal(node.style.width, "180px");
+    assert.equal(node.style.height, "52px");
+    assert.match(node.style.backgroundColor, /var\(--aui-color-green\)/);
+});
+
 test("actionID wires a click that dispatches; markHandlesAction opts out", () => {
     const node = makeElement();
     const dispatched = [];

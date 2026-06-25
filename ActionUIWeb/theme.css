@@ -1302,6 +1302,13 @@
 .aui-font-caption     { font-size: 10px; font-weight: 400; }
 .aui-font-caption2    { font-size: 10px; font-weight: 500; }
 
+/* A Text reserves one line's height even when empty, like SwiftUI's Text(""),
+   so a styled/sized text box does not collapse before its content arrives and
+   matches the height it will have once filled (a `<span>` with no text otherwise
+   has no line box). The zero-width space makes a line box with no visible glyph;
+   it disappears the moment real content is set (`:empty` no longer matches). */
+.aui-text:empty::before { content: "\200b"; }
+
 /* ---- Button ---- */
 
 .aui-button {
@@ -1438,7 +1445,6 @@
 /* SecureField shares TextField's box; it differs only in type="password".
    TextEditor is the multi-line member of the family (a <textarea>). */
 .aui-textfield, .aui-securefield {
-    font: inherit;
     color: var(--aui-color-primary);
     background: var(--aui-control-background);
     border: 1px solid var(--aui-control-border);
@@ -1446,6 +1452,12 @@
     padding: 3px 8px;
     min-width: 0;
 }
+/* The field inherits the app font, but at ZERO specificity (:where) so an
+   explicit `.aui-font-*` class on the field wins. As a normal `.aui-textfield`
+   declaration, `font: inherit` shares the font classes' specificity yet comes
+   later in the sheet, so it overrode them - a styled field (e.g. font: title2)
+   fell back to the inherited 13px while a sibling Text kept 17px. */
+:where(.aui-textfield, .aui-securefield) { font: inherit; }
 .aui-textfield:focus-visible, .aui-securefield:focus-visible { outline: none; box-shadow: var(--aui-focus-ring); }
 .aui-textfield::placeholder, .aui-securefield::placeholder { color: var(--aui-color-secondary); }
 .aui-textfield:disabled, .aui-securefield:disabled { opacity: 0.4; }

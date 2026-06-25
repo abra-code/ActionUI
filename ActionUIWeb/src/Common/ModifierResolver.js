@@ -178,6 +178,14 @@ function applyFrame(node, frame, logger) {
         node.classList.add("aui-fill-width");
     } else if (typeof frame.maxWidth === "number") {
         node.style.maxWidth = `min(${frame.maxWidth}px, 100%)`;
+        // A finite maxWidth GROWS to the cap (SwiftUI .frame(maxWidth:N) grows up
+        // to N, it does not only bound). The axis-aware fill class makes the
+        // element grow - flex:1 1 0 along an HStack main axis, stretch across a
+        // VStack cross axis - and max-width bounds that growth (Issue B). Skipped
+        // when the width is already pinned by a fixed/ideal width on this axis.
+        if (frame.width === undefined && frame.idealWidth === undefined) {
+            node.classList.add("aui-fill-width");
+        }
     }
 
     // --- height axis ---
@@ -192,6 +200,10 @@ function applyFrame(node, frame, logger) {
         node.classList.add("aui-fill-height");
     } else if (typeof frame.maxHeight === "number") {
         node.style.maxHeight = `min(${frame.maxHeight}px, 100%)`;
+        // Grow to the cap on the height axis too (see the width axis above).
+        if (frame.height === undefined && frame.idealHeight === undefined) {
+            node.classList.add("aui-fill-height");
+        }
     }
 
     // A fixed dimension is rigid: it neither grows nor shrinks along that axis.
