@@ -40,8 +40,8 @@ import com.abracode.actionui.Helpers.resolveShapePaint
  * parent offers. The `fillMaxSize` below declares that greed in Compose terms;
  * without it the zero-content `Spacer` wraps to 0x0 inside a fixed `frame`'s
  * `wrapContentSize` (which hands the content *loose* constraints so natural-size
- * widgets like an M3 Button are never crushed - see `applyFrame` in
- * `ModifierResolver.kt`) and the shape draws nothing. With an unbounded axis
+ * widgets like an M3 Button are never crushed - see `applyFrameContentAlignment`
+ * in `ModifierResolver.kt`) and the shape draws nothing. With an unbounded axis
  * (e.g. height inside a vertical scroller) `fillMaxSize` cannot resolve, so a
  * shape there still needs an explicit `frame` to be visible - the remaining
  * "needs slack/size" caveat documented in section 11 of

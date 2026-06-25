@@ -132,6 +132,47 @@ class ModifierResolverTest {
     }
 
     @Test
+    fun `a finite maxWidth grows to the cap - it fills where a min-only frame does not`() {
+        // Issue B: SwiftUI .frame(maxWidth: N) grows the view UP TO N; a bare
+        // Compose widthIn only bounds and leaves it content-sized. So a finite
+        // maxWidth must add a fillMax element (grow-to-cap) that a min-only frame
+        // (content-sized above its floor) does not.
+        val base = Modifier
+        val minOnly = base.applyCommonProperties(props("""{"frame":{"minWidth":100}}"""))
+        val maxFinite = base.applyCommonProperties(props("""{"frame":{"maxWidth":300}}"""))
+        assertTrue(
+            "finite maxWidth = widthIn + fillMaxWidth; min-only = widthIn only",
+            chainLength(maxFinite) > chainLength(minOnly)
+        )
+    }
+
+    @Test
+    fun `a finite maxHeight also grows to the cap`() {
+        val base = Modifier
+        val minOnly = base.applyCommonProperties(props("""{"frame":{"minHeight":40}}"""))
+        val maxFinite = base.applyCommonProperties(props("""{"frame":{"maxHeight":120}}"""))
+        assertTrue(chainLength(maxFinite) > chainLength(minOnly))
+    }
+
+    @Test
+    fun `a fixed frame with a background keeps both the fill and the content-centering`() {
+        // FILLS contract: the background decorates the SIZED box and the
+        // content-alignment wrapContentSize positions content AFTER it, so a
+        // fixed frame + background contributes the size, the background, and the
+        // wrap to the chain (order is build-/render-verified; this guards that
+        // the background still coexists with the framed box).
+        val base = Modifier
+        val framed = base.applyCommonProperties(props("""{"frame":{"width":180,"height":52}}"""))
+        val framedBg = base.applyCommonProperties(
+            props("""{"frame":{"width":180,"height":52},"background":"#cccccc"}""")
+        )
+        assertTrue(
+            "the background adds an element on top of the framed box",
+            chainLength(framedBg) > chainLength(framed)
+        )
+    }
+
+    @Test
     fun `frame that is not an object is ignored`() {
         val logger = CapturingLogger()
         val base = Modifier

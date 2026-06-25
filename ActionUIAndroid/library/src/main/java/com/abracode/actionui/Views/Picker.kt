@@ -1,18 +1,21 @@
 package com.abracode.actionui.Views
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.SegmentedButton
@@ -20,6 +23,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
@@ -278,39 +283,43 @@ private fun PickerMenu(
     var expanded by remember { mutableStateOf(false) }
     val selectedTitle = sections.flatMap { it.items }.firstOrNull { it.tag == selectedTag }?.title ?: ""
 
-    // SwiftUI `.disabled` (set here or on any ancestor): gray the anchor field
-    // and refuse to open the menu.
+    // SwiftUI `.disabled` (set here or on any ancestor): gray the anchor and
+    // refuse to open the menu.
     val enabled = LocalActionUIEnabled.current
-    // The anchor reads as "focused" while the menu is open, so tinting the
-    // focused border/label/trailing-icon accents the open picker.
-    val fieldColors = if (tint != null) {
-        OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = tint,
-            focusedLabelColor = tint,
-            focusedTrailingIconColor = tint,
-        )
-    } else {
-        OutlinedTextFieldDefaults.colors()
-    }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { if (enabled) expanded = it },
-        modifier = modifier,
-    ) {
-        OutlinedTextField(
-            value = selectedTitle,
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = if (title.isNotEmpty()) ({ M3Text(title) }) else null,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            colors = fieldColors,
-            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
+
+    // SwiftUI's `.menu` Picker is a COMPACT control - the selected value plus a
+    // small up/down chevron, sized to its content - NOT a full-width form field.
+    // It was rendered as an `ExposedDropdownMenuBox` + `OutlinedTextField`, which
+    // carries Material's ~280dp minimum width and grows to fill the available
+    // space; next to a flexible sibling in an HStack that ate the row and squeezed
+    // the sibling to a sliver (the Android-only layout break vs. Apple/Web, where a
+    // menu Picker is compact). A content-sized anchor + a plain `DropdownMenu`
+    // lays out predictably and matches the other platforms.
+    val accent = tint ?: MaterialTheme.colorScheme.primary
+    val contentColor = if (enabled) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .clickable(enabled = enabled) { expanded = true }
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            // An optional leading label (SwiftUI shows the Picker's label before
+            // the value); hidden by `.labelsHidden()` upstream (title is "").
+            if (title.isNotEmpty()) {
+                M3Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(6.dp))
+            }
+            M3Text(text = selectedTitle, color = contentColor)
+            // The up/down chevron indicator (reused from Material's menu defaults
+            // so no icon dependency is added); tinted to match the value.
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             sections.forEachIndexed { sectionIndex, section ->
                 if (sectionIndex > 0) HorizontalDivider()
                 if (!section.title.isNullOrEmpty()) {

@@ -95,10 +95,19 @@ import kotlinx.serialization.json.jsonPrimitive
  *   outer:  accessibility semantics
  *          -> zIndex -> rotationEffect -> scaleEffect -> offset
  *          -> opacity -> hidden
- *   inner:  [padding, if a fixed frame follows] -> frame
- *          -> shadow -> border -> clipShape -> cornerRadius
- *          -> background -> [padding, otherwise]
+ *   inner:  [padding, if a fixed frame follows] -> frame SIZING
+ *          -> shadow -> border -> clipShape -> cornerRadius -> background
+ *          -> frame CONTENT-ALIGNMENT (wrapContentSize) -> [padding, otherwise]
  * ```
+ *
+ * Frame is split: its SIZING (the width/height constraints) is OUTER so the
+ * decoration (`background`/`border`/`clipShape`/`cornerRadius`) FILLS the framed
+ * box, and its CONTENT ALIGNMENT (`wrapContentSize`, which positions a smaller
+ * content within the box) is INNER, after the decoration. That is what keeps a
+ * styled fixed/flex box filled when its content is empty or short, matching the
+ * (reordered, frame-before-background) Apple pipeline and the Web single-node
+ * renderer - the cross-platform FILLS contract (`Private/Layout_Engine_Parity.md`,
+ * migration in `Private/Layout_Fill_Migration.md`).
  *
  * The cut sits between the whole-subtree wrappers and the element's own
  * size-and-decoration: a decoration subview must cover the element's
@@ -215,7 +224,7 @@ fun Modifier.applyInnerProperties(
     if (properties == null) return this
     var m: Modifier = this
 
-    // ---- Sizing ----
+    // ---- Sizing (OUTER, so the decoration below fills the framed box) ----
     // A fixed frame is a hard size in Compose - constraints are not SwiftUI's
     // soft proposals a child may refuse. Padding inside the box would subtract
     // from the content's max constraints and can crush a min-sized Material
@@ -224,12 +233,18 @@ fun Modifier.applyInnerProperties(
     // OUTSIDE the box; the SwiftUI-visible result - content at its natural size
     // inside the frame - is preserved, at the cost of the padding reading as an
     // outer margin instead of SwiftUI's (center-invisible) inner inset.
-    val hasFixedFrame =
-        (properties["frame"] as? JsonObject)?.let { it["width"] != null || it["height"] != null } == true
+    //
+    // Only the SIZING goes here; the frame's content-alignment wrapContentSize is
+    // applied AFTER the decoration (below), so `background`/`border`/`clip` fill
+    // the framed size instead of hugging the (possibly empty/short) content - the
+    // Android side of the cross-platform FILLS contract that the Apple pipeline
+    // now shares (Private/Layout_Engine_Parity.md, Private/Layout_Fill_Migration.md).
+    val frameObj = properties["frame"] as? JsonObject
+    val hasFixedFrame = frameObj?.isFixedFrame() == true
     if (hasFixedFrame) m = m.applyPadding(properties)
-    (properties["frame"] as? JsonObject)?.let { m = m.applyFrame(it, logger, animator) }
+    frameObj?.let { m = m.applyFrameSizing(it, logger, animator) }
 
-    // ---- Decoration: shadow, border, clip, background ----
+    // ---- Decoration: shadow, border, clip, background - fills the framed box ----
     m = m.applyShadow(properties, colorScheme)
     m = m.applyBorder(properties, colorScheme)
     m = m.applyClipShape(properties, logger)
@@ -245,6 +260,10 @@ fun Modifier.applyInnerProperties(
             LoggerLevel.warning
         )
     }
+
+    // ---- Frame content alignment (INNER: positions the content within the
+    //      framed box, AFTER the decoration so the background filled the box) ----
+    frameObj?.let { m = m.applyFrameContentAlignment(it, logger) }
 
     // ---- Padding (innermost, unless a fixed frame hoisted it - see Sizing) ----
     if (!hasFixedFrame) m = m.applyPadding(properties)
@@ -471,47 +490,68 @@ private fun Modifier.applyScaleEffect(properties: JsonObject, animator: ElementA
     return this
 }
 
+/** The flexible `frame` keys (min/ideal/max width/height). */
+private val FLEX_FRAME_KEYS = listOf(
+    "minWidth", "idealWidth", "maxWidth",
+    "minHeight", "idealHeight", "maxHeight"
+)
+
+/** The fixed `frame` form: `{ width, height }` (either may be the `"infinity"` sentinel). */
+private fun JsonObject.isFixedFrame(): Boolean = this["width"] != null || this["height"] != null
+
+/** The flexible `frame` form: any of `min/ideal/max width/height`. */
+private fun JsonObject.isFlexibleFrame(): Boolean = FLEX_FRAME_KEYS.any { this[it] != null }
+
 /**
- * `frame` - SwiftUI sizing. Two mutually exclusive forms plus optional
- * `alignment`:
+ * Frame SIZING - the width/height constraints ONLY, applied OUTER (before the
+ * decoration) so `background`/`border`/`clip`/`cornerRadius` fill the framed
+ * size. `frame` has two mutually exclusive forms:
  *   * Fixed: `{ width, height }` (each a number or the `"infinity"` sentinel).
  *   * Flexible: `{ minWidth, idealWidth, maxWidth, minHeight, idealHeight,
  *     maxHeight }` mapped to Compose `widthIn`/`heightIn` (ideal ignored - see
  *     the file header divergence note); `maxWidth/maxHeight: "infinity"` fills
- *     the axis.
- * `alignment` positions content within the resolved size via `wrapContentSize`.
- * A fixed frame always wraps, defaulting to center (the Swift contract); a
- * flexible frame wraps only when `alignment` is explicitly given.
+ *     the axis, and a FINITE `maxWidth/maxHeight` grows the view UP TO the cap.
+ *
+ * The content-alignment `wrapContentSize` is applied separately, AFTER the
+ * decoration, by [applyFrameContentAlignment]. Splitting sizing from alignment
+ * is what lets a styled fixed/flex box keep its fill when its content is empty
+ * or short, matching the reordered Apple pipeline (`View.swift`) and the Web
+ * single-node renderer - see `Private/Layout_Engine_Parity.md`.
  */
-private fun Modifier.applyFrame(frame: JsonObject, logger: ActionUILogger?, animator: ElementAnimator? = null): Modifier {
+private fun Modifier.applyFrameSizing(frame: JsonObject, logger: ActionUILogger?, animator: ElementAnimator? = null): Modifier {
     var m: Modifier = this
-    val hasFixed = frame["width"] != null || frame["height"] != null
-    val flexKeys = listOf(
-        "minWidth", "idealWidth", "maxWidth",
-        "minHeight", "idealHeight", "maxHeight"
-    )
-    val hasFlexible = flexKeys.any { frame[it] != null }
-
-    if (hasFixed) {
+    if (frame.isFixedFrame()) {
         m = m.applySizeAxis(frame["width"], horizontal = true, logger, animator)
         m = m.applySizeAxis(frame["height"], horizontal = false, logger, animator)
-        // A fixed frame always positions natural-size content within the box,
-        // defaulting to center - Swift resolves a missing `alignment` to
-        // `.center` (`View.swift`), and without the wrap the hard size would
-        // propagate INTO the content and stretch/crush it, which SwiftUI's
-        // soft proposals never do. (Content larger than the box is still
-        // capped - a Compose constraint, divergence-noted in the header.)
-        val alignment = frame.stringProperty("alignment")
-            ?.let { parseFrameAlignment(it, logger) } ?: Alignment.Center
-        m = m.wrapContentSize(alignment)
-    } else if (hasFlexible) {
+    } else if (frame.isFlexibleFrame()) {
         m = m.applyFlexibleAxis(frame, horizontal = true, logger)
         m = m.applyFlexibleAxis(frame, horizontal = false, logger)
-        frame.stringProperty("alignment")?.let { name ->
-            parseFrameAlignment(name, logger)?.let { m = m.wrapContentSize(it) }
-        }
     }
     return m
+}
+
+/**
+ * Frame CONTENT ALIGNMENT - the `wrapContentSize` that positions the (possibly
+ * smaller) content WITHIN the framed box. Applied INNER, after the decoration,
+ * so the background has already filled the box. A fixed frame ALWAYS wraps,
+ * defaulting to center - Swift resolves a missing `alignment` to `.center`
+ * (`View.swift`), and without the wrap the hard size would propagate INTO the
+ * content and stretch/crush it, which SwiftUI's soft proposals never do.
+ * (Content larger than the box is still capped - a Compose constraint,
+ * divergence-noted in the header.) A flexible frame wraps only when `alignment`
+ * is explicitly given.
+ */
+private fun Modifier.applyFrameContentAlignment(frame: JsonObject, logger: ActionUILogger?): Modifier {
+    if (frame.isFixedFrame()) {
+        val alignment = frame.stringProperty("alignment")
+            ?.let { parseFrameAlignment(it, logger) } ?: Alignment.Center
+        return this.wrapContentSize(alignment)
+    } else if (frame.isFlexibleFrame()) {
+        frame.stringProperty("alignment")?.let { name ->
+            parseFrameAlignment(name, logger)?.let { return this.wrapContentSize(it) }
+        }
+    }
+    return this
 }
 
 /** One axis of the flexible `frame` form - `min`/`max` to `widthIn`/`heightIn`. */
@@ -545,7 +585,15 @@ private fun Modifier.applyFlexibleAxis(
             m.heightIn(min = minDp ?: Dp.Unspecified, max = maxDp ?: Dp.Unspecified)
         }
     }
-    if (maxInfinity) {
+    // A present max GROWS the view to fill UP TO that bound: "infinity" fills the
+    // axis, and a FINITE cap fills up to the cap (bounded by the widthIn/heightIn
+    // above, so fillMax resolves to min(parent, cap)). This matches SwiftUI
+    // `.frame(maxWidth:)`, which grows to its cap - a bare `widthIn` only bounds
+    // and leaves the view content-sized (the Issue B divergence). A min-only frame
+    // does NOT grow (SwiftUI keeps it content-sized above the floor), so the fill
+    // is gated on a max being present. As a stack MAIN-axis child the custom stack
+    // layout (StackLayout.kt) sizes the slot and this fill just fills it.
+    if (maxInfinity || maxDp != null) {
         m = if (horizontal) m.fillMaxWidth() else m.fillMaxHeight()
     }
     return m
