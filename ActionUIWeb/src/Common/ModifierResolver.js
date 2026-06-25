@@ -179,12 +179,14 @@ function applyFrame(node, frame, logger) {
     } else if (typeof frame.maxWidth === "number") {
         node.style.maxWidth = `min(${frame.maxWidth}px, 100%)`;
         // A finite maxWidth GROWS to the cap (SwiftUI .frame(maxWidth:N) grows up
-        // to N, it does not only bound). The axis-aware fill class makes the
-        // element grow - flex:1 1 0 along an HStack main axis, stretch across a
-        // VStack cross axis - and max-width bounds that growth (Issue B). Skipped
-        // when the width is already pinned by a fixed/ideal width on this axis.
+        // to N, it does not only bound). The axis-aware CAP class makes the element
+        // grow - flex along an HStack main axis, width:100% across a VStack cross
+        // axis - bounded by the max-width above, and (unlike the fill class) leaves
+        // the box positioned by the parent's alignment, so a centered max-width
+        // card centers instead of anchoring left. Skipped when the width is already
+        // pinned by a fixed/ideal width on this axis.
         if (frame.width === undefined && frame.idealWidth === undefined) {
-            node.classList.add("aui-fill-width");
+            node.classList.add("aui-cap-width");
         }
     }
 
@@ -202,7 +204,7 @@ function applyFrame(node, frame, logger) {
         node.style.maxHeight = `min(${frame.maxHeight}px, 100%)`;
         // Grow to the cap on the height axis too (see the width axis above).
         if (frame.height === undefined && frame.idealHeight === undefined) {
-            node.classList.add("aui-fill-height");
+            node.classList.add("aui-cap-height");
         }
     }
 

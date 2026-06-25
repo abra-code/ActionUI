@@ -138,19 +138,22 @@ test("frame: maxHeight infinity -> aui-fill-height", () => {
     assert.ok(!node.classList.contains("aui-fill-width"));
 });
 
-test("frame: a finite maxWidth GROWS to the cap (Issue B) and bounds at min(Npx, 100%)", () => {
-    // SwiftUI .frame(maxWidth: N) grows the view UP TO N, it does not only bound.
-    // So a bare finite maxWidth both caps AND tags the axis-aware fill class
-    // (flex:1 1 0 in an HStack, stretch in a VStack), bounded by the cap.
+test("frame: a finite maxWidth GROWS to the cap via the CAP class (alignment-respecting)", () => {
+    // SwiftUI .frame(maxWidth: N) grows the view UP TO N, positioned by the parent.
+    // So a bare finite maxWidth both caps AND tags the axis-aware CAP class (flex
+    // along an HStack main axis, width:100% across a VStack cross axis so the
+    // parent still centers it) - NOT the fill class, which would stretch/anchor it.
     const { node } = applied({ frame: { maxWidth: 300 } });
     assert.equal(node.style.maxWidth, "min(300px, 100%)");
-    assert.ok(node.classList.contains("aui-fill-width"), "a finite maxWidth grows to its cap");
+    assert.ok(node.classList.contains("aui-cap-width"), "a finite maxWidth grows to its cap");
+    assert.ok(!node.classList.contains("aui-fill-width"), "finite cap is not the infinity fill (would stretch)");
 });
 
 test("frame: a finite maxWidth does NOT grow when the width is already pinned", () => {
     // An explicit width / idealWidth on the same axis pins it; the cap then only bounds.
     const pinned = applied({ frame: { idealWidth: 200, maxWidth: 300 } }).node;
-    assert.ok(!pinned.classList.contains("aui-fill-width"), "a pinned width is not overridden by grow-to-cap");
+    assert.ok(!pinned.classList.contains("aui-cap-width"), "a pinned width is not overridden by grow-to-cap");
+    assert.ok(!pinned.classList.contains("aui-fill-width"));
 });
 
 test("frame: minWidth sets a hard floor", () => {

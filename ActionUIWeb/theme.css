@@ -164,6 +164,19 @@
 .aui-vstack > .aui-fill-height { flex: 1 1 0; min-height: 0; }
 .aui-hstack > .aui-fill-height { align-self: stretch; }
 
+/* A FINITE frame.maxWidth/maxHeight GROWS to its cap (the inline max-*) while
+   RESPECTING the parent stack's alignment - unlike .aui-fill-* (the .infinity
+   case), which uses align-self:stretch and would anchor a capped box at the
+   leading edge instead of centering it (the SwiftUI .frame(maxWidth: N) analog:
+   grow to N, positioned by the parent). Main axis: grow into the remaining space
+   (flex), bounded by the inline max-*. Cross axis: fill up to the cap via
+   width/height:100% (bounded by the inline max-*), leaving align-self at its
+   default so the parent's align-items still centers/aligns the capped box. */
+.aui-hstack > .aui-cap-width  { flex: 1 1 0; min-width: 0; }
+.aui-vstack > .aui-cap-width  { width: 100%; }
+.aui-vstack > .aui-cap-height { flex: 1 1 0; min-height: 0; }
+.aui-hstack > .aui-cap-height { height: 100%; }
+
 /* Lazy stacks/grids share the flex/grid layout (and Divider orientation) of their
    eager twins; the .aui-lazy* classes mark the lazy-only styling. They are eager in
    the DOM (no windowing), but each row gets content-visibility:auto so the browser
