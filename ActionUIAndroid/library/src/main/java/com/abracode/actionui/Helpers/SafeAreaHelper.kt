@@ -54,6 +54,27 @@ internal fun ignoresSafeAreaModifier(properties: JsonObject?): Modifier {
     return Modifier.consumeWindowInsets(insets)
 }
 
+/**
+ * The default safe-area inset for a CHROME-LESS document root (no `toolbar` /
+ * `navigationTitle` - e.g. a plain `VStack` root). SwiftUI insets the root content by
+ * the safe area automatically; Android draws edge-to-edge, so without this a bare root
+ * sits under the status / navigation bars (and behind a display cutout). Returns the
+ * `safeDrawing` padding so the root matches SwiftUI - UNLESS the root already manages
+ * its own insets: it declares `ignoresSafeArea` (its [ignoresSafeAreaModifier] then
+ * consumes the chosen edges) or a `safeAreaInset` (which needs the raw insets to place
+ * its bar). A root WITH toolbar chrome is excluded by the caller - its `Scaffold`
+ * already insets the system bars. `safeDrawing` includes the IME, so a focused field
+ * is kept above the keyboard, matching SwiftUI's default keyboard avoidance.
+ */
+@Composable
+internal fun rootSafeAreaModifier(element: ActionUIElement): Modifier {
+    val managesOwnInsets = element.safeAreaInset != null || run {
+        val v = element.properties?.get("ignoresSafeArea")
+        (v is JsonPrimitive && v.booleanOrNull == true) || v is JsonObject
+    }
+    return if (managesOwnInsets) Modifier else Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+}
+
 /** Wraps [element] so its `safeAreaInset` view sits at an edge and the content takes the rest. */
 @Composable
 internal fun ActionUIViewConstruction.BuildViewWithSafeAreaInset(

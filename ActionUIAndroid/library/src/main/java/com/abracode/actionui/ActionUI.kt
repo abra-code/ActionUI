@@ -30,6 +30,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.PlatformFilter
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.rootSafeAreaModifier
 import com.abracode.actionui.Helpers.DescriptionLoad
 import com.abracode.actionui.Helpers.ElementModalsHost
 import com.abracode.actionui.Helpers.LoadableSource
@@ -252,8 +253,13 @@ object ActionUI {
         logger: ActionUILogger,
     ) {
         if (!hasRootToolbarChrome(element)) {
+            // A chrome-less root has no Scaffold to inset the system bars, and Android
+            // is edge-to-edge, so by default inset the root by the safe area - matching
+            // SwiftUI, which insets the root content automatically (rootSafeAreaModifier
+            // is a no-op when the root manages its own insets via ignoresSafeArea /
+            // safeAreaInset).
             ProvideTextStyleEnvironment(element.properties, logger) {
-                builder.BuildViewWithModifiers(element, modifier)
+                builder.BuildViewWithModifiers(element, modifier.then(rootSafeAreaModifier(element)))
             }
             return
         }
