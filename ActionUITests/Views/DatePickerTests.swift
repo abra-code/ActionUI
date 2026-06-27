@@ -117,6 +117,70 @@ final class DatePickerTests: XCTestCase {
         // Note: Cannot inspect DatePicker state or modifiers due to SwiftUI's opaque hierarchy
     }
     
+    // MARK: - displayedComponents
+
+    func testValidateDisplayedComponentsValid() throws {
+        for value in ["date", "hourAndMinute", "dateAndTime"] {
+            let validated = DatePicker.validateProperties(["displayedComponents": value], logger)
+            XCTAssertEqual(validated["displayedComponents"] as? String, value, "\(value) should pass through")
+        }
+    }
+
+    func testValidateDisplayedComponentsInvalid() throws {
+        let validated = DatePicker.validateProperties(["displayedComponents": "wheel"], logger)
+        XCTAssertNil(validated["displayedComponents"], "unknown displayedComponents should be dropped")
+        let nonString = DatePicker.validateProperties(["displayedComponents": 7], logger)
+        XCTAssertNil(nonString["displayedComponents"], "non-string displayedComponents should be dropped")
+    }
+
+    func testDisplayedComponentsMapping() throws {
+        XCTAssertEqual(DatePicker.displayedComponents(from: nil), .date)
+        XCTAssertEqual(DatePicker.displayedComponents(from: "date"), .date)
+        XCTAssertEqual(DatePicker.displayedComponents(from: "hourAndMinute"), .hourAndMinute)
+        XCTAssertEqual(DatePicker.displayedComponents(from: "dateAndTime"), [.date, .hourAndMinute])
+    }
+
+    func testIsTimeBearing() throws {
+        XCTAssertFalse(DatePicker.isTimeBearing(nil))
+        XCTAssertFalse(DatePicker.isTimeBearing("date"))
+        XCTAssertTrue(DatePicker.isTimeBearing("hourAndMinute"))
+        XCTAssertTrue(DatePicker.isTimeBearing("dateAndTime"))
+    }
+
+    // MARK: - DateHelper value formatting
+
+    func testFormatDateIsBareDate() throws {
+        // Noon in current timezone so the date component is stable.
+        var c = DateComponents(); c.year = 2024; c.month = 7; c.day = 16; c.hour = 12
+        let date = Calendar.current.date(from: c)!
+        XCTAssertEqual(DateHelper.formatDate(from: date), "2024-07-16")
+    }
+
+    func testFormatDateTimeIsFullLocalISO() throws {
+        var c = DateComponents()
+        c.year = 2024; c.month = 7; c.day = 16; c.hour = 9; c.minute = 5; c.second = 0
+        let date = Calendar.current.date(from: c)!
+        XCTAssertEqual(DateHelper.formatDateTime(from: date), "2024-07-16T09:05:00")
+    }
+
+    func testParseLocalTimeSeedsTodayWithChosenTime() throws {
+        let parsed = DateHelper.parseDate(from: "14:30")
+        XCTAssertNotNil(parsed)
+        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: parsed!)
+        let today = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        XCTAssertEqual(parts.year, today.year)
+        XCTAssertEqual(parts.month, today.month)
+        XCTAssertEqual(parts.day, today.day)
+        XCTAssertEqual(parts.hour, 14)
+        XCTAssertEqual(parts.minute, 30)
+    }
+
+    func testParseFullDateTimeRoundTrips() throws {
+        let parsed = DateHelper.parseDate(from: "2024-07-16T09:05:00")
+        XCTAssertNotNil(parsed)
+        XCTAssertEqual(DateHelper.formatDateTime(from: parsed!), "2024-07-16T09:05:00")
+    }
+
     func testBuildViewAndApplyModifiersMissingProperties() throws {
         let elementDict: [String: Any] = [
             "id": 1,

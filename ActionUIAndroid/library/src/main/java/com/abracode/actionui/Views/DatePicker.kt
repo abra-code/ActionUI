@@ -12,7 +12,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
@@ -37,44 +40,57 @@ import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 /**
- * Date selection. Mirror of the Apple `DatePicker` element
- * (`ActionUI/Views/DatePicker.swift`), which wraps `SwiftUI.DatePicker` with
- * `displayedComponents: .date`. The first [ActionUIValueType.DATE]-valued control
- * on the value bridge (B6): its value is a [java.time.LocalDate], so a host reads
- * it with `ActionUIModel.getElementValueAsString` (ISO `yyyy-MM-dd`) and writes it
- * with `setElementValueFromString(..., "2024-07-16")`, and the control recomposes.
+ * Date / time selection. Mirror of the Apple `DatePicker` element
+ * (`ActionUI/Views/DatePicker.swift`), which wraps `SwiftUI.DatePicker`. The
+ * `displayedComponents` property selects the mode (and the value's wire format):
+ *
+ *   * `"date"` (default) - a Material3 date picker; the bridge value is a
+ *     [java.time.LocalDate], serialized `yyyy-MM-dd`. Fully backward compatible.
+ *   * `"hourAndMinute"` - a Material3 [TimePicker] (hour+minute); the bridge value
+ *     is a [java.time.LocalDateTime] (today's date + the chosen time), serialized
+ *     as a full ISO datetime `yyyy-MM-ddTHH:mm:ss` so a host can read `HH:mm`.
+ *   * `"dateAndTime"` - a date field plus a time field combined into a
+ *     [java.time.LocalDateTime], serialized as a full ISO datetime.
+ *
+ * The first DATE-valued control on the value bridge (B6): a host reads it with
+ * `ActionUIModel.getElementValueAsString` and writes it with
+ * `setElementValueFromString`, and the control recomposes.
  *
  * Property mapping:
  *   * `title` - leading label (defaults to `"Date"`, matching Apple).
- *   * `selectedDate` - initial date as an ISO 8601 string (defaults to today);
- *     seeded into the element's `ViewModel` at populate time.
+ *   * `displayedComponents` - `"date"` (default) / `"hourAndMinute"` /
+ *     `"dateAndTime"`; selects the mode above.
+ *   * `selectedDate` - initial value as an ISO string (defaults to today / now);
+ *     parsed flexibly (`yyyy-MM-dd`, `HH:mm`, or a full ISO datetime).
  *   * `displayStyle` - `"automatic"`/`"compact"` (default) render a tap-to-open
- *     [DatePickerDialog] field; `"graphical"` renders an inline calendar. The
- *     macOS-only `"stepperField"`/`"field"` warn-and-downgrade to compact (the
- *     same stance Apple's own renderer takes off macOS).
- *   * `range` - `{ "start": ISO, "end": ISO }`; constrains the selectable dates.
+ *     field; `"graphical"` renders an inline calendar (date mode only). The
+ *     macOS-only `"stepperField"`/`"field"` warn-and-downgrade to compact.
+ *   * `range` - `{ "start": ISO, "end": ISO }`; constrains the selectable dates
+ *     (date-bearing modes).
  *   * `valueChangeActionID` - dispatched through [ActionUIModel] on every user
- *     change, with the new date's ISO string as `context` (parity with Apple,
- *     which fires only on interaction, not on programmatic value changes).
+ *     change, with the new value's ISO string as `context`.
  *
  * **State.** Bound to the element's `ViewModel` (via [LocalWindowModel] by id)
  * when a window is in scope; otherwise a local fallback. Host binding requires a
- * positive element `id`. Same dual-path binding the other controls use.
- *
- * **Deferred vs. Apple.** The `"graphical"` inline calendar embeds Material3's
- * own scrollers; inside a self-scrolling host it can hit Compose's nested
- * same-axis scroll limitation, so the safe default is the dialog field. The date
- * value is date-only (no time component), matching Apple's `.date`-only picker.
+ * positive element `id`.
  */
 object DatePicker : ActionUIViewConstruction {
     override val valueType = ActionUIValueType.DATE
 
     override fun initialValue(element: ActionUIElement): Any? {
+        val mode = resolveComponents(element.properties?.stringProperty("displayedComponents"))
         val raw = element.properties?.stringProperty("selectedDate")
-        return raw?.let { DateHelper.parseDate(it) } ?: LocalDate.now()
+        return if (mode.isTimeBearing) {
+            raw?.let { DateHelper.parseDateTime(it) } ?: LocalDateTime.now()
+        } else {
+            raw?.let { DateHelper.parseDate(it) } ?: LocalDate.now()
+        }
     }
 
     @Composable
@@ -85,9 +101,28 @@ object DatePicker : ActionUIViewConstruction {
         // SwiftUI `.labelsHidden()` (set here or on any ancestor).
         val title = if (LocalActionUILabelsHidden.current) "" else props?.stringProperty("title") ?: "Date"
         val actionID = props?.stringProperty("valueChangeActionID")
+        val mode = resolveComponents(props?.stringProperty("displayedComponents"), logger)
         val style = resolveDateStyle(props?.stringProperty("displayStyle"), logger)
         val bounds = parseDateBounds(props, logger)
 
+        when (mode) {
+            DateComponentsMode.HourAndMinute -> TimeOnlyPicker(element, modifier, title, actionID)
+            DateComponentsMode.DateAndTime -> DateAndTimePicker(element, modifier, title, actionID, bounds)
+            DateComponentsMode.Date -> DateOnlyPicker(element, modifier, title, actionID, style, bounds)
+        }
+    }
+
+    // MARK: - Date-only (the original behavior)
+
+    @Composable
+    private fun DateOnlyPicker(
+        element: ActionUIElement,
+        modifier: Modifier,
+        title: String,
+        actionID: String?,
+        style: DatePickerStyle,
+        bounds: DateBounds?,
+    ) {
         val initial = (initialValue(element) as? LocalDate) ?: LocalDate.now()
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         var localDate by remember(element.id) { mutableStateOf(initial) }
@@ -109,9 +144,104 @@ object DatePicker : ActionUIViewConstruction {
             DatePickerStyle.Compact -> CompactDatePicker(modifier, title, current, bounds, onPick)
         }
     }
+
+    // MARK: - Time-only ("hourAndMinute")
+
+    @Composable
+    private fun TimeOnlyPicker(
+        element: ActionUIElement,
+        modifier: Modifier,
+        title: String,
+        actionID: String?,
+    ) {
+        val initial = (initialValue(element) as? LocalDateTime) ?: LocalDateTime.now()
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        var local by remember(element.id) { mutableStateOf(initial) }
+        val current: LocalDateTime = (viewModel?.value as? LocalDateTime) ?: local
+
+        val onPick: (LocalDateTime) -> Unit = { picked ->
+            if (picked != current) {
+                if (viewModel != null) viewModel.value = picked else local = picked
+                actionID?.let {
+                    ActionUIModel.actionHandler(
+                        it, viewID = element.id, viewPartID = 0, context = DateHelper.formatDateTime(picked),
+                    )
+                }
+            }
+        }
+
+        CompactTimeField(modifier, title, current.toLocalTime()) { time ->
+            // Keep today's date (the seeded date) and replace the time-of-day.
+            onPick(current.toLocalDate().atTime(time))
+        }
+    }
+
+    // MARK: - Date + time ("dateAndTime")
+
+    @Composable
+    private fun DateAndTimePicker(
+        element: ActionUIElement,
+        modifier: Modifier,
+        title: String,
+        actionID: String?,
+        bounds: DateBounds?,
+    ) {
+        val initial = (initialValue(element) as? LocalDateTime) ?: LocalDateTime.now()
+        val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
+        var local by remember(element.id) { mutableStateOf(initial) }
+        val current: LocalDateTime = (viewModel?.value as? LocalDateTime) ?: local
+
+        val onPick: (LocalDateTime) -> Unit = { picked ->
+            if (picked != current && (bounds == null || bounds.contains(picked.toLocalDate()))) {
+                if (viewModel != null) viewModel.value = picked else local = picked
+                actionID?.let {
+                    ActionUIModel.actionHandler(
+                        it, viewID = element.id, viewPartID = 0, context = DateHelper.formatDateTime(picked),
+                    )
+                }
+            }
+        }
+
+        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+            if (title.isNotEmpty()) {
+                M3Text(title)
+                Spacer(Modifier.width(8.dp))
+            }
+            // Date field (keeps the current time-of-day).
+            CompactDateField(current.toLocalDate(), bounds) { date ->
+                onPick(date.atTime(current.toLocalTime()))
+            }
+            Spacer(Modifier.width(8.dp))
+            // Time field (keeps the current date).
+            CompactTimeField(Modifier, "", current.toLocalTime()) { time ->
+                onPick(current.toLocalDate().atTime(time))
+            }
+        }
+    }
 }
 
-/** The DatePicker presentations the Android renderer supports. */
+/** The displayedComponents modes the renderer supports. */
+internal enum class DateComponentsMode(val isTimeBearing: Boolean) {
+    Date(false), HourAndMinute(true), DateAndTime(true);
+}
+
+/**
+ * Maps the JSON `displayedComponents` to a [DateComponentsMode]. `null`/`"date"`
+ * -> [DateComponentsMode.Date]; `"hourAndMinute"` / `"dateAndTime"` -> their
+ * time-bearing modes; any unrecognized value warns and falls back to `Date`.
+ * Pure (logging aside) so it is unit-testable.
+ */
+internal fun resolveComponents(raw: String?, logger: ActionUILogger? = null): DateComponentsMode = when (raw) {
+    null, "date" -> DateComponentsMode.Date
+    "hourAndMinute" -> DateComponentsMode.HourAndMinute
+    "dateAndTime" -> DateComponentsMode.DateAndTime
+    else -> {
+        logger?.log("DatePicker displayedComponents '$raw' is not recognized; using date", LoggerLevel.warning)
+        DateComponentsMode.Date
+    }
+}
+
+/** The DatePicker presentations the Android renderer supports (date mode). */
 internal enum class DatePickerStyle { Compact, Graphical }
 
 /**
@@ -171,17 +301,28 @@ private fun CompactDatePicker(
     bounds: DateBounds?,
     onPick: (LocalDate) -> Unit,
 ) {
-    var showDialog by remember { mutableStateOf(false) }
-
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (title.isNotEmpty()) {
             M3Text(title)
             Spacer(Modifier.width(8.dp))
         }
-        // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
-        OutlinedButton(onClick = { showDialog = true }, enabled = LocalActionUIEnabled.current) {
-            M3Text(DateHelper.formatDate(current))
-        }
+        CompactDateField(current, bounds, onPick)
+    }
+}
+
+/** The bare date field-then-dialog (no leading title), reused by the date and date+time modes. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompactDateField(
+    current: LocalDate,
+    bounds: DateBounds?,
+    onPick: (LocalDate) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    // SwiftUI `.disabled` (set here or on any ancestor) -> M3 `enabled`.
+    OutlinedButton(onClick = { showDialog = true }, enabled = LocalActionUIEnabled.current) {
+        M3Text(DateHelper.formatDate(current))
     }
 
     if (showDialog) {
@@ -203,6 +344,51 @@ private fun CompactDatePicker(
             },
         ) {
             M3DatePicker(state = state)
+        }
+    }
+}
+
+/**
+ * Tap-to-open time field: shows the current time (`HH:mm`), opens a Material3
+ * [TimePicker] in a dialog on click. Mirrors the compact date field's UX.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompactTimeField(
+    modifier: Modifier,
+    title: String,
+    current: LocalTime,
+    onPick: (LocalTime) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (title.isNotEmpty()) {
+            M3Text(title)
+            Spacer(Modifier.width(8.dp))
+        }
+        OutlinedButton(onClick = { showDialog = true }, enabled = LocalActionUIEnabled.current) {
+            M3Text(current.format(HOUR_MINUTE))
+        }
+    }
+
+    if (showDialog) {
+        val state = rememberTimePickerState(
+            initialHour = current.hour,
+            initialMinute = current.minute,
+            is24Hour = true,
+        )
+        Dialog(onDismissRequest = { showDialog = false }) {
+            Column(modifier = Modifier) {
+                TimePicker(state = state)
+                Row {
+                    TextButton(onClick = { showDialog = false }) { M3Text("Cancel") }
+                    TextButton(onClick = {
+                        showDialog = false
+                        onPick(LocalTime.of(state.hour, state.minute))
+                    }) { M3Text("OK") }
+                }
+            }
         }
     }
 }
@@ -243,3 +429,5 @@ private fun LocalDate.toUtcStartOfDayMillis(): Long =
 
 private fun Long.toUtcLocalDate(): LocalDate =
     Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+
+private val HOUR_MINUTE: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")

@@ -275,6 +275,14 @@ public class ActionUIModel: ObservableObject {
             } else if valueType == Int.self, let intValue = value as? Int {
                 return String(intValue)
             } else if valueType == Date.self, let date = value as? Date {
+                // Time-bearing DatePicker modes ("hourAndMinute"/"dateAndTime")
+                // serialize a full ISO datetime so a host can read HH:mm; every
+                // other Date-valued element (and date-only DatePickers) stays a
+                // bare "YYYY-MM-DD" for backward compatibility.
+                let components = viewModel.validatedProperties["displayedComponents"] as? String
+                if viewModel.elementType == "DatePicker", ActionUI.DatePicker.isTimeBearing(components) {
+                    return DateHelper.formatDateTime(from: date)
+                }
                 let formatter = ISO8601DateFormatter()
                 formatter.formatOptions = [.withFullDate]
                 return formatter.string(from: date)
@@ -357,9 +365,9 @@ public class ActionUIModel: ObservableObject {
         } else if valueType == String.self {
             convertedValue = value
         } else if valueType == Date.self {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withFullDate]
-            if let date = formatter.date(from: value) {
+            // Parse flexibly: accept "YYYY-MM-DD", a full ISO datetime, or (for
+            // time-bearing DatePicker modes) a bare "HH:mm". DateHelper handles all.
+            if let date = DateHelper.parseDate(from: value) {
                 convertedValue = date
             } else {
                 logger.log("Invalid ISO 8601 date string: \(value) for viewID: \(viewID)", .warning)

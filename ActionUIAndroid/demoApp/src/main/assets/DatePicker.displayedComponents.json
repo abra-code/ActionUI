@@ -1,0 +1,109 @@
+{
+  "type": "ScrollView",
+  "properties": {
+    "axis": "vertical"
+  },
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 14.0,
+      "alignment": "leading",
+      "padding": "default"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "DatePicker displayedComponents",
+          "font": "title2"
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "date emits YYYY-MM-DD; hourAndMinute and dateAndTime emit a full ISO datetime. The initial selectedDate is parsed flexibly (a plain date, a bare HH:mm, or a full ISO).",
+          "font": "caption",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "date (default)"
+        },
+        "children": [
+          {
+            "type": "DatePicker",
+            "properties": {
+              "title": "Compact",
+              "displayedComponents": "date",
+              "displayStyle": "compact",
+              "selectedDate": "2026-06-27"
+            }
+          },
+          {
+            "type": "DatePicker",
+            "properties": {
+              "title": "Graphical",
+              "displayedComponents": "date",
+              "displayStyle": "graphical",
+              "selectedDate": "2026-06-27"
+            }
+          }
+        ]
+      },
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "hourAndMinute (time only)"
+        },
+        "children": [
+          {
+            "type": "DatePicker",
+            "properties": {
+              "title": "Compact",
+              "displayedComponents": "hourAndMinute",
+              "displayStyle": "compact",
+              "selectedDate": "08:30"
+            }
+          },
+          {
+            "type": "DatePicker",
+            "properties": {
+              "title": "Graphical",
+              "displayedComponents": "hourAndMinute",
+              "displayStyle": "graphical",
+              "selectedDate": "08:30"
+            }
+          }
+        ]
+      },
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "dateAndTime"
+        },
+        "children": [
+          {
+            "type": "DatePicker",
+            "properties": {
+              "title": "Compact",
+              "displayedComponents": "dateAndTime",
+              "displayStyle": "compact",
+              "selectedDate": "2026-06-27T14:15:00"
+            }
+          },
+          {
+            "type": "DatePicker",
+            "properties": {
+              "title": "Graphical",
+              "displayedComponents": "dateAndTime",
+              "displayStyle": "graphical",
+              "selectedDate": "2026-06-27T14:15:00"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

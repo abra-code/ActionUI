@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 /**
  * Unit tests for [DateHelper] - the ISO 8601 date parsing/formatting that backs
@@ -55,5 +57,61 @@ class DateHelperTest {
     fun `parse then format round-trips`() {
         val s = "2025-12-31"
         assertEquals(s, DateHelper.formatDate(DateHelper.parseDate(s)!!))
+    }
+
+    // MARK: - datetime (time-bearing DatePicker modes)
+
+    @Test
+    fun `parseDateTime reads a full local datetime`() {
+        assertEquals(
+            LocalDateTime.of(2024, 7, 16, 9, 5, 0),
+            DateHelper.parseDateTime("2024-07-16T09:05:00"),
+        )
+        // Seconds optional.
+        assertEquals(
+            LocalDateTime.of(2024, 7, 16, 9, 5, 0),
+            DateHelper.parseDateTime("2024-07-16T09:05"),
+        )
+    }
+
+    @Test
+    fun `parseDateTime reduces an offset datetime to local date and time`() {
+        assertEquals(
+            LocalDateTime.of(2024, 7, 16, 14, 30, 0),
+            DateHelper.parseDateTime("2024-07-16T14:30:00Z"),
+        )
+    }
+
+    @Test
+    fun `parseDateTime seeds today for a bare time`() {
+        val parsed = DateHelper.parseDateTime("14:30")!!
+        assertEquals(LocalDate.now(), parsed.toLocalDate())
+        assertEquals(LocalTime.of(14, 30), parsed.toLocalTime())
+    }
+
+    @Test
+    fun `parseDateTime seeds midnight for a bare date`() {
+        assertEquals(
+            LocalDateTime.of(2024, 7, 16, 0, 0, 0),
+            DateHelper.parseDateTime("2024-07-16"),
+        )
+    }
+
+    @Test
+    fun `parseDateTime returns null for unparseable input`() {
+        assertNull(DateHelper.parseDateTime("not-a-date"))
+        assertNull(DateHelper.parseDateTime(""))
+    }
+
+    @Test
+    fun `formatDateTime emits a full ISO datetime with seconds`() {
+        assertEquals("2024-07-16T09:05:00", DateHelper.formatDateTime(LocalDateTime.of(2024, 7, 16, 9, 5, 0)))
+        assertEquals("2024-01-02T00:00:00", DateHelper.formatDateTime(LocalDateTime.of(2024, 1, 2, 0, 0, 0)))
+    }
+
+    @Test
+    fun `parseDateTime then formatDateTime round-trips a full datetime`() {
+        val s = "2025-12-31T23:59:00"
+        assertEquals(s, DateHelper.formatDateTime(DateHelper.parseDateTime(s)!!))
     }
 }

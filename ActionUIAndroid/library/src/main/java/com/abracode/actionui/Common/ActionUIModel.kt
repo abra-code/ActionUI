@@ -11,9 +11,11 @@ import com.abracode.actionui.Helpers.jsonToKotlinValue
 import com.abracode.actionui.Helpers.kotlinValueToJson
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.parseCoordinate
+import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * Signature of an ActionUI action handler.
@@ -518,7 +520,12 @@ object ActionUIModel {
             valueType == ActionUIValueType.BOOLEAN && value is Boolean -> value.toString()
             valueType == ActionUIValueType.INT && value is Int -> value.toString()
             valueType == ActionUIValueType.DOUBLE && value is Double -> value.toString()
+            // Date-only DatePickers (and any other DATE-valued control) serialize a
+            // bare "yyyy-MM-dd"; time-bearing DatePicker modes carry a LocalDateTime
+            // and serialize a full ISO datetime "yyyy-MM-ddTHH:mm:ss" (parity with
+            // Apple) so a host can read the wall-clock HH:mm.
             valueType == ActionUIValueType.DATE && value is LocalDate -> DateHelper.formatDate(value)
+            valueType == ActionUIValueType.DATE && value is LocalDateTime -> DateHelper.formatDateTime(value)
             valueType == ActionUIValueType.COLOR && value is Color -> colorToHex(value)
             valueType == ActionUIValueType.STRING_LIST && value is List<*> ->
                 value.joinToString("\t") { it?.toString() ?: "" }
@@ -555,9 +562,17 @@ object ActionUIModel {
                 logger.log("Invalid string for Double value: $value for viewID: $viewID", LoggerLevel.warning)
                 return
             }
-            ActionUIValueType.DATE -> DateHelper.parseDate(value) ?: run {
-                logger.log("Invalid ISO 8601 date string: $value for viewID: $viewID", LoggerLevel.warning)
-                return
+            ActionUIValueType.DATE -> {
+                // Time-bearing DatePicker modes carry a LocalDateTime; every other
+                // DATE-valued control (and date-only DatePickers) carries a LocalDate.
+                val components = viewModel.authoredProperties?.stringProperty("displayedComponents")
+                val timeBearing = viewModel.elementType == "DatePicker" &&
+                    (components == "hourAndMinute" || components == "dateAndTime")
+                val parsed: Any? = if (timeBearing) DateHelper.parseDateTime(value) else DateHelper.parseDate(value)
+                parsed ?: run {
+                    logger.log("Invalid ISO 8601 date string: $value for viewID: $viewID", LoggerLevel.warning)
+                    return
+                }
             }
             ActionUIValueType.COLOR -> parseColor(value) ?: run {
                 logger.log("Invalid color string: $value for viewID: $viewID", LoggerLevel.warning)

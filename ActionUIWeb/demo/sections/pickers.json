@@ -9,6 +9,17 @@
     { "type": "Picker", "id": 62, "properties": { "title": "View", "pickerStyle": "segmented", "options": [{ "title": "Day", "tag": "day" }, { "title": "Week", "tag": "week" }, { "title": "Month", "tag": "month" }], "actionID": "viewChanged" } },
     { "type": "Divider" },
     { "type": "DatePicker", "id": 80, "properties": { "title": "Date", "selectedDate": "2026-06-12", "range": { "start": "2026-01-01", "end": "2026-12-31" }, "valueChangeActionID": "dateChanged" } },
+    { "type": "Divider" },
+    {
+      "type": "GroupBox",
+      "properties": { "title": "DatePicker displayedComponents" },
+      "children": [
+        { "type": "Text", "properties": { "text": "date renders a date input (YYYY-MM-DD); hourAndMinute a time input; dateAndTime a datetime-local input. The time modes emit a full ISO datetime. selectedDate accepts a plain date, a bare HH:mm, or a full ISO.", "foregroundColor": "secondary", "font": "caption" } },
+        { "type": "DatePicker", "id": 82, "properties": { "title": "date (default)", "displayedComponents": "date", "selectedDate": "2026-06-27", "valueChangeActionID": "dateChanged" } },
+        { "type": "DatePicker", "id": 83, "properties": { "title": "hourAndMinute (time only)", "displayedComponents": "hourAndMinute", "selectedDate": "08:30", "valueChangeActionID": "dateChanged" } },
+        { "type": "DatePicker", "id": 84, "properties": { "title": "dateAndTime", "displayedComponents": "dateAndTime", "selectedDate": "2026-06-27T14:15:00", "valueChangeActionID": "dateChanged" } }
+      ]
+    },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },

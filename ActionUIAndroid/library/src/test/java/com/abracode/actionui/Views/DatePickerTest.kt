@@ -14,6 +14,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * Unit tests for [DatePicker] - registry resolution, the DATE value seed, and the
@@ -47,6 +48,42 @@ class DatePickerTest {
         assertEquals(LocalDate.now(), DatePicker.initialValue(none))
         val bad = ActionUIElement(id = 1, type = "DatePicker", properties = buildJsonObject { put("selectedDate", "oops") })
         assertEquals(LocalDate.now(), DatePicker.initialValue(bad))
+    }
+
+    @Test
+    fun `resolveComponents maps known modes and defaults unknown to date`() {
+        val logger = CapturingLogger()
+        assertEquals(DateComponentsMode.Date, resolveComponents(null, logger))
+        assertEquals(DateComponentsMode.Date, resolveComponents("date", logger))
+        assertEquals(DateComponentsMode.HourAndMinute, resolveComponents("hourAndMinute", logger))
+        assertEquals(DateComponentsMode.DateAndTime, resolveComponents("dateAndTime", logger))
+        assertTrue(logger.warnings.isEmpty())
+    }
+
+    @Test
+    fun `resolveComponents warns and defaults to date for an unknown mode`() {
+        val logger = CapturingLogger()
+        assertEquals(DateComponentsMode.Date, resolveComponents("wheel", logger))
+        assertTrue(logger.warnings.any { it.contains("not recognized") })
+    }
+
+    @Test
+    fun `isTimeBearing flags the time-bearing modes`() {
+        assertTrue(!DateComponentsMode.Date.isTimeBearing)
+        assertTrue(DateComponentsMode.HourAndMinute.isTimeBearing)
+        assertTrue(DateComponentsMode.DateAndTime.isTimeBearing)
+    }
+
+    @Test
+    fun `initialValue parses selectedDate as LocalDateTime for time-bearing modes`() {
+        val el = ActionUIElement(
+            id = 1, type = "DatePicker",
+            properties = buildJsonObject {
+                put("displayedComponents", "dateAndTime")
+                put("selectedDate", "2024-07-16T09:05:00")
+            },
+        )
+        assertEquals(LocalDateTime.of(2024, 7, 16, 9, 5, 0), DatePicker.initialValue(el))
     }
 
     @Test

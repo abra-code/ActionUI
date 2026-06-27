@@ -7,9 +7,11 @@
    "properties": {
      "title": "Select Date", // Optional: String for title, defaults to "Date"
      "displayStyle": "automatic", // Optional: "automatic" (iOS/macOS/visionOS), "compact" (iOS/macOS/visionOS), "graphical" (iOS/macOS/visionOS), "stepperField" (macOS only), "field" (macOS only); defaults to "automatic"
+     "displayedComponents": "date", // Optional: "date" (default), "hourAndMinute" (time wheel), "dateAndTime" (date+time)
      "range": { "start": "2023-01-01", "end": "2025-12-31" }, // Optional: Dictionary with start/end dates (ISO 8601 strings)
-     "selectedDate": "2024-07-16" // Optional: Initial selected date (ISO 8601 string)
+     "selectedDate": "2024-07-16" // Optional: Initial selected value. Accepts "YYYY-MM-DD", "HH:mm", or a full ISO datetime
    }
+   // Value serialization: "date" emits "YYYY-MM-DD"; "hourAndMinute"/"dateAndTime" emit a full ISO datetime "YYYY-MM-DDTHH:mm:ss".
    // Note: These properties are specific to DatePicker. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 */
@@ -49,7 +51,19 @@ struct DatePicker: ActionUIViewConstruction {
             logger.log("DatePicker requires 'displayStyle' as String; ignoring", .warning)
             validatedProperties["displayStyle"] = nil
         }
-        
+
+        // Validate displayedComponents
+        let validComponents = ["date", "hourAndMinute", "dateAndTime"]
+        if let displayedComponents = validatedProperties["displayedComponents"] as? String {
+            if !validComponents.contains(displayedComponents) {
+                logger.log("DatePicker displayedComponents '\(displayedComponents)' invalid; ignoring", .warning)
+                validatedProperties["displayedComponents"] = nil
+            }
+        } else if validatedProperties["displayedComponents"] != nil {
+            logger.log("DatePicker requires 'displayedComponents' as String; ignoring", .warning)
+            validatedProperties["displayedComponents"] = nil
+        }
+
         // Validate range (lightweight)
         if let range = validatedProperties["range"] as? [String: String] {
             var isValid = true
@@ -121,11 +135,35 @@ struct DatePicker: ActionUIViewConstruction {
             return nil
         }()
         
+        let components = Self.displayedComponents(from: properties["displayedComponents"] as? String)
+
         if let range = dateRange {
-            return SwiftUI.DatePicker(title, selection: dateBinding, in: range, displayedComponents: .date)
+            return SwiftUI.DatePicker(title, selection: dateBinding, in: range, displayedComponents: components)
         } else {
-            return SwiftUI.DatePicker(title, selection: dateBinding, displayedComponents: .date)
+            return SwiftUI.DatePicker(title, selection: dateBinding, displayedComponents: components)
         }
+    }
+
+    /// Maps the JSON `displayedComponents` string to SwiftUI `DatePickerComponents`.
+    /// `nil`/`"date"` -> `.date` (default, date-only); `"hourAndMinute"` -> a time
+    /// (hour+minute) picker; `"dateAndTime"` -> a combined `[.date, .hourAndMinute]`
+    /// picker. Any unrecognized value (already dropped by `validateProperties`)
+    /// falls back to `.date`.
+    static func displayedComponents(from raw: String?) -> SwiftUI.DatePickerComponents {
+        switch raw {
+        case "hourAndMinute":
+            return .hourAndMinute
+        case "dateAndTime":
+            return [.date, .hourAndMinute]
+        default:
+            return .date
+        }
+    }
+
+    /// True when the mode carries a time-of-day component (so the value-bridge
+    /// serializes a full ISO datetime rather than a bare "YYYY-MM-DD").
+    static func isTimeBearing(_ raw: String?) -> Bool {
+        raw == "hourAndMinute" || raw == "dateAndTime"
     }
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
