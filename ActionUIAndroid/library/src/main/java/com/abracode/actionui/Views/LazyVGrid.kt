@@ -23,6 +23,8 @@ import com.abracode.actionui.Helpers.ActionUIGridCells
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.boundWidthIfUnbounded
+import com.abracode.actionui.Helpers.gridNaturalCrossExtent
 import com.abracode.actionui.Helpers.resolveGridTracks
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.JsonObject
@@ -94,7 +96,15 @@ object LazyVGrid : ActionUIViewConstruction {
         // height. An inherited frame.height (already on `modifier`) wins;
         // otherwise apply a default so an unbounded parent cannot crash it.
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
-        val gridModifier = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
+        val sized = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
+        // It ALSO needs a bounded WIDTH. Under a horizontally-scrollable (or
+        // both-axis) ScrollView the proposed width is infinite, which Compose
+        // crashes on ("...width should be bound by parent"). Bound it to the grid's
+        // natural track width in that case; a no-op under a normal/finite-width
+        // parent (and an explicit frame.width already bounds it).
+        val gridModifier = sized.boundWidthIfUnbounded(
+            gridNaturalCrossExtent(tracks, FLEXIBLE_FALLBACK_WIDTH),
+        )
 
         // Template (data-driven) mode wins over children, as on Apple. The rows
         // are read here (composable scope) so the lazy DSL below stays plain.
@@ -128,4 +138,8 @@ object LazyVGrid : ActionUIViewConstruction {
 
     /** Default scroll-viewport height when JSON supplies no `frame.height`. */
     private val DEFAULT_MAIN_EXTENT = 320.dp
+
+    /** Per-flexible-column width used only to give the grid a finite cross extent
+     *  when its parent proposes an unbounded width (see [gridNaturalCrossExtent]). */
+    private val FLEXIBLE_FALLBACK_WIDTH = 100.dp
 }

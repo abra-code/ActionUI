@@ -23,6 +23,8 @@ import com.abracode.actionui.Helpers.ActionUIGridCells
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.boundHeightIfUnbounded
+import com.abracode.actionui.Helpers.gridNaturalCrossExtent
 import com.abracode.actionui.Helpers.resolveGridTracks
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.JsonObject
@@ -81,7 +83,14 @@ object LazyHGrid : ActionUIViewConstruction {
         // width. An inherited frame.width (already on `modifier`) wins;
         // otherwise apply a default so an unbounded parent cannot crash it.
         val hasExplicitWidth = (props?.get("frame") as? JsonObject)?.get("width") != null
-        val gridModifier = if (hasExplicitWidth) modifier else modifier.width(DEFAULT_MAIN_EXTENT)
+        val sized = if (hasExplicitWidth) modifier else modifier.width(DEFAULT_MAIN_EXTENT)
+        // It ALSO needs a bounded HEIGHT (cross axis). Under a vertically-scrollable
+        // (or both-axis) ScrollView the proposed height is infinite, which Compose
+        // crashes on; bound it to the grid's natural row-track height. A no-op under
+        // a normal/finite-height parent (and an explicit frame.height bounds it).
+        val gridModifier = sized.boundHeightIfUnbounded(
+            gridNaturalCrossExtent(tracks, FLEXIBLE_FALLBACK_HEIGHT),
+        )
 
         // Template (data-driven) mode wins over children, as on Apple. The rows
         // are read here (composable scope) so the lazy DSL below stays plain.
@@ -115,4 +124,8 @@ object LazyHGrid : ActionUIViewConstruction {
 
     /** Default scroll-viewport width when JSON supplies no `frame.width`. */
     private val DEFAULT_MAIN_EXTENT = 320.dp
+
+    /** Per-flexible-row height used only to give the grid a finite cross extent
+     *  when its parent proposes an unbounded height (see [gridNaturalCrossExtent]). */
+    private val FLEXIBLE_FALLBACK_HEIGHT = 100.dp
 }

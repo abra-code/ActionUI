@@ -120,4 +120,23 @@ class GridTrackHelperTest {
         val tracks = listOf(GridTrack.Fixed(200f.dp), GridTrack.Flexible)
         assertEquals(listOf(200, 0), sizes(tracks, availableSize = 150, spacing = 0))
     }
+
+    // -- gridNaturalCrossExtent (the unbounded-cross-axis fallback) ------------
+
+    @Test
+    fun `natural extent sums fixed tracks (the periodic-table case)`() {
+        val tracks = List(18) { GridTrack.Fixed(50f.dp) }
+        assertEquals(900f.dp, gridNaturalCrossExtent(tracks, flexibleFallback = 100f.dp))
+    }
+
+    @Test
+    fun `flexible tracks contribute the fallback`() {
+        val tracks = listOf(GridTrack.Fixed(120f.dp), GridTrack.Flexible, GridTrack.Flexible)
+        assertEquals(320f.dp, gridNaturalCrossExtent(tracks, flexibleFallback = 100f.dp))
+    }
+
+    @Test
+    fun `all-flexible is the track count times the fallback`() {
+        assertEquals(300f.dp, gridNaturalCrossExtent(List(3) { GridTrack.Flexible }, flexibleFallback = 100f.dp))
+    }
 }

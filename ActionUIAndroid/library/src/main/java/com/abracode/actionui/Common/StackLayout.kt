@@ -62,6 +62,9 @@ class StackChildData(
     val fixedMainDp: Float? = null,
     val minMainDp: Float? = null,
     val fill: Boolean = false,
+    // Fill the CROSS axis (not the main axis): a width-greedy text leaf in a VStack
+    // stretches to the stack's width while hugging its (main-axis) height.
+    val crossFill: Boolean = false,
 )
 
 private class StackChildDataModifier(val data: StackChildData) : ParentDataModifier {
@@ -71,7 +74,13 @@ private class StackChildDataModifier(val data: StackChildData) : ParentDataModif
 /** Attaches [data] as parent data so [stackMeasurePolicy] can classify the child. */
 fun Modifier.stackChild(data: StackChildData): Modifier = this.then(StackChildDataModifier(data))
 
-/** The greedy text-input element types - flexible (fill) even without a `frame`, as on Apple. */
+/**
+ * The greedy text-input element types. A TextField/SecureField is greedy on the WIDTH
+ * axis only (fixed height, as on Apple): it fills an HStack's main axis, but in a VStack
+ * it fills the CROSS axis (width) and hugs its height - it must NOT fill the vertical main
+ * axis (that ballooned the field). A TextEditor is multi-line and greedy on BOTH axes, so
+ * it stays main-greedy in either orientation. See stackChildDataFor.
+ */
 private val GREEDY_LEAF_TYPES = setOf("TextField", "SecureField", "TextEditor")
 
 /**
@@ -95,6 +104,11 @@ internal fun stackChildDataFor(element: ActionUIElement, horizontal: Boolean): S
     val fixed = num(fixedKey)
     val maxFinite = num(maxKey)
     val greedyLeaf = element.type in GREEDY_LEAF_TYPES
+    // A TextField/SecureField is greedy on the WIDTH axis only, so it fills the MAIN
+    // axis only in a horizontal stack; in a VStack it hugs its height (handled as
+    // crossFill below). A TextEditor is multi-line and fills the main axis in either
+    // orientation.
+    val mainGreedy = greedyLeaf && (horizontal || element.type == "TextEditor")
 
     // `idealWidth`/`idealHeight` does NOT itself make a child greedy: SwiftUI uses
     // the ideal only when the parent's proposal is unspecified (rare in a stack),
@@ -105,12 +119,23 @@ internal fun stackChildDataFor(element: ActionUIElement, horizontal: Boolean): S
     val fill = isInfinity(fixedKey) || isInfinity(maxKey) ||
         element.type == "Spacer" ||
         props?.get("weight") != null ||
-        (greedyLeaf && fixed == null && maxFinite == null)
+        (mainGreedy && fixed == null && maxFinite == null)
+
+    // A width-greedy text leaf (TextField/SecureField) in a VStack fills the CROSS
+    // axis (width) when it has no explicit cross-axis frame - the SwiftUI default
+    // where a TextField stretches to the stack's width while keeping its own height.
+    // An explicit width/maxWidth frame (incl. maxWidth:infinity, which ModifierResolver
+    // turns into fillMaxWidth) governs the cross axis instead, so skip crossFill then.
+    val crossKeys = if (horizontal) listOf("height", "maxHeight", "minHeight")
+                    else listOf("width", "maxWidth", "minWidth")
+    val hasCrossFrame = crossKeys.any { frame?.get(it) != null }
+    val crossFill = greedyLeaf && !fill && !horizontal && !hasCrossFrame
 
     return StackChildData(
         fixedMainDp = if (fill) null else fixed,
         minMainDp = num(minKey),
         fill = fill,
+        crossFill = crossFill,
     )
 }
 
@@ -149,6 +174,13 @@ internal fun stackMeasurePolicy(
         if (horizontal) Constraints(minWidth = minMain, maxWidth = looseMainMax, minHeight = 0, maxHeight = crossMax)
         else Constraints(minWidth = 0, maxWidth = crossMax, minHeight = minMain, maxHeight = looseMainMax)
 
+    // Like looseConstraints, but PINS the cross axis to crossMax - used for a
+    // width-greedy text leaf (crossFill) so it stretches to the stack's width while
+    // still hugging its main-axis height. Only valid when crossMax is bounded.
+    fun crossFillConstraints(minMain: Int): Constraints =
+        if (horizontal) Constraints(minWidth = minMain, maxWidth = looseMainMax, minHeight = crossMax, maxHeight = crossMax)
+        else Constraints(minWidth = crossMax, maxWidth = crossMax, minHeight = minMain, maxHeight = looseMainMax)
+
     fun Placeable.mainSize() = if (horizontal) width else height
     fun Placeable.crossSize() = if (horizontal) height else width
 
@@ -174,8 +206,11 @@ internal fun stackMeasurePolicy(
                 // it. Compose forbids measuring a child twice in a pass, so greedy
                 // children must declare themselves (frame fill / GREEDY_LEAF_TYPES /
                 // Spacer / weight) and are sized in the second pass below; we do NOT
-                // re-measure here on a guessed greed.
-                val p = m.measure(looseConstraints(minMain))
+                // re-measure here on a guessed greed. A crossFill text leaf (e.g. a
+                // TextField in a VStack) is pinned to the stack width on the cross axis.
+                val cons = if (d?.crossFill == true && crossMax != Constraints.Infinity)
+                    crossFillConstraints(minMain) else looseConstraints(minMain)
+                val p = m.measure(cons)
                 placeables[i] = p
                 val natural = p.mainSize()
                 sizings.add(StackChildSizing.of(natural, natural, natural))

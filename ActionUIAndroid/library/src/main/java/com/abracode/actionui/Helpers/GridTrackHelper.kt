@@ -1,6 +1,9 @@
 package com.abracode.actionui.Helpers
 
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -96,4 +99,54 @@ internal data class ActionUIGridCells(private val tracks: List<GridTrack>) : Gri
             }
         }
     }
+}
+
+/**
+ * The grid's natural CROSS-axis extent: the sum of its track sizes - fixed tracks
+ * take their dp size, flexible tracks use [flexibleFallback] (a flexible track
+ * cannot size against an unbounded cross axis, so it falls back to a sensible
+ * width). Cross-axis spacing is 0 here (tracks touch), so this is a plain sum.
+ *
+ * Used to give a lazy grid a finite cross extent when its parent proposes an
+ * unbounded one - e.g. a LazyVGrid inside a horizontally-scrollable (or both-axis)
+ * ScrollView - which Compose otherwise hard-crashes on.
+ */
+internal fun gridNaturalCrossExtent(tracks: List<GridTrack>, flexibleFallback: Dp): Dp =
+    tracks.fold(0.dp) { acc, track ->
+        acc + when (track) {
+            is GridTrack.Fixed -> track.size
+            GridTrack.Flexible -> flexibleFallback
+        }
+    }
+
+/**
+ * Bounds the measured width to [fallback] ONLY when the incoming maxWidth is
+ * unbounded ([Constraints.Infinity]); a transparent pass-through otherwise.
+ *
+ * A [androidx.compose.foundation.lazy.grid.LazyVerticalGrid] requires a bounded
+ * width; Compose throws "LazyVerticalGrid's width should be bound by parent" when
+ * one is placed under a horizontally-scrollable parent that proposes infinite
+ * width. This gives it a finite content width (see [gridNaturalCrossExtent])
+ * instead of crashing. An explicit `frame.width` already bounds the axis, so this
+ * stays a no-op there.
+ */
+internal fun Modifier.boundWidthIfUnbounded(fallback: Dp): Modifier = this.layout { measurable, constraints ->
+    val bounded = if (constraints.maxWidth == Constraints.Infinity)
+        constraints.copy(maxWidth = fallback.roundToPx().coerceAtLeast(constraints.minWidth))
+    else constraints
+    val placeable = measurable.measure(bounded)
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+}
+
+/**
+ * Height twin of [boundWidthIfUnbounded] - for a
+ * [androidx.compose.foundation.lazy.grid.LazyHorizontalGrid] placed under a
+ * vertically-scrollable parent that proposes infinite height.
+ */
+internal fun Modifier.boundHeightIfUnbounded(fallback: Dp): Modifier = this.layout { measurable, constraints ->
+    val bounded = if (constraints.maxHeight == Constraints.Infinity)
+        constraints.copy(maxHeight = fallback.roundToPx().coerceAtLeast(constraints.minHeight))
+    else constraints
+    val placeable = measurable.measure(bounded)
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }
