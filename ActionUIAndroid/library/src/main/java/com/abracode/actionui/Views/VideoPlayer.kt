@@ -4,13 +4,19 @@ import android.net.Uri
 import android.webkit.URLUtil
 import android.widget.MediaController
 import android.widget.VideoView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -120,40 +126,90 @@ object VideoPlayer : ActionUIViewConstruction {
             return
         }
 
-        AndroidView(
-            // A video player is greedy (AVKit's fills its proposal):
-            // fillMaxSize, the Map/ShapeView stance, expanding through the
-            // wrapContentSize a fixed frame applies.
-            modifier = modifier.fillMaxSize(),
-            factory = { context ->
-                VideoView(context).apply {
-                    setMediaController(MediaController(context).also { it.setAnchorView(this) })
-                    setOnPreparedListener {
-                        // Apple's tri-state autoplay: true plays, false/absent rests.
-                        if (config.autoplay == true) start()
+        // Audio-only sources (an mp3 pronunciation, a podcast clip) have NO video
+        // track, so VideoView's surface paints solid black. Detect that on prepare
+        // and cover the surface with a tap-to-play audio panel instead.
+        var isAudioOnly by remember(urlString) { mutableStateOf(false) }
+        var playing by remember(urlString) { mutableStateOf(config.autoplay == true) }
+        val viewRef = remember { mutableStateOf<VideoView?>(null) }
+
+        Box(modifier = modifier.fillMaxSize()) {
+            AndroidView(
+                // A video player is greedy (AVKit's fills its proposal): fillMaxSize,
+                // the Map/ShapeView stance, expanding through the wrapContentSize a
+                // fixed frame applies.
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    VideoView(context).apply {
+                        setMediaController(MediaController(context).also { it.setAnchorView(this) })
+                        setOnPreparedListener { mediaPlayer ->
+                            // No video track -> audio-only: flag it so the overlay
+                            // below replaces the (black) surface with an audio panel.
+                            isAudioOnly = mediaPlayer.videoWidth == 0 || mediaPlayer.videoHeight == 0
+                            // Apple's tri-state autoplay: true plays, false/absent rests.
+                            if (config.autoplay == true) { start(); playing = true }
+                        }
+                        setOnCompletionListener { playing = false }
+                        setOnErrorListener { _, what, extra ->
+                            logger.log(
+                                "VideoPlayer failed to play '${tag ?: urlString}' (error $what/$extra)",
+                                LoggerLevel.error,
+                            )
+                            true // Swallow the platform's modal error dialog.
+                        }
+                        viewRef.value = this
                     }
-                    setOnErrorListener { _, what, extra ->
-                        logger.log(
-                            "VideoPlayer failed to play '${tag ?: urlString}' (error $what/$extra)",
-                            LoggerLevel.error,
+                },
+                // Runs on first composition and whenever the resolved URL changes
+                // (a host write through the value bridge): (re)point the source.
+                // The View's tag carries the URL it currently plays, so plain
+                // recompositions don't restart playback.
+                update = { view ->
+                    if (view.tag != urlString) {
+                        view.tag = urlString
+                        isAudioOnly = false // re-detect on prepare for the new source
+                        view.setVideoURI(Uri.parse(urlString))
+                        if (config.autoplay != true) view.seekTo(1) // show the first frame, not black
+                    }
+                },
+                onRelease = { viewRef.value = null; it.stopPlayback() },
+            )
+
+            if (isAudioOnly) {
+                // Cover the black video surface with a themed panel; tapping it
+                // toggles playback on the underlying VideoView (whose own
+                // MediaController is hidden behind this panel for an audio source).
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable {
+                            viewRef.value?.let { v ->
+                                if (playing) { v.pause(); playing = false } else { v.start(); playing = true }
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SystemSymbolIcon(
+                            name = if (playing) "pause.circle.fill" else "play.circle.fill",
+                            explicitWeight = null,
+                            explicitFill = null,
+                            explicitGrade = null,
+                            explicitSizeSp = 40f,
+                            imageScale = null,
+                            contentDescription = if (playing) "Pause audio" else "Play audio",
+                            logger = logger,
                         )
-                        true // Swallow the platform's modal error dialog.
+                        M3Text(
+                            "Audio",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
                     }
                 }
-            },
-            // Runs on first composition and whenever the resolved URL changes
-            // (a host write through the value bridge): (re)point the source.
-            // The View's tag carries the URL it currently plays, so plain
-            // recompositions don't restart playback.
-            update = { view ->
-                if (view.tag != urlString) {
-                    view.tag = urlString
-                    view.setVideoURI(Uri.parse(urlString))
-                    if (config.autoplay != true) view.seekTo(1) // show the first frame, not black
-                }
-            },
-            onRelease = { it.stopPlayback() },
-        )
+            }
+        }
     }
 }
 
