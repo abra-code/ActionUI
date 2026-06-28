@@ -51,13 +51,17 @@ public protocol ActionUIElementBase: Identifiable, Codable, Sendable {
 }
 
 @MainActor
-protocol ActionUIPropertyValidation {
+public protocol ActionUIPropertyValidation {
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] { get }
 }
 
-// Protocol for constructing SwiftUI views from ActionUIElements
+// Protocol for constructing SwiftUI views from ActionUIElements.
+// Public so optional add-on libraries (linked against ActionUI) can implement a custom
+// element type and register it via ActionUIRegistry.register(_:as:). Built-in elements
+// conform internally; external conformers use only the public surface (element, ViewModel
+// value/states, ActionUIModel.actionHandler, logger).
 @MainActor
-protocol ActionUIViewConstruction : ActionUIPropertyValidation {
+public protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     static var valueType: Any.Type { get }
     static var buildView: ((any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View) { get }
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View { get }

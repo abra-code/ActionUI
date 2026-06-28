@@ -16,10 +16,14 @@ struct TemplateContext {
     let row: [String]    // Column data for property substitution in nested children
 }
 
+// Public as a type so it can appear in the public ActionUIViewConstruction signatures that
+// add-on element types implement. Only `value` and `states` are public surface; the rest of the
+// view-model machinery (validated properties, template context, refresh/insertion state) stays
+// internal, and `init()` is internal so only the engine constructs view models.
 @MainActor
-class ViewModel: ObservableObject {
-    @Published var value: Any?
-    @Published var states: [String: Any]
+public class ViewModel: ObservableObject {
+    @Published public var value: Any?
+    @Published public var states: [String: Any]
     var validatedProperties: [String: Any] // Non-published cache
     var elementType: String // View type name (e.g. "TextField", "Slider")
     var templateContext: TemplateContext? // Set when rendering as a template instance

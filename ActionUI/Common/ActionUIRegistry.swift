@@ -135,6 +135,26 @@ public class ActionUIRegistry {
         logger.log("Registered property validation for element type: \(String(describing: type.self))", .verbose)
     }
 
+    /// Registers an external, add-on view-construction type so its `type` token can be used in
+    /// ActionUI JSON exactly like a built-in element. Intended for optional plug-in libraries that
+    /// link against ActionUI (for example a custom `Chat` element) and self-register at launch.
+    ///
+    /// Apple platforms have no guaranteed pre-`main` discovery hook for a statically linked Swift
+    /// type (unlike the ActionUIAndroid map providers, where a manifest-declared ContentProvider
+    /// self-registers purely on link), so an add-on exposes a tiny `register()` entry point that the
+    /// host app calls once at startup, before any window referencing the type is built. Registration
+    /// is idempotent; a later call for the same token replaces the earlier construction type.
+    ///
+    /// - Parameters:
+    ///   - type: a type conforming to ``ActionUIViewConstruction``.
+    ///   - typeName: the JSON `type` token to bind. Defaults to the Swift type's own name
+    ///     (e.g. `Chat` -> "Chat"), matching how built-in elements are keyed.
+    public func register(_ type: any ActionUIViewConstruction.Type, as typeName: String? = nil) {
+        let key = typeName ?? String(describing: type)
+        viewRegistrations[key] = type
+        logger.log("Registered custom view type: \(key)", .verbose)
+    }
+
     // Validates properties for a given element type, returning unchanged properties if type not registered
     public func validateProperties(forElementType type: String, properties: [String: Any]) -> [String: Any] {
         if let constructionType = viewRegistrations[type] {

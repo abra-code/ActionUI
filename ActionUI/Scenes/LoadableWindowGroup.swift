@@ -18,7 +18,9 @@ import Foundation
 
 @MainActor
 public struct LoadableWindowGroup : ActionUIPropertyValidation {
-    static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, logger in
+    // Public to satisfy the now-public ActionUIPropertyValidation requirement: a public type
+    // conforming to a public protocol must witness its requirements with public members.
+    public static var validateProperties: ([String : Any], any ActionUILogger) -> [String : Any] = { properties, logger in
         var validatedProperties = properties
         
         // Validate property types
