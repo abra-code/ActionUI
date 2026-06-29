@@ -1,0 +1,16 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "QuickLook - previewStyle: compact (macOS; iOS ignores it):", "font": "headline" } },
+    {
+      "type": "QuickLook",
+      "id": 72,
+      "properties": {
+        "previewStyle": "compact",
+        "valueChangeActionID": "ql.changed",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

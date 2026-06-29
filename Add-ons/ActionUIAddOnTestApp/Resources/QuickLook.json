@@ -1,0 +1,16 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "QuickLook - multi-page PDF (scroll to page through it):", "font": "headline" } },
+    {
+      "type": "QuickLook",
+      "id": 70,
+      "properties": {
+        "previewStyle": "normal",
+        "valueChangeActionID": "ql.changed",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

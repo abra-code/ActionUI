@@ -1,0 +1,79 @@
+# xcodegen spec for the ActionUI add-on test app (macOS + iOS).
+# Generate + build with:
+#   xcodegen generate
+#   xcodebuild -project ActionUIAddOnTestApp.xcodeproj -scheme ActionUIAddOnTestApp \
+#       -destination 'generic/platform=macOS' build
+#   xcodebuild -project ActionUIAddOnTestApp.xcodeproj -scheme ActionUIAddOnTestApp \
+#       -destination 'generic/platform=iOS Simulator' build
+#
+# Runtime host for ActionUI add-ons (the add-on analogue of ActionUISwiftTestApp). The app links
+# ActionUI core + ActionUISwiftAdapter (both from the ActionUI package) and the ActionUIQuickLook
+# add-on (its own Swift package), registers the add-on at launch, and renders a JSON document that
+# uses the add-on's element.
+#
+# The ActionUI package resolves all of its products into the project, but only the products this
+# app depends on - ActionUI and ActionUISwiftAdapter - plus ActionUIQuickLook are actually built;
+# the other ActionUI adapters / CLI tools / docs are not compiled into the app.
+
+name: ActionUIAddOnTestApp
+
+options:
+  bundleIdPrefix: com.abracode.actionui
+  createIntermediateGroups: true
+
+packages:
+  ActionUI:
+    path: ../..
+  ActionUIQuickLook:
+    path: ../ActionUIQuickLook
+
+targets:
+  ActionUIAddOnTestApp:
+    type: application
+    # One multiplatform target rather than per-platform targets, so the project stays small.
+    supportedDestinations: [macOS, iOS]
+    deploymentTarget:
+      macOS: "14.6"
+      iOS: "17.6"
+    sources:
+      - path: Sources
+      - path: Resources
+        buildPhase: resources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI              # host links ActionUI core...
+      - package: ActionUI
+        product: ActionUISwiftAdapter  # ...and the Swift adapter (loadView, action handlers)...
+      - package: ActionUIQuickLook
+        product: ActionUIQuickLook      # ...and the add-on package.
+    preBuildScripts:
+      - name: "Verify JSON resources"
+        script: '"${SRCROOT}/Scripts/verify_json_resources.sh"'
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: com.abracode.actionui.AddOnTestApp
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Explicit deployment targets: supportedDestinations + the deploymentTarget option did not
+        # emit IPHONEOS_DEPLOYMENT_TARGET, leaving the app's minimum OS at the SDK version (26.x).
+        MACOSX_DEPLOYMENT_TARGET: "14.6"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.6"
+        # Ad-hoc sign so the macOS build runs locally (Apple Silicon requires at least ad-hoc);
+        # harmless for the iOS Simulator, which does not require signing.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: "NO"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        # The verify-JSON build phase reads the repo (Tools/verifier, Add-ons/*/Schemas) outside the
+        # project directory, so keep user-script sandboxing off.
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+
+schemes:
+  ActionUIAddOnTestApp:
+    build:
+      targets:
+        ActionUIAddOnTestApp: all
+    run:
+      config: Debug
