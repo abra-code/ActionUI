@@ -82,28 +82,79 @@ extension QLPreviewRepresentable {
 // MARK: - macOS backing (QLPreviewView)
 
 #if os(macOS)
+
+/// QLPreviewView's in-process text renderer installs a non-selectable NSTextView (QLTextView) for
+/// plain-text / source / JSON files, so a preview that is selectable in Finder and qlmanage comes up
+/// non-selectable when embedded here. There is no public switch for this, and the Finder-side
+/// `QLEnableTextSelection` default has no effect in-process, so we flip the inner NSTextView
+/// ourselves: after each load we walk the subtree and set `isSelectable = true` on any NSTextView.
+/// The text view is built asynchronously, and rebuilt (back to non-selectable) on every source
+/// change, so a short bounded poll re-applies after refreshPreviewItem(); layout() covers later
+/// relayouts. Web (Markdown/HTML), PDF, and image previews use their own already-selectable views
+/// and are left untouched - the NSTextView cast simply doesn't match them.
+final class SelectableQLPreviewView: QLPreviewView {
+    private var pollsLeft = 0
+
+    /// Begin (re)enforcing selectable text. Call right after refreshPreviewItem(); the poll bridges
+    /// the async build of the inner text view. Re-entrant: refreshes the window without stacking
+    /// concurrent poll chains.
+    func enforceSelectableText() {
+        let alreadyPolling = pollsLeft > 0
+        pollsLeft = 12              // ~1.4s window at 120ms steps
+        if !alreadyPolling {
+            pollSelectable()
+        }
+    }
+
+    private func pollSelectable() {
+        guard pollsLeft > 0 else {
+        	return
+        }
+        pollsLeft -= 1
+        makeTextSelectable(in: self)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+        	self?.pollSelectable()
+        }
+    }
+
+    private func makeTextSelectable(in view: NSView) {
+        if let textView = view as? NSTextView, !textView.isSelectable {
+            textView.isSelectable = true
+        }
+        for subview in view.subviews {
+            makeTextSelectable(in: subview)
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        makeTextSelectable(in: self)
+    }
+}
+
 extension QLPreviewRepresentable: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { makeQLCoordinator() }
 
-    func makeNSView(context: Context) -> QLPreviewView {
+    func makeNSView(context: Context) -> SelectableQLPreviewView {
         let style: QLPreviewViewStyle = (properties["previewStyle"] as? String == "compact") ? .compact : .normal
-        let view = QLPreviewView(frame: .zero, style: style) ?? QLPreviewView()
+        let view = SelectableQLPreviewView(frame: .zero, style: style) ?? SelectableQLPreviewView()
         apply(to: view, coordinator: context.coordinator)
         return view
     }
 
-    func updateNSView(_ view: QLPreviewView, context: Context) {
+    func updateNSView(_ view: SelectableQLPreviewView, context: Context) {
         apply(to: view, coordinator: context.coordinator)
     }
 
-    private func apply(to view: QLPreviewView, coordinator: Coordinator) {
+    private func apply(to view: SelectableQLPreviewView, coordinator: Coordinator) {
         let source = sourceString
         guard source != coordinator.lastSource else { return }
         coordinator.lastSource = source
         if let source, let url = Self.fileURL(from: source) {
             view.previewItem = url as NSURL
             view.refreshPreviewItem()
+            view.enforceSelectableText()
         } else {
             view.previewItem = nil
         }
