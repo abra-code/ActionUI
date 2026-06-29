@@ -190,6 +190,45 @@ def _copy_docs(meta: dict, docs_out: Path) -> None:
         if src.exists():
             shutil.copytree(src, docs_out / subdir)
 
+    _copy_addon_docs(docs_out)
+
+
+def _copy_addon_docs(docs_out: Path) -> None:
+    """Merge each add-on's Documentation/Schemas + Elements into the dist docs/, so an
+    add-on element's schema doc and insert template sit alongside the core ones."""
+    addons = REPO_ROOT / "Add-ons"
+    if not addons.is_dir():
+        return
+    for addon in sorted(addons.iterdir()):
+        for subdir in ["Schemas", "Elements"]:
+            src = addon / "Documentation" / subdir
+            if not src.is_dir():
+                continue
+            dst = docs_out / subdir
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in sorted(src.iterdir()):
+                if f.is_file():
+                    shutil.copy2(f, dst / f.name)
+
+
+def _copy_addon_schemas(scripts_out: Path) -> None:
+    """Copy each add-on's verifier schemas into the bundled verifier's reserved
+    schemas/add-ons/<AddOn>/ directory. The dist verifier has no repo around it to
+    auto-discover Add-ons/ from, so the self-contained copy is what lets it validate
+    add-on element types."""
+    addons = REPO_ROOT / "Add-ons"
+    if not addons.is_dir():
+        return
+    dest_root = scripts_out / "schemas" / "add-ons"
+    for addon in sorted(addons.iterdir()):
+        schema_src = addon / "Schemas"
+        if not schema_src.is_dir():
+            continue
+        dest = dest_root / addon.name
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in sorted(schema_src.glob("*.json")):
+            shutil.copy2(f, dest / f.name)
+
 
 def package_flavor(meta: dict, skill_md: str, flavor: str) -> None:
     """Write SKILL.md + verifier + docs into Skill/dist/<flavor>/."""
@@ -211,6 +250,7 @@ def package_flavor(meta: dict, skill_md: str, flavor: str) -> None:
         else:
             shutil.copy2(src, dst)
 
+    _copy_addon_schemas(scripts_out)
     _copy_docs(meta, docs_out)
 
     print(f"  [{flavor}] → {out_dir}")
