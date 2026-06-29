@@ -13,8 +13,10 @@
 //   • ActionUIJavaScriptCoreAdapter  – JavaScriptCore adapter
 //   • ActionUIWebKitJSAdapter        – WebKit / WKWebView JS bridge adapter
 //   • ActionUIDocumentation          – Resource-only bundle (schemas, templates, index)
-//   • ActionUIViewer                 – Command-line tool to preview ActionUI JSON windows
-//   • ActionUIVerifier               – Command-line tool to validate ActionUI JSON files
+//
+// The ActionUIViewer preview tool moved to its own aggregator package at Apps/ActionUIViewer so it
+// can link the optional add-ons and register their element types (a core target cannot depend on the
+// add-ons, which depend on core - that would be circular).
 //
 // Excluded adapters:
 //   • ActionUICppAdapter             – not included in this distribution
@@ -198,24 +200,11 @@ let package = Package(
             ],
         ),
 
-        // MARK: - ActionUIViewer
-        // Command-line tool that loads an ActionUI JSON file and displays it
-        // in a native window. Used for previewing UI layouts during development.
-        .executableTarget(
-            name: "ActionUIViewer",
-            dependencies: ["ActionUI", "ActionUISwiftAdapter"],
-            path: "ActionUIViewer",
-            exclude: ["Info.plist"],
-        ),
-
-        // MARK: - ActionUIVerifier
-        // Command-line tool that validates ActionUI JSON files, checking for
-        // parse errors, unknown element types, duplicate IDs, and schema issues.
-        .executableTarget(
-            name: "ActionUIVerifier",
-            dependencies: ["ActionUI"],
-            path: "ActionUIVerifier",
-        ),
+        // MARK: - ActionUIViewer (moved out of core)
+        // The viewer now lives in its own aggregator package at Apps/ActionUIViewer so it can link
+        // the optional add-on packages and register their element types - a core target cannot,
+        // because the add-ons depend on core (that would be a circular package dependency). Build it
+        // with: swift build --package-path Apps/ActionUIViewer --product ActionUIViewer.
 
         // MARK: - ActionUIDocumentation
         // Resource-only target. Bundles the Documentation/ folder so consumers

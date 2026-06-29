@@ -20,6 +20,11 @@ import UniformTypeIdentifiers
 import CoreGraphics
 import ScreenCaptureKit
 
+// Optional ActionUI add-ons. This viewer is a separate package that links core ActionUI AND the
+// add-ons, so it can preview documents that use add-on element types. Each add-on's register() must
+// be called once at launch (see handleApplicationLaunch). Add an import + register() line per add-on.
+import ActionUIQuickLook
+
 final class CustomLogger: ActionUI.ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
         print("[ActionUI][\(level)] \(message)")
@@ -111,6 +116,11 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     
     @MainActor
     func handleApplicationLaunch() async {
+        // Register optional add-on element types before any document is loaded, so a JSON file that
+        // uses an add-on element (e.g. "QuickLook") renders instead of erroring as an unknown type.
+        // Built-in element types self-register inside core on first registry access.
+        ActionUIQuickLook.register()
+
         var jsonFilePath: String?
         var screenshotPath: String?
         var screenshotMethod: ScreenshotMethod = .legacy

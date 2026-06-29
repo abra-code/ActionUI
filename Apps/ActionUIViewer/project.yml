@@ -1,0 +1,60 @@
+# xcodegen spec for the standalone ActionUIViewer command-line tool.
+# Generate the Xcode project with:  xcodegen generate   (run in this directory)
+#
+# ActionUIViewer is a COMMAND-LINE TOOL (a plain executable), not a bundled .app - it is launched as
+# `ActionUIViewer <file.json>` and OMC ships the bare binary in AppletBuilder.app/Contents/Helpers.
+# It is an AppKit tool: it creates an NSApplication and shows a window, and sets its activation policy
+# to .regular in code, so it does not need a .app wrapper. The Info.plist is embedded into the binary's
+# __TEXT,__info_plist section (CREATE_INFOPLIST_SECTION_IN_BINARY) to give the tool a bundle identifier
+# (useful for ScreenCaptureKit / TCC), without producing an app bundle.
+#
+# This is the host that pulls everything together: unlike the add-on (which compiles against ActionUI
+# with link: false), this tool LINKS core ActionUI and the add-ons and calls each add-on's register()
+# at launch. It mirrors the Apps/ActionUIViewer SPM package (Package.swift), whose executableTarget is
+# likewise a command-line tool. Add a new add-on by adding its package + product dependency here and an
+# import + register() line in Sources/ActionUIViewer/ActionUIViewer.swift.
+
+name: ActionUIViewer
+
+options:
+  bundleIdPrefix: com.abracode.actionui
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.6"
+
+packages:
+  ActionUI:
+    path: ../..                           # ActionUI core package (Package.swift at the repo root)
+  ActionUIQuickLook:
+    path: ../../Add-ons/ActionUIQuickLook  # the add-on package
+
+targets:
+  ActionUIViewer:
+    type: tool          # command-line executable (com.apple.product-type.tool), NOT an .app bundle
+    platform: macOS
+    sources:
+      - path: Sources
+    dependencies:
+      # Linked (link: true is the default) - this tool is the host that links core + add-ons.
+      - package: ActionUI
+        product: ActionUI
+      - package: ActionUI
+        product: ActionUISwiftAdapter
+      - package: ActionUIQuickLook
+        product: ActionUIQuickLook
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.6"
+        PRODUCT_BUNDLE_IDENTIFIER: com.abracode.actionui.ActionUIViewer
+        # Embed the Info.plist into the executable instead of producing an app bundle.
+        INFOPLIST_FILE: Info.plist
+        CREATE_INFOPLIST_SECTION_IN_BINARY: "YES"
+
+schemes:
+  ActionUIViewer:
+    build:
+      targets:
+        ActionUIViewer: all
+    run:
+      config: Debug

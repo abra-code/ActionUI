@@ -1,0 +1,352 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */; };
+		B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */; };
+		C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */; };
+		C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61EEE11E5292D427ED46EAAB /* ActionUI */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		220BFC389A4C74377ED40338 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
+		633FF57269441FF212A51E46 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = "../../Add-ons/ActionUIQuickLook"; sourceTree = SOURCE_ROOT; };
+		7CEAACC186172508668A996A /* ActionUIViewer */ = {isa = PBXFileReference; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIViewer.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D1F935EA43E780A3D0302CE7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */,
+				B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */,
+				07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5CB955532E1210725FEF680A /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				220BFC389A4C74377ED40338 /* ActionUI */,
+				633FF57269441FF212A51E46 /* ActionUIQuickLook */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		749207CF6160730A02192CD7 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				AE91090A85844FE8957D515F /* ActionUIViewer */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A794E029B6B2CD53DC431990 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7CEAACC186172508668A996A /* ActionUIViewer */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AE91090A85844FE8957D515F /* ActionUIViewer */ = {
+			isa = PBXGroup;
+			children = (
+				E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */,
+			);
+			path = ActionUIViewer;
+			sourceTree = "<group>";
+		};
+		CC4D0388D2F35D6F399777AC = {
+			isa = PBXGroup;
+			children = (
+				5CB955532E1210725FEF680A /* Packages */,
+				749207CF6160730A02192CD7 /* Sources */,
+				A794E029B6B2CD53DC431990 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CEF65639DB64105E25A77CD9 /* ActionUIViewer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9613855112AB9CB46740101 /* Build configuration list for PBXNativeTarget "ActionUIViewer" */;
+			buildPhases = (
+				4782237DA6A0FE301156E3F9 /* Sources */,
+				D1F935EA43E780A3D0302CE7 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ActionUIViewer;
+			packageProductDependencies = (
+				61EEE11E5292D427ED46EAAB /* ActionUI */,
+				D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */,
+				4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */,
+			);
+			productName = ActionUIViewer;
+			productReference = 7CEAACC186172508668A996A /* ActionUIViewer */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8844AC5002D7ED2082329340 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = B2098EBBB65DF1A263F5D5D9 /* Build configuration list for PBXProject "ActionUIViewer" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CC4D0388D2F35D6F399777AC;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */,
+				CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A794E029B6B2CD53DC431990 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CEF65639DB64105E25A77CD9 /* ActionUIViewer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4782237DA6A0FE301156E3F9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5CE6D94A480C77955D002D02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIViewer;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		70DF343BA666FFF26766C486 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIViewer;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		957C003CE8CB9EC5850AE7FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A3F18EAD824A6BDB4EB9730C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B2098EBBB65DF1A263F5D5D9 /* Build configuration list for PBXProject "ActionUIViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A3F18EAD824A6BDB4EB9730C /* Debug */,
+				957C003CE8CB9EC5850AE7FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B9613855112AB9CB46740101 /* Build configuration list for PBXNativeTarget "ActionUIViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70DF343BA666FFF26766C486 /* Debug */,
+				5CE6D94A480C77955D002D02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+		CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../Add-ons/ActionUIQuickLook";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIQuickLook;
+		};
+		61EEE11E5292D427ED46EAAB /* ActionUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUI;
+		};
+		D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUISwiftAdapter;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 8844AC5002D7ED2082329340 /* Project object */;
+}

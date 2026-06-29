@@ -93,20 +93,6 @@
          </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1DDC4BE72F3DC89D00604C66"
-               BuildableName = "ActionUIViewer"
-               BlueprintName = "ActionUIViewer"
-               ReferencedContainer = "container:ActionUI.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
             buildForRunning = "NO"
             buildForProfiling = "NO"
             buildForArchiving = "NO"
@@ -144,20 +130,6 @@
                BlueprintIdentifier = "1D03F8F02E49EEC3004A42BB"
                BuildableName = "ActionUITests.xctest"
                BlueprintName = "ActionUITests"
-               ReferencedContainer = "container:ActionUI.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1DDC483B2F3DA52D00604C66"
-               BuildableName = "ActionUIVerifier"
-               BlueprintName = "ActionUIVerifier"
                ReferencedContainer = "container:ActionUI.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
