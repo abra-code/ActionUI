@@ -1,0 +1,17 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "QuickLook (add-on element):", "font": "headline" } },
+    {
+      "type": "QuickLook",
+      "id": 70,
+      "properties": {
+        "filePath": "/System/Library/CoreServices/SystemVersion.plist",
+        "previewStyle": "normal",
+        "valueChangeActionID": "ql.changed",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}
