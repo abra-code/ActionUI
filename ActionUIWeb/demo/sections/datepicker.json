@@ -1,0 +1,19 @@
+{
+  "type": "VStack",
+  "properties": { "alignment": "leading", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "DatePicker", "font": "title2" } },
+    { "type": "Text", "properties": { "text": "The displayedComponents modes. On web each maps to a native input: date renders <input type=date>, hourAndMinute renders <input type=time>, and dateAndTime renders <input type=datetime-local>.", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Value contract: date emits YYYY-MM-DD; the time modes emit a full ISO datetime. selectedDate is parsed flexibly - a plain date, a bare HH:mm, or a full ISO. Change one to see the emitted value below.", "foregroundColor": "secondary", "font": "caption" } },
+    { "type": "Divider" },
+    {
+      "type": "GroupBox",
+      "properties": { "title": "displayedComponents" },
+      "children": [
+        { "type": "DatePicker", "id": 1401, "properties": { "title": "date (default)", "displayedComponents": "date", "selectedDate": "2026-06-27", "valueChangeActionID": "dpDate" } },
+        { "type": "DatePicker", "id": 1402, "properties": { "title": "hourAndMinute (time only)", "displayedComponents": "hourAndMinute", "selectedDate": "08:30", "valueChangeActionID": "dpTime" } },
+        { "type": "DatePicker", "id": 1403, "properties": { "title": "dateAndTime", "displayedComponents": "dateAndTime", "selectedDate": "2026-06-27T14:15:00", "valueChangeActionID": "dpDateTime" } }
+      ]
+    }
+  ]
+}

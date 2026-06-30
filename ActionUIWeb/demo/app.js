@@ -126,7 +126,7 @@ if (window.matchMedia("(min-width: 640px)").matches) {
 // than a few crammed ones; this maps each destination id to its label.
 const SECTION_NAMES = {
     1100: "Overview", 1117: "Symbols", 1102: "Scrolling", 1103: "Text Input",
-    1104: "Controls", 1105: "Pickers", 1106: "Forms", 1107: "Lists", 1108: "Table",
+    1104: "Controls", 1105: "Pickers", 1120: "DatePicker", 1106: "Forms", 1107: "Lists", 1108: "Table",
     1101: "Shapes & Layout", 1109: "Insertion", 1110: "Navigation", 1119: "Toolbar",
     1111: "Media & Web", 1112: "Presentation", 1113: "Properties", 1114: "Animation",
     1115: "Upload", 1116: "Windows", 1118: "Unavailable Views",
@@ -420,7 +420,10 @@ app.action("alignChanged", (ctx) => win.setString(20, 0, `Alignment: ${ctx.conte
 
 app.action("viewChanged", (ctx) => win.setString(20, 0, `View: ${ctx.context}.`));
 
-app.action("dateChanged", () => win.setString(20, 0, `Date: ${win.getString(80)}.`));
+// DatePicker section (sections/datepicker.json): echo each displayedComponents mode's emitted value.
+app.action("dpDate", () => win.setString(20, 0, `date -> ${win.getString(1401)}`));
+app.action("dpTime", () => win.setString(20, 0, `hourAndMinute -> ${win.getString(1402)}`));
+app.action("dpDateTime", () => win.setString(20, 0, `dateAndTime -> ${win.getString(1403)}`));
 
 app.action("colorChanged", () => win.setString(20, 0, `Color: ${win.getString(81)}.`));
 
