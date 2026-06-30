@@ -1,0 +1,24 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Chat - streaming Markdown (send anything; the agent streams a Markdown reply):", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 82,
+      "properties": {
+        "protocol": "local",
+        "appearance": { "alignment": "single", "showRoleLabels": true },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "agent": { "label": "Agent", "tint": "secondary" }
+        },
+        "input": { "enabled": true, "placeholder": "Ask anything", "submitOn": "return" },
+        "transport": { "echo": true, "reply": "markdown" },
+        "sendActionID": "chat.send",
+        "messageActionID": "chat.message",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

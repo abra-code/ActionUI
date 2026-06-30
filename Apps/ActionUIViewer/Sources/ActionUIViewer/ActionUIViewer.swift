@@ -24,6 +24,7 @@ import ScreenCaptureKit
 // add-ons, so it can preview documents that use add-on element types. Each add-on's register() must
 // be called once at launch (see handleApplicationLaunch). Add an import + register() line per add-on.
 import ActionUIQuickLook
+import ActionUIChat
 
 final class CustomLogger: ActionUI.ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
@@ -120,6 +121,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         // uses an add-on element (e.g. "QuickLook") renders instead of erroring as an unknown type.
         // Built-in element types self-register inside core on first registry access.
         ActionUIQuickLook.register()
+        ActionUIChat.register()
 
         var jsonFilePath: String?
         var screenshotPath: String?

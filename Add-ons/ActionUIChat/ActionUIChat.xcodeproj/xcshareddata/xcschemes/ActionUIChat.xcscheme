@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "6297C922BE68454BBC56A517"
-               BuildableName = "ActionUIAddOnTestApp.app"
-               BlueprintName = "ActionUIAddOnTestApp"
-               ReferencedContainer = "container:ActionUIAddOnTestApp.xcodeproj">
+               BlueprintIdentifier = "CBC2B5E3C21162ADCA96B481"
+               BuildableName = "libActionUIChat.a"
+               BlueprintName = "ActionUIChat"
+               ReferencedContainer = "container:ActionUIChat.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "6297C922BE68454BBC56A517"
-            BuildableName = "ActionUIAddOnTestApp.app"
-            BlueprintName = "ActionUIAddOnTestApp"
-            ReferencedContainer = "container:ActionUIAddOnTestApp.xcodeproj">
+            BlueprintIdentifier = "CBC2B5E3C21162ADCA96B481"
+            BuildableName = "libActionUIChat.a"
+            BlueprintName = "ActionUIChat"
+            ReferencedContainer = "container:ActionUIChat.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -51,18 +51,15 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "6297C922BE68454BBC56A517"
-            BuildableName = "ActionUIAddOnTestApp.app"
-            BlueprintName = "ActionUIAddOnTestApp"
-            ReferencedContainer = "container:ActionUIAddOnTestApp.xcodeproj">
+            BlueprintIdentifier = "CBC2B5E3C21162ADCA96B481"
+            BuildableName = "libActionUIChat.a"
+            BlueprintName = "ActionUIChat"
+            ReferencedContainer = "container:ActionUIChat.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
+      </MacroExpansion>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -70,16 +67,15 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "6297C922BE68454BBC56A517"
-            BuildableName = "ActionUIAddOnTestApp.app"
-            BlueprintName = "ActionUIAddOnTestApp"
-            ReferencedContainer = "container:ActionUIAddOnTestApp.xcodeproj">
+            BlueprintIdentifier = "CBC2B5E3C21162ADCA96B481"
+            BuildableName = "libActionUIChat.a"
+            BlueprintName = "ActionUIChat"
+            ReferencedContainer = "container:ActionUIChat.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

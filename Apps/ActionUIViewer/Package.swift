@@ -24,6 +24,7 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),                            // ActionUI core (Package.swift at the repo root)
         .package(path: "../../Add-ons/ActionUIQuickLook"),  // add-on(s)
+        .package(path: "../../Add-ons/ActionUIChat"),
     ],
     targets: [
         .executableTarget(
@@ -32,10 +33,12 @@ let package = Package(
                 .product(name: "ActionUI", package: "ActionUI"),
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
                 .product(name: "ActionUIQuickLook", package: "ActionUIQuickLook"),
+                .product(name: "ActionUIChat", package: "ActionUIChat"),
                 // Resource-only doc bundles: depending on them makes one viewer build also build the
                 // core + add-on documentation bundles, harvested by OMC's update_appletbuilder.sh.
                 .product(name: "ActionUIDocumentation", package: "ActionUI"),
                 .product(name: "ActionUIQuickLookDocumentation", package: "ActionUIQuickLook"),
+                .product(name: "ActionUIChatDocumentation", package: "ActionUIChat"),
             ],
             path: "Sources/ActionUIViewer"
         ),

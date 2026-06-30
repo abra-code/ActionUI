@@ -10,10 +10,12 @@ A single **multiplatform** target (macOS + iOS).
 ## What it does
 
 - Links **ActionUI** core and **ActionUISwiftAdapter** (from the ActionUI package) and each linked
-  add-on package (currently **ActionUIQuickLook**), and calls each add-on's `register()` at launch.
+  add-on package (**ActionUIQuickLook**, **ActionUIChat**), and calls each add-on's `register()` at
+  launch.
 - Presents a **picker** (a `NavigationSplitView` sidebar) over the demo documents bundled in
-  `Resources/*.json` - one per add-on demo. QuickLook is the first; more add-ons appear here as
-  their demo JSON is added. Selecting a demo loads it via `ActionUISwift.loadView(...)`.
+  `Resources/*.json` - one per add-on demo (QuickLook variants, and Chat - including a `modifier-return`
+  composer variant). More add-ons appear here as their demo JSON is added. Selecting a demo loads it
+  via `ActionUISwift.loadView(...)`.
 - For demos that need runtime data, `DemoSetup` seeds it: the QuickLook demo drives element 70 with
   the bundled multi-page `Resources/Sample.pdf`, which exercises Quick Look's embedded page scroller
   (PDFs scroll natively in `QLPreviewView` / `QLPreviewController`), and the app prints a line when
@@ -23,9 +25,9 @@ A single **multiplatform** target (macOS + iOS).
   ActionUISwiftTestApp's) runs the repo's verifier over `Resources/`, passing every add-on's
   `Schemas/` via `--schema-dir` so add-on element types validate.
 
-The `project.yml` declares one app target with `supportedDestinations: [macOS, iOS]` and three
-package-product dependencies (ActionUI, ActionUISwiftAdapter, ActionUIQuickLook). Of the ActionUI
-package's many products, only ActionUI + ActionUISwiftAdapter (and the add-on) are compiled in.
+The `project.yml` declares one app target with `supportedDestinations: [macOS, iOS]` and four
+package-product dependencies (ActionUI, ActionUISwiftAdapter, ActionUIQuickLook, ActionUIChat). Of the
+ActionUI package's many products, only ActionUI + ActionUISwiftAdapter (and the add-ons) are compiled in.
 
 ## Adding another add-on
 

@@ -7,108 +7,93 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */; };
-		4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = 018DD60E7C130C7B79604D82 /* ActionUIChat */; };
-		B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */; };
-		C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */; };
-		C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61EEE11E5292D427ED46EAAB /* ActionUI */; };
+		3818851E25535D32BEA4BAD2 /* ActionUIChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80A1D080CAB7B914209A997 /* ActionUIChat.swift */; };
+		5DD4DCEB322F4EAEE23D1FB9 /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C1A8CAAD463D51D26C9A2E /* ChatStore.swift */; };
+		A18F6344E67AA8ECCD11CD95 /* ChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022DB8C271CFDB5F3BB7D4C2 /* ChatModel.swift */; };
+		A41CC4FC9437B5C460CDE829 /* ChatConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DCF2311C38070EAA0A69F3F /* ChatConfig.swift */; };
+		BAAB83150041F63A1640F5DF /* ChatRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA8DB77067E1E05D822BFF16 /* ChatRootView.swift */; };
+		C9A37BAFCB7317AE05FA0157 /* ChatTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34F00C14577A20DA897EE182 /* ChatTransport.swift */; };
+		DA410A028785B7544150E2AF /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E7A3981A791C2E16D38C86 /* Chat.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		20E9B2BC72A5CACE71112E6B /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = "../../Add-ons/ActionUIChat"; sourceTree = SOURCE_ROOT; };
-		220BFC389A4C74377ED40338 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
-		633FF57269441FF212A51E46 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = "../../Add-ons/ActionUIQuickLook"; sourceTree = SOURCE_ROOT; };
-		7CEAACC186172508668A996A /* ActionUIViewer */ = {isa = PBXFileReference; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
-		E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIViewer.swift; sourceTree = "<group>"; };
+		022DB8C271CFDB5F3BB7D4C2 /* ChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModel.swift; sourceTree = "<group>"; };
+		34F00C14577A20DA897EE182 /* ChatTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTransport.swift; sourceTree = "<group>"; };
+		6DCF2311C38070EAA0A69F3F /* ChatConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatConfig.swift; sourceTree = "<group>"; };
+		A80A1D080CAB7B914209A997 /* ActionUIChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIChat.swift; sourceTree = "<group>"; };
+		AA8DB77067E1E05D822BFF16 /* ChatRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRootView.swift; sourceTree = "<group>"; };
+		D9E7A3981A791C2E16D38C86 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
+		E2D0D3682609D260E1B85415 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
+		E4DDC1726E109B2537F13C6F /* libActionUIChat.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIChat.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5C1A8CAAD463D51D26C9A2E /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworksBuildPhase section */
-		D1F935EA43E780A3D0302CE7 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */,
-				B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */,
-				07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */,
-				4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
 /* Begin PBXGroup section */
-		5CB955532E1210725FEF680A /* Packages */ = {
+		42F660AD6FAA551C77B55ABF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				220BFC389A4C74377ED40338 /* ActionUI */,
-				20E9B2BC72A5CACE71112E6B /* ActionUIChat */,
-				633FF57269441FF212A51E46 /* ActionUIQuickLook */,
-			);
-			name = Packages;
-			sourceTree = "<group>";
-		};
-		749207CF6160730A02192CD7 /* Sources */ = {
-			isa = PBXGroup;
-			children = (
-				AE91090A85844FE8957D515F /* ActionUIViewer */,
-			);
-			path = Sources;
-			sourceTree = "<group>";
-		};
-		A794E029B6B2CD53DC431990 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				7CEAACC186172508668A996A /* ActionUIViewer */,
+				E4DDC1726E109B2537F13C6F /* libActionUIChat.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AE91090A85844FE8957D515F /* ActionUIViewer */ = {
+		4B95F463685A44343159AE1F /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */,
+				A80A1D080CAB7B914209A997 /* ActionUIChat.swift */,
+				D9E7A3981A791C2E16D38C86 /* Chat.swift */,
+				6DCF2311C38070EAA0A69F3F /* ChatConfig.swift */,
+				022DB8C271CFDB5F3BB7D4C2 /* ChatModel.swift */,
+				AA8DB77067E1E05D822BFF16 /* ChatRootView.swift */,
+				F5C1A8CAAD463D51D26C9A2E /* ChatStore.swift */,
+				34F00C14577A20DA897EE182 /* ChatTransport.swift */,
 			);
-			path = ActionUIViewer;
+			path = Sources;
 			sourceTree = "<group>";
 		};
-		CC4D0388D2F35D6F399777AC = {
+		C38FF8FB955EF9C75D0C023B /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				5CB955532E1210725FEF680A /* Packages */,
-				749207CF6160730A02192CD7 /* Sources */,
-				A794E029B6B2CD53DC431990 /* Products */,
+				E2D0D3682609D260E1B85415 /* ActionUI */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		E34C486BCF946F55FDB7E33E = {
+			isa = PBXGroup;
+			children = (
+				C38FF8FB955EF9C75D0C023B /* Packages */,
+				4B95F463685A44343159AE1F /* Sources */,
+				42F660AD6FAA551C77B55ABF /* Products */,
 			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		CEF65639DB64105E25A77CD9 /* ActionUIViewer */ = {
+		CBC2B5E3C21162ADCA96B481 /* ActionUIChat */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B9613855112AB9CB46740101 /* Build configuration list for PBXNativeTarget "ActionUIViewer" */;
+			buildConfigurationList = F8FE6EFBD43ACDD4DA2B2575 /* Build configuration list for PBXNativeTarget "ActionUIChat" */;
 			buildPhases = (
-				4782237DA6A0FE301156E3F9 /* Sources */,
-				D1F935EA43E780A3D0302CE7 /* Frameworks */,
+				2C59489ADBA030D54129C310 /* Sources */,
+				58CA52B34476FAED03836567 /* Copy Swift Objective-C Interface Header */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6CDC52E004A2C33D03373399 /* PBXTargetDependency */,
 			);
-			name = ActionUIViewer;
+			name = ActionUIChat;
 			packageProductDependencies = (
-				61EEE11E5292D427ED46EAAB /* ActionUI */,
-				D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */,
-				4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */,
-				018DD60E7C130C7B79604D82 /* ActionUIChat */,
 			);
-			productName = ActionUIViewer;
-			productReference = 7CEAACC186172508668A996A /* ActionUIViewer */;
-			productType = "com.apple.product-type.tool";
+			productName = ActionUIChat;
+			productReference = E4DDC1726E109B2537F13C6F /* libActionUIChat.a */;
+			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		8844AC5002D7ED2082329340 /* Project object */ = {
+		5970A30245C1C30C9A196103 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
@@ -116,77 +101,105 @@
 				TargetAttributes = {
 				};
 			};
-			buildConfigurationList = B2098EBBB65DF1A263F5D5D9 /* Build configuration list for PBXProject "ActionUIViewer" */;
+			buildConfigurationList = C23E755863B7F3464500D216 /* Build configuration list for PBXProject "ActionUIChat" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
 				en,
 			);
-			mainGroup = CC4D0388D2F35D6F399777AC;
+			mainGroup = E34C486BCF946F55FDB7E33E;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */,
-				89D90977C400366893C0CC02 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIChat" */,
-				CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */,
+				CC8FC57848AC9B40A3CE44A7 /* XCLocalSwiftPackageReference "../.." */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = A794E029B6B2CD53DC431990 /* Products */;
+			productRefGroup = 42F660AD6FAA551C77B55ABF /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				CEF65639DB64105E25A77CD9 /* ActionUIViewer */,
+				CBC2B5E3C21162ADCA96B481 /* ActionUIChat */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		58CA52B34476FAED03836567 /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
-		4782237DA6A0FE301156E3F9 /* Sources */ = {
+		2C59489ADBA030D54129C310 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */,
+				3818851E25535D32BEA4BAD2 /* ActionUIChat.swift in Sources */,
+				DA410A028785B7544150E2AF /* Chat.swift in Sources */,
+				A41CC4FC9437B5C460CDE829 /* ChatConfig.swift in Sources */,
+				A18F6344E67AA8ECCD11CD95 /* ChatModel.swift in Sources */,
+				BAAB83150041F63A1640F5DF /* ChatRootView.swift in Sources */,
+				5DD4DCEB322F4EAEE23D1FB9 /* ChatStore.swift in Sources */,
+				C9A37BAFCB7317AE05FA0157 /* ChatTransport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		6CDC52E004A2C33D03373399 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_D0D14FE1-C39E-48EC-93A9-DD5A92749419" /* ActionUI */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-		5CE6D94A480C77955D002D02 /* Release */ = {
+		24F635E745E955236256A888 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
-				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIChat;
+				PRODUCT_MODULE_NAME = ActionUIChat;
 				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
-		70DF343BA666FFF26766C486 /* Debug */ = {
+		5548A66F793FA9D582ED8D83 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
-				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIViewer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIChat;
+				PRODUCT_MODULE_NAME = ActionUIChat;
 				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
-		957C003CE8CB9EC5850AE7FA /* Release */ = {
+		8BE55905AB2520826C56CBFD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -242,7 +255,7 @@
 			};
 			name = Release;
 		};
-		A3F18EAD824A6BDB4EB9730C /* Debug */ = {
+		8CF43BC7822E4D4F7370C697 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -308,20 +321,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B2098EBBB65DF1A263F5D5D9 /* Build configuration list for PBXProject "ActionUIViewer" */ = {
+		C23E755863B7F3464500D216 /* Build configuration list for PBXProject "ActionUIChat" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A3F18EAD824A6BDB4EB9730C /* Debug */,
-				957C003CE8CB9EC5850AE7FA /* Release */,
+				8CF43BC7822E4D4F7370C697 /* Debug */,
+				8BE55905AB2520826C56CBFD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		B9613855112AB9CB46740101 /* Build configuration list for PBXNativeTarget "ActionUIViewer" */ = {
+		F8FE6EFBD43ACDD4DA2B2575 /* Build configuration list for PBXNativeTarget "ActionUIChat" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				70DF343BA666FFF26766C486 /* Debug */,
-				5CE6D94A480C77955D002D02 /* Release */,
+				5548A66F793FA9D582ED8D83 /* Debug */,
+				24F635E745E955236256A888 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -329,38 +342,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */ = {
+		CC8FC57848AC9B40A3CE44A7 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
-		};
-		89D90977C400366893C0CC02 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIChat" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../Add-ons/ActionUIChat";
-		};
-		CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../Add-ons/ActionUIQuickLook";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		018DD60E7C130C7B79604D82 /* ActionUIChat */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ActionUIChat;
-		};
-		4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ActionUIQuickLook;
-		};
-		61EEE11E5292D427ED46EAAB /* ActionUI */ = {
+		"TEMP_D0D14FE1-C39E-48EC-93A9-DD5A92749419" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
 		};
-		D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ActionUISwiftAdapter;
-		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 8844AC5002D7ED2082329340 /* Project object */;
+	rootObject = 5970A30245C1C30C9A196103 /* Project object */;
 }

@@ -1,0 +1,43 @@
+# xcodegen spec for the ActionUIChat add-on.
+# Generate the Xcode project with:  xcodegen generate   (run in this directory)
+#
+# This add-on COMPILES AGAINST ActionUI's public API but does NOT link the ActionUI
+# static library: the dependency below is `link: false`, so ActionUI is used only for
+# its Swift module (build order + import visibility). The HOST app is responsible for
+# linking both ActionUI and this add-on, and for calling ActionUIChat.register()
+# once at launch. (A static library never embeds its dependencies' object code anyway;
+# link: false makes that intent explicit.)
+
+name: ActionUIChat
+
+options:
+  bundleIdPrefix: com.abracode.actionui
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.6"
+
+packages:
+  ActionUI:
+    path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
+
+targets:
+  ActionUIChat:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI
+        link: false       # compile-time module dependency only; host links ActionUI
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SKIP_INSTALL: "YES"
+        PRODUCT_MODULE_NAME: ActionUIChat
+
+schemes:
+  ActionUIChat:
+    build:
+      targets:
+        ActionUIChat: all

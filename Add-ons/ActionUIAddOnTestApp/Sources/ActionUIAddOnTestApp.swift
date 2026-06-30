@@ -8,6 +8,7 @@ import SwiftUI
 import ActionUI
 import ActionUISwiftAdapter
 import ActionUIQuickLook
+import ActionUIChat
 
 @main
 struct ActionUIAddOnTestApp: App {
@@ -18,12 +19,19 @@ struct ActionUIAddOnTestApp: App {
         // Register every linked add-on's element types BEFORE any window that uses them is built.
         // Add a line here per add-on.
         ActionUIQuickLook.register()
+        ActionUIChat.register()
 
         ActionUISwift.setDefaultActionHandler { actionID, windowUUID, viewID, viewPartID, _ in
             print("[action] \(actionID) window:\(windowUUID) view:\(viewID).\(viewPartID)")
         }
         ActionUISwift.registerActionHandler(actionID: "ql.changed") { _, _, viewID, _, _ in
             print("[QuickLook] preview reloaded for element \(viewID)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "chat.send") { _, _, viewID, _, _ in
+            print("[Chat] user submitted a message in element \(viewID)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "chat.message") { _, _, viewID, _, _ in
+            print("[Chat] message finalized in element \(viewID)")
         }
     }
 

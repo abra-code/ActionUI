@@ -1,0 +1,50 @@
+{
+  "type": "Chat",
+  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected by the protocol property. M1: the local transport (a scripted echo backend) and a single-alignment, plain-text streaming transcript. Streaming Markdown, the ACP transport, dual alignment, and agentic side surfaces arrive in later milestones.",
+  "id": { "policy": "optional" },
+  "inheritsViewProperties": true,
+  "topLevelKeys": [],
+  "ownProperties": {
+    "protocol": {
+      "types": ["string"],
+      "required": false,
+      "enum": ["local", "acp", "openai-sse", "anthropic-sse", "custom"],
+      "description": "Transport selector. Default local. Only local is implemented in this build; others fall back to local."
+    },
+    "appearance": {
+      "types": ["object"],
+      "required": false,
+      "description": "Transcript appearance",
+      "properties": {
+        "alignment":      { "types": ["string"],  "required": false, "enum": ["single", "dual"], "description": "single (default): leading/full-width. dual (later): incoming leading, outgoing trailing" },
+        "showRoleLabels": { "types": ["boolean"], "required": false, "description": "Show a small role label above each message; default true" },
+        "theme":          { "types": ["string"],  "required": false, "enum": ["auto", "light", "dark"], "description": "Color scheme; default auto" }
+      }
+    },
+    "roles": {
+      "types": ["object"],
+      "required": false,
+      "description": "Per-role styling, keyed by role (local, agent, remote, system). Each value is an object with optional label, tint, and side (side is used by dual alignment, a later milestone)."
+    },
+    "input": {
+      "types": ["object"],
+      "required": false,
+      "description": "Composer configuration",
+      "properties": {
+        "enabled":     { "types": ["boolean"], "required": false, "description": "Whether the composer accepts input; default true" },
+        "placeholder": { "types": ["string"],  "required": false, "description": "Composer placeholder; default Message" },
+        "submitOn":    { "types": ["string"],  "required": false, "enum": ["return", "modifier-return", "shift-return-newline"], "description": "Submit policy; default return" }
+      }
+    },
+    "transport": {
+      "types": ["object"],
+      "required": false,
+      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true)."
+    },
+    "sendActionID":    { "types": ["string"], "required": false, "description": "Fired when the user submits a message" },
+    "stopActionID":    { "types": ["string"], "required": false, "description": "Fired when the user cancels an in-flight turn" },
+    "messageActionID": { "types": ["string"], "required": false, "description": "Fired per finalized message (user and agent)" },
+    "errorActionID":   { "types": ["string"], "required": false, "description": "Fired on a transport / parse error" }
+  },
+  "observable": {}
+}

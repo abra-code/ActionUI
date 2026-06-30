@@ -7,11 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */ = {isa = PBXBuildFile; fileRef = 9FC54A4FE510BDD635E8EC2D /* Chat.json */; };
 		2958C8147CD88342247317CF /* QuickLook.json in Resources */ = {isa = PBXBuildFile; fileRef = CF7ABC737BFB52F77899E3A0 /* QuickLook.json */; };
 		2F342F24A685081A6D00796B /* ActionUIAddOnTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */; };
 		30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */ = {isa = PBXBuildFile; fileRef = 223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */; };
+		6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */ = {isa = PBXBuildFile; fileRef = A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */; };
 		83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */; };
 		93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */; };
+		9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */ = {isa = PBXBuildFile; fileRef = 5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */; };
+		C243B510E2EACF91A4836826 /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */; };
 		CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */; };
 		EB39E2EBB3ED5C4BA0BC4C54 /* Sample.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 1BF48B38F26ADAC280C871E5 /* Sample.pdf */; };
 		F8FEB15EA16ACF004C1DB7B7 /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2B9635CB1742700A0529909B /* ActionUI */; };
@@ -23,7 +27,11 @@
 		21452584B443364EF4B6DD78 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = ../ActionUIQuickLook; sourceTree = SOURCE_ROOT; };
 		223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.showsChrome.json; sourceTree = "<group>"; };
 		24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.compact.json; sourceTree = "<group>"; };
+		5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.markdown.json; sourceTree = "<group>"; };
 		65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIAddOnTestApp.swift; sourceTree = "<group>"; };
+		9FC54A4FE510BDD635E8EC2D /* Chat.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.json; sourceTree = "<group>"; };
+		A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.modifierReturn.json; sourceTree = "<group>"; };
+		AD958B75F9EB537BD75A1095 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ../ActionUIChat; sourceTree = SOURCE_ROOT; };
 		CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ActionUIAddOnTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CF7ABC737BFB52F77899E3A0 /* QuickLook.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -36,6 +44,7 @@
 				F8FEB15EA16ACF004C1DB7B7 /* ActionUI in Frameworks */,
 				CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */,
 				93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */,
+				C243B510E2EACF91A4836826 /* ActionUIChat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,6 +62,9 @@
 		4A95FF037646338868DAA797 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				9FC54A4FE510BDD635E8EC2D /* Chat.json */,
+				5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */,
+				A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */,
 				24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */,
 				CF7ABC737BFB52F77899E3A0 /* QuickLook.json */,
 				223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */,
@@ -65,6 +77,7 @@
 			isa = PBXGroup;
 			children = (
 				0FB3650C4963944296903979 /* ActionUI */,
+				AD958B75F9EB537BD75A1095 /* ActionUIChat */,
 				21452584B443364EF4B6DD78 /* ActionUIQuickLook */,
 			);
 			name = Packages;
@@ -109,6 +122,7 @@
 				2B9635CB1742700A0529909B /* ActionUI */,
 				D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */,
 				D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */,
+				FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */,
 			);
 			productName = ActionUIAddOnTestApp;
 			productReference = CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */;
@@ -122,6 +136,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 2FAF156A1F2C8AF13CB105D0 /* Build configuration list for PBXProject "ActionUIAddOnTestApp" */;
 			developmentRegion = en;
@@ -134,6 +150,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9C234D5DE47D93B64BA47872 /* XCLocalSwiftPackageReference "../.." */,
+				FC10BAE25F9673F1813C71F8 /* XCLocalSwiftPackageReference "../ActionUIChat" */,
 				8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -151,6 +168,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */,
+				9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */,
+				6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */,
 				83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */,
 				2958C8147CD88342247317CF /* QuickLook.json in Resources */,
 				30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */,
@@ -178,7 +198,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/verify_json_resources.sh\"\n";
+			shellScript = "\"${SRCROOT}/Scripts/verify_json_resources.sh\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -399,6 +419,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
+		FC10BAE25F9673F1813C71F8 /* XCLocalSwiftPackageReference "../ActionUIChat" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ActionUIChat;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -413,6 +437,10 @@
 		D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUISwiftAdapter;
+		};
+		FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIChat;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

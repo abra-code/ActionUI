@@ -27,6 +27,8 @@ packages:
     path: ../..                           # ActionUI core package (Package.swift at the repo root)
   ActionUIQuickLook:
     path: ../../Add-ons/ActionUIQuickLook  # the add-on package
+  ActionUIChat:
+    path: ../../Add-ons/ActionUIChat       # the add-on package
 
 targets:
   ActionUIViewer:
@@ -42,6 +44,8 @@ targets:
         product: ActionUISwiftAdapter
       - package: ActionUIQuickLook
         product: ActionUIQuickLook
+      - package: ActionUIChat
+        product: ActionUIChat
     settings:
       base:
         SWIFT_VERSION: "6.0"
