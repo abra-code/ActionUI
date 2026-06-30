@@ -83,52 +83,77 @@ extension QLPreviewRepresentable {
 
 #if os(macOS)
 
-/// QLPreviewView's in-process text renderer installs a non-selectable NSTextView (QLTextView) for
-/// plain-text / source / JSON files, so a preview that is selectable in Finder and qlmanage comes up
-/// non-selectable when embedded here. There is no public switch for this, and the Finder-side
-/// `QLEnableTextSelection` default has no effect in-process, so we flip the inner NSTextView
-/// ourselves: after each load we walk the subtree and set `isSelectable = true` on any NSTextView.
-/// The text view is built asynchronously, and rebuilt (back to non-selectable) on every source
-/// change, so a short bounded poll re-applies after refreshPreviewItem(); layout() covers later
-/// relayouts. Web (Markdown/HTML), PDF, and image previews use their own already-selectable views
-/// and are left untouched - the NSTextView cast simply doesn't match them.
+/// Makes an embedded Quick Look text preview behave like Finder's: selectable, and actually
+/// drag-selectable. Two separate things are wrong by default when QLPreviewView is hosted inside a
+/// SwiftUI hierarchy, and this subclass fixes both.
+///
+/// 1. The text comes up non-selectable. QLPreviewView's in-process renderer installs its NSTextView
+///    (QLTextView) with `isSelectable = false`, and there is no public switch for it (the
+///    Finder-side `QLEnableTextSelection` default has no effect in-process). We flip `isSelectable`
+///    ourselves once the text view appears. It is built asynchronously after refreshPreviewItem()
+///    with no load-completion callback - not present synchronously, nor after a forced layout, only
+///    a few hundred ms later - so a Timer applies it once the load settles. The timer is added in
+///    `.default` mode (not `.common`) so it is paused during the `.eventTracking` run-loop mode and
+///    cannot fire while the user is mid-drag. Web/PDF/image previews have no NSTextView and are left
+///    untouched.
+///
+/// 2. Drag-select silently fails and clicks lag. SwiftUI attaches its own gesture recognizers - a
+///    pan and a click - to every embedded NSViewRepresentable, both with
+///    `delaysPrimaryMouseButtonEvents = true`. That buffers the mouse-down/drag while the pan
+///    recognizer decides whether it owns the gesture, so primary mouse events reach the QLTextView
+///    late and batched: clicks are slow, and a drag never gets the real-time event stream its
+///    selection-tracking loop needs, so click-drag selection does nothing. (A plain AppKit window -
+///    e.g. a standalone preview window - has no such recognizers, so it never had this problem;
+///    that is why the same code selected fine there but not when embedded.) We clear the delay on
+///    each recognizer as SwiftUI attaches it, so mouse events reach the text view immediately.
 final class SelectableQLPreviewView: QLPreviewView {
-    private var pollsLeft = 0
+    private var selectionTimer: Timer?
+    private var selectionTicks = 0
 
-    /// Begin (re)enforcing selectable text. Call right after refreshPreviewItem(); the poll bridges
-    /// the async build of the inner text view. Re-entrant: refreshes the window without stacking
-    /// concurrent poll chains.
-    func enforceSelectableText() {
-        let alreadyPolling = pollsLeft > 0
-        pollsLeft = 12              // ~1.4s window at 120ms steps
-        if !alreadyPolling {
-            pollSelectable()
+    /// Clears `delaysPrimaryMouseButtonEvents` on the pan/click recognizers SwiftUI installs on this
+    /// view, at the moment each is attached, so primary mouse events are not buffered before reaching
+    /// the inner text view. This is what restores click-drag text selection inside a SwiftUI host.
+    override func addGestureRecognizer(_ gestureRecognizer: NSGestureRecognizer) {
+        gestureRecognizer.delaysPrimaryMouseButtonEvents = false
+        super.addGestureRecognizer(gestureRecognizer)
+    }
+
+    /// Make the renderer's text view selectable once the preview finishes loading. Call right after
+    /// refreshPreviewItem(). Retries until the text view appears (it loads asynchronously), then
+    /// stops. Restarts cleanly on a source change - the previous timer is invalidated first.
+    /// Target-action (rather than a closure) so the tick is a normal main-actor method, and so the
+    /// timer's brief retain of self is released the moment it invalidates.
+    func enableTextSelection() {
+        selectionTimer?.invalidate()
+        selectionTicks = 0
+        let timer = Timer(timeInterval: 0.1, target: self, selector: #selector(selectionTick(_:)),
+                          userInfo: nil, repeats: true)
+        RunLoop.main.add(timer, forMode: .default)
+        selectionTimer = timer
+    }
+
+    @objc private func selectionTick(_ timer: Timer) {
+        selectionTicks += 1
+        if makeTextSelectable(in: self) || selectionTicks >= 20 {   // ~2s safety cap
+            timer.invalidate()
         }
     }
 
-    private func pollSelectable() {
-        guard pollsLeft > 0 else {
-        	return
-        }
-        pollsLeft -= 1
-        makeTextSelectable(in: self)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-        	self?.pollSelectable()
-        }
-    }
-
-    private func makeTextSelectable(in view: NSView) {
-        if let textView = view as? NSTextView, !textView.isSelectable {
+    /// Flips the first NSTextView found to selectable; returns true once one is found (a text preview
+    /// has a single text view). Stops at the text view rather than descending into its TextKit
+    /// subtree.
+    @discardableResult
+    private func makeTextSelectable(in view: NSView) -> Bool {
+        if let textView = view as? NSTextView {
             textView.isSelectable = true
+            return true
         }
         for subview in view.subviews {
-            makeTextSelectable(in: subview)
+            if makeTextSelectable(in: subview) {
+                return true
+            }
         }
-    }
-
-    override func layout() {
-        super.layout()
-        makeTextSelectable(in: self)
+        return false
     }
 }
 
@@ -154,7 +179,7 @@ extension QLPreviewRepresentable: NSViewRepresentable {
         if let source, let url = Self.fileURL(from: source) {
             view.previewItem = url as NSURL
             view.refreshPreviewItem()
-            view.enforceSelectableText()
+            view.enableTextSelection()
         } else {
             view.previewItem = nil
         }
