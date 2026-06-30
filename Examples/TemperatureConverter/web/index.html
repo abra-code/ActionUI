@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Temperature Converter - ActionUI</title>
+  <!-- Material Symbols Rounded web font: required for Image(systemName:) glyphs on
+       web (theme.css's .aui-symbol class uses this family). The framework ships the
+       SF->Material map but not the font; load it here (self-host the woff2 for
+       fully offline use). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <!-- ActionUIWeb's default skin, via the local `actionui` symlink. -->
+  <link rel="stylesheet" href="./actionui/theme.css" />
+  <style>
+    html, body { margin: 0; }
+    /* ActionUIWeb mounts into a definite-height box. */
+    #root { height: 100dvh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- Pure ES module, no build step. -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
