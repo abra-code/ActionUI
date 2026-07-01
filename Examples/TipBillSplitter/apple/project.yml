@@ -1,0 +1,86 @@
+# XcodeGen spec for the Tip & Bill Splitter Apple app.
+#
+# DISTINCTIVE: unlike the other examples (one SwiftUI App-lifecycle source set
+# producing iOS+macOS schemes), this app proves ActionUI hosts cleanly in a
+# NON-SwiftUI app shell. So there are TWO separate targets with two separate
+# source sets:
+#
+#   TipBillSplitter_macOS  - AppKit lifecycle (NSApplication + AppDelegate +
+#                            NSWindow + NSHostingController)
+#   TipBillSplitter_iOS    - UIKit lifecycle  (UIApplicationMain + AppDelegate +
+#                            SceneDelegate + UIViewController + UIHostingController)
+#
+# Both share TipLogic.swift (the identical recompute) and shared/TipBillSplitter.json,
+# and both render via ActionUI's SwiftUI views hosted in their respective shells.
+#
+# Generate the (committed) .xcodeproj with:  ./generate_xcodeproj.sh
+# (or: brew install xcodegen && xcodegen generate)
+
+name: TipBillSplitter
+
+options:
+  bundleIdPrefix: com.abracode.actionui.examples
+  deploymentTarget:
+    iOS: "17.6"
+    macOS: "14.6"
+  createIntermediateGroups: true
+
+# The ActionUI Swift package lives at the repo root (three levels up from apple/).
+packages:
+  ActionUI:
+    path: ../../../
+
+targets:
+  # macOS host - AppKit application lifecycle.
+  TipBillSplitter_macOS:
+    type: application
+    platform: macOS
+    sources:
+      - path: AppKitMain.swift
+      - path: TipLogic.swift
+      - path: ../shared/TipBillSplitter.json
+        buildPhase: resources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI
+      - package: ActionUI
+        product: ActionUISwiftAdapter
+    settings:
+      base:
+        PRODUCT_NAME: TipBillSplitter
+        PRODUCT_BUNDLE_IDENTIFIER: com.abracode.actionui.examples.TipBillSplitter
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
+        # AppKit lifecycle: there is no MainMenu.nib and no SwiftUI @main App;
+        # the @main struct calls NSApplicationMain itself.
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+
+  # iOS host - UIKit application lifecycle.
+  TipBillSplitter_iOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: UIKitAppDelegate.swift
+      - path: UIKitSceneDelegate.swift
+      - path: TipLogic.swift
+      - path: ../shared/TipBillSplitter.json
+        buildPhase: resources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI
+      - package: ActionUI
+        product: ActionUISwiftAdapter
+    settings:
+      base:
+        PRODUCT_NAME: TipBillSplitter
+        PRODUCT_BUNDLE_IDENTIFIER: com.abracode.actionui.examples.TipBillSplitter
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        # UIKit lifecycle uses an explicit Info.plist carrying the scene manifest
+        # (the SceneDelegate class name must be module-qualified for a Swift host).
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info-iOS.plist
+        TARGETED_DEVICE_FAMILY: "1,2"

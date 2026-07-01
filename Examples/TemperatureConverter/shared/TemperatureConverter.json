@@ -1,0 +1,95 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "alignment": "center",
+    "padding": 20,
+    "frame": { "minWidth": 300, "idealWidth": 360, "minHeight": 280, "idealHeight": 320 }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Temperature", "font": "largeTitle" }
+    },
+    {
+      "type": "GroupBox",
+      "properties": { "frame": { "maxWidth": 240 } },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 14, "alignment": "center", "frame": { "maxWidth": "infinity" } },
+          "children": [
+            {
+              "type": "HStack",
+              "properties": { "spacing": 10, "alignment": "center", "frame": { "maxWidth": "infinity" } },
+              "children": [
+                {
+                  "type": "TextField",
+                  "id": 10,
+                  "properties": {
+                    "prompt": "Number",
+                    "font": "title2",
+                    "padding": 14,
+                    "background": "fill.tertiary",
+                    "cornerRadius": 12,
+                    "frame": { "maxWidth": "infinity" },
+                    "valueChangeActionID": "temp.recompute"
+                  }
+                },
+                {
+                  "type": "Picker",
+                  "id": 20,
+                  "properties": {
+                    "pickerStyle": "menu",
+                    "options": [
+                      { "title": "°C", "tag": "C" },
+                      { "title": "°F", "tag": "F" },
+                      { "title": "K", "tag": "K" }
+                    ],
+                    "actionID": "temp.recompute"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "Image",
+              "properties": { "systemName": "arrow.down", "foregroundStyle": "secondary" }
+            },
+            {
+              "type": "HStack",
+              "properties": { "spacing": 10, "alignment": "center", "frame": { "maxWidth": "infinity" } },
+              "children": [
+                {
+                  "type": "Text",
+                  "id": 40,
+                  "properties": {
+                    "text": "",
+                    "font": "title2",
+                    "padding": 14,
+                    "background": "fill.tertiary",
+                    "cornerRadius": 12,
+                    "frame": { "maxWidth": "infinity", "alignment": "leading" },
+                    "textSelection": "enabled"
+                  }
+                },
+                {
+                  "type": "Picker",
+                  "id": 30,
+                  "properties": {
+                    "pickerStyle": "menu",
+                    "options": [
+                      { "title": "°F", "tag": "F" },
+                      { "title": "°C", "tag": "C" },
+                      { "title": "K", "tag": "K" }
+                    ],
+                    "actionID": "temp.recompute"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

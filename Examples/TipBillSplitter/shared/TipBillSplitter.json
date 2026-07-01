@@ -1,0 +1,117 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "alignment": "leading",
+    "padding": 20,
+    "frame": { "minWidth": 320, "idealWidth": 360, "minHeight": 460, "idealHeight": 520 }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Tip & Bill Splitter",
+        "font": { "size": 28, "weight": "bold" },
+        "frame": { "maxWidth": "infinity", "alignment": "leading" }
+      }
+    },
+    {
+      "type": "VStack",
+      "properties": { "spacing": 6, "alignment": "leading", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "Text",
+          "properties": { "text": "Bill amount", "font": "headline" }
+        },
+        {
+          "type": "TextField",
+          "id": 10,
+          "properties": {
+            "prompt": "0.00",
+            "format": "currency",
+            "currencyCode": "USD",
+            "fractionLength": { "min": 0, "max": 2},
+            "valueChangeActionID": "tip.recompute",
+            "frame": { "maxWidth": "infinity" }
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "properties": { "spacing": 6, "alignment": "leading", "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "Text",
+          "id": 80,
+          "properties": { "text": "Tip: 15%", "font": "headline" }
+        },
+        {
+          "type": "Slider",
+          "id": 20,
+          "properties": {
+            "value": 15.0,
+            "range": { "min": 0.0, "max": 30.0 },
+            "step": 1.0,
+            "valueChangeActionID": "tip.recompute",
+            "frame": { "maxWidth": "infinity" }
+          }
+        }
+      ]
+    },
+    {
+      "type": "Stepper",
+      "id": 30,
+      "properties": {
+        "value": 2.0,
+        "range": { "min": 1.0, "max": 20.0 },
+        "step": 1.0,
+        "labelFormat": "Party size: %.0f",
+        "actionID": "tip.recompute",
+        "frame": { "maxWidth": "infinity" }
+      }
+    },
+    {
+      "type": "Divider"
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Tip", "font": "headline" } },
+        { "type": "Spacer" },
+        {
+          "type": "Text",
+          "id": 40,
+          "properties": { "text": "$0.00", "font": { "weight": "semibold" } }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Total", "font": "headline" } },
+        { "type": "Spacer" },
+        {
+          "type": "Text",
+          "id": 50,
+          "properties": { "text": "$0.00", "font": { "weight": "semibold" } }
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8, "frame": { "maxWidth": "infinity" } },
+      "children": [
+        { "type": "Text", "properties": { "text": "Per person", "font": { "size": 20, "weight": "bold" } } },
+        { "type": "Spacer" },
+        {
+          "type": "Text",
+          "id": 60,
+          "properties": { "text": "$0.00", "font": { "size": 20, "weight": "bold" }, "foregroundColor": "blue" }
+        }
+      ]
+    }
+  ]
+}

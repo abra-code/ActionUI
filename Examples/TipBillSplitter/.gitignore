@@ -1,0 +1,12 @@
+# Web packaging output
+out/
+
+# Android build artifacts
+android/.gradle/
+android/build/
+android/tipbillsplitter/build/
+android/local.properties
+
+# Xcode user-specific state (the generated .xcodeproj itself IS committed)
+apple/*.xcodeproj/xcuserdata/
+apple/*.xcodeproj/project.xcworkspace/xcuserdata/
