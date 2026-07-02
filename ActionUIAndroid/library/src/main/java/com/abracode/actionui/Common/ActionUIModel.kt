@@ -627,14 +627,34 @@ object ActionUIModel {
     }
 
     /**
+     * The *logical* type of a state value, used by [setElementState]'s type guard.
+     * Concrete collection implementations differ (`emptyList()` is `EmptyList`,
+     * `listOf(x)` is `SingletonList`, `listOf(x, y)` is `ArrayList`), yet they are
+     * all assignable to the same declared state type - so the guard compares by
+     * container category (List / Map / Set) rather than the concrete `::class`.
+     * Scalars keep their exact class so [setElementStateFromString]'s type-guided
+     * parsing (Boolean / Double / Float / Int / String) stays sound.
+     */
+    private fun logicalStateType(value: Any): Any = when (value) {
+        is List<*> -> List::class
+        is Map<*, *> -> Map::class
+        is Set<*> -> Set::class
+        else -> value::class
+    }
+
+    /**
      * Sets state [key] on [viewID] to [value]. Rejects a change that would alter
-     * the type of an existing key (logs an error) so [setElementStateFromString]'s
-     * type-guided parsing stays sound. Mirrors the Swift `setElementState`.
+     * the *logical* type of an existing key (logs an error) so
+     * [setElementStateFromString]'s type-guided parsing stays sound. Collection
+     * types are compared by container category ([logicalStateType]) so, e.g.,
+     * seeding `navigationPath` with `emptyList<Int>()` (an `EmptyList`) and then
+     * writing `listOf(destId)` (a `SingletonList`) is accepted. Mirrors the Swift
+     * `setElementState`.
      */
     fun setElementState(windowUUID: String = "", viewID: Int, key: String, value: Any) {
         val viewModel = viewModel(windowUUID, viewID) ?: return
         val existing = viewModel.states[key]
-        if (existing != null && existing::class != value::class) {
+        if (existing != null && logicalStateType(existing) != logicalStateType(value)) {
             logger.log(
                 "Type mismatch for state key '$key' on viewID: $viewID; expected " +
                     "${existing::class.simpleName}, got ${value::class.simpleName}",
