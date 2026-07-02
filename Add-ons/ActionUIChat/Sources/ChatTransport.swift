@@ -380,14 +380,28 @@ enum ChatReplyContent {
     }
 }
 
-/// Selects and builds the transport for a config. M1 implements `local`; any other
-/// protocol warns (already flagged in validation) and falls back to `local`, so a
-/// document that names an unimplemented transport still renders and degrades safely.
+/// Selects and builds the transport for a config. Implemented: `local`, and `acp` on
+/// macOS (an ACP agent is a subprocess, and iOS cannot spawn one - the ACP remote
+/// transport is still evolving upstream). Anything else warns (already flagged in
+/// validation) and falls back to `local`, so a document that names an unavailable
+/// transport still renders and degrades safely.
 enum ChatTransportFactory {
     static func make(_ config: ChatConfig, logger: any ActionUILogger) -> any ChatTransport {
         switch config.protocolName {
         case "local":
             return LocalChatTransport(config: config.transport, logger: logger)
+        case "acp":
+#if os(macOS)
+            do {
+                return try ACPChatTransport(config: config.transport, logger: logger)
+            } catch {
+                logger.log("Chat ACP transport unavailable (\(error)); using 'local'", .warning)
+                return LocalChatTransport(config: config.transport, logger: logger)
+            }
+#else
+            logger.log("Chat protocol 'acp' requires macOS (the agent runs as a subprocess); using 'local'", .warning)
+            return LocalChatTransport(config: config.transport, logger: logger)
+#endif
         default:
             logger.log("Chat transport '\(config.protocolName)' unavailable; using 'local'", .warning)
             return LocalChatTransport(config: config.transport, logger: logger)

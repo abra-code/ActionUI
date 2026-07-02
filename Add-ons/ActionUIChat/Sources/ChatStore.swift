@@ -141,10 +141,8 @@ final class ChatStore: ObservableObject {
                 scheduleFlush()
             }
 
-        case .messageEnd(let itemID, _):
+        case .messageEnd(let itemID, let stopReason):
             // Final flush is immediate (do not wait for the coalescing tick), then finalize.
-            // The turn is over: any still-open thought closes and a permission request the
-            // turn abandoned (e.g. on cancel) is moot.
             finalizeOpenThoughts()
             let finalText = streamBuffers[itemID]
             streamBuffers[itemID] = nil
@@ -156,9 +154,15 @@ final class ChatStore: ObservableObject {
                     $0.isStreaming = false
                 }
             }
-            isStreaming = false
-            pendingPermissions.removeAll()
             fire(config.messageActionID)
+            // A nil stopReason closes only this message (a segmented transport - ACP -
+            // interleaves tool calls mid-turn). A non-nil stopReason ends the whole turn:
+            // streaming state clears, and a permission request the turn abandoned (e.g.
+            // on cancel) is moot.
+            if stopReason != nil {
+                isStreaming = false
+                pendingPermissions.removeAll()
+            }
 
         case .thoughtDelta(let itemID, let text):
             if config.surfaces.thoughts == .hidden {

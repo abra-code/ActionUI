@@ -1,6 +1,6 @@
 {
   "type": "Chat",
-  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected by the protocol property. Landed: the local transport with a single-alignment transcript (M1), streaming Markdown and image items (M2), and the agentic surfaces - thoughts, tool-call cards, permission approvals - routed by the surfaces property (M3). The ACP wire transport, dual alignment, and side panels arrive in later milestones.",
+  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected by the protocol property. Landed: the local transport with a single-alignment transcript (M1), streaming Markdown and image items (M2), the agentic surfaces - thoughts, tool-call cards, permission approvals - routed by the surfaces property, and the ACP transport that hosts any Agent Client Protocol agent over stdio on macOS (M3). The SSE transports, dual alignment, and side panels arrive in later milestones.",
   "id": { "policy": "optional" },
   "inheritsViewProperties": true,
   "topLevelKeys": [],
@@ -9,7 +9,7 @@
       "types": ["string"],
       "required": false,
       "enum": ["local", "acp", "openai-sse", "anthropic-sse", "custom"],
-      "description": "Transport selector. Default local. Only local is implemented in this build; others fall back to local."
+      "description": "Transport selector. Default local. Implemented: local, and acp on macOS (the ACP agent runs as a subprocess; transport.command is required). Others fall back to local."
     },
     "appearance": {
       "types": ["object"],
@@ -48,7 +48,7 @@
     "transport": {
       "types": ["object"],
       "required": false,
-      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true: stream a demo reply), reply (string: echo default, markdown, or agentic - a scripted agent turn with thoughts, tool calls, and a permission gate), and chunkMs (integer: demo streaming pace, default 45)."
+      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true: stream a demo reply), reply (string: echo default, markdown, or agentic - a scripted agent turn with thoughts, tool calls, and a permission gate), and chunkMs (integer: demo streaming pace, default 45). The acp transport requires command (array of strings: the agent argv, e.g. [\"claude-code-acp\"]) and honors cwd (string: the session root, default the host's current directory) and mcpServers (array: MCP server declarations passed to the agent verbatim)."
     },
     "sendActionID":    { "types": ["string"], "required": false, "description": "Fired when the user submits a message" },
     "stopActionID":    { "types": ["string"], "required": false, "description": "Fired when the user cancels an in-flight turn" },

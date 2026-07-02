@@ -179,7 +179,9 @@ enum ChatEvent: Sendable {
     case sessionReady(sessionID: String)
     case messageStart(itemID: String, role: ChatRole)
     case messageDelta(itemID: String, text: String)        // streaming token(s)
-    case messageEnd(itemID: String, stopReason: String?)
+    case messageEnd(itemID: String, stopReason: String?)   // nil stopReason: the message closed but the
+                                                           // turn continues (e.g. a tool call interleaves,
+                                                           // ACP); non-nil: the whole turn ended
     case thoughtDelta(itemID: String, text: String)        // streaming reasoning; no explicit start/end,
                                                            // a thought closes when another item begins
     case toolCall(ToolCallModel)                           // a new tool invocation

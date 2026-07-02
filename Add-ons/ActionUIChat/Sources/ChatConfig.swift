@@ -161,15 +161,31 @@ struct ChatConfig {
         if let proto = validated["protocol"] {
             if let name = proto as? String {
                 let known = ["local", "acp", "openai-sse", "anthropic-sse", "custom"]
+#if os(macOS)
+                let implemented = ["local", "acp"]
+#else
+                let implemented = ["local"]
+#endif
                 if !known.contains(name) {
                     logger.log("Chat protocol '\(name)' is not a known transport; ignoring (defaults to 'local')", .warning)
                     validated["protocol"] = nil
-                } else if name != "local" {
+                } else if !implemented.contains(name) {
                     logger.log("Chat protocol '\(name)' is not implemented in this build; the 'local' transport will be used", .warning)
                 }
             } else {
                 logger.log("Chat protocol must be a String; ignoring", .warning)
                 validated["protocol"] = nil
+            }
+        }
+
+        if let transport = validated["transport"] as? [String: Any],
+           (validated["protocol"] as? String) == "acp" {
+            if let command = transport["command"] {
+                if !(command is [String]) || (command as? [String])?.isEmpty != false {
+                    logger.log("Chat transport.command must be a non-empty array of strings for protocol \"acp\"", .warning)
+                }
+            } else {
+                logger.log("Chat protocol \"acp\" requires transport.command (the agent argv, e.g. [\"claude-code-acp\"])", .warning)
             }
         }
 

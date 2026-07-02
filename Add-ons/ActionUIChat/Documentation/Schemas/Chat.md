@@ -10,7 +10,9 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
    "id": 1,                  // Required: Non-zero positive integer for runtime programmatic interaction
    "properties": {
      "protocol": "local",                 // Optional: transport; "local" (default) streams a scripted reply.
-                                          //           "acp" / "openai-sse" / "anthropic-sse" / "custom" arrive later.
+                                          //           "acp" runs an Agent Client Protocol agent over stdio (macOS only:
+                                          //           the agent is a subprocess). "openai-sse" / "anthropic-sse" /
+                                          //           "custom" arrive later.
      "appearance": {                      // Optional: transcript appearance
        "alignment": "single",             //   "single" (default): leading / full-width, parties by tint + label.
                                           //   "dual" (later): incoming leading, outgoing trailing.
@@ -36,6 +38,9 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
                                           //           "reply" ("echo" default | "markdown" | "agentic": a scripted
                                           //           agent turn with thoughts, tool calls, and a permission gate),
                                           //           and "chunkMs" (demo streaming pace, default 45).
+                                          //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
+                                          //           and honors "cwd" (the session root, default: the host's current
+                                          //           directory) and "mcpServers" (declarations passed to the agent).
      "sendActionID": "chat.send",         // Optional: fired when the user submits a message
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
      "messageActionID": "chat.message",   // Optional: fired per finalized message (user and agent)
@@ -49,13 +54,16 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
 // element backs AI-agent chat and person-to-person chat - the transport and appearance differ, not the view.
 //
 // Landed so far: the "local" transport and single-alignment transcript (M1); streaming Markdown message
-// bodies plus standalone image items (M2); and the agentic surfaces (M3, this version) - streamed
-// reasoning folded behind a "Thoughts" disclosure, tool-call cards that mutate in place through their
-// pending / in-progress / completed / failed lifecycle, and a permission gate that pins an approval card
-// above the composer and pauses input until answered ("surfaces" routes each of these; the local
-// transport's "agentic" reply style demonstrates them all). The ACP wire transport, dual alignment, and
-// the side panels (plans, terminals, diff viewer) arrive in later milestones
-// (see Private/chat-element-design.md).
+// bodies plus standalone image items (M2); the agentic surfaces (M3) - streamed reasoning folded behind
+// a "Thoughts" disclosure, tool-call cards that mutate in place through their pending / in-progress /
+// completed / failed lifecycle, and a permission gate that pins an approval card above the composer and
+// pauses input until answered ("surfaces" routes each of these; the local transport's "agentic" reply
+// style demonstrates them all); and the ACP transport (M3, macOS) - the element launches any Agent
+// Client Protocol agent as a subprocess (newline-delimited JSON-RPC over stdio), negotiates capabilities
+// (advertising no fs / terminal services), opens a session, and demuxes the session/update stream onto
+// those same surfaces, with session/request_permission wired to the approval card and Stop wired to
+// session/cancel. The SSE transports, dual alignment, and the side panels (plans, terminals, diff
+// viewer) arrive in later milestones (see Private/chat-element-design.md).
 //
 // Observable state: the element manages its own transcript model internally (no single scalar value), so
 // it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.
