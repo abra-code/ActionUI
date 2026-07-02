@@ -6,8 +6,8 @@ registration API (after `ActionUIQuickLook`), and follows the same "compile agai
 it; the host links and calls `register()`" pattern.
 
 The element is GENERIC: the same `Chat` backs AI-agent chat and person-to-person chat. The transport
-(selected by the `protocol` property) and the appearance differ, not the view. See
-`Private/chat-element-design.md` for the full architecture and the milestone plan (M1-M6).
+(selected by `protocol` in the element's non-visual `config` block) and the appearance differ, not the
+view. See `Private/chat-element-design.md` for the full architecture and the milestone plan (M1-M6).
 
 ## Status: M1-M3
 
@@ -37,16 +37,20 @@ advanced agentic side panels - plans, terminals, diff viewer, slash commands, mu
 A `Chat` element, usable from JSON like any built-in:
 
 ```json
-{ "type": "Chat", "id": 80, "properties": {
-    "protocol": "local",
+{ "type": "Chat", "id": 80,
+  "config": { "protocol": "local" },
+  "properties": {
     "appearance": { "alignment": "single", "showRoleLabels": true },
     "input": { "placeholder": "Message", "submitOn": "return" },
     "sendActionID": "chat.send",
     "messageActionID": "chat.message" } }
 ```
 
-- `protocol`: the transport. `local` (default) streams a scripted reply (`transport.reply`: `echo`,
-  `markdown`, or `agentic`); `acp` launches the ACP agent named by `transport.command` (macOS);
+- `config`: the element's NON-VISUAL operational settings (a sibling of `properties` - properties model
+  SwiftUI modifiers, config carries what the element does). Hosts can inject runtime/session-specific
+  values with `setElementConfig` between loading a document and showing it (see `DemoApp/`).
+- `config.protocol`: the transport. `local` (default) streams a scripted reply (`transport.reply`:
+  `echo`, `markdown`, or `agentic`); `acp` launches the ACP agent named by `transport.command` (macOS);
   `openai-sse` / `anthropic-sse` / `custom` arrive in later milestones (and fall back to `local`).
 - `appearance.alignment`: `single` (M1 default - leading / full-width, parties by tint + label) or
   `dual` (incoming leading, outgoing trailing - honored in M4).
@@ -151,7 +155,7 @@ automatically:
 - `Sources/ActionUIChat.swift` - Swift `register()` entry point + plain C `ActionUIChat_register()`.
 - `Sources/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head comment).
 - `Sources/ChatModel.swift` - transport-agnostic value types (ChatRole, ChatItem, ChatEvent, ChatCommand).
-- `Sources/ChatConfig.swift` - JSON property parsing + validation.
+- `Sources/ChatConfig.swift` - JSON parsing + validation (visual `properties` and the non-visual `config` block).
 - `Sources/ChatTransport.swift` - the transport protocol + `LocalChatTransport` + the selection factory.
 - `Sources/ACP/ACPConnection.swift` - newline-delimited JSON-RPC 2.0 over a subprocess's stdio (macOS).
 - `Sources/ACP/ACPChatTransport.swift` - the ACP transport: capability negotiation, session lifecycle,

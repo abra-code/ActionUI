@@ -6,8 +6,11 @@
     {
       "type": "Chat",
       "id": 81,
-      "properties": {
+      "config": {
         "protocol": "local",
+        "transport": { "reply": "agentic" }
+      },
+      "properties": {
         "appearance": { "alignment": "single", "showRoleLabels": true },
         "roles": {
           "local": { "label": "You", "tint": "accent" },
@@ -15,7 +18,6 @@
         },
         "input": { "enabled": true, "placeholder": "Ask the agent to change something", "submitOn": "modifier-return" },
         "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
-        "transport": { "reply": "agentic" },
         "sendActionID": "chat.send",
         "messageActionID": "chat.message",
         "approveToolActionID": "chat.tool.approve",

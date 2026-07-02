@@ -6,15 +6,17 @@
     {
       "type": "Chat",
       "id": 80,
-      "properties": {
+      "config": {
         "protocol": "local",
+        "transport": { "echo": true }
+      },
+      "properties": {
         "appearance": { "alignment": "single", "showRoleLabels": true },
         "roles": {
           "local": { "label": "You", "tint": "accent" },
           "agent": { "label": "Agent", "tint": "secondary" }
         },
         "input": { "enabled": true, "placeholder": "Message", "submitOn": "return" },
-        "transport": { "echo": true },
         "sendActionID": "chat.send",
         "messageActionID": "chat.message",
         "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }

@@ -16,10 +16,10 @@
 //
 // The document itself is the STATIC bundled Resources/ChatDemo.json - the ActionUI way:
 // static JSON describes the UI, and the host injects the runtime/session-specific parts
-// (the resolved transport.command and cwd) via the property-setter API. loadView loads
-// the document's model tree synchronously, the element's view is built lazily on first
-// render, so setElementProperty(.."transport"..) between the two lands before the Chat
-// element exists - no JSON is ever generated.
+// (the resolved transport.command and cwd) into the element's non-visual config block.
+// loadView loads the document's model tree synchronously, the element's view is built
+// lazily on first render, so setElementConfig(.."transport"..) between the two lands
+// before the Chat element exists - no JSON is ever generated.
 
 import SwiftUI
 import AppKit
@@ -181,13 +181,13 @@ struct ChatDemoView: View {
         let windowUUID = "chat-acp-demo-\(number)"
         // The ActionUI pattern: load the STATIC document (this registers its model tree
         // synchronously), then inject the runtime/session-specific transport through the
-        // property-setter API. The element's view is built lazily on first render, so
-        // the injected transport is what the Chat element starts with.
+        // element's non-visual config block. The element's view is built lazily on first
+        // render, so the injected transport is what the Chat element starts with.
         let view = AnyView(ActionUISwift.loadView(from: documentURL, windowUUID: windowUUID, isContentView: true))
-        ActionUISwift.setElementProperty(windowUUID: windowUUID,
-                                         viewID: chatElementID,
-                                         propertyName: "transport",
-                                         value: ["command": command, "cwd": workingDirectory])
+        ActionUISwift.setElementConfig(windowUUID: windowUUID,
+                                       viewID: chatElementID,
+                                       key: "transport",
+                                       value: ["command": command, "cwd": workingDirectory])
         session = ChatSession(number: number,
                               windowUUID: windowUUID,
                               view: view,

@@ -8,11 +8,23 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
  {
    "type": "Chat",
    "id": 1,                  // Required: Non-zero positive integer for runtime programmatic interaction
-   "properties": {
+   "config": {               // Optional: NON-VISUAL operational settings (the element-level config block,
+                             //           sibling of properties). Hosts can inject runtime/session-specific
+                             //           values via setElementConfig between loading and showing a document.
      "protocol": "local",                 // Optional: transport; "local" (default) streams a scripted reply.
                                           //           "acp" runs an Agent Client Protocol agent over stdio (macOS only:
                                           //           the agent is a subprocess). "openai-sse" / "anthropic-sse" /
                                           //           "custom" arrive later.
+     "transport": { "echo": true }        // Optional: protocol-specific settings (interpreted by the chosen transport).
+                                          //           "local" honors "echo" (default true: stream a demo reply),
+                                          //           "reply" ("echo" default | "markdown" | "agentic": a scripted
+                                          //           agent turn with thoughts, tool calls, and a permission gate),
+                                          //           and "chunkMs" (demo streaming pace, default 45).
+                                          //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
+                                          //           and honors "cwd" (the session root; "~" expands, default: the
+                                          //           host's current directory) and "mcpServers" (passed to the agent).
+   },
+   "properties": {
      "appearance": {                      // Optional: transcript appearance
        "alignment": "single",             //   "single" (default): leading / full-width, parties by tint + label.
                                           //   "dual" (later): incoming leading, outgoing trailing.
@@ -33,14 +45,6 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
                                           //   ("panel" arrives with the M5 side panels; it renders inline for now).
        "thoughts": "collapsed"            //   "collapsed" (default: folded) | "inline" | "hidden"
      },
-     "transport": { "echo": true },       // Optional: protocol-specific config (validated by the chosen transport).
-                                          //           "local" honors "echo" (default true: stream a demo reply),
-                                          //           "reply" ("echo" default | "markdown" | "agentic": a scripted
-                                          //           agent turn with thoughts, tool calls, and a permission gate),
-                                          //           and "chunkMs" (demo streaming pace, default 45).
-                                          //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
-                                          //           and honors "cwd" (the session root; "~" expands, default: the
-                                          //           host's current directory) and "mcpServers" (passed to the agent).
      "sendActionID": "chat.send",         // Optional: fired when the user submits a message
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
      "messageActionID": "chat.message",   // Optional: fired per finalized message (user and agent)
@@ -67,6 +71,11 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
 //
 // Observable state: the element manages its own transcript model internally (no single scalar value), so
 // it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.
+// The non-visual settings (protocol, transport) live in the element-level "config" block and are host-
+// injectable via setElementConfig - the canonical embedding loads a static document, injects the
+// runtime/session-specific transport (resolved agent path, working directory), then shows the view
+// (see DemoApp). The transport is consumed when the chat starts; a later config change takes effect
+// on the element's next rebuild.
 //
 // Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
 // cornerRadius, actionID, disabled, onAppearActionID, onDisappearActionID, etc.) are inherited from base View.

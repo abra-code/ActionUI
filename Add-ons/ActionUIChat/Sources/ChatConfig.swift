@@ -1,20 +1,21 @@
 // Add-ons/ActionUIChat/Sources/ChatConfig.swift
 //
-// Parses and validates the `Chat` element's JSON `properties` into a typed config.
+// Parses the `Chat` element's JSON into a typed config, from two document blocks:
+//   - `properties` (visual / presentation, modeled after SwiftUI modifiers):
+//     appearance, role styling, the composer (`input`), the agentic `surfaces`
+//     routing (M3: inline / collapsed / hidden; "panel" parses but renders inline
+//     until the M5 side panels), and the host-facing action IDs.
+//     `appearance.alignment: "dual"` is parsed-or-noted but only honored in M4.
+//   - `config` (NON-VISUAL operational settings): `protocol` selection and the
+//     `transport` object (interpreted by the chosen transport). Core stores the
+//     config block VERBATIM - no central validation - so `init` (the one consumer)
+//     checks these as it reads, warning and falling back rather than crashing.
+//     Hosts inject runtime/session-specific values via setElementConfig between
+//     loading a document and showing it.
 //
-// Two responsibilities, matching the per-element convention used by built-in views:
-//   - `validate(_:_:)` is the element's `validateProperties` witness: type-check each
-//     property, warn-and-drop anything ill-typed, never crash. Unknown keys are left
-//     untouched (the verifier flags those separately).
-//   - `init(_:_:)` reads the already-validated properties into a typed value with
-//     defaults, for the view / store to consume.
-//
-// Scope: protocol selection, single-alignment appearance, role styling, the
-// composer (`input`) config, the opaque `transport` object (validated by the chosen
-// transport, not here), the agentic `surfaces` routing (M3: inline / collapsed /
-// hidden; "panel" parses but renders inline until the M5 side panels), and the
-// host-facing action IDs. `appearance.alignment: "dual"` is parsed-or-noted but
-// only honored in M4.
+// `validate(_:_:)` is the element's `validateProperties` witness (properties only):
+// type-check each property, warn-and-drop anything ill-typed, never crash. Unknown
+// keys are left untouched (the verifier flags those separately).
 
 import Foundation
 import ActionUI
@@ -97,8 +98,25 @@ struct ChatConfig {
 
     // MARK: - Parse
 
-    init(_ properties: [String: Any], _ logger: any ActionUILogger) {
-        protocolName = (properties["protocol"] as? String) ?? "local"
+    init(properties: [String: Any], config: [String: Any], logger: any ActionUILogger) {
+        // Operational settings come from the element's config block, stored verbatim by
+        // core - so all checking happens here, on read.
+        protocolName = Self.parseProtocol(config["protocol"], logger)
+
+        if config["transport"] != nil, !(config["transport"] is [String: Any]) {
+            logger.log("Chat config.transport must be an object; ignoring", .warning)
+        }
+        transport = config["transport"] as? [String: Any] ?? [:]
+
+        if protocolName == "acp" {
+            if let command = transport["command"] {
+                if !(command is [String]) || (command as? [String])?.isEmpty != false {
+                    logger.log("Chat transport.command must be a non-empty array of strings for protocol \"acp\"", .warning)
+                }
+            } else {
+                logger.log("Chat protocol \"acp\" requires transport.command (the agent argv, e.g. [\"claude-code-acp\"])", .warning)
+            }
+        }
 
         let appearance = properties["appearance"] as? [String: Any] ?? [:]
         let parsedAlignment = (appearance["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .single
@@ -116,8 +134,6 @@ struct ChatConfig {
         placeholder = (input["placeholder"] as? String) ?? "Message"
         submitOn = (input["submitOn"] as? String).flatMap(SubmitPolicy.init(rawValue:)) ?? .return
 
-        transport = properties["transport"] as? [String: Any] ?? [:]
-
         let surfacesRaw = properties["surfaces"] as? [String: Any] ?? [:]
         surfaces = Surfaces(
             toolCalls: (surfacesRaw["toolCalls"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .inline,
@@ -129,6 +145,33 @@ struct ChatConfig {
         messageActionID = properties["messageActionID"] as? String
         errorActionID = properties["errorActionID"] as? String
         approveToolActionID = properties["approveToolActionID"] as? String
+    }
+
+    /// Resolves config.protocol to the transport name the factory will use. Unknown
+    /// names fall back to "local" with a warning; known-but-unimplemented names pass
+    /// through (the factory warns and degrades to local, keeping one fallback path).
+    private static func parseProtocol(_ raw: Any?, _ logger: any ActionUILogger) -> String {
+        guard let raw else {
+            return "local"
+        }
+        guard let name = raw as? String else {
+            logger.log("Chat config.protocol must be a String; defaulting to 'local'", .warning)
+            return "local"
+        }
+        let known = ["local", "acp", "openai-sse", "anthropic-sse", "custom"]
+#if os(macOS)
+        let implemented = ["local", "acp"]
+#else
+        let implemented = ["local"]
+#endif
+        if !known.contains(name) {
+            logger.log("Chat protocol '\(name)' is not a known transport; defaulting to 'local'", .warning)
+            return "local"
+        }
+        if !implemented.contains(name) {
+            logger.log("Chat protocol '\(name)' is not implemented in this build; the 'local' transport will be used", .warning)
+        }
+        return name
     }
 
     private static func parseRoles(_ raw: [String: Any]?) -> [String: RoleStyle] {
@@ -155,41 +198,12 @@ struct ChatConfig {
 
     // MARK: - Validation (the element's validateProperties witness)
 
+    // Properties only: `protocol` and `transport` live in the element's config block,
+    // which core stores verbatim - init() checks those as it reads them.
     static func validate(_ properties: [String: Any], _ logger: any ActionUILogger) -> [String: Any] {
         var validated = properties
 
-        if let proto = validated["protocol"] {
-            if let name = proto as? String {
-                let known = ["local", "acp", "openai-sse", "anthropic-sse", "custom"]
-#if os(macOS)
-                let implemented = ["local", "acp"]
-#else
-                let implemented = ["local"]
-#endif
-                if !known.contains(name) {
-                    logger.log("Chat protocol '\(name)' is not a known transport; ignoring (defaults to 'local')", .warning)
-                    validated["protocol"] = nil
-                } else if !implemented.contains(name) {
-                    logger.log("Chat protocol '\(name)' is not implemented in this build; the 'local' transport will be used", .warning)
-                }
-            } else {
-                logger.log("Chat protocol must be a String; ignoring", .warning)
-                validated["protocol"] = nil
-            }
-        }
-
-        if let transport = validated["transport"] as? [String: Any],
-           (validated["protocol"] as? String) == "acp" {
-            if let command = transport["command"] {
-                if !(command is [String]) || (command as? [String])?.isEmpty != false {
-                    logger.log("Chat transport.command must be a non-empty array of strings for protocol \"acp\"", .warning)
-                }
-            } else {
-                logger.log("Chat protocol \"acp\" requires transport.command (the agent argv, e.g. [\"claude-code-acp\"])", .warning)
-            }
-        }
-
-        for key in ["appearance", "roles", "input", "transport", "surfaces"] where validated[key] != nil {
+        for key in ["appearance", "roles", "input", "surfaces"] where validated[key] != nil {
             if !(validated[key] is [String: Any]) {
                 logger.log("Chat \(key) must be an object; ignoring", .warning)
                 validated[key] = nil

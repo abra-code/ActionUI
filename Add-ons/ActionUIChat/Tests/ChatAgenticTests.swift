@@ -23,8 +23,8 @@ final class ChatRouterTests: XCTestCase {
 
     private func makeStore(properties: [String: Any] = [:]) -> ChatStore {
         let logger = TestLogger()
-        return ChatStore(config: ChatConfig(properties, logger), windowUUID: "test-window",
-                         elementID: 1, logger: logger)
+        return ChatStore(config: ChatConfig(properties: properties, config: [:], logger: logger),
+                         windowUUID: "test-window", elementID: 1, logger: logger)
     }
 
     private func makeToolCall(id: String = "t1", status: ToolCallModel.Status = .pending) -> ToolCallModel {
@@ -97,20 +97,45 @@ final class ChatRouterTests: XCTestCase {
 final class ChatSurfacesConfigTests: XCTestCase {
 
     func testSurfacesDefaults() {
-        let config = ChatConfig([:], TestLogger())
+        let config = ChatConfig(properties: [:], config: [:], logger: TestLogger())
         XCTAssertEqual(config.surfaces.toolCalls, .inline)
         XCTAssertEqual(config.surfaces.thoughts, .collapsed)
         XCTAssertNil(config.approveToolActionID)
     }
 
     func testSurfacesParse() {
-        let config = ChatConfig([
+        let config = ChatConfig(properties: [
             "surfaces": ["thoughts": "hidden"],
             "approveToolActionID": "chat.tool.approve",
-        ], TestLogger())
+        ], config: [:], logger: TestLogger())
         XCTAssertEqual(config.surfaces.thoughts, .hidden)
         XCTAssertEqual(config.surfaces.toolCalls, .inline, "an absent surface keeps its default")
         XCTAssertEqual(config.approveToolActionID, "chat.tool.approve")
+    }
+
+    // The non-visual settings live in the element's config block (a clean move - the
+    // element is unpublished, so the old properties placement is simply not honored).
+    func testOperationalSettingsComeFromConfig() {
+        let config = ChatConfig(properties: [:], config: [
+            "protocol": "custom",
+            "transport": ["echo": false, "reply": "markdown"],
+        ], logger: TestLogger())
+        XCTAssertEqual(config.protocolName, "custom", "a known protocol name passes through (the factory degrades unimplemented ones)")
+        XCTAssertEqual(config.transport["reply"] as? String, "markdown")
+    }
+
+    func testProtocolAndTransportInPropertiesAreNotHonored() {
+        let config = ChatConfig(properties: [
+            "protocol": "custom",
+            "transport": ["echo": false],
+        ], config: [:], logger: TestLogger())
+        XCTAssertEqual(config.protocolName, "local", "protocol under properties is dead; config is the only source")
+        XCTAssertTrue(config.transport.isEmpty, "transport under properties is dead; config is the only source")
+    }
+
+    func testUnknownProtocolFallsBackToLocal() {
+        let config = ChatConfig(properties: [:], config: ["protocol": "bogus"], logger: TestLogger())
+        XCTAssertEqual(config.protocolName, "local")
     }
 
     func testValidateDropsUnknownSurfaceKeysAndModes() {

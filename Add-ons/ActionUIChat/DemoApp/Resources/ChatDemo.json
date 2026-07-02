@@ -1,8 +1,14 @@
 {
   "type": "Chat",
   "id": 1,
-  "properties": {
+  "config": {
     "protocol": "acp",
+    "transport": {
+      "command": ["opencode", "acp"],
+      "cwd": "~"
+    }
+  },
+  "properties": {
     "appearance": { "alignment": "single", "showRoleLabels": true },
     "roles": {
       "local": { "label": "You", "tint": "accent" },
@@ -10,10 +16,6 @@
     },
     "input": { "enabled": true, "placeholder": "Ask the agent (Cmd+Return sends)", "submitOn": "modifier-return" },
     "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
-    "transport": {
-      "command": ["opencode", "acp"],
-      "cwd": "~"
-    },
     "sendActionID": "chat.send",
     "stopActionID": "chat.stop",
     "messageActionID": "chat.message",
