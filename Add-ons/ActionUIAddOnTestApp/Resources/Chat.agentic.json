@@ -17,7 +17,7 @@
           "agent": { "label": "Agent", "tint": "secondary" }
         },
         "input": { "enabled": true, "placeholder": "Ask the agent to change something", "submitOn": "return" },
-        "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
+        "surfaces": { "toolCalls": "inline", "thoughts": "collapsed", "plan": "panel" },
         "sendActionID": "chat.send",
         "messageActionID": "chat.message",
         "approveToolActionID": "chat.tool.approve",

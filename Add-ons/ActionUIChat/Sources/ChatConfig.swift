@@ -63,6 +63,9 @@ struct ChatConfig {
     struct Surfaces {
         let toolCalls: SurfaceMode    // default inline
         let thoughts: SurfaceMode     // default collapsed
+        let plan: SurfaceMode         // default panel (a pinned region ABOVE the transcript -
+                                      // the plan is a status surface, never interleaved as chat;
+                                      // "inline" is coerced to panel with a note)
     }
 
     let protocolName: String
@@ -135,9 +138,15 @@ struct ChatConfig {
         submitOn = (input["submitOn"] as? String).flatMap(SubmitPolicy.init(rawValue:)) ?? .return
 
         let surfacesRaw = properties["surfaces"] as? [String: Any] ?? [:]
+        var planMode = (surfacesRaw["plan"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .panel
+        if planMode == .inline {
+            logger.log("Chat surfaces.plan 'inline' is not a plan presentation (the plan is a pinned status surface); rendering as panel", .verbose)
+            planMode = .panel
+        }
         surfaces = Surfaces(
             toolCalls: (surfacesRaw["toolCalls"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .inline,
-            thoughts: (surfacesRaw["thoughts"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .collapsed
+            thoughts: (surfacesRaw["thoughts"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .collapsed,
+            plan: planMode
         )
 
         sendActionID = properties["sendActionID"] as? String
@@ -212,7 +221,7 @@ struct ChatConfig {
 
         if var surfacesRaw = validated["surfaces"] as? [String: Any] {
             for (surface, value) in surfacesRaw {
-                guard ["toolCalls", "thoughts"].contains(surface) else {
+                guard ["toolCalls", "thoughts", "plan"].contains(surface) else {
                     logger.log("Chat surfaces.\(surface) is not a routable surface in this build; ignoring", .warning)
                     surfacesRaw[surface] = nil
                     continue

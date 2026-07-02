@@ -25,6 +25,9 @@ final class ChatStore: ObservableObject {
     @Published private(set) var items: [ChatItem] = []
     @Published private(set) var isStreaming = false       // a reply turn is in flight
     @Published private(set) var pendingPermissions: [PermissionRequest] = []   // FIFO; the card shows the head
+    @Published private(set) var plan: [PlanEntry] = []    // the agent's current plan (whole-list replace)
+    @Published private(set) var usage: UsageInfo?         // latest token/cost status, when the agent reports it
+    @Published private(set) var configOptions: [SessionConfigOption] = []   // model/mode/... advertised at session start
     @Published var draft: String = ""                     // composer text
 
     let config: ChatConfig
@@ -118,7 +121,8 @@ final class ChatStore: ObservableObject {
     // Internal (not private) so tests can drive the reduction directly.
     func route(_ event: ChatEvent) {
         switch event {
-        case .sessionReady(let sessionID):
+        case .sessionReady(let sessionID, let options):
+            configOptions = options
             logger.log("Chat session ready: \(sessionID)", .verbose)
 
         case .messageStart(let itemID, let role):
@@ -222,6 +226,25 @@ final class ChatStore: ObservableObject {
             pendingPermissions.append(request)
             isStreaming = true
             fire(config.approveToolActionID)
+
+        case .plan(let entries):
+            if config.surfaces.plan == .hidden {
+                return
+            }
+            // The agent re-emits its WHOLE plan as it progresses: replace, never merge.
+            plan = entries
+
+        case .usage(let info):
+            usage = info
+
+        case .currentModeChanged(let modeID):
+            // The spec's current_mode_update names only the new value; it targets the
+            // mode option (matched by category, falling back to the "mode" id).
+            guard let index = configOptions.firstIndex(where: { $0.category == "mode" || $0.id == "mode" }) else {
+                logger.log("Chat current_mode_update '\(modeID)' with no mode option; ignoring", .verbose)
+                return
+            }
+            configOptions[index].currentValue = modeID
 
         case .image(let itemID, let role, let image):
             items.append(.image(id: itemID, role: role, image: image))

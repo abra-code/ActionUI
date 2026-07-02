@@ -148,6 +148,52 @@ struct PermissionRequest: Identifiable, Equatable, Sendable {
     let options: [Option]
 }
 
+/// One step of the agent's evolving task plan (ACP `plan`). The agent re-emits the
+/// WHOLE plan as it progresses, so the store replaces the list rather than merging.
+/// ACP plan entries carry no IDs; identity is positional, assigned by the transport.
+struct PlanEntry: Identifiable, Equatable, Sendable {
+    enum Status: String, Sendable {
+        case pending
+        case inProgress = "in_progress"
+        case completed
+    }
+    let id: Int               // positional (index in the emitted plan)
+    let content: String
+    let priority: String?     // "high" | "medium" | "low" when the agent sends one; display-only
+    let status: Status
+}
+
+/// Token / cost usage for the session (OpenCode's `usage_update`: tokens used out of
+/// the context window, plus an optional cost). Agents that do not report usage never
+/// emit it; the status line simply stays empty.
+struct UsageInfo: Equatable, Sendable {
+    let used: Int
+    let size: Int?            // context window size, when reported
+    let costAmount: Double?
+    let costCurrency: String?
+}
+
+/// One selectable session option advertised by the agent at session start (OpenCode's
+/// session/new `configOptions`: model, mode, ...; the ACP spec's `modes` sketch maps
+/// onto the same shape). Displayed read-only in the status line (M5 part 1); the
+/// interactive setter is M5 part 3.
+struct SessionConfigOption: Identifiable, Equatable, Sendable {
+    struct Choice: Equatable, Sendable {
+        let value: String
+        let name: String
+        let description: String?
+    }
+    let id: String            // e.g. "model", "mode"
+    let name: String          // display name, e.g. "Session Mode"
+    let category: String?     // "model" | "mode" | agent-specific
+    var currentValue: String  // a Choice.value; `current_mode_update` mutates the mode option's
+    let options: [Choice]
+
+    var currentChoiceName: String? {
+        options.first(where: { $0.value == currentValue })?.name
+    }
+}
+
 /// A heterogeneous, arrival-ordered transcript entry. M1 carries messages plus
 /// system / error notices; M3 adds thoughts (reasoning, `ChatMessage`-shaped but
 /// visually folded) and tool-call cards. Plan / terminal panels are M5 side
@@ -176,7 +222,7 @@ enum ChatItem: Identifiable, Equatable {
 /// transport emits the message lifecycle (plus the agentic cases in its scripted
 /// "agentic" demo style); the ACP transport emits the full vocabulary.
 enum ChatEvent: Sendable {
-    case sessionReady(sessionID: String)
+    case sessionReady(sessionID: String, configOptions: [SessionConfigOption])
     case messageStart(itemID: String, role: ChatRole)
     case messageDelta(itemID: String, text: String)        // streaming token(s)
     case messageEnd(itemID: String, stopReason: String?)   // nil stopReason: the message closed but the
@@ -187,6 +233,9 @@ enum ChatEvent: Sendable {
     case toolCall(ToolCallModel)                           // a new tool invocation
     case toolCallUpdate(ToolCallUpdate)                    // mutate that card in place
     case permissionRequest(PermissionRequest)              // blocks the gated call until answered
+    case plan([PlanEntry])                                 // the agent's WHOLE current plan (replace, not merge)
+    case usage(UsageInfo)                                  // token / cost status (latest wins)
+    case currentModeChanged(modeID: String)                // ACP current_mode_update; updates the mode option
     case image(itemID: String, role: ChatRole, image: ChatImage)   // a standalone image element
     case system(text: String)
     case error(message: String, recoverable: Bool)

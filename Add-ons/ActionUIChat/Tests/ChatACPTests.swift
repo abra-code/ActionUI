@@ -171,6 +171,73 @@ final class ACPParsingTests: XCTestCase {
         XCTAssertNil(update.contentText, "content absent on the wire must stay nil so the card keeps its text")
         XCTAssertNil(update.diff)
     }
+
+    // MARK: M5 part 1 - configOptions / plan / usage
+
+    func testParseConfigOptionsOpenCodeShape() {
+        // The shape OpenCode returns from session/new (captured live).
+        let options = ACPChatTransport.parseConfigOptions([
+            "sessionId": "s1",
+            "configOptions": [
+                ["id": "model", "name": "Model", "category": "model", "type": "select",
+                 "currentValue": "opencode/big-pickle",
+                 "options": [["value": "opencode/big-pickle", "name": "Big Pickle"]]],
+                ["id": "mode", "name": "Session Mode", "category": "mode", "type": "select",
+                 "currentValue": "build",
+                 "options": [["value": "build", "name": "build", "description": "The default agent."],
+                             ["value": "plan", "name": "plan", "description": "Plan mode."]]],
+                ["id": "knob", "name": "Free text", "type": "text", "currentValue": "x"],
+            ],
+        ])
+        XCTAssertEqual(options.map(\.id), ["model", "mode"], "non-select options are dropped")
+        XCTAssertEqual(options[0].currentChoiceName, "Big Pickle")
+        XCTAssertEqual(options[1].options.count, 2)
+        XCTAssertEqual(options[1].options[1].description, "Plan mode.")
+    }
+
+    func testParseConfigOptionsSpecModesFallback() {
+        let options = ACPChatTransport.parseConfigOptions([
+            "sessionId": "s1",
+            "modes": ["currentModeId": "ask",
+                      "availableModes": [["id": "ask", "name": "Ask"], ["id": "auto", "name": "Auto"]]],
+        ])
+        XCTAssertEqual(options.count, 1)
+        XCTAssertEqual(options[0].id, "mode")
+        XCTAssertEqual(options[0].currentValue, "ask")
+        XCTAssertEqual(options[0].options.map(\.value), ["ask", "auto"])
+    }
+
+    func testParsePlanEntries() {
+        let entries = ACPChatTransport.parsePlan([
+            "sessionUpdate": "plan",
+            "entries": [
+                ["content": "Read the file", "priority": "high", "status": "completed"],
+                ["content": "Edit the file", "status": "in_progress"],
+                ["content": "Later", "status": "someday"],
+            ],
+        ])
+        XCTAssertEqual(entries.count, 3)
+        XCTAssertEqual(entries[0].status, .completed)
+        XCTAssertEqual(entries[0].priority, "high")
+        XCTAssertEqual(entries[1].status, .inProgress)
+        XCTAssertEqual(entries[2].status, .pending, "an unknown status falls back to pending")
+        XCTAssertEqual(entries.map(\.id), [0, 1, 2], "identity is positional")
+    }
+
+    func testParseUsage() {
+        // The shape OpenCode emits (captured live).
+        let usage = ACPChatTransport.parseUsage([
+            "sessionUpdate": "usage_update",
+            "used": 8170, "size": 200000,
+            "cost": ["amount": 0.5, "currency": "USD"],
+        ])
+        XCTAssertEqual(usage?.used, 8170)
+        XCTAssertEqual(usage?.size, 200000)
+        XCTAssertEqual(usage?.costAmount, 0.5)
+        XCTAssertEqual(usage?.costCurrency, "USD")
+        XCTAssertNil(ACPChatTransport.parseUsage(["sessionUpdate": "usage_update"]),
+                     "no usable `used` -> no event")
+    }
 }
 
 // MARK: - session/update demux and segmentation
@@ -414,7 +481,7 @@ final class ACPFakeAgentTests: XCTestCase {
         var log: [String] = []
         for await event in transport.events {
             switch event {
-            case .sessionReady(let sessionID):
+            case .sessionReady(let sessionID, _):
                 log.append("ready:\(sessionID)")
             case .messageStart(_, let role):
                 log.append("start:\(role.rawValue)")

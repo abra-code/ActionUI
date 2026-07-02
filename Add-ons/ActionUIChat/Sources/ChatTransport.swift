@@ -64,7 +64,19 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
     }
 
     func start() async {
-        continuation.yield(.sessionReady(sessionID: "local"))
+        // The agentic style advertises demo session options so the status bar (model /
+        // mode, M5) exercises with no agent; the plain styles stay chrome-free.
+        var options: [SessionConfigOption] = []
+        if replyStyle == "agentic" {
+            options = [
+                SessionConfigOption(id: "model", name: "Model", category: "model", currentValue: "demo/scripted",
+                                    options: [.init(value: "demo/scripted", name: "Scripted Demo", description: nil)]),
+                SessionConfigOption(id: "mode", name: "Mode", category: "mode", currentValue: "build",
+                                    options: [.init(value: "build", name: "build", description: "Executes tools based on permissions."),
+                                              .init(value: "plan", name: "plan", description: "Read-only planning mode.")]),
+            ]
+        }
+        continuation.yield(.sessionReady(sessionID: "local", configOptions: options))
     }
 
     func send(_ command: ChatCommand) async {
@@ -136,6 +148,10 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             continuation.yield(.thoughtDelta(itemID: thoughtID, text: chunk))
         }
 
+        // 1b. The agent lays out its plan (ACP `plan`): the whole list re-emits as
+        //     steps progress, exactly like a real agent.
+        yieldPlan(statuses: [.inProgress, .pending, .pending])
+
         // 2. A read-only tool call that runs unprompted: pending -> in_progress -> completed.
         let searchID = "\(itemID)-tool-search"
         continuation.yield(.toolCall(ToolCallModel(
@@ -149,6 +165,7 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             id: searchID, status: .completed,
             contentText: "Found `greet(_:)` in `Sources/Greeting.swift` (2 call sites).",
             rawOutput: "{ \"matches\": 2 }")))
+        yieldPlan(statuses: [.completed, .inProgress, .pending])
 
         // 3. A mutating tool call, gated by a permission request (the ACP
         //    session/request_permission flow): the card appears pending, the request
@@ -184,12 +201,26 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             continuation.yield(.toolCallUpdate(ToolCallUpdate(id: editID, status: .failed)))
         }
 
+        yieldPlan(statuses: [.completed, .completed, .inProgress])
+
         // 4. The final assistant answer, streamed as Markdown.
         continuation.yield(.messageStart(itemID: itemID, role: .agent))
         await streamChunks(of: ChatReplyContent.agenticSummary(allowed: allowed)) { chunk in
             continuation.yield(.messageDelta(itemID: itemID, text: chunk))
         }
+        yieldPlan(statuses: [.completed, .completed, .completed])
+        // Token/cost usage the way OpenCode reports it (usage_update); zero cost stays hidden.
+        continuation.yield(.usage(UsageInfo(used: 2350, size: 200_000, costAmount: 0, costCurrency: "USD")))
         continuation.yield(.messageEnd(itemID: itemID, stopReason: Task.isCancelled ? "cancelled" : "end_turn"))
+    }
+
+    /// The scripted turn's three-step plan, re-emitted whole as statuses change.
+    private func yieldPlan(statuses: [PlanEntry.Status]) {
+        let steps = ["Find the greeting call sites", "Edit Sources/Greeting.swift", "Summarize the change"]
+        let entries = steps.enumerated().map { index, content in
+            PlanEntry(id: index, content: content, priority: nil, status: statuses[index])
+        }
+        continuation.yield(.plan(entries))
     }
 
     /// Parks the scripted turn until the UI answers the permission request (via

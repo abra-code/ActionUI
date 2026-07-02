@@ -34,6 +34,10 @@ struct ChatRootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if !store.plan.isEmpty && config.surfaces.plan != .hidden {
+                PlanPanel(entries: store.plan, initiallyExpanded: config.surfaces.plan != .collapsed)
+                Divider()
+            }
             transcript
             if let request = store.pendingPermissions.first {
                 Divider()
@@ -43,6 +47,10 @@ struct ChatRootView: View {
             }
             Divider()
             composer
+            if store.usage != nil || !store.configOptions.isEmpty {
+                Divider()
+                SessionStatusBar(usage: store.usage, options: store.configOptions)
+            }
         }
         .onAppear { store.start() }
         .onDisappear { store.teardown() }
@@ -245,6 +253,122 @@ private struct ThoughtRow: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Plan panel (agentic, M5)
+
+// The agent's evolving task list (ACP `plan`), pinned ABOVE the transcript as a status
+// surface - never interleaved with chat (surfaces.plan: panel default, expanded /
+// collapsed, folded / hidden). The agent re-emits the whole plan as it works, so rows
+// update in place; the label carries a completed-count summary for the folded state.
+private struct PlanPanel: View {
+    let entries: [PlanEntry]
+    @State private var expanded: Bool
+
+    init(entries: [PlanEntry], initiallyExpanded: Bool) {
+        self.entries = entries
+        _expanded = State(initialValue: initiallyExpanded)
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(entries) { entry in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        statusIcon(entry.status)
+                        Text(entry.content)
+                            .font(.caption)
+                            .strikethrough(entry.status == .completed)
+                            .foregroundStyle(entry.status == .completed ? Color.secondary : Color.primary)
+                    }
+                }
+            }
+            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("Plan (\(completedCount)/\(entries.count))", systemImage: "checklist")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    private var completedCount: Int {
+        entries.filter { $0.status == .completed }.count
+    }
+
+    @ViewBuilder
+    private func statusIcon(_ status: PlanEntry.Status) -> some View {
+        switch status {
+        case .pending:
+            Image(systemName: "circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .inProgress:
+            ProgressView()
+                .controlSize(.mini)
+        case .completed:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+        }
+    }
+}
+
+// MARK: - Session status bar (agentic, M5)
+
+// A thin status line under the composer: the session's current model / mode (from the
+// agent's session-start config options; read-only in this milestone - the interactive
+// selector is M5 part 3) and token / cost usage when the agent reports it.
+private struct SessionStatusBar: View {
+    let usage: UsageInfo?
+    let options: [SessionConfigOption]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(options) { option in
+                Text("\(option.name): \(option.currentChoiceName ?? option.currentValue)")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            if let usage {
+                Text(usageText(usage))
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+    }
+
+    private func usageText(_ usage: UsageInfo) -> String {
+        var parts: [String] = []
+        if let size = usage.size, size > 0 {
+            parts.append("\(Self.compact(usage.used)) / \(Self.compact(size)) tokens")
+        } else {
+            parts.append("\(Self.compact(usage.used)) tokens")
+        }
+        if let amount = usage.costAmount, amount > 0 {
+            let currency = usage.costCurrency ?? ""
+            if currency == "USD" {
+                parts.append(String(format: "$%.4f", amount))
+            } else {
+                parts.append(String(format: "%.4f %@", amount, currency))
+            }
+        }
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    private static func compact(_ value: Int) -> String {
+        if value >= 1000 {
+            return String(format: "%.1fk", Double(value) / 1000)
+        }
+        return "\(value)"
     }
 }
 

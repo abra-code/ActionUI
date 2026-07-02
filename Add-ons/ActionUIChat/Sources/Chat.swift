@@ -38,8 +38,11 @@
      },
      "surfaces": {                        // Optional: routing for agentic transport items
        "toolCalls": "inline",             //   "inline" (default: expanded card) | "collapsed" | "hidden"
-                                          //   ("panel" arrives with the M5 side panels; it renders inline for now).
-       "thoughts": "collapsed"            //   "collapsed" (default: folded) | "inline" | "hidden"
+                                          //   ("panel" for tool calls / thoughts renders inline for now).
+       "thoughts": "collapsed",           //   "collapsed" (default: folded) | "inline" | "hidden"
+       "plan": "panel"                    //   The agent's task plan, pinned ABOVE the transcript (never
+                                          //   interleaved as chat): "panel" (default: expanded) |
+                                          //   "collapsed" (pinned, folded) | "hidden".
      },
      "sendActionID": "chat.send",         // Optional: fired when the user submits a message
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
@@ -63,8 +66,13 @@
  Client Protocol agent as a subprocess (newline-delimited JSON-RPC over stdio), negotiates capabilities
  (advertising no fs / terminal services), opens a session, and demuxes the session/update stream onto
  those same surfaces, with session/request_permission wired to the approval card and Stop wired to
- session/cancel. The SSE transports, dual alignment, and the side panels (plans, terminals, diff
- viewer) arrive in later milestones (see Private/chat-element-design.md).
+ session/cancel. And the first M5 session-status surfaces: the agent's evolving plan pinned above the
+ transcript (routed by surfaces.plan; ACP `plan`), plus a status line under the composer showing the
+ session's model / mode (from the agent's session-start options; read-only for now) and token / cost
+ usage (ACP `usage_update`) - the local transport's "agentic" reply style demos all of it with no
+ agent installed. The SSE transports, dual alignment, and the remaining M5 surfaces (slash-command
+ menu, interactive mode selector, diff viewer, terminals, multi-session) arrive in later milestones
+ (see Private/chat-element-design.md).
 
  Observable state: the element manages its own transcript model internally (no single scalar value), so
  it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.

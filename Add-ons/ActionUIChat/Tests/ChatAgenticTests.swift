@@ -90,6 +90,49 @@ final class ChatRouterTests: XCTestCase {
         store.route(.toolCallUpdate(ToolCallUpdate(id: "t1", status: .completed)))
         XCTAssertTrue(store.items.isEmpty, "hidden surfaces must drop their items entirely")
     }
+
+    // MARK: M5 part 1 - plan / usage / session options
+
+    func testPlanReplacesWholesale() {
+        let store = makeStore()
+        store.route(.plan([PlanEntry(id: 0, content: "Step 1", priority: nil, status: .inProgress),
+                           PlanEntry(id: 1, content: "Step 2", priority: nil, status: .pending)]))
+        store.route(.plan([PlanEntry(id: 0, content: "Step 1", priority: nil, status: .completed)]))
+        XCTAssertEqual(store.plan.count, 1, "each plan event replaces the whole list, never merges")
+        XCTAssertEqual(store.plan[0].status, .completed)
+        XCTAssertTrue(store.items.isEmpty, "the plan is a pinned surface, not a transcript item")
+    }
+
+    func testHiddenPlanSurfaceDrops() {
+        let store = makeStore(properties: ["surfaces": ["plan": "hidden"]])
+        store.route(.plan([PlanEntry(id: 0, content: "Step 1", priority: nil, status: .pending)]))
+        XCTAssertTrue(store.plan.isEmpty)
+    }
+
+    func testUsageLatestWins() {
+        let store = makeStore()
+        store.route(.usage(UsageInfo(used: 100, size: 200_000, costAmount: nil, costCurrency: nil)))
+        store.route(.usage(UsageInfo(used: 250, size: 200_000, costAmount: 0.01, costCurrency: "USD")))
+        XCTAssertEqual(store.usage?.used, 250)
+        XCTAssertEqual(store.usage?.costAmount, 0.01)
+    }
+
+    func testSessionReadyStoresOptionsAndModeChangeUpdatesThem() {
+        let store = makeStore()
+        store.route(.sessionReady(sessionID: "s1", configOptions: [
+            SessionConfigOption(id: "model", name: "Model", category: "model", currentValue: "m1",
+                                options: [.init(value: "m1", name: "Model One", description: nil)]),
+            SessionConfigOption(id: "mode", name: "Mode", category: "mode", currentValue: "build",
+                                options: [.init(value: "build", name: "build", description: nil),
+                                          .init(value: "plan", name: "plan", description: nil)]),
+        ]))
+        XCTAssertEqual(store.configOptions.count, 2)
+        store.route(.currentModeChanged(modeID: "plan"))
+        XCTAssertEqual(store.configOptions.first(where: { $0.id == "mode" })?.currentValue, "plan",
+                       "current_mode_update must retarget the mode option")
+        XCTAssertEqual(store.configOptions.first(where: { $0.id == "model" })?.currentValue, "m1",
+                       "other options must be untouched")
+    }
 }
 
 // MARK: - Surfaces config
@@ -157,7 +200,8 @@ final class ChatAgenticTransportTests: XCTestCase {
     /// with `answer` (an option ID, or nil to cancel the whole turn at the gate).
     /// Returns the collected evidence for assertions.
     private func runTurn(answer: String?) async -> (
-        sawThought: Bool, statuses: [String: ToolCallModel.Status], finalText: String, stopReason: String?
+        sawThought: Bool, statuses: [String: ToolCallModel.Status], finalText: String, stopReason: String?,
+        lastPlan: [PlanEntry], usage: UsageInfo?
     ) {
         let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
         await transport.start()
@@ -166,10 +210,16 @@ final class ChatAgenticTransportTests: XCTestCase {
         var statuses: [String: ToolCallModel.Status] = [:]
         var finalText = ""
         var stopReason: String?
+        var lastPlan: [PlanEntry] = []
+        var usage: UsageInfo?
         for await event in transport.events {
             switch event {
             case .thoughtDelta:
                 sawThought = true
+            case .plan(let entries):
+                lastPlan = entries
+            case .usage(let info):
+                usage = info
             case .toolCall(let call):
                 statuses[call.id] = call.status
             case .toolCallUpdate(let update):
@@ -194,7 +244,7 @@ final class ChatAgenticTransportTests: XCTestCase {
             }
         }
         await transport.stop()
-        return (sawThought, statuses, finalText, stopReason)
+        return (sawThought, statuses, finalText, stopReason, lastPlan, usage)
     }
 
     func testAgenticTurnAllowed() async {
@@ -204,6 +254,9 @@ final class ChatAgenticTransportTests: XCTestCase {
         XCTAssertEqual(turn.statuses.count, 2, "expected the search and edit tool calls")
         XCTAssertTrue(turn.statuses.values.allSatisfy { $0 == .completed }, "both calls complete when allowed")
         XCTAssertTrue(turn.finalText.contains("applied the approved edit"), "the summary must reflect the approval")
+        XCTAssertEqual(turn.lastPlan.count, 3, "the scripted turn lays out a three-step plan")
+        XCTAssertTrue(turn.lastPlan.allSatisfy { $0.status == .completed }, "the final plan re-emit completes every step")
+        XCTAssertEqual(turn.usage?.used, 2350, "the turn ends with a usage report")
     }
 
     func testAgenticTurnRejected() async {

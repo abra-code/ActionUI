@@ -139,7 +139,8 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
                     throw ACPConnectionError(code: nil, message: "session/new returned no sessionId")
                 }
                 lock.withLock { self.sessionID = sessionID }
-                eventSink.yield(.sessionReady(sessionID: sessionID))
+                eventSink.yield(.sessionReady(sessionID: sessionID,
+                                              configOptions: Self.parseConfigOptions(session)))
             } catch {
                 // A common session/new failure is an agent that requires auth first; name
                 // the advertised methods so that case is actionable (auth UX is a later
@@ -275,8 +276,21 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
         case "tool_call_update":
             eventSink.yield(.toolCallUpdate(Self.parseToolCallUpdate(update)))
 
-        case "plan", "available_commands_update", "current_mode_update", "usage_update":
-            // M5 surfaces (plan panel, slash-command menu, mode selector, usage line).
+        case "plan":
+            eventSink.yield(.plan(Self.parsePlan(update)))
+
+        case "usage_update":
+            if let usage = Self.parseUsage(update) {
+                eventSink.yield(.usage(usage))
+            }
+
+        case "current_mode_update":
+            if let modeID = update["currentModeId"] as? String {
+                eventSink.yield(.currentModeChanged(modeID: modeID))
+            }
+
+        case "available_commands_update":
+            // The composer's slash-command menu (M5 part 2).
             logger.log("ACP: \(kind) received; surface arrives in a later milestone", .verbose)
 
         default:
@@ -453,6 +467,77 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
             rawInput: prettyJSON(update["rawInput"]),
             rawOutput: prettyJSON(update["rawOutput"])
         )
+    }
+
+    /// session/new result -> the session's selectable options. Parses OpenCode's
+    /// generic `configOptions` (select-typed: model, mode, ...) and falls back to the
+    /// spec's `modes` sketch ({ currentModeId, availableModes }). Internal for tests.
+    static func parseConfigOptions(_ session: [String: Any]) -> [SessionConfigOption] {
+        if let raw = session["configOptions"] as? [[String: Any]] {
+            return raw.compactMap { option in
+                guard let id = option["id"] as? String,
+                      let current = option["currentValue"] as? String else {
+                    return nil
+                }
+                if let type = option["type"] as? String, type != "select" {
+                    return nil    // only selects are displayable (and, in part 3, settable)
+                }
+                let choices = (option["options"] as? [[String: Any]] ?? []).compactMap { choice -> SessionConfigOption.Choice? in
+                    guard let value = choice["value"] as? String else {
+                        return nil
+                    }
+                    return SessionConfigOption.Choice(value: value,
+                                                      name: (choice["name"] as? String) ?? value,
+                                                      description: choice["description"] as? String)
+                }
+                return SessionConfigOption(id: id,
+                                           name: (option["name"] as? String) ?? id,
+                                           category: option["category"] as? String,
+                                           currentValue: current,
+                                           options: choices)
+            }
+        }
+        if let modes = session["modes"] as? [String: Any],
+           let current = modes["currentModeId"] as? String {
+            let choices = (modes["availableModes"] as? [[String: Any]] ?? []).compactMap { mode -> SessionConfigOption.Choice? in
+                guard let id = mode["id"] as? String else {
+                    return nil
+                }
+                return SessionConfigOption.Choice(value: id,
+                                                  name: (mode["name"] as? String) ?? id,
+                                                  description: mode["description"] as? String)
+            }
+            return [SessionConfigOption(id: "mode", name: "Mode", category: "mode",
+                                        currentValue: current, options: choices)]
+        }
+        return []
+    }
+
+    /// `plan` update -> entries (spec shape: entries[{ content, priority, status }]).
+    /// ACP plan entries carry no IDs, so identity is positional. Internal for tests.
+    static func parsePlan(_ update: [String: Any]) -> [PlanEntry] {
+        let raw = update["entries"] as? [[String: Any]] ?? []
+        return raw.enumerated().compactMap { index, entry in
+            guard let content = entry["content"] as? String else {
+                return nil
+            }
+            let status = (entry["status"] as? String).flatMap(PlanEntry.Status.init(rawValue:)) ?? .pending
+            return PlanEntry(id: index, content: content,
+                             priority: entry["priority"] as? String, status: status)
+        }
+    }
+
+    /// `usage_update` -> UsageInfo (the shape OpenCode emits: used / size /
+    /// cost { amount, currency }). Returns nil without a usable `used`. Internal for tests.
+    static func parseUsage(_ update: [String: Any]) -> UsageInfo? {
+        guard let used = (update["used"] as? NSNumber)?.intValue else {
+            return nil
+        }
+        let cost = update["cost"] as? [String: Any]
+        return UsageInfo(used: used,
+                         size: (update["size"] as? NSNumber)?.intValue,
+                         costAmount: (cost?["amount"] as? NSNumber)?.doubleValue,
+                         costCurrency: cost?["currency"] as? String)
     }
 
     /// Splits a tool call's content array into its text (regular ContentBlocks) and the
