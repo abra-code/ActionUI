@@ -91,7 +91,7 @@ struct ChatRootView: View {
         case .thought(let thought):
             ThoughtRow(thought: thought, initiallyExpanded: config.surfaces.thoughts != .collapsed)
         case .toolCall(let call):
-            ToolCallRow(call: call, initiallyExpanded: config.surfaces.toolCalls != .collapsed)
+            ToolCallRow(call: call, compact: config.surfaces.toolCalls == .collapsed)
         case .image(_, let role, let image):
             ImageRow(role: role, image: image, config: config)
         case .system(_, let text):
@@ -372,32 +372,57 @@ private struct SessionStatusBar: View {
     }
 }
 
+/// Caps bulk tool detail for rendering: a tool call's content is often a whole file or
+/// a long command output, and the card is a preview of the call, not a file viewer -
+/// uncapped text would also make the transcript's attributed-string layout crawl.
+/// Internal (not private) so tests can pin the behavior.
+enum ToolDetailText {
+    static let cap = 4000
+
+    static func capped(_ text: String) -> String {
+        guard text.count > cap else {
+            return text
+        }
+        return text.prefix(cap) + "\n\u{2026} (truncated, \(text.count - cap) more characters)"
+    }
+}
+
 // MARK: - Tool-call card (agentic)
 
 // One tool invocation: a kind icon, the title, a status indicator, and - when the call
 // carries content, a diff, or raw input / output - a disclosure with the detail. The
-// card mutates in place as tool_call_update events arrive (same item id). Diffs render
-// as a monospaced preview of the new text in M3; the side-by-side viewer is an M5 surface.
+// card mutates in place as tool_call_update events arrive (same item id). The detail
+// ALWAYS starts folded, whatever surfaces.toolCalls says: tool content is bulk material
+// (a whole file read, a long command output), and auto-expanding it floods the
+// transcript - the mainstream agentic UX shows the fact of the call, not its payload.
+// "collapsed" additionally shrinks the card to a compact caption row (Thoughts-style).
+// Expanded detail renders through ToolDetailText.capped so a megabyte read stays a
+// preview. Diffs render as a monospaced preview of the new text in M3; the side-by-side
+// viewer is an M5 surface.
 private struct ToolCallRow: View {
     let call: ToolCallModel
-    @State private var expanded: Bool
-
-    init(call: ToolCallModel, initiallyExpanded: Bool) {
-        self.call = call
-        _expanded = State(initialValue: initiallyExpanded)
-    }
+    let compact: Bool     // surfaces.toolCalls == .collapsed
+    @State private var expanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let column = VStack(alignment: .leading, spacing: 6) {
             header
             if expanded && hasDetail {
                 detail
             }
         }
-        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.15)))
+
+        return Group {
+            if compact {
+                column
+            } else {
+                column
+                    .padding(10)
+                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.15)))
+            }
+        }
     }
 
     private var header: some View {
@@ -405,8 +430,9 @@ private struct ToolCallRow: View {
             Image(systemName: kindIcon)
                 .foregroundStyle(.secondary)
             Text(call.title)
-                .font(.callout.weight(.medium))
-                .lineLimit(2)
+                .font(compact ? .caption : .callout.weight(.medium))
+                .foregroundStyle(compact ? Color.secondary : Color.primary)
+                .lineLimit(compact ? 1 : 2)
             if hasDetail {
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
@@ -427,19 +453,19 @@ private struct ToolCallRow: View {
     @ViewBuilder
     private var detail: some View {
         if !call.contentText.isEmpty {
-            RichText(markdown: call.contentText)
+            RichText(markdown: ToolDetailText.capped(call.contentText))
         }
         if let diff = call.diff {
             Text(diff.path)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-            codeBlock(diff.newText)
+            codeBlock(ToolDetailText.capped(diff.newText))
         }
         if let rawInput = call.rawInput {
-            labeledCode("Input", rawInput)
+            labeledCode("Input", ToolDetailText.capped(rawInput))
         }
         if let rawOutput = call.rawOutput {
-            labeledCode("Output", rawOutput)
+            labeledCode("Output", ToolDetailText.capped(rawOutput))
         }
     }
 

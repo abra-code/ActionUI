@@ -192,6 +192,23 @@ final class ChatSurfacesConfigTests: XCTestCase {
     }
 }
 
+// MARK: - Tool detail rendering cap
+
+final class ToolDetailTextTests: XCTestCase {
+
+    func testShortTextPassesThrough() {
+        XCTAssertEqual(ToolDetailText.capped("hello"), "hello")
+    }
+
+    func testBulkTextIsCappedWithANote() {
+        let bulk = String(repeating: "x", count: ToolDetailText.cap + 500)
+        let capped = ToolDetailText.capped(bulk)
+        XCTAssertTrue(capped.count < bulk.count, "a whole-file read must not render in full")
+        XCTAssertTrue(capped.hasPrefix(String(repeating: "x", count: 100)))
+        XCTAssertTrue(capped.contains("truncated, 500 more characters"))
+    }
+}
+
 // MARK: - Scripted agentic transport turn
 
 final class ChatAgenticTransportTests: XCTestCase {

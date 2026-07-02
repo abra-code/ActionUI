@@ -37,8 +37,10 @@
        "submitOn": "return"               //   "return" (default), "modifier-return" (Cmd+Return), "shift-return-newline".
      },
      "surfaces": {                        // Optional: routing for agentic transport items
-       "toolCalls": "inline",             //   "inline" (default: expanded card) | "collapsed" | "hidden"
-                                          //   ("panel" for tool calls / thoughts renders inline for now).
+       "toolCalls": "inline",             //   "inline" (default: a status card; its detail - file reads,
+                                          //   diffs, raw I/O - stays FOLDED until tapped, and long content
+                                          //   is truncated) | "collapsed" (a compact one-line row) |
+                                          //   "hidden". "panel" renders inline for now.
        "thoughts": "collapsed",           //   "collapsed" (default: folded) | "inline" | "hidden"
        "plan": "panel"                    //   The agent's task plan, pinned ABOVE the transcript (never
                                           //   interleaved as chat): "panel" (default: expanded) |
