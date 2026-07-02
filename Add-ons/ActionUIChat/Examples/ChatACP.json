@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Chat over ACP: the element launches the agent named in transport.command (here OpenCode) and hosts the session - thoughts, tool calls, and permission approvals included.", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 84,
+      "properties": {
+        "protocol": "acp",
+        "appearance": { "alignment": "single", "showRoleLabels": true },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "agent": { "label": "Agent", "tint": "secondary" }
+        },
+        "input": { "enabled": true, "placeholder": "Ask the agent", "submitOn": "modifier-return" },
+        "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
+        "transport": {
+          "command": ["opencode", "acp"],
+          "cwd": "~"
+        },
+        "sendActionID": "chat.send",
+        "stopActionID": "chat.stop",
+        "messageActionID": "chat.message",
+        "errorActionID": "chat.error",
+        "approveToolActionID": "chat.tool.approve",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

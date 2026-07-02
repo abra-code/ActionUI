@@ -9,13 +9,28 @@ The element is GENERIC: the same `Chat` backs AI-agent chat and person-to-person
 (selected by the `protocol` property) and the appearance differ, not the view. See
 `Private/chat-element-design.md` for the full architecture and the milestone plan (M1-M6).
 
-## Status: M1
+## Status: M1-M3
 
-This is **M1** of that plan: the `local` transport (a scripted echo backend) and a single-alignment
-transcript with plain-text streaming - append, stream deltas, finalize - plus auto-scroll and a
-config-driven composer submit policy. Later milestones add streaming Markdown (M2), the ACP transport
-and tool/permission surfaces (M3), dual alignment and a real two-party transport (M4), and the advanced
-agentic surfaces (M5).
+Landed so far:
+
+- **M1** - the `local` transport (a scripted echo backend) and a single-alignment transcript with
+  streaming - append, stream deltas, finalize - plus auto-scroll and a config-driven composer submit
+  policy.
+- **M2** - streaming Markdown message bodies (rendered by the sibling `RichText` component) and
+  standalone image items (rendered by the sibling `AsyncImageCache`).
+- **M3** - the agentic layer. Transport-agnostic surfaces: streamed reasoning folded behind a
+  "Thoughts" disclosure, tool-call cards that mutate in place through their pending / in-progress /
+  completed / failed lifecycle, and a permission gate that pins an approval card above the composer
+  (routed by the `surfaces` property; the local transport's `"reply": "agentic"` style demos them all
+  with no wire protocol). And the **ACP transport** (macOS): the element launches any
+  [Agent Client Protocol](https://agentclientprotocol.com) agent as a subprocess (newline-delimited
+  JSON-RPC over stdio), negotiates capabilities (advertising no fs / terminal services), opens a
+  session, demuxes the `session/update` stream onto those surfaces, wires
+  `session/request_permission` to the approval card, and maps Stop to `session/cancel`. Validated
+  against OpenCode (`["opencode", "acp"]`).
+
+Later milestones add the SSE transports and dual alignment / a real two-party transport (M4), and the
+advanced agentic side panels - plans, terminals, diff viewer, slash commands, multi-session (M5).
 
 ## What it adds
 
@@ -30,8 +45,9 @@ A `Chat` element, usable from JSON like any built-in:
     "messageActionID": "chat.message" } }
 ```
 
-- `protocol`: the transport. `local` (default) echoes a streamed reply; `acp` / `openai-sse` /
-  `anthropic-sse` / `custom` arrive in later milestones (and fall back to `local` for now).
+- `protocol`: the transport. `local` (default) streams a scripted reply (`transport.reply`: `echo`,
+  `markdown`, or `agentic`); `acp` launches the ACP agent named by `transport.command` (macOS);
+  `openai-sse` / `anthropic-sse` / `custom` arrive in later milestones (and fall back to `local`).
 - `appearance.alignment`: `single` (M1 default - leading / full-width, parties by tint + label) or
   `dual` (incoming leading, outgoing trailing - honored in M4).
 - `input.submitOn`: `return` (default), `modifier-return` (multiline; Cmd+Return submits), or
@@ -47,11 +63,15 @@ scalar `value`; host interaction is via the action IDs.
 Four layers, transport at the bottom, SwiftUI at the top, a router in the middle (the key idea):
 
 - `ChatTransport` (`ChatTransport.swift`) - speaks one wire protocol, emits a normalized `ChatEvent`
-  stream, accepts normalized `ChatCommand`s. M1 ships `LocalChatTransport`.
+  stream, accepts normalized `ChatCommand`s. Shipped: `LocalChatTransport` (scripted; also the
+  `agentic` demo turn) and `ACPChatTransport` (`Sources/ACP/`, macOS - `ACPConnection.swift` is the
+  stdio JSON-RPC framing, `ACPChatTransport.swift` is the ACP method vocabulary and the
+  `session/update` demux, kept in one file on purpose).
 - `ChatStore` (`ChatStore.swift`) - the `@MainActor` source of truth. Its `route(_:)` is the
-  **pre-filter**: chat text -> transcript, system / error -> their own items, and (later) tool calls /
-  plans / permissions -> side surfaces. A non-agentic transport never emits the richer events, so the
-  same code renders a plain conversation with no special cases.
+  **pre-filter**: chat text -> transcript, thoughts and tool-call cards -> transcript items styled per
+  the `surfaces` config, permission requests -> the pending-approval queue, system / error -> their own
+  items. A non-agentic transport never emits the richer events, so the same code renders a plain
+  conversation with no special cases.
 - `ChatRootView` (`ChatRootView.swift`) - the transcript (`ScrollView` + `LazyVStack`, auto-scroll) and
   the composer.
 - `ChatModel.swift` / `ChatConfig.swift` - the transport-agnostic value types and the JSON config.
@@ -133,9 +153,14 @@ automatically:
 - `Sources/ChatModel.swift` - transport-agnostic value types (ChatRole, ChatItem, ChatEvent, ChatCommand).
 - `Sources/ChatConfig.swift` - JSON property parsing + validation.
 - `Sources/ChatTransport.swift` - the transport protocol + `LocalChatTransport` + the selection factory.
+- `Sources/ACP/ACPConnection.swift` - newline-delimited JSON-RPC 2.0 over a subprocess's stdio (macOS).
+- `Sources/ACP/ACPChatTransport.swift` - the ACP transport: capability negotiation, session lifecycle,
+  the `session/update` -> `ChatEvent` demux, and the permission round-trip.
 - `Sources/ChatStore.swift` - the `@MainActor` store + the router (pre-filter).
-- `Sources/ChatRootView.swift` - the transcript + composer SwiftUI surface.
+- `Sources/ChatRootView.swift` - the transcript + composer SwiftUI surface (message, thought, tool-call,
+  image rows; the permission approval card).
 - `Documentation/Schemas/Chat.md` - element schema doc; `Documentation/Elements/Chat.json` - insert template.
 - `Documentation/ActionUIChatDocumentation.swift` - `Bundle.module` accessor for the docs product.
 - `Schemas/Chat.json` - verifier schema (auto-discovered).
-- `Examples/Chat.json` - a sample view using the element.
+- `Examples/Chat.json` - a sample view using the element; `Examples/ChatAgentic.json` - the scripted
+  agentic demo; `Examples/ChatACP.json` - a live ACP session (OpenCode).
