@@ -153,6 +153,9 @@ class WindowModel: ObservableObject {
         viewModel.elementType = element.type
         // Validate properties and set in ViewModel
         viewModel.validateProperties(for: element)
+        // The non-visual config block is stored verbatim (empty for most elements);
+        // the element's buildView is its one consumer and checks what it reads.
+        viewModel.config = element.config
         // Fetch initial value from properties early if the element supports it
         viewModel.value = ActionUIRegistry.shared.getInitialValue(forElementType: element.type, model: viewModel)
         // Fetch initial states from properties early if the element supports it

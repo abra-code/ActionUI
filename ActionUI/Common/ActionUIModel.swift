@@ -1024,4 +1024,37 @@ public class ActionUIModel: ObservableObject {
         viewModel.validateProperties(viewModel.validatedProperties, elementType: viewModel.elementType, logger: logger)
         logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }
+
+    // Gets a NON-VISUAL config value by key (see ActionUIElement's head comment for the
+    // properties-vs-config split). Returns nil (with a warning) when the key is absent.
+    public func getElementConfig(windowUUID: String, viewID: Int, key: String) -> Any? {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No ViewModel found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return nil
+        }
+        if let value = viewModel.config[key] {
+            return value
+        }
+        logger.log("Config '\(key)' not found for viewID: \(viewID)", .warning)
+        return nil
+    }
+
+    // Sets a NON-VISUAL config value for a view. Stored verbatim - the element's buildView
+    // is the one consumer and checks what it reads (there is no central config validation;
+    // the schema verifier covers authoring mistakes). Notification semantics mirror
+    // setElementProperty; an element consuming its config at construction time (e.g. a
+    // transport started when the view first appears) picks the new value up on its next
+    // rebuild, exactly like build-time property snapshots.
+    public func setElementConfig(windowUUID: String, viewID: Int, key: String, value: Any) {
+        guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
+            logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
+            return
+        }
+        // Notify SwiftUI before mutating the non-published config,
+        // matching the willSet contract expected by ObservableObject observers.
+        viewModel.objectWillChange.send()
+        viewModel.mutationToken &+= 1
+        viewModel.config[key] = value
+        logger.log("Set config '\(key)' for viewID: \(viewID)", .debug)
+    }
 }

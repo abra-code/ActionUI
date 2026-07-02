@@ -5,6 +5,14 @@
    "type": "View",       // Matches the SwiftUI view or other element class name (e.g., "NavigationStack", "NavigationLink", "NavigationSplitView")
    "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
    "properties": {},     // Optional: Dictionary of view-specific properties
+   "config": {},         // Optional: Dictionary of NON-VISUAL element configuration. Properties model SwiftUI
+                         //           modifiers (what the element shows / how interaction is presented); config
+                         //           carries what a complex element DOES (wire protocol, transports, data
+                         //           sources). Core stores it verbatim: the element's buildView is the one
+                         //           consumer and checks what it reads (there is no shared config vocabulary,
+                         //           so no central validation - the schema verifier covers authoring mistakes
+                         //           via ownConfig). Readable/writable at runtime via getElementConfig /
+                         //           setElementConfig. Most elements have none.
    "children": [],       // Optional: Array of child elements. Note: Handled as a top-level key in JSON but stored in subviews["children"]
    "rows": [             // Optional: Array of arrays of child elements (for Grid). Note: Handled as a top-level key in JSON but stored in subviews["rows"]
      [
@@ -47,7 +55,16 @@ public protocol ActionUIElementBase: Identifiable, Codable, Sendable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
+    var config: [String: Any] { get } // NON-VISUAL element configuration (see the head comment); empty for most elements
     var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "overlay", "background"
+}
+
+// Default so existing conformers (tests, hosts) compile unchanged; only elements that
+// carry non-visual configuration store a real value.
+public extension ActionUIElementBase {
+    var config: [String: Any] {
+        [:]
+    }
 }
 
 @MainActor
@@ -88,6 +105,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     public let id: Int
     public let type: String
     public let properties: [String: Any]
+    public let config: [String: Any]
     public var subviews: [String: Any]?
     
     // Counter for generating unique negative IDs when not specified.
@@ -105,16 +123,17 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     }
     
     // Initializes a ActionUIElement with explicit values
-    init(id: Int, type: String, properties: [String: Any], subviews: [String: Any]?) {
+    init(id: Int, type: String, properties: [String: Any], config: [String: Any] = [:], subviews: [String: Any]?) {
         self.id = id
         self.type = type
         self.properties = properties
+        self.config = config
         self.subviews = subviews
     }
-    
+
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions, safeAreaInset
+        case id, type, properties, config, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions, safeAreaInset
     }
     
     public init(from decoder: Decoder) throws {
@@ -132,7 +151,18 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             }
         }
         properties = convertedProperties
-        
+
+        let decodedConfig = try container.decodeIfPresent([String: AnyCodable].self, forKey: .config) ?? [:]
+        var convertedConfig: [String: Any] = [:]
+        for (key, value) in decodedConfig {
+            do {
+                convertedConfig[key] = try AnyCodable.convertAnyCodableToAny(value)
+            } catch {
+                logger?.log("Failed to convert config '\(key)' for type '\(type)': \(error)", .error)
+            }
+        }
+        config = convertedConfig
+
         // Initialize subviews if any subview keys are present
         subviews = nil // Start with nil
         // `contextMenu` is an array subview (the menu's action items) because SwiftUI's
@@ -189,7 +219,20 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             }
         }
         try container.encodeIfPresent(encodableProperties, forKey: .properties)
-        
+
+        // Encode config only when present, so documents without one round-trip unchanged.
+        if !config.isEmpty {
+            var encodableConfig: [String: AnyCodable] = [:]
+            for (key, value) in config {
+                do {
+                    encodableConfig[key] = try AnyCodable.convertAnyToAnyCodable(value)
+                } catch {
+                    logger?.log("Failed to encode config '\(key)' for type '\(type)': \(error)", .error)
+                }
+            }
+            try container.encode(encodableConfig, forKey: .config)
+        }
+
         // Early exit if subviews is nil
         guard let subviews else {
             try container.encodeNil(forKey: .children)
@@ -247,6 +290,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             throw NSError(domain: "ActionUIElement", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing type"])
         }
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
+        let config = dictionary["config"] as? [String: Any] ?? [:]
         var subviews: [String: Any]?
         
         for key in ["children", "destinations", "toolbar"] {
@@ -296,7 +340,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             subviews!["commands"] = commands
         }
 
-        self.init(id: id, type: type, properties: properties, subviews: subviews)
+        self.init(id: id, type: type, properties: properties, config: config, subviews: subviews)
     }
 }
 
@@ -333,7 +377,7 @@ extension ActionUIElement {
         }
 
         guard var subviews = element.subviews else {
-            return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, subviews: nil)
+            return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, config: element.config, subviews: nil)
         }
 
         for key in ["children", "destinations", "toolbar"] {
@@ -350,17 +394,18 @@ extension ActionUIElement {
             }
         }
 
-        return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, subviews: subviews)
+        return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, config: element.config, subviews: subviews)
     }
 }
 
 // Extension to make ActionUIElement Equatable
 extension ActionUIElement: Equatable {
     public static func == (lhs: ActionUIElement, rhs: ActionUIElement) -> Bool {
-        // Compare id, type, and properties
+        // Compare id, type, properties, and config
         guard lhs.id == rhs.id,
               lhs.type == rhs.type,
-              PropertyComparison.arePropertiesEqual(lhs.properties, rhs.properties) else {
+              PropertyComparison.arePropertiesEqual(lhs.properties, rhs.properties),
+              PropertyComparison.arePropertiesEqual(lhs.config, rhs.config) else {
             return false
         }
         
