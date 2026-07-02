@@ -118,23 +118,30 @@ struct NavigationStack: ActionUIViewConstruction {
                 }
             }
         } else {
-            // Standard NavigationLink-based navigation (no selection binding)
-            return SwiftUI.NavigationStack() {
-                if let windowModel = windowModel,
-                   let childModel = contentModel {
-                    ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
-                      .navigationDestination(for: Int.self) { destinationViewId in
-                        if let target = destinations.first(where: { $0.id == destinationViewId }) {
-                            if let targetModel = windowModel.viewModels[target.id] {
-                               ActionUIView(element: target, model: targetModel, windowUUID: windowUUID)
-                            }
-                            else {
-                                SwiftUI.Text("Destination \(destinationViewId) has no model")
+            // Standard NavigationLink-based navigation (no selection binding).
+            // Wrap in NavigationPathContainer so the `navigationPath` state drives
+            // push/pop for ANY content type (VStack, grid, etc.), not just a List.
+            // There is no row selection to clear on pop-to-root here, so
+            // clearsSelectionOnPopToRoot is false; contentModel is only observed
+            // (falling back to the stack's own model when content has no model).
+            return NavigationPathContainer(model: model, contentModel: contentModel ?? model, clearsSelectionOnPopToRoot: false) { pathBinding in
+                SwiftUI.NavigationStack(path: pathBinding) {
+                    if let windowModel = windowModel,
+                       let childModel = contentModel {
+                        ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+                          .navigationDestination(for: Int.self) { destinationViewId in
+                            if let target = destinations.first(where: { $0.id == destinationViewId }) {
+                                if let targetModel = windowModel.viewModels[target.id] {
+                                   ActionUIView(element: target, model: targetModel, windowUUID: windowUUID)
+                                }
+                                else {
+                                    SwiftUI.Text("Destination \(destinationViewId) has no model")
+                                        .foregroundStyle(.red)
+                                }
+                            } else {
+                                SwiftUI.Text("Destination \(destinationViewId) not found")
                                     .foregroundStyle(.red)
                             }
-                        } else {
-                            SwiftUI.Text("Destination \(destinationViewId) not found")
-                                .foregroundStyle(.red)
                         }
                     }
                 }
@@ -222,12 +229,14 @@ struct NavigationStack: ActionUIViewConstruction {
     private struct NavigationPathContainer<Content: SwiftUI.View>: SwiftUI.View {
         @ObservedObject var model: ViewModel
         @ObservedObject var contentModel: ViewModel
+        let clearsSelectionOnPopToRoot: Bool
         @State private var path: [Int] = []
         let content: (Binding<[Int]>) -> Content
 
-        init(model: ViewModel, contentModel: ViewModel, @ViewBuilder content: @escaping (Binding<[Int]>) -> Content) {
+        init(model: ViewModel, contentModel: ViewModel, clearsSelectionOnPopToRoot: Bool = true, @ViewBuilder content: @escaping (Binding<[Int]>) -> Content) {
             self.model = model
             self.contentModel = contentModel
+            self.clearsSelectionOnPopToRoot = clearsSelectionOnPopToRoot
             self._path = State(initialValue: model.states["navigationPath"] as? [Int] ?? [])
             self.content = content
         }
@@ -236,7 +245,8 @@ struct NavigationStack: ActionUIViewConstruction {
             content($path)
                 .onChange(of: path) { oldPath, newPath in
                     // Clear selection when navigating back to root so same item can be re-selected
-                    if newPath.isEmpty && !oldPath.isEmpty {
+                    // (selectable-list pattern only; the standard branch has no selection to clear).
+                    if clearsSelectionOnPopToRoot && newPath.isEmpty && !oldPath.isEmpty {
                         DispatchQueue.main.async {
                             contentModel.value = [] as [String]
                         }
