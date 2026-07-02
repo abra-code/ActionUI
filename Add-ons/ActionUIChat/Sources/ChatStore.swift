@@ -140,6 +140,10 @@ final class ChatStore: ObservableObject {
             isStreaming = false
             fire(config.messageActionID)
 
+        case .image(let itemID, let role, let image):
+            items.append(.image(id: itemID, role: role, image: image))
+            fire(config.messageActionID)
+
         case .system(let text):
             localCounter += 1
             items.append(.system(id: "system-\(localCounter)", text: text))

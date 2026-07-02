@@ -10,6 +10,7 @@
 // and are selected by `properties.protocol`.
 
 import Foundation
+import CoreGraphics
 import ActionUI
 
 /// One wire protocol's adapter. `Sendable` so the store can drive it from async
@@ -96,6 +97,13 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             continuation.yield(.messageDelta(itemID: itemID, text: chunk))
         }
         continuation.yield(.messageEnd(itemID: itemID, stopReason: Task.isCancelled ? "cancelled" : "end_turn"))
+
+        // If the prompt asks for an image, follow the reply with a STANDALONE image element, so the local
+        // transport exercises the image path (ChatEvent.image -> ChatItem.image -> CachedImage) end to end.
+        if !Task.isCancelled, prompt.lowercased().contains("image"),
+           let image = ChatReplyContent.sampleImage(seed: itemID) {
+            continuation.yield(.image(itemID: "\(itemID)-image", role: .agent, image: image))
+        }
     }
 }
 
@@ -111,6 +119,16 @@ enum ChatReplyContent {
         default:
             return "You said: \(prompt)"
         }
+    }
+
+    /// A deterministic sample image for the demo image path (seeded so it is stable per reply). Its size is
+    /// declared, so the transcript reserves the right box and the picture hydrates without reflow.
+    static func sampleImage(seed: String) -> ChatImage? {
+        let cleaned = seed.replacingOccurrences(of: "/", with: "-")
+        guard let url = URL(string: "https://picsum.photos/seed/\(cleaned)/480/320") else {
+            return nil
+        }
+        return ChatImage(url: url, alt: "A sample image", pixelSize: CGSize(width: 480, height: 320))
     }
 
     private static func markdownShowcase(prompt: String) -> String {

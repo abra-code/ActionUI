@@ -6,11 +6,14 @@
 // identity), starts the session on appear, and tears it down on disappear. M1
 // renders the single-alignment transcript (every message leading / full-width,
 // parties distinguished by tint + role label) and a composer whose submit policy
-// is config-driven. Dual alignment, Markdown rendering, and the agentic side
-// surfaces arrive in later milestones; this view stays the same shape.
+// is config-driven. Message bodies render as Markdown through the RichText
+// component (M2). Dual alignment and the agentic side surfaces arrive in later
+// milestones; this view stays the same shape.
 
 import SwiftUI
 import ActionUI
+import RichText
+import AsyncImageCache
 
 struct ChatRootView: View {
 
@@ -62,6 +65,8 @@ struct ChatRootView: View {
         switch item {
         case .message(let message):
             MessageRow(message: message, config: config)
+        case .image(_, let role, let image):
+            ImageRow(role: role, image: image, config: config)
         case .system(_, let text):
             Text(text)
                 .font(.caption)
@@ -170,19 +175,54 @@ private struct MessageRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // Message text is rendered as Markdown (M2). A streaming row re-parses on each coalesced
-    // flush, with an open code fence balanced so it never swallows the buffer; finalized rows
-    // parse once. A streaming row with no text yet shows an ellipsis so the bubble has height.
+    // Message text is rendered as Markdown by RichText: the shared cross-platform component lays
+    // the whole message out in ONE selectable, self-sizing text view (headings, code, quotes, lists,
+    // GFM tables, inline styling, links, inline images). A streaming row re-renders on each coalesced
+    // flush; RichText's parser is streaming-safe (an unterminated span renders as literal text and
+    // an open code fence renders as a growing code block), so no pre-balancing of the buffer is needed.
+    // A streaming row with no text yet shows an ellipsis so the bubble has height.
     @ViewBuilder private var content: some View {
         if message.text.isEmpty && message.isStreaming {
             Text("\u{2026}").foregroundStyle(.secondary)
         } else {
-            MarkdownView(text: message.text, isStreaming: message.isStreaming)
+            RichText(markdown: message.text)
         }
     }
 
     private var tint: Color {
         ChatTint.color(for: config.style(for: message.role).tint)
+    }
+}
+
+// MARK: - Image row (single alignment)
+
+// A standalone image element. Rendered with CachedImage (the AsyncImageCache view): bytes come from the
+// shared memory + disk cache, decoded/scaled off the main thread; the box reserves the image's aspect up
+// front (from the transport-provided pixelSize when known) so hydration does not reflow the transcript.
+// The image is capped to a readable bubble width; maxPixelWidth bounds the decoded resolution to ~3x that.
+private struct ImageRow: View {
+    let role: ChatRole
+    let image: ChatImage
+    let config: ChatConfig
+
+    private static let maxDisplayWidth: CGFloat = 280
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if config.showRoleLabels {
+                let label = config.style(for: role).label
+                if !label.isEmpty {
+                    Text(label).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            CachedImage(url: image.url,
+                        intrinsicSize: image.pixelSize,
+                        cornerRadius: 10,
+                        maxPixelWidth: Self.maxDisplayWidth * 3)
+                .frame(maxWidth: Self.maxDisplayWidth, alignment: .leading)
+                .accessibilityLabel(image.alt.isEmpty ? Text("Image") : Text(image.alt))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

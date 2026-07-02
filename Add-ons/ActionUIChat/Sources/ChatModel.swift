@@ -14,6 +14,7 @@
 // enums; nothing here is ACP-specific.
 
 import Foundation
+import CoreGraphics
 
 /// The party a transcript item belongs to. A transport maps its own participants
 /// onto these keys; the JSON `roles` map then resolves each key to a side / label
@@ -36,19 +37,38 @@ struct ChatMessage: Identifiable, Equatable {
     var isStreaming: Bool
 }
 
+/// A standalone image transcript element. Chat splits an image and its accompanying text into SEPARATE
+/// items (a person dropping a photo with a comment, an agent returning an image block), so an image is its
+/// own element, not part of a message's `text`. `pixelSize` is the source's natural size when the transport
+/// knows it - it lets the transcript reserve exact space so the picture hydrates without reflowing the
+/// scroll position. `alt` is the accessibility / fallback description.
+struct ChatImage: Sendable, Equatable {
+    let url: URL
+    let alt: String
+    let pixelSize: CGSize?
+
+    init(url: URL, alt: String = "", pixelSize: CGSize? = nil) {
+        self.url = url
+        self.alt = alt
+        self.pixelSize = pixelSize
+    }
+}
+
 /// A heterogeneous, arrival-ordered transcript entry. M1 carries messages plus
 /// system / error notices; later milestones add `.toolCall`, `.diff`, `.thought`,
 /// etc. (routed here or to side surfaces by ChatStore's router).
 enum ChatItem: Identifiable, Equatable {
     case message(ChatMessage)
+    case image(id: String, role: ChatRole, image: ChatImage)
     case system(id: String, text: String)
     case error(id: String, text: String)
 
     var id: String {
         switch self {
-        case .message(let message): return message.id
-        case .system(let id, _):    return id
-        case .error(let id, _):     return id
+        case .message(let message):  return message.id
+        case .image(let id, _, _):   return id
+        case .system(let id, _):     return id
+        case .error(let id, _):      return id
         }
     }
 }
@@ -61,6 +81,7 @@ enum ChatEvent: Sendable {
     case messageStart(itemID: String, role: ChatRole)
     case messageDelta(itemID: String, text: String)        // streaming token(s)
     case messageEnd(itemID: String, stopReason: String?)
+    case image(itemID: String, role: ChatRole, image: ChatImage)   // a standalone image element
     case system(text: String)
     case error(message: String, recoverable: Bool)
 }

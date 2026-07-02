@@ -19,6 +19,10 @@ options:
 packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
+  RichText:
+    path: ../../../RichText   # the sibling RichText component (renders message Markdown)
+  AsyncImageCache:
+    path: ../../../AsyncImageCache   # the sibling image cache (CachedImage for image items)
 
 targets:
   ActionUIChat:
@@ -30,6 +34,12 @@ targets:
       - package: ActionUI
         product: ActionUI
         link: false       # compile-time module dependency only; host links ActionUI
+      - package: RichText
+        product: RichText
+        link: false       # compile-time module dependency only; host links RichText
+      - package: AsyncImageCache
+        product: AsyncImageCache
+        link: false       # CachedImage for image items; host links AsyncImageCache
     settings:
       base:
         SWIFT_VERSION: "6.0"

@@ -24,13 +24,17 @@ let package = Package(
         .library(name: "ActionUIChatDocumentation", targets: ["ActionUIChatDocumentation"]),
     ],
     dependencies: [
-        .package(path: "../.."),   // the ActionUI package at the repo root
+        .package(path: "../.."),                    // the ActionUI package at the repo root
+        .package(path: "../../../RichText"),    // the sibling RichText component (renders message Markdown)
+        .package(path: "../../../AsyncImageCache"), // the sibling image cache (CachedImage for image items)
     ],
     targets: [
         .target(
             name: "ActionUIChat",
             dependencies: [
                 .product(name: "ActionUI", package: "ActionUI"),
+                .product(name: "RichText", package: "RichText"),
+                .product(name: "AsyncImageCache", package: "AsyncImageCache"),  // CachedImage for image items
             ],
             path: "Sources"
         ),
@@ -46,8 +50,9 @@ let package = Package(
                 .copy("Elements"),
             ]
         ),
-        // Unit tests for the from-scratch Markdown engine (the parser + streaming helpers) and the
-        // local transport's reply content. `@testable` reaches the module's internal types.
+        // Unit tests for the `local` transport's canned reply content (the reply styles and the
+        // word-preserving streaming chunker). Message Markdown rendering is provided by the
+        // RichText dependency and covered by its own test suite. `@testable` reaches internals.
         .testTarget(
             name: "ActionUIChatTests",
             dependencies: ["ActionUIChat"],
