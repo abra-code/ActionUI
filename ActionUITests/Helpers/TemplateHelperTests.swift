@@ -76,6 +76,22 @@ final class TemplateHelperTests: XCTestCase {
         XCTAssertEqual(result, " $1") // $0 → "" (empty join), $1 has no match
     }
 
+    func testSubstituteString_multiDigitColumns_notCorruptedByLowerIndex() {
+        // Regression: the old ordered replace turned "$10"/"$11" into "<col1>0"/"<col1>1".
+        // A 12-column row must resolve $10/$11/$12 to columns 10/11/12, not $1 + a literal.
+        let row = (1...12).map { "c\($0)" } // ["c1", ..., "c12"]
+        XCTAssertEqual(TemplateHelper.substituteString("$10", row: row), "c10")
+        XCTAssertEqual(TemplateHelper.substituteString("$11", row: row), "c11")
+        XCTAssertEqual(TemplateHelper.substituteString("$12", row: row), "c12")
+        XCTAssertEqual(TemplateHelper.substituteString("$1/$10/$2/$11", row: row), "c1/c10/c2/c11")
+    }
+
+    func testSubstituteString_columnValueContainingToken_notReSubstituted() {
+        // A column whose value contains "$2" must be emitted literally (single pass).
+        let result = TemplateHelper.substituteString("$1 then $2", row: ["has $2 inside", "B"])
+        XCTAssertEqual(result, "has $2 inside then B")
+    }
+
     // MARK: - substituteProperties
 
     func testSubstituteProperties_flatDict() {
