@@ -175,6 +175,37 @@
             });
         },
 
+        // Get a NON-VISUAL config value for a view element by key (async; resolves to the
+        // value or null). Config is the element's operational settings block (the
+        // document's "config" dictionary, sibling of "properties").
+        getElementConfig: function(windowUUID, viewID, key) {
+            return new Promise(function(resolve, reject) {
+                const id = Math.random().toString(36).substring(2);
+                window.addEventListener('message', function handler(event) {
+                    if (event.data.id === id) {
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.result);
+                    }
+                });
+                window.webkit.messageHandlers.actionUI.postMessage({
+                    method: 'getElementConfig',
+                    id: id,
+                    args: [windowUUID, viewID, key]
+                });
+            });
+        },
+
+        // Set a NON-VISUAL config value for a view element by key (fire-and-forget).
+        // Stored verbatim; the element's buildView is the one consumer and checks what
+        // it reads. Canonical use: inject runtime/session-specific settings into a
+        // static document between loading it and showing it.
+        setElementConfig: function(windowUUID, viewID, key, value) {
+            window.webkit.messageHandlers.actionUI.postMessage({
+                method: 'setElementConfig',
+                args: [windowUUID, viewID, key, value]
+            });
+        },
+
         // Register action handler
         registerActionHandler: function(actionID, handlerFunction) {
             window.ActionUI.actionHandlers[actionID] = handlerFunction;

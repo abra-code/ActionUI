@@ -17,14 +17,22 @@ struct TemplateContext {
 }
 
 // Public as a type so it can appear in the public ActionUIViewConstruction signatures that
-// add-on element types implement. Only `value` and `states` are public surface; the rest of the
-// view-model machinery (validated properties, template context, refresh/insertion state) stays
-// internal, and `init()` is internal so only the engine constructs view models.
+// add-on element types implement. Only `value`, `states`, and the read side of `config`
+// are public surface; the rest of the view-model machinery (validated properties,
+// template context, refresh/insertion state) stays internal, and `init()` is internal so
+// only the engine constructs view models.
 @MainActor
 public class ViewModel: ObservableObject {
     @Published public var value: Any?
     @Published public var states: [String: Any]
     var validatedProperties: [String: Any] // Non-published cache
+    // The element's live NON-VISUAL config (see ActionUIElement's head comment): the
+    // document's "config" block, plus any runtime overrides from setElementConfig.
+    // Stored verbatim - the element's buildView is the one consumer and checks what it
+    // reads, so there is no central validation. Public read so element buildView
+    // implementations (including add-ons) can consume it; written only by the engine.
+    // Non-published like validatedProperties: mutations ring objectWillChange manually.
+    public internal(set) var config: [String: Any]
     var elementType: String // View type name (e.g. "TextField", "Slider")
     var templateContext: TemplateContext? // Set when rendering as a template instance
     var mutationToken: Int = 0 // Incremented on every external property/state/value mutation
@@ -49,6 +57,7 @@ public class ViewModel: ObservableObject {
         self.value = nil
         self.states = [:]
         self.validatedProperties = [:]
+        self.config = [:]
         self.elementType = ""
     }
 

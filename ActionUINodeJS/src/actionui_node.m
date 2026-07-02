@@ -835,6 +835,38 @@ static napi_value node_set_element_property_json(napi_env env, napi_callback_inf
     return result;
 }
 
+// MARK: - N-API: Element Config (non-visual operational settings; the document's "config" block)
+
+static napi_value node_get_element_config_json(napi_env env, napi_callback_info info) {
+    size_t argc = 3; napi_value argv[3];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128], key[256]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    int64_t viewID = 0;
+    napi_get_value_int64(env, argv[1], &viewID);
+    napi_get_value_string_utf8(env, argv[2], key, sizeof(key), &len);
+    char* json = actionUIGetElementConfigJSON(uuid, viewID, key);
+    if (json == NULL) { napi_value n; napi_get_null(env, &n); return n; }
+    napi_value result;
+    napi_create_string_utf8(env, json, NAPI_AUTO_LENGTH, &result);
+    actionUIFreeString(json);
+    return result;
+}
+
+static napi_value node_set_element_config_json(napi_env env, napi_callback_info info) {
+    size_t argc = 4; napi_value argv[4];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128], key[256], json[65536]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+    int64_t viewID = 0;
+    napi_get_value_int64(env, argv[1], &viewID);
+    napi_get_value_string_utf8(env, argv[2], key, sizeof(key), &len);
+    napi_get_value_string_utf8(env, argv[3], json, sizeof(json), &len);
+    napi_value result;
+    napi_get_boolean(env, actionUISetElementConfigJSON(uuid, viewID, key, json), &result);
+    return result;
+}
+
 // MARK: - N-API: Element State
 
 static napi_value node_get_element_state_json(napi_env env, napi_callback_info info) {
@@ -1721,6 +1753,10 @@ static napi_value Init(napi_env env, napi_value exports) {
     /* Element properties */
     EXPORT_FN(exports, "getElementPropertyJSON",   node_get_element_property_json);
     EXPORT_FN(exports, "setElementPropertyJSON",   node_set_element_property_json);
+
+    /* Element config (non-visual operational settings) */
+    EXPORT_FN(exports, "getElementConfigJSON",     node_get_element_config_json);
+    EXPORT_FN(exports, "setElementConfigJSON",     node_set_element_config_json);
 
     /* Element state */
     EXPORT_FN(exports, "getElementStateJSON",      node_get_element_state_json);

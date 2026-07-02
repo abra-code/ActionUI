@@ -677,6 +677,68 @@ public func actionUISetElementPropertyJSON(
     return true
 }
 
+// MARK: - Element Config
+
+/// Gets a NON-VISUAL config value for a view element by key, returned as a JSON string.
+/// Config is the element's operational settings block (the document's "config"
+/// dictionary, sibling of "properties") - what a complex element DOES (wire protocol,
+/// transports, data sources), as opposed to properties, which model SwiftUI modifiers.
+/// Caller must free the returned string with actionUIFreeString.
+/// Returns NULL if not found.
+@_cdecl("actionUIGetElementConfigJSON")
+public func actionUIGetElementConfigJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ key: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>? {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftKey = String(cString: key)
+
+    let value = runOnMainActorSync {
+        ActionUIModel.shared.getElementConfig(windowUUID: swiftWindowUUID, viewID: Int(viewID), key: swiftKey)
+    }
+
+    guard let value = value else {
+        return nil
+    }
+
+    guard let json = valueToJSON(value) else {
+        return nil
+    }
+
+    return actionStrdup(json)
+}
+
+/// Sets a NON-VISUAL config value for a view element from a JSON string. Stored
+/// verbatim: the element's buildView is the one consumer and checks what it reads.
+/// The canonical use is injecting runtime/session-specific settings into a static
+/// document between loading it and showing it.
+@_cdecl("actionUISetElementConfigJSON")
+public func actionUISetElementConfigJSON(
+    _ windowUUID: UnsafePointer<CChar>,
+    _ viewID: Int64,
+    _ key: UnsafePointer<CChar>,
+    _ valueJSON: UnsafePointer<CChar>
+) -> CBool {
+    clearError()
+
+    let swiftWindowUUID = String(cString: windowUUID)
+    let swiftKey = String(cString: key)
+    let swiftValueJSON = String(cString: valueJSON)
+
+    guard let value = jsonToValue(swiftValueJSON) else {
+        return false
+    }
+
+    runOnMainActorAsync {
+        ActionUIModel.shared.setElementConfig(windowUUID: swiftWindowUUID, viewID: Int(viewID), key: swiftKey, value: value)
+    }
+
+    return true
+}
+
 // MARK: - Element State Management
 
 /// Returns the current value for a single state key of a view element, as a JSON string.

@@ -178,6 +178,13 @@ def test_element_property(uuid_str):
     print("  element_property: OK")
 
 
+def test_element_config(uuid_str):
+    vid = 12
+    r = _actionui.set_element_config_json(uuid_str, vid, "transport", json.dumps({"command": ["agent"]}))
+    assert r is True
+    print("  element_config: OK")
+
+
 def test_element_state(uuid_str):
     vid = 13
     key = "counter"
@@ -207,6 +214,7 @@ def test_noop_calls(uuid_str):
     _actionui.append_element_rows_json(uuid_str, vid, "[]")
     _actionui.clear_element_rows(uuid_str, vid)
     _actionui.set_element_property_json(uuid_str, vid, "x", "{}")
+    _actionui.set_element_config_json(uuid_str, vid, "x", "{}")
     _actionui.set_element_state_json(uuid_str, vid, "x", "{}")
     _actionui.set_element_state_from_string(uuid_str, vid, "x", "x")
     assert _actionui.get_int_value(uuid_str, vid, vpid) is None
@@ -218,6 +226,7 @@ def test_noop_calls(uuid_str):
     assert _actionui.get_element_rows_json(uuid_str, vid) is None
     assert _actionui.get_element_column_count(uuid_str, vid) == 0
     assert _actionui.get_element_property_json(uuid_str, vid, "x") is None
+    assert _actionui.get_element_config_json(uuid_str, vid, "x") is None
     assert _actionui.get_element_state_json(uuid_str, vid, "x") is None
     assert _actionui.get_element_state_string(uuid_str, vid, "x") is None
     print("  noop_calls: OK")
@@ -266,6 +275,7 @@ def main():
     test_element_column_count(test_uuid)
     test_element_rows(test_uuid)
     test_element_property(test_uuid)
+    test_element_config(test_uuid)
     test_element_state(test_uuid)
     test_element_info(test_uuid)
     test_noop_calls(test_uuid)

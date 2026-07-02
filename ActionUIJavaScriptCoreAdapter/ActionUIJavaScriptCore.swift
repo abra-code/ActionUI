@@ -175,6 +175,24 @@ import AppKit
 ///   - Description: Sets a structural property value for a view element by property name.
 ///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
 ///
+/// - `getElementConfig(windowUUID, viewID, key)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The config key (e.g., "transport").
+///   - Returns: Any - The config value, or undefined if not found.
+///   - Description: Gets a NON-VISUAL config value for a view element by key. Config is the element's operational settings block (the document's "config" dictionary, sibling of "properties") - what a complex element DOES (wire protocol, transports, data sources), as opposed to properties, which model SwiftUI modifiers.
+///   - Example: `let transport = ActionUI.getElementConfig("window-12345", 1, "transport");`
+///
+/// - `setElementConfig(windowUUID, viewID, key, value)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The config key (e.g., "transport").
+///     - `value`: Any - The new config value.
+///   - Description: Sets a NON-VISUAL config value for a view element by key. Stored verbatim: the element's buildView is the one consumer and checks what it reads. The canonical use is injecting runtime/session-specific settings into a static document between loading it and showing it.
+///   - Example: `ActionUI.setElementConfig("window-12345", 1, "transport", { command: ["agent", "acp"], cwd: "/tmp" });`
+///
 /// - `presentModal(windowUUID, jsonString, format, style, onDismissActionID)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -443,6 +461,20 @@ public class ActionUIJavaScriptCore {
             ActionUIJavaScriptCore.model.setElementProperty(windowUUID: windowUUID, viewID: Int(viewID), propertyName: propertyName, value: value)
         }
         actionUIObject.setValue(setElementProperty, forProperty: "setElementProperty")
+
+        // getElementConfig(windowUUID, viewID, key) -> value
+        let getElementConfig: @convention(block) (String, Double, String) -> JSValue = { windowUUID, viewID, key in
+            let value = ActionUIJavaScriptCore.model.getElementConfig(windowUUID: windowUUID, viewID: Int(viewID), key: key)
+            return JSValue(object: value, in: self.context)
+        }
+        actionUIObject.setValue(getElementConfig, forProperty: "getElementConfig")
+
+        // setElementConfig(windowUUID, viewID, key, value)
+        let setElementConfig: @convention(block) (String, Double, String, JSValue) -> Void = { windowUUID, viewID, key, jsValue in
+            let value = jsValue.toObject() ?? NSNull()
+            ActionUIJavaScriptCore.model.setElementConfig(windowUUID: windowUUID, viewID: Int(viewID), key: key, value: value)
+        }
+        actionUIObject.setValue(setElementConfig, forProperty: "setElementConfig")
 
         // getElementInfo(windowUUID) -> {viewID: elementType, ...}
         let getElementInfo: @convention(block) (String) -> JSValue = { windowUUID in
