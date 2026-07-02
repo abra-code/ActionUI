@@ -174,6 +174,24 @@ import AppKit
 ///   - Description: Sets a structural property value for a view element by property name.
 ///   - Example: `ActionUI.setElementProperty("window-12345", 1, "disabled", true);`
 ///
+/// - `getElementConfig(windowUUID, viewID, key)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The config key (e.g., "transport").
+///   - Returns: Promise<Any> - The config value, or null if not found.
+///   - Description: Gets a NON-VISUAL config value for a view element by key. Config is the element's operational settings block (the document's "config" dictionary, sibling of "properties") - what a complex element DOES (wire protocol, transports, data sources), as opposed to properties, which model SwiftUI modifiers.
+///   - Example: `ActionUI.getElementConfig("window-12345", 1, "transport").then(val => console.log(val));`
+///
+/// - `setElementConfig(windowUUID, viewID, key, value)`
+///   - Parameters:
+///     - `windowUUID`: String - Unique identifier for the window.
+///     - `viewID`: Number - Unique identifier for the view element.
+///     - `key`: String - The config key (e.g., "transport").
+///     - `value`: Any - The new config value, serialized to JSON.
+///   - Description: Sets a NON-VISUAL config value for a view element by key. Stored verbatim: the element's buildView is the one consumer and checks what it reads. The canonical use is injecting runtime/session-specific settings into a static document between loading it and showing it.
+///   - Example: `ActionUI.setElementConfig("window-12345", 1, "transport", { command: ["agent", "acp"], cwd: "/tmp" });`
+///
 /// - `presentModal(windowUUID, jsonString, format, style, onDismissActionID)`
 ///   - Parameters:
 ///     - `windowUUID`: String - Unique identifier for the window.
@@ -687,6 +705,41 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
                 ActionUIWebKitJS.model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
             } else {
                 print("Invalid arguments for setElementProperty: \(args)")
+            }
+        case "getElementConfig":
+            if args.count == 3, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let key = args[2] as? String {
+                let value = ActionUIWebKitJS.model.getElementConfig(windowUUID: windowUUID, viewID: viewID, key: key)
+                let id = body["id"] as? String ?? ""
+                let json: String
+                if let value = value, JSONSerialization.isValidJSONObject(value) {
+                    json = (try? JSONSerialization.string(with: value)) ?? "null"
+                } else if let stringValue = value as? String {
+                    json = "\"\(stringValue.jsonEscaped)\""
+                } else if let numberValue = value as? NSNumber {
+                    json = numberValue.stringValue
+                } else if let boolValue = value as? Bool {
+                    json = boolValue ? "true" : "false"
+                } else {
+                    json = "null"
+                }
+                webView.evaluateJavaScript("window.postMessage({id: '\(id.jsonEscaped)', result: \(json)})") { _, error in
+                    if let error = error {
+                        print("getElementConfig response error: \(error)")
+                    }
+                }
+            } else {
+                print("Invalid arguments for getElementConfig: \(args)")
+            }
+        case "setElementConfig":
+            if args.count == 4, let windowUUID = args[0] as? String,
+               let viewID = numberAsInt(args[1]),
+               let key = args[2] as? String {
+                let value = args[3]
+                ActionUIWebKitJS.model.setElementConfig(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
+            } else {
+                print("Invalid arguments for setElementConfig: \(args)")
             }
         case "getElementInfo":
             if args.count == 1, let windowUUID = args[0] as? String {

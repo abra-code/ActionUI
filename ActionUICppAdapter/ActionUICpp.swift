@@ -231,6 +231,32 @@ public struct ActionUICpp {
         model.setElementProperty(windowUUID: windowUUID, viewID: viewID, propertyName: propertyName, value: value)
     }
 
+    /// Gets a NON-VISUAL config value for a view element by key. Config is the element's
+    /// operational settings block (the document's "config" dictionary, sibling of
+    /// "properties") - what a complex element DOES (wire protocol, transports, data
+    /// sources), as opposed to properties, which model SwiftUI modifiers.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The config key (e.g., "transport").
+    /// - Returns: The config value, or nil if not found.
+    @MainActor public static func getElementConfig(windowUUID: String, viewID: Int, key: String) -> Any? {
+        return model.getElementConfig(windowUUID: windowUUID, viewID: viewID, key: key)
+    }
+
+    /// Sets a NON-VISUAL config value for a view element by key. Stored verbatim: the
+    /// element's buildView is the one consumer and checks what it reads. The canonical
+    /// use is injecting runtime/session-specific settings into a static document between
+    /// loading it and showing it.
+    /// - Parameters:
+    ///   - windowUUID: Unique identifier for the window.
+    ///   - viewID: Unique identifier for the view element.
+    ///   - key: The config key (e.g., "transport").
+    ///   - value: The new config value.
+    @MainActor public static func setElementConfig(windowUUID: String, viewID: Int, key: String, value: Any) {
+        model.setElementConfig(windowUUID: windowUUID, viewID: viewID, key: key, value: value)
+    }
+
     /// Returns a dictionary mapping user-assigned (positive) view IDs to their view type strings for a given window.
     /// Auto-assigned negative IDs and ID 0 are excluded.
     /// - Parameter windowUUID: Unique identifier for the window.
