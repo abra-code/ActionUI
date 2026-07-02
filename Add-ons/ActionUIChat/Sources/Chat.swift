@@ -5,7 +5,7 @@
    "type": "Chat",
    "id": 1,                  // Required: Non-zero positive integer for runtime programmatic interaction
    "properties": {
-     "protocol": "local",                 // Optional: transport; "local" (default) echoes a scripted reply.
+     "protocol": "local",                 // Optional: transport; "local" (default) streams a scripted reply.
                                           //           "acp" / "openai-sse" / "anthropic-sse" / "custom" arrive later.
      "appearance": {                      // Optional: transcript appearance
        "alignment": "single",             //   "single" (default): leading / full-width, parties by tint + label.
@@ -22,12 +22,21 @@
        "placeholder": "Message",          //   Default "Message".
        "submitOn": "return"               //   "return" (default), "modifier-return" (Cmd+Return), "shift-return-newline".
      },
+     "surfaces": {                        // Optional: routing for agentic transport items
+       "toolCalls": "inline",             //   "inline" (default: expanded card) | "collapsed" | "hidden"
+                                          //   ("panel" arrives with the M5 side panels; it renders inline for now).
+       "thoughts": "collapsed"            //   "collapsed" (default: folded) | "inline" | "hidden"
+     },
      "transport": { "echo": true },       // Optional: protocol-specific config (validated by the chosen transport).
-                                          //           "local" honors "echo" (default true: stream a demo reply).
+                                          //           "local" honors "echo" (default true: stream a demo reply),
+                                          //           "reply" ("echo" default | "markdown" | "agentic": a scripted
+                                          //           agent turn with thoughts, tool calls, and a permission gate),
+                                          //           and "chunkMs" (demo streaming pace, default 45).
      "sendActionID": "chat.send",         // Optional: fired when the user submits a message
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
      "messageActionID": "chat.message",   // Optional: fired per finalized message (user and agent)
-     "errorActionID": "chat.error"        // Optional: fired on a transport / parse error
+     "errorActionID": "chat.error",       // Optional: fired on a transport / parse error
+     "approveToolActionID": "chat.tool.approve" // Optional: fired when an agent requests tool permission
    }
  }
 
@@ -36,13 +45,17 @@
  element pre-filters its stream so chat text lands in the transcript. The element is GENERIC: the same
  element backs AI-agent chat and person-to-person chat - the transport and appearance differ, not the view.
 
- M1 (this version): the "local" transport (a scripted echo backend) and a single-alignment transcript
- with plain-text streaming - append, stream deltas, finalize - plus auto-scroll. Streaming Markdown, the
- ACP transport, dual alignment, and the agentic side surfaces (tool calls, plans, permissions) arrive in
- later milestones (see Private/chat-element-design.md).
+ Landed so far: the "local" transport and single-alignment transcript (M1); streaming Markdown message
+ bodies plus standalone image items (M2); and the agentic surfaces (M3, this version) - streamed
+ reasoning folded behind a "Thoughts" disclosure, tool-call cards that mutate in place through their
+ pending / in-progress / completed / failed lifecycle, and a permission gate that pins an approval card
+ above the composer and pauses input until answered ("surfaces" routes each of these; the local
+ transport's "agentic" reply style demonstrates them all). The ACP wire transport, dual alignment, and
+ the side panels (plans, terminals, diff viewer) arrive in later milestones
+ (see Private/chat-element-design.md).
 
  Observable state: the element manages its own transcript model internally (no single scalar value), so
- it does not expose getElementValue / setElementValue in M1; host interaction is via the action IDs above.
+ it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.
 
  Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
  cornerRadius, actionID, disabled, onAppearActionID, onDisappearActionID, etc.) are inherited from base View.

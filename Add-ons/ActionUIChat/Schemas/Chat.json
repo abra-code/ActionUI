@@ -1,6 +1,6 @@
 {
   "type": "Chat",
-  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected by the protocol property. M1: the local transport (a scripted echo backend) and a single-alignment, plain-text streaming transcript. Streaming Markdown, the ACP transport, dual alignment, and agentic side surfaces arrive in later milestones.",
+  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected by the protocol property. Landed: the local transport with a single-alignment transcript (M1), streaming Markdown and image items (M2), and the agentic surfaces - thoughts, tool-call cards, permission approvals - routed by the surfaces property (M3). The ACP wire transport, dual alignment, and side panels arrive in later milestones.",
   "id": { "policy": "optional" },
   "inheritsViewProperties": true,
   "topLevelKeys": [],
@@ -36,15 +36,25 @@
         "submitOn":    { "types": ["string"],  "required": false, "enum": ["return", "modifier-return", "shift-return-newline"], "description": "Submit policy; default return" }
       }
     },
+    "surfaces": {
+      "types": ["object"],
+      "required": false,
+      "description": "Routing for agentic transport items (only transports that emit them are affected)",
+      "properties": {
+        "toolCalls": { "types": ["string"], "required": false, "enum": ["inline", "collapsed", "hidden", "panel"], "description": "Tool-call cards: inline (default: expanded card), collapsed (detail folded), hidden (dropped). panel arrives with the M5 side panels and renders inline for now" },
+        "thoughts":  { "types": ["string"], "required": false, "enum": ["inline", "collapsed", "hidden", "panel"], "description": "Streamed reasoning: collapsed (default: folded behind a disclosure), inline (expanded), hidden (dropped). panel arrives with the M5 side panels and renders inline for now" }
+      }
+    },
     "transport": {
       "types": ["object"],
       "required": false,
-      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true)."
+      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true: stream a demo reply), reply (string: echo default, markdown, or agentic - a scripted agent turn with thoughts, tool calls, and a permission gate), and chunkMs (integer: demo streaming pace, default 45)."
     },
     "sendActionID":    { "types": ["string"], "required": false, "description": "Fired when the user submits a message" },
     "stopActionID":    { "types": ["string"], "required": false, "description": "Fired when the user cancels an in-flight turn" },
     "messageActionID": { "types": ["string"], "required": false, "description": "Fired per finalized message (user and agent)" },
-    "errorActionID":   { "types": ["string"], "required": false, "description": "Fired on a transport / parse error" }
+    "errorActionID":   { "types": ["string"], "required": false, "description": "Fired on a transport / parse error" },
+    "approveToolActionID": { "types": ["string"], "required": false, "description": "Fired when an agent requests permission for a tool call (the request queues an approval card in the element)" }
   },
   "observable": {}
 }

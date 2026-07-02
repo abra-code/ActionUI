@@ -33,6 +33,9 @@ struct ActionUIAddOnTestApp: App {
         ActionUISwift.registerActionHandler(actionID: "chat.message") { _, _, viewID, _, _ in
             print("[Chat] message finalized in element \(viewID)")
         }
+        ActionUISwift.registerActionHandler(actionID: "chat.tool.approve") { _, _, viewID, _, _ in
+            print("[Chat] agent requested tool permission in element \(viewID)")
+        }
     }
 
     var body: some Scene {

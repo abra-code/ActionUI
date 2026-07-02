@@ -3,12 +3,16 @@
 // The SwiftUI surface for one `Chat` element: a transcript above a composer.
 //
 // Owns the @StateObject ChatStore (so the store's lifetime follows the view's
-// identity), starts the session on appear, and tears it down on disappear. M1
-// renders the single-alignment transcript (every message leading / full-width,
-// parties distinguished by tint + role label) and a composer whose submit policy
-// is config-driven. Message bodies render as Markdown through the RichText
-// component (M2). Dual alignment and the agentic side surfaces arrive in later
-// milestones; this view stays the same shape.
+// identity), starts the session on appear, and tears it down on disappear. Renders
+// the single-alignment transcript (every message leading / full-width, parties
+// distinguished by tint + role label) and a composer whose submit policy is
+// config-driven. Message bodies render as Markdown through the RichText component
+// (M2). Agentic surfaces (M3) are transcript rows too: thoughts fold behind a
+// disclosure, tool calls are status cards that mutate in place, and a pending
+// permission request pins an approval card above the composer (an inline gate,
+// not a window-modal sheet, so an embedded element never takes over the host
+// window). Dual alignment and the M5 side panels arrive in later milestones;
+// this view stays the same shape.
 
 import SwiftUI
 import ActionUI
@@ -31,11 +35,22 @@ struct ChatRootView: View {
     var body: some View {
         VStack(spacing: 0) {
             transcript
+            if let request = store.pendingPermissions.first {
+                Divider()
+                PermissionCard(request: request) { optionID in
+                    store.respondToPermission(request.id, optionID: optionID)
+                }
+            }
             Divider()
             composer
         }
         .onAppear { store.start() }
         .onDisappear { store.teardown() }
+    }
+
+    /// While an approval is pending, the composer input pauses (the Stop control stays live).
+    private var permissionPending: Bool {
+        !store.pendingPermissions.isEmpty
     }
 
     // MARK: - Transcript
@@ -65,6 +80,10 @@ struct ChatRootView: View {
         switch item {
         case .message(let message):
             MessageRow(message: message, config: config)
+        case .thought(let thought):
+            ThoughtRow(thought: thought, initiallyExpanded: config.surfaces.thoughts != .collapsed)
+        case .toolCall(let call):
+            ToolCallRow(call: call, initiallyExpanded: config.surfaces.toolCalls != .collapsed)
         case .image(_, let role, let image):
             ImageRow(role: role, image: image, config: config)
         case .system(_, let text):
@@ -108,7 +127,7 @@ struct ChatRootView: View {
             Image(systemName: "arrow.up.circle.fill").imageScale(.large)
         }
         .help("Send")
-        .disabled(store.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(store.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || permissionPending)
 
         // modifier-return: the multiline editor consumes plain Return (newline), so the Send button
         // submits on Cmd+Return. return / shift-return-newline: the single-line field's onSubmit
@@ -124,11 +143,13 @@ struct ChatRootView: View {
     private var inputField: some View {
         if config.submitOn == .modifierReturn {
             multilineField
+                .disabled(permissionPending)
         } else {
             // Single-line composer: Return submits via onSubmit.
             TextField(config.placeholder, text: $store.draft)
                 .textFieldStyle(.plain)
                 .onSubmit { store.submitDraft() }
+                .disabled(permissionPending)
         }
     }
 
@@ -191,6 +212,198 @@ private struct MessageRow: View {
 
     private var tint: Color {
         ChatTint.color(for: config.style(for: message.role).tint)
+    }
+}
+
+// MARK: - Thought row (agentic reasoning)
+
+// A streamed reasoning item, visually distinct from answer text: folded behind a small
+// disclosure (per surfaces.thoughts; "collapsed" is the default), secondary styling.
+// The label reads "Thinking..." while the thought streams and "Thoughts" once closed.
+private struct ThoughtRow: View {
+    let thought: ChatMessage
+    @State private var expanded: Bool
+
+    init(thought: ChatMessage, initiallyExpanded: Bool) {
+        self.thought = thought
+        _expanded = State(initialValue: initiallyExpanded)
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            Group {
+                if thought.text.isEmpty && thought.isStreaming {
+                    Text("\u{2026}").foregroundStyle(.secondary)
+                } else {
+                    RichText(markdown: thought.text).opacity(0.75)
+                }
+            }
+            .padding(.top, 4)
+        } label: {
+            Label(thought.isStreaming ? "Thinking\u{2026}" : "Thoughts", systemImage: "brain")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Tool-call card (agentic)
+
+// One tool invocation: a kind icon, the title, a status indicator, and - when the call
+// carries content, a diff, or raw input / output - a disclosure with the detail. The
+// card mutates in place as tool_call_update events arrive (same item id). Diffs render
+// as a monospaced preview of the new text in M3; the side-by-side viewer is an M5 surface.
+private struct ToolCallRow: View {
+    let call: ToolCallModel
+    @State private var expanded: Bool
+
+    init(call: ToolCallModel, initiallyExpanded: Bool) {
+        self.call = call
+        _expanded = State(initialValue: initiallyExpanded)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            header
+            if expanded && hasDetail {
+                detail
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.15)))
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: kindIcon)
+                .foregroundStyle(.secondary)
+            Text(call.title)
+                .font(.callout.weight(.medium))
+                .lineLimit(2)
+            if hasDetail {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(expanded ? .degrees(90) : .zero)
+            }
+            Spacer(minLength: 8)
+            status
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if hasDetail {
+                withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        if !call.contentText.isEmpty {
+            RichText(markdown: call.contentText)
+        }
+        if let diff = call.diff {
+            Text(diff.path)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            codeBlock(diff.newText)
+        }
+        if let rawInput = call.rawInput {
+            labeledCode("Input", rawInput)
+        }
+        if let rawOutput = call.rawOutput {
+            labeledCode("Output", rawOutput)
+        }
+    }
+
+    private var hasDetail: Bool {
+        !call.contentText.isEmpty || call.diff != nil || call.rawInput != nil || call.rawOutput != nil
+    }
+
+    @ViewBuilder
+    private func labeledCode(_ title: String, _ text: String) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+        codeBlock(text)
+    }
+
+    private func codeBlock(_ text: String) -> some View {
+        Text(text)
+            .font(.system(.caption, design: .monospaced))
+            .textSelection(.enabled)
+            .padding(6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var kindIcon: String {
+        switch call.kind {
+        case .read:     return "doc.text"
+        case .edit:     return "pencil"
+        case .delete:   return "trash"
+        case .move:     return "folder"
+        case .search:   return "magnifyingglass"
+        case .execute:  return "terminal"
+        case .think:    return "brain"
+        case .fetch:    return "network"
+        case .other:    return "wrench.and.screwdriver"
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        switch call.status {
+        case .pending:
+            Image(systemName: "clock")
+                .foregroundStyle(.secondary)
+        case .inProgress:
+            ProgressView()
+                .controlSize(.small)
+        case .completed:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case .failed:
+            Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.red)
+        }
+    }
+}
+
+// MARK: - Permission card (agentic approval gate)
+
+// The head of the pending-permission queue, pinned between the transcript and the
+// composer: the agent's question plus one button per agent-offered option (allow
+// variants prominent, reject variants bordered). An inline gate rather than a
+// window-modal sheet so an embedded Chat element never takes over the host window;
+// the composer input pauses while a request is pending.
+private struct PermissionCard: View {
+    let request: PermissionRequest
+    let respond: (String?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(request.title, systemImage: "lock.shield")
+                .font(.callout.weight(.medium))
+            HStack(spacing: 8) {
+                ForEach(request.options) { option in
+                    if option.kind.allows {
+                        Button(option.name) { respond(option.id) }
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        Button(option.name, role: .destructive) { respond(option.id) }
+                            .buttonStyle(.bordered)
+                    }
+                }
+            }
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.secondary.opacity(0.08))
     }
 }
 

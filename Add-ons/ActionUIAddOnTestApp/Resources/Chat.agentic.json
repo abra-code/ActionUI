@@ -1,0 +1,26 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Chat - agentic demo (send anything; the agent thinks, runs tool calls, and asks permission before editing):", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 83,
+      "properties": {
+        "protocol": "local",
+        "appearance": { "alignment": "single", "showRoleLabels": true },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "agent": { "label": "Agent", "tint": "secondary" }
+        },
+        "input": { "enabled": true, "placeholder": "Ask the agent to change something", "submitOn": "return" },
+        "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
+        "transport": { "reply": "agentic" },
+        "sendActionID": "chat.send",
+        "messageActionID": "chat.message",
+        "approveToolActionID": "chat.tool.approve",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

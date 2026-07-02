@@ -6,12 +6,13 @@
 //   - the normalized outbound: ChatCommand (what the UI sends a transport)
 //
 // The ChatEvent / ChatCommand vocabularies are a SUPERSET shaped by the richest
-// transport (ACP); a simpler transport emits only a subset. This M1 file defines
-// the subset the `local` transport and the single-alignment transcript need -
-// plain message lifecycle plus system / error notices. Richer events (tool-call
-// cards, plans, permission requests, diffs, terminals) arrive with the ACP
-// transport (Private/chat-element-design.md, milestones M3 / M5) and extend these
-// enums; nothing here is ACP-specific.
+// transport (ACP); a simpler transport emits only a subset. M1 defined the plain
+// message lifecycle plus system / error notices; M3 adds the agentic vocabulary -
+// reasoning (thoughts), tool-call cards, and permission requests - shaped 1:1
+// after ACP's session/update payloads so the ACP transport maps directly, but
+// still transport-agnostic (the scripted local transport emits them too). Plans,
+// terminals, and slash commands arrive with the M5 side panels
+// (Private/chat-element-design.md).
 
 import Foundation
 import CoreGraphics
@@ -54,11 +55,107 @@ struct ChatImage: Sendable, Equatable {
     }
 }
 
+/// A tool invocation surfaced by an agentic transport, rendered as a card in the
+/// transcript. The shape mirrors ACP's `tool_call` payload (kind / status vocabularies
+/// are ACP's) so the ACP transport maps 1:1, but nothing here is wire-specific - the
+/// scripted local transport builds these too. `contentText` is the call's textual
+/// content (Markdown, joined across content blocks); `diff` and the raw input / output
+/// are optional detail the card can disclose.
+struct ToolCallModel: Identifiable, Equatable, Sendable {
+
+    /// What the call does; drives the card icon. ACP's `kind` vocabulary.
+    enum Kind: String, Sendable {
+        case read, edit, delete, move, search, execute, think, fetch, other
+    }
+
+    /// Lifecycle state; drives the card's status indicator. ACP's `status` vocabulary.
+    enum Status: String, Sendable {
+        case pending
+        case inProgress = "in_progress"
+        case completed
+        case failed
+    }
+
+    let id: String
+    var title: String
+    var kind: Kind
+    var status: Status
+    var contentText: String
+    var diff: ToolCallDiff?
+    var rawInput: String?      // pretty-printed JSON, when the transport provides it
+    var rawOutput: String?
+}
+
+/// A proposed or applied file change carried inside a tool call's content
+/// (ACP's `diff` ToolCallContent). Rendered as a code preview in M3; a real
+/// side-by-side diff viewer is an M5 surface.
+struct ToolCallDiff: Equatable, Sendable {
+    let path: String
+    let oldText: String?
+    let newText: String
+}
+
+/// A partial mutation of an existing tool call (ACP's `tool_call_update`):
+/// only non-nil fields change on the card.
+struct ToolCallUpdate: Sendable {
+    let id: String
+    var title: String?
+    var kind: ToolCallModel.Kind?
+    var status: ToolCallModel.Status?
+    var contentText: String?
+    var diff: ToolCallDiff?
+    var rawInput: String?
+    var rawOutput: String?
+
+    init(id: String, title: String? = nil, kind: ToolCallModel.Kind? = nil,
+         status: ToolCallModel.Status? = nil, contentText: String? = nil,
+         diff: ToolCallDiff? = nil, rawInput: String? = nil, rawOutput: String? = nil) {
+        self.id = id
+        self.title = title
+        self.kind = kind
+        self.status = status
+        self.contentText = contentText
+        self.diff = diff
+        self.rawInput = rawInput
+        self.rawOutput = rawOutput
+    }
+}
+
+/// An agent's request to run a gated tool call (ACP's `session/request_permission`).
+/// The UI blocks the call until the user picks one of the agent-offered options (or
+/// the turn is cancelled); the option kinds are ACP's standard four.
+struct PermissionRequest: Identifiable, Equatable, Sendable {
+
+    struct Option: Identifiable, Equatable, Sendable {
+        enum Kind: String, Sendable {
+            case allowOnce = "allow_once"
+            case allowAlways = "allow_always"
+            case rejectOnce = "reject_once"
+            case rejectAlways = "reject_always"
+
+            var allows: Bool {
+                self == .allowOnce || self == .allowAlways
+            }
+        }
+        let id: String        // the wire optionId, echoed back in the response
+        let name: String
+        let kind: Kind
+    }
+
+    let id: String            // the request ID, echoed back in the response
+    let toolCallID: String?   // the gated call, when the transport correlates one
+    let title: String
+    let options: [Option]
+}
+
 /// A heterogeneous, arrival-ordered transcript entry. M1 carries messages plus
-/// system / error notices; later milestones add `.toolCall`, `.diff`, `.thought`,
-/// etc. (routed here or to side surfaces by ChatStore's router).
+/// system / error notices; M3 adds thoughts (reasoning, `ChatMessage`-shaped but
+/// visually folded) and tool-call cards. Plan / terminal panels are M5 side
+/// surfaces and live outside the transcript.
 enum ChatItem: Identifiable, Equatable {
     case message(ChatMessage)
+    case thought(ChatMessage)
+    case toolCall(ToolCallModel)
     case image(id: String, role: ChatRole, image: ChatImage)
     case system(id: String, text: String)
     case error(id: String, text: String)
@@ -66,6 +163,8 @@ enum ChatItem: Identifiable, Equatable {
     var id: String {
         switch self {
         case .message(let message):  return message.id
+        case .thought(let thought):  return thought.id
+        case .toolCall(let call):    return call.id
         case .image(let id, _, _):   return id
         case .system(let id, _):     return id
         case .error(let id, _):      return id
@@ -74,22 +173,29 @@ enum ChatItem: Identifiable, Equatable {
 }
 
 /// Normalized inbound event a transport emits. Transport-agnostic: the `local`
-/// transport emits only the message-lifecycle and system / error cases; a future
-/// ACP transport emits the same cases for chat text and adds richer ones.
+/// transport emits the message lifecycle (plus the agentic cases in its scripted
+/// "agentic" demo style); the ACP transport emits the full vocabulary.
 enum ChatEvent: Sendable {
     case sessionReady(sessionID: String)
     case messageStart(itemID: String, role: ChatRole)
     case messageDelta(itemID: String, text: String)        // streaming token(s)
     case messageEnd(itemID: String, stopReason: String?)
+    case thoughtDelta(itemID: String, text: String)        // streaming reasoning; no explicit start/end,
+                                                           // a thought closes when another item begins
+    case toolCall(ToolCallModel)                           // a new tool invocation
+    case toolCallUpdate(ToolCallUpdate)                    // mutate that card in place
+    case permissionRequest(PermissionRequest)              // blocks the gated call until answered
     case image(itemID: String, role: ChatRole, image: ChatImage)   // a standalone image element
     case system(text: String)
     case error(message: String, recoverable: Bool)
 }
 
-/// Normalized outbound command the UI hands a transport. M1 sends a plain-text
-/// user turn and a cancel; attachments (ContentBlock[]) and the richer commands
-/// (permission responses, mode changes) arrive with later milestones.
+/// Normalized outbound command the UI hands a transport. A plain-text user turn,
+/// a cancel, and the answer to a pending permission request (`optionID` nil means
+/// the request was dismissed / the turn cancelled - ACP's `cancelled` outcome).
+/// Attachments (ContentBlock[]) and mode changes arrive with later milestones.
 enum ChatCommand: Sendable {
     case prompt(text: String)
     case cancel
+    case permissionResponse(requestID: String, optionID: String?)
 }

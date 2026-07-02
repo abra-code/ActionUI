@@ -24,33 +24,40 @@ protocol ChatTransport: AnyObject, Sendable {
 }
 
 /// The `local` transport: no wire. It is the simplest scripted demo / person-to-person
-/// backend - the "Tier A" path made first-class. In M1 it ECHOES: each submitted prompt
-/// produces an agent reply streamed back word-by-word, which proves the element
+/// backend - the "Tier A" path made first-class. Each submitted prompt produces a
+/// scripted agent reply streamed back chunk-by-chunk, which proves the element
 /// end-to-end (append -> stream deltas -> finalize, auto-scroll, role styling) with zero
-/// protocol risk. A host that wants to drive the transcript itself (rather than echo)
-/// will get a push API here in a later milestone; `echo` (config, default true) gates the
-/// demo reply.
+/// protocol risk. The `reply` style selects the script: "echo" repeats the prompt,
+/// "markdown" streams a Markdown showcase (M2), and "agentic" runs a scripted agent
+/// turn - thoughts, tool-call cards, a permission gate, then a final answer - so the
+/// agentic surfaces are exercised before any wire transport exists (M3). A host that
+/// wants to drive the transcript itself will get a push API in a later milestone;
+/// `echo` (config, default true) gates the demo reply.
 ///
-/// `@unchecked Sendable`: the only mutable state (the reply counter and the in-flight
-/// reply task) is guarded by `lock`; `events` / `continuation` / `echo` are immutable and
-/// the AsyncStream continuation is itself thread-safe to yield from any context.
+/// `@unchecked Sendable`: the only mutable state (the reply counter, the in-flight
+/// reply task, and the pending permission continuation) is guarded by `lock`;
+/// `events` / `continuation` / config values are immutable and the AsyncStream
+/// continuation is itself thread-safe to yield from any context.
 final class LocalChatTransport: ChatTransport, @unchecked Sendable {
 
     let events: AsyncStream<ChatEvent>
     private let continuation: AsyncStream<ChatEvent>.Continuation
     private let echo: Bool
-    private let replyStyle: String          // "echo" (default) | "markdown"
+    private let replyStyle: String          // "echo" (default) | "markdown" | "agentic"
+    private let chunkDelay: UInt64          // nanoseconds between streamed chunks
     private let lock = NSLock()
     private var replyCounter = 0
     private var replyTask: Task<Void, Never>?
+    private var pendingPermission: (requestID: String, continuation: CheckedContinuation<String?, Never>)?
 
     // A non-throwing init satisfies the throwing protocol requirement; the local
     // transport never fails to construct. `logger` is accepted for protocol conformance
-    // but unused. `reply` selects the demo content: "echo" repeats the prompt; "markdown"
-    // streams a Markdown showcase (used by the M2 streaming-Markdown demo).
+    // but unused. `chunkMs` (default 45) paces the demo streaming; tests set it to 0.
     init(config: [String: Any], logger: any ActionUILogger) {
         self.echo = (config["echo"] as? Bool) ?? true
         self.replyStyle = (config["reply"] as? String) ?? "echo"
+        let chunkMs = (config["chunkMs"] as? Int) ?? 45
+        self.chunkDelay = UInt64(max(0, chunkMs)) * 1_000_000
         var captured: AsyncStream<ChatEvent>.Continuation!
         self.events = AsyncStream(bufferingPolicy: .unbounded) { captured = $0 }
         self.continuation = captured
@@ -68,13 +75,29 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
                 replyCounter += 1
                 return "agent-\(replyCounter)"
             }
+            let agentic = replyStyle == "agentic"
             let task = Task { [weak self] in
                 guard let self else { return }
-                await self.streamEcho(itemID: itemID, prompt: text)
+                if agentic {
+                    await self.streamAgentic(itemID: itemID, prompt: text)
+                } else {
+                    await self.streamEcho(itemID: itemID, prompt: text)
+                }
             }
             lock.withLock { replyTask = task }
+
         case .cancel:
             lock.withLock { replyTask }?.cancel()
+
+        case .permissionResponse(let requestID, let optionID):
+            let resumable = lock.withLock { () -> CheckedContinuation<String?, Never>? in
+                guard let pending = pendingPermission, pending.requestID == requestID else {
+                    return nil
+                }
+                pendingPermission = nil
+                return pending.continuation
+            }
+            resumable?.resume(returning: optionID)
         }
     }
 
@@ -89,11 +112,7 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
     private func streamEcho(itemID: String, prompt: String) async {
         continuation.yield(.messageStart(itemID: itemID, role: .agent))
         let reply = ChatReplyContent.make(style: replyStyle, prompt: prompt)
-        for chunk in ChatReplyContent.streamingChunks(reply) {
-            if Task.isCancelled {
-                break
-            }
-            try? await Task.sleep(nanoseconds: 45_000_000)   // ~45 ms/chunk
+        await streamChunks(of: reply) { chunk in
             continuation.yield(.messageDelta(itemID: itemID, text: chunk))
         }
         continuation.yield(.messageEnd(itemID: itemID, stopReason: Task.isCancelled ? "cancelled" : "end_turn"))
@@ -105,12 +124,170 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             continuation.yield(.image(itemID: "\(itemID)-image", role: .agent, image: image))
         }
     }
+
+    /// The scripted agent turn: a thought stream, a completed search tool call, an edit
+    /// tool call gated by a permission request, then a streamed Markdown summary. It
+    /// exercises every M3 event so the router / cards / approval UI run end-to-end with
+    /// no wire protocol. The shape intentionally mirrors what an ACP agent produces.
+    private func streamAgentic(itemID: String, prompt: String) async {
+        // 1. Reasoning streams first, like an agent thinking before acting.
+        let thoughtID = "\(itemID)-thought"
+        await streamChunks(of: ChatReplyContent.agenticThought(prompt: prompt)) { chunk in
+            continuation.yield(.thoughtDelta(itemID: thoughtID, text: chunk))
+        }
+
+        // 2. A read-only tool call that runs unprompted: pending -> in_progress -> completed.
+        let searchID = "\(itemID)-tool-search"
+        continuation.yield(.toolCall(ToolCallModel(
+            id: searchID, title: "Search the workspace for greetings", kind: .search,
+            status: .pending, contentText: "", diff: nil,
+            rawInput: "{ \"query\": \"greeting\" }", rawOutput: nil)))
+        await pause()
+        continuation.yield(.toolCallUpdate(ToolCallUpdate(id: searchID, status: .inProgress)))
+        await pause()
+        continuation.yield(.toolCallUpdate(ToolCallUpdate(
+            id: searchID, status: .completed,
+            contentText: "Found `greet(_:)` in `Sources/Greeting.swift` (2 call sites).",
+            rawOutput: "{ \"matches\": 2 }")))
+
+        // 3. A mutating tool call, gated by a permission request (the ACP
+        //    session/request_permission flow): the card appears pending, the request
+        //    blocks until the user picks an option or the turn is cancelled.
+        let editID = "\(itemID)-tool-edit"
+        continuation.yield(.toolCall(ToolCallModel(
+            id: editID, title: "Edit Sources/Greeting.swift", kind: .edit,
+            status: .pending, contentText: "",
+            diff: ChatReplyContent.agenticDiff(), rawInput: nil, rawOutput: nil)))
+        let requestID = "\(itemID)-permission"
+        continuation.yield(.permissionRequest(PermissionRequest(
+            id: requestID, toolCallID: editID,
+            title: "Allow the agent to edit Sources/Greeting.swift?",
+            options: [
+                PermissionRequest.Option(id: "allow-once", name: "Allow once", kind: .allowOnce),
+                PermissionRequest.Option(id: "allow-always", name: "Always allow", kind: .allowAlways),
+                PermissionRequest.Option(id: "reject-once", name: "Reject", kind: .rejectOnce),
+            ])))
+        let optionID = await awaitPermission(requestID: requestID)
+        if Task.isCancelled {
+            continuation.yield(.toolCallUpdate(ToolCallUpdate(id: editID, status: .failed)))
+            continuation.yield(.messageEnd(itemID: itemID, stopReason: "cancelled"))
+            return
+        }
+        let allowed = optionID == "allow-once" || optionID == "allow-always"
+        if allowed {
+            continuation.yield(.toolCallUpdate(ToolCallUpdate(id: editID, status: .inProgress)))
+            await pause()
+            continuation.yield(.toolCallUpdate(ToolCallUpdate(
+                id: editID, status: .completed,
+                contentText: "Applied the change to `Sources/Greeting.swift`.")))
+        } else {
+            continuation.yield(.toolCallUpdate(ToolCallUpdate(id: editID, status: .failed)))
+        }
+
+        // 4. The final assistant answer, streamed as Markdown.
+        continuation.yield(.messageStart(itemID: itemID, role: .agent))
+        await streamChunks(of: ChatReplyContent.agenticSummary(allowed: allowed)) { chunk in
+            continuation.yield(.messageDelta(itemID: itemID, text: chunk))
+        }
+        continuation.yield(.messageEnd(itemID: itemID, stopReason: Task.isCancelled ? "cancelled" : "end_turn"))
+    }
+
+    /// Parks the scripted turn until the UI answers the permission request (via
+    /// `.permissionResponse`) or the turn is cancelled. Returns the chosen option ID,
+    /// or nil when cancelled / dismissed. Registration and resumption both go through
+    /// `lock`, and the cancellation handler resumes-with-nil exactly once (whichever of
+    /// registration-after-cancel or cancel-after-registration happens, the continuation
+    /// is taken out of `pendingPermission` before resuming).
+    private func awaitPermission(requestID: String) async -> String? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (checked: CheckedContinuation<String?, Never>) in
+                let alreadyCancelled = lock.withLock { () -> Bool in
+                    if Task.isCancelled {
+                        return true
+                    }
+                    pendingPermission = (requestID, checked)
+                    return false
+                }
+                if alreadyCancelled {
+                    checked.resume(returning: nil)
+                }
+            }
+        } onCancel: {
+            let resumable = lock.withLock { () -> CheckedContinuation<String?, Never>? in
+                let pending = pendingPermission?.continuation
+                pendingPermission = nil
+                return pending
+            }
+            resumable?.resume(returning: nil)
+        }
+    }
+
+    /// Streams `text` chunk-by-chunk through `emit`, pacing by `chunkMs` and honoring
+    /// cancellation between chunks.
+    private func streamChunks(of text: String, emit: (String) -> Void) async {
+        for chunk in ChatReplyContent.streamingChunks(text) {
+            if Task.isCancelled {
+                return
+            }
+            await pause()
+            emit(chunk)
+        }
+    }
+
+    /// One scripted-pacing beat (`chunkMs`); a no-op at 0 so tests run instantly.
+    private func pause() async {
+        if chunkDelay > 0 {
+            try? await Task.sleep(nanoseconds: chunkDelay)
+        }
+    }
 }
 
 /// Canned reply content for the local transport. `echo` repeats the prompt; `markdown` returns a
 /// showcase that exercises the M2 Markdown renderer (headings, emphasis, code, lists, a quote, a
-/// table, a rule) and embeds the prompt as a quote.
+/// table, a rule) and embeds the prompt as a quote. The `agentic` pieces script the M3 demo turn
+/// (a thought, a diff, a summary); the turn's structure lives in the transport.
 enum ChatReplyContent {
+
+    /// The scripted reasoning stream for the agentic demo.
+    static func agenticThought(prompt: String) -> String {
+        let oneLine = prompt.replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return """
+        The user asked: "\(oneLine)". I should search the workspace first to see what \
+        is there, then propose a small edit. The edit needs approval before it runs.
+        """
+    }
+
+    /// The scripted file change the gated edit tool call proposes.
+    static func agenticDiff() -> ToolCallDiff {
+        ToolCallDiff(
+            path: "Sources/Greeting.swift",
+            oldText: "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)!\"\n}",
+            newText: "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)! Welcome back.\"\n}"
+        )
+    }
+
+    /// The final streamed answer for the agentic demo turn.
+    static func agenticSummary(allowed: Bool) -> String {
+        if allowed {
+            return """
+            Done. I searched the workspace, found `greet(_:)` in `Sources/Greeting.swift`, \
+            and applied the approved edit:
+
+            ```swift
+            func greet(_ name: String) -> String {
+                return "Hello, \\(name)! Welcome back."
+            }
+            ```
+
+            Both call sites pick the new greeting up unchanged.
+            """
+        }
+        return """
+        Understood - I did not apply the edit. The search results are still in the \
+        tool card above if you want to revisit; nothing in the workspace was changed.
+        """
+    }
 
     static func make(style: String, prompt: String) -> String {
         switch style {

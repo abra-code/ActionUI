@@ -1,0 +1,198 @@
+// Add-ons/ActionUIChat/Tests/ChatAgenticTests.swift
+//
+// Unit tests for the M3 agentic layer: the store's router reductions (tool-call
+// cards mutating in place, thoughts closing when the next item begins, the
+// permission queue lifecycle, hidden-surface dropping), the `surfaces` config
+// parsing / validation, and the local transport's scripted "agentic" turn -
+// including the permission gate's allow, reject, and cancel paths. The scripted
+// turn is the same event sequence an ACP agent produces, so these tests pin the
+// contract the ACP transport (next change) maps onto.
+
+import XCTest
+@testable import ActionUIChat
+import ActionUI
+
+private final class TestLogger: ActionUILogger {
+    func log(_ message: String, _ level: LoggerLevel) {}
+}
+
+// MARK: - Router reductions
+
+@MainActor
+final class ChatRouterTests: XCTestCase {
+
+    private func makeStore(properties: [String: Any] = [:]) -> ChatStore {
+        let logger = TestLogger()
+        return ChatStore(config: ChatConfig(properties, logger), windowUUID: "test-window",
+                         elementID: 1, logger: logger)
+    }
+
+    private func makeToolCall(id: String = "t1", status: ToolCallModel.Status = .pending) -> ToolCallModel {
+        ToolCallModel(id: id, title: "Read a file", kind: .read, status: status,
+                      contentText: "", diff: nil, rawInput: nil, rawOutput: nil)
+    }
+
+    private func makePermission(id: String = "p1") -> PermissionRequest {
+        PermissionRequest(id: id, toolCallID: "t1", title: "Allow?", options: [
+            PermissionRequest.Option(id: "allow-once", name: "Allow once", kind: .allowOnce),
+            PermissionRequest.Option(id: "reject-once", name: "Reject", kind: .rejectOnce),
+        ])
+    }
+
+    func testToolCallUpdateMutatesCardInPlace() {
+        let store = makeStore()
+        store.route(.toolCall(makeToolCall()))
+        store.route(.toolCallUpdate(ToolCallUpdate(id: "t1", status: .completed, contentText: "done")))
+        XCTAssertEqual(store.items.count, 1, "an update must not append a new item")
+        guard case .toolCall(let call) = store.items[0] else {
+            return XCTFail("expected a tool-call item")
+        }
+        XCTAssertEqual(call.status, .completed)
+        XCTAssertEqual(call.contentText, "done")
+        XCTAssertEqual(call.title, "Read a file", "fields absent from the update must be preserved")
+        XCTAssertEqual(call.kind, .read)
+    }
+
+    func testThoughtClosesWhenNextItemBegins() {
+        let store = makeStore()
+        store.route(.thoughtDelta(itemID: "th1", text: "let me "))
+        store.route(.thoughtDelta(itemID: "th1", text: "think"))
+        store.route(.messageStart(itemID: "m1", role: .agent))
+        guard case .thought(let thought) = store.items[0] else {
+            return XCTFail("expected a thought item first")
+        }
+        XCTAssertEqual(thought.text, "let me think", "buffered deltas must be applied on close")
+        XCTAssertFalse(thought.isStreaming)
+        XCTAssertEqual(store.items.count, 2)
+    }
+
+    func testPermissionQueueLifecycle() {
+        let store = makeStore()
+        store.route(.permissionRequest(makePermission()))
+        XCTAssertEqual(store.pendingPermissions.map(\.id), ["p1"])
+        XCTAssertTrue(store.isStreaming, "an in-flight permission means the turn is in flight")
+        store.respondToPermission("p1", optionID: "allow-once")
+        XCTAssertTrue(store.pendingPermissions.isEmpty, "answering must dequeue the request")
+    }
+
+    func testTurnEndAbandonsPendingPermissions() {
+        let store = makeStore()
+        store.route(.permissionRequest(makePermission()))
+        store.route(.messageEnd(itemID: "m1", stopReason: "cancelled"))
+        XCTAssertTrue(store.pendingPermissions.isEmpty, "a cancelled turn moots its permission requests")
+        XCTAssertFalse(store.isStreaming)
+    }
+
+    func testHiddenSurfacesDropAgenticItems() {
+        let store = makeStore(properties: ["surfaces": ["toolCalls": "hidden", "thoughts": "hidden"]])
+        store.route(.thoughtDelta(itemID: "th1", text: "hidden"))
+        store.route(.toolCall(makeToolCall()))
+        store.route(.toolCallUpdate(ToolCallUpdate(id: "t1", status: .completed)))
+        XCTAssertTrue(store.items.isEmpty, "hidden surfaces must drop their items entirely")
+    }
+}
+
+// MARK: - Surfaces config
+
+final class ChatSurfacesConfigTests: XCTestCase {
+
+    func testSurfacesDefaults() {
+        let config = ChatConfig([:], TestLogger())
+        XCTAssertEqual(config.surfaces.toolCalls, .inline)
+        XCTAssertEqual(config.surfaces.thoughts, .collapsed)
+        XCTAssertNil(config.approveToolActionID)
+    }
+
+    func testSurfacesParse() {
+        let config = ChatConfig([
+            "surfaces": ["thoughts": "hidden"],
+            "approveToolActionID": "chat.tool.approve",
+        ], TestLogger())
+        XCTAssertEqual(config.surfaces.thoughts, .hidden)
+        XCTAssertEqual(config.surfaces.toolCalls, .inline, "an absent surface keeps its default")
+        XCTAssertEqual(config.approveToolActionID, "chat.tool.approve")
+    }
+
+    func testValidateDropsUnknownSurfaceKeysAndModes() {
+        let validated = ChatConfig.validate([
+            "surfaces": ["bogus": "inline", "thoughts": "sideways", "toolCalls": "collapsed"],
+        ], TestLogger())
+        let surfaces = validated["surfaces"] as? [String: Any]
+        XCTAssertNil(surfaces?["bogus"], "unknown surface keys must be dropped")
+        XCTAssertNil(surfaces?["thoughts"], "unknown surface modes must be dropped")
+        XCTAssertEqual(surfaces?["toolCalls"] as? String, "collapsed")
+    }
+}
+
+// MARK: - Scripted agentic transport turn
+
+final class ChatAgenticTransportTests: XCTestCase {
+
+    /// Drives one scripted agentic turn to completion, answering the permission request
+    /// with `answer` (an option ID, or nil to cancel the whole turn at the gate).
+    /// Returns the collected evidence for assertions.
+    private func runTurn(answer: String?) async -> (
+        sawThought: Bool, statuses: [String: ToolCallModel.Status], finalText: String, stopReason: String?
+    ) {
+        let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
+        await transport.start()
+        await transport.send(.prompt(text: "please tweak the greeting"))
+        var sawThought = false
+        var statuses: [String: ToolCallModel.Status] = [:]
+        var finalText = ""
+        var stopReason: String?
+        for await event in transport.events {
+            switch event {
+            case .thoughtDelta:
+                sawThought = true
+            case .toolCall(let call):
+                statuses[call.id] = call.status
+            case .toolCallUpdate(let update):
+                if let status = update.status {
+                    statuses[update.id] = status
+                }
+            case .permissionRequest(let request):
+                if let answer {
+                    await transport.send(.permissionResponse(requestID: request.id, optionID: answer))
+                } else {
+                    await transport.send(.cancel)
+                }
+            case .messageDelta(_, let text):
+                finalText += text
+            case .messageEnd(_, let reason):
+                stopReason = reason
+            default:
+                break
+            }
+            if stopReason != nil {
+                break
+            }
+        }
+        await transport.stop()
+        return (sawThought, statuses, finalText, stopReason)
+    }
+
+    func testAgenticTurnAllowed() async {
+        let turn = await runTurn(answer: "allow-once")
+        XCTAssertTrue(turn.sawThought, "the turn must stream reasoning first")
+        XCTAssertEqual(turn.stopReason, "end_turn")
+        XCTAssertEqual(turn.statuses.count, 2, "expected the search and edit tool calls")
+        XCTAssertTrue(turn.statuses.values.allSatisfy { $0 == .completed }, "both calls complete when allowed")
+        XCTAssertTrue(turn.finalText.contains("applied the approved edit"), "the summary must reflect the approval")
+    }
+
+    func testAgenticTurnRejected() async {
+        let turn = await runTurn(answer: "reject-once")
+        XCTAssertEqual(turn.stopReason, "end_turn", "a rejection still ends the turn normally")
+        XCTAssertEqual(turn.statuses.values.filter { $0 == .failed }.count, 1, "the gated edit must fail")
+        XCTAssertEqual(turn.statuses.values.filter { $0 == .completed }.count, 1, "the ungated search still completes")
+        XCTAssertTrue(turn.finalText.contains("did not apply"), "the summary must reflect the rejection")
+    }
+
+    func testAgenticTurnCancelledAtTheGate() async {
+        let turn = await runTurn(answer: nil)
+        XCTAssertEqual(turn.stopReason, "cancelled")
+        XCTAssertEqual(turn.statuses.values.filter { $0 == .failed }.count, 1, "the gated edit is abandoned")
+        XCTAssertTrue(turn.finalText.isEmpty, "no summary streams after a cancel at the gate")
+    }
+}
