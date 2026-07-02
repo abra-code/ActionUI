@@ -49,6 +49,7 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var connection: ACPConnection?
     private var sessionID: String?
+    private var sessionOptions: [SessionConfigOption] = []   // retained for the setter's fallback mapping
     private var promptTask: Task<Void, Never>?
 
     // Segmentation state (see the header): the currently-open transcript items.
@@ -138,9 +139,12 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
                 guard let sessionID = session["sessionId"] as? String else {
                     throw ACPConnectionError(code: nil, message: "session/new returned no sessionId")
                 }
-                lock.withLock { self.sessionID = sessionID }
-                eventSink.yield(.sessionReady(sessionID: sessionID,
-                                              configOptions: Self.parseConfigOptions(session)))
+                let options = Self.parseConfigOptions(session)
+                lock.withLock {
+                    self.sessionID = sessionID
+                    self.sessionOptions = options
+                }
+                eventSink.yield(.sessionReady(sessionID: sessionID, configOptions: options))
             } catch {
                 // A common session/new failure is an agent that requires auth first; name
                 // the advertised methods so that case is actionable (auth UX is a later
@@ -179,6 +183,62 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
         case .permissionResponse(let requestID, let optionID):
             let continuation = lock.withLock { pendingPermissions.removeValue(forKey: requestID) }
             continuation?.resume(returning: optionID)
+
+        case .setConfigOption(let optionID, let value):
+            await performSetConfigOption(optionID: optionID, value: value)
+        }
+    }
+
+    /// Changes a session option. The primary method is the generic
+    /// session/set_config_option { sessionId, configId, type: "select", value }, whose
+    /// result carries the REFRESHED configOptions list (verified live against
+    /// OpenCode); an agent that lacks it (-32601) gets the spec-sketched per-category
+    /// fallbacks (session/set_mode / session/set_model), whose confirmation is the
+    /// agent's own current_mode_update notification - no synthetic events, so the
+    /// display never claims a change the agent did not confirm.
+    private func performSetConfigOption(optionID: String, value: String) async {
+        let (connection, sessionID) = lock.withLock { (self.connection, self.sessionID) }
+        guard let connection, let sessionID else {
+            return
+        }
+        do {
+            let result = try await connection.request("session/set_config_option", [
+                "sessionId": sessionID,
+                "configId": optionID,
+                "type": "select",
+                "value": value,
+            ])
+            let refreshed = Self.parseConfigOptions(result)
+            if !refreshed.isEmpty {
+                lock.withLock { sessionOptions = refreshed }
+                eventSink.yield(.configOptionsChanged(refreshed))
+            }
+        } catch let error as ACPConnectionError where error.code == -32601 {
+            let option = lock.withLock { sessionOptions.first(where: { $0.id == optionID }) }
+            guard let fallback = Self.fallbackSetter(for: option) else {
+                logger.log("ACP: agent offers no setter for option '\(optionID)'", .warning)
+                return
+            }
+            do {
+                _ = try await connection.request(fallback.method, ["sessionId": sessionID, fallback.paramKey: value])
+            } catch {
+                eventSink.yield(.system(text: "Could not change \(optionID): \(error)"))
+            }
+        } catch {
+            eventSink.yield(.system(text: "Could not change \(optionID): \(error)"))
+        }
+    }
+
+    /// The spec-sketched per-category setters, used when the generic method is absent.
+    /// Internal for tests.
+    static func fallbackSetter(for option: SessionConfigOption?) -> (method: String, paramKey: String)? {
+        switch option?.category ?? option?.id {
+        case "mode":
+            return (method: "session/set_mode", paramKey: "modeId")
+        case "model":
+            return (method: "session/set_model", paramKey: "modelId")
+        default:
+            return nil
         }
     }
 

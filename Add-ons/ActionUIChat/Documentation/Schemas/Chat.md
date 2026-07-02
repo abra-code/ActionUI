@@ -73,13 +73,15 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
 // those same surfaces, with session/request_permission wired to the approval card and Stop wired to
 // session/cancel. And the first M5 session-status surfaces: the agent's evolving plan pinned above the
 // transcript (routed by surfaces.plan; ACP `plan`), plus a status line under the composer showing the
-// session's model / mode (from the agent's session-start options; read-only for now) and token / cost
-// usage (ACP `usage_update`) - the local transport's "agentic" reply style demos all of it with no
-// agent installed. Plus the composer's slash-command menu: when a transport advertises commands (ACP
+// session's model / mode and token / cost usage (ACP `usage_update`) - the local transport's "agentic"
+// reply style demos all of it with no agent installed. The model / mode entries are MENUS when the
+// agent offers choices: selecting sends session/set_config_option (with the spec's session/set_mode /
+// set_model as fallbacks) and the display updates on the agent's confirmation, never optimistically.
+// Plus the composer's slash-command menu: when a transport advertises commands (ACP
 // `available_commands_update`), typing "/" lists and filters them and a tap fills the draft - the
 // command still sends as ordinary prompt text for the agent to interpret. The SSE transports, dual
-// alignment, and the remaining M5 surfaces (interactive mode selector, diff viewer, terminals,
-// multi-session) arrive in later milestones (see Private/chat-element-design.md).
+// alignment, and the remaining M5 surfaces (diff viewer, terminals, multi-session) arrive in later
+// milestones (see Private/chat-element-design.md).
 //
 // Observable state: the element manages its own transcript model internally (no single scalar value), so
 // it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.

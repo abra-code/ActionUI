@@ -95,6 +95,15 @@ final class ChatStore: ObservableObject {
         Task { await transport?.send(.cancel) }
     }
 
+    /// Changes a session option (mode / model / ...) from the status-line menus.
+    /// Deliberately NOT optimistic: the display updates when the transport confirms
+    /// (.configOptionsChanged, or the agent's own current_mode_update), so a failed
+    /// change never needs a revert.
+    func setConfigOption(_ optionID: String, value: String) {
+        let transport = self.transport
+        Task { await transport?.send(.setConfigOption(optionID: optionID, value: value)) }
+    }
+
     /// Answers a pending permission request. `optionID` is one of the request's
     /// option IDs, or nil for a dismissal (the cancelled outcome). Dequeues the
     /// request and forwards the response to the transport, which unblocks (or
@@ -250,6 +259,10 @@ final class ChatStore: ObservableObject {
         case .commandsAvailable(let commands):
             // The agent re-emits its WHOLE command set as it changes: replace, never merge.
             availableCommands = commands
+
+        case .configOptionsChanged(let options):
+            // A setter's confirmation: the refreshed option set replaces the display.
+            configOptions = options
 
         case .image(let itemID, let role, let image):
             items.append(.image(id: itemID, role: role, image: image))

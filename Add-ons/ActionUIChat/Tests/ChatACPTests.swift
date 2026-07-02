@@ -224,6 +224,18 @@ final class ACPParsingTests: XCTestCase {
         XCTAssertEqual(entries.map(\.id), [0, 1, 2], "identity is positional")
     }
 
+    func testFallbackSetterMapping() {
+        let mode = SessionConfigOption(id: "session-mode", name: "Mode", category: "mode", currentValue: "b", options: [])
+        XCTAssertEqual(ACPChatTransport.fallbackSetter(for: mode)?.method, "session/set_mode")
+        XCTAssertEqual(ACPChatTransport.fallbackSetter(for: mode)?.paramKey, "modeId")
+        let model = SessionConfigOption(id: "model", name: "Model", category: nil, currentValue: "m", options: [])
+        XCTAssertEqual(ACPChatTransport.fallbackSetter(for: model)?.method, "session/set_model",
+                       "the option id stands in when no category is given")
+        let other = SessionConfigOption(id: "verbosity", name: "V", category: nil, currentValue: "x", options: [])
+        XCTAssertNil(ACPChatTransport.fallbackSetter(for: other), "no spec fallback for agent-specific options")
+        XCTAssertNil(ACPChatTransport.fallbackSetter(for: nil))
+    }
+
     func testParseCommands() {
         // The shape OpenCode emits (captured live).
         let commands = ACPChatTransport.parseCommands([
@@ -470,6 +482,8 @@ final class ACPFakeAgentTests: XCTestCase {
         *'"method":"session/prompt"'*)
           printf '%s\\n' '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"fake-session","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Hi!"}}}}'
           printf '%s\\n' '{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}' ;;
+        *'"method":"session/set_config_option"'*)
+          printf '%s\\n' '{"jsonrpc":"2.0","id":3,"result":{"configOptions":[{"id":"mode","name":"Mode","category":"mode","type":"select","currentValue":"plan","options":[{"value":"build","name":"build"},{"value":"plan","name":"plan"}]}]}}' ;;
       esac
     done
     """
@@ -519,6 +533,41 @@ final class ACPFakeAgentTests: XCTestCase {
         await transport.stop()
 
         XCTAssertEqual(log, ["ready:fake-session", "start:agent", "delta:Hi!", "end:end_turn"])
+    }
+
+    // The setter round trip through the real pipes: session/set_config_option's result
+    // carries the refreshed option list (the OpenCode behavior, verified live), which
+    // must surface as .configOptionsChanged. (In this sequence the setter is the third
+    // request, so the fake agent's hardcoded response id 3 matches.)
+    func testSetConfigOptionAgainstFakeAgent() async throws {
+        let scriptURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("actionui-chat-fake-acp-agent-\(UUID().uuidString).sh")
+        try Self.fakeAgentScript.write(to: scriptURL, atomically: true, encoding: .utf8)
+        defer {
+            try? FileManager.default.removeItem(at: scriptURL)
+        }
+
+        let transport = try ACPChatTransport(
+            config: ["command": ["/bin/sh", scriptURL.path], "cwd": "~"],
+            logger: ACPTestLogger()
+        )
+        await transport.start()
+        await transport.send(.setConfigOption(optionID: "mode", value: "plan"))
+
+        var confirmed: [SessionConfigOption] = []
+        for await event in transport.events {
+            if case .configOptionsChanged(let options) = event {
+                confirmed = options
+                break
+            }
+            if case .error(let message, _) = event {
+                XCTFail("unexpected error: \(message)")
+                break
+            }
+        }
+        await transport.stop()
+
+        XCTAssertEqual(confirmed.first(where: { $0.id == "mode" })?.currentValue, "plan")
     }
 }
 

@@ -49,6 +49,7 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
     private var replyCounter = 0
     private var replyTask: Task<Void, Never>?
     private var pendingPermission: (requestID: String, continuation: CheckedContinuation<String?, Never>)?
+    private var sessionOptions: [SessionConfigOption] = []   // the agentic demo's mode/model state
 
     // A non-throwing init satisfies the throwing protocol requirement; the local
     // transport never fails to construct. `logger` is accepted for protocol conformance
@@ -76,6 +77,7 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
                                               .init(value: "plan", name: "plan", description: "Read-only planning mode.")]),
             ]
         }
+        lock.withLock { sessionOptions = options }
         continuation.yield(.sessionReady(sessionID: "local", configOptions: options))
         if replyStyle == "agentic" {
             // Demo slash commands for the composer menu (typing "/" filters them);
@@ -119,6 +121,21 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
                 return pending.continuation
             }
             resumable?.resume(returning: optionID)
+
+        case .setConfigOption(let optionID, let value):
+            // The demo round trip: accept a valid choice and confirm with the refreshed
+            // option set, exactly like an ACP agent answering set_config_option.
+            let refreshed = lock.withLock { () -> [SessionConfigOption]? in
+                guard let index = sessionOptions.firstIndex(where: { $0.id == optionID }),
+                      sessionOptions[index].options.contains(where: { $0.value == value }) else {
+                    return nil
+                }
+                sessionOptions[index].currentValue = value
+                return sessionOptions
+            }
+            if let refreshed {
+                continuation.yield(.configOptionsChanged(refreshed))
+            }
         }
     }
 

@@ -117,6 +117,22 @@ final class ChatRouterTests: XCTestCase {
         XCTAssertEqual(store.usage?.costAmount, 0.01)
     }
 
+    func testConfigOptionsChangedReplacesTheDisplay() {
+        let store = makeStore()
+        store.route(.sessionReady(sessionID: "s1", configOptions: [
+            SessionConfigOption(id: "mode", name: "Mode", category: "mode", currentValue: "build",
+                                options: [.init(value: "build", name: "build", description: nil),
+                                          .init(value: "plan", name: "plan", description: nil)]),
+        ]))
+        store.route(.configOptionsChanged([
+            SessionConfigOption(id: "mode", name: "Mode", category: "mode", currentValue: "plan",
+                                options: [.init(value: "build", name: "build", description: nil),
+                                          .init(value: "plan", name: "plan", description: nil)]),
+        ]))
+        XCTAssertEqual(store.configOptions.first?.currentValue, "plan",
+                       "a setter confirmation refreshes the whole option set")
+    }
+
     func testCommandsAvailableReplacesWholesale() {
         let store = makeStore()
         store.route(.commandsAvailable([SlashCommand(name: "review", description: "Review changes"),
@@ -337,6 +353,23 @@ final class ChatAgenticTransportTests: XCTestCase {
         await transport.stop()
         XCTAssertEqual(commands.map(\.name), ["review", "test", "commit"],
                        "the agentic demo advertises commands right after sessionReady")
+    }
+
+    func testSetConfigOptionRoundTrip() async {
+        let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
+        await transport.start()
+        await transport.send(.setConfigOption(optionID: "mode", value: "bogus"))   // not a choice: no confirmation
+        await transport.send(.setConfigOption(optionID: "mode", value: "plan"))    // valid: confirmed
+        var confirmed: [SessionConfigOption] = []
+        for await event in transport.events {
+            if case .configOptionsChanged(let options) = event {
+                confirmed = options
+                break
+            }
+        }
+        await transport.stop()
+        XCTAssertEqual(confirmed.first(where: { $0.id == "mode" })?.currentValue, "plan",
+                       "only the valid choice is confirmed; the display never sees the bogus one")
     }
 
     func testAgenticTurnCancelledAtTheGate() async {

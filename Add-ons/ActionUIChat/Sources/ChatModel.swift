@@ -250,17 +250,20 @@ enum ChatEvent: Sendable {
     case usage(UsageInfo)                                  // token / cost status (latest wins)
     case currentModeChanged(modeID: String)                // ACP current_mode_update; updates the mode option
     case commandsAvailable([SlashCommand])                 // the agent's WHOLE current command set (replace)
+    case configOptionsChanged([SessionConfigOption])       // the refreshed option set (a setter's confirmation)
     case image(itemID: String, role: ChatRole, image: ChatImage)   // a standalone image element
     case system(text: String)
     case error(message: String, recoverable: Bool)
 }
 
 /// Normalized outbound command the UI hands a transport. A plain-text user turn,
-/// a cancel, and the answer to a pending permission request (`optionID` nil means
-/// the request was dismissed / the turn cancelled - ACP's `cancelled` outcome).
-/// Attachments (ContentBlock[]) and mode changes arrive with later milestones.
+/// a cancel, the answer to a pending permission request (`optionID` nil means
+/// the request was dismissed / the turn cancelled - ACP's `cancelled` outcome),
+/// and a session-option change from the status-line menus (mode / model / ...).
+/// Attachments (ContentBlock[]) arrive with later milestones.
 enum ChatCommand: Sendable {
     case prompt(text: String)
     case cancel
     case permissionResponse(requestID: String, optionID: String?)
+    case setConfigOption(optionID: String, value: String)
 }

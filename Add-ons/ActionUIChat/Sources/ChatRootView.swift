@@ -56,7 +56,9 @@ struct ChatRootView: View {
             composer
             if store.usage != nil || !store.configOptions.isEmpty {
                 Divider()
-                SessionStatusBar(usage: store.usage, options: store.configOptions)
+                SessionStatusBar(usage: store.usage, options: store.configOptions) { optionID, value in
+                    store.setConfigOption(optionID, value: value)
+                }
             }
         }
         .onAppear { store.start() }
@@ -391,19 +393,45 @@ private struct PlanPanel: View {
 
 // MARK: - Session status bar (agentic, M5)
 
-// A thin status line under the composer: the session's current model / mode (from the
-// agent's session-start config options; read-only in this milestone - the interactive
-// selector is M5 part 3) and token / cost usage when the agent reports it.
+// A thin status line under the composer: the session's model / mode (from the agent's
+// session-start config options) and token / cost usage when the agent reports it. An
+// option with several choices is a menu - selecting sends .setConfigOption, and the
+// display updates when the transport confirms (never optimistically, so a failed
+// change needs no revert). Single-choice options render as plain text.
 private struct SessionStatusBar: View {
     let usage: UsageInfo?
     let options: [SessionConfigOption]
+    let select: (String, String) -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             ForEach(options) { option in
-                Text("\(option.name): \(option.currentChoiceName ?? option.currentValue)")
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                if option.options.count > 1 {
+                    Menu {
+                        ForEach(option.options, id: \.value) { choice in
+                            Button {
+                                select(option.id, choice.value)
+                            } label: {
+                                if choice.value == option.currentValue {
+                                    Label(choice.name, systemImage: "checkmark")
+                                } else {
+                                    Text(choice.name)
+                                }
+                            }
+                        }
+                    } label: {
+                        Text("\(option.name): \(option.currentChoiceName ?? option.currentValue)")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.borderless)
+                    .fixedSize()
+                } else {
+                    Text("\(option.name): \(option.currentChoiceName ?? option.currentValue)")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
             Spacer()
             if let usage {
