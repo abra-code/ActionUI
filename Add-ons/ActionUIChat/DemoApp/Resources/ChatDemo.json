@@ -1,0 +1,24 @@
+{
+  "type": "Chat",
+  "id": 1,
+  "properties": {
+    "protocol": "acp",
+    "appearance": { "alignment": "single", "showRoleLabels": true },
+    "roles": {
+      "local": { "label": "You", "tint": "accent" },
+      "agent": { "label": "Agent", "tint": "secondary" }
+    },
+    "input": { "enabled": true, "placeholder": "Ask the agent (Cmd+Return sends)", "submitOn": "modifier-return" },
+    "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
+    "transport": {
+      "command": ["opencode", "acp"],
+      "cwd": "~"
+    },
+    "sendActionID": "chat.send",
+    "stopActionID": "chat.stop",
+    "messageActionID": "chat.message",
+    "errorActionID": "chat.error",
+    "approveToolActionID": "chat.tool.approve",
+    "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+  }
+}
