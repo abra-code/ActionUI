@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.ActionUI
 import com.abracode.actionui.Common.ActionUIModel
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -56,7 +57,7 @@ class MainActivity : ComponentActivity() {
         }
         // The result shows just the number; its unit is the adjacent "To" picker.
         val out = convert(n, from, to)
-        ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 40, value = "%.2f".format(out))
+        ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 40, value = String.format(Locale.US, "%.2f", out))
     }
 
     // Convert through Celsius as the common pivot.

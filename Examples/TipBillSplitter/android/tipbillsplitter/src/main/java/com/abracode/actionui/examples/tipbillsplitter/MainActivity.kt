@@ -24,9 +24,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.ActionUI
 import com.abracode.actionui.Common.ActionUIModel
+import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -48,6 +50,12 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     // (1) Load + render the shared JSON from assets.
                     ActionUI.RenderAsset(assetPath = "TipBillSplitter.json", modifier = Modifier.fillMaxSize())
+
+                    // Seed the outputs from the JSON's initial input values once the UI
+                    // has loaded, mirroring the Apple/web hosts that recompute() at
+                    // launch. Android is single-window, so the window is addressed by
+                    // the default empty windowUUID.
+                    LaunchedEffect(Unit) { TipBillSplitter.recompute("") }
                 }
             }
         }
@@ -98,6 +106,8 @@ private object TipBillSplitter {
 
     private fun currency(value: Double): String {
         val v = if (value.isFinite()) value else 0.0
-        return "$%.2f".format(v)
+        // Pin period-decimal output (Locale.US) so the currency string matches the
+        // Apple/web hosts regardless of the device's default locale.
+        return String.format(Locale.US, "$%.2f", v)
     }
 }

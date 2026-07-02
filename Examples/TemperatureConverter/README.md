@@ -131,8 +131,8 @@ big app (SharedCare) ever hit it.
 
 The **web** target is fully smoke-tested (served, all assets 200, packaged build
 verified symlink-free). The **Apple** (iOS + macOS) and **Android** project files are
-written to standard specs; the Apple project still needs `xcodegen generate` run once
-(XcodeGen was not installed in the authoring environment), and the Android Gradle
+written to standard specs; the Apple `.xcodeproj` is committed (regenerate with
+`xcodegen generate` only after editing `project.yml`), and the Android Gradle
 sync fix (assets `srcDir`) is applied but a full device build was not run here. Expect
 at most minor version-pin tweaks on first open. The shared JSON validates against the
 ActionUI verifier.
