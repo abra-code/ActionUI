@@ -77,6 +77,15 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             ]
         }
         continuation.yield(.sessionReady(sessionID: "local", configOptions: options))
+        if replyStyle == "agentic" {
+            // Demo slash commands for the composer menu (typing "/" filters them);
+            // selecting one just fills the draft - commands send as ordinary prompt text.
+            continuation.yield(.commandsAvailable([
+                SlashCommand(name: "review", description: "Review the current changes"),
+                SlashCommand(name: "test", description: "Run the test suite"),
+                SlashCommand(name: "commit", description: "Draft a commit message"),
+            ]))
+        }
     }
 
     func send(_ command: ChatCommand) async {

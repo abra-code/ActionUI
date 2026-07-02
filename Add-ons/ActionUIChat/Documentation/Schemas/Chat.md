@@ -75,9 +75,11 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
 // transcript (routed by surfaces.plan; ACP `plan`), plus a status line under the composer showing the
 // session's model / mode (from the agent's session-start options; read-only for now) and token / cost
 // usage (ACP `usage_update`) - the local transport's "agentic" reply style demos all of it with no
-// agent installed. The SSE transports, dual alignment, and the remaining M5 surfaces (slash-command
-// menu, interactive mode selector, diff viewer, terminals, multi-session) arrive in later milestones
-// (see Private/chat-element-design.md).
+// agent installed. Plus the composer's slash-command menu: when a transport advertises commands (ACP
+// `available_commands_update`), typing "/" lists and filters them and a tap fills the draft - the
+// command still sends as ordinary prompt text for the agent to interpret. The SSE transports, dual
+// alignment, and the remaining M5 surfaces (interactive mode selector, diff viewer, terminals,
+// multi-session) arrive in later milestones (see Private/chat-element-design.md).
 //
 // Observable state: the element manages its own transcript model internally (no single scalar value), so
 // it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.

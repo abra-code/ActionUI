@@ -28,6 +28,7 @@ final class ChatStore: ObservableObject {
     @Published private(set) var plan: [PlanEntry] = []    // the agent's current plan (whole-list replace)
     @Published private(set) var usage: UsageInfo?         // latest token/cost status, when the agent reports it
     @Published private(set) var configOptions: [SessionConfigOption] = []   // model/mode/... advertised at session start
+    @Published private(set) var availableCommands: [SlashCommand] = []      // the agent's slash commands (composer menu)
     @Published var draft: String = ""                     // composer text
 
     let config: ChatConfig
@@ -245,6 +246,10 @@ final class ChatStore: ObservableObject {
                 return
             }
             configOptions[index].currentValue = modeID
+
+        case .commandsAvailable(let commands):
+            // The agent re-emits its WHOLE command set as it changes: replace, never merge.
+            availableCommands = commands
 
         case .image(let itemID, let role, let image):
             items.append(.image(id: itemID, role: role, image: image))

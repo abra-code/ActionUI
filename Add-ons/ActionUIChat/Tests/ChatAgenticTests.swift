@@ -117,6 +117,16 @@ final class ChatRouterTests: XCTestCase {
         XCTAssertEqual(store.usage?.costAmount, 0.01)
     }
 
+    func testCommandsAvailableReplacesWholesale() {
+        let store = makeStore()
+        store.route(.commandsAvailable([SlashCommand(name: "review", description: "Review changes"),
+                                        SlashCommand(name: "test", description: "Run tests")]))
+        store.route(.commandsAvailable([SlashCommand(name: "commit", description: "Draft a commit")]))
+        XCTAssertEqual(store.availableCommands.map(\.name), ["commit"],
+                       "each command update replaces the whole set, never merges")
+        XCTAssertTrue(store.items.isEmpty, "commands feed the composer menu, not the transcript")
+    }
+
     func testSessionReadyStoresOptionsAndModeChangeUpdatesThem() {
         let store = makeStore()
         store.route(.sessionReady(sessionID: "s1", configOptions: [
@@ -189,6 +199,36 @@ final class ChatSurfacesConfigTests: XCTestCase {
         XCTAssertNil(surfaces?["bogus"], "unknown surface keys must be dropped")
         XCTAssertNil(surfaces?["thoughts"], "unknown surface modes must be dropped")
         XCTAssertEqual(surfaces?["toolCalls"] as? String, "collapsed")
+    }
+}
+
+// MARK: - Slash-command menu matching
+
+final class SlashCommandMenuTests: XCTestCase {
+
+    private let commands = [
+        SlashCommand(name: "review", description: "Review changes"),
+        SlashCommand(name: "test", description: "Run tests"),
+        SlashCommand(name: "revert", description: "Revert a change"),
+    ]
+
+    func testBareSlashListsEverything() {
+        XCTAssertEqual(SlashCommandMenu.matches(draft: "/", commands: commands).count, 3)
+    }
+
+    func testPrefixFiltersCaseInsensitively() {
+        XCTAssertEqual(SlashCommandMenu.matches(draft: "/RE", commands: commands).map(\.name),
+                       ["review", "revert"])
+    }
+
+    func testMenuClosesOnceTheCommandTokenIsComplete() {
+        XCTAssertTrue(SlashCommandMenu.matches(draft: "/review ", commands: commands).isEmpty,
+                      "whitespace ends the command token; the user is typing arguments")
+    }
+
+    func testInactiveWithoutLeadingSlashOrCommands() {
+        XCTAssertTrue(SlashCommandMenu.matches(draft: "review", commands: commands).isEmpty)
+        XCTAssertTrue(SlashCommandMenu.matches(draft: "/re", commands: []).isEmpty)
     }
 }
 
@@ -282,6 +322,21 @@ final class ChatAgenticTransportTests: XCTestCase {
         XCTAssertEqual(turn.statuses.values.filter { $0 == .failed }.count, 1, "the gated edit must fail")
         XCTAssertEqual(turn.statuses.values.filter { $0 == .completed }.count, 1, "the ungated search still completes")
         XCTAssertTrue(turn.finalText.contains("did not apply"), "the summary must reflect the rejection")
+    }
+
+    func testAgenticAdvertisesSlashCommands() async {
+        let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
+        await transport.start()
+        var commands: [SlashCommand] = []
+        for await event in transport.events {
+            if case .commandsAvailable(let advertised) = event {
+                commands = advertised
+                break
+            }
+        }
+        await transport.stop()
+        XCTAssertEqual(commands.map(\.name), ["review", "test", "commit"],
+                       "the agentic demo advertises commands right after sessionReady")
     }
 
     func testAgenticTurnCancelledAtTheGate() async {

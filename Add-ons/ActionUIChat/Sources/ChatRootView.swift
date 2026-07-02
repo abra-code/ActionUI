@@ -45,6 +45,13 @@ struct ChatRootView: View {
                     store.respondToPermission(request.id, optionID: optionID)
                 }
             }
+            let commandMatches = SlashCommandMenu.matches(draft: store.draft, commands: store.availableCommands)
+            if !commandMatches.isEmpty {
+                Divider()
+                SlashCommandMenuView(matches: commandMatches) { command in
+                    store.draft = "/\(command.name) "
+                }
+            }
             Divider()
             composer
             if store.usage != nil || !store.configOptions.isEmpty {
@@ -253,6 +260,71 @@ private struct ThoughtRow: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Slash-command menu (agentic, M5)
+
+/// The composer's slash-command menu model: active while the draft is a lone, partial
+/// first token beginning with "/" (no whitespace typed yet) and an advertised command
+/// name has that prefix. "/" alone lists everything. Internal (not private) so tests
+/// can pin the matching.
+enum SlashCommandMenu {
+    static func matches(draft: String, commands: [SlashCommand]) -> [SlashCommand] {
+        guard !commands.isEmpty, draft.hasPrefix("/") else {
+            return []
+        }
+        let token = draft.dropFirst()
+        guard !token.contains(where: \.isWhitespace) else {
+            return []
+        }
+        let prefix = token.lowercased()
+        return commands.filter { $0.name.lowercased().hasPrefix(prefix) }
+    }
+}
+
+// The menu itself: pinned between the transcript and the composer while matches exist
+// (mirroring the permission card's placement). Selection fills the draft with
+// "/name " - the command still sends as ordinary prompt text. Tap-driven for now;
+// keyboard navigation (arrows + Tab) is a later refinement.
+private struct SlashCommandMenuView: View {
+    let matches: [SlashCommand]
+    let select: (SlashCommand) -> Void
+
+    /// A menu, not a browser: only the top few matches show (typing narrows them).
+    private static let visibleLimit = 5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(matches.prefix(Self.visibleLimit)) { command in
+                Button {
+                    select(command)
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("/\(command.name)")
+                            .font(.system(.callout, design: .monospaced).weight(.medium))
+                        Text(command.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+            }
+            if matches.count > Self.visibleLimit {
+                Text("\(matches.count - Self.visibleLimit) more\u{2026} keep typing to narrow")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 3)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

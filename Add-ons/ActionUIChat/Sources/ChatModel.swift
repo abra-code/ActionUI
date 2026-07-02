@@ -194,6 +194,19 @@ struct SessionConfigOption: Identifiable, Equatable, Sendable {
     }
 }
 
+/// A slash command the agent currently offers (ACP `available_commands_update`,
+/// re-emitted whole as the set changes). Selecting one just fills the composer:
+/// commands are SENT as ordinary prompt text ("/name args") for the agent to
+/// interpret - there is no separate command channel.
+struct SlashCommand: Identifiable, Equatable, Sendable {
+    let name: String          // without the leading slash
+    let description: String
+
+    var id: String {
+        name
+    }
+}
+
 /// A heterogeneous, arrival-ordered transcript entry. M1 carries messages plus
 /// system / error notices; M3 adds thoughts (reasoning, `ChatMessage`-shaped but
 /// visually folded) and tool-call cards. Plan / terminal panels are M5 side
@@ -236,6 +249,7 @@ enum ChatEvent: Sendable {
     case plan([PlanEntry])                                 // the agent's WHOLE current plan (replace, not merge)
     case usage(UsageInfo)                                  // token / cost status (latest wins)
     case currentModeChanged(modeID: String)                // ACP current_mode_update; updates the mode option
+    case commandsAvailable([SlashCommand])                 // the agent's WHOLE current command set (replace)
     case image(itemID: String, role: ChatRole, image: ChatImage)   // a standalone image element
     case system(text: String)
     case error(message: String, recoverable: Bool)

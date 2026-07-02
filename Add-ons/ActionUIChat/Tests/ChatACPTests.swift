@@ -224,6 +224,21 @@ final class ACPParsingTests: XCTestCase {
         XCTAssertEqual(entries.map(\.id), [0, 1, 2], "identity is positional")
     }
 
+    func testParseCommands() {
+        // The shape OpenCode emits (captured live).
+        let commands = ACPChatTransport.parseCommands([
+            "sessionUpdate": "available_commands_update",
+            "availableCommands": [
+                ["name": "init", "description": "guided AGENTS.md setup"],
+                ["name": "review"],
+                ["description": "nameless is dropped"],
+            ],
+        ])
+        XCTAssertEqual(commands.map(\.name), ["init", "review"])
+        XCTAssertEqual(commands[0].description, "guided AGENTS.md setup")
+        XCTAssertEqual(commands[1].description, "", "a missing description is empty, not a drop")
+    }
+
     func testParseUsage() {
         // The shape OpenCode emits (captured live).
         let usage = ACPChatTransport.parseUsage([

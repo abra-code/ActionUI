@@ -290,8 +290,7 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
             }
 
         case "available_commands_update":
-            // The composer's slash-command menu (M5 part 2).
-            logger.log("ACP: \(kind) received; surface arrives in a later milestone", .verbose)
+            eventSink.yield(.commandsAvailable(Self.parseCommands(update)))
 
         default:
             logger.log("ACP: unknown session update '\(kind)'; dropping", .verbose)
@@ -524,6 +523,18 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
             let status = (entry["status"] as? String).flatMap(PlanEntry.Status.init(rawValue:)) ?? .pending
             return PlanEntry(id: index, content: content,
                              priority: entry["priority"] as? String, status: status)
+        }
+    }
+
+    /// `available_commands_update` -> the agent's current slash commands
+    /// (availableCommands: [{ name, description }]). Internal for tests.
+    static func parseCommands(_ update: [String: Any]) -> [SlashCommand] {
+        let raw = update["availableCommands"] as? [[String: Any]] ?? []
+        return raw.compactMap { command in
+            guard let name = command["name"] as? String, !name.isEmpty else {
+                return nil
+            }
+            return SlashCommand(name: name, description: (command["description"] as? String) ?? "")
         }
     }
 
