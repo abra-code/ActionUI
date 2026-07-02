@@ -48,7 +48,7 @@
     "transport": {
       "types": ["object"],
       "required": false,
-      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true: stream a demo reply), reply (string: echo default, markdown, or agentic - a scripted agent turn with thoughts, tool calls, and a permission gate), and chunkMs (integer: demo streaming pace, default 45). The acp transport requires command (array of strings: the agent argv, e.g. [\"claude-code-acp\"]) and honors cwd (string: the session root, default the host's current directory) and mcpServers (array: MCP server declarations passed to the agent verbatim)."
+      "description": "Protocol-specific transport config, validated by the chosen transport. The local transport honors echo (boolean, default true: stream a demo reply), reply (string: echo default, markdown, or agentic - a scripted agent turn with thoughts, tool calls, and a permission gate), and chunkMs (integer: demo streaming pace, default 45). The acp transport requires command (array of strings: the agent argv, e.g. [\"claude-code-acp\"]) and honors cwd (string: the session root; ~ expands, default the host's current directory) and mcpServers (array: MCP server declarations passed to the agent verbatim)."
     },
     "sendActionID":    { "types": ["string"], "required": false, "description": "Fired when the user submits a message" },
     "stopActionID":    { "types": ["string"], "required": false, "description": "Fired when the user cancels an in-flight turn" },

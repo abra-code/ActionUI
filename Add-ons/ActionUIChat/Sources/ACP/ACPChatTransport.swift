@@ -70,12 +70,30 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
             throw ACPConnectionError(code: nil, message: "transport.command (a non-empty string array) is required for protocol \"acp\"")
         }
         self.command = command
-        self.cwd = (config["cwd"] as? String) ?? FileManager.default.currentDirectoryPath
+        // ACP requires the session cwd to be an ABSOLUTE path: agents resolve a relative
+        // path against their own working directory (a literal "~" reached OpenCode as
+        // "<cwd>/~" and failed session/new with "Invalid path"). Expand ~ and anchor
+        // relative paths once here, so the launch and the wire see the same absolute path.
+        self.cwd = Self.absoluteCwd(config["cwd"] as? String)
         self.mcpServers = (config["mcpServers"] as? [[String: Any]]) ?? []
         self.logger = logger
         var captured: AsyncStream<ChatEvent>.Continuation!
         self.events = AsyncStream(bufferingPolicy: .unbounded) { captured = $0 }
         self.eventSink = captured
+    }
+
+    /// The configured cwd as the absolute path ACP requires: "~" expands, a relative
+    /// path anchors to the host's current directory, nil/empty falls back to the
+    /// host's current directory. Internal for tests.
+    static func absoluteCwd(_ raw: String?) -> String {
+        guard let raw, !raw.isEmpty else {
+            return FileManager.default.currentDirectoryPath
+        }
+        let expanded = (raw as NSString).expandingTildeInPath
+        if expanded.hasPrefix("/") {
+            return expanded
+        }
+        return URL(fileURLWithPath: expanded).path
     }
 
     // MARK: - ChatTransport
@@ -123,17 +141,21 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
                 lock.withLock { self.sessionID = sessionID }
                 eventSink.yield(.sessionReady(sessionID: sessionID))
             } catch {
-                // The most common session/new failure is an agent that requires auth first;
-                // name the advertised methods so the error is actionable (auth UX is a
-                // later milestone).
+                // A common session/new failure is an agent that requires auth first; name
+                // the advertised methods so that case is actionable (auth UX is a later
+                // milestone) - but phrase it as a possibility, not a diagnosis: session/new
+                // also fails for non-auth reasons (an agent-side internal error, say).
                 if authMethods.isEmpty {
                     throw error
                 }
                 let names = authMethods.compactMap { $0["id"] as? String ?? $0["name"] as? String }
-                throw ACPConnectionError(code: nil, message: "\(error). The agent advertises authentication methods (\(names.joined(separator: ", "))); authenticate outside the chat element first")
+                throw ACPConnectionError(code: nil, message: "\(error). If the agent requires login, authenticate outside the chat element first (it advertises: \(names.joined(separator: ", ")))")
             }
         } catch {
             eventSink.yield(.error(message: "ACP agent failed to start: \(error)", recoverable: false))
+            // No session, no retry path: do not leave the agent subprocess running
+            // until the element's teardown gets around to it.
+            connection.stop()
         }
     }
 

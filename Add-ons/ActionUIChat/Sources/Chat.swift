@@ -35,8 +35,8 @@
                                           //           agent turn with thoughts, tool calls, and a permission gate),
                                           //           and "chunkMs" (demo streaming pace, default 45).
                                           //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
-                                          //           and honors "cwd" (the session root, default: the host's current
-                                          //           directory) and "mcpServers" (declarations passed to the agent).
+                                          //           and honors "cwd" (the session root; "~" expands, default: the
+                                          //           host's current directory) and "mcpServers" (passed to the agent).
      "sendActionID": "chat.send",         // Optional: fired when the user submits a message
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
      "messageActionID": "chat.message",   // Optional: fired per finalized message (user and agent)

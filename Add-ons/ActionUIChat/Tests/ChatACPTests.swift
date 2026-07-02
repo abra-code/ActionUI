@@ -333,6 +333,38 @@ final class ACPPermissionTests: XCTestCase {
     }
 }
 
+// MARK: - Session cwd normalization
+
+// ACP requires the session/new cwd to be an absolute path; a literal "~" reached
+// OpenCode as "<agent cwd>/~" and failed the session. The transport must expand it.
+final class ACPCwdTests: XCTestCase {
+
+    func testTildeExpandsToHome() {
+        XCTAssertEqual(ACPChatTransport.absoluteCwd("~"), NSHomeDirectory())
+    }
+
+    func testTildeSubpathExpands() {
+        XCTAssertEqual(ACPChatTransport.absoluteCwd("~/Development"), NSHomeDirectory() + "/Development")
+    }
+
+    func testAbsolutePathPassesThrough() {
+        XCTAssertEqual(ACPChatTransport.absoluteCwd("/usr/local"), "/usr/local")
+    }
+
+    func testNilFallsBackToCurrentDirectory() {
+        XCTAssertEqual(ACPChatTransport.absoluteCwd(nil), FileManager.default.currentDirectoryPath)
+    }
+
+    func testEmptyFallsBackToCurrentDirectory() {
+        XCTAssertEqual(ACPChatTransport.absoluteCwd(""), FileManager.default.currentDirectoryPath)
+    }
+
+    func testRelativePathAnchorsToCurrentDirectory() {
+        XCTAssertEqual(ACPChatTransport.absoluteCwd("sub/dir"),
+                       FileManager.default.currentDirectoryPath + "/sub/dir")
+    }
+}
+
 // MARK: - End to end against a fake agent subprocess
 
 // The one test that exercises the REAL wire path - launch, pipes, newline framing,
@@ -347,7 +379,12 @@ final class ACPFakeAgentTests: XCTestCase {
         *'"method":"initialize"'*)
           printf '%s\\n' '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{},"authMethods":[]}}' ;;
         *'"method":"session/new"'*)
-          printf '%s\\n' '{"jsonrpc":"2.0","id":2,"result":{"sessionId":"fake-session"}}' ;;
+          case "$line" in
+            *'~'*)
+              printf '%s\\n' '{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"cwd must be an absolute path"}}' ;;
+            *)
+              printf '%s\\n' '{"jsonrpc":"2.0","id":2,"result":{"sessionId":"fake-session"}}' ;;
+          esac ;;
         *'"method":"session/prompt"'*)
           printf '%s\\n' '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"fake-session","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Hi!"}}}}'
           printf '%s\\n' '{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}' ;;
@@ -363,8 +400,12 @@ final class ACPFakeAgentTests: XCTestCase {
             try? FileManager.default.removeItem(at: scriptURL)
         }
 
+        // cwd "~" doubles as the wire-level regression test for cwd normalization: the
+        // fake agent rejects session/new when a literal "~" appears in it (ACP requires
+        // an absolute path; OpenCode failed exactly this way), so this test only passes
+        // if the transport expanded it.
         let transport = try ACPChatTransport(
-            config: ["command": ["/bin/sh", scriptURL.path]],
+            config: ["command": ["/bin/sh", scriptURL.path], "cwd": "~"],
             logger: ACPTestLogger()
         )
         await transport.start()
