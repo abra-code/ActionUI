@@ -1,6 +1,7 @@
 package com.abracode.actionui.Views
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import com.abracode.actionui.Common.LocalStackAxis
 import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.parseRowAlignment
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
 import com.abracode.actionui.Helpers.TemplateHelper
@@ -92,6 +94,15 @@ object LazyHStack : ActionUIViewConstruction {
         // (no-op enrollment outside a reader; see ScrollReaderHelper.kt).
         val listState = rememberLazyListState()
         RegisterLazyScrollHandle(element, listState, vertical = false)
+
+        // A hidden scroll container must not consume touch (Apple/web make `hidden`
+        // non-interactive) - see ListView and Missing_Features #34. When hidden, render a bare
+        // Box that reserves the bounded viewport but carries no scrollable/pointer node, so
+        // hit-testing falls through to a visible sibling behind it in an overlapping ZStack.
+        if (!LocalActionUIInputEnabled.current) {
+            Box(listModifier)
+            return
+        }
 
         CompositionLocalProvider(LocalStackAxis provides StackAxis.Horizontal) {
             LazyRow(

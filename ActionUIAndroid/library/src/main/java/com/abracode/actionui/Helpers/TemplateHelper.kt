@@ -114,8 +114,14 @@ object TemplateHelper {
         val substituted = substituteElement(template, row)
         val builder = ActionUIRegistry.lookup(substituted.type) ?: return
         CompositionLocalProvider(LocalTemplateContext provides TemplateContext(parentID, rowIndex)) {
+            // Template rows build through BuildView directly (not BuildViewWithModifiers), so the
+            // runtime-reactive control environment (disabled -> LocalActionUIEnabled, hidden ->
+            // LocalActionUIInputEnabled) is provided here too. Column refs cannot vary a Boolean
+            // per row (Missing_Features #29), so a template's disabled/hidden is uniform across rows.
             ProvideTextStyleEnvironment(substituted.properties, logger) {
-                builder.BuildView(substituted, baseModifier.then(Modifier.applyCommonProperties(substituted.properties, logger, MaterialTheme.colorScheme)))
+                ProvideDisabledEnvironment(substituted.properties, logger) {
+                    builder.BuildView(substituted, baseModifier.then(Modifier.applyCommonProperties(substituted.properties, logger, MaterialTheme.colorScheme)))
+                }
             }
         }
     }

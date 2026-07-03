@@ -27,6 +27,7 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.RefreshableScrollContainer
 import com.abracode.actionui.Helpers.RegisterLazyScrollHandle
@@ -138,6 +139,22 @@ object ListView : ActionUIViewConstruction {
         // carry no element ids); see ScrollReaderHelper.kt.
         val listState = rememberLazyListState()
         RegisterLazyScrollHandle(element, listState, vertical = true)
+
+        // A hidden subtree must not consume touch - Apple's `.hidden()` and web's `display:none`
+        // are non-interactive, but Android `hidden` is only `alpha(0f)` (invisible, still laid out
+        // AND still hit-testable). In the section-switcher idiom (overlapping bodies in a ZStack,
+        // all but one hidden) an invisible List on top in z-order would otherwise steal the vertical
+        // drag: its LazyColumn is hit first and Compose stops hit-testing there, so the visible List
+        // behind never scrolls (Missing_Features #34). A disabled `userScrollEnabled` is not enough -
+        // the LazyColumn is still a hit target and still blocks the sibling. So when hidden we render
+        // a bare Box that reserves the same bounded viewport size (the reserve-space semantics stay,
+        // Missing_Features #30) but carries no scrollable/pointer node, so hit-testing falls through
+        // to the visible sibling behind. LocalActionUIInputEnabled is provided false for a hidden
+        // subtree by ProvideDisabledEnvironment (see ControlEnvironment.kt).
+        if (!LocalActionUIInputEnabled.current) {
+            Box(listModifier)
+            return
+        }
 
         // Pull-to-refresh wraps the scroll viewport when onRefreshActionID is set; otherwise
         // this renders the LazyColumn unchanged (see RefreshableScrollContainer).

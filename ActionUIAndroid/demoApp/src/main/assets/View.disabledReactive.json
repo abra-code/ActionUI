@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Runtime disabled reactivity (#33)", "font": "headline" } },
+
+    { "type": "Text", "properties": { "text": "Save is authored disabled:true. Enable Save, then tap Save - it must fire.", "foregroundStyle": "secondary" } },
+    { "type": "Button", "id": 10, "properties": { "title": "Save", "disabled": true, "actionID": "reactive.save" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Enable Save", "actionID": "reactive.enable" } },
+        { "type": "Button", "properties": { "title": "Disable Save", "actionID": "reactive.disable" } }
+      ]
+    },
+
+    { "type": "Text", "properties": { "text": "Ancestor narrowing (SwiftUI parity)", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "The child is authored disabled:false but the container is disabled - it must stay disabled until the container re-enables.", "foregroundStyle": "secondary" } },
+    {
+      "type": "VStack",
+      "id": 20,
+      "properties": { "spacing": 12, "alignment": "leading", "disabled": true, "padding": 12, "background": "#EEEEEE" },
+      "children": [
+        { "type": "Text", "properties": { "text": "Disabled container" } },
+        { "type": "Button", "id": 21, "properties": { "title": "Child (disabled:false)", "actionID": "reactive.child" } }
+      ]
+    },
+    { "type": "Button", "properties": { "title": "Toggle container", "actionID": "reactive.toggleAncestor" } }
+  ]
+}

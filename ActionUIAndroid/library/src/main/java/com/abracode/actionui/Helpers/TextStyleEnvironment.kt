@@ -55,9 +55,11 @@ import kotlinx.serialization.json.JsonPrimitive
  * The shared entry point is [ProvideTextStyleEnvironment], applied once per
  * element at the point the element is built - in `ActionUI.Render` for the root
  * and in each container's child loop for the rest - so an element's own
- * font/color/tint style both itself and its subtree, exactly once. The control
- * environment (`disabled` / `buttonStyle` / `controlSize` - locals and parsing
- * in `ControlEnvironment.kt`) rides the same wrapper, for the same reason.
+ * font/color/tint style both itself and its subtree, exactly once. The static
+ * control environment (`buttonStyle` / `controlSize` / `labelsHidden` - locals
+ * and parsing in `ControlEnvironment.kt`) rides the same wrapper, for the same
+ * reason. (`disabled` is NOT here: it is runtime-reactive, provided on the
+ * effective element by `ProvideDisabledEnvironment`; see `ControlEnvironment.kt`.)
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
  *   * Named text styles (`title`, `body`, ...) map onto the nearest Material3
@@ -77,9 +79,10 @@ val LocalActionUITint: ProvidableCompositionLocal<Color?> =
 
 /**
  * Wraps [content] in the inherited environment derived from [properties] - the
- * text-styling trio (`font`, `foregroundStyle`, `tint`) plus the control
- * environment (`disabled`, `buttonStyle`, `controlSize`; locals and parsing in
- * `ControlEnvironment.kt`). When none is present the [content] is invoked
+ * text-styling trio (`font`, `foregroundStyle`, `tint`) plus the static control
+ * environment (`buttonStyle`, `controlSize`, `labelsHidden`; locals and parsing
+ * in `ControlEnvironment.kt`). `disabled` is handled separately (runtime-reactive,
+ * see `ProvideDisabledEnvironment`). When none is present the [content] is invoked
  * directly with no provider, so the common case (most elements carry none) adds
  * no composition overhead.
  */
@@ -100,10 +103,12 @@ fun ProvideTextStyleEnvironment(
     val fontStyle = resolveFontStyle(properties["font"], logger)
     val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", colorScheme, logger)
     val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", colorScheme, logger)
-    // `disabled: false` / `labelsHidden: false` provide nothing - SwiftUI ANDs
-    // `isEnabled` down the tree (a child can never re-enable a subtree an
-    // ancestor disabled), and `.labelsHidden()` has no inverse.
-    val disabled = resolveDisabled(properties, logger)
+    // `labelsHidden: false` provides nothing - `.labelsHidden()` has no inverse.
+    // NOTE: `disabled` is intentionally NOT handled here. It must be runtime-
+    // reactive in both directions (setElementProperty), so it is resolved on the
+    // host-merged effective element by ProvideDisabledEnvironment at the shared
+    // build entry point (ViewModifierHelper / TemplateHelper), not off the
+    // parent's static child properties this provider reads. See ControlEnvironment.kt.
     val labelsHidden = resolveLabelsHidden(properties, logger)
     val buttonStyle = properties.stringProperty("buttonStyle")?.let { parseButtonStyle(it, logger) }
     val controlSize = properties.stringProperty("controlSize")?.let { parseControlSize(it, logger) }
@@ -119,7 +124,6 @@ fun ProvideTextStyleEnvironment(
         }
         foreground?.let { add(LocalContentColor provides it) }
         tint?.let { add(LocalActionUITint provides it) }
-        if (disabled) add(LocalActionUIEnabled provides false)
         if (labelsHidden) add(LocalActionUILabelsHidden provides true)
         buttonStyle?.let { add(LocalActionUIButtonStyle provides it) }
         controlSize?.let { add(LocalActionUIControlSize provides it) }
