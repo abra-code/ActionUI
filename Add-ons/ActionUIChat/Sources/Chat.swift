@@ -42,9 +42,15 @@
                                           //   is truncated) | "collapsed" (a compact one-line row) |
                                           //   "hidden". "panel" renders inline for now.
        "thoughts": "collapsed",           //   "collapsed" (default: folded) | "inline" | "hidden"
-       "plan": "panel"                    //   The agent's task plan, pinned ABOVE the transcript (never
+       "plan": "panel",                   //   The agent's task plan, pinned ABOVE the transcript (never
                                           //   interleaved as chat): "panel" (default: expanded) |
                                           //   "collapsed" (pinned, folded) | "hidden".
+       "diffs": "inline"                  //   Agent-proposed file diffs, rendered in the tool card's detail
+                                          //   as a real line diff (the standalone DiffView component: hunks,
+                                          //   old / new line-number gutters, +/- markers): "inline" (default)
+                                          //   | "hidden" (dropped). "collapsed" / "panel" are accepted but
+                                          //   coerced to inline (the card's fold already covers collapsing;
+                                          //   a diff side panel is a later surface).
      },
      "sendActionID": "chat.send",         // Optional: fired when the user submits a message
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
@@ -76,9 +82,11 @@
  set_model as fallbacks) and the display updates on the agent's confirmation, never optimistically.
  Plus the composer's slash-command menu: when a transport advertises commands (ACP
  `available_commands_update`), typing "/" lists and filters them and a tap fills the draft - the
- command still sends as ordinary prompt text for the agent to interpret. The SSE transports, dual
- alignment, and the remaining M5 surfaces (diff viewer, terminals, multi-session) arrive in later
- milestones (see Private/chat-element-design.md).
+ command still sends as ordinary prompt text for the agent to interpret. And agent-proposed file diffs
+ now render inside the tool card's detail as a real line diff (the standalone, extraction-ready DiffView
+ component: hunks, old / new line-number gutters, +/- markers; routed by surfaces.diffs, "hidden" drops
+ them). The SSE transports, dual alignment, and the remaining M5 surfaces (terminals, multi-session)
+ arrive in later milestones (see Private/chat-element-design.md).
 
  Observable state: the element manages its own transcript model internally (no single scalar value), so
  it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.

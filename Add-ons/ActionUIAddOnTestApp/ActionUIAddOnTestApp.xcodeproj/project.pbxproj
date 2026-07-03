@@ -13,6 +13,7 @@
 		30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */ = {isa = PBXBuildFile; fileRef = 223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */; };
 		6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */ = {isa = PBXBuildFile; fileRef = A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */; };
 		83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */; };
+		900BCA3C6391EA20BA82A006 /* Chat.agentic.json in Resources */ = {isa = PBXBuildFile; fileRef = DBD652148424E7DF98811E1C /* Chat.agentic.json */; };
 		93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */; };
 		9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */ = {isa = PBXBuildFile; fileRef = 5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */; };
 		C243B510E2EACF91A4836826 /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */; };
@@ -34,6 +35,7 @@
 		AD958B75F9EB537BD75A1095 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ../ActionUIChat; sourceTree = SOURCE_ROOT; };
 		CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ActionUIAddOnTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CF7ABC737BFB52F77899E3A0 /* QuickLook.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.json; sourceTree = "<group>"; };
+		DBD652148424E7DF98811E1C /* Chat.agentic.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.agentic.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +64,7 @@
 		4A95FF037646338868DAA797 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				DBD652148424E7DF98811E1C /* Chat.agentic.json */,
 				9FC54A4FE510BDD635E8EC2D /* Chat.json */,
 				5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */,
 				A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */,
@@ -168,6 +171,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				900BCA3C6391EA20BA82A006 /* Chat.agentic.json in Resources */,
 				2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */,
 				9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */,
 				6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */,

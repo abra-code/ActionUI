@@ -66,6 +66,10 @@ struct ChatConfig {
         let plan: SurfaceMode         // default panel (a pinned region ABOVE the transcript -
                                       // the plan is a status surface, never interleaved as chat;
                                       // "inline" is coerced to panel with a note)
+        let diffs: SurfaceMode        // default inline (rendered by the DiffView component inside
+                                      // the tool card's detail); hidden drops them; collapsed /
+                                      // panel are coerced to inline with a note (the card's fold
+                                      // already covers collapsing; a side panel is a later surface)
     }
 
     let protocolName: String
@@ -143,10 +147,16 @@ struct ChatConfig {
             logger.log("Chat surfaces.plan 'inline' is not a plan presentation (the plan is a pinned status surface); rendering as panel", .verbose)
             planMode = .panel
         }
+        var diffsMode = (surfacesRaw["diffs"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .inline
+        if diffsMode == .collapsed || diffsMode == .panel {
+            logger.log("Chat surfaces.diffs '\(diffsMode.rawValue)' renders inline (the tool card's fold covers collapsing; a diff panel is a later surface)", .verbose)
+            diffsMode = .inline
+        }
         surfaces = Surfaces(
             toolCalls: (surfacesRaw["toolCalls"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .inline,
             thoughts: (surfacesRaw["thoughts"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .collapsed,
-            plan: planMode
+            plan: planMode,
+            diffs: diffsMode
         )
 
         sendActionID = properties["sendActionID"] as? String
@@ -221,7 +231,7 @@ struct ChatConfig {
 
         if var surfacesRaw = validated["surfaces"] as? [String: Any] {
             for (surface, value) in surfacesRaw {
-                guard ["toolCalls", "thoughts", "plan"].contains(surface) else {
+                guard ["toolCalls", "thoughts", "plan", "diffs"].contains(surface) else {
                     logger.log("Chat surfaces.\(surface) is not a routable surface in this build; ignoring", .warning)
                     surfacesRaw[surface] = nil
                     continue

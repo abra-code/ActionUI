@@ -100,7 +100,8 @@ struct ChatRootView: View {
         case .thought(let thought):
             ThoughtRow(thought: thought, initiallyExpanded: config.surfaces.thoughts != .collapsed)
         case .toolCall(let call):
-            ToolCallRow(call: call, compact: config.surfaces.toolCalls == .collapsed)
+            ToolCallRow(call: call, compact: config.surfaces.toolCalls == .collapsed,
+                        showsDiff: config.surfaces.diffs != .hidden)
         case .image(_, let role, let image):
             ImageRow(role: role, image: image, config: config)
         case .system(_, let text):
@@ -497,11 +498,12 @@ enum ToolDetailText {
 // transcript - the mainstream agentic UX shows the fact of the call, not its payload.
 // "collapsed" additionally shrinks the card to a compact caption row (Thoughts-style).
 // Expanded detail renders through ToolDetailText.capped so a megabyte read stays a
-// preview. Diffs render as a monospaced preview of the new text in M3; the side-by-side
-// viewer is an M5 surface.
+// preview. Diffs render through the standalone DiffView component (a line diff with hunks
+// and old / new line-number gutters); surfaces.diffs "hidden" drops them from the card.
 private struct ToolCallRow: View {
     let call: ToolCallModel
     let compact: Bool     // surfaces.toolCalls == .collapsed
+    let showsDiff: Bool   // surfaces.diffs != .hidden
     @State private var expanded = false
 
     var body: some View {
@@ -555,11 +557,11 @@ private struct ToolCallRow: View {
         if !call.contentText.isEmpty {
             RichText(markdown: ToolDetailText.capped(call.contentText))
         }
-        if let diff = call.diff {
+        if showsDiff, let diff = call.diff {
             Text(diff.path)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-            codeBlock(ToolDetailText.capped(diff.newText))
+            DiffView(oldText: diff.oldText ?? "", newText: diff.newText)
         }
         if let rawInput = call.rawInput {
             labeledCode("Input", ToolDetailText.capped(rawInput))
@@ -570,7 +572,7 @@ private struct ToolCallRow: View {
     }
 
     private var hasDetail: Bool {
-        !call.contentText.isEmpty || call.diff != nil || call.rawInput != nil || call.rawOutput != nil
+        !call.contentText.isEmpty || (showsDiff && call.diff != nil) || call.rawInput != nil || call.rawOutput != nil
     }
 
     @ViewBuilder

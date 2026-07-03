@@ -50,7 +50,8 @@
       "properties": {
         "toolCalls": { "types": ["string"], "required": false, "enum": ["inline", "collapsed", "hidden", "panel"], "description": "Tool-call cards: inline (default: a status card whose detail - file reads, diffs, raw I/O - stays folded until tapped, with long content truncated), collapsed (a compact one-line row), hidden (dropped). panel renders inline for now" },
         "thoughts":  { "types": ["string"], "required": false, "enum": ["inline", "collapsed", "hidden", "panel"], "description": "Streamed reasoning: collapsed (default: folded behind a disclosure), inline (expanded), hidden (dropped). panel renders inline for now" },
-        "plan":      { "types": ["string"], "required": false, "enum": ["panel", "collapsed", "hidden", "inline"], "description": "The agent's task plan, pinned above the transcript (never interleaved as chat): panel (default: expanded), collapsed (pinned, folded), hidden (dropped). inline is coerced to panel" }
+        "plan":      { "types": ["string"], "required": false, "enum": ["panel", "collapsed", "hidden", "inline"], "description": "The agent's task plan, pinned above the transcript (never interleaved as chat): panel (default: expanded), collapsed (pinned, folded), hidden (dropped). inline is coerced to panel" },
+        "diffs":     { "types": ["string"], "required": false, "enum": ["inline", "collapsed", "hidden", "panel"], "description": "Agent-proposed file diffs, rendered inside the tool card's detail as a line diff: inline (default), hidden (dropped). collapsed / panel are coerced to inline" }
       }
     },
     "sendActionID":    { "types": ["string"], "required": false, "description": "Fired when the user submits a message" },

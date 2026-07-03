@@ -182,6 +182,26 @@ final class ChatSurfacesConfigTests: XCTestCase {
         XCTAssertEqual(config.approveToolActionID, "chat.tool.approve")
     }
 
+    func testDiffsDefaultsToInline() {
+        let config = ChatConfig(properties: ["surfaces": ["toolCalls": "inline"]], config: [:], logger: TestLogger())
+        XCTAssertEqual(config.surfaces.diffs, .inline, "a surfaces block that omits diffs keeps the inline default")
+    }
+
+    func testDiffsHiddenParses() {
+        let config = ChatConfig(properties: ["surfaces": ["diffs": "hidden"]], config: [:], logger: TestLogger())
+        XCTAssertEqual(config.surfaces.diffs, .hidden)
+    }
+
+    func testDiffsCollapsedCoercesToInline() {
+        let config = ChatConfig(properties: ["surfaces": ["diffs": "collapsed"]], config: [:], logger: TestLogger())
+        XCTAssertEqual(config.surfaces.diffs, .inline, "the tool card's own fold covers collapsing; collapsed coerces to inline")
+    }
+
+    func testDiffsPanelCoercesToInline() {
+        let config = ChatConfig(properties: ["surfaces": ["diffs": "panel"]], config: [:], logger: TestLogger())
+        XCTAssertEqual(config.surfaces.diffs, .inline, "a diff side panel is a later surface; panel coerces to inline")
+    }
+
     // The non-visual settings live in the element's config block (a clean move - the
     // element is unpublished, so the old properties placement is simply not honored).
     func testOperationalSettingsComeFromConfig() {
