@@ -28,8 +28,11 @@ import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
 import com.abracode.actionui.Common.LocalActionUIImageRegistry
+import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Views.MenuChild
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 
 /**
  * Renders an element's `toolbar` as the native Android screen chrome
@@ -156,15 +159,25 @@ fun ToolbarHost(
         modifier = modifier,
         topBar = {
             val titleSlot: @Composable () -> Unit = {
+                // A runtime-hidden principal falls back to the navigationTitle
+                // (RenderChrome would render nothing and eat the title).
                 val principal = buckets.principal.firstOrNull()
-                if (principal != null) RenderChrome(principal, logger) else M3Text(title ?: "")
+                if (principal != null && !chromeHidden(principal)) {
+                    RenderChrome(principal, logger)
+                } else {
+                    M3Text(title ?: "")
+                }
             }
             val navSlot: @Composable () -> Unit = {
                 Row { buckets.leading.forEach { RenderChrome(it, logger) } }
             }
             val actionsSlot: @Composable RowScope.() -> Unit = {
                 buckets.trailing.forEach { RenderChrome(it, logger) }
-                if (buckets.overflow.isNotEmpty()) OverflowMenu(buckets.overflow, logger)
+                // Overflow items bypass RenderChrome (MenuChild), so the live
+                // hidden filter applies here; an all-hidden overflow drops the
+                // three-dot trigger entirely.
+                val visibleOverflow = buckets.overflow.filter { !chromeHidden(it) }
+                if (visibleOverflow.isNotEmpty()) OverflowMenu(visibleOverflow, logger)
             }
             when (resolveToolbarTitleSize(element.properties?.stringProperty("toolbarTitleDisplayMode"))) {
                 ToolbarTitleSize.Large ->
@@ -210,8 +223,26 @@ fun ToolbarHost(
  * renders both in the [TextButton]; the glyph inherits the button's content
  * color and label style, so it matches the text automatically.
  */
+// The LIVE `hidden` for a chrome element: the host's setElementProperty override
+// when present, else the authored value. Reading the ViewModel's
+// propertyOverrides (a SnapshotStateMap) inside composition subscribes it, so a
+// runtime hidden write recomposes the chrome.
+@Composable
+private fun chromeHidden(element: ActionUIElement): Boolean {
+    val authored = element.properties?.booleanProperty("hidden") == true
+    if (element.id <= 0) return authored
+    val viewModel = LocalWindowModel.current?.viewModels?.get(element.id) ?: return authored
+    val override = viewModel.propertyOverrides["hidden"]
+    return (override as? JsonPrimitive)?.booleanOrNull ?: authored
+}
+
 @Composable
 private fun RenderChrome(element: ActionUIElement, logger: ActionUILogger) {
+    // Runtime `hidden` removes a chrome action ENTIRELY (the role-gating
+    // contract: controls are absent, not disabled or blank space). The Button
+    // branch below reads authored properties statically and the registry
+    // fallback only alpha-fades, so the live effective value is resolved here.
+    if (chromeHidden(element)) return
     if (element.type == "Button") {
         val props = element.properties
         val title = props?.stringProperty("title").orEmpty()
