@@ -83,9 +83,10 @@
  Plus the composer's slash-command menu: when a transport advertises commands (ACP
  `available_commands_update`), typing "/" lists and filters them and a tap fills the draft - the
  command still sends as ordinary prompt text for the agent to interpret. And agent-proposed file diffs
- now render inside the tool card's detail as a real line diff (the standalone, extraction-ready DiffView
- component: hunks, old / new line-number gutters, +/- markers; routed by surfaces.diffs, "hidden" drops
- them). The SSE transports, dual alignment, and the remaining M5 surfaces (terminals, multi-session)
+ now render inside the tool card's detail as a real line diff (the DiffView product of the sibling
+ ActionUIDiff add-on, which these tool cards consume: hunks, old / new line-number gutters, +/-
+ markers; routed by surfaces.diffs, "hidden" drops them). The SSE transports, dual alignment, and
+ the remaining M5 surfaces (terminals, multi-session)
  arrive in later milestones (see Private/chat-element-design.md).
 
  Observable state: the element manages its own transcript model internally (no single scalar value), so

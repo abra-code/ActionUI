@@ -17,6 +17,7 @@
 import SwiftUI
 import ActionUI
 import RichText
+import DiffView
 import AsyncImageCache
 
 struct ChatRootView: View {

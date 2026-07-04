@@ -26,6 +26,7 @@ let package = Package(
     dependencies: [
         .package(path: "../.."),                    // the ActionUI package at the repo root
         .package(path: "../../../RichText"),    // the sibling RichText component (renders message Markdown)
+        .package(path: "../ActionUIDiff"),      // the sibling add-on whose DiffView product renders tool-card diffs
         .package(path: "../../../AsyncImageCache"), // the sibling image cache (CachedImage for image items)
     ],
     targets: [
@@ -34,6 +35,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ActionUI", package: "ActionUI"),
                 .product(name: "RichText", package: "RichText"),
+                .product(name: "DiffView", package: "ActionUIDiff"),
                 .product(name: "AsyncImageCache", package: "AsyncImageCache"),  // CachedImage for image items
             ],
             path: "Sources"
