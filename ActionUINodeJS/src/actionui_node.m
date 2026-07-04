@@ -1239,6 +1239,37 @@ static napi_value node_load_hosting_controller(napi_env env, napi_callback_info 
     return result;
 }
 
+// MARK: - N-API: Content Size Limits
+
+/*
+ * Returns the size limits of a loaded window's root element content as
+ * { minWidth, minHeight, maxWidth, maxHeight }. Flexible axes report a very
+ * large maximum; a fixed root frame reports min == max. Throws when the
+ * window is unknown (call after loadHostingController).
+ */
+static napi_value node_get_content_size_limits(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    char uuid[128]; size_t len;
+    napi_get_value_string_utf8(env, argv[0], uuid, sizeof(uuid), &len);
+
+    double minW = 0, minH = 0, maxW = 0, maxH = 0;
+    if (!actionUIGetContentSizeLimits(uuid, &minW, &minH, &maxW, &maxH)) {
+        char* err = actionUIGetLastError();
+        napi_throw_error(env, NULL, err ? err : "actionUIGetContentSizeLimits failed");
+        if (err) actionUIFreeString(err);
+        return NULL;
+    }
+
+    napi_value result, v;
+    napi_create_object(env, &result);
+    napi_create_double(env, minW, &v); napi_set_named_property(env, result, "minWidth",  v);
+    napi_create_double(env, minH, &v); napi_set_named_property(env, result, "minHeight", v);
+    napi_create_double(env, maxW, &v); napi_set_named_property(env, result, "maxWidth",  v);
+    napi_create_double(env, maxH, &v); napi_set_named_property(env, result, "maxHeight", v);
+    return result;
+}
+
 // MARK: - CFRunLoop / libuv Integration
 //
 // [NSApp run] blocks the main thread inside CFRunLoop.  We install:
@@ -1783,6 +1814,7 @@ static napi_value Init(napi_env env, napi_value exports) {
 
     /* UI loading */
     EXPORT_FN(exports, "loadHostingController",    node_load_hosting_controller);
+    EXPORT_FN(exports, "getContentSizeLimits",     node_get_content_size_limits);
 
     /* App lifecycle setters */
     EXPORT_FN(exports, "appSetWillFinishLaunching",node_app_set_will_finish_launching);

@@ -153,6 +153,16 @@ void* actionUILoadHostingControllerFromURL(const char* urlString,
                                            bool        isContentView);
 // Accepts file:// (local) and http(s):// (remote) URLs.
 // Returns retained NSHostingController on macOS.  Caller owns the object.
+
+bool actionUIGetContentSizeLimits(const char* windowUUID,
+                                  double* outMinWidth,  double* outMinHeight,
+                                  double* outMaxWidth,  double* outMaxHeight);
+// Size limits of the loaded root element content (macOS only): minimum for a
+// zero size proposal, maximum for an infinite one. Flexible axes report a very
+// large maximum; a fixed root frame reports min == max (make the hosting
+// window non-user-resizable). Out params may be NULL. Returns false with an
+// error set when the window is unknown. Call after
+// actionUILoadHostingControllerFromURL.
 ```
 
 ---
@@ -539,6 +549,9 @@ window.set_state_from_string(view_id, "progress", "0.75")
 
 # Element info
 info = window.get_element_info()   # -> {2: "TextField", 3: "Button", ...}
+
+# Content size limits of the loaded root element (min == max means fixed size)
+limits = window.content_size_limits()  # -> (min_w, min_h, max_w, max_h) or None
 ```
 
 ### Module-level helpers

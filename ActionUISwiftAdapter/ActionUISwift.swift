@@ -452,6 +452,17 @@ public struct ActionUISwift {
         let view = loadView(from: url, windowUUID: windowUUID, isContentView: isContentView)
         return NSHostingController(rootView: AnyView(view))
     }
+
+    /// Returns the size limits of a loaded window's root element content: minSize for a zero
+    /// size proposal, maxSize for an infinite one. Content with a fixed root frame reports
+    /// minSize == maxSize, which lets an AppKit host make its window non-user-resizable.
+    /// Measures the bare root element (bypassing the window-level modal/toast wrapper, which
+    /// always expands to fill). Call after the window's description has been loaded.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: The content's size limits, or nil when the window or its root element is unknown.
+    public static func contentSizeLimits(windowUUID: String) -> ActionUI.ContentSizeLimits? {
+        return model.contentSizeLimits(windowUUID: windowUUID)
+    }
     #endif // canImport(AppKit)
     
     #if canImport(UIKit)

@@ -10,7 +10,7 @@ serialisation, and GIL management — is handled in the C layer.
 import _actionui
 import json
 import uuid
-from typing import Optional, Callable, Any, Dict, List, Union
+from typing import Optional, Callable, Any, Dict, List, Tuple, Union
 from enum import IntEnum, Enum
 from dataclasses import dataclass, field
 
@@ -692,6 +692,27 @@ class Window:
         except RuntimeError:
             window._view_ptr = None
         return window
+
+    # ------------------------------------------------------------------
+    # Content size limits
+    # ------------------------------------------------------------------
+
+    def content_size_limits(self) -> Optional[Tuple[float, float, float, float]]:
+        """
+        Return the loaded root element's content size limits as a
+        (min_width, min_height, max_width, max_height) tuple.
+
+        The minimum is what the SwiftUI content reports for a zero size
+        proposal, the maximum for an infinite one; flexible axes report a very
+        large maximum, and a fixed root frame reports min == max (make the
+        hosting window non-user-resizable in that case). Measured on the bare
+        root element, bypassing the window-level modal/toast wrapper.
+        Returns None if the window has no loaded description.
+        """
+        try:
+            return _actionui.get_content_size_limits(self.uuid)
+        except RuntimeError:
+            return None
 
     # ------------------------------------------------------------------
     # Type-specific value setters

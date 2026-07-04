@@ -1066,6 +1066,33 @@ static PyObject* py_load_hosting_controller(PyObject* self, PyObject* args) {
     return NULL;
 }
 
+// MARK: - Python API: Content Size Limits
+
+/*
+ * Returns the size limits of a loaded window's root element content as a
+ * (min_width, min_height, max_width, max_height) tuple. Flexible axes report
+ * a very large maximum; a fixed root frame reports min == max. Raises
+ * RuntimeError when the window is unknown (call after load_hosting_controller).
+ */
+static PyObject* py_get_content_size_limits(PyObject* self, PyObject* args) {
+    const char* windowUUID;
+    if (PyArg_ParseTuple(args, "s", &windowUUID) == 0)
+        return NULL;
+
+    double minW = 0, minH = 0, maxW = 0, maxH = 0;
+    if (actionUIGetContentSizeLimits(windowUUID, &minW, &minH, &maxW, &maxH))
+        return Py_BuildValue("(dddd)", minW, minH, maxW, maxH);
+
+    char* err = actionUIGetLastError();
+    if (err != NULL) {
+        PyErr_SetString(PyExc_RuntimeError, err);
+        actionUIFreeString(err);
+    } else {
+        PyErr_SetString(PyExc_RuntimeError, "actionUIGetContentSizeLimits failed");
+    }
+    return NULL;
+}
+
 // MARK: - Module Definition
 
 static PyMethodDef ActionUIMethods[] = {
@@ -1171,6 +1198,10 @@ static PyMethodDef ActionUIMethods[] = {
     {"load_hosting_controller",     py_load_hosting_controller,     METH_VARARGS,
      "load_hosting_controller(urlString, windowUUID, isContentView) -> int\n"
      "Accepts file:// or http(s):// URLs.  Returns opaque pointer as int."},
+    {"get_content_size_limits",     py_get_content_size_limits,     METH_VARARGS,
+     "get_content_size_limits(windowUUID) -> (min_w, min_h, max_w, max_h)\n"
+     "Size limits of the loaded root element content; min == max means fixed size.\n"
+     "Raises RuntimeError for an unknown window."},
 
     /* App lifecycle — handler registration */
     {"app_set_will_finish_launching", py_app_set_will_finish_launching, METH_VARARGS,

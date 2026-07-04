@@ -436,6 +436,30 @@ public struct ActionUICpp {
         hostingController.view.autoresizingMask = [.width, .height]
         return hostingController
     }
+
+    /// Returns the minimum content size of a loaded window's root element: the size the
+    /// SwiftUI content reports for a zero size proposal. Measures the bare root element,
+    /// bypassing the window-level modal/toast wrapper, which always expands to fill.
+    /// Use as the hosting window's contentMinSize. Call after the window's description has
+    /// been loaded.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: The minimum content size, or CGSize.zero if the window is unknown.
+    @MainActor public static func minContentSize(windowUUID: String) -> CGSize {
+        return model.contentSizeLimits(windowUUID: windowUUID)?.minSize ?? .zero
+    }
+
+    /// Returns the maximum content size of a loaded window's root element: the size the
+    /// SwiftUI content reports for an infinite size proposal. Flexible axes report a very
+    /// large value; content with a fixed root frame reports the same size as
+    /// minContentSize(windowUUID:), which lets a client detect a fixed-size window.
+    /// Use as the hosting window's contentMaxSize. Call after the window's description has
+    /// been loaded.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: The maximum content size, or (greatestFiniteMagnitude, greatestFiniteMagnitude) if the window is unknown.
+    @MainActor public static func maxContentSize(windowUUID: String) -> CGSize {
+        return model.contentSizeLimits(windowUUID: windowUUID)?.maxSize
+            ?? CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+    }
     #endif
     
     #if canImport(UIKit)
