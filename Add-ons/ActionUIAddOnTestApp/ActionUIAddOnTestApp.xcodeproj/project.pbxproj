@@ -7,11 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		10A529AC4F89C7EADC7BF12A /* Diff.json in Resources */ = {isa = PBXBuildFile; fileRef = 0082DE6A4D8F7DE178372147 /* Diff.json */; };
 		2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */ = {isa = PBXBuildFile; fileRef = 9FC54A4FE510BDD635E8EC2D /* Chat.json */; };
 		2958C8147CD88342247317CF /* QuickLook.json in Resources */ = {isa = PBXBuildFile; fileRef = CF7ABC737BFB52F77899E3A0 /* QuickLook.json */; };
 		2F342F24A685081A6D00796B /* ActionUIAddOnTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */; };
 		30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */ = {isa = PBXBuildFile; fileRef = 223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */; };
+		34158BDB51FC0365D2F4186D /* DiffSampleNew.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */; };
+		581062D89D2AE39E5BB7602E /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = 4C9B8E82DC322DADB493567B /* ActionUIDiff */; };
 		6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */ = {isa = PBXBuildFile; fileRef = A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */; };
+		73890C5557037BFA40BC861E /* DiffSampleOld.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */; };
 		83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */; };
 		900BCA3C6391EA20BA82A006 /* Chat.agentic.json in Resources */ = {isa = PBXBuildFile; fileRef = DBD652148424E7DF98811E1C /* Chat.agentic.json */; };
 		93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */; };
@@ -23,6 +27,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0082DE6A4D8F7DE178372147 /* Diff.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Diff.json; sourceTree = "<group>"; };
+		0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DiffSampleNew.txt; sourceTree = "<group>"; };
 		0FB3650C4963944296903979 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
 		1BF48B38F26ADAC280C871E5 /* Sample.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Sample.pdf; sourceTree = "<group>"; };
 		21452584B443364EF4B6DD78 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = ../ActionUIQuickLook; sourceTree = SOURCE_ROOT; };
@@ -30,11 +36,13 @@
 		24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.compact.json; sourceTree = "<group>"; };
 		5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.markdown.json; sourceTree = "<group>"; };
 		65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIAddOnTestApp.swift; sourceTree = "<group>"; };
+		6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DiffSampleOld.txt; sourceTree = "<group>"; };
 		9FC54A4FE510BDD635E8EC2D /* Chat.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.json; sourceTree = "<group>"; };
 		A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.modifierReturn.json; sourceTree = "<group>"; };
 		AD958B75F9EB537BD75A1095 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ../ActionUIChat; sourceTree = SOURCE_ROOT; };
 		CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ActionUIAddOnTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CF7ABC737BFB52F77899E3A0 /* QuickLook.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.json; sourceTree = "<group>"; };
+		DA0FBEB4C890493D3B817FB3 /* ActionUIDiff */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIDiff; path = ../ActionUIDiff; sourceTree = SOURCE_ROOT; };
 		DBD652148424E7DF98811E1C /* Chat.agentic.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.agentic.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -47,6 +55,7 @@
 				CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */,
 				93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */,
 				C243B510E2EACF91A4836826 /* ActionUIChat in Frameworks */,
+				581062D89D2AE39E5BB7602E /* ActionUIDiff in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,6 +77,9 @@
 				9FC54A4FE510BDD635E8EC2D /* Chat.json */,
 				5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */,
 				A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */,
+				0082DE6A4D8F7DE178372147 /* Diff.json */,
+				0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */,
+				6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */,
 				24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */,
 				CF7ABC737BFB52F77899E3A0 /* QuickLook.json */,
 				223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */,
@@ -81,6 +93,7 @@
 			children = (
 				0FB3650C4963944296903979 /* ActionUI */,
 				AD958B75F9EB537BD75A1095 /* ActionUIChat */,
+				DA0FBEB4C890493D3B817FB3 /* ActionUIDiff */,
 				21452584B443364EF4B6DD78 /* ActionUIQuickLook */,
 			);
 			name = Packages;
@@ -126,6 +139,7 @@
 				D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */,
 				D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */,
 				FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */,
+				4C9B8E82DC322DADB493567B /* ActionUIDiff */,
 			);
 			productName = ActionUIAddOnTestApp;
 			productReference = CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */;
@@ -154,6 +168,7 @@
 			packageReferences = (
 				9C234D5DE47D93B64BA47872 /* XCLocalSwiftPackageReference "../.." */,
 				FC10BAE25F9673F1813C71F8 /* XCLocalSwiftPackageReference "../ActionUIChat" */,
+				3C58A84B2A242ADC1C636ECC /* XCLocalSwiftPackageReference "../ActionUIDiff" */,
 				8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -175,6 +190,9 @@
 				2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */,
 				9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */,
 				6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */,
+				10A529AC4F89C7EADC7BF12A /* Diff.json in Resources */,
+				34158BDB51FC0365D2F4186D /* DiffSampleNew.txt in Resources */,
+				73890C5557037BFA40BC861E /* DiffSampleOld.txt in Resources */,
 				83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */,
 				2958C8147CD88342247317CF /* QuickLook.json in Resources */,
 				30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */,
@@ -415,6 +433,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		3C58A84B2A242ADC1C636ECC /* XCLocalSwiftPackageReference "../ActionUIDiff" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ActionUIDiff;
+		};
 		8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../ActionUIQuickLook;
@@ -433,6 +455,10 @@
 		2B9635CB1742700A0529909B /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
+		};
+		4C9B8E82DC322DADB493567B /* ActionUIDiff */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIDiff;
 		};
 		D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;

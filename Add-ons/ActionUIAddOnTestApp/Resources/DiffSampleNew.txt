@@ -1,0 +1,22 @@
+# Project Notes
+
+## Setup
+Install the pinned toolchain first.
+Run the bootstrap script.
+Then open the workspace.
+
+## Build
+Use the default configuration.
+The output lands in build/.
+
+## Test
+Run the unit suite before pushing.
+Coverage is optional but encouraged.
+
+## Release
+Tag the commit with an annotated tag.
+Push the tag to origin.
+CI publishes the artifact.
+
+## Notes
+Keep this file short and current.

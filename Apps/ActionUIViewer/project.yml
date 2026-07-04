@@ -29,6 +29,8 @@ packages:
     path: ../../Add-ons/ActionUIQuickLook  # the add-on package
   ActionUIChat:
     path: ../../Add-ons/ActionUIChat       # the add-on package
+  ActionUIDiff:
+    path: ../../Add-ons/ActionUIDiff       # the add-on package
 
 targets:
   ActionUIViewer:
@@ -46,6 +48,8 @@ targets:
         product: ActionUIQuickLook
       - package: ActionUIChat
         product: ActionUIChat
+      - package: ActionUIDiff
+        product: ActionUIDiff
     settings:
       base:
         SWIFT_VERSION: "6.0"

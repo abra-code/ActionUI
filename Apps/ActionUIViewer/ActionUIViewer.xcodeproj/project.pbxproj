@@ -12,6 +12,7 @@
 		B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */; };
 		C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */; };
 		C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61EEE11E5292D427ED46EAAB /* ActionUI */; };
+		F27AD044F8309FD9674EFB3F /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +20,7 @@
 		220BFC389A4C74377ED40338 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
 		633FF57269441FF212A51E46 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = "../../Add-ons/ActionUIQuickLook"; sourceTree = SOURCE_ROOT; };
 		7CEAACC186172508668A996A /* ActionUIViewer */ = {isa = PBXFileReference; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
+		A01507BFFE61594BFD82D6E1 /* ActionUIDiff */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIDiff; path = "../../Add-ons/ActionUIDiff"; sourceTree = SOURCE_ROOT; };
 		E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIViewer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -31,6 +33,7 @@
 				B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */,
 				07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */,
 				4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */,
+				F27AD044F8309FD9674EFB3F /* ActionUIDiff in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -42,6 +45,7 @@
 			children = (
 				220BFC389A4C74377ED40338 /* ActionUI */,
 				20E9B2BC72A5CACE71112E6B /* ActionUIChat */,
+				A01507BFFE61594BFD82D6E1 /* ActionUIDiff */,
 				633FF57269441FF212A51E46 /* ActionUIQuickLook */,
 			);
 			name = Packages;
@@ -100,6 +104,7 @@
 				D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */,
 				4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */,
 				018DD60E7C130C7B79604D82 /* ActionUIChat */,
+				DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */,
 			);
 			productName = ActionUIViewer;
 			productReference = 7CEAACC186172508668A996A /* ActionUIViewer */;
@@ -128,6 +133,7 @@
 			packageReferences = (
 				23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */,
 				89D90977C400366893C0CC02 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIChat" */,
+				D65E9205FD48112B173705B7 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIDiff" */,
 				CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -341,6 +347,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../../Add-ons/ActionUIQuickLook";
 		};
+		D65E9205FD48112B173705B7 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIDiff" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../Add-ons/ActionUIDiff";
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -359,6 +369,10 @@
 		D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUISwiftAdapter;
+		};
+		DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIDiff;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

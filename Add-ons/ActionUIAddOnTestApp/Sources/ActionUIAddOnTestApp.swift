@@ -9,6 +9,7 @@ import ActionUI
 import ActionUISwiftAdapter
 import ActionUIQuickLook
 import ActionUIChat
+import ActionUIDiff
 
 @main
 struct ActionUIAddOnTestApp: App {
@@ -20,6 +21,7 @@ struct ActionUIAddOnTestApp: App {
         // Add a line here per add-on.
         ActionUIQuickLook.register()
         ActionUIChat.register()
+        ActionUIDiff.register()
 
         ActionUISwift.setDefaultActionHandler { actionID, windowUUID, viewID, viewPartID, _ in
             print("[action] \(actionID) window:\(windowUUID) view:\(viewID).\(viewPartID)")
@@ -80,8 +82,9 @@ struct AddOnPickerView: View {
     }
 }
 
-/// Per-demo runtime setup. Most demos are self-contained JSON; some (like QuickLook, which previews
-/// a file by path) need a value seeded at runtime from a bundled resource.
+/// Per-demo runtime setup. Most demos are self-contained JSON; some need a value seeded at runtime
+/// from a bundled resource - QuickLook previews a file by value, and the Diff demo injects two
+/// bundled text-file paths into a Diff element's properties before display.
 enum DemoSetup {
     // Each demo .json is a separate window, so DemoSetup must dispatch on the resource actually being
     // shown (the picker passes the selected file's name). Map each QuickLook demo to the element id
@@ -101,6 +104,17 @@ enum DemoSetup {
         if let viewID = quickLookDemoElementID[resource],
            let sample = Bundle.main.url(forResource: "Sample", withExtension: "pdf") {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: viewID, value: sample.path)
+        }
+
+        // The Diff demo's second element (id 81) diffs two bundled text files by absolute path,
+        // injected here before display. This is the pre-display setElementProperty pattern a host
+        // uses to drive the element at runtime (the wrapper is stateless, so the set re-renders it);
+        // it doubles as the demo. The .txt files stay out of the *.json picker (it globs json only).
+        if resource == "Diff",
+           let oldFile = Bundle.main.url(forResource: "DiffSampleOld", withExtension: "txt"),
+           let newFile = Bundle.main.url(forResource: "DiffSampleNew", withExtension: "txt") {
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 81, propertyName: "oldFile", value: oldFile.path)
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 81, propertyName: "newFile", value: newFile.path)
         }
     }
 }

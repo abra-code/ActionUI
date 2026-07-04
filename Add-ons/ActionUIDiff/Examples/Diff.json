@@ -1,0 +1,16 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12, "alignment": "leading" },
+  "children": [
+    { "type": "Text", "properties": { "text": "Diff (add-on element): greet(_:) before and after", "font": "headline" } },
+    {
+      "type": "Diff",
+      "id": 1,
+      "properties": {
+        "oldText": "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)!\"\n}",
+        "newText": "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)! Welcome back.\"\n}",
+        "frame": { "maxWidth": "infinity" }
+      }
+    }
+  ]
+}

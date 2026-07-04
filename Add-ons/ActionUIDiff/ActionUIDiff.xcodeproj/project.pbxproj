@@ -1,0 +1,464 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5CB17EE33C428A218C0A462F /* DiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C5FFB346DD5F85ACDB300A /* DiffView.swift */; };
+		624EFDFD35988489A14DB0BE /* DiffModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2214B3342D83CA6F29398B /* DiffModel.swift */; };
+		6CE8B03D2B4EC71606B342CC /* ActionUIDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD55BBAD7AECE2CFDD1CEA7 /* ActionUIDiff.swift */; };
+		E02AA73761B2649D6B434E1B /* Diff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746E99387E9E3AFE048248AD /* Diff.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		32712B96DA96CDC06BE29789 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CE30F9382E8659EAC4E46875 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7080D1D46F0DAECED93F6BD3;
+			remoteInfo = DiffView;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2B2214B3342D83CA6F29398B /* DiffModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffModel.swift; sourceTree = "<group>"; };
+		746E99387E9E3AFE048248AD /* Diff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diff.swift; sourceTree = "<group>"; };
+		79971926670BDF327CB17542 /* libActionUIDiff.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIDiff.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		7EBC1AB8D5877488ADF001FE /* libDiffView.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDiffView.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C5FFB346DD5F85ACDB300A /* DiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffView.swift; sourceTree = "<group>"; };
+		AA0C4414E0578E7E934075DD /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
+		EDD55BBAD7AECE2CFDD1CEA7 /* ActionUIDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIDiff.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		4292DC399CAE8B8CFC56EB25 /* DiffView */ = {
+			isa = PBXGroup;
+			children = (
+				2B2214B3342D83CA6F29398B /* DiffModel.swift */,
+				A1C5FFB346DD5F85ACDB300A /* DiffView.swift */,
+			);
+			path = DiffView;
+			sourceTree = "<group>";
+		};
+		539E3C55C518D09F10409885 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				AA0C4414E0578E7E934075DD /* ActionUI */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		6FAB30C278572D919A37CADD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				79971926670BDF327CB17542 /* libActionUIDiff.a */,
+				7EBC1AB8D5877488ADF001FE /* libDiffView.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8F810529A39B55E4242610E7 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				9B548333C34F52AD35653A0F /* ActionUIDiff */,
+				4292DC399CAE8B8CFC56EB25 /* DiffView */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		9B548333C34F52AD35653A0F /* ActionUIDiff */ = {
+			isa = PBXGroup;
+			children = (
+				EDD55BBAD7AECE2CFDD1CEA7 /* ActionUIDiff.swift */,
+				746E99387E9E3AFE048248AD /* Diff.swift */,
+			);
+			path = ActionUIDiff;
+			sourceTree = "<group>";
+		};
+		CA89204538C3662423650093 = {
+			isa = PBXGroup;
+			children = (
+				539E3C55C518D09F10409885 /* Packages */,
+				8F810529A39B55E4242610E7 /* Sources */,
+				6FAB30C278572D919A37CADD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7080D1D46F0DAECED93F6BD3 /* DiffView */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5687364BB25BDEB1B5E295D3 /* Build configuration list for PBXNativeTarget "DiffView" */;
+			buildPhases = (
+				5241A8C744B70251E238718B /* Sources */,
+				77C7038A978624A3C42D63EC /* Copy Swift Objective-C Interface Header */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DiffView;
+			packageProductDependencies = (
+			);
+			productName = DiffView;
+			productReference = 7EBC1AB8D5877488ADF001FE /* libDiffView.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		FA570F06352F6B3ABCDC5A18 /* ActionUIDiff */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 049F05EBB4EAEEB30CD25EEA /* Build configuration list for PBXNativeTarget "ActionUIDiff" */;
+			buildPhases = (
+				6539185EA6EFDDB199F0D440 /* Sources */,
+				7894194962D73BACF9639463 /* Copy Swift Objective-C Interface Header */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5BBD7E5610EE49129A53C616 /* PBXTargetDependency */,
+				72A88C775835CBC842EA3923 /* PBXTargetDependency */,
+			);
+			name = ActionUIDiff;
+			packageProductDependencies = (
+			);
+			productName = ActionUIDiff;
+			productReference = 79971926670BDF327CB17542 /* libActionUIDiff.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CE30F9382E8659EAC4E46875 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = F8DCBC526FF4B1BBEC0CDCA5 /* Build configuration list for PBXProject "ActionUIDiff" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CA89204538C3662423650093;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5099851F26094B15A8775485 /* XCLocalSwiftPackageReference "../.." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 6FAB30C278572D919A37CADD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FA570F06352F6B3ABCDC5A18 /* ActionUIDiff */,
+				7080D1D46F0DAECED93F6BD3 /* DiffView */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		77C7038A978624A3C42D63EC /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+		7894194962D73BACF9639463 /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5241A8C744B70251E238718B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				624EFDFD35988489A14DB0BE /* DiffModel.swift in Sources */,
+				5CB17EE33C428A218C0A462F /* DiffView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6539185EA6EFDDB199F0D440 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6CE8B03D2B4EC71606B342CC /* ActionUIDiff.swift in Sources */,
+				E02AA73761B2649D6B434E1B /* Diff.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5BBD7E5610EE49129A53C616 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7080D1D46F0DAECED93F6BD3 /* DiffView */;
+			targetProxy = 32712B96DA96CDC06BE29789 /* PBXContainerItemProxy */;
+		};
+		72A88C775835CBC842EA3923 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_4DCC58F7-E2BB-4947-821F-CBB6F6D65803" /* ActionUI */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		244008CE50DAC24C9CD5CF8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		3646B69175E34FB4732EB3F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIDiff;
+				PRODUCT_MODULE_NAME = ActionUIDiff;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		7A0C39EBE3143F3013F04404 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.DiffView;
+				PRODUCT_MODULE_NAME = DiffView;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		B075B7F4224DF0093CB05ACE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B3EA0E99DFA62C3A8709AE5B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.DiffView;
+				PRODUCT_MODULE_NAME = DiffView;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F4522059D3FBD1763BCB41E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUIDiff;
+				PRODUCT_MODULE_NAME = ActionUIDiff;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		049F05EBB4EAEEB30CD25EEA /* Build configuration list for PBXNativeTarget "ActionUIDiff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3646B69175E34FB4732EB3F4 /* Debug */,
+				F4522059D3FBD1763BCB41E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5687364BB25BDEB1B5E295D3 /* Build configuration list for PBXNativeTarget "DiffView" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3EA0E99DFA62C3A8709AE5B /* Debug */,
+				7A0C39EBE3143F3013F04404 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F8DCBC526FF4B1BBEC0CDCA5 /* Build configuration list for PBXProject "ActionUIDiff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				244008CE50DAC24C9CD5CF8A /* Debug */,
+				B075B7F4224DF0093CB05ACE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		5099851F26094B15A8775485 /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		"TEMP_4DCC58F7-E2BB-4947-821F-CBB6F6D65803" /* ActionUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CE30F9382E8659EAC4E46875 /* Project object */;
+}

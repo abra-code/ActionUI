@@ -25,6 +25,7 @@ import ScreenCaptureKit
 // be called once at launch (see handleApplicationLaunch). Add an import + register() line per add-on.
 import ActionUIQuickLook
 import ActionUIChat
+import ActionUIDiff
 
 final class CustomLogger: ActionUI.ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
@@ -122,6 +123,7 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         // Built-in element types self-register inside core on first registry access.
         ActionUIQuickLook.register()
         ActionUIChat.register()
+        ActionUIDiff.register()
 
         var jsonFilePath: String?
         var screenshotPath: String?

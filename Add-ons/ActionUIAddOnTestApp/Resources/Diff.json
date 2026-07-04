@@ -1,0 +1,37 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": { "spacing": 16, "padding": 16, "alignment": "leading" },
+    "children": [
+      { "type": "Text", "properties": { "text": "Diff (add-on element)", "font": "title2" } },
+
+      { "type": "Text", "properties": {
+          "text": "Section 1 - inline oldText / newText. The greet(_:) function before and after an edit, diffed from strings embedded in this document.",
+          "font": "subheadline", "foregroundStyle": "secondary" } },
+      {
+        "type": "Diff",
+        "id": 80,
+        "properties": {
+          "oldText": "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)!\"\n}",
+          "newText": "func greet(_ name: String) -> String {\n    return \"Hello, \\(name)! Welcome back.\"\n}",
+          "frame": { "maxWidth": "infinity" }
+        }
+      },
+
+      { "type": "Divider" },
+
+      { "type": "Text", "properties": {
+          "text": "Section 2 - oldFile / newFile injected at runtime. Two small bundled text files, diffed by absolute path. DemoSetup resolves their bundle URLs and sets oldFile / newFile on this element (id 81) before display.",
+          "font": "subheadline", "foregroundStyle": "secondary" } },
+      {
+        "type": "Diff",
+        "id": 81,
+        "properties": {
+          "contextLines": 2,
+          "frame": { "maxWidth": "infinity" }
+        }
+      }
+    ]
+  }
+}

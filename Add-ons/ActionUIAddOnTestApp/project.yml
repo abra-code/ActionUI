@@ -28,6 +28,8 @@ packages:
     path: ../ActionUIQuickLook
   ActionUIChat:
     path: ../ActionUIChat
+  ActionUIDiff:
+    path: ../ActionUIDiff
 
 targets:
   ActionUIAddOnTestApp:
@@ -50,6 +52,8 @@ targets:
         product: ActionUIQuickLook      # ...and the add-on packages.
       - package: ActionUIChat
         product: ActionUIChat
+      - package: ActionUIDiff
+        product: ActionUIDiff
     preBuildScripts:
       - name: "Verify JSON resources"
         script: '"${SRCROOT}/Scripts/verify_json_resources.sh"'
