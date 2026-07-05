@@ -27,10 +27,10 @@ struct ChatRootView: View {
 
     private let bottomAnchor = "chat.bottom.anchor"
 
-    init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger) {
+    init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger, viewModel: ViewModel? = nil) {
         self.config = config
         _store = StateObject(wrappedValue: ChatStore(config: config, windowUUID: windowUUID,
-                                                     elementID: elementID, logger: logger))
+                                                     elementID: elementID, logger: logger, contentSource: viewModel))
     }
 
     var body: some View {
@@ -46,15 +46,20 @@ struct ChatRootView: View {
                     store.respondToPermission(request.id, optionID: optionID)
                 }
             }
-            let commandMatches = SlashCommandMenu.matches(draft: store.draft, commands: store.availableCommands)
-            if !commandMatches.isEmpty {
-                Divider()
-                SlashCommandMenuView(matches: commandMatches) { command in
-                    store.draft = "/\(command.name) "
+            // readOnly is the history-viewer mode: no composer, no slash-command menu (P0-2). The
+            // status bar stays to show a restored usage total, but with no live session there are no
+            // option menus.
+            if !config.readOnly {
+                let commandMatches = SlashCommandMenu.matches(draft: store.draft, commands: store.availableCommands)
+                if !commandMatches.isEmpty {
+                    Divider()
+                    SlashCommandMenuView(matches: commandMatches) { command in
+                        store.draft = "/\(command.name) "
+                    }
                 }
+                Divider()
+                composer
             }
-            Divider()
-            composer
             if store.usage != nil || !store.configOptions.isEmpty {
                 Divider()
                 SessionStatusBar(usage: store.usage, options: store.configOptions) { optionID, value in

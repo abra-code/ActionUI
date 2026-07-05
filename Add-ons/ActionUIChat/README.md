@@ -66,8 +66,12 @@ A `Chat` element, usable from JSON like any built-in:
 - Action IDs (`sendActionID`, `stopActionID`, `messageActionID`, `errorActionID`) dispatch host-facing
   events through `ActionUIModel.actionHandler`, exactly like `Button`.
 
-The element manages its own transcript model internally (a `ChatStore`), so M1 does not expose a single
-scalar `value`; host interaction is via the action IDs.
+The element manages its own transcript model internally (a `ChatStore`), so it exposes no single scalar
+`value`; host interaction is via the action IDs. The session transcript is DATA (a serializable
+`ChatTranscript`): a host persists it incrementally as it happens through `entryActionID` (fired per
+finalized entry), and restores a saved session at runtime by injecting it into `states["content"]` (via
+`setElementState` / `setElementStateFromString`, after the interface is built) - the same place Table /
+List keep their content, not a document property. `readOnly` is the read-only viewer mode.
 
 ## Internal architecture
 

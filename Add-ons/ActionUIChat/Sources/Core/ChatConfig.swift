@@ -92,6 +92,12 @@ struct ChatConfig {
     let messageActionID: String?
     let errorActionID: String?
     let approveToolActionID: String?  // fired when an agent requests tool permission
+    let entryActionID: String?        // fired per finalized transcript entry (incremental persistence, P0-2)
+
+    // Session transcript seam (P0-2).
+    let readOnly: Bool           // history-viewer mode: no composer / menus, no transport start
+    let initialContentRaw: Any?  // properties.content verbatim (a preview / testing convenience, NOT the
+                                 // production restore path); the store decodes it ONCE at start
 
     // MARK: - Defaults
 
@@ -158,6 +164,14 @@ struct ChatConfig {
         messageActionID = properties["messageActionID"] as? String
         errorActionID = properties["errorActionID"] as? String
         approveToolActionID = properties["approveToolActionID"] as? String
+        entryActionID = properties["entryActionID"] as? String
+
+        readOnly = (properties["readOnly"] as? Bool) ?? false
+        // A pre-populated transcript in `properties.content` - a preview / testing convenience only.
+        // The production restore path is a runtime setElementState("content", ...), which the store
+        // observes separately; a static UI document should not carry session data. Kept RAW here so it
+        // is not re-decoded on every buildView; the store decodes it once at start.
+        initialContentRaw = properties["content"]
     }
 
     /// Resolves config.protocol to a transport name. Any string is valid: which names
@@ -232,11 +246,16 @@ struct ChatConfig {
             validated["surfaces"] = surfacesRaw
         }
 
-        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID"] {
+        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID", "entryActionID"] {
             if let value = validated[key], !(value is String) {
                 logger.log("Chat \(key) must be a String; ignoring", .warning)
                 validated[key] = nil
             }
+        }
+
+        if let value = validated["readOnly"], !(value is Bool) {
+            logger.log("Chat readOnly must be a Bool; ignoring", .warning)
+            validated["readOnly"] = nil
         }
 
         return validated

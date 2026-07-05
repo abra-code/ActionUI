@@ -27,7 +27,7 @@ import CoreGraphics
 /// The party a transcript item belongs to. A transport maps its own participants
 /// onto these keys; the JSON `roles` map then resolves each key to a side / label
 /// / tint. In single-alignment (M1) `side` is ignored and only label / tint matter.
-public enum ChatRole: String, Sendable, Hashable {
+public enum ChatRole: String, Sendable, Hashable, Codable {
     case local      // the local user (composer input)
     case agent      // an AI agent
     case remote     // the other party in person-to-person chat
@@ -39,14 +39,42 @@ public enum ChatRole: String, Sendable, Hashable {
 /// treatment and the Stop affordance). The `id` is stable so the transcript's
 /// `LazyVStack` does not re-diff finalized rows while the last message streams.
 ///
-/// Internal: a message enters and leaves a transport only as itemID + role + text
-/// deltas (ChatEvent), never as this whole value, so it is not part of the public
-/// transport API.
-struct ChatMessage: Identifiable, Equatable {
-    let id: String
-    let role: ChatRole
-    var text: String
-    var isStreaming: Bool
+/// A message enters and leaves a transport only as itemID + role + text deltas
+/// (ChatEvent), never as this whole value, so it is not part of the transport API - but
+/// it IS part of the persisted transcript (P0-2), so it is public and Codable. The
+/// transient `isStreaming` render flag is NOT serialized: a loaded message is always
+/// final (decodes with isStreaming == false).
+public struct ChatMessage: Identifiable, Equatable, Sendable, Codable {
+    public let id: String
+    public let role: ChatRole
+    public var text: String
+    public var isStreaming: Bool
+
+    public init(id: String, role: ChatRole, text: String, isStreaming: Bool) {
+        self.id = id
+        self.role = role
+        self.text = text
+        self.isStreaming = isStreaming
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, role, text
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.role = try container.decode(ChatRole.self, forKey: .role)
+        self.text = try container.decode(String.self, forKey: .text)
+        self.isStreaming = false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(role, forKey: .role)
+        try container.encode(text, forKey: .text)
+    }
 }
 
 /// A standalone image transcript element. Chat splits an image and its accompanying text into SEPARATE
@@ -54,7 +82,7 @@ struct ChatMessage: Identifiable, Equatable {
 /// own element, not part of a message's `text`. `pixelSize` is the source's natural size when the transport
 /// knows it - it lets the transcript reserve exact space so the picture hydrates without reflowing the
 /// scroll position. `alt` is the accessibility / fallback description.
-public struct ChatImage: Sendable, Equatable {
+public struct ChatImage: Sendable, Equatable, Codable {
     public let url: URL
     public let alt: String
     public let pixelSize: CGSize?
@@ -64,6 +92,34 @@ public struct ChatImage: Sendable, Equatable {
         self.alt = alt
         self.pixelSize = pixelSize
     }
+
+    // Serializes by source reference (the URL / path), never pixel data. `pixelSize` is
+    // flattened to explicit width/height so the JSON shape is stable and self-documenting.
+    private enum CodingKeys: String, CodingKey {
+        case url, alt, pixelWidth, pixelHeight
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.url = try container.decode(URL.self, forKey: .url)
+        self.alt = try container.decodeIfPresent(String.self, forKey: .alt) ?? ""
+        if let width = try container.decodeIfPresent(Double.self, forKey: .pixelWidth),
+           let height = try container.decodeIfPresent(Double.self, forKey: .pixelHeight) {
+            self.pixelSize = CGSize(width: width, height: height)
+        } else {
+            self.pixelSize = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encode(alt, forKey: .alt)
+        if let pixelSize {
+            try container.encode(Double(pixelSize.width), forKey: .pixelWidth)
+            try container.encode(Double(pixelSize.height), forKey: .pixelHeight)
+        }
+    }
 }
 
 /// A tool invocation surfaced by an agentic transport, rendered as a card in the
@@ -72,15 +128,20 @@ public struct ChatImage: Sendable, Equatable {
 /// scripted local transport builds these too. `contentText` is the call's textual
 /// content (Markdown, joined across content blocks); `diff` and the raw input / output
 /// are optional detail the card can disclose.
-public struct ToolCallModel: Identifiable, Equatable, Sendable {
+public struct ToolCallModel: Identifiable, Equatable, Sendable, Codable {
+
+    /// Persistence coding keys (P0-2): pinned so the on-disk format does not drift.
+    private enum CodingKeys: String, CodingKey {
+        case id, title, kind, status, contentText, diff, rawInput, rawOutput
+    }
 
     /// What the call does; drives the card icon. ACP's `kind` vocabulary.
-    public enum Kind: String, Sendable {
+    public enum Kind: String, Sendable, Codable {
         case read, edit, delete, move, search, execute, think, fetch, other
     }
 
     /// Lifecycle state; drives the card's status indicator. ACP's `status` vocabulary.
-    public enum Status: String, Sendable {
+    public enum Status: String, Sendable, Codable {
         case pending
         case inProgress = "in_progress"
         case completed
@@ -112,7 +173,11 @@ public struct ToolCallModel: Identifiable, Equatable, Sendable {
 /// A proposed or applied file change carried inside a tool call's content
 /// (ACP's `diff` ToolCallContent). Rendered as a code preview in M3; a real
 /// side-by-side diff viewer is an M5 surface.
-public struct ToolCallDiff: Equatable, Sendable {
+public struct ToolCallDiff: Equatable, Sendable, Codable {
+    private enum CodingKeys: String, CodingKey {
+        case path, oldText, newText
+    }
+
     public let path: String
     public let oldText: String?
     public let newText: String
@@ -193,8 +258,11 @@ public struct PermissionRequest: Identifiable, Equatable, Sendable {
 /// One step of the agent's evolving task plan (ACP `plan`). The agent re-emits the
 /// WHOLE plan as it progresses, so the store replaces the list rather than merging.
 /// ACP plan entries carry no IDs; identity is positional, assigned by the transport.
-public struct PlanEntry: Identifiable, Equatable, Sendable {
-    public enum Status: String, Sendable {
+public struct PlanEntry: Identifiable, Equatable, Sendable, Codable {
+    private enum CodingKeys: String, CodingKey {
+        case id, content, priority, status
+    }
+    public enum Status: String, Sendable, Codable {
         case pending
         case inProgress = "in_progress"
         case completed
@@ -215,7 +283,11 @@ public struct PlanEntry: Identifiable, Equatable, Sendable {
 /// Token / cost usage for the session (OpenCode's `usage_update`: tokens used out of
 /// the context window, plus an optional cost). Agents that do not report usage never
 /// emit it; the status line simply stays empty.
-public struct UsageInfo: Equatable, Sendable {
+public struct UsageInfo: Equatable, Sendable, Codable {
+    private enum CodingKeys: String, CodingKey {
+        case used, size, costAmount, costCurrency
+    }
+
     public let used: Int
     public let size: Int?            // context window size, when reported
     public let costAmount: Double?
@@ -287,9 +359,11 @@ public struct SlashCommand: Identifiable, Equatable, Sendable {
 /// visually folded) and tool-call cards. Plan / terminal panels are M5 side
 /// surfaces and live outside the transcript.
 ///
-/// Internal: the transcript is the store's render model, not part of the transport
-/// contract (transports emit ChatEvents; the store builds ChatItems from them).
-enum ChatItem: Identifiable, Equatable {
+/// The store's render model - transports emit ChatEvents and the store builds ChatItems
+/// from them - and, since P0-2, the unit of the persisted transcript, so it is public and
+/// Codable. Codable uses a stable `type` discriminator ("message" / "thought" / "toolCall"
+/// / "image" / "system" / "error") so the on-disk format does not drift.
+public enum ChatItem: Identifiable, Equatable, Sendable, Codable {
     case message(ChatMessage)
     case thought(ChatMessage)
     case toolCall(ToolCallModel)
@@ -297,7 +371,7 @@ enum ChatItem: Identifiable, Equatable {
     case system(id: String, text: String)
     case error(id: String, text: String)
 
-    var id: String {
+    public var id: String {
         switch self {
         case .message(let message):  return message.id
         case .thought(let thought):  return thought.id
@@ -306,6 +380,137 @@ enum ChatItem: Identifiable, Equatable {
         case .system(let id, _):     return id
         case .error(let id, _):      return id
         }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case type, message, toolCall, id, role, image, text
+    }
+
+    private enum ItemType: String, Codable {
+        case message, thought, toolCall, image, system, error
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(ItemType.self, forKey: .type)
+        switch type {
+        case .message:
+            self = .message(try container.decode(ChatMessage.self, forKey: .message))
+        case .thought:
+            self = .thought(try container.decode(ChatMessage.self, forKey: .message))
+        case .toolCall:
+            self = .toolCall(try container.decode(ToolCallModel.self, forKey: .toolCall))
+        case .image:
+            self = .image(id: try container.decode(String.self, forKey: .id),
+                          role: try container.decode(ChatRole.self, forKey: .role),
+                          image: try container.decode(ChatImage.self, forKey: .image))
+        case .system:
+            self = .system(id: try container.decode(String.self, forKey: .id),
+                           text: try container.decode(String.self, forKey: .text))
+        case .error:
+            self = .error(id: try container.decode(String.self, forKey: .id),
+                          text: try container.decode(String.self, forKey: .text))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .message(let message):
+            try container.encode(ItemType.message, forKey: .type)
+            try container.encode(message, forKey: .message)
+        case .thought(let thought):
+            try container.encode(ItemType.thought, forKey: .type)
+            try container.encode(thought, forKey: .message)
+        case .toolCall(let call):
+            try container.encode(ItemType.toolCall, forKey: .type)
+            try container.encode(call, forKey: .toolCall)
+        case .image(let id, let role, let image):
+            try container.encode(ItemType.image, forKey: .type)
+            try container.encode(id, forKey: .id)
+            try container.encode(role, forKey: .role)
+            try container.encode(image, forKey: .image)
+        case .system(let id, let text):
+            try container.encode(ItemType.system, forKey: .type)
+            try container.encode(id, forKey: .id)
+            try container.encode(text, forKey: .text)
+        case .error(let id, let text):
+            try container.encode(ItemType.error, forKey: .type)
+            try container.encode(id, forKey: .id)
+            try container.encode(text, forKey: .text)
+        }
+    }
+}
+
+/// The serializable form of a whole chat session (P0-2). The element has no scalar value: a host
+/// RESTORES a saved session at runtime by injecting this (as JSON / a dict / a string) into
+/// `states["content"]` (setElementState / setElementStateFromString), and persists incrementally
+/// the other way, per finalized entry, through `entryActionID`. `version` pins the format; `items`
+/// is the transcript; `usage` / `plan` are the latest status surfaces; `title` is an optional
+/// app-owned label passed through untouched (the component never interprets it).
+public struct ChatTranscript: Equatable, Sendable, Codable {
+    public let version: Int
+    public let items: [ChatItem]
+    public let usage: UsageInfo?
+    public let plan: [PlanEntry]
+    public let title: String?
+
+    public init(version: Int = 1, items: [ChatItem], usage: UsageInfo? = nil,
+                plan: [PlanEntry] = [], title: String? = nil) {
+        self.version = version
+        self.items = items
+        self.usage = usage
+        self.plan = plan
+        self.title = title
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version, items, usage, plan, title
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        self.items = try container.decodeIfPresent([ChatItem].self, forKey: .items) ?? []
+        self.usage = try container.decodeIfPresent(UsageInfo.self, forKey: .usage)
+        self.plan = try container.decodeIfPresent([PlanEntry].self, forKey: .plan) ?? []
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(items, forKey: .items)
+        try container.encodeIfPresent(usage, forKey: .usage)
+        if !plan.isEmpty {
+            try container.encode(plan, forKey: .plan)
+        }
+        try container.encodeIfPresent(title, forKey: .title)
+    }
+
+    /// Decodes a restored value into a transcript: a ChatTranscript passes through; a JSON object /
+    /// string / data is decoded. Returns nil for anything else (an unrelated value), which callers
+    /// ignore. Used by both the store's `states["content"]` restore observation and the
+    /// `properties.content` pre-populated load.
+    public static func decode(from value: Any?) -> ChatTranscript? {
+        if let transcript = value as? ChatTranscript {
+            return transcript
+        }
+        let data: Data?
+        switch value {
+        case let string as String:
+            data = string.data(using: .utf8)
+        case let raw as Data:
+            data = raw
+        case let object as [String: Any]:
+            data = try? JSONSerialization.data(withJSONObject: object)
+        default:
+            data = nil
+        }
+        guard let data else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ChatTranscript.self, from: data)
     }
 }
 

@@ -1,0 +1,32 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "A read-only session viewer: readOnly hides the composer and starts no transport. This example pre-populates a transcript via properties.content (a preview / testing convenience only). In production a host restores a saved session at runtime by injecting it into states[\"content\"] via setElementState, after the interface is built.", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 86,
+      "properties": {
+        "readOnly": true,
+        "content": {
+          "version": 1,
+          "title": "Saved session",
+          "items": [
+            { "type": "message", "message": { "id": "u1", "role": "local", "text": "How do I reverse a string in Swift?" } },
+            { "type": "thought", "message": { "id": "t1", "role": "agent", "text": "The user wants string reversal; String has a reversed() that returns a ReversedCollection, wrap it in String()." } },
+            { "type": "message", "message": { "id": "a1", "role": "agent", "text": "Use `String(s.reversed())`:\n\n```swift\nlet s = \"hello\"\nlet r = String(s.reversed()) // \"olleh\"\n```" } },
+            { "type": "system", "id": "s1", "text": "Session ended." }
+          ],
+          "usage": { "used": 1280, "size": 200000 }
+        },
+        "appearance": { "alignment": "single", "showRoleLabels": true },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "agent": { "label": "Assistant", "tint": "secondary" }
+        },
+        "surfaces": { "thoughts": "collapsed" },
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

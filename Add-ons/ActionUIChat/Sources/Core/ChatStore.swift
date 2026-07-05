@@ -17,7 +17,27 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import ActionUI
+
+/// The element's content channel: `states["content"]`, the same place Table / List keep their
+/// content. A host RESTORES a saved session by injecting a serialized transcript here at runtime
+/// (setElementState / setElementStateFromString), AFTER the interface is built; the store observes
+/// it and loads. This is one-way (restore-in only): the store never writes it back - persistence
+/// flows the other way, per finalized entry, through `entryActionID`. Abstracted over ViewModel so
+/// the restore path is testable with a fake.
+@MainActor
+protocol ChatContentSource: AnyObject {
+    /// Observes `states["content"]`; the handler is called with the current value on subscription and
+    /// on every subsequent change (matching @Published semantics). Cancel to stop.
+    func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable
+}
+
+extension ViewModel: ChatContentSource {
+    func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        $states.sink { handler($0["content"]) }
+    }
+}
 
 @MainActor
 final class ChatStore: ObservableObject {
@@ -31,6 +51,8 @@ final class ChatStore: ObservableObject {
     @Published private(set) var availableCommands: [SlashCommand] = []      // the agent's slash commands (composer menu)
     @Published var draft: String = ""                     // composer text
 
+    private(set) var title: String?                       // app-owned session label, passed through the transcript
+
     let config: ChatConfig
     let windowUUID: String
     let elementID: Int
@@ -39,6 +61,7 @@ final class ChatStore: ObservableObject {
     private var transport: (any ChatTransport)?
     private var eventTask: Task<Void, Never>?
     private var localCounter = 0
+    private var didLoadInitial = false
 
     // Coalescing: streaming deltas accumulate per item here and are flushed to the published
     // transcript at most ~20 Hz, so the Markdown re-parse runs on a fixed cadence instead of once
@@ -46,17 +69,56 @@ final class ChatStore: ObservableObject {
     private var streamBuffers: [String: String] = [:]
     private var flushPending = false
 
-    init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger) {
+    // Session transcript seam (P0-2). A saved session RESTORES into `states["content"]` at runtime
+    // (setElementState / setElementStateFromString), observed here. `lastLoadedContent` dedups so a
+    // given content value loads once. Persistence flows the other way, per finalized entry, through
+    // `entryActionID` - the store never writes `states["content"]` back.
+    private weak var contentSource: (any ChatContentSource)?
+    private var lastLoadedContent: ChatTranscript?
+    private var contentCancellable: AnyCancellable?
+    private var entrySequence = 0
+
+    init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger, contentSource: (any ChatContentSource)? = nil) {
         self.config = config
         self.windowUUID = windowUUID
         self.elementID = elementID
         self.logger = logger
+        self.contentSource = contentSource
     }
 
-    /// Builds the transport (once) and starts draining its event stream. Called from
-    /// the view's `.onAppear`.
+    /// Loads any pre-populated transcript (a document `properties.content`, a testing convenience) once,
+    /// (re)starts observing runtime restores through `states["content"]`, and - unless `readOnly` -
+    /// builds the transport and drains its event stream. Called from the view's `.onAppear`; safe to
+    /// call again after `.onDisappear` (which tears the transport / subscription down but preserves the
+    /// transcript): the pre-populated load runs only the first time, and the transport is rebuilt.
     func start() {
-        guard transport == nil else { return }
+        // One-time pre-populated load. A document `properties.content` (a preview / testing convenience,
+        // NOT the production path) seeds the transcript before any transport runs.
+        if !didLoadInitial {
+            didLoadInitial = true
+            if let raw = config.initialContentRaw {
+                if let transcript = ChatTranscript.decode(from: raw) {
+                    applyLoadedTranscript(transcript)
+                    lastLoadedContent = transcript
+                } else {
+                    logger.log("Chat properties.content is not a decodable transcript; ignoring", .warning)
+                }
+            }
+        }
+        // (Re)subscribe to runtime restores through states["content"] (setElementState[FromString]).
+        // The dedup against `lastLoadedContent` ignores the subscription's immediate delivery of a
+        // value already loaded (e.g. the pre-populated content).
+        if contentCancellable == nil, let contentSource {
+            contentCancellable = contentSource.observeChatContent { [weak self] newContent in
+                self?.reconcileRestoredContent(newContent)
+            }
+        }
+
+        // readOnly is the history-viewer mode: no transport, no composer (ChatRootView gates those).
+        // The transport is (re)built once per appearance.
+        guard !config.readOnly, transport == nil else {
+            return
+        }
         let transport = ChatTransportRegistry.shared.make(config, logger: logger)
         self.transport = transport
         eventTask = Task { [weak self] in
@@ -81,9 +143,12 @@ final class ChatStore: ObservableObject {
     /// `messageActionID`, and forwards a `.prompt` to the transport.
     func send(_ text: String) {
         localCounter += 1
-        items.append(.message(ChatMessage(id: "user-\(localCounter)", role: .local, text: text, isStreaming: false)))
+        let itemID = "user-\(localCounter)"
+        let message = ChatMessage(id: itemID, role: .local, text: text, isStreaming: false)
+        items.append(.message(message))
         fire(config.sendActionID)
         fire(config.messageActionID)
+        fireEntry(type: "message", id: itemID, data: ChatItem.message(message))
         let transport = self.transport
         Task { await transport?.send(.prompt(text: text)) }
     }
@@ -119,6 +184,8 @@ final class ChatStore: ObservableObject {
     func teardown() {
         eventTask?.cancel()
         eventTask = nil
+        contentCancellable?.cancel()
+        contentCancellable = nil
         streamBuffers.removeAll()
         pendingPermissions.removeAll()
         let transport = self.transport
@@ -167,6 +234,9 @@ final class ChatStore: ObservableObject {
                     }
                     $0.isStreaming = false
                 }
+                if case .message(let finalized) = items[index] {
+                    fireEntry(type: "message", id: itemID, data: ChatItem.message(finalized))
+                }
             }
             fire(config.messageActionID)
             // A nil stopReason closes only this message (a segmented transport - ACP -
@@ -198,6 +268,7 @@ final class ChatStore: ObservableObject {
             }
             items.append(.toolCall(call))
             isStreaming = true
+            fireEntryForCompletedToolCall(call)
 
         case .toolCallUpdate(let update):
             if config.surfaces.toolCalls == .hidden {
@@ -230,6 +301,7 @@ final class ChatStore: ObservableObject {
                 call.rawOutput = rawOutput
             }
             items[index] = .toolCall(call)
+            fireEntryForCompletedToolCall(call)
 
         case .permissionRequest(let request):
             finalizeOpenThoughts()
@@ -243,9 +315,11 @@ final class ChatStore: ObservableObject {
             }
             // The agent re-emits its WHOLE plan as it progresses: replace, never merge.
             plan = entries
+            fireEntry(type: "plan", id: nil, data: entries)
 
         case .usage(let info):
             usage = info
+            fireEntry(type: "usage", id: nil, data: info)
 
         case .currentModeChanged(let modeID):
             // The spec's current_mode_update names only the new value; it targets the
@@ -267,16 +341,102 @@ final class ChatStore: ObservableObject {
         case .image(let itemID, let role, let image):
             items.append(.image(id: itemID, role: role, image: image))
             fire(config.messageActionID)
+            fireEntry(type: "image", id: itemID, data: ChatItem.image(id: itemID, role: role, image: image))
 
         case .system(let text):
             localCounter += 1
-            items.append(.system(id: "system-\(localCounter)", text: text))
+            let itemID = "system-\(localCounter)"
+            items.append(.system(id: itemID, text: text))
+            fireEntry(type: "system", id: itemID, data: ChatItem.system(id: itemID, text: text))
 
         case .error(let message, _):
             localCounter += 1
-            items.append(.error(id: "error-\(localCounter)", text: message))
+            let itemID = "error-\(localCounter)"
+            items.append(.error(id: itemID, text: message))
             fire(config.errorActionID)
+            fireEntry(type: "error", id: itemID, data: ChatItem.error(id: itemID, text: message))
         }
+    }
+
+    // MARK: - Session transcript seam: restore-in + incremental per-entry persistence
+
+    /// Handles a transcript a host restored into `states["content"]` (setElementState /
+    /// setElementStateFromString). Ignores content already loaded (the subscription's immediate
+    /// current-value delivery, or a repeated identical restore); a new transcript replaces the
+    /// session. Internal so tests can drive a restore directly (as the content subscription does).
+    func reconcileRestoredContent(_ newContent: Any?) {
+        guard let transcript = ChatTranscript.decode(from: newContent), transcript != lastLoadedContent else {
+            return
+        }
+        applyLoadedTranscript(transcript)
+        lastLoadedContent = transcript
+    }
+
+    /// Replaces the session state with a loaded transcript: items render in their final states
+    /// (no live continuations), the streaming / permission / buffer state is cleared, and the
+    /// status surfaces are restored. Appended turns (if a transport runs) land after the loaded items.
+    private func applyLoadedTranscript(_ transcript: ChatTranscript) {
+        items = transcript.items
+        usage = transcript.usage
+        plan = transcript.plan
+        title = transcript.title
+        isStreaming = false
+        pendingPermissions.removeAll()
+        streamBuffers.removeAll()
+        // Advance the id counter past any store-generated ids (user-/system-/error-N) in the loaded
+        // transcript, so a subsequent user/system/error item cannot collide with a loaded one (which
+        // would break ForEach identity and messageIndex lookups).
+        let generatedPrefixes = ["user-", "system-", "error-"]
+        let maxSuffix = transcript.items.compactMap { item -> Int? in
+            let id = item.id
+            for prefix in generatedPrefixes where id.hasPrefix(prefix) {
+                return Int(id.dropFirst(prefix.count))
+            }
+            return nil
+        }.max()
+        if let maxSuffix {
+            localCounter = max(localCounter, maxSuffix)
+        }
+    }
+
+    /// The envelope fired to entryActionID: a monotonic sequence, the finalized entry's type
+    /// and id (for idempotent upsert on the app side), and the entry's JSON.
+    private struct EntryEnvelope<Payload: Encodable>: Encodable {
+        let sequence: Int
+        let type: String
+        let id: String?
+        let data: Payload
+    }
+
+    /// Fires `entryActionID` (when configured) with a JSON envelope for one finalized transcript
+    /// entry, so the host can persist incrementally without polling. Never called on streaming deltas.
+    private func fireEntry<Payload: Encodable>(type: String, id: String?, data: Payload) {
+        guard let actionID = config.entryActionID, !actionID.isEmpty else {
+            return
+        }
+        // Compute the next sequence but commit it only if the payload encodes, so an encode failure
+        // does not burn a number (a host detecting dropped events by a sequence gap would false-positive).
+        let next = entrySequence + 1
+        let envelope = EntryEnvelope(sequence: next, type: type, id: id, data: data)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let jsonData = try? encoder.encode(envelope), let json = String(data: jsonData, encoding: .utf8) else {
+            logger.log("Chat: could not encode entry payload for '\(type)'; skipping", .warning)
+            return
+        }
+        entrySequence = next
+        ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: json)
+    }
+
+    /// Fires the "toolCall" entry whenever a tool call is in (or reaches) a terminal (completed /
+    /// failed) state. It re-fires if a terminal call receives further updates - some transports deliver
+    /// the terminal status and the final output/diff in SEPARATE updates - so the LAST entry always
+    /// carries the final content. The host upserts by type+id, so the re-fires collapse to the latest.
+    private func fireEntryForCompletedToolCall(_ call: ToolCallModel) {
+        guard call.status == .completed || call.status == .failed else {
+            return
+        }
+        fireEntry(type: "toolCall", id: call.id, data: ChatItem.toolCall(call))
     }
 
     // MARK: - Coalescing
@@ -319,6 +479,7 @@ final class ChatStore: ObservableObject {
             }
             thought.isStreaming = false
             items[index] = .thought(thought)
+            fireEntry(type: "thought", id: thought.id, data: ChatItem.thought(thought))
         }
     }
 

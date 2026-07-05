@@ -68,7 +68,17 @@
      "stopActionID": "chat.stop",         // Optional: fired when the user cancels an in-flight turn
      "messageActionID": "chat.message",   // Optional: fired per finalized message (user and agent)
      "errorActionID": "chat.error",       // Optional: fired on a transport / parse error
-     "approveToolActionID": "chat.tool.approve" // Optional: fired when an agent requests tool permission
+     "approveToolActionID": "chat.tool.approve", // Optional: fired when an agent requests tool permission
+     "entryActionID": "chat.entry",       // Optional: fired per FINALIZED transcript entry (message, thought,
+                                          //           completed/failed tool call, image, system, error, plan,
+                                          //           usage) with a JSON envelope { sequence, type, id, data } as
+                                          //           the action context, for crash-safe incremental persistence.
+                                          //           Never fired on streaming deltas.
+     "readOnly": false                    // Optional (default false): read-only viewer mode - hides the composer and
+                                          //           menus and starts NO transport ("protocol" may be omitted). Pair
+                                          //           with a runtime setElementState("content", ...) to show a saved session.
+                                          // (Session data is NOT carried in the document - see "Session transcript" below.
+                                          //  "properties.content" pre-populates a transcript for previews / testing only.)
    }
  }
 
@@ -107,8 +117,21 @@
  token usage in the status bar - no agent process required. Dual alignment and the remaining M5 surfaces
  (terminals, multi-session) arrive in later milestones (see Private/chat-element-design.md).
 
- Observable state: the element manages its own transcript model internally (no single scalar value), so
- it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.
+ Session transcript (P0-2): the element has no scalar value - its session transcript is CONTENT. A host
+ RESTORES a saved session at runtime by injecting a serialized ChatTranscript (version, items, usage, plan,
+ title) into states["content"], AFTER the interface is built - the same place Table / List keep their
+ content, and the right vehicle for session DATA (a static UI document describes how to build the interface,
+ not the conversation, and does not scale to carrying a transcript). Restore with a STABLE representation so
+ REPEATED restores work (e.g. a session switcher reusing one element): pass a JSON string (or a native
+ object) via setElementState("content", ...) - the store decodes either. setElementStateFromString is a
+ one-time restore only (it stores a JSON-inferred object the first time, which core's type guard then
+ refuses to re-set from a string); the simplest robust pattern is a fresh Chat element per session. readOnly
+ makes it a pure viewer (no composer, no transport). Persistence flows the other way:
+ entryActionID fires per finalized transcript entry with that entry's JSON, so the host stores incrementally
+ as the conversation happens (keep the handler inexpensive - usage / plan updates can fire several times per
+ turn). Session identity (ids, titles) stays app-side; the component only passes the optional title through
+ untouched. `properties.content` pre-populates a transcript for previews / basic internal testing only - it
+ is NOT the production restore path.
  The non-visual settings (protocol, transport) live in the element-level "config" block and are host-
  injectable via setElementConfig - the canonical embedding loads a static document, injects the
  runtime/session-specific transport (resolved agent path, working directory), then shows the view
@@ -132,8 +155,9 @@ import ActionUI
 
 struct Chat: ActionUIViewConstruction {
 
-    // The element owns a rich internal model (transcript, streaming buffer, transport), so it has no
-    // single scalar runtime value - mirroring container-style elements (valueType Void).
+    // The element has no single scalar value: its session transcript is CONTENT, restored at runtime
+    // into states["content"] (like Table / List content), not carried on the element value. So the
+    // value type stays Void, mirroring container-style elements.
     static var valueType: Any.Type = Void.self
 
     static var validateProperties: ([String: Any], any ActionUILogger) -> [String: Any] = { properties, logger in
@@ -142,9 +166,10 @@ struct Chat: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // model.config is the element's live NON-VISUAL config block (protocol,
-        // transport), stored verbatim by core; ChatConfig checks it as it reads.
+        // transport), stored verbatim by core; ChatConfig checks it as it reads. The view model
+        // is handed to the store as the content source so it can observe states["content"] restores.
         let config = ChatConfig(properties: properties, config: model.config, logger: logger)
-        return ChatRootView(config: config, windowUUID: windowUUID, elementID: element.id, logger: logger)
+        return ChatRootView(config: config, windowUUID: windowUUID, elementID: element.id, logger: logger, viewModel: model)
     }
 
     // Baseline View modifiers (frame, padding, background, ...) are applied by the registry.
