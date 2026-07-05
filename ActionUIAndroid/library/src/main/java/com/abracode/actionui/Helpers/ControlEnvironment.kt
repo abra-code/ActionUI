@@ -1,5 +1,7 @@
 package com.abracode.actionui.Helpers
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import com.abracode.actionui.Common.ActionUILogger
@@ -17,19 +19,33 @@ import kotlinx.serialization.json.JsonPrimitive
  * Material control, and button emphasis/size are distinct composables
  * (`Button` / `FilledTonalButton` / `TextButton`) and metrics, not an ambient
  * value. So, exactly as `tint` did, each gets a [ProvidableCompositionLocal]
- * provided once per element (through [ProvideTextStyleEnvironment])
- * and read by the control builders:
+ * read by the control builders:
  *
  *   * `disabled`     -> [LocalActionUIEnabled]      (read by every interactive control)
  *   * `buttonStyle`  -> [LocalActionUIButtonStyle]  (read by `Button`)
  *   * `controlSize`  -> [LocalActionUIControlSize]  (read by `Button`)
  *   * `labelsHidden` -> [LocalActionUILabelsHidden] (read by the labeled controls)
  *
+ * `buttonStyle` / `controlSize` / `labelsHidden` are provided once per element from
+ * its (static) child properties in [ProvideTextStyleEnvironment]. **`disabled` is
+ * different**: it must be RUNTIME-REACTIVE in both directions
+ * (`setElementProperty(disabled, true/false)`), matching Apple (which reads
+ * `disabled` off the mutated `validatedProperties` every render) and web (whose
+ * runtime applier toggles it either way). So `disabled` is resolved and provided
+ * by [ProvideDisabledEnvironment] at the shared build entry point
+ * (`ViewModifierHelper.BuildViewWithModifiers`), on the host-merged *effective*
+ * element (`ViewModel.propertyOverrides`) - the same place `hidden` becomes
+ * reactive - NOT off the parent's static child properties.
+ *
  * **`disabled` combination.** SwiftUI ANDs `isEnabled` down the hierarchy: a
- * `.disabled(false)` cannot re-enable a subtree an ancestor disabled. The
- * provider mirrors that by only ever narrowing - `disabled: true` provides
- * `false`, while `disabled: false` (or absent) leaves the inherited value
- * untouched.
+ * `.disabled(false)` cannot re-enable a subtree an ancestor disabled.
+ * [ProvideDisabledEnvironment] mirrors that by only ever narrowing - it provides
+ * `LocalActionUIEnabled = false` only when the element itself resolves
+ * `disabled: true`; when `disabled` is `false`/absent it provides nothing, so the
+ * subtree inherits the ancestor value. Because each element re-runs this on its
+ * own effective properties, re-enabling an OWN authored-disabled element
+ * (`disabled: false` -> provides nothing -> inherits the ancestor's enabled
+ * value) works, while an ancestor's `false` still ANDs down.
  *
  * **`labelsHidden`** mirrors SwiftUI's `.labelsHidden()`: it hides the built-in
  * labels of the labeled controls in the subtree - `Toggle`, `Picker`,
@@ -57,6 +73,31 @@ val LocalActionUIControlSize: ProvidableCompositionLocal<ActionUIControlSize?> =
 
 val LocalActionUILabelsHidden: ProvidableCompositionLocal<Boolean> =
     compositionLocalOf { false }
+
+/**
+ * Whether user input (scroll gestures in particular) may reach this subtree.
+ * `true` by default; provided `false` for a `hidden` subtree by
+ * [ProvideDisabledEnvironment].
+ *
+ * A `hidden` element is invisible AND non-interactive on Apple (`.hidden()`,
+ * removed from hit-testing) and web (`display:none`, removed from the layout and
+ * hit-testing). On Android `hidden` maps to `alpha(0f)` (invisible but still laid
+ * out - the reserve-space semantics documented in Missing_Features #30), which
+ * leaves the subtree HIT-TESTABLE. In the section-switcher idiom (overlapping
+ * bodies in a `ZStack`, all but one `hidden`) that lets an invisible body on top
+ * in z-order steal touches from the visible body behind it: its `LazyColumn`
+ * claims the vertical drag, so the visible list never scrolls (Missing_Features
+ * #34). Scrollable containers (`List` and the lazy stacks/grids, `ScrollView`)
+ * read this local and, when `false`, render a bare `Box` with the same modifiers
+ * instead of their scroll viewport (`userScrollEnabled = false` is NOT enough -
+ * the LazyColumn would still be a hit target blocking the sibling), so a hidden
+ * scroll container carries no scrollable/pointer node at all and hit-testing
+ * falls through to the visible sibling behind - matching the non-interactive
+ * `hidden` of Apple/web while a bounded container still reserves its viewport
+ * size. Like [LocalActionUIEnabled] it only ever narrows.
+ */
+val LocalActionUIInputEnabled: ProvidableCompositionLocal<Boolean> =
+    compositionLocalOf { true }
 
 /** SwiftUI `ButtonStyle` vocabulary; the Material mapping lives in `Views/Button.kt`. */
 enum class ActionUIButtonStyle {
@@ -113,6 +154,63 @@ internal fun resolveDisabled(properties: JsonObject, logger: ActionUILogger? = n
     }
     return value
 }
+
+/**
+ * Provides the runtime-reactive control-environment locals for an element's
+ * subtree, resolved from its (effective) [properties]:
+ *
+ *   * `disabled` -> [LocalActionUIEnabled] (`false` when the element resolves
+ *     `disabled: true`; see the class note on the narrowing rule).
+ *   * `hidden`   -> [LocalActionUIInputEnabled] (`false` when the element is
+ *     `hidden`, so its scrollable containers stop stealing touch from a visible
+ *     sibling behind them in a section-switcher ZStack; see the local's note).
+ *
+ * Called from the shared build entry point (`ViewModifierHelper`) on the
+ * host-merged effective element, and from `TemplateHelper` for template rows, so
+ * both are runtime-reactive (a `setElementProperty(disabled/hidden, ...)` write
+ * reaches them). Both locals only ever NARROW (a value is provided only to turn
+ * the flag on), so a descendant cannot re-enable what an ancestor removed, while
+ * an element re-enabling its OWN authored flag inherits the ancestor value.
+ * Adds no provider (invokes [content] directly) in the common case where the
+ * element is neither disabled nor hidden.
+ */
+@Composable
+fun ProvideDisabledEnvironment(
+    properties: JsonObject?,
+    logger: ActionUILogger? = null,
+    content: @Composable () -> Unit,
+) {
+    val disabledValue = disabledLocalOverride(properties, logger)
+    val inputValue = inputEnabledLocalOverride(properties)
+    if (disabledValue == null && inputValue == null) {
+        content()
+        return
+    }
+    val provided = buildList {
+        disabledValue?.let { add(LocalActionUIEnabled provides it) }
+        inputValue?.let { add(LocalActionUIInputEnabled provides it) }
+    }
+    CompositionLocalProvider(*provided.toTypedArray()) { content() }
+}
+
+/**
+ * The value [ProvideDisabledEnvironment] provides for [LocalActionUIEnabled] given an element's
+ * (effective) [properties], or `null` to inherit the ancestor value. Only ever `false`
+ * (the NARROWING rule): `disabled: true` -> `false`; `disabled: false`/absent -> `null`. So a
+ * descendant cannot re-enable a subtree a disabled ancestor turned off (SwiftUI AND-down), while
+ * an element re-enabling its OWN authored `disabled` (now `false` on the effective element -> `null`)
+ * inherits the ancestor's enabled value. Pure, so the reactive-disabled decision is unit-testable.
+ */
+internal fun disabledLocalOverride(properties: JsonObject?, logger: ActionUILogger? = null): Boolean? =
+    if (properties?.let { resolveDisabled(it, logger) } == true) false else null
+
+/**
+ * The value [ProvideDisabledEnvironment] provides for [LocalActionUIInputEnabled], or `null` to
+ * inherit. Only ever `false` (narrowing): a `hidden` element removes input (scroll) from its
+ * subtree so it stops stealing touch from a visible sibling (see [LocalActionUIInputEnabled]).
+ */
+internal fun inputEnabledLocalOverride(properties: JsonObject?): Boolean? =
+    if (properties?.booleanProperty("hidden") == true) false else null
 
 /**
  * Reads the `labelsHidden` flag off [properties], warning on a non-Boolean

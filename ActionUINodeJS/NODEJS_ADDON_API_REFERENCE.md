@@ -208,6 +208,10 @@ const win = actionui.Window.fromURL('file:///path/to/view.json', uuid, isContent
 
 win.uuid      // string — the window's UUID
 win.viewPtr   // pointer returned by loadHostingController, or null
+
+// Content size limits of the loaded root element (min == max means fixed size;
+// make the hosting window non-user-resizable in that case). null if nothing loaded.
+win.contentSizeLimits()  // -> { minWidth, minHeight, maxWidth, maxHeight } or null
 ```
 
 #### Type-specific setters / getters
@@ -423,6 +427,8 @@ native.dismissToast(uuid)
 
 // UI loading (returns viewPtr or null)
 native.loadHostingController(url, uuid, isContentView)
+// Size limits of the loaded root element content; throws for an unknown window
+native.getContentSizeLimits(uuid) // -> { minWidth, minHeight, maxWidth, maxHeight }
 
 // Lifecycle setters (pass null to deregister)
 native.appSetWillFinishLaunching(fn)

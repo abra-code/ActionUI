@@ -95,6 +95,22 @@ class Window {
         return win;
     }
 
+    // Content size limits of the loaded root element:
+    // { minWidth, minHeight, maxWidth, maxHeight }. The minimum is what the
+    // SwiftUI content reports for a zero size proposal, the maximum for an
+    // infinite one; flexible axes report a very large maximum, and a fixed
+    // root frame reports min == max (make the hosting window
+    // non-user-resizable in that case). Measured on the bare root element,
+    // bypassing the window-level modal/toast wrapper.
+    // Returns null if the window has no loaded description.
+    contentSizeLimits() {
+        try {
+            return _actionui.getContentSizeLimits(this.uuid);
+        } catch (e) {
+            return null;
+        }
+    }
+
     // Type-specific setters
     setInt(viewId, partId = 0, value)    { _actionui.setIntValue(this.uuid, viewId, partId, value); }
     setDouble(viewId, partId = 0, value) { _actionui.setDoubleValue(this.uuid, viewId, partId, value); }

@@ -119,20 +119,29 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     } else {
         null
     }
-    if (enter != null) {
-        val visibleState = remember(effective.id) { MutableTransitionState(false) }
-        LaunchedEffect(effective.id) { visibleState.targetState = true }
-        // Record the entrance as played once it settles, so it is not replayed on a later reorder.
-        LaunchedEffect(visibleState.isIdle) {
-            if (visibleState.isIdle && visibleState.currentState) {
-                windowModel?.markTransitionPlayed(effective.id)
+    // Runtime-reactive control environment for this element's subtree, resolved on
+    // the effective (host-merged) element: `disabled` -> LocalActionUIEnabled (so a
+    // setElementProperty(disabled, true/false) re-enables/disables in both directions,
+    // Apple/web parity) and `hidden` -> LocalActionUIInputEnabled (so a hidden subtree's
+    // scroll containers stop stealing touch from a visible sibling; see ControlEnvironment.kt).
+    // Both only narrow, preserving SwiftUI's AND-down across ancestors.
+    val logger = LocalActionUILogger.current
+    ProvideDisabledEnvironment(effective.properties, logger) {
+        if (enter != null) {
+            val visibleState = remember(effective.id) { MutableTransitionState(false) }
+            LaunchedEffect(effective.id) { visibleState.targetState = true }
+            // Record the entrance as played once it settles, so it is not replayed on a later reorder.
+            LaunchedEffect(visibleState.isIdle) {
+                if (visibleState.isIdle && visibleState.currentState) {
+                    windowModel?.markTransitionPlayed(effective.id)
+                }
             }
-        }
-        AnimatedVisibility(visibleState = visibleState, enter = enter, exit = ExitTransition.None) {
+            AnimatedVisibility(visibleState = visibleState, enter = enter, exit = ExitTransition.None) {
+                this@BuildViewWithModifiers.BuildViewModifierChain(effective, modifier)
+            }
+        } else {
             this@BuildViewWithModifiers.BuildViewModifierChain(effective, modifier)
         }
-    } else {
-        BuildViewModifierChain(effective, modifier)
     }
 }
 

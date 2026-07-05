@@ -1,0 +1,44 @@
+{
+  "type": "VStack",
+  "id": 200,
+  "properties": {
+    "frame": { "width": 360, "height": 640 },
+    "alignment": "leading",
+    "spacing": 0,
+    "onAppearActionID": "repro.nested.load"
+  },
+  "children": [
+    { "type": "Text", "properties": { "text": "Fixed-height column (640dp)", "font": "headline", "padding": 12 } },
+    {
+      "type": "ZStack",
+      "id": 240,
+      "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }, "alignment": "top" },
+      "children": [
+        {
+          "type": "ZStack",
+          "id": 300,
+          "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }, "alignment": "top" },
+          "children": [
+            {
+              "type": "List",
+              "id": 320,
+              "properties": {
+                "listStyle": "plain",
+                "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+              },
+              "template": {
+                "type": "HStack",
+                "properties": { "padding": 14, "frame": { "maxWidth": "infinity" } },
+                "children": [
+                  { "type": "Text", "properties": { "text": "$1" } },
+                  { "type": "Spacer" },
+                  { "type": "Text", "properties": { "text": "$2", "foregroundStyle": "secondary" } }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

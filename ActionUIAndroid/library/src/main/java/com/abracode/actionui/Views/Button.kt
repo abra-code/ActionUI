@@ -180,9 +180,12 @@ object Button : ActionUIViewConstruction {
             }
         }
 
-        // The inherited control environment - the element's own properties were
-        // already provided into it by ProvideTextStyleEnvironment, so reading the
-        // locals covers both the inherited and the self-declared case.
+        // The inherited control environment. `buttonStyle`/`controlSize` are provided
+        // from the element's own (static) properties by ProvideTextStyleEnvironment;
+        // `enabled` comes from ProvideDisabledEnvironment, which resolves `disabled` on
+        // the host-merged effective element (so setElementProperty(disabled) is
+        // reactive both ways) and only narrows across ancestors. Reading the locals
+        // therefore covers the inherited and the self-declared case alike.
         val style = LocalActionUIButtonStyle.current ?: ActionUIButtonStyle.AUTOMATIC
         val enabled = LocalActionUIEnabled.current
         val metrics = controlSizeMetrics(LocalActionUIControlSize.current)

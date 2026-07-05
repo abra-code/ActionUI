@@ -629,6 +629,48 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // List.nestedFillScroll.json (#34) - a template List with maxHeight:infinity nested in
+        // fixed-height fill ZStacks. onAppear loads 30 rows so the list overflows its viewport;
+        // the test is whether an upward swipe scrolls it (the SharedCare hub Schedule repro).
+        ActionUIModel.registerActionHandler("repro.nested.load") { _, windowUUID, _, _, _ ->
+            val rows = (1..30).map { listOf("Row $it", "detail $it") }
+            ActionUIModel.setElementRows(windowUUID = windowUUID, viewID = 320, rows = rows)
+        }
+
+        // List.overlaidHiddenScroll.json (#34) - the SharedCare section-switcher shape: a visible
+        // template List (320) with a HIDDEN sibling List (420) overlaid on top of it in the same
+        // ZStack. Both get 30 rows; the test is whether a swipe scrolls the VISIBLE list (it must,
+        // once a hidden subtree stops intercepting touch).
+        ActionUIModel.registerActionHandler("repro.overlaid.load") { _, windowUUID, _, _, _ ->
+            val rows = (1..30).map { listOf("Row $it", "detail $it") }
+            ActionUIModel.setElementRows(windowUUID = windowUUID, viewID = 320, rows = rows)
+            ActionUIModel.setElementRows(windowUUID = windowUUID, viewID = 420, rows = rows)
+        }
+
+        // View.disabledReactive.json (#33) - runtime disabled reactivity. Save (viewID 10) is
+        // authored disabled:true; Enable/Disable Save write its `disabled` property so a re-enabled
+        // Save fires. The container (viewID 20) is authored disabled:true with a child Button
+        // (viewID 21); "Toggle container" flips the container's disabled so the child follows
+        // SwiftUI's AND-down narrowing (a disabled ancestor keeps the child disabled).
+        ActionUIModel.registerActionHandler("reactive.save") { _, _, _, _, _ ->
+            Toast.makeText(this, "Save fired!", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("reactive.child") { _, _, _, _, _ ->
+            Toast.makeText(this, "Child fired!", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("reactive.enable") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementProperty(windowUUID = windowUUID, viewID = 10, propertyName = "disabled", value = false)
+        }
+        ActionUIModel.registerActionHandler("reactive.disable") { _, windowUUID, _, _, _ ->
+            ActionUIModel.setElementProperty(windowUUID = windowUUID, viewID = 10, propertyName = "disabled", value = true)
+        }
+        ActionUIModel.registerActionHandler("reactive.toggleAncestor") { _, windowUUID, _, _, _ ->
+            val current = ActionUIModel.getElementProperty(
+                windowUUID = windowUUID, viewID = 20, propertyName = "disabled"
+            ) as? Boolean ?: true
+            ActionUIModel.setElementProperty(windowUUID = windowUUID, viewID = 20, propertyName = "disabled", value = !current)
+        }
+
         ActionUIModel.setDefaultActionHandler { actionID, _, viewID, _, _ ->
             Toast.makeText(this, "Default handler: '$actionID' (viewID=$viewID)", Toast.LENGTH_SHORT).show()
         }

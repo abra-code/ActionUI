@@ -29,9 +29,14 @@
 */
 
 import SwiftUI
+import Foundation
 
 @MainActor
 struct TemplateHelper {
+
+    /// Matches a column reference `$N` (one or more digits). Used for single-pass,
+    /// multi-digit-safe substitution (see `substituteString`).
+    nonisolated static let columnRefRegex = try! NSRegularExpression(pattern: "\\$([0-9]+)")
 
     // MARK: - Column Substitution
 
@@ -57,12 +62,39 @@ struct TemplateHelper {
         }
     }
 
+    /// Substitute `$0`/`$1`/`$N` column references in `str` against `row`.
+    ///
+    /// Substitution is single-pass and multi-digit-safe: one regex sweep replaces
+    /// every `$N`, so a column value that itself contains `$2` is not re-substituted,
+    /// and `$12` reads as column 12 (not `$1` followed by a literal `2`). `$0` joins
+    /// all columns with ", "; an out-of-range `$N` is left as literal text. This
+    /// matches the Android and Web hosts (both regex-based); the previous ordered
+    /// `replacingOccurrences` loop corrupted `$10`+ because `$1` matched inside `$10`.
     static func substituteString(_ str: String, row: [String]) -> String {
-        var result = str
-        result = result.replacingOccurrences(of: "$0", with: row.joined(separator: ", "))
-        for (index, col) in row.enumerated() {
-            result = result.replacingOccurrences(of: "$\(index + 1)", with: col)
+        let ns = str as NSString
+        let matches = columnRefRegex.matches(in: str, range: NSRange(location: 0, length: ns.length))
+        guard !matches.isEmpty else { return str }
+
+        var result = ""
+        var cursor = 0
+        for match in matches {
+            let whole = match.range
+            result += ns.substring(with: NSRange(location: cursor, length: whole.location - cursor))
+            let digits = ns.substring(with: match.range(at: 1))
+            if let n = Int(digits) {
+                if n == 0 {
+                    result += row.joined(separator: ", ")
+                } else if n >= 1 && n <= row.count {
+                    result += row[n - 1]
+                } else {
+                    result += ns.substring(with: whole) // out of range: leave literal
+                }
+            } else {
+                result += ns.substring(with: whole)
+            }
+            cursor = whole.location + whole.length
         }
+        result += ns.substring(with: NSRange(location: cursor, length: ns.length - cursor))
         return result
     }
 

@@ -1,6 +1,7 @@
 package com.abracode.actionui.Views
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -21,6 +22,7 @@ import com.abracode.actionui.Common.StackAxis
 import com.abracode.actionui.Common.parseColumnAlignment
 import com.abracode.actionui.Helpers.ActionUIGridCells
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.boundWidthIfUnbounded
@@ -110,6 +112,15 @@ object LazyVGrid : ActionUIViewConstruction {
         // are read here (composable scope) so the lazy DSL below stays plain.
         val template = element.template
         val rows = if (template != null) templateRows(element.id) else emptyList()
+
+        // A hidden scroll container must not consume touch (Apple/web make `hidden`
+        // non-interactive) - see ListView and Missing_Features #34. When hidden, render a bare
+        // Box that reserves the bounded viewport but carries no scrollable/pointer node, so
+        // hit-testing falls through to a visible sibling behind it in an overlapping ZStack.
+        if (!LocalActionUIInputEnabled.current) {
+            Box(gridModifier)
+            return
+        }
 
         CompositionLocalProvider(LocalStackAxis provides StackAxis.Vertical) {
             LazyVerticalGrid(

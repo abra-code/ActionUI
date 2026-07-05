@@ -2,6 +2,7 @@ package com.abracode.actionui.Helpers
 
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -119,5 +120,69 @@ class ControlEnvironmentTest {
         assertFalse(resolveLabelsHidden(buildJsonObject { putJsonObject("labelsHidden") {} }, logger))
         assertEquals(2, logger.warnings.size)
         assertTrue(logger.warnings.all { it.contains("labelsHidden") })
+    }
+
+    // ---- disabledLocalOverride: runtime-reactive `disabled`, both directions + narrowing (#33) ----
+    //
+    // These test the decision ProvideDisabledEnvironment makes on the host-merged EFFECTIVE element
+    // (authored properties + setElementProperty overrides, merged by ViewModifierHelper.mergeProperties).
+    // `null` means "provide nothing" -> the subtree inherits the ancestor value (SwiftUI AND-down);
+    // `false` means "narrow this subtree to disabled". The end-to-end control behaviour (a re-enabled
+    // Button fires; a disabled ancestor keeps a child disabled) is exercised on-device by
+    // demoApp/assets/View.disabledReactive.json - the codebase convention for CompositionLocal wiring.
+
+    @Test
+    fun `disabledLocalOverride narrows only when disabled, else inherits`() {
+        // disabled:true -> provide false (narrow to disabled).
+        assertEquals(false, disabledLocalOverride(buildJsonObject { put("disabled", true) }))
+        // disabled:false / absent -> null (inherit), so an element cannot re-enable itself past a
+        // disabled ancestor - SwiftUI's AND-down is preserved.
+        assertNull(disabledLocalOverride(buildJsonObject { put("disabled", false) }))
+        assertNull(disabledLocalOverride(buildJsonObject { put("title", "x") }))
+        assertNull(disabledLocalOverride(null))
+    }
+
+    @Test
+    fun `runtime disabled override re-enables an authored-disabled element and re-disables it`() {
+        val authored = buildJsonObject { put("title", "Save"); put("disabled", true) }
+        // Authored disabled:true -> narrows to disabled (Save cannot fire).
+        assertEquals(false, disabledLocalOverride(authored))
+        // setElementProperty(disabled,false) merges over the authored value; the effective element
+        // now provides NOTHING, so the control inherits the enabled ancestor value (re-enabled ->
+        // it fires). This is the Apple/web behaviour the old provider - which read the parent's
+        // static child.properties and only narrowed - could never reach.
+        val enabled = mergeProperties(authored, mapOf("disabled" to JsonPrimitive(false)))
+        assertNull(disabledLocalOverride(enabled))
+        // setElementProperty(disabled,true) again re-narrows to disabled (both directions reactive).
+        val reDisabled = mergeProperties(authored, mapOf("disabled" to JsonPrimitive(true)))
+        assertEquals(false, disabledLocalOverride(reDisabled))
+    }
+
+    @Test
+    fun `runtime disabled override can disable an element the JSON never declared`() {
+        val effective = mergeProperties(
+            buildJsonObject { put("title", "x") },
+            mapOf("disabled" to JsonPrimitive(true)),
+        )
+        assertEquals(false, disabledLocalOverride(effective))
+    }
+
+    // ---- inputEnabledLocalOverride: a hidden subtree is non-interactive (#34) ----
+
+    @Test
+    fun `inputEnabledLocalOverride narrows only when hidden, else inherits`() {
+        assertEquals(false, inputEnabledLocalOverride(buildJsonObject { put("hidden", true) }))
+        assertNull(inputEnabledLocalOverride(buildJsonObject { put("hidden", false) }))
+        assertNull(inputEnabledLocalOverride(buildJsonObject { put("title", "x") }))
+        assertNull(inputEnabledLocalOverride(null))
+    }
+
+    @Test
+    fun `hidden input gating reacts to a runtime hidden override in both directions`() {
+        val authored = buildJsonObject { put("hidden", true) }
+        assertEquals(false, inputEnabledLocalOverride(authored))
+        // setElementProperty(hidden,false) -> shown again -> input restored (inherit).
+        val shown = mergeProperties(authored, mapOf("hidden" to JsonPrimitive(false)))
+        assertNull(inputEnabledLocalOverride(shown))
     }
 }

@@ -576,11 +576,37 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         let swiftView = loadActionUIView(from: url as URL, windowUUID: windowUUID as String, isContentView: isContentView)
         let hostingController = NSHostingController(rootView: AnyView(swiftView))
         hostingController.view.autoresizingMask = [.width, .height]
-        
+
         // clients can use `hostingController.view.fittingSize` to adjust
         // the size of the window hosting this view as a main content view
 
         return hostingController
+    }
+
+    /// Returns the minimum content size of a loaded window's root element: the size
+    /// the SwiftUI content reports for a zero size proposal (i.e. the content's
+    /// minWidth/minHeight constraints). Measures the bare root element, bypassing
+    /// the window-level modal/toast wrapper, which always expands to fill.
+    /// Use as the hosting window's `contentMinSize`. Call after
+    /// `loadHostingControllerWithURL` (or `loadViewWithURL`) has loaded the document.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: The minimum content size, or NSZeroSize if the window is unknown.
+    @MainActor @objc public class func minContentSizeForWindowUUID(_ windowUUID: NSString) -> NSSize {
+        return model.contentSizeLimits(windowUUID: windowUUID as String)?.minSize ?? NSZeroSize
+    }
+
+    /// Returns the maximum content size of a loaded window's root element: the size
+    /// the SwiftUI content reports for an infinite size proposal. Flexible content
+    /// (maxWidth/maxHeight "infinity") reports a very large value on that axis;
+    /// content with a fixed root frame reports the same size as
+    /// `minContentSizeForWindowUUID`, which lets a client detect a fixed-size window.
+    /// Use as the hosting window's `contentMaxSize`. Call after
+    /// `loadHostingControllerWithURL` (or `loadViewWithURL`) has loaded the document.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    /// - Returns: The maximum content size, or (greatestFiniteMagnitude, greatestFiniteMagnitude) if the window is unknown.
+    @MainActor @objc public class func maxContentSizeForWindowUUID(_ windowUUID: NSString) -> NSSize {
+        let unlimited = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        return model.contentSizeLimits(windowUUID: windowUUID as String)?.maxSize ?? unlimited
     }
     #endif
     

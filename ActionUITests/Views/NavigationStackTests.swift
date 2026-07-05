@@ -195,6 +195,67 @@ final class NavigationStackTests: XCTestCase {
         XCTAssertEqual((destinations?[0] as? ActionUIElement)?.properties["text"] as? String, "Destination View 10")
     }
 
+    // MARK: - Programmatic navigationPath (standard non-List content)
+
+    /// Regression test for the standard (non-selectable-List) branch: the
+    /// NavigationStack must expose and honor the `navigationPath` state even when
+    /// its `content` is a plain VStack (not a selectable List). One reusable detail
+    ///  destination pushed programmatically via setElementState(navigationPath: [destId]).
+    ///
+    /// The push itself is a SwiftUI transition (headless XCTest cannot render it),
+    /// but the fix wires `SwiftUI.NavigationStack(path:)` to the `navigationPath`
+    /// state via NavigationPathContainer.onReceive, so verifying the state channel
+    /// seeds empty and round-trips a programmatic write covers the binding source.
+    func testNavigationStackNonListNavigationPathSeedsAndRoundTrips() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "NavigationStack",
+            "content": [
+                "type": "VStack", "id": 2,
+                "children": [
+                    ["type": "Text", "id": 3, "properties": ["text": "Home"]]
+                ]
+            ],
+            "destinations": [
+                ["type": "Text", "id": 10, "properties": ["text": "Detail 10"]]
+            ],
+            "properties": [:]
+        ]
+
+        let actionUIModel = ActionUIModel.shared
+        let element = try actionUIModel.loadDescription(from: elementDict, windowUUID: windowUUID)
+
+        guard let windowModel = actionUIModel.windowModels[windowUUID],
+              let viewModel = windowModel.viewModels[element.id] else {
+            XCTFail("Failed to retrieve viewModel")
+            return
+        }
+
+        // Sanity: content is a VStack (standard branch, not the selectable-List pattern).
+        let content = element.subviews?["content"] as? any ActionUIElementBase
+        XCTAssertEqual((content as? ActionUIElement)?.type, "VStack")
+
+        // navigationPath seeds to an empty [Int].
+        let seeded = actionUIModel.getElementState(windowUUID: windowUUID, viewID: 1, key: "navigationPath") as? [Int]
+        XCTAssertEqual(seeded, [], "navigationPath should seed empty")
+
+        // Build should succeed for the standard branch with destinations.
+        let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        XCTAssertNotNil(view)
+
+        // Programmatic push: setElementState must update navigationPath (the value the
+        // NavigationPathContainer's .onReceive feeds into SwiftUI.NavigationStack(path:)).
+        actionUIModel.setElementState(windowUUID: windowUUID, viewID: 1, key: "navigationPath", value: [10])
+        let pushed = actionUIModel.getElementState(windowUUID: windowUUID, viewID: 1, key: "navigationPath") as? [Int]
+        XCTAssertEqual(pushed, [10], "Programmatic navigationPath write should be stored for the standard branch")
+
+        // Programmatic pop back to root.
+        actionUIModel.setElementState(windowUUID: windowUUID, viewID: 1, key: "navigationPath", value: [Int]())
+        let popped = actionUIModel.getElementState(windowUUID: windowUUID, viewID: 1, key: "navigationPath") as? [Int]
+        XCTAssertEqual(popped, [], "Programmatic navigationPath clear should return to root")
+    }
+
     func testNavigationStackWithoutDestinations() throws {
         let elementDict: [String: Any] = [
             "id": 1,

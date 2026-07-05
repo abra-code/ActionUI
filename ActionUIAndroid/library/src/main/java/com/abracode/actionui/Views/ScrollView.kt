@@ -15,6 +15,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.RefreshableScrollContainer
 import com.abracode.actionui.Helpers.rememberPlainScrollRegistration
@@ -69,6 +70,15 @@ object ScrollView : ActionUIViewConstruction {
         val builder = ActionUIRegistry.lookup(content.type) ?: return
 
         val axis = resolveScrollAxis(element.properties?.stringProperty("axis"), logger)
+
+        // A hidden scroll container must not consume touch (Apple/web make `hidden`
+        // non-interactive) - see ListView and Missing_Features #34. When hidden, render a bare
+        // Box that reserves the viewport size but carries no scroll/pointer node, so hit-testing
+        // falls through to a visible sibling behind it in an overlapping ZStack.
+        if (!LocalActionUIInputEnabled.current) {
+            Box(modifier)
+            return
+        }
 
         val verticalState = rememberScrollState()
         val horizontalState = rememberScrollState()

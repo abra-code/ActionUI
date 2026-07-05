@@ -230,4 +230,28 @@ class ActionUIModelValueStateTest {
         assertNull(ActionUIModel.getElementState(viewID = 1, key = "ghost"))
         assertTrue(logger.warnings.any { it.contains("ghost") })
     }
+
+    @Test
+    fun `setElementState allows differing List implementations for the same key`() {
+        // The NavigationStack.navigationPath pattern: seed with an empty list
+        // (EmptyList), then push with a singleton (SingletonList). Both are List,
+        // so the write must be accepted (concrete ::class differs, logical type does not).
+        ActionUIModel.setElementState(viewID = 1, key = "navigationPath", value = emptyList<Int>())
+        ActionUIModel.setElementState(viewID = 1, key = "navigationPath", value = listOf(50))
+        assertEquals(listOf(50), ActionUIModel.getElementState(viewID = 1, key = "navigationPath"))
+        assertTrue(logger.errors.none { it.contains("Type mismatch") })
+
+        // A larger list (ArrayList) is likewise accepted.
+        ActionUIModel.setElementState(viewID = 1, key = "navigationPath", value = listOf(50, 51))
+        assertEquals(listOf(50, 51), ActionUIModel.getElementState(viewID = 1, key = "navigationPath"))
+        assertTrue(logger.errors.none { it.contains("Type mismatch") })
+    }
+
+    @Test
+    fun `setElementState still rejects switching between a List and a scalar`() {
+        ActionUIModel.setElementState(viewID = 1, key = "p", value = listOf(1))
+        ActionUIModel.setElementState(viewID = 1, key = "p", value = 7) // scalar into a list key
+        assertEquals(listOf(1), ActionUIModel.getElementState(viewID = 1, key = "p"))
+        assertTrue(logger.errors.any { it.contains("Type mismatch") })
+    }
 }
