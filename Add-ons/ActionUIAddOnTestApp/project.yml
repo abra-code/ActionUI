@@ -26,6 +26,10 @@ packages:
     path: ../..
   ActionUIQuickLook:
     path: ../ActionUIQuickLook
+  ActionUICachedImage:
+    path: ../ActionUICachedImage
+  ActionUIRichText:
+    path: ../ActionUIRichText
   ActionUIChat:
     path: ../ActionUIChat
   ActionUIDiff:
@@ -49,7 +53,11 @@ targets:
       - package: ActionUI
         product: ActionUISwiftAdapter  # ...and the Swift adapter (loadView, action handlers)...
       - package: ActionUIQuickLook
-        product: ActionUIQuickLook      # ...and the add-on packages.
+        product: ActionUIQuickLook      # ...and the QuickLook add-on package...
+      - package: ActionUICachedImage
+        product: ActionUICachedImage    # ...and the CachedImage add-on package...
+      - package: ActionUIRichText
+        product: ActionUIRichText       # ...and the RichText add-on package.
       - package: ActionUIChat
         product: ActionUIChat
       - package: ActionUIDiff

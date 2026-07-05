@@ -1,0 +1,55 @@
+# xcodegen spec for the ActionUICachedImage add-on.
+# Generate the Xcode project with:  xcodegen generate   (run in this directory)
+#
+# This add-on COMPILES AGAINST ActionUI's public API but does NOT link the ActionUI static
+# library: the ActionUI dependency below is `link: false`, so it is used only for its Swift
+# module (build order + import visibility). AsyncImageCache is likewise compile-only here
+# (a static library never embeds its dependencies' object code); the HOST app links ActionUI,
+# AsyncImageCache, and this add-on, and calls ActionUICachedImage.register() once at launch.
+#
+# The Swift package (Package.swift) is the primary way to consume the add-on - it resolves the
+# AsyncImageCache github dependency for you. This xcodegen project builds the standalone `.a` for
+# inspection; AsyncImageCache is provided here as a local checkout path so xcodegen does not need
+# to hit the network. Point it at your AsyncImageCache checkout (defaults to a sibling of the
+# ActionUI repo).
+
+name: ActionUICachedImage
+
+options:
+  bundleIdPrefix: com.abracode.actionui
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.6"
+
+packages:
+  ActionUI:
+    path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
+  AsyncImageCache:
+    # Primary consumption is via Package.swift (github remote); this standalone project uses a
+    # local checkout so xcodegen resolves offline. Adjust the path to your checkout if needed.
+    path: ../../../AsyncImageCache
+
+targets:
+  ActionUICachedImage:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI
+        link: false       # compile-time module dependency only; host links ActionUI
+      - package: AsyncImageCache
+        product: AsyncImageCache
+        link: false       # compile-time module dependency only; host links AsyncImageCache
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SKIP_INSTALL: "YES"
+        PRODUCT_MODULE_NAME: ActionUICachedImage
+
+schemes:
+  ActionUICachedImage:
+    build:
+      targets:
+        ActionUICachedImage: all

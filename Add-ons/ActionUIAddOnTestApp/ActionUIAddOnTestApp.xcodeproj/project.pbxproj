@@ -13,15 +13,19 @@
 		2F342F24A685081A6D00796B /* ActionUIAddOnTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */; };
 		30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */ = {isa = PBXBuildFile; fileRef = 223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */; };
 		34158BDB51FC0365D2F4186D /* DiffSampleNew.txt in Resources */ = {isa = PBXBuildFile; fileRef = 0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */; };
-		581062D89D2AE39E5BB7602E /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = 4C9B8E82DC322DADB493567B /* ActionUIDiff */; };
+		581062D89D2AE39E5BB7602E /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */; };
+		62CDD50ACCD8CC25B6EF9912 /* RichText.json in Resources */ = {isa = PBXBuildFile; fileRef = 8C4E595F1F40E2EF85F9F588 /* RichText.json */; };
 		6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */ = {isa = PBXBuildFile; fileRef = A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */; };
 		73890C5557037BFA40BC861E /* DiffSampleOld.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */; };
 		83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */; };
 		900BCA3C6391EA20BA82A006 /* Chat.agentic.json in Resources */ = {isa = PBXBuildFile; fileRef = DBD652148424E7DF98811E1C /* Chat.agentic.json */; };
 		93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */; };
 		9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */ = {isa = PBXBuildFile; fileRef = 5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */; };
-		C243B510E2EACF91A4836826 /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */; };
+		B4D671CD8BB050943270DEFF /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = 4C9B8E82DC322DADB493567B /* ActionUIDiff */; };
+		C243B510E2EACF91A4836826 /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = 8547149835E3A4CB8FE6B319 /* ActionUICachedImage */; };
+		CB890761543619F8B086622D /* CachedImage.json in Resources */ = {isa = PBXBuildFile; fileRef = 107BDAEA93918D1CF512FBE5 /* CachedImage.json */; };
 		CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */; };
+		D4828D7844C2AC0434113C1F /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */; };
 		EB39E2EBB3ED5C4BA0BC4C54 /* Sample.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 1BF48B38F26ADAC280C871E5 /* Sample.pdf */; };
 		F8FEB15EA16ACF004C1DB7B7 /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2B9635CB1742700A0529909B /* ActionUI */; };
 /* End PBXBuildFile section */
@@ -30,13 +34,17 @@
 		0082DE6A4D8F7DE178372147 /* Diff.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Diff.json; sourceTree = "<group>"; };
 		0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DiffSampleNew.txt; sourceTree = "<group>"; };
 		0FB3650C4963944296903979 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
+		107BDAEA93918D1CF512FBE5 /* CachedImage.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = CachedImage.json; sourceTree = "<group>"; };
 		1BF48B38F26ADAC280C871E5 /* Sample.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Sample.pdf; sourceTree = "<group>"; };
 		21452584B443364EF4B6DD78 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = ../ActionUIQuickLook; sourceTree = SOURCE_ROOT; };
 		223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.showsChrome.json; sourceTree = "<group>"; };
 		24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.compact.json; sourceTree = "<group>"; };
 		5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.markdown.json; sourceTree = "<group>"; };
+		60D1FD3F7FB5CE7797FFB50F /* ActionUIRichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIRichText; path = ../ActionUIRichText; sourceTree = SOURCE_ROOT; };
 		65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIAddOnTestApp.swift; sourceTree = "<group>"; };
 		6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DiffSampleOld.txt; sourceTree = "<group>"; };
+		8C4E595F1F40E2EF85F9F588 /* RichText.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = RichText.json; sourceTree = "<group>"; };
+		93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUICachedImage; path = ../ActionUICachedImage; sourceTree = SOURCE_ROOT; };
 		9FC54A4FE510BDD635E8EC2D /* Chat.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.json; sourceTree = "<group>"; };
 		A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.modifierReturn.json; sourceTree = "<group>"; };
 		AD958B75F9EB537BD75A1095 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ../ActionUIChat; sourceTree = SOURCE_ROOT; };
@@ -54,8 +62,10 @@
 				F8FEB15EA16ACF004C1DB7B7 /* ActionUI in Frameworks */,
 				CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */,
 				93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */,
-				C243B510E2EACF91A4836826 /* ActionUIChat in Frameworks */,
-				581062D89D2AE39E5BB7602E /* ActionUIDiff in Frameworks */,
+				C243B510E2EACF91A4836826 /* ActionUICachedImage in Frameworks */,
+				581062D89D2AE39E5BB7602E /* ActionUIRichText in Frameworks */,
+				D4828D7844C2AC0434113C1F /* ActionUIChat in Frameworks */,
+				B4D671CD8BB050943270DEFF /* ActionUIDiff in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,6 +83,7 @@
 		4A95FF037646338868DAA797 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				107BDAEA93918D1CF512FBE5 /* CachedImage.json */,
 				DBD652148424E7DF98811E1C /* Chat.agentic.json */,
 				9FC54A4FE510BDD635E8EC2D /* Chat.json */,
 				5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */,
@@ -83,6 +94,7 @@
 				24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */,
 				CF7ABC737BFB52F77899E3A0 /* QuickLook.json */,
 				223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */,
+				8C4E595F1F40E2EF85F9F588 /* RichText.json */,
 				1BF48B38F26ADAC280C871E5 /* Sample.pdf */,
 			);
 			path = Resources;
@@ -92,9 +104,11 @@
 			isa = PBXGroup;
 			children = (
 				0FB3650C4963944296903979 /* ActionUI */,
+				93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */,
 				AD958B75F9EB537BD75A1095 /* ActionUIChat */,
 				DA0FBEB4C890493D3B817FB3 /* ActionUIDiff */,
 				21452584B443364EF4B6DD78 /* ActionUIQuickLook */,
+				60D1FD3F7FB5CE7797FFB50F /* ActionUIRichText */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -138,6 +152,8 @@
 				2B9635CB1742700A0529909B /* ActionUI */,
 				D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */,
 				D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */,
+				8547149835E3A4CB8FE6B319 /* ActionUICachedImage */,
+				7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */,
 				FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */,
 				4C9B8E82DC322DADB493567B /* ActionUIDiff */,
 			);
@@ -167,9 +183,11 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9C234D5DE47D93B64BA47872 /* XCLocalSwiftPackageReference "../.." */,
+				9A1E7B212ED37C3FE178BB3E /* XCLocalSwiftPackageReference "../ActionUICachedImage" */,
 				FC10BAE25F9673F1813C71F8 /* XCLocalSwiftPackageReference "../ActionUIChat" */,
 				3C58A84B2A242ADC1C636ECC /* XCLocalSwiftPackageReference "../ActionUIDiff" */,
 				8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */,
+				E311EE4B61A09C98DF61B2BE /* XCLocalSwiftPackageReference "../ActionUIRichText" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D3E1B17C5207496CBA5492DC /* Products */;
@@ -186,6 +204,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CB890761543619F8B086622D /* CachedImage.json in Resources */,
 				900BCA3C6391EA20BA82A006 /* Chat.agentic.json in Resources */,
 				2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */,
 				9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */,
@@ -196,6 +215,7 @@
 				83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */,
 				2958C8147CD88342247317CF /* QuickLook.json in Resources */,
 				30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */,
+				62CDD50ACCD8CC25B6EF9912 /* RichText.json in Resources */,
 				EB39E2EBB3ED5C4BA0BC4C54 /* Sample.pdf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -441,9 +461,17 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../ActionUIQuickLook;
 		};
+		9A1E7B212ED37C3FE178BB3E /* XCLocalSwiftPackageReference "../ActionUICachedImage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ActionUICachedImage;
+		};
 		9C234D5DE47D93B64BA47872 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
+		};
+		E311EE4B61A09C98DF61B2BE /* XCLocalSwiftPackageReference "../ActionUIRichText" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ActionUIRichText;
 		};
 		FC10BAE25F9673F1813C71F8 /* XCLocalSwiftPackageReference "../ActionUIChat" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -459,6 +487,14 @@
 		4C9B8E82DC322DADB493567B /* ActionUIDiff */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUIDiff;
+		};
+		7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIRichText;
+		};
+		8547149835E3A4CB8FE6B319 /* ActionUICachedImage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUICachedImage;
 		};
 		D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;

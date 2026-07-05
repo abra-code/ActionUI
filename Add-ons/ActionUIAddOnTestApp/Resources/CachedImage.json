@@ -1,0 +1,20 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "CachedImage (add-on element):", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "intrinsicSize reserves the box up front, so the picture hydrates with no reflow; bytes decode off-main and cache to disk (a second view is instant, survives relaunch).", "font": "caption", "foregroundStyle": "secondary" } },
+    {
+      "type": "CachedImage",
+      "id": 80,
+      "properties": {
+        "url": "https://picsum.photos/seed/actionui/1024/768",
+        "intrinsicSize": { "width": 1024, "height": 768 },
+        "contentMode": "fill",
+        "maxPixelWidth": 1024,
+        "cornerRadius": 12,
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

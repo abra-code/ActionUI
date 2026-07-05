@@ -10,12 +10,21 @@ A single **multiplatform** target (macOS + iOS).
 ## What it does
 
 - Links **ActionUI** core and **ActionUISwiftAdapter** (from the ActionUI package) and each linked
-  add-on package (**ActionUIQuickLook**, **ActionUIChat**), and calls each add-on's `register()` at
-  launch.
+  add-on package (**ActionUIQuickLook**, **ActionUICachedImage**, **ActionUIRichText**, and **ActionUIChat**), and calls
+  each add-on's `register()` at launch.
 - Presents a **picker** (a `NavigationSplitView` sidebar) over the demo documents bundled in
-  `Resources/*.json` - one per add-on demo (QuickLook variants, and Chat - including a `modifier-return`
-  composer variant). More add-ons appear here as their demo JSON is added. Selecting a demo loads it
-  via `ActionUISwift.loadView(...)`.
+  `Resources/*.json` - one per add-on demo. Add-ons appear here as their demo JSON is added.
+  Selecting a demo loads it via `ActionUISwift.loadView(...)`.
+- The **CachedImage** demo (`Resources/CachedImage.json`) is self-contained: it loads a remote image
+  by URL with an `intrinsicSize` hint, so the box is reserved up front and the picture hydrates with
+  no reflow; the bytes decode off-main and cache to disk (a second view, or a relaunch, is instant).
+  It needs network at run time; offline it shows the reserved-box placeholder. (Consuming the
+  ActionUICachedImage package pulls its AsyncImageCache github dependency in transitively, so the
+  first build resolves it from the network.)
+- The **RichText** demo (`Resources/RichText.json`) is fully self-contained: it renders a Markdown
+  document (headings, lists, a code block, a quote, a GFM table) into one selectable native text view.
+  (Consuming the ActionUIRichText package pulls its RichText + AsyncImageCache github dependencies in
+  transitively, so the first build resolves them from the network.)
 - For demos that need runtime data, `DemoSetup` seeds it: the QuickLook demo drives element 70 with
   the bundled multi-page `Resources/Sample.pdf`, which exercises Quick Look's embedded page scroller
   (PDFs scroll natively in `QLPreviewView` / `QLPreviewController`), and the app prints a line when

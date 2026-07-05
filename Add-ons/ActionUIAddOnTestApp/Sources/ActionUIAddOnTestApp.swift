@@ -8,6 +8,8 @@ import SwiftUI
 import ActionUI
 import ActionUISwiftAdapter
 import ActionUIQuickLook
+import ActionUICachedImage
+import ActionUIRichText
 import ActionUIChat
 import ActionUIDiff
 
@@ -20,6 +22,8 @@ struct ActionUIAddOnTestApp: App {
         // Register every linked add-on's element types BEFORE any window that uses them is built.
         // Add a line here per add-on.
         ActionUIQuickLook.register()
+        ActionUICachedImage.register()
+        ActionUIRichText.register()
         ActionUIChat.register()
         ActionUIDiff.register()
 
