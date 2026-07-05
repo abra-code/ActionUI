@@ -9,7 +9,7 @@ The element is GENERIC: the same `Chat` backs AI-agent chat and person-to-person
 (selected by `protocol` in the element's non-visual `config` block) and the appearance differ, not the
 view. See `Private/chat-element-design.md` for the full architecture and the milestone plan (M1-M6).
 
-## Status: M1-M3
+## Status: M1-M3 + openai-sse
 
 Landed so far:
 
@@ -29,8 +29,15 @@ Landed so far:
   `session/request_permission` to the approval card, and maps Stop to `session/cancel`. Validated
   against OpenCode (`["opencode", "acp"]`).
 
-Later milestones add the SSE transports and dual alignment / a real two-party transport (M4), and the
-advanced agentic side panels - plans, terminals, diff viewer, slash commands, multi-session (M5).
+- **openai-sse transport** (all platforms) - the `ActionUIChatOpenAI` module streams an
+  OpenAI-compatible `/v1/chat/completions` endpoint (llama-server, `mlx_lm.server`, or any compatible
+  server), so plain streaming chat needs no agent process. Reasoning (`reasoning_content`) folds into
+  thoughts, `tool_calls` render as completed cards plus a "not executed here" notice (the tool loop is
+  the agent layer's job), and the final `usage` chunk drives the status-bar token count. `model: "auto"`
+  resolves the loaded model from `GET {baseURL}/models`.
+
+Later milestones add dual alignment / a real two-party transport (M4) and the advanced agentic side
+panels - plans, terminals, diff viewer, slash commands, multi-session (M5).
 
 ## What it adds
 
@@ -71,7 +78,9 @@ Four layers, transport at the bottom, SwiftUI at the top, a router in the middle
   `agentic` demo turn) is the only built-in and ships in Core. `ACPChatTransport` lives in its own
   module (`Sources/ACP/`, macOS - `ACPConnection.swift` is the stdio JSON-RPC framing,
   `ACPChatTransport.swift` is the ACP method vocabulary and the `session/update` demux, kept in one file
-  on purpose). A transport is built by the factory a module registers for its protocol name (see below).
+  on purpose). `OpenAIChatTransport` (`Sources/OpenAI/`) streams an OpenAI-compatible
+  `/v1/chat/completions` endpoint (SSE line parser; owns the conversation array since the wire is
+  stateless). A transport is built by the factory a module registers for its protocol name (see below).
 - `ChatTransportRegistry` (`Sources/Core/ChatTransportRegistry.swift`) - the `@MainActor` table mapping a
   protocol name to its factory. `local` is reserved; the element resolves its transport here when the
   chat starts, degrading an unregistered name to `local` with a logged reason.
@@ -111,6 +120,7 @@ a host links only what it needs:
 - `ActionUIChatCore` - the element + the built-in `local` transport + the registry. Link this plus the
   transport modules you actually want.
 - `ActionUIChatACP` - the ACP transport (macOS). Add on top of Core for `"protocol": "acp"`.
+- `ActionUIChatOpenAI` - the OpenAI SSE transport (all platforms). Add on top of Core for `"protocol": "openai-sse"`.
 
 The batteries-included path (everything the add-on ships) links the umbrella:
 
@@ -189,6 +199,11 @@ automatically:
 - `Sources/ACP/ACPConnection.swift` - newline-delimited JSON-RPC 2.0 over a subprocess's stdio (macOS).
 - `Sources/ACP/ACPChatTransport.swift` - the ACP transport: capability negotiation, session lifecycle,
   the `session/update` -> `ChatEvent` demux, and the permission round-trip.
+- `Sources/OpenAI/ActionUIChatOpenAI.swift` - the OpenAI module's `register()` (registers the
+  `openai-sse` factory) + C entry point.
+- `Sources/OpenAI/OpenAIChatTransport.swift` - the OpenAI SSE transport: the streaming
+  `/v1/chat/completions` request, the SSE-chunk demux (content / reasoning / tool_calls / usage), and
+  model `auto` resolution.
 - `Sources/Core/ChatStore.swift` - the `@MainActor` store + the router (pre-filter).
 - `Sources/Core/ChatRootView.swift` - the transcript + composer SwiftUI surface (message, thought, tool-call,
   image rows; the permission approval card).
@@ -196,4 +211,5 @@ automatically:
 - `Documentation/ActionUIChatDocumentation.swift` - `Bundle.module` accessor for the docs product.
 - `Schemas/Chat.json` - verifier schema (auto-discovered).
 - `Examples/Chat.json` - a sample view using the element; `Examples/ChatAgentic.json` - the scripted
-  agentic demo; `Examples/ChatACP.json` - a live ACP session (OpenCode).
+  agentic demo; `Examples/ChatACP.json` - a live ACP session (OpenCode); `Examples/ChatOpenAI.json` - a
+  live openai-sse session (local llama-server).

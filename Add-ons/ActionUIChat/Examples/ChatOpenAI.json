@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Chat over openai-sse: the element streams an OpenAI-compatible /v1/chat/completions endpoint (here a local llama-server). Plain streaming chat - reasoning folds into thoughts, tool calls render as cards (not executed), token usage shows in the status bar. No agent process required.", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 85,
+      "config": {
+        "protocol": "openai-sse",
+        "transport": {
+          "baseURL": "http://127.0.0.1:8080/v1",
+          "model": "auto",
+          "apiKey": "",
+          "systemPrompt": "You are a helpful assistant.",
+          "params": { "temperature": 0.8, "max_tokens": 0 }
+        }
+      },
+      "properties": {
+        "appearance": { "alignment": "single", "showRoleLabels": true },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "agent": { "label": "Assistant", "tint": "secondary" }
+        },
+        "input": { "enabled": true, "placeholder": "Message", "submitOn": "modifier-return" },
+        "surfaces": { "toolCalls": "inline", "thoughts": "collapsed" },
+        "sendActionID": "chat.send",
+        "stopActionID": "chat.stop",
+        "messageActionID": "chat.message",
+        "errorActionID": "chat.error",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

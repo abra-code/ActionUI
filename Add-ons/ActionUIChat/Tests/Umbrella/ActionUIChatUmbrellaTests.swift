@@ -18,8 +18,11 @@ final class ActionUIChatUmbrellaTests: XCTestCase {
         // The built-in `local` transport is always available.
         XCTAssertTrue(ChatTransportRegistry.shared.isRegistered("local"))
 
-        // The umbrella register() wires every bundled transport. ACP is macOS-only (an
-        // agent runs as a subprocess); on other platforms it is a no-op and `acp` degrades.
+        // The umbrella register() wires every bundled transport. OpenAI SSE is
+        // cross-platform (URLSession); ACP is macOS-only (an agent runs as a subprocess),
+        // so on other platforms it is a no-op and `acp` degrades to local.
+        XCTAssertTrue(ChatTransportRegistry.shared.isRegistered("openai-sse"),
+                      "ActionUIChat.register() must wire the OpenAI SSE transport")
 #if os(macOS)
         XCTAssertTrue(ChatTransportRegistry.shared.isRegistered("acp"),
                       "ActionUIChat.register() must wire the ACP transport")

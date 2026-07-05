@@ -2,7 +2,7 @@
 //
 // Public entry point for the ActionUIChat UMBRELLA: the single-import, batteries-included
 // product. It depends on ActionUIChatCore and every bundled transport module (ActionUIChatACP,
-// and ActionUIChatOpenAI once it lands), and its register() wires them all in one call.
+// ActionUIChatOpenAI), and its register() wires them all in one call.
 // This preserves today's experience for existing hosts, DemoApps, and the test suite:
 // link the `ActionUIChat` product, `import ActionUIChat`, call `ActionUIChat.register()`.
 //
@@ -19,16 +19,18 @@
 import Foundation
 @_exported import ActionUIChatCore
 import ActionUIChatACP
+import ActionUIChatOpenAI
 
 public enum ActionUIChat {
 
     /// Registers the `Chat` element and every bundled transport (the built-in `local`,
-    /// plus ACP) with the shared registries. Call once at app launch, before building
-    /// any window that uses "Chat". Idempotent.
+    /// plus ACP and OpenAI SSE) with the shared registries. Call once at app launch,
+    /// before building any window that uses "Chat". Idempotent.
     @MainActor
     public static func register() {
         ActionUIChatCore.register()
         ActionUIChatACP.register()
+        ActionUIChatOpenAI.register()
     }
 
     /// Registers a host-provided transport factory under a protocol name. A thin

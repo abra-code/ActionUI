@@ -49,6 +49,20 @@
                ReferencedContainer = "container:ActionUIChat.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1FE44EA0529FED26A000779C"
+               BuildableName = "libActionUIChatOpenAI.a"
+               BlueprintName = "ActionUIChatOpenAI"
+               ReferencedContainer = "container:ActionUIChat.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

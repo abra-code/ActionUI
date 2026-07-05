@@ -11,14 +11,23 @@
                                           //           scripted reply. Every other protocol is provided by a separate
                                           //           transport module the host links and registers; the umbrella
                                           //           ActionUIChat product bundles them and wires them in register().
-                                          //           "acp" (the ActionUIChatACP module, macOS only: the agent is a
-                                          //           subprocess) runs an Agent Client Protocol agent over stdio. A
-                                          //           protocol whose module the host did not register degrades to "local".
+                                          //           "openai-sse" (the ActionUIChatOpenAI module) streams an
+                                          //           OpenAI-compatible /v1/chat/completions endpoint (llama-server,
+                                          //           mlx_lm.server, ...). "acp" (the ActionUIChatACP module, macOS
+                                          //           only: the agent is a subprocess) runs an Agent Client Protocol
+                                          //           agent over stdio. A protocol whose module the host did not
+                                          //           register degrades to "local".
      "transport": { "echo": true }        // Optional: protocol-specific settings (interpreted by the chosen transport).
                                           //           "local" honors "echo" (default true: stream a demo reply),
                                           //           "reply" ("echo" default | "markdown" | "agentic": a scripted
                                           //           agent turn with thoughts, tool calls, and a permission gate),
                                           //           and "chunkMs" (demo streaming pace, default 45).
+                                          //           "openai-sse" requires "baseURL" (the endpoint, e.g.
+                                          //           "http://127.0.0.1:8080/v1") and honors "model" (default "auto":
+                                          //           resolved from GET {baseURL}/models), "apiKey" (default ""),
+                                          //           "systemPrompt" (default ""), and "params" (merged into the
+                                          //           request body, e.g. { "temperature": 0.8, "max_tokens": 0 };
+                                          //           max_tokens 0 means unlimited and is omitted).
                                           //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
                                           //           and honors "cwd" (the session root; "~" expands, default: the
                                           //           host's current directory) and "mcpServers" (passed to the agent).
@@ -90,9 +99,12 @@
  ActionUIDiff add-on, which these tool cards consume: hunks, old / new line-number gutters, +/-
  markers; routed by surfaces.diffs, "hidden" drops them). Transports are separate, statically linked
  modules behind a registry: "local" is the only built-in, and a host adds a protocol by linking its
- module (ActionUIChatACP for "acp") and calling its register() - or by linking the umbrella ActionUIChat
- product, whose register() wires every bundled transport at once; a protocol whose module was not
- registered degrades to "local". The SSE transports, dual alignment, and the remaining M5 surfaces
+ module (ActionUIChatOpenAI for "openai-sse", ActionUIChatACP for "acp") and calling its register() - or
+ by linking the umbrella ActionUIChat product, whose register() wires every bundled transport at once; a
+ protocol whose module was not registered degrades to "local". The "openai-sse" transport streams an
+ OpenAI-compatible /v1/chat/completions endpoint (llama-server, mlx_lm.server, or any compatible server):
+ plain streaming chat with reasoning folded into thoughts, tool calls rendered as (unexecuted) cards, and
+ token usage in the status bar - no agent process required. Dual alignment and the remaining M5 surfaces
  (terminals, multi-session) arrive in later milestones (see Private/chat-element-design.md).
 
  Observable state: the element manages its own transcript model internally (no single scalar value), so

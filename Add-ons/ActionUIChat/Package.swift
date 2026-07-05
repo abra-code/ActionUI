@@ -13,6 +13,7 @@
 //                         `local` transport, and the transport registry. `local` is the
 //                         only built-in; every other protocol degrades to `local`.
 //   - ActionUIChatACP   - the ACP transport (macOS): `"protocol": "acp"`.
+//   - ActionUIChatOpenAI - the OpenAI SSE transport (all platforms): `"protocol": "openai-sse"`.
 //   - ActionUIChat      - the umbrella: depends on Core + every bundled transport; its
 //                         register() wires them all, preserving the single-import experience.
 // A host links a transport module and calls its register() to make that protocol available;
@@ -36,6 +37,8 @@ let package = Package(
         .library(name: "ActionUIChatCore", targets: ["ActionUIChatCore"]),
         // The ACP transport module (add on top of Core for `"protocol": "acp"`).
         .library(name: "ActionUIChatACP", targets: ["ActionUIChatACP"]),
+        // The OpenAI SSE transport module (add on top of Core for `"protocol": "openai-sse"`).
+        .library(name: "ActionUIChatOpenAI", targets: ["ActionUIChatOpenAI"]),
         // Resource-only docs product, mirroring core ActionUIDocumentation. A client that links
         // this gets the add-on's schema doc + insert template copied into its bundle.
         .library(name: "ActionUIChatDocumentation", targets: ["ActionUIChatDocumentation"]),
@@ -68,6 +71,16 @@ let package = Package(
             ],
             path: "Sources/ACP"
         ),
+        // The OpenAI SSE transport: streams /v1/chat/completions (llama-server, mlx_lm.server,
+        // any OpenAI-compatible endpoint). Cross-platform (URLSession). Registers `openai-sse`.
+        .target(
+            name: "ActionUIChatOpenAI",
+            dependencies: [
+                "ActionUIChatCore",
+                .product(name: "ActionUI", package: "ActionUI"),
+            ],
+            path: "Sources/OpenAI"
+        ),
         // The umbrella: depends on Core + every bundled transport, re-exports Core, and its
         // register() wires them all. Existing hosts link this product unchanged.
         .target(
@@ -75,6 +88,7 @@ let package = Package(
             dependencies: [
                 "ActionUIChatCore",
                 "ActionUIChatACP",
+                "ActionUIChatOpenAI",
             ],
             path: "Sources/Umbrella"
         ),
@@ -112,6 +126,17 @@ let package = Package(
                 .product(name: "ActionUI", package: "ActionUI"),
             ],
             path: "Tests/ACP"
+        ),
+        // OpenAI tests: the pure SSE-chunk / usage / models / request-body parsers, plus
+        // end-to-end streaming, non-200, disconnect, and cancel via a URLProtocol stub.
+        .testTarget(
+            name: "ActionUIChatOpenAITests",
+            dependencies: [
+                "ActionUIChatOpenAI",
+                "ActionUIChatCore",
+                .product(name: "ActionUI", package: "ActionUI"),
+            ],
+            path: "Tests/OpenAI"
         ),
         // Umbrella tests: assert ActionUIChat.register() wires the element + every bundled
         // transport (the single-import contract). `@testable` Core to read the registry.
