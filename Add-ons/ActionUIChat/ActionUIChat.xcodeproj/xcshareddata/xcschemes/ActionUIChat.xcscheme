@@ -21,6 +21,34 @@
                ReferencedContainer = "container:ActionUIChat.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "8BDF71498FA8B862719BDCF1"
+               BuildableName = "libActionUIChatACP.a"
+               BlueprintName = "ActionUIChatACP"
+               ReferencedContainer = "container:ActionUIChat.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "916E6907612190B5F7941E5B"
+               BuildableName = "libActionUIChatCore.a"
+               BlueprintName = "ActionUIChatCore"
+               ReferencedContainer = "container:ActionUIChat.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

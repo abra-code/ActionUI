@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Sources/ChatConfig.swift
+// Add-ons/ActionUIChat/Sources/Core/ChatConfig.swift
 //
 // Parses the `Chat` element's JSON into a typed config, from two document blocks:
 //   - `properties` (visual / presentation, modeled after SwiftUI modifiers):
@@ -114,16 +114,10 @@ struct ChatConfig {
             logger.log("Chat config.transport must be an object; ignoring", .warning)
         }
         transport = config["transport"] as? [String: Any] ?? [:]
-
-        if protocolName == "acp" {
-            if let command = transport["command"] {
-                if !(command is [String]) || (command as? [String])?.isEmpty != false {
-                    logger.log("Chat transport.command must be a non-empty array of strings for protocol \"acp\"", .warning)
-                }
-            } else {
-                logger.log("Chat protocol \"acp\" requires transport.command (the agent argv, e.g. [\"claude-code-acp\"])", .warning)
-            }
-        }
+        // Protocol-specific validation of the transport block lives in the transport
+        // itself (e.g. ACPChatTransport.init requires a non-empty `command`), so core
+        // stays protocol-agnostic: it stores the block verbatim and the registry logs a
+        // clear reason if the chosen transport rejects it and the element degrades.
 
         let appearance = properties["appearance"] as? [String: Any] ?? [:]
         let parsedAlignment = (appearance["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .single
@@ -166,9 +160,12 @@ struct ChatConfig {
         approveToolActionID = properties["approveToolActionID"] as? String
     }
 
-    /// Resolves config.protocol to the transport name the factory will use. Unknown
-    /// names fall back to "local" with a warning; known-but-unimplemented names pass
-    /// through (the factory warns and degrades to local, keeping one fallback path).
+    /// Resolves config.protocol to a transport name. Any string is valid: which names
+    /// resolve to a transport is a RUNTIME fact (whether the host linked and registered
+    /// that transport's module), not something this parse can know, so there is no
+    /// hard-coded name list here. The registry decides when the chat starts - a name it
+    /// does not know degrades to "local" with a warning (ChatTransportRegistry.make). An
+    /// absent or non-string value defaults to "local".
     private static func parseProtocol(_ raw: Any?, _ logger: any ActionUILogger) -> String {
         guard let raw else {
             return "local"
@@ -176,19 +173,6 @@ struct ChatConfig {
         guard let name = raw as? String else {
             logger.log("Chat config.protocol must be a String; defaulting to 'local'", .warning)
             return "local"
-        }
-        let known = ["local", "acp", "openai-sse", "anthropic-sse", "custom"]
-#if os(macOS)
-        let implemented = ["local", "acp"]
-#else
-        let implemented = ["local"]
-#endif
-        if !known.contains(name) {
-            logger.log("Chat protocol '\(name)' is not a known transport; defaulting to 'local'", .warning)
-            return "local"
-        }
-        if !implemented.contains(name) {
-            logger.log("Chat protocol '\(name)' is not implemented in this build; the 'local' transport will be used", .warning)
         }
         return name
     }

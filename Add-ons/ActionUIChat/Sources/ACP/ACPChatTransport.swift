@@ -35,12 +35,13 @@
 
 import Foundation
 import ActionUI
+import ActionUIChatCore
 
 final class ACPChatTransport: ChatTransport, @unchecked Sendable {
 
     let events: AsyncStream<ChatEvent>
     private let eventSink: AsyncStream<ChatEvent>.Continuation
-    private let logger: any ActionUILogger
+    private let logger: any ChatLogger
 
     private let command: [String]
     private let cwd: String
@@ -66,8 +67,8 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
     /// `transport` config: `command` (argv array, required), `cwd` (string, defaults to
     /// the host's current directory), `mcpServers` (array of ACP server declarations,
     /// passed through verbatim).
-    init(config: [String: Any], logger: any ActionUILogger) throws {
-        guard let command = config["command"] as? [String], !command.isEmpty else {
+    init(config: ChatTransportConfig, logger: any ChatLogger) throws {
+        guard let command = config.stringArray("command"), !command.isEmpty else {
             throw ACPConnectionError(code: nil, message: "transport.command (a non-empty string array) is required for protocol \"acp\"")
         }
         self.command = command
@@ -75,8 +76,8 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
         // path against their own working directory (a literal "~" reached OpenCode as
         // "<cwd>/~" and failed session/new with "Invalid path"). Expand ~ and anchor
         // relative paths once here, so the launch and the wire see the same absolute path.
-        self.cwd = Self.absoluteCwd(config["cwd"] as? String)
-        self.mcpServers = (config["mcpServers"] as? [[String: Any]]) ?? []
+        self.cwd = Self.absoluteCwd(config.string("cwd"))
+        self.mcpServers = config.dictionaryArray("mcpServers") ?? []
         self.logger = logger
         var captured: AsyncStream<ChatEvent>.Continuation!
         self.events = AsyncStream(bufferingPolicy: .unbounded) { captured = $0 }

@@ -1,27 +1,100 @@
-// Add-ons/ActionUIChat/Sources/ChatTransport.swift
+// Add-ons/ActionUIChat/Sources/Core/ChatTransport.swift
 //
-// The transport abstraction (protocol-agnostic) plus the built-in `local` transport
-// and the selection factory.
+// The transport abstraction (protocol-agnostic), its configuration slice, the
+// factory type the registry stores, and the built-in `local` transport.
 //
 // A transport is the ONLY layer that knows a wire protocol. It emits a normalized
 // `ChatEvent` stream and accepts normalized `ChatCommand`s, so the store / view above
-// it are identical no matter which protocol is active. M1 ships one transport,
-// `local`; the ACP and SSE transports (later milestones) conform to the same protocol
-// and are selected by `properties.protocol`.
+// it are identical no matter which protocol is active. `local` is the only built-in;
+// other protocols (ACP, OpenAI SSE, or a host's own) live in their own modules and
+// register a factory with ChatTransportRegistry (see ActionUIChatCore.registerTransport).
+//
+// PUBLIC API NOTE (P0-6): ChatTransport, ChatLogger, ChatTransportConfig, and
+// ChatTransportFactory are the frozen contract an out-of-module transport builds
+// against. LocalChatTransport / ChatReplyContent stay internal.
 
 import Foundation
 import CoreGraphics
 import ActionUI
 
+/// The logger handed to a transport. An alias for ActionUI's `ActionUILogger`, named
+/// here so a transport module names one thing (the transport contract) rather than
+/// reaching into ActionUI for the type. (Emitting a message still uses `LoggerLevel`
+/// from ActionUI.)
+public typealias ChatLogger = ActionUILogger
+
 /// One wire protocol's adapter. `Sendable` so the store can drive it from async
-/// contexts; `events` is a single-consumer stream the store drains.
-protocol ChatTransport: AnyObject, Sendable {
-    init(config: [String: Any], logger: any ActionUILogger) throws
+/// contexts; `events` is a single-consumer stream the store drains. Construction is
+/// NOT a protocol requirement - a transport is built by the factory closure registered
+/// for its protocol name, so each transport is free to have whatever initializer it needs.
+public protocol ChatTransport: AnyObject, Sendable {
+    /// Begins the session (launch / connect / advertise options) and starts emitting events.
     func start() async
+    /// Handles one normalized outbound command (a user turn, cancel, permission answer, option change).
     func send(_ command: ChatCommand) async
+    /// The single-consumer event stream the store drains for the element's lifetime.
     var events: AsyncStream<ChatEvent> { get }
+    /// Ends the session and finishes `events` so the store's drain completes.
     func stop() async
 }
+
+/// The transport-relevant slice of a `Chat` element's configuration, handed to a
+/// transport factory. This is the ONLY configuration a transport sees: the element's
+/// visual properties (roles, surfaces, action IDs) stay inside the element and never
+/// reach a transport. `settings` is the element's `config.transport` object verbatim,
+/// as the chosen protocol interprets it; the typed accessors are conveniences over it.
+///
+/// Not `Sendable`: it carries the untyped `settings` dictionary and is used only at
+/// construction time on the main actor (a transport reads what it needs into its own
+/// Sendable state), so it never crosses an isolation boundary.
+public struct ChatTransportConfig {
+    /// The protocol name this transport was selected under (the element's
+    /// `config.protocol`). A transport registered under a single name can ignore it.
+    public let protocolName: String
+    /// The `config.transport` object verbatim (protocol-specific; the chosen transport
+    /// interprets it). Prefer the typed accessors below; reach for this only for shapes
+    /// they do not cover.
+    public let settings: [String: Any]
+
+    public init(protocolName: String = "", settings: [String: Any] = [:]) {
+        self.protocolName = protocolName
+        self.settings = settings
+    }
+
+    public func string(_ key: String) -> String? {
+        settings[key] as? String
+    }
+
+    public func bool(_ key: String) -> Bool? {
+        settings[key] as? Bool
+    }
+
+    public func int(_ key: String) -> Int? {
+        (settings[key] as? NSNumber)?.intValue ?? settings[key] as? Int
+    }
+
+    public func double(_ key: String) -> Double? {
+        (settings[key] as? NSNumber)?.doubleValue ?? settings[key] as? Double
+    }
+
+    public func stringArray(_ key: String) -> [String]? {
+        settings[key] as? [String]
+    }
+
+    public func dictionary(_ key: String) -> [String: Any]? {
+        settings[key] as? [String: Any]
+    }
+
+    public func dictionaryArray(_ key: String) -> [[String: Any]]? {
+        settings[key] as? [[String: Any]]
+    }
+}
+
+/// Builds a transport from its configuration and logger. A protocol's module registers
+/// one of these under its name (ActionUIChatCore.registerTransport); the element invokes
+/// it on the main actor when a document selects that protocol. Throwing degrades the
+/// element to the built-in `local` transport with a logged reason.
+public typealias ChatTransportFactory = (ChatTransportConfig, any ChatLogger) throws -> any ChatTransport
 
 /// The `local` transport: no wire. It is the simplest scripted demo / person-to-person
 /// backend - the "Tier A" path made first-class. Each submitted prompt produces a
@@ -51,13 +124,13 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
     private var pendingPermission: (requestID: String, continuation: CheckedContinuation<String?, Never>)?
     private var sessionOptions: [SessionConfigOption] = []   // the agentic demo's mode/model state
 
-    // A non-throwing init satisfies the throwing protocol requirement; the local
-    // transport never fails to construct. `logger` is accepted for protocol conformance
-    // but unused. `chunkMs` (default 45) paces the demo streaming; tests set it to 0.
-    init(config: [String: Any], logger: any ActionUILogger) {
-        self.echo = (config["echo"] as? Bool) ?? true
-        self.replyStyle = (config["reply"] as? String) ?? "echo"
-        let chunkMs = (config["chunkMs"] as? Int) ?? 45
+    // The local transport never fails to construct. `logger` is accepted for a uniform
+    // factory shape but unused. `chunkMs` (default 45) paces the demo streaming; tests
+    // set it to 0.
+    init(config: ChatTransportConfig, logger: any ChatLogger) {
+        self.echo = config.bool("echo") ?? true
+        self.replyStyle = config.string("reply") ?? "echo"
+        let chunkMs = config.int("chunkMs") ?? 45
         self.chunkDelay = UInt64(max(0, chunkMs)) * 1_000_000
         var captured: AsyncStream<ChatEvent>.Continuation!
         self.events = AsyncStream(bufferingPolicy: .unbounded) { captured = $0 }
@@ -437,31 +510,3 @@ enum ChatReplyContent {
     }
 }
 
-/// Selects and builds the transport for a config. Implemented: `local`, and `acp` on
-/// macOS (an ACP agent is a subprocess, and iOS cannot spawn one - the ACP remote
-/// transport is still evolving upstream). Anything else warns (already flagged in
-/// validation) and falls back to `local`, so a document that names an unavailable
-/// transport still renders and degrades safely.
-enum ChatTransportFactory {
-    static func make(_ config: ChatConfig, logger: any ActionUILogger) -> any ChatTransport {
-        switch config.protocolName {
-        case "local":
-            return LocalChatTransport(config: config.transport, logger: logger)
-        case "acp":
-#if os(macOS)
-            do {
-                return try ACPChatTransport(config: config.transport, logger: logger)
-            } catch {
-                logger.log("Chat ACP transport unavailable (\(error)); using 'local'", .warning)
-                return LocalChatTransport(config: config.transport, logger: logger)
-            }
-#else
-            logger.log("Chat protocol 'acp' requires macOS (the agent runs as a subprocess); using 'local'", .warning)
-            return LocalChatTransport(config: config.transport, logger: logger)
-#endif
-        default:
-            logger.log("Chat transport '\(config.protocolName)' unavailable; using 'local'", .warning)
-            return LocalChatTransport(config: config.transport, logger: logger)
-        }
-    }
-}

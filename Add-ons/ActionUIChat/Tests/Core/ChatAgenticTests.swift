@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Tests/ChatAgenticTests.swift
+// Add-ons/ActionUIChat/Tests/Core/ChatAgenticTests.swift
 //
 // Unit tests for the M3 agentic layer: the store's router reductions (tool-call
 // cards mutating in place, thoughts closing when the next item begins, the
@@ -9,7 +9,7 @@
 // contract the ACP transport (next change) maps onto.
 
 import XCTest
-@testable import ActionUIChat
+@testable import ActionUIChatCore
 import ActionUI
 
 private final class TestLogger: ActionUILogger {
@@ -209,7 +209,7 @@ final class ChatSurfacesConfigTests: XCTestCase {
             "protocol": "custom",
             "transport": ["echo": false, "reply": "markdown"],
         ], logger: TestLogger())
-        XCTAssertEqual(config.protocolName, "custom", "a known protocol name passes through (the factory degrades unimplemented ones)")
+        XCTAssertEqual(config.protocolName, "custom", "any protocol name passes through at parse; the registry decides availability at runtime")
         XCTAssertEqual(config.transport["reply"] as? String, "markdown")
     }
 
@@ -222,9 +222,20 @@ final class ChatSurfacesConfigTests: XCTestCase {
         XCTAssertTrue(config.transport.isEmpty, "transport under properties is dead; config is the only source")
     }
 
-    func testUnknownProtocolFallsBackToLocal() {
+    // Any string is a valid protocol name at parse time: which names resolve to a
+    // transport is a runtime fact (did the host register that module), so an unknown
+    // name is preserved here and the REGISTRY degrades it to local when the chat starts
+    // (covered by ChatTransportRegistryTests.testUnregisteredProtocolDegradesToLocal).
+    func testUnknownProtocolIsPreservedAtParseAndDegradedAtRuntime() {
         let config = ChatConfig(properties: [:], config: ["protocol": "bogus"], logger: TestLogger())
-        XCTAssertEqual(config.protocolName, "local")
+        XCTAssertEqual(config.protocolName, "bogus", "the name passes through parse unchanged; the registry decides at runtime")
+    }
+
+    @MainActor
+    func testUnregisteredProtocolDegradesToLocalTransport() {
+        let config = ChatConfig(properties: [:], config: ["protocol": "bogus"], logger: TestLogger())
+        let transport = ChatTransportRegistry.shared.make(config, logger: TestLogger())
+        XCTAssertTrue(transport is LocalChatTransport, "an unregistered protocol degrades to the built-in local transport")
     }
 
     func testValidateDropsUnknownSurfaceKeysAndModes() {
@@ -296,7 +307,7 @@ final class ChatAgenticTransportTests: XCTestCase {
         sawThought: Bool, statuses: [String: ToolCallModel.Status], finalText: String, stopReason: String?,
         lastPlan: [PlanEntry], usage: UsageInfo?
     ) {
-        let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
+        let transport = LocalChatTransport(config: ChatTransportConfig(settings: ["reply": "agentic", "chunkMs": 0]), logger: TestLogger())
         await transport.start()
         await transport.send(.prompt(text: "please tweak the greeting"))
         var sawThought = false
@@ -361,7 +372,7 @@ final class ChatAgenticTransportTests: XCTestCase {
     }
 
     func testAgenticAdvertisesSlashCommands() async {
-        let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
+        let transport = LocalChatTransport(config: ChatTransportConfig(settings: ["reply": "agentic", "chunkMs": 0]), logger: TestLogger())
         await transport.start()
         var commands: [SlashCommand] = []
         for await event in transport.events {
@@ -376,7 +387,7 @@ final class ChatAgenticTransportTests: XCTestCase {
     }
 
     func testSetConfigOptionRoundTrip() async {
-        let transport = LocalChatTransport(config: ["reply": "agentic", "chunkMs": 0], logger: TestLogger())
+        let transport = LocalChatTransport(config: ChatTransportConfig(settings: ["reply": "agentic", "chunkMs": 0]), logger: TestLogger())
         await transport.start()
         await transport.send(.setConfigOption(optionID: "mode", value: "bogus"))   // not a choice: no confirmation
         await transport.send(.setConfigOption(optionID: "mode", value: "plan"))    // valid: confirmed

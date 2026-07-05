@@ -2,11 +2,21 @@
 //
 // ActionUIChat - an optional ActionUI add-on, packaged as a Swift package.
 //
-// The product is a static library that compiles against ActionUI's public API. It does NOT
+// The products are static libraries that compile against ActionUI's public API. They do NOT
 // embed ActionUI: SPM builds ActionUI once and the host app links it, so the add-on only
 // references ActionUI's symbols (resolved at the host's final link) - the same "compile
 // against, do not link" relationship the standalone xcodegen project expresses with
-// link: false. The host links this product + ActionUI and calls ActionUIChat.register().
+// link: false.
+//
+// Transport modules are split so a host links only what it needs (P0-6):
+//   - ActionUIChatCore  - the `Chat` element, transcript / store / views, the built-in
+//                         `local` transport, and the transport registry. `local` is the
+//                         only built-in; every other protocol degrades to `local`.
+//   - ActionUIChatACP   - the ACP transport (macOS): `"protocol": "acp"`.
+//   - ActionUIChat      - the umbrella: depends on Core + every bundled transport; its
+//                         register() wires them all, preserving the single-import experience.
+// A host links a transport module and calls its register() to make that protocol available;
+// the strong reference from register() is what pulls the module's archive in at link time.
 
 import PackageDescription
 
@@ -18,7 +28,14 @@ let package = Package(
         .visionOS("2.6"),
     ],
     products: [
+        // The umbrella: element + every bundled transport, one import, one register(). The
+        // default product for a host that just wants "everything the add-on ships".
         .library(name: "ActionUIChat", targets: ["ActionUIChat"]),
+        // Core only: the element + the built-in `local` transport + the registry. A host
+        // links this plus the transport modules it actually wants.
+        .library(name: "ActionUIChatCore", targets: ["ActionUIChatCore"]),
+        // The ACP transport module (add on top of Core for `"protocol": "acp"`).
+        .library(name: "ActionUIChatACP", targets: ["ActionUIChatACP"]),
         // Resource-only docs product, mirroring core ActionUIDocumentation. A client that links
         // this gets the add-on's schema doc + insert template copied into its bundle.
         .library(name: "ActionUIChatDocumentation", targets: ["ActionUIChatDocumentation"]),
@@ -30,19 +47,40 @@ let package = Package(
         .package(path: "../../../AsyncImageCache"), // the sibling image cache (CachedImage for image items)
     ],
     targets: [
+        // Core: the element, transcript / store / views, models, `local` transport, registry.
         .target(
-            name: "ActionUIChat",
+            name: "ActionUIChatCore",
             dependencies: [
                 .product(name: "ActionUI", package: "ActionUI"),
                 .product(name: "RichText", package: "RichText"),
                 .product(name: "DiffView", package: "ActionUIDiff"),
                 .product(name: "AsyncImageCache", package: "AsyncImageCache"),  // CachedImage for image items
             ],
-            path: "Sources"
+            path: "Sources/Core"
+        ),
+        // The ACP transport: launches an Agent Client Protocol agent as a subprocess (macOS).
+        // Depends on Core for the transport contract; registers the `acp` factory.
+        .target(
+            name: "ActionUIChatACP",
+            dependencies: [
+                "ActionUIChatCore",
+                .product(name: "ActionUI", package: "ActionUI"),
+            ],
+            path: "Sources/ACP"
+        ),
+        // The umbrella: depends on Core + every bundled transport, re-exports Core, and its
+        // register() wires them all. Existing hosts link this product unchanged.
+        .target(
+            name: "ActionUIChat",
+            dependencies: [
+                "ActionUIChatCore",
+                "ActionUIChatACP",
+            ],
+            path: "Sources/Umbrella"
         ),
         // Bundles this add-on's Documentation/ (the per-element .md schema doc and .json insert
         // template) as SPM resources, the same way the core ActionUIDocumentation target bundles
-        // Documentation/Schemas + Documentation/Elements. Not linked into the add-on library.
+        // Documentation/Schemas + Documentation/Elements. Not linked into the add-on libraries.
         .target(
             name: "ActionUIChatDocumentation",
             path: "Documentation",
@@ -52,13 +90,38 @@ let package = Package(
                 .copy("Elements"),
             ]
         ),
-        // Unit tests for the `local` transport's canned reply content (the reply styles and the
-        // word-preserving streaming chunker). Message Markdown rendering is provided by the
-        // RichText dependency and covered by its own test suite. `@testable` reaches internals.
+        // Core tests: the `local` transport's canned reply content and streaming chunker, the
+        // store's router reductions and `surfaces` config, and the transport registry
+        // (register / override / reserved / unknown-name degrade). `@testable` reaches internals.
+        .testTarget(
+            name: "ActionUIChatCoreTests",
+            dependencies: [
+                "ActionUIChatCore",
+                .product(name: "ActionUI", package: "ActionUI"),
+            ],
+            path: "Tests/Core"
+        ),
+        // ACP tests: the JSON-RPC framing / correlation, the payload parsers, the
+        // session/update demux and message segmentation, and the permission round-trip -
+        // all without spawning a real agent. macOS-only content (guarded in the sources).
+        .testTarget(
+            name: "ActionUIChatACPTests",
+            dependencies: [
+                "ActionUIChatACP",
+                "ActionUIChatCore",
+                .product(name: "ActionUI", package: "ActionUI"),
+            ],
+            path: "Tests/ACP"
+        ),
+        // Umbrella tests: assert ActionUIChat.register() wires the element + every bundled
+        // transport (the single-import contract). `@testable` Core to read the registry.
         .testTarget(
             name: "ActionUIChatTests",
-            dependencies: ["ActionUIChat"],
-            path: "Tests"
+            dependencies: [
+                "ActionUIChat",
+                "ActionUIChatCore",
+            ],
+            path: "Tests/Umbrella"
         ),
     ]
 )

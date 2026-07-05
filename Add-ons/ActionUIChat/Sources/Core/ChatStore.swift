@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Sources/ChatStore.swift
+// Add-ons/ActionUIChat/Sources/Core/ChatStore.swift
 //
 // The @MainActor source of truth for one `Chat` element, and the router that
 // pre-filters the transport's event stream.
@@ -57,7 +57,7 @@ final class ChatStore: ObservableObject {
     /// the view's `.onAppear`.
     func start() {
         guard transport == nil else { return }
-        let transport = ChatTransportFactory.make(config, logger: logger)
+        let transport = ChatTransportRegistry.shared.make(config, logger: logger)
         self.transport = transport
         eventTask = Task { [weak self] in
             await transport.start()

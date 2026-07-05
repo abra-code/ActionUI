@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Sources/ChatRootView.swift
+// Add-ons/ActionUIChat/Sources/Core/ChatRootView.swift
 //
 // The SwiftUI surface for one `Chat` element: a transcript above a composer.
 //

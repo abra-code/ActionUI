@@ -66,11 +66,15 @@ scalar `value`; host interaction is via the action IDs.
 
 Four layers, transport at the bottom, SwiftUI at the top, a router in the middle (the key idea):
 
-- `ChatTransport` (`ChatTransport.swift`) - speaks one wire protocol, emits a normalized `ChatEvent`
-  stream, accepts normalized `ChatCommand`s. Shipped: `LocalChatTransport` (scripted; also the
-  `agentic` demo turn) and `ACPChatTransport` (`Sources/ACP/`, macOS - `ACPConnection.swift` is the
-  stdio JSON-RPC framing, `ACPChatTransport.swift` is the ACP method vocabulary and the
-  `session/update` demux, kept in one file on purpose).
+- `ChatTransport` (`Sources/Core/ChatTransport.swift`) - speaks one wire protocol, emits a normalized
+  `ChatEvent` stream, accepts normalized `ChatCommand`s. `LocalChatTransport` (scripted; also the
+  `agentic` demo turn) is the only built-in and ships in Core. `ACPChatTransport` lives in its own
+  module (`Sources/ACP/`, macOS - `ACPConnection.swift` is the stdio JSON-RPC framing,
+  `ACPChatTransport.swift` is the ACP method vocabulary and the `session/update` demux, kept in one file
+  on purpose). A transport is built by the factory a module registers for its protocol name (see below).
+- `ChatTransportRegistry` (`Sources/Core/ChatTransportRegistry.swift`) - the `@MainActor` table mapping a
+  protocol name to its factory. `local` is reserved; the element resolves its transport here when the
+  chat starts, degrading an unregistered name to `local` with a logged reason.
 - `ChatStore` (`ChatStore.swift`) - the `@MainActor` source of truth. Its `route(_:)` is the
   **pre-filter**: chat text -> transcript, thoughts and tool-call cards -> transcript items styled per
   the `surfaces` config, permission requests -> the pending-approval queue, system / error -> their own
@@ -82,7 +86,7 @@ Four layers, transport at the bottom, SwiftUI at the top, a router in the middle
 
 ## Design: compiles against ActionUI, does not link it
 
-Like `ActionUIQuickLook`, this target is a **static library** that depends on ActionUI for its Swift
+Like `ActionUIQuickLook`, these targets are **static libraries** that depend on ActionUI for its Swift
 module only (`link: false` in `project.yml`). The **host app links both** ActionUI and this add-on and
 calls `register()` once at launch (Apple has no guaranteed pre-`main` hook for a statically linked Swift
 type):
@@ -99,17 +103,35 @@ Abracode.framework) register without the Swift runtime; the caller forward-decla
 
 ## Consuming it
 
-`Package.swift` makes this a Swift package (macOS / iOS / visionOS). A host adds it as a package
-dependency and links the `ActionUIChat` product alongside ActionUI:
+`Package.swift` makes this a Swift package (macOS / iOS / visionOS). Transports are split into modules so
+a host links only what it needs:
+
+- `ActionUIChat` - the **umbrella**: the element + every bundled transport, one import, one `register()`.
+  This is the default; existing hosts use it unchanged.
+- `ActionUIChatCore` - the element + the built-in `local` transport + the registry. Link this plus the
+  transport modules you actually want.
+- `ActionUIChatACP` - the ACP transport (macOS). Add on top of Core for `"protocol": "acp"`.
+
+The batteries-included path (everything the add-on ships) links the umbrella:
 
 ```swift
 .package(path: "Add-ons/ActionUIChat")
 // ...
-.product(name: "ActionUIChat", package: "ActionUIChat")
+.product(name: "ActionUIChat", package: "ActionUIChat")   // then ActionUIChat.register()
 ```
 
-The `Apps/ActionUIViewer` aggregator links this add-on and registers it, so the viewer can preview
-documents that use `Chat`.
+A la carte - Core plus only ACP, for example - links each module and calls each `register()`:
+
+```swift
+.product(name: "ActionUIChatCore", package: "ActionUIChat")   // ActionUIChatCore.register()
+.product(name: "ActionUIChatACP",  package: "ActionUIChat")   // ActionUIChatACP.register()
+```
+
+A host can add its own protocol without touching the component: implement `ChatTransport` and call
+`ActionUIChatCore.registerTransport("my-protocol") { config, logger in try MyTransport(config, logger) }`.
+
+The `Apps/ActionUIViewer` aggregator links the umbrella `ActionUIChat` product and registers it, so the
+viewer can preview documents that use `Chat`.
 
 ## Standalone static-library build (optional)
 
@@ -151,17 +173,24 @@ automatically:
 
 ## Files
 
-- `project.yml` - xcodegen spec (static lib, ActionUI as `link: false` package dep).
-- `Sources/ActionUIChat.swift` - Swift `register()` entry point + plain C `ActionUIChat_register()`.
-- `Sources/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head comment).
-- `Sources/ChatModel.swift` - transport-agnostic value types (ChatRole, ChatItem, ChatEvent, ChatCommand).
-- `Sources/ChatConfig.swift` - JSON parsing + validation (visual `properties` and the non-visual `config` block).
-- `Sources/ChatTransport.swift` - the transport protocol + `LocalChatTransport` + the selection factory.
+- `project.yml` - xcodegen spec (static libs, ActionUI as `link: false` package dep).
+- `Sources/Umbrella/ActionUIChat.swift` - the umbrella `register()` (element + every bundled transport) +
+  plain C `ActionUIChat_register()`; re-exports Core.
+- `Sources/Core/ActionUIChatCore.swift` - Core `register()` (element + `local`), `registerTransport(_:factory:)`,
+  and the C `ActionUIChatCore_register()`.
+- `Sources/Core/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head comment).
+- `Sources/Core/ChatModel.swift` - transport-agnostic value types (ChatRole, ChatItem, ChatEvent, ChatCommand);
+  the ChatEvent/ChatCommand contract and the types they carry are the frozen public transport API.
+- `Sources/Core/ChatConfig.swift` - JSON parsing + validation (visual `properties` and the non-visual `config` block).
+- `Sources/Core/ChatTransport.swift` - the `ChatTransport` protocol, `ChatTransportConfig`, `ChatLogger`, the
+  factory type, and the built-in `LocalChatTransport`.
+- `Sources/Core/ChatTransportRegistry.swift` - the `@MainActor` protocol-name -> factory registry.
+- `Sources/ACP/ActionUIChatACP.swift` - the ACP module's `register()` (registers the `acp` factory) + C entry point.
 - `Sources/ACP/ACPConnection.swift` - newline-delimited JSON-RPC 2.0 over a subprocess's stdio (macOS).
 - `Sources/ACP/ACPChatTransport.swift` - the ACP transport: capability negotiation, session lifecycle,
   the `session/update` -> `ChatEvent` demux, and the permission round-trip.
-- `Sources/ChatStore.swift` - the `@MainActor` store + the router (pre-filter).
-- `Sources/ChatRootView.swift` - the transcript + composer SwiftUI surface (message, thought, tool-call,
+- `Sources/Core/ChatStore.swift` - the `@MainActor` store + the router (pre-filter).
+- `Sources/Core/ChatRootView.swift` - the transcript + composer SwiftUI surface (message, thought, tool-call,
   image rows; the permission approval card).
 - `Documentation/Schemas/Chat.md` - element schema doc; `Documentation/Elements/Chat.json` - insert template.
 - `Documentation/ActionUIChatDocumentation.swift` - `Bundle.module` accessor for the docs product.

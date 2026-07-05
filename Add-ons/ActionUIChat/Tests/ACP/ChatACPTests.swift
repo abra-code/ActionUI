@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Tests/ChatACPTests.swift
+// Add-ons/ActionUIChat/Tests/ACP/ChatACPTests.swift
 //
 // Unit tests for the ACP transport, wire and demux layers, without spawning a real
 // agent: the JSON-RPC framing / correlation (ACPConnection.handleLine driven with
@@ -15,7 +15,8 @@
 #if os(macOS)
 
 import XCTest
-@testable import ActionUIChat
+@testable import ActionUIChatACP
+import ActionUIChatCore
 import ActionUI
 
 private final class ACPTestLogger: ActionUILogger {
@@ -272,7 +273,7 @@ final class ACPParsingTests: XCTestCase {
 final class ACPDemuxTests: XCTestCase {
 
     private func makeTransport() throws -> ACPChatTransport {
-        try ACPChatTransport(config: ["command": ["true"]], logger: ACPTestLogger())
+        try ACPChatTransport(config: ChatTransportConfig(settings: ["command": ["true"]]), logger: ACPTestLogger())
     }
 
     private func update(_ payload: [String: Any]) -> [String: Any] {
@@ -386,7 +387,7 @@ final class ACPPermissionTests: XCTestCase {
     }
 
     func testSelectedOutcome() async throws {
-        let transport = try ACPChatTransport(config: ["command": ["true"]], logger: ACPTestLogger())
+        let transport = try ACPChatTransport(config: ChatTransportConfig(settings: ["command": ["true"]]), logger: ACPTestLogger())
         let responseTask = spawnPermissionRequest(on: transport)
 
         let observed = await awaitPermissionEvent(from: transport)
@@ -401,7 +402,7 @@ final class ACPPermissionTests: XCTestCase {
     }
 
     func testDismissalBecomesCancelledOutcome() async throws {
-        let transport = try ACPChatTransport(config: ["command": ["true"]], logger: ACPTestLogger())
+        let transport = try ACPChatTransport(config: ChatTransportConfig(settings: ["command": ["true"]]), logger: ACPTestLogger())
         let responseTask = spawnPermissionRequest(on: transport)
 
         let observed = await awaitPermissionEvent(from: transport)
@@ -412,7 +413,7 @@ final class ACPPermissionTests: XCTestCase {
     }
 
     func testUnsupportedAgentRequestAnswersMethodNotFound() async throws {
-        let transport = try ACPChatTransport(config: ["command": ["true"]], logger: ACPTestLogger())
+        let transport = try ACPChatTransport(config: ChatTransportConfig(settings: ["command": ["true"]]), logger: ACPTestLogger())
         let task = Task { () -> Bool in
             let response = await transport.handleRequest("fs/read_text_file", ["path": "/etc/hosts"])
             return response == nil
@@ -422,8 +423,8 @@ final class ACPPermissionTests: XCTestCase {
     }
 
     func testMissingCommandThrows() {
-        XCTAssertThrowsError(try ACPChatTransport(config: [:], logger: ACPTestLogger()))
-        XCTAssertThrowsError(try ACPChatTransport(config: ["command": []], logger: ACPTestLogger()))
+        XCTAssertThrowsError(try ACPChatTransport(config: ChatTransportConfig(settings: [:]), logger: ACPTestLogger()))
+        XCTAssertThrowsError(try ACPChatTransport(config: ChatTransportConfig(settings: ["command": []]), logger: ACPTestLogger()))
     }
 }
 
@@ -501,7 +502,7 @@ final class ACPFakeAgentTests: XCTestCase {
         // an absolute path; OpenCode failed exactly this way), so this test only passes
         // if the transport expanded it.
         let transport = try ACPChatTransport(
-            config: ["command": ["/bin/sh", scriptURL.path], "cwd": "~"],
+            config: ChatTransportConfig(settings: ["command": ["/bin/sh", scriptURL.path], "cwd": "~"]),
             logger: ACPTestLogger()
         )
         await transport.start()
@@ -548,7 +549,7 @@ final class ACPFakeAgentTests: XCTestCase {
         }
 
         let transport = try ACPChatTransport(
-            config: ["command": ["/bin/sh", scriptURL.path], "cwd": "~"],
+            config: ChatTransportConfig(settings: ["command": ["/bin/sh", scriptURL.path], "cwd": "~"]),
             logger: ACPTestLogger()
         )
         await transport.start()

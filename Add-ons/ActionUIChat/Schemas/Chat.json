@@ -1,6 +1,6 @@
 {
   "type": "Chat",
-  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected in the element's config block (non-visual operational settings: protocol and transport; injectable at runtime via setElementConfig). Landed: the local transport with a single-alignment transcript (M1), streaming Markdown and image items (M2), the agentic surfaces - thoughts, tool-call cards, permission approvals - routed by the surfaces property, and the ACP transport that hosts any Agent Client Protocol agent over stdio on macOS (M3). The SSE transports, dual alignment, and side panels arrive in later milestones.",
+  "description": "Native chat surface (ActionUIChat add-on). A transcript above a composer, driven by a transport selected in the element's config block (non-visual operational settings: protocol and transport; injectable at runtime via setElementConfig). Transports are separate, statically linked modules behind a registry: local is the only built-in; a host adds a protocol by linking its module (ActionUIChatACP for acp) and registering it, or by linking the umbrella ActionUIChat product that bundles them; an unregistered protocol degrades to local. Landed: the local transport with a single-alignment transcript (M1), streaming Markdown and image items (M2), the agentic surfaces - thoughts, tool-call cards, permission approvals - routed by the surfaces property, and the ACP transport that hosts any Agent Client Protocol agent over stdio on macOS (M3). The SSE transports, dual alignment, and side panels arrive in later milestones.",
   "id": { "policy": "optional" },
   "inheritsViewProperties": true,
   "topLevelKeys": [],
@@ -8,8 +8,7 @@
     "protocol": {
       "types": ["string"],
       "required": false,
-      "enum": ["local", "acp", "openai-sse", "anthropic-sse", "custom"],
-      "description": "Transport selector. Default local. Implemented: local, and acp on macOS (the ACP agent runs as a subprocess; transport.command is required). Others fall back to local."
+      "description": "Transport selector. Any string is valid: which names resolve to a transport is a runtime fact (whether the host linked and registered that transport's module), so there is no fixed name list here. Default local (built in). local streams a scripted reply; acp (the ActionUIChatACP module, macOS: the ACP agent runs as a subprocess; transport.command is required) hosts an Agent Client Protocol agent over stdio. A protocol whose module the host did not register degrades to local at runtime."
     },
     "transport": {
       "types": ["object"],

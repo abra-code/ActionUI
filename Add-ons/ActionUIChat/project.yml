@@ -2,11 +2,17 @@
 # Generate the Xcode project with:  xcodegen generate   (run in this directory)
 #
 # This add-on COMPILES AGAINST ActionUI's public API but does NOT link the ActionUI
-# static library: the dependency below is `link: false`, so ActionUI is used only for
+# static library: the dependencies below are `link: false`, so ActionUI is used only for
 # its Swift module (build order + import visibility). The HOST app is responsible for
-# linking both ActionUI and this add-on, and for calling ActionUIChat.register()
-# once at launch. (A static library never embeds its dependencies' object code anyway;
-# link: false makes that intent explicit.)
+# linking ActionUI and this add-on, and for calling ActionUIChat.register() once at launch.
+# (A static library never embeds its dependencies' object code anyway; link: false makes
+# that intent explicit.)
+#
+# Three static-library targets mirror the SPM products (P0-6): ActionUIChatCore (element +
+# built-in local transport + registry), ActionUIChatACP (the ACP transport, macOS), and the
+# ActionUIChat umbrella (depends on both; its register() wires them). The inter-target
+# dependencies are also link: false - each is a static lib the host links; the target
+# dependency exists for build order and Swift-module visibility only.
 
 name: ActionUIChat
 
@@ -27,11 +33,11 @@ packages:
     path: ../../../AsyncImageCache   # the sibling image cache (CachedImage for image items)
 
 targets:
-  ActionUIChat:
+  ActionUIChatCore:
     type: library.static
     platform: macOS
     sources:
-      - path: Sources
+      - path: Sources/Core
     dependencies:
       - package: ActionUI
         product: ActionUI
@@ -49,10 +55,45 @@ targets:
       base:
         SWIFT_VERSION: "6.0"
         SKIP_INSTALL: "YES"
+        PRODUCT_MODULE_NAME: ActionUIChatCore
+
+  ActionUIChatACP:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/ACP
+    dependencies:
+      - target: ActionUIChatCore
+        link: false       # compile-against the Core module; host links it
+      - package: ActionUI
+        product: ActionUI
+        link: false
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SKIP_INSTALL: "YES"
+        PRODUCT_MODULE_NAME: ActionUIChatACP
+
+  ActionUIChat:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources/Umbrella
+    dependencies:
+      - target: ActionUIChatCore
+        link: false       # compile-against Core (re-exported); host links it
+      - target: ActionUIChatACP
+        link: false       # compile-against ACP; host links it
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SKIP_INSTALL: "YES"
         PRODUCT_MODULE_NAME: ActionUIChat
 
 schemes:
   ActionUIChat:
     build:
       targets:
+        ActionUIChatCore: all
+        ActionUIChatACP: all
         ActionUIChat: all

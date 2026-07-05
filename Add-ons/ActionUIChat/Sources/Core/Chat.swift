@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Sources/Chat.swift
+// Add-ons/ActionUIChat/Sources/Core/Chat.swift
 /*
  Sample JSON for Chat:
  {
@@ -7,10 +7,13 @@
    "config": {               // Optional: NON-VISUAL operational settings (the element-level config block,
                              //           sibling of properties). Hosts can inject runtime/session-specific
                              //           values via setElementConfig between loading and showing a document.
-     "protocol": "local",                 // Optional: transport; "local" (default) streams a scripted reply.
-                                          //           "acp" runs an Agent Client Protocol agent over stdio (macOS only:
-                                          //           the agent is a subprocess). "openai-sse" / "anthropic-sse" /
-                                          //           "custom" arrive later.
+     "protocol": "local",                 // Optional: transport selector. "local" (default) is built in and streams a
+                                          //           scripted reply. Every other protocol is provided by a separate
+                                          //           transport module the host links and registers; the umbrella
+                                          //           ActionUIChat product bundles them and wires them in register().
+                                          //           "acp" (the ActionUIChatACP module, macOS only: the agent is a
+                                          //           subprocess) runs an Agent Client Protocol agent over stdio. A
+                                          //           protocol whose module the host did not register degrades to "local".
      "transport": { "echo": true }        // Optional: protocol-specific settings (interpreted by the chosen transport).
                                           //           "local" honors "echo" (default true: stream a demo reply),
                                           //           "reply" ("echo" default | "markdown" | "agentic": a scripted
@@ -85,9 +88,12 @@
  command still sends as ordinary prompt text for the agent to interpret. And agent-proposed file diffs
  now render inside the tool card's detail as a real line diff (the DiffView product of the sibling
  ActionUIDiff add-on, which these tool cards consume: hunks, old / new line-number gutters, +/-
- markers; routed by surfaces.diffs, "hidden" drops them). The SSE transports, dual alignment, and
- the remaining M5 surfaces (terminals, multi-session)
- arrive in later milestones (see Private/chat-element-design.md).
+ markers; routed by surfaces.diffs, "hidden" drops them). Transports are separate, statically linked
+ modules behind a registry: "local" is the only built-in, and a host adds a protocol by linking its
+ module (ActionUIChatACP for "acp") and calling its register() - or by linking the umbrella ActionUIChat
+ product, whose register() wires every bundled transport at once; a protocol whose module was not
+ registered degrades to "local". The SSE transports, dual alignment, and the remaining M5 surfaces
+ (terminals, multi-session) arrive in later milestones (see Private/chat-element-design.md).
 
  Observable state: the element manages its own transcript model internally (no single scalar value), so
  it does not expose getElementValue / setElementValue yet; host interaction is via the action IDs above.
@@ -100,9 +106,13 @@
  Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
  cornerRadius, actionID, disabled, onAppearActionID, onDisappearActionID, etc.) are inherited from base View.
 
- Implementation note: conforms to ActionUI's public ActionUIViewConstruction contract. The type and its
- witnesses are internal to this module - an internal type conforming to a public protocol keeps internal
- witnesses; only ActionUIChat.register() is public.
+ Implementation note: the "Chat" element lives in the ActionUIChatCore module and conforms to ActionUI's
+ public ActionUIViewConstruction contract. The type and its witnesses are internal - an internal type
+ conforming to a public protocol keeps internal witnesses. The module's public surface is small:
+ ActionUIChatCore.register() (element + built-in "local" transport), registerTransport(_:factory:), and the
+ frozen transport contract a transport module builds against (ChatTransport, ChatEvent, ChatCommand,
+ ChatTransportConfig, ChatLogger, and the value types those carry). The umbrella ActionUIChat.register()
+ registers the element and every bundled transport in one call.
  */
 
 import SwiftUI

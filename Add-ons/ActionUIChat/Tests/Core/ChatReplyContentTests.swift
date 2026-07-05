@@ -1,4 +1,4 @@
-// Add-ons/ActionUIChat/Tests/ChatReplyContentTests.swift
+// Add-ons/ActionUIChat/Tests/Core/ChatReplyContentTests.swift
 //
 // Unit tests for the `local` transport's canned reply content: the two reply styles (echo,
 // markdown) and the word-preserving streaming chunker (chunks must reassemble to the source
@@ -8,7 +8,7 @@
 
 import XCTest
 import CoreGraphics
-@testable import ActionUIChat
+@testable import ActionUIChatCore
 
 final class ChatReplyContentTests: XCTestCase {
 
