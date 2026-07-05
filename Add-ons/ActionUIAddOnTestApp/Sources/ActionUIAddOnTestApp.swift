@@ -8,6 +8,7 @@ import SwiftUI
 import ActionUI
 import ActionUISwiftAdapter
 import ActionUIQuickLook
+import ActionUICachedImage
 
 @main
 struct ActionUIAddOnTestApp: App {
@@ -18,6 +19,7 @@ struct ActionUIAddOnTestApp: App {
         // Register every linked add-on's element types BEFORE any window that uses them is built.
         // Add a line here per add-on.
         ActionUIQuickLook.register()
+        ActionUICachedImage.register()
 
         ActionUISwift.setDefaultActionHandler { actionID, windowUUID, viewID, viewPartID, _ in
             print("[action] \(actionID) window:\(windowUUID) view:\(viewID).\(viewPartID)")

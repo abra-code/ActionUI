@@ -1,0 +1,19 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "CachedImage (add-on element):", "font": "headline" } },
+    {
+      "type": "CachedImage",
+      "id": 80,
+      "properties": {
+        "url": "https://picsum.photos/1024/768",
+        "intrinsicSize": { "width": 1024, "height": 768 },
+        "contentMode": "fill",
+        "maxPixelWidth": 1024,
+        "cornerRadius": 12,
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

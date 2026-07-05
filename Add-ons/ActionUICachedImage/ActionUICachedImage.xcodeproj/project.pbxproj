@@ -1,0 +1,355 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C8E15C788D6855342824A44 /* ActionUICachedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AB2627D96A7C7FAF749D45 /* ActionUICachedImage.swift */; };
+		D4CDAFB83E57E792FF029EAF /* CachedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861FACFD6B06079B3723DA9D /* CachedImage.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		257233F6C1309D59AFF202FA /* libActionUICachedImage.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUICachedImage.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		34AB2627D96A7C7FAF749D45 /* ActionUICachedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUICachedImage.swift; sourceTree = "<group>"; };
+		81DDD8E0834AE0DB1AC524FD /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
+		861FACFD6B06079B3723DA9D /* CachedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedImage.swift; sourceTree = "<group>"; };
+		89A2D4384A3C9D1A675468F2 /* AsyncImageCache */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AsyncImageCache; path = ../../../AsyncImageCache; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1329DEE4BBD8A0169D8D34DE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				257233F6C1309D59AFF202FA /* libActionUICachedImage.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		92256345F23B653F2EE3F513 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				81DDD8E0834AE0DB1AC524FD /* ActionUI */,
+				89A2D4384A3C9D1A675468F2 /* AsyncImageCache */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		DA71FA00DBF38FD97B29B913 = {
+			isa = PBXGroup;
+			children = (
+				92256345F23B653F2EE3F513 /* Packages */,
+				FFBFF1CE14A8BE42D1F9F13F /* Sources */,
+				1329DEE4BBD8A0169D8D34DE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FFBFF1CE14A8BE42D1F9F13F /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				34AB2627D96A7C7FAF749D45 /* ActionUICachedImage.swift */,
+				861FACFD6B06079B3723DA9D /* CachedImage.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0D40A1B7EBE404D771B94724 /* ActionUICachedImage */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A9A8ACB5EDAF69AF82DB553 /* Build configuration list for PBXNativeTarget "ActionUICachedImage" */;
+			buildPhases = (
+				742BA06B5D7107D8CDB65942 /* Sources */,
+				25EE4CBF6BE2C3D400B052FA /* Copy Swift Objective-C Interface Header */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				74B8DA6476EC95B3B57A11DA /* PBXTargetDependency */,
+				8A6A05496B12E7F5C43CA5EC /* PBXTargetDependency */,
+			);
+			name = ActionUICachedImage;
+			packageProductDependencies = (
+			);
+			productName = ActionUICachedImage;
+			productReference = 257233F6C1309D59AFF202FA /* libActionUICachedImage.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		96829D34E62BB9208D162EF1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = C8877F166722F82809B20196 /* Build configuration list for PBXProject "ActionUICachedImage" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DA71FA00DBF38FD97B29B913;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				79F6E9B17969168554D34DAF /* XCLocalSwiftPackageReference "../.." */,
+				AD780734FC881693A1E161A6 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 1329DEE4BBD8A0169D8D34DE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0D40A1B7EBE404D771B94724 /* ActionUICachedImage */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		25EE4CBF6BE2C3D400B052FA /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		742BA06B5D7107D8CDB65942 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C8E15C788D6855342824A44 /* ActionUICachedImage.swift in Sources */,
+				D4CDAFB83E57E792FF029EAF /* CachedImage.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		74B8DA6476EC95B3B57A11DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_7E112604-45FF-4001-84CD-A0BBEE216698" /* ActionUI */;
+		};
+		8A6A05496B12E7F5C43CA5EC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_8D897367-8DC1-4D7E-A991-6A2228BCC437" /* AsyncImageCache */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		063385F77CF4805A7282CA22 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUICachedImage;
+				PRODUCT_MODULE_NAME = ActionUICachedImage;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		4467E665F4AAA23357D13A55 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		5688D5B043DE923B04FEF573 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.ActionUICachedImage;
+				PRODUCT_MODULE_NAME = ActionUICachedImage;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		C68E2C3F0848E9F58303B917 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1A9A8ACB5EDAF69AF82DB553 /* Build configuration list for PBXNativeTarget "ActionUICachedImage" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				063385F77CF4805A7282CA22 /* Debug */,
+				5688D5B043DE923B04FEF573 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C8877F166722F82809B20196 /* Build configuration list for PBXProject "ActionUICachedImage" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C68E2C3F0848E9F58303B917 /* Debug */,
+				4467E665F4AAA23357D13A55 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		79F6E9B17969168554D34DAF /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+		AD780734FC881693A1E161A6 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../AsyncImageCache;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		"TEMP_7E112604-45FF-4001-84CD-A0BBEE216698" /* ActionUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUI;
+		};
+		"TEMP_8D897367-8DC1-4D7E-A991-6A2228BCC437" /* AsyncImageCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AsyncImageCache;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 96829D34E62BB9208D162EF1 /* Project object */;
+}

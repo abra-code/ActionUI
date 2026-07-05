@@ -26,6 +26,8 @@ packages:
     path: ../..
   ActionUIQuickLook:
     path: ../ActionUIQuickLook
+  ActionUICachedImage:
+    path: ../ActionUICachedImage
 
 targets:
   ActionUIAddOnTestApp:
@@ -45,7 +47,9 @@ targets:
       - package: ActionUI
         product: ActionUISwiftAdapter  # ...and the Swift adapter (loadView, action handlers)...
       - package: ActionUIQuickLook
-        product: ActionUIQuickLook      # ...and the add-on package.
+        product: ActionUIQuickLook      # ...and the QuickLook add-on package...
+      - package: ActionUICachedImage
+        product: ActionUICachedImage    # ...and the CachedImage add-on package.
     preBuildScripts:
       - name: "Verify JSON resources"
         script: '"${SRCROOT}/Scripts/verify_json_resources.sh"'

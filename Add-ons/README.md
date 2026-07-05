@@ -23,6 +23,11 @@ needs that element.
   Quick Look pane; `QLPreviewView` on macOS, `QLPreviewController` on iOS/visionOS). Shipped as a
   Swift package (`Package.swift`) and, optionally, a standalone static-library xcodegen project. Owns
   `Schemas/QuickLook.json`.
+- **`ActionUICachedImage/`** - a `CachedImage` element: a cached, off-main image view backed by the
+  [AsyncImageCache](https://github.com/abra-code/AsyncImageCache) github package (fetch/decode/
+  downscale off the main thread, a two-tier memory + on-disk cache, and size-known-upfront layout
+  with no reflow on hydration). The first add-on to depend on a third-party github package. Owns
+  `Schemas/CachedImage.json`.
 - **`ActionUIAddOnTestApp/`** - a multiplatform (macOS + iOS) host app that links ActionUI +
   ActionUISwiftAdapter + the add-on and renders a document using the add-on's element. The add-on
   analogue of `ActionUISwiftTestApp`, and the place to exercise an add-on at runtime.
