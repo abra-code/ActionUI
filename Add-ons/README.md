@@ -28,6 +28,11 @@ needs that element.
   downscale off the main thread, a two-tier memory + on-disk cache, and size-known-upfront layout
   with no reflow on hydration). The first add-on to depend on a third-party github package. Owns
   `Schemas/CachedImage.json`.
+- **`ActionUIRichText/`** - a `RichText` element: a rich-text display view backed by the
+  [RichText](https://github.com/abra-code/RichText) github package. It renders a whole Markdown
+  document (headings, code blocks, quotes, lists, GFM tables, inline styling, links) into one native
+  text view, selectable and copyable as a single unit (table-aware copy). RichText pulls AsyncImageCache
+  transitively. Owns `Schemas/RichText.json`.
 - **`ActionUIAddOnTestApp/`** - a multiplatform (macOS + iOS) host app that links ActionUI +
   ActionUISwiftAdapter + the add-on and renders a document using the add-on's element. The add-on
   analogue of `ActionUISwiftTestApp`, and the place to exercise an add-on at runtime.

@@ -28,6 +28,8 @@ packages:
     path: ../ActionUIQuickLook
   ActionUICachedImage:
     path: ../ActionUICachedImage
+  ActionUIRichText:
+    path: ../ActionUIRichText
 
 targets:
   ActionUIAddOnTestApp:
@@ -49,7 +51,9 @@ targets:
       - package: ActionUIQuickLook
         product: ActionUIQuickLook      # ...and the QuickLook add-on package...
       - package: ActionUICachedImage
-        product: ActionUICachedImage    # ...and the CachedImage add-on package.
+        product: ActionUICachedImage    # ...and the CachedImage add-on package...
+      - package: ActionUIRichText
+        product: ActionUIRichText       # ...and the RichText add-on package.
     preBuildScripts:
       - name: "Verify JSON resources"
         script: '"${SRCROOT}/Scripts/verify_json_resources.sh"'

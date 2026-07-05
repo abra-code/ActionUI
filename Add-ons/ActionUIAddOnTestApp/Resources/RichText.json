@@ -1,0 +1,21 @@
+{
+  "type": "ScrollView",
+  "properties": { "padding": 12 },
+  "content": {
+    "type": "VStack",
+    "properties": { "spacing": 8, "alignment": "leading" },
+    "children": [
+      { "type": "Text", "properties": { "text": "RichText (add-on element):", "font": "headline" } },
+      { "type": "Text", "properties": { "text": "The whole document below is one native text view - drag to select across headings, code, and the table, then copy: it pastes as a real table into TextEdit / Notes.", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "RichText",
+        "id": 90,
+        "properties": {
+          "markdown": "# RichText add-on\n\nA whole Markdown document rendered into **one** native text view - *selectable* and copyable as a single unit, including this `inline code` and a [link](https://example.com).\n\n## Lists\n\n1. Ordered item\n2. Second item\n   - Nested bullet\n   - Another\n\n## Code\n\n```swift\nfunc greet(_ name: String) -> String {\n    \"Hello, \\(name)!\"\n}\n```\n\n> A block quote, drawn with a gutter bar.\n\n## Table\n\n| Feature | Supported |\n|---|---|\n| GFM tables | yes |\n| Table-aware copy | RTF / HTML / Markdown |\n| Selection | whole document |",
+          "syntaxHighlighting": true,
+          "frame": { "maxWidth": "infinity" }
+        }
+      }
+    ]
+  }
+}

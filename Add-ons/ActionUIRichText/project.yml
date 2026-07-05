@@ -1,0 +1,59 @@
+# xcodegen spec for the ActionUIRichText add-on.
+# Generate the Xcode project with:  xcodegen generate   (run in this directory)
+#
+# This add-on COMPILES AGAINST ActionUI's public API but does NOT link the ActionUI static
+# library: the ActionUI dependency below is `link: false`, so it is used only for its Swift
+# module (build order + import visibility). RichText is likewise compile-only here (a static
+# library never embeds its dependencies' object code); the HOST app links ActionUI, RichText
+# (and RichText's own AsyncImageCache dependency), and this add-on, and calls
+# ActionUIRichText.register() once at launch.
+#
+# The Swift package (Package.swift) is the primary way to consume the add-on - it resolves the
+# RichText github dependency (and its transitive AsyncImageCache) for you. This xcodegen project
+# builds the standalone `.a` for inspection; RichText and AsyncImageCache are provided here as
+# local checkout paths (siblings of the ActionUI repo) so xcodegen resolves offline. Listing
+# AsyncImageCache as a local package overrides RichText's github reference to it (same package
+# identity), keeping the standalone build offline. Adjust the paths to your checkouts if needed.
+
+name: ActionUIRichText
+
+options:
+  bundleIdPrefix: com.abracode.actionui
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.6"
+
+packages:
+  ActionUI:
+    path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
+  RichText:
+    path: ../../../RichText
+  AsyncImageCache:
+    # Local override for RichText's github AsyncImageCache dependency, so the standalone project
+    # resolves offline (same package identity wins over the url reference).
+    path: ../../../AsyncImageCache
+
+targets:
+  ActionUIRichText:
+    type: library.static
+    platform: macOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI
+        link: false       # compile-time module dependency only; host links ActionUI
+      - package: RichText
+        product: RichText
+        link: false       # compile-time module dependency only; host links RichText
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SKIP_INSTALL: "YES"
+        PRODUCT_MODULE_NAME: ActionUIRichText
+
+schemes:
+  ActionUIRichText:
+    build:
+      targets:
+        ActionUIRichText: all

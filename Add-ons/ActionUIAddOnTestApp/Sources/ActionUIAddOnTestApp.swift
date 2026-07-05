@@ -9,6 +9,7 @@ import ActionUI
 import ActionUISwiftAdapter
 import ActionUIQuickLook
 import ActionUICachedImage
+import ActionUIRichText
 
 @main
 struct ActionUIAddOnTestApp: App {
@@ -20,6 +21,7 @@ struct ActionUIAddOnTestApp: App {
         // Add a line here per add-on.
         ActionUIQuickLook.register()
         ActionUICachedImage.register()
+        ActionUIRichText.register()
 
         ActionUISwift.setDefaultActionHandler { actionID, windowUUID, viewID, viewPartID, _ in
             print("[action] \(actionID) window:\(windowUUID) view:\(viewID).\(viewPartID)")

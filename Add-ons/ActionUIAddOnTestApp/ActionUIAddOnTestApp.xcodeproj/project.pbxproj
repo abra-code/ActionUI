@@ -10,6 +10,8 @@
 		2958C8147CD88342247317CF /* QuickLook.json in Resources */ = {isa = PBXBuildFile; fileRef = CF7ABC737BFB52F77899E3A0 /* QuickLook.json */; };
 		2F342F24A685081A6D00796B /* ActionUIAddOnTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */; };
 		30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */ = {isa = PBXBuildFile; fileRef = 223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */; };
+		581062D89D2AE39E5BB7602E /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */; };
+		62CDD50ACCD8CC25B6EF9912 /* RichText.json in Resources */ = {isa = PBXBuildFile; fileRef = 8C4E595F1F40E2EF85F9F588 /* RichText.json */; };
 		83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */; };
 		93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */; };
 		C243B510E2EACF91A4836826 /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = 8547149835E3A4CB8FE6B319 /* ActionUICachedImage */; };
@@ -26,7 +28,9 @@
 		21452584B443364EF4B6DD78 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = ../ActionUIQuickLook; sourceTree = SOURCE_ROOT; };
 		223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.showsChrome.json; sourceTree = "<group>"; };
 		24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.compact.json; sourceTree = "<group>"; };
+		60D1FD3F7FB5CE7797FFB50F /* ActionUIRichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIRichText; path = ../ActionUIRichText; sourceTree = SOURCE_ROOT; };
 		65894075C7489BE34B602A43 /* ActionUIAddOnTestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIAddOnTestApp.swift; sourceTree = "<group>"; };
+		8C4E595F1F40E2EF85F9F588 /* RichText.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = RichText.json; sourceTree = "<group>"; };
 		93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUICachedImage; path = ../ActionUICachedImage; sourceTree = SOURCE_ROOT; };
 		CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ActionUIAddOnTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CF7ABC737BFB52F77899E3A0 /* QuickLook.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.json; sourceTree = "<group>"; };
@@ -41,6 +45,7 @@
 				CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */,
 				93C5AF13A6E5A6966E44C2A3 /* ActionUIQuickLook in Frameworks */,
 				C243B510E2EACF91A4836826 /* ActionUICachedImage in Frameworks */,
+				581062D89D2AE39E5BB7602E /* ActionUIRichText in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -62,6 +67,7 @@
 				24E1185D08DCAB9BB46E1875 /* QuickLook.compact.json */,
 				CF7ABC737BFB52F77899E3A0 /* QuickLook.json */,
 				223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */,
+				8C4E595F1F40E2EF85F9F588 /* RichText.json */,
 				1BF48B38F26ADAC280C871E5 /* Sample.pdf */,
 			);
 			path = Resources;
@@ -73,6 +79,7 @@
 				0FB3650C4963944296903979 /* ActionUI */,
 				93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */,
 				21452584B443364EF4B6DD78 /* ActionUIQuickLook */,
+				60D1FD3F7FB5CE7797FFB50F /* ActionUIRichText */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -117,6 +124,7 @@
 				D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */,
 				D6899CD42E63CD8C6B2A0584 /* ActionUIQuickLook */,
 				8547149835E3A4CB8FE6B319 /* ActionUICachedImage */,
+				7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */,
 			);
 			productName = ActionUIAddOnTestApp;
 			productReference = CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */;
@@ -146,6 +154,7 @@
 				9C234D5DE47D93B64BA47872 /* XCLocalSwiftPackageReference "../.." */,
 				9A1E7B212ED37C3FE178BB3E /* XCLocalSwiftPackageReference "../ActionUICachedImage" */,
 				8D04AB9FE108C202EAE2A7BF /* XCLocalSwiftPackageReference "../ActionUIQuickLook" */,
+				E311EE4B61A09C98DF61B2BE /* XCLocalSwiftPackageReference "../ActionUIRichText" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D3E1B17C5207496CBA5492DC /* Products */;
@@ -166,6 +175,7 @@
 				83B9824A3A0074F857939B99 /* QuickLook.compact.json in Resources */,
 				2958C8147CD88342247317CF /* QuickLook.json in Resources */,
 				30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */,
+				62CDD50ACCD8CC25B6EF9912 /* RichText.json in Resources */,
 				EB39E2EBB3ED5C4BA0BC4C54 /* Sample.pdf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -415,12 +425,20 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
+		E311EE4B61A09C98DF61B2BE /* XCLocalSwiftPackageReference "../ActionUIRichText" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ActionUIRichText;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		2B9635CB1742700A0529909B /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
+		};
+		7355A40EB4D1699E4B9C0E7C /* ActionUIRichText */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIRichText;
 		};
 		8547149835E3A4CB8FE6B319 /* ActionUICachedImage */ = {
 			isa = XCSwiftPackageProductDependency;
