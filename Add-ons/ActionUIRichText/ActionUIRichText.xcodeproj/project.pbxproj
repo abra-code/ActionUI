@@ -15,8 +15,6 @@
 		18BE9F5C6265CD9DCEB3E389 /* ActionUIRichText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIRichText.swift; sourceTree = "<group>"; };
 		580ECEDB5D8A66B534C29427 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
 		9A2FCD06DEC796CA193404F1 /* RichText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichText.swift; sourceTree = "<group>"; };
-		C4D690FFAB52D5B9D777F111 /* RichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RichText; path = ../../../RichText; sourceTree = SOURCE_ROOT; };
-		C732645733514961173B9EE7 /* AsyncImageCache */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AsyncImageCache; path = ../../../AsyncImageCache; sourceTree = SOURCE_ROOT; };
 		E0042B171CAC1789932A42C9 /* libActionUIRichText.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIRichText.a; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -51,8 +49,6 @@
 			isa = PBXGroup;
 			children = (
 				580ECEDB5D8A66B534C29427 /* ActionUI */,
-				C732645733514961173B9EE7 /* AsyncImageCache */,
-				C4D690FFAB52D5B9D777F111 /* RichText */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -101,9 +97,8 @@
 			mainGroup = 53E67386A75F496BB41D3712;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				82D5AD5577F299DFA07821BE /* XCRemoteSwiftPackageReference "RichText" */,
 				EB17B90CBE4AFA40AA3787B6 /* XCLocalSwiftPackageReference "../.." */,
-				AED9D1CFA7784FE7BABB1149 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */,
-				C9623F08E3F2B4C239592559 /* XCLocalSwiftPackageReference "../../../RichText" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 96AB07906914622872068E2C /* Products */;
@@ -149,11 +144,11 @@
 /* Begin PBXTargetDependency section */
 		0C8229032A0B55EEB0141715 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_E6FBC7E5-2CC3-4A7C-A540-CBBB0614DB6C" /* RichText */;
+			productRef = "TEMP_5272E912-69BA-476D-A934-09631C2AFCB0" /* RichText */;
 		};
 		1EDCBABBBC5349DDB7AA069B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_6213C64A-9855-45F9-9AE7-384B97D01CBC" /* ActionUI */;
+			productRef = "TEMP_07554347-8920-436F-A168-6ED661904155" /* ActionUI */;
 		};
 /* End PBXTargetDependency section */
 
@@ -333,27 +328,31 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		AED9D1CFA7784FE7BABB1149 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../AsyncImageCache;
-		};
-		C9623F08E3F2B4C239592559 /* XCLocalSwiftPackageReference "../../../RichText" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../RichText;
-		};
 		EB17B90CBE4AFA40AA3787B6 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		82D5AD5577F299DFA07821BE /* XCRemoteSwiftPackageReference "RichText" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/abra-code/RichText";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_6213C64A-9855-45F9-9AE7-384B97D01CBC" /* ActionUI */ = {
+		"TEMP_07554347-8920-436F-A168-6ED661904155" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
 		};
-		"TEMP_E6FBC7E5-2CC3-4A7C-A540-CBBB0614DB6C" /* RichText */ = {
+		"TEMP_5272E912-69BA-476D-A934-09631C2AFCB0" /* RichText */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 82D5AD5577F299DFA07821BE /* XCRemoteSwiftPackageReference "RichText" */;
 			productName = RichText;
 		};
 /* End XCSwiftPackageProductDependency section */

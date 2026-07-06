@@ -8,12 +8,11 @@
 # (and RichText's own AsyncImageCache dependency), and this add-on, and calls
 # ActionUIRichText.register() once at launch.
 #
-# The Swift package (Package.swift) is the primary way to consume the add-on - it resolves the
-# RichText github dependency (and its transitive AsyncImageCache) for you. This xcodegen project
-# builds the standalone `.a` for inspection; RichText and AsyncImageCache are provided here as
-# local checkout paths (siblings of the ActionUI repo) so xcodegen resolves offline. Listing
-# AsyncImageCache as a local package overrides RichText's github reference to it (same package
-# identity), keeping the standalone build offline. Adjust the paths to your checkouts if needed.
+# Both the Swift package (Package.swift) and this xcodegen project reference RichText by its github
+# URL (github.com/abra-code/RichText); RichText transitively pulls its own AsyncImageCache dependency
+# (same github URL), so a fresh generate/build resolves both from github (network needed on first
+# resolve; Xcode/SPM then caches them). AsyncImageCache is transitive here, so - unlike ActionUIChat,
+# which uses CachedImage directly - it is not listed as a package.
 
 name: ActionUIRichText
 
@@ -27,11 +26,8 @@ packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
   RichText:
-    path: ../../../RichText
-  AsyncImageCache:
-    # Local override for RichText's github AsyncImageCache dependency, so the standalone project
-    # resolves offline (same package identity wins over the url reference).
-    path: ../../../AsyncImageCache
+    url: https://github.com/abra-code/RichText
+    branch: main
 
 targets:
   ActionUIRichText:

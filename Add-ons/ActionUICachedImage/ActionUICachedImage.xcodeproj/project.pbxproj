@@ -16,7 +16,6 @@
 		34AB2627D96A7C7FAF749D45 /* ActionUICachedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUICachedImage.swift; sourceTree = "<group>"; };
 		81DDD8E0834AE0DB1AC524FD /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
 		861FACFD6B06079B3723DA9D /* CachedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedImage.swift; sourceTree = "<group>"; };
-		89A2D4384A3C9D1A675468F2 /* AsyncImageCache */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AsyncImageCache; path = ../../../AsyncImageCache; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -32,7 +31,6 @@
 			isa = PBXGroup;
 			children = (
 				81DDD8E0834AE0DB1AC524FD /* ActionUI */,
-				89A2D4384A3C9D1A675468F2 /* AsyncImageCache */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -99,8 +97,8 @@
 			mainGroup = DA71FA00DBF38FD97B29B913;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				2D986D1C3156197B3BE8AF15 /* XCRemoteSwiftPackageReference "AsyncImageCache" */,
 				79F6E9B17969168554D34DAF /* XCLocalSwiftPackageReference "../.." */,
-				AD780734FC881693A1E161A6 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1329DEE4BBD8A0169D8D34DE /* Products */;
@@ -146,11 +144,11 @@
 /* Begin PBXTargetDependency section */
 		74B8DA6476EC95B3B57A11DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_7E112604-45FF-4001-84CD-A0BBEE216698" /* ActionUI */;
+			productRef = "TEMP_67654A73-3950-41E3-886C-DF74B76C4556" /* ActionUI */;
 		};
 		8A6A05496B12E7F5C43CA5EC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_8D897367-8DC1-4D7E-A991-6A2228BCC437" /* AsyncImageCache */;
+			productRef = "TEMP_AF0E74AF-F5C2-4190-8EFB-A412C0825ED7" /* AsyncImageCache */;
 		};
 /* End PBXTargetDependency section */
 
@@ -334,19 +332,27 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
-		AD780734FC881693A1E161A6 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../AsyncImageCache;
-		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		2D986D1C3156197B3BE8AF15 /* XCRemoteSwiftPackageReference "AsyncImageCache" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/abra-code/AsyncImageCache";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_7E112604-45FF-4001-84CD-A0BBEE216698" /* ActionUI */ = {
+		"TEMP_67654A73-3950-41E3-886C-DF74B76C4556" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
 		};
-		"TEMP_8D897367-8DC1-4D7E-A991-6A2228BCC437" /* AsyncImageCache */ = {
+		"TEMP_AF0E74AF-F5C2-4190-8EFB-A412C0825ED7" /* AsyncImageCache */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 2D986D1C3156197B3BE8AF15 /* XCRemoteSwiftPackageReference "AsyncImageCache" */;
 			productName = AsyncImageCache;
 		};
 /* End XCSwiftPackageProductDependency section */

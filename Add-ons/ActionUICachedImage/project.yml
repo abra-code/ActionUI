@@ -7,11 +7,9 @@
 # (a static library never embeds its dependencies' object code); the HOST app links ActionUI,
 # AsyncImageCache, and this add-on, and calls ActionUICachedImage.register() once at launch.
 #
-# The Swift package (Package.swift) is the primary way to consume the add-on - it resolves the
-# AsyncImageCache github dependency for you. This xcodegen project builds the standalone `.a` for
-# inspection; AsyncImageCache is provided here as a local checkout path so xcodegen does not need
-# to hit the network. Point it at your AsyncImageCache checkout (defaults to a sibling of the
-# ActionUI repo).
+# Both the Swift package (Package.swift) and this xcodegen project reference AsyncImageCache by its
+# github URL (github.com/abra-code/AsyncImageCache), so a fresh generate/build resolves it from
+# github (network needed on first resolve; Xcode/SPM then caches it).
 
 name: ActionUICachedImage
 
@@ -25,9 +23,8 @@ packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
   AsyncImageCache:
-    # Primary consumption is via Package.swift (github remote); this standalone project uses a
-    # local checkout so xcodegen resolves offline. Adjust the path to your checkout if needed.
-    path: ../../../AsyncImageCache
+    url: https://github.com/abra-code/AsyncImageCache
+    branch: main
 
 targets:
   ActionUICachedImage:

@@ -62,7 +62,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		0E75B2859765AF5485CFC88B /* AsyncImageCache */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AsyncImageCache; path = ../../../AsyncImageCache; sourceTree = SOURCE_ROOT; };
 		104915740EC2CBA1E56E63EA /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		321E5DD2A371A41D5BD5859C /* ACPConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ACPConnection.swift; sourceTree = "<group>"; };
 		35001F12AE5280DF469A9A34 /* libActionUIChatOpenAI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIChatOpenAI.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -72,7 +71,6 @@
 		4E5317EA651B8995197471C1 /* ActionUIChatCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIChatCore.swift; sourceTree = "<group>"; };
 		69A134AFEE6D12564E537144 /* ChatRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRootView.swift; sourceTree = "<group>"; };
 		7D8107BCC771319848E3B359 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
-		833F9377F41042F878D37DEC /* RichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RichText; path = ../../../RichText; sourceTree = SOURCE_ROOT; };
 		86341DFF2612F7C95FD7E4CD /* OpenAIChatTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIChatTransport.swift; sourceTree = "<group>"; };
 		878F6CCE20E446EDA624784E /* ChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModel.swift; sourceTree = "<group>"; };
 		985415540884ED63C35910CB /* ChatTransportRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTransportRegistry.swift; sourceTree = "<group>"; };
@@ -137,8 +135,6 @@
 			children = (
 				E2D0D3682609D260E1B85415 /* ActionUI */,
 				A5CB713E73256AB625DF94D1 /* ActionUIDiff */,
-				0E75B2859765AF5485CFC88B /* AsyncImageCache */,
-				833F9377F41042F878D37DEC /* RichText */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -278,10 +274,10 @@
 			mainGroup = E34C486BCF946F55FDB7E33E;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				15F0DA1A210785A77859E404 /* XCRemoteSwiftPackageReference "AsyncImageCache" */,
+				1E31BF5C91E06494DA482B01 /* XCRemoteSwiftPackageReference "RichText" */,
 				CC8FC57848AC9B40A3CE44A7 /* XCLocalSwiftPackageReference "../.." */,
 				DFBDB95D294B5D67D7D852FA /* XCLocalSwiftPackageReference "../ActionUIDiff" */,
-				74BAB26BE716CE9FF31CA802 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */,
-				4AE2409AFE80E1405C352CFA /* XCLocalSwiftPackageReference "../../../RichText" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 42F660AD6FAA551C77B55ABF /* Products */;
@@ -411,7 +407,7 @@
 /* Begin PBXTargetDependency section */
 		00BC176F81F56E0CB7AE8525 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_6FB0809F-A9E5-41F3-81FF-C8633F9A38CF" /* RichText */;
+			productRef = "TEMP_8F01D1EC-DD4B-41C0-B037-561593A59B4D" /* RichText */;
 		};
 		12AE6206D9A542A696BCD072 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -430,7 +426,7 @@
 		};
 		3E82EA73166876D90557F763 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_841BD29D-2650-4B60-92F8-5B1FD8623F7D" /* ActionUI */;
+			productRef = "TEMP_A644EE52-FE03-464D-82A1-A2A9366134FE" /* ActionUI */;
 		};
 		43188FDBA234B081869792A6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -439,19 +435,19 @@
 		};
 		562CC32BA16376DC9803479F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_1C5EF184-A5BB-4976-B115-5C47E076D5D2" /* DiffView */;
+			productRef = "TEMP_5D50627C-DE72-4C1A-923F-0C7D96671C32" /* DiffView */;
 		};
 		8AAB34252113FC65C32F10D6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_665FD66C-85A8-4FD2-9C62-441579A5E683" /* ActionUI */;
+			productRef = "TEMP_1BCC3B18-7422-4F99-9931-0B4F6CB37E5E" /* ActionUI */;
 		};
 		B8924B81B06B30EDBA8A0A7C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_71670D43-0CB3-44E7-AEFD-8EF9FC60CE60" /* ActionUI */;
+			productRef = "TEMP_CFAEBA02-17A8-4849-AFC0-D62824E2AA33" /* ActionUI */;
 		};
 		D43B663491E114810013D83F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_A62697DC-F0FD-459B-A724-19E4D1DDBF56" /* AsyncImageCache */;
+			productRef = "TEMP_D82D3902-C269-4036-97A8-1174562589C3" /* AsyncImageCache */;
 		};
 		D849A1569B57E27187AD0BC8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -759,14 +755,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		4AE2409AFE80E1405C352CFA /* XCLocalSwiftPackageReference "../../../RichText" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../RichText;
-		};
-		74BAB26BE716CE9FF31CA802 /* XCLocalSwiftPackageReference "../../../AsyncImageCache" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../AsyncImageCache;
-		};
 		CC8FC57848AC9B40A3CE44A7 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
@@ -777,29 +765,50 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		15F0DA1A210785A77859E404 /* XCRemoteSwiftPackageReference "AsyncImageCache" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/abra-code/AsyncImageCache";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		1E31BF5C91E06494DA482B01 /* XCRemoteSwiftPackageReference "RichText" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/abra-code/RichText";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_1C5EF184-A5BB-4976-B115-5C47E076D5D2" /* DiffView */ = {
+		"TEMP_1BCC3B18-7422-4F99-9931-0B4F6CB37E5E" /* ActionUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUI;
+		};
+		"TEMP_5D50627C-DE72-4C1A-923F-0C7D96671C32" /* DiffView */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DiffView;
 		};
-		"TEMP_665FD66C-85A8-4FD2-9C62-441579A5E683" /* ActionUI */ = {
+		"TEMP_8F01D1EC-DD4B-41C0-B037-561593A59B4D" /* RichText */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = ActionUI;
-		};
-		"TEMP_6FB0809F-A9E5-41F3-81FF-C8633F9A38CF" /* RichText */ = {
-			isa = XCSwiftPackageProductDependency;
+			package = 1E31BF5C91E06494DA482B01 /* XCRemoteSwiftPackageReference "RichText" */;
 			productName = RichText;
 		};
-		"TEMP_71670D43-0CB3-44E7-AEFD-8EF9FC60CE60" /* ActionUI */ = {
+		"TEMP_A644EE52-FE03-464D-82A1-A2A9366134FE" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
 		};
-		"TEMP_841BD29D-2650-4B60-92F8-5B1FD8623F7D" /* ActionUI */ = {
+		"TEMP_CFAEBA02-17A8-4849-AFC0-D62824E2AA33" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
 		};
-		"TEMP_A62697DC-F0FD-459B-A724-19E4D1DDBF56" /* AsyncImageCache */ = {
+		"TEMP_D82D3902-C269-4036-97A8-1174562589C3" /* AsyncImageCache */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 15F0DA1A210785A77859E404 /* XCRemoteSwiftPackageReference "AsyncImageCache" */;
 			productName = AsyncImageCache;
 		};
 /* End XCSwiftPackageProductDependency section */

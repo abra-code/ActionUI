@@ -26,11 +26,17 @@ packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
   RichText:
-    path: ../../../RichText   # the sibling RichText component (renders message Markdown)
+    # Standalone component (renders message Markdown), referenced by github URL to match Package.swift
+    # and the ActionUIRichText add-on. Resolved from github (network on first resolve, then cached).
+    url: https://github.com/abra-code/RichText
+    branch: main
   ActionUIDiff:
     path: ../ActionUIDiff   # the sibling add-on whose DiffView product renders tool-card diffs
   AsyncImageCache:
-    path: ../../../AsyncImageCache   # the sibling image cache (CachedImage for image items)
+    # Standalone image cache (CachedImage for image items), referenced by github URL to match
+    # Package.swift; same URL identity as RichText's own transitive AsyncImageCache dependency.
+    url: https://github.com/abra-code/AsyncImageCache
+    branch: main
 
 targets:
   ActionUIChatCore:

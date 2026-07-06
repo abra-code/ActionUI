@@ -45,9 +45,13 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),                    // the ActionUI package at the repo root
-        .package(path: "../../../RichText"),    // the sibling RichText component (renders message Markdown)
+        // RichText and AsyncImageCache are their own repos (github.com/abra-code); SPM resolves them
+        // (RichText transitively pulls AsyncImageCache, same URL identity). No released tags yet, so
+        // pin the branch; switch to `from: "x.y.z"` once they are tagged. The standalone xcodegen
+        // project overrides both with local paths for inspection builds (see project.yml).
+        .package(url: "https://github.com/abra-code/RichText", branch: "main"),          // renders message Markdown
         .package(path: "../ActionUIDiff"),      // the sibling add-on whose DiffView product renders tool-card diffs
-        .package(path: "../../../AsyncImageCache"), // the sibling image cache (CachedImage for image items)
+        .package(url: "https://github.com/abra-code/AsyncImageCache", branch: "main"),   // CachedImage for image items
     ],
     targets: [
         // Core: the element, transcript / store / views, models, `local` transport, registry.
