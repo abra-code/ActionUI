@@ -124,6 +124,10 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         ActionUIQuickLook.register()
         ActionUIChat.register()
         ActionUIDiff.register()
+        // The viewer is a pure viewer: it renders documents but never injects a runtime transport, so
+        // a Chat's document-declared transport.command is stripped and the element degrades to
+        // 'local' (spawning a subprocess is a host privilege). A dedicated demo or a real app that
+        // wants a live subprocess transport injects it itself via setElementConfig.
 
         var jsonFilePath: String?
         var screenshotPath: String?

@@ -122,6 +122,28 @@ final class ActionUIConfigTests: XCTestCase {
                        "setting one key must preserve the others")
     }
 
+    // The config-origin bit (used by add-ons for security decisions, e.g. ActionUIChat's
+    // transport-command policy): document-parsed keys are NOT host-injected; a runtime
+    // setElementConfig marks its key as host-injected.
+    func testConfigOriginDistinguishesDocumentFromHostInjection() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Text",
+            "config": ["mode": "demo", "transport": ["command": ["from-document"]]],
+            "properties": ["text": "Hello"],
+        ]
+        let model = ActionUIModel.shared
+        _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
+        let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[1])
+
+        XCTAssertFalse(viewModel.isConfigHostInjected("transport"), "a document config key is not host-injected")
+        XCTAssertFalse(viewModel.isConfigHostInjected("mode"))
+
+        model.setElementConfig(windowUUID: windowUUID, viewID: 1, key: "transport", value: ["command": ["from-host"]])
+        XCTAssertTrue(viewModel.isConfigHostInjected("transport"), "a setElementConfig key becomes host-injected")
+        XCTAssertFalse(viewModel.isConfigHostInjected("mode"), "an untouched document key stays document-origin")
+    }
+
     func testGetElementConfigMissingKeyReturnsNil() throws {
         let elementDict: [String: Any] = [
             "id": 1,

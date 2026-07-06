@@ -1055,6 +1055,7 @@ public class ActionUIModel: ObservableObject {
         viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
         viewModel.config[key] = value
+        viewModel.markConfigHostInjected(key)   // origin: host runtime injection, not the document
         logger.log("Set config '\(key)' for viewID: \(viewID)", .debug)
     }
 }
