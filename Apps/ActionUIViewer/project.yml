@@ -31,6 +31,10 @@ packages:
     path: ../../Add-ons/ActionUIChat       # the add-on package
   ActionUIDiff:
     path: ../../Add-ons/ActionUIDiff       # the add-on package
+  ActionUICachedImage:
+    path: ../../Add-ons/ActionUICachedImage  # the add-on package
+  ActionUIRichText:
+    path: ../../Add-ons/ActionUIRichText     # the add-on package
 
 targets:
   ActionUIViewer:
@@ -50,6 +54,10 @@ targets:
         product: ActionUIChat
       - package: ActionUIDiff
         product: ActionUIDiff
+      - package: ActionUICachedImage
+        product: ActionUICachedImage
+      - package: ActionUIRichText
+        product: ActionUIRichText
     settings:
       base:
         SWIFT_VERSION: "6.0"

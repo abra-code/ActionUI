@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */; };
 		4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = 018DD60E7C130C7B79604D82 /* ActionUIChat */; };
+		787487FCD463A7ECEFAD108E /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = E143EDA77C064A4A614C4901 /* ActionUICachedImage */; };
+		AA4C7B381C4EC07116A26E37 /* ActionUIRichText in Frameworks */ = {isa = PBXBuildFile; productRef = 35F3761AE12844D832BDD605 /* ActionUIRichText */; };
 		B27204D78D56A5E8C0BECE15 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D6F1E36E052EE735CF775992 /* ActionUISwiftAdapter */; };
 		C20FB9C0DCF95C9427C6B739 /* ActionUIViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */; };
 		C91F730EE0977BE0665B68EC /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 61EEE11E5292D427ED46EAAB /* ActionUI */; };
@@ -18,9 +20,11 @@
 /* Begin PBXFileReference section */
 		20E9B2BC72A5CACE71112E6B /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = "../../Add-ons/ActionUIChat"; sourceTree = SOURCE_ROOT; };
 		220BFC389A4C74377ED40338 /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
+		5F01C6F266D133CB1395B5D1 /* ActionUICachedImage */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUICachedImage; path = "../../Add-ons/ActionUICachedImage"; sourceTree = SOURCE_ROOT; };
 		633FF57269441FF212A51E46 /* ActionUIQuickLook */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIQuickLook; path = "../../Add-ons/ActionUIQuickLook"; sourceTree = SOURCE_ROOT; };
 		7CEAACC186172508668A996A /* ActionUIViewer */ = {isa = PBXFileReference; includeInIndex = 0; path = ActionUIViewer; sourceTree = BUILT_PRODUCTS_DIR; };
 		A01507BFFE61594BFD82D6E1 /* ActionUIDiff */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIDiff; path = "../../Add-ons/ActionUIDiff"; sourceTree = SOURCE_ROOT; };
+		C3B63FCC32CB30C2F1CDDCB3 /* ActionUIRichText */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIRichText; path = "../../Add-ons/ActionUIRichText"; sourceTree = SOURCE_ROOT; };
 		E6C97ECF1E5C6F0219C15008 /* ActionUIViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIViewer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -34,6 +38,8 @@
 				07003A206E274435264A31B6 /* ActionUIQuickLook in Frameworks */,
 				4B87B3FC6FCA654841DC0801 /* ActionUIChat in Frameworks */,
 				F27AD044F8309FD9674EFB3F /* ActionUIDiff in Frameworks */,
+				787487FCD463A7ECEFAD108E /* ActionUICachedImage in Frameworks */,
+				AA4C7B381C4EC07116A26E37 /* ActionUIRichText in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -44,9 +50,11 @@
 			isa = PBXGroup;
 			children = (
 				220BFC389A4C74377ED40338 /* ActionUI */,
+				5F01C6F266D133CB1395B5D1 /* ActionUICachedImage */,
 				20E9B2BC72A5CACE71112E6B /* ActionUIChat */,
 				A01507BFFE61594BFD82D6E1 /* ActionUIDiff */,
 				633FF57269441FF212A51E46 /* ActionUIQuickLook */,
+				C3B63FCC32CB30C2F1CDDCB3 /* ActionUIRichText */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -105,6 +113,8 @@
 				4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */,
 				018DD60E7C130C7B79604D82 /* ActionUIChat */,
 				DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */,
+				E143EDA77C064A4A614C4901 /* ActionUICachedImage */,
+				35F3761AE12844D832BDD605 /* ActionUIRichText */,
 			);
 			productName = ActionUIViewer;
 			productReference = 7CEAACC186172508668A996A /* ActionUIViewer */;
@@ -132,9 +142,11 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */,
+				2754EDBF61842C696E51D850 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUICachedImage" */,
 				89D90977C400366893C0CC02 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIChat" */,
 				D65E9205FD48112B173705B7 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIDiff" */,
 				CB10BD2AF6C7CA1DA2207816 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIQuickLook" */,
+				0B4DB22B1B390CE073E98486 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIRichText" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A794E029B6B2CD53DC431990 /* Products */;
@@ -335,9 +347,17 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		0B4DB22B1B390CE073E98486 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIRichText" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../Add-ons/ActionUIRichText";
+		};
 		23AD0044FD9DC5A991723638 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
+		};
+		2754EDBF61842C696E51D850 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUICachedImage" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../Add-ons/ActionUICachedImage";
 		};
 		89D90977C400366893C0CC02 /* XCLocalSwiftPackageReference "../../Add-ons/ActionUIChat" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -358,6 +378,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUIChat;
 		};
+		35F3761AE12844D832BDD605 /* ActionUIRichText */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUIRichText;
+		};
 		4B53DF188A5FC43A664ADE1A /* ActionUIQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUIQuickLook;
@@ -373,6 +397,10 @@
 		DFB7F2235EBB4A7FA33F2441 /* ActionUIDiff */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUIDiff;
+		};
+		E143EDA77C064A4A614C4901 /* ActionUICachedImage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUICachedImage;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

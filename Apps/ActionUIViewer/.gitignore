@@ -1,0 +1,12 @@
+# The .xcodeproj is generated from project.yml but committed, so it builds without xcodegen.
+# Regenerate with `xcodegen generate` after editing project.yml. Only build output and
+# per-user Xcode state are ignored.
+
+build/
+DerivedData/
+.build/
+.swiftpm/
+
+# Xcode per-user state inside the committed .xcodeproj
+xcuserdata/
+*.xcuserstate

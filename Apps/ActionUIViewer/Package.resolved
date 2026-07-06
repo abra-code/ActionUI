@@ -1,0 +1,24 @@
+{
+  "originHash" : "704dd0a3a518ac1dc788063cc99a2639deda12131687d9939ed5efe2fe0db09b",
+  "pins" : [
+    {
+      "identity" : "asyncimagecache",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/abra-code/AsyncImageCache",
+      "state" : {
+        "branch" : "main",
+        "revision" : "6248a2652c8af6f96e6792d990420a31d04b9e20"
+      }
+    },
+    {
+      "identity" : "richtext",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/abra-code/RichText",
+      "state" : {
+        "branch" : "main",
+        "revision" : "9db9ffc833421288a73fe1e12e594a4ac3c9e965"
+      }
+    }
+  ],
+  "version" : 3
+}

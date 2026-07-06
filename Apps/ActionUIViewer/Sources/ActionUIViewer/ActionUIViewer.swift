@@ -26,6 +26,8 @@ import ScreenCaptureKit
 import ActionUIQuickLook
 import ActionUIChat
 import ActionUIDiff
+import ActionUICachedImage
+import ActionUIRichText
 
 final class CustomLogger: ActionUI.ActionUILogger {
     func log(_ message: String, _ level: ActionUI.LoggerLevel) {
@@ -124,6 +126,8 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         ActionUIQuickLook.register()
         ActionUIChat.register()
         ActionUIDiff.register()
+        ActionUICachedImage.register()
+        ActionUIRichText.register()
         // The viewer is a pure viewer: it renders documents but never injects a runtime transport, so
         // a Chat's document-declared transport.command is stripped and the element degrades to
         // 'local' (spawning a subprocess is a host privilege). A dedicated demo or a real app that

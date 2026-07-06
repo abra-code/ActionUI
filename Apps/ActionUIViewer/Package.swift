@@ -26,6 +26,8 @@ let package = Package(
         .package(path: "../../Add-ons/ActionUIQuickLook"),  // add-on(s)
         .package(path: "../../Add-ons/ActionUIChat"),
         .package(path: "../../Add-ons/ActionUIDiff"),
+        .package(path: "../../Add-ons/ActionUICachedImage"),
+        .package(path: "../../Add-ons/ActionUIRichText"),
     ],
     targets: [
         .executableTarget(
@@ -36,12 +38,16 @@ let package = Package(
                 .product(name: "ActionUIQuickLook", package: "ActionUIQuickLook"),
                 .product(name: "ActionUIChat", package: "ActionUIChat"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
+                .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
+                .product(name: "ActionUIRichText", package: "ActionUIRichText"),
                 // Resource-only doc bundles: depending on them makes one viewer build also build the
                 // core + add-on documentation bundles, harvested by OMC's update_appletbuilder.sh.
                 .product(name: "ActionUIDocumentation", package: "ActionUI"),
                 .product(name: "ActionUIQuickLookDocumentation", package: "ActionUIQuickLook"),
                 .product(name: "ActionUIChatDocumentation", package: "ActionUIChat"),
                 .product(name: "ActionUIDiffDocumentation", package: "ActionUIDiff"),
+                .product(name: "ActionUICachedImageDocumentation", package: "ActionUICachedImage"),
+                .product(name: "ActionUIRichTextDocumentation", package: "ActionUIRichText"),
             ],
             path: "Sources/ActionUIViewer"
         ),
