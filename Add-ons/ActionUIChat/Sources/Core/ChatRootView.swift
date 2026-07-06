@@ -26,6 +26,11 @@ struct ChatRootView: View {
     private let config: ChatConfig
 
     private let bottomAnchor = "chat.bottom.anchor"
+    // Scroll anchoring (P0-4): auto-scroll follows new content only while the user is pinned to the
+    // bottom. When they scroll up to read back, auto-scroll suspends (streaming does not fight them)
+    // and a "jump to latest" pill appears; returning to the bottom or tapping the pill re-pins.
+    @State private var isPinnedToBottom = true
+    private static let bottomThreshold: CGFloat = 24   // within this many points of the bottom counts as pinned
 
     init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger, viewModel: ViewModel? = nil) {
         self.config = config
@@ -79,22 +84,84 @@ struct ChatRootView: View {
     // MARK: - Transcript
 
     private var transcript: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(store.items) { item in
-                        row(for: item).id(item.id)
+        GeometryReader { viewport in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(store.items) { item in
+                            row(for: item).id(item.id)
+                        }
+                        bottomSentinel(viewport: viewport)
                     }
-                    Color.clear.frame(height: 1).id(bottomAnchor)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .onChange(of: store.items) { _, _ in
-                withAnimation(.easeOut(duration: 0.15)) {
-                    proxy.scrollTo(bottomAnchor, anchor: .bottom)
+                .trackScrolledToBottom($isPinnedToBottom, threshold: Self.bottomThreshold)
+                .onChange(of: store.items) { _, _ in
+                    // Follow new content ONLY while pinned; reading back must not fight streaming.
+                    // The follow is NON-animated: it settles the offset in the same layout pass as the
+                    // content grows, so the geometry detector never observes the mid-animation state
+                    // (content grown, offset lagging) and spuriously unpins during fast streaming.
+                    if isPinnedToBottom {
+                        scrollToBottom(proxy, animated: false)
+                    }
                 }
+                .onAppear {
+                    // Loaded/restored transcripts start pinned at the latest entry.
+                    scrollToBottom(proxy, animated: false)
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if !isPinnedToBottom {
+                        jumpToLatestPill(proxy: proxy)
+                    }
+                }
+                // Fade the pill in/out (the isPinnedToBottom flips happen outside withAnimation).
+                .animation(.easeInOut(duration: 0.2), value: isPinnedToBottom)
             }
+        }
+    }
+
+    /// The bottom-of-content marker: the scroll anchor plus, for the pre-macOS-15 fallback path, a
+    /// GeometryReader that reports whether the bottom is on screen (compared against the viewport).
+    private func bottomSentinel(viewport: GeometryProxy) -> some View {
+        Color.clear
+            .frame(height: 1)
+            .id(bottomAnchor)
+            .background(
+                GeometryReader { marker in
+                    Color.clear.preference(
+                        key: ScrolledToBottomKey.self,
+                        value: marker.frame(in: .global).maxY <= viewport.frame(in: .global).maxY + Self.bottomThreshold)
+                }
+            )
+    }
+
+    /// A bottom-trailing pill that returns to (and re-pins) the latest entry.
+    private func jumpToLatestPill(proxy: ScrollViewProxy) -> some View {
+        Button {
+            isPinnedToBottom = true
+            scrollToBottom(proxy)
+        } label: {
+            Label("Jump to latest", systemImage: "arrow.down")
+                .font(.callout.weight(.semibold))
+                .labelStyle(.iconOnly)
+                .padding(9)
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.separator))
+        }
+        .buttonStyle(.plain)
+        .help("Jump to latest")
+        .padding(12)
+        .transition(.opacity)
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.15)) {
+                proxy.scrollTo(bottomAnchor, anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo(bottomAnchor, anchor: .bottom)
         }
     }
 
@@ -194,6 +261,40 @@ struct ChatRootView: View {
                 .font(.body)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 22, maxHeight: 120)
+        }
+    }
+}
+
+// MARK: - Scroll-to-bottom tracking (P0-4)
+
+/// Whether the transcript's bottom is on screen. Emitted by the bottom sentinel on the pre-macOS-15
+/// fallback path; the last (bottom-most) sentinel wins. Defaults to FALSE ("not at bottom") so that
+/// when the LazyVStack de-materializes the off-screen sentinel (the user scrolled far up), the
+/// preference collapses to the fail-safe direction - the pill stays, auto-scroll stays suspended -
+/// rather than re-pinning and yanking the reader back on the next streaming delta.
+private struct ScrolledToBottomKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = nextValue()
+    }
+}
+
+private extension View {
+    /// Drives `isAtBottom` from the scroll position: the precise `onScrollGeometryChange` on
+    /// macOS 15+ / iOS 18+ / visionOS 2+, and the `ScrolledToBottomKey` preference (emitted by the
+    /// bottom sentinel) on the older baseline.
+    @ViewBuilder
+    func trackScrolledToBottom(_ isAtBottom: Binding<Bool>, threshold: CGFloat) -> some View {
+        if #available(macOS 15.0, iOS 18.0, visionOS 2.0, *) {
+            onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - threshold
+            } action: { _, atBottom in
+                isAtBottom.wrappedValue = atBottom
+            }
+        } else {
+            onPreferenceChange(ScrolledToBottomKey.self) { atBottom in
+                isAtBottom.wrappedValue = atBottom
+            }
         }
     }
 }
