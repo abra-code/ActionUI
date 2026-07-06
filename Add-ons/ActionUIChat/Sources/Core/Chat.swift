@@ -168,7 +168,13 @@ struct Chat: ActionUIViewConstruction {
         // model.config is the element's live NON-VISUAL config block (protocol,
         // transport), stored verbatim by core; ChatConfig checks it as it reads. The view model
         // is handed to the store as the content source so it can observe states["content"] restores.
-        let config = ChatConfig(properties: properties, config: model.config, logger: logger)
+        // P0-3: strip a document-origin transport.command so a document cannot spawn a subprocess; a
+        // transport the host injected at runtime via setElementConfig is honored (trusted host code).
+        let gatedConfig = ChatConfig.applyingTransportCommandGuard(
+            model.config,
+            transportHostInjected: model.isConfigHostInjected("transport"),
+            logger: logger)
+        let config = ChatConfig(properties: properties, config: gatedConfig, logger: logger)
         return ChatRootView(config: config, windowUUID: windowUUID, elementID: element.id, logger: logger, viewModel: model)
     }
 

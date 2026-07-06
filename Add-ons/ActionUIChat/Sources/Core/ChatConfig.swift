@@ -260,4 +260,28 @@ struct ChatConfig {
 
         return validated
     }
+
+    // MARK: - Transport-command security guard (P0-3)
+
+    /// Strips a document-origin `transport.command` from a config block. A `transport.command` is an
+    /// argv that spawns a subprocess (e.g. the ACP transport); an ActionUI document is data and may
+    /// come from anywhere, so spawning a subprocess is a host privilege the document must not reach.
+    /// A command is honored ONLY when the host injected the whole `transport` at runtime via
+    /// setElementConfig (`transportHostInjected` == true, trusted host code); a command that arrived
+    /// from the JSON document is STRIPPED, so the element cannot spawn what a document requested and
+    /// the transport degrades to `local`. Pure (takes the origin as a parameter) so it is
+    /// unit-testable; `Chat.buildView` supplies the origin.
+    static func applyingTransportCommandGuard(_ config: [String: Any], transportHostInjected: Bool,
+                                              logger: any ActionUILogger) -> [String: Any] {
+        guard !transportHostInjected,
+              var transport = config["transport"] as? [String: Any],
+              transport["command"] != nil else {
+            return config
+        }
+        logger.log("Chat: a transport.command from the document is rejected (spawning a subprocess is a host privilege, not a document's). To launch a subprocess transport, inject it at runtime via setElementConfig from trusted host code. Degrading to 'local'.", .warning)
+        transport["command"] = nil
+        var gated = config
+        gated["transport"] = transport
+        return gated
+    }
 }
