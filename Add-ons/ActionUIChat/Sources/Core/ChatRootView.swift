@@ -209,7 +209,10 @@ struct ChatRootView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .buttonStyle(.borderless)
-        .disabled(!config.inputEnabled)
+        // Also disabled until a host has injected a viable states["config"] and the transport is
+        // live (isConfigured): the element is inert until configured, so the composer never lets a
+        // user type into a void.
+        .disabled(!config.inputEnabled || !store.isConfigured)
     }
 
     @ViewBuilder

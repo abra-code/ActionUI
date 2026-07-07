@@ -31,11 +31,17 @@ protocol ChatContentSource: AnyObject {
     /// Observes `states["content"]`; the handler is called with the current value on subscription and
     /// on every subsequent change (matching @Published semantics). Cancel to stop.
     func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable
+    /// Observes `states["config"]` - the host-injected operational config (protocol + transport) -
+    /// with the same current-value-on-subscription-and-on-change semantics. Cancel to stop.
+    func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable
 }
 
 extension ViewModel: ChatContentSource {
     func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
         $states.sink { handler($0["content"]) }
+    }
+    func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        $states.sink { handler($0["config"]) }
     }
 }
 
@@ -44,6 +50,7 @@ final class ChatStore: ObservableObject {
 
     @Published private(set) var items: [ChatItem] = []
     @Published private(set) var isStreaming = false       // a reply turn is in flight
+    @Published private(set) var isConfigured = false      // a viable transport has been built from states["config"]; the composer gates on this
     @Published private(set) var pendingPermissions: [PermissionRequest] = []   // FIFO; the card shows the head
     @Published private(set) var plan: [PlanEntry] = []    // the agent's current plan (whole-list replace)
     @Published private(set) var usage: UsageInfo?         // latest token/cost status, when the agent reports it
@@ -62,6 +69,15 @@ final class ChatStore: ObservableObject {
     private var eventTask: Task<Void, Never>?
     private var localCounter = 0
     private var didLoadInitial = false
+
+    // Config-injection seam (states["config"]). The operational config (protocol + transport) is NOT
+    // document-declared: the store observes states["config"] and builds the transport once it first
+    // resolves to a VIABLE config, then FREEZES - `didConfigure` latches, `resolvedTransportConfig`
+    // holds the frozen decision, and later states["config"] changes are ignored. On reappearance the
+    // torn-down transport is rebuilt from the frozen decision (not from a possibly-changed state).
+    private var didConfigure = false
+    private var resolvedTransportConfig: ChatTransportConfig?
+    private var configCancellable: AnyCancellable?
 
     // Coalescing: streaming deltas accumulate per item here and are flushed to the published
     // transcript at most ~20 Hz, so the Markdown re-parse runs on a fixed cadence instead of once
@@ -114,12 +130,82 @@ final class ChatStore: ObservableObject {
             }
         }
 
-        // readOnly is the history-viewer mode: no transport, no composer (ChatRootView gates those).
-        // The transport is (re)built once per appearance.
-        guard !config.readOnly, transport == nil else {
+        // readOnly is the history-viewer mode: no transport, no config observation (ChatRootView
+        // gates the composer / menus).
+        guard !config.readOnly else {
             return
         }
-        let transport = ChatTransportRegistry.shared.make(config, logger: logger)
+
+        // (Re)subscribe to the host-injected operational config through states["config"]. The sink
+        // delivers the current value on subscription AND on every change, so INIT-time injection is
+        // never "too late": whenever a viable config arrives, reconcileConfig builds the transport.
+        if configCancellable == nil, let contentSource {
+            configCancellable = contentSource.observeChatConfig { [weak self] newConfig in
+                self?.reconcileConfig(newConfig)
+            }
+        }
+
+        // Reappearance: the transport was torn down on disappear but the config decision is frozen -
+        // rebuild it from the frozen decision (ignoring any post-freeze states["config"] change).
+        if didConfigure, transport == nil, let resolved = resolvedTransportConfig,
+           let rebuilt = ChatTransportRegistry.shared.makeIfViable(
+               protocolName: resolved.protocolName, transport: resolved.settings, logger: logger) {
+            attach(rebuilt)
+        }
+    }
+
+    // MARK: - Config injection (states["config"]) -> deferred, frozen transport
+
+    /// Handles a host-injected operational config from states["config"]. Builds the transport the
+    /// FIRST time the config resolves to a viable one, then FREEZES: `didConfigure` latches so a later
+    /// states["config"] change is ignored for this element (a new element is needed to switch
+    /// transport). A config that is not yet viable (e.g. openai-sse before its baseURL, or acp before
+    /// its command) does NOT freeze - the element stays inert and waits for a completer config.
+    /// Internal so tests can drive an injection directly (as the config subscription does).
+    func reconcileConfig(_ raw: Any?) {
+        guard !config.readOnly, !didConfigure else {
+            return
+        }
+        guard let (protocolName, transportSettings) = Self.parseTransportConfig(raw) else {
+            return   // no config object yet (states["config"] absent / not a dict) - stay inert
+        }
+        guard let built = ChatTransportRegistry.shared.makeIfViable(
+                protocolName: protocolName, transport: transportSettings, logger: logger) else {
+            logger.log("Chat config for protocol '\(protocolName)' is not viable yet; awaiting a complete states[\"config\"]", .verbose)
+            return
+        }
+        // First viable config wins and freezes.
+        didConfigure = true
+        resolvedTransportConfig = ChatTransportConfig(protocolName: protocolName, settings: transportSettings)
+        isConfigured = true
+        attach(built)
+    }
+
+    /// Parses states["config"] into (protocolName, transport). Accepts a dict, a JSON string, or JSON
+    /// Data (matching setElementState / setElementStateFromString). A missing `protocol` defaults to
+    /// "local"; a missing `transport` is an empty object. Returns nil when there is no config object.
+    private static func parseTransportConfig(_ raw: Any?) -> (protocolName: String, transport: [String: Any])? {
+        let dict: [String: Any]?
+        switch raw {
+        case let value as [String: Any]:
+            dict = value
+        case let string as String:
+            dict = (string.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any]
+        case let data as Data:
+            dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        default:
+            dict = nil
+        }
+        guard let dict else {
+            return nil
+        }
+        let protocolName = (dict["protocol"] as? String) ?? ChatTransportRegistry.reservedLocalName
+        let transportSettings = (dict["transport"] as? [String: Any]) ?? [:]
+        return (protocolName, transportSettings)
+    }
+
+    /// Installs a built transport and starts draining its event stream.
+    private func attach(_ transport: any ChatTransport) {
         self.transport = transport
         eventTask = Task { [weak self] in
             await transport.start()
@@ -186,6 +272,8 @@ final class ChatStore: ObservableObject {
         eventTask = nil
         contentCancellable?.cancel()
         contentCancellable = nil
+        configCancellable?.cancel()
+        configCancellable = nil
         streamBuffers.removeAll()
         pendingPermissions.removeAll()
         let transport = self.transport

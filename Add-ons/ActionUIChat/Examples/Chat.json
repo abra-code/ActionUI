@@ -6,10 +6,6 @@
     {
       "type": "Chat",
       "id": 80,
-      "config": {
-        "protocol": "local",
-        "transport": { "echo": true }
-      },
       "properties": {
         "appearance": { "alignment": "single", "showRoleLabels": true },
         "roles": {

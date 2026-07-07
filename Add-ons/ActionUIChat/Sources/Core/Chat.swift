@@ -4,34 +4,17 @@
  {
    "type": "Chat",
    "id": 1,                  // Required: Non-zero positive integer for runtime programmatic interaction
-   "config": {               // Optional: NON-VISUAL operational settings (the element-level config block,
-                             //           sibling of properties). Hosts can inject runtime/session-specific
-                             //           values via setElementConfig between loading and showing a document.
-     "protocol": "local",                 // Optional: transport selector. "local" (default) is built in and streams a
-                                          //           scripted reply. Every other protocol is provided by a separate
-                                          //           transport module the host links and registers; the umbrella
-                                          //           ActionUIChat product bundles them and wires them in register().
-                                          //           "openai-sse" (the ActionUIChatOpenAI module) streams an
-                                          //           OpenAI-compatible /v1/chat/completions endpoint (llama-server,
-                                          //           mlx_lm.server, ...). "acp" (the ActionUIChatACP module, macOS
-                                          //           only: the agent is a subprocess) runs an Agent Client Protocol
-                                          //           agent over stdio. A protocol whose module the host did not
-                                          //           register degrades to "local".
-     "transport": { "echo": true }        // Optional: protocol-specific settings (interpreted by the chosen transport).
-                                          //           "local" honors "echo" (default true: stream a demo reply),
-                                          //           "reply" ("echo" default | "markdown" | "agentic": a scripted
-                                          //           agent turn with thoughts, tool calls, and a permission gate),
-                                          //           and "chunkMs" (demo streaming pace, default 45).
-                                          //           "openai-sse" requires "baseURL" (the endpoint, e.g.
-                                          //           "http://127.0.0.1:8080/v1") and honors "model" (default "auto":
-                                          //           resolved from GET {baseURL}/models), "apiKey" (default ""),
-                                          //           "systemPrompt" (default ""), and "params" (merged into the
-                                          //           request body, e.g. { "temperature": 0.8, "max_tokens": 0 };
-                                          //           max_tokens 0 means unlimited and is omitted).
-                                          //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
-                                          //           and honors "cwd" (the session root; "~" expands, default: the
-                                          //           host's current directory) and "mcpServers" (passed to the agent).
-   },
+   // protocol + transport are NOT declared in the document - a host injects them at runtime into
+   // states["config"] AFTER the element is built (see the "Host-injected transport" note below the
+   // sample). Shape: { "protocol": "local" | "openai-sse" | "acp", "transport": { ...protocol-specific } }
+   //   local:      "echo" (default true: stream a demo reply), "reply" ("echo"|"markdown"|"agentic"),
+   //               "chunkMs" (demo streaming pace, default 45).
+   //   openai-sse: requires "baseURL" (e.g. "http://127.0.0.1:8080/v1"); honors "model" (default "auto":
+   //               resolved from GET {baseURL}/models), "apiKey", "systemPrompt", "params" (merged into
+   //               the request body, e.g. { "temperature": 0.8, "max_tokens": 0 }).
+   //   acp (macOS, subprocess): requires "command" (the agent argv, e.g. ["claude-code-acp"]); honors
+   //               "cwd" ("~" expands, default: host cwd) and "mcpServers". A protocol whose module the
+   //               host did not link/register degrades to "local".
    "properties": {
      "appearance": {                      // Optional: transcript appearance
        "alignment": "single",             //   "single" (default): leading / full-width, parties by tint + label.
@@ -132,11 +115,20 @@
  turn). Session identity (ids, titles) stays app-side; the component only passes the optional title through
  untouched. `properties.content` pre-populates a transcript for previews / basic internal testing only - it
  is NOT the production restore path.
- The non-visual settings (protocol, transport) live in the element-level "config" block and are host-
- injectable via setElementConfig - the canonical embedding loads a static document, injects the
- runtime/session-specific transport (resolved agent path, working directory), then shows the view
- (see DemoApp). The transport is consumed when the chat starts; a later config change takes effect
- on the element's next rebuild.
+ Host-injected transport (NOT document-declared): the non-visual settings (protocol, transport) are
+ injected at runtime into states["config"] via setElementState / setElementStateFromString (e.g. OMC's
+ omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The element
+ stays inert (no transport, composer disabled) until states["config"] first resolves to a VIABLE
+ transport; then the transport is built ONCE and FROZEN, so a later states["config"] change has no
+ effect on that element (create a new Chat element to switch transport). Keeping the wire protocol and
+ the subprocess-spawning transport command out of the document is the security boundary - a document is
+ data and must not name what the host executes or connects to. Example injection:
+ setElementState(window, chatID, "config", {"protocol":"openai-sse","transport":{"baseURL":"http://127.0.0.1:8080/v1"}}).
+ Inject the COMPLETE {protocol, transport} exactly once: the first VIABLE config freezes the element,
+ and a config dict with no "protocol" key defaults to "local" (which is always viable), so a partial
+ config injected before the real one would lock the element to "local". Deferral (waiting for a
+ completer config) applies only to a registered protocol whose transport init fails on incomplete
+ settings - e.g. openai-sse before its baseURL, or acp before its command.
 
  Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
  cornerRadius, actionID, disabled, onAppearActionID, onDisappearActionID, etc.) are inherited from base View.
@@ -165,16 +157,12 @@ struct Chat: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        // model.config is the element's live NON-VISUAL config block (protocol,
-        // transport), stored verbatim by core; ChatConfig checks it as it reads. The view model
-        // is handed to the store as the content source so it can observe states["content"] restores.
-        // P0-3: strip a document-origin transport.command so a document cannot spawn a subprocess; a
-        // transport the host injected at runtime via setElementConfig is honored (trusted host code).
-        let gatedConfig = ChatConfig.applyingTransportCommandGuard(
-            model.config,
-            transportHostInjected: model.isConfigHostInjected("transport"),
-            logger: logger)
-        let config = ChatConfig(properties: properties, config: gatedConfig, logger: logger)
+        // The Chat element's operational config (protocol + transport) is NOT read here and is NOT
+        // document-declared: a host injects it at runtime into states["config"], which ChatStore
+        // observes and uses to build the transport once it is viable, then freezes it. buildView
+        // parses only the visual/behavioral `properties`; `model` is handed to the store so it can
+        // observe states["content"] (session restore) and states["config"] (transport).
+        let config = ChatConfig(properties: properties, logger: logger)
         return ChatRootView(config: config, windowUUID: windowUUID, elementID: element.id, logger: logger, viewModel: model)
     }
 

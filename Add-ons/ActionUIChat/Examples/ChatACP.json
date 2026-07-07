@@ -2,17 +2,10 @@
   "type": "VStack",
   "properties": { "spacing": 8, "padding": 12 },
   "children": [
-    { "type": "Text", "properties": { "text": "Chat over ACP: the element launches the agent named in transport.command (here OpenCode) and hosts the session - thoughts, tool calls, and permission approvals included.", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Chat over ACP: the host launches the agent (here OpenCode) and injects its protocol/transport into the element's states[\"config\"] at runtime - thoughts, tool calls, and permission approvals included.", "font": "headline" } },
     {
       "type": "Chat",
       "id": 84,
-      "config": {
-        "protocol": "acp",
-        "transport": {
-          "command": ["opencode", "acp"],
-          "cwd": "~"
-        }
-      },
       "properties": {
         "appearance": { "alignment": "single", "showRoleLabels": true },
         "roles": {

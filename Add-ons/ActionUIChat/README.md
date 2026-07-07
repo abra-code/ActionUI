@@ -6,8 +6,8 @@ registration API (after `ActionUIQuickLook`), and follows the same "compile agai
 it; the host links and calls `register()`" pattern.
 
 The element is GENERIC: the same `Chat` backs AI-agent chat and person-to-person chat. The transport
-(selected by `protocol` in the element's non-visual `config` block) and the appearance differ, not the
-view.
+(selected by `protocol`, host-injected at runtime into `states["config"]` - see "What it adds" below) and
+the appearance differ, not the view.
 
 ## What's implemented
 
@@ -55,7 +55,6 @@ A `Chat` element, usable from JSON like any built-in:
 
 ```json
 { "type": "Chat", "id": 80,
-  "config": { "protocol": "local" },
   "properties": {
     "appearance": { "alignment": "single", "showRoleLabels": true },
     "input": { "placeholder": "Message", "submitOn": "return" },
@@ -63,13 +62,25 @@ A `Chat` element, usable from JSON like any built-in:
     "messageActionID": "chat.message" } }
 ```
 
-- `config`: the element's NON-VISUAL operational settings (a sibling of `properties` - properties model
-  SwiftUI modifiers, config carries what the element does). Hosts can inject runtime/session-specific
-  values with `setElementConfig` between loading a document and showing it (see `DemoApp/`).
-- `config.protocol`: the transport. `local` (default) streams a scripted reply (`transport.reply`:
-  `echo`, `markdown`, or `agentic`); `acp` launches the ACP agent named by `transport.command` (macOS);
-  `openai-sse` streams an OpenAI-compatible endpoint named by `transport.baseURL`. A protocol whose
-  module the host did not register degrades to `local` with a logged reason.
+The document declares ONLY `properties` (appearance / roles / input / surfaces / action IDs / readOnly) -
+there is no element-level config block anymore. The element is built INERT (composer disabled, no
+transport) and a HOST injects the non-visual operational settings - `protocol` and `transport` - at
+runtime into `states["config"]` via `setElementState`, after the element is built:
+
+```swift
+ActionUISwift.setElementState(windowUUID: windowUUID, viewID: 80, key: "config",
+                               value: ["protocol": "local", "transport": ["echo": true]])
+```
+
+- `states["config"]`: the WHOLE injected object (not split across keys) - `protocol` selects the
+  transport, `transport` is its protocol-specific settings. `local` (default) streams a scripted reply
+  (`transport.reply`: `echo`, `markdown`, or `agentic`); `acp` launches the ACP agent named by
+  `transport.command` (macOS); `openai-sse` streams an OpenAI-compatible endpoint named by
+  `transport.baseURL`. A protocol whose module the host did not register degrades to `local` with a
+  logged reason.
+- The transport is built once a viable config arrives in `states["config"]`, then FROZEN for that
+  element's lifetime - a later `states["config"]` update does not rebuild it; use a fresh `Chat` element
+  to switch protocol or transport (see `DemoApp/`).
 - `appearance.alignment`: `single` (default - leading / full-width, parties by tint + label) or `dual`
   (incoming leading, outgoing trailing - not yet honored).
 - `input.submitOn`: `return` (default), `modifier-return` (multiline; Cmd+Return submits), or
@@ -216,7 +227,9 @@ automatically:
 - `Sources/Core/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head comment).
 - `Sources/Core/ChatModel.swift` - transport-agnostic value types (ChatRole, ChatItem, ChatEvent, ChatCommand);
   the ChatEvent/ChatCommand contract and the types they carry are the frozen public transport API.
-- `Sources/Core/ChatConfig.swift` - JSON parsing + validation (visual `properties` and the non-visual `config` block).
+- `Sources/Core/ChatConfig.swift` - JSON parsing + validation of the document's `properties` (visual /
+  presentation only); the operational `protocol` + `transport` are not document-declared - a host injects
+  them at runtime into `states["config"]` (see `ChatStore.swift`).
 - `Sources/Core/ChatTransport.swift` - the `ChatTransport` protocol, `ChatTransportConfig`, `ChatLogger`, the
   factory type, and the built-in `LocalChatTransport`.
 - `Sources/Core/ChatTransportRegistry.swift` - the `@MainActor` protocol-name -> factory registry.

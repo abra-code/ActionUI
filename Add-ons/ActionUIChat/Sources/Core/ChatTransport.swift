@@ -41,17 +41,17 @@ public protocol ChatTransport: AnyObject, Sendable {
 /// The transport-relevant slice of a `Chat` element's configuration, handed to a
 /// transport factory. This is the ONLY configuration a transport sees: the element's
 /// visual properties (roles, surfaces, action IDs) stay inside the element and never
-/// reach a transport. `settings` is the element's `config.transport` object verbatim,
+/// reach a transport. `settings` is the host-injected `states["config"].transport` object verbatim,
 /// as the chosen protocol interprets it; the typed accessors are conveniences over it.
 ///
 /// Not `Sendable`: it carries the untyped `settings` dictionary and is used only at
 /// construction time on the main actor (a transport reads what it needs into its own
 /// Sendable state), so it never crosses an isolation boundary.
 public struct ChatTransportConfig {
-    /// The protocol name this transport was selected under (the element's
-    /// `config.protocol`). A transport registered under a single name can ignore it.
+    /// The protocol name this transport was selected under (the host-injected
+    /// `states["config"].protocol`). A transport registered under a single name can ignore it.
     public let protocolName: String
-    /// The `config.transport` object verbatim (protocol-specific; the chosen transport
+    /// The `states["config"].transport` object verbatim (protocol-specific; the chosen transport
     /// interprets it). Prefer the typed accessors below; reach for this only for shapes
     /// they do not cover.
     public let settings: [String: Any]
