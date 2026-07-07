@@ -7,37 +7,47 @@ it; the host links and calls `register()`" pattern.
 
 The element is GENERIC: the same `Chat` backs AI-agent chat and person-to-person chat. The transport
 (selected by `protocol` in the element's non-visual `config` block) and the appearance differ, not the
-view. See `Private/chat-element-design.md` for the full architecture and the milestone plan (M1-M6).
+view.
 
-## Status: M1-M3 + openai-sse
+## What's implemented
 
-Landed so far:
-
-- **M1** - the `local` transport (a scripted echo backend) and a single-alignment transcript with
-  streaming - append, stream deltas, finalize - plus auto-scroll and a config-driven composer submit
-  policy.
-- **M2** - streaming Markdown message bodies (rendered by the sibling `RichText` component) and
-  standalone image items (rendered by the sibling `AsyncImageCache`).
-- **M3** - the agentic layer. Transport-agnostic surfaces: streamed reasoning folded behind a
-  "Thoughts" disclosure, tool-call cards that mutate in place through their pending / in-progress /
-  completed / failed lifecycle, and a permission gate that pins an approval card above the composer
-  (routed by the `surfaces` property; the local transport's `"reply": "agentic"` style demos them all
-  with no wire protocol). And the **ACP transport** (macOS): the element launches any
-  [Agent Client Protocol](https://agentclientprotocol.com) agent as a subprocess (newline-delimited
-  JSON-RPC over stdio), negotiates capabilities (advertising no fs / terminal services), opens a
-  session, demuxes the `session/update` stream onto those surfaces, wires
-  `session/request_permission` to the approval card, and maps Stop to `session/cancel`. Validated
-  against OpenCode (`["opencode", "acp"]`).
-
-- **openai-sse transport** (all platforms) - the `ActionUIChatOpenAI` module streams an
+- **The `local` transport** (a scripted echo backend) and a single-alignment transcript with streaming -
+  append, stream deltas, finalize - plus auto-scroll and a config-driven composer submit policy.
+- **Streaming Markdown message bodies** (rendered by the sibling `RichText` component) and standalone
+  image items (rendered by the sibling `CachedImage` from `AsyncImageCache`).
+- **The agentic surfaces.** Transport-agnostic: streamed reasoning folded behind a "Thoughts" disclosure,
+  tool-call cards that mutate in place through their pending / in-progress / completed / failed lifecycle,
+  and a permission gate that pins an approval card above the composer (each routed by the `surfaces`
+  property; the local transport's `"reply": "agentic"` style demos them all with no wire protocol).
+- **Session-status surfaces.** The agent's evolving task plan pinned ABOVE the transcript (routed by
+  `surfaces.plan`), plus a status line under the composer showing the session's model / mode and
+  token / cost usage. The model / mode entries become MENUS when the agent offers choices: selecting
+  sends `session/set_config_option` (with the spec's `session/set_mode` / `set_model` as fallbacks) and
+  the display updates only on the agent's confirmation, never optimistically.
+- **The composer slash-command menu.** When a transport advertises commands (ACP
+  `available_commands_update`), typing `/` lists and filters them and a tap fills the draft; the command
+  still sends as ordinary prompt text for the agent to interpret.
+- **Agent-proposed file diffs**, rendered inside a tool card's detail as a real line diff - hunks,
+  old / new line-number gutters, +/- markers - by the `DiffView` product of the sibling **ActionUIDiff**
+  add-on, which these tool cards consume (routed by `surfaces.diffs`; `hidden` drops them).
+- **The ACP transport** (macOS): the element launches any [Agent Client Protocol](https://agentclientprotocol.com)
+  agent as a subprocess (newline-delimited JSON-RPC over stdio), negotiates capabilities (advertising no
+  fs / terminal services), opens a session, demuxes the `session/update` stream onto those surfaces,
+  wires `session/request_permission` to the approval card, and maps Stop to `session/cancel`. Validated
+  against OpenCode (`["opencode", "acp"]`) and claude-code-acp.
+- **The openai-sse transport** (all platforms): the `ActionUIChatOpenAI` module streams an
   OpenAI-compatible `/v1/chat/completions` endpoint (llama-server, `mlx_lm.server`, or any compatible
   server), so plain streaming chat needs no agent process. Reasoning (`reasoning_content`) folds into
   thoughts, `tool_calls` render as completed cards plus a "not executed here" notice (the tool loop is
   the agent layer's job), and the final `usage` chunk drives the status-bar token count. `model: "auto"`
   resolves the loaded model from `GET {baseURL}/models`.
+- **Session transcript persistence and restore.** The transcript is DATA (a serializable
+  `ChatTranscript`): a host persists it incrementally through `entryActionID` (fired per finalized entry)
+  and restores a saved session at runtime by injecting it into `states["content"]`. `readOnly` is a pure
+  viewer mode (no composer, no transport).
 
-Later milestones add dual alignment / a real two-party transport (M4) and the advanced agentic side
-panels - plans, terminals, diff viewer, slash commands, multi-session (M5).
+Still to come: dual alignment / a real two-party transport, and the remaining advanced agentic surfaces
+(terminals, multi-session).
 
 ## What it adds
 
@@ -58,20 +68,27 @@ A `Chat` element, usable from JSON like any built-in:
   values with `setElementConfig` between loading a document and showing it (see `DemoApp/`).
 - `config.protocol`: the transport. `local` (default) streams a scripted reply (`transport.reply`:
   `echo`, `markdown`, or `agentic`); `acp` launches the ACP agent named by `transport.command` (macOS);
-  `openai-sse` / `anthropic-sse` / `custom` arrive in later milestones (and fall back to `local`).
-- `appearance.alignment`: `single` (M1 default - leading / full-width, parties by tint + label) or
-  `dual` (incoming leading, outgoing trailing - honored in M4).
+  `openai-sse` streams an OpenAI-compatible endpoint named by `transport.baseURL`. A protocol whose
+  module the host did not register degrades to `local` with a logged reason.
+- `appearance.alignment`: `single` (default - leading / full-width, parties by tint + label) or `dual`
+  (incoming leading, outgoing trailing - not yet honored).
 - `input.submitOn`: `return` (default), `modifier-return` (multiline; Cmd+Return submits), or
   `shift-return-newline`. This solves the Cmd+Return composer gap inside the element.
-- Action IDs (`sendActionID`, `stopActionID`, `messageActionID`, `errorActionID`) dispatch host-facing
-  events through `ActionUIModel.actionHandler`, exactly like `Button`.
+- `surfaces`: routing for the agentic items - `toolCalls`, `thoughts`, `plan`, and `diffs` (see the
+  schema doc for the accepted values of each).
+- Action IDs (`sendActionID`, `stopActionID`, `messageActionID`, `errorActionID`, `approveToolActionID`,
+  `entryActionID`) dispatch host-facing events through `ActionUIModel.actionHandler`, exactly like
+  `Button`.
+- `readOnly`: read-only viewer mode - hides the composer and menus and starts no transport (`protocol`
+  may be omitted). Pair with a runtime `setElementState("content", ...)` to show a saved session.
 
 The element manages its own transcript model internally (a `ChatStore`), so it exposes no single scalar
 `value`; host interaction is via the action IDs. The session transcript is DATA (a serializable
 `ChatTranscript`): a host persists it incrementally as it happens through `entryActionID` (fired per
 finalized entry), and restores a saved session at runtime by injecting it into `states["content"]` (via
 `setElementState` / `setElementStateFromString`, after the interface is built) - the same place Table /
-List keep their content, not a document property. `readOnly` is the read-only viewer mode.
+List keep their content, not a document property. `properties.content` pre-populates a transcript for
+previews / testing only, not the production restore path.
 
 ## Internal architecture
 
@@ -90,11 +107,13 @@ Four layers, transport at the bottom, SwiftUI at the top, a router in the middle
   chat starts, degrading an unregistered name to `local` with a logged reason.
 - `ChatStore` (`ChatStore.swift`) - the `@MainActor` source of truth. Its `route(_:)` is the
   **pre-filter**: chat text -> transcript, thoughts and tool-call cards -> transcript items styled per
-  the `surfaces` config, permission requests -> the pending-approval queue, system / error -> their own
-  items. A non-agentic transport never emits the richer events, so the same code renders a plain
-  conversation with no special cases.
-- `ChatRootView` (`ChatRootView.swift`) - the transcript (`ScrollView` + `LazyVStack`, auto-scroll) and
-  the composer.
+  the `surfaces` config, the plan -> the pinned panel, permission requests -> the pending-approval queue,
+  system / error -> their own items. A non-agentic transport never emits the richer events, so the same
+  code renders a plain conversation with no special cases.
+- `ChatRootView` (`ChatRootView.swift`) - the pinned plan panel, the transcript (`ScrollView` +
+  `LazyVStack`, auto-scroll), and the composer with its slash-command menu and the status line
+  (model / mode menus, token / cost usage). Tool-card diffs render through the sibling ActionUIDiff
+  add-on's `DiffView`.
 - `ChatModel.swift` / `ChatConfig.swift` - the transport-agnostic value types and the JSON config.
 
 ## Design: compiles against ActionUI, does not link it
@@ -116,8 +135,10 @@ Abracode.framework) register without the Swift runtime; the caller forward-decla
 
 ## Consuming it
 
-`Package.swift` makes this a Swift package (macOS / iOS / visionOS). Transports are split into modules so
-a host links only what it needs:
+`Package.swift` makes this a Swift package (macOS / iOS / visionOS). It depends on the sibling `RichText`
+and `AsyncImageCache` components (their own repos under github.com/abra-code) and on the sibling
+`ActionUIDiff` add-on (whose `DiffView` renders tool-card diffs). Transports are split into modules so a
+host links only what it needs:
 
 - `ActionUIChat` - the **umbrella**: the element + every bundled transport, one import, one `register()`.
   This is the default; existing hosts use it unchanged.
@@ -168,8 +189,8 @@ regenerate with `xcodegen generate` after editing `project.yml`.
 The add-on mirrors core ActionUI's documentation layout so the three doc/tooling systems pick it up
 automatically:
 
-- `Sources/Chat.swift` opens with a head comment (the `Sample JSON for Chat` block), the same way core
-  views are documented.
+- `Sources/Core/Chat.swift` opens with a head comment (the `Sample JSON for Chat` block), the same way
+  core views are documented.
 - `Documentation/Schemas/Chat.md` is the human-readable element doc derived from that comment;
   `Documentation/Elements/Chat.json` is the insert template (most common properties).
 - The `ActionUIChatDocumentation` SPM product bundles `Documentation/` as resources, mirroring core
@@ -209,11 +230,15 @@ automatically:
   `/v1/chat/completions` request, the SSE-chunk demux (content / reasoning / tool_calls / usage), and
   model `auto` resolution.
 - `Sources/Core/ChatStore.swift` - the `@MainActor` store + the router (pre-filter).
-- `Sources/Core/ChatRootView.swift` - the transcript + composer SwiftUI surface (message, thought, tool-call,
-  image rows; the permission approval card).
+- `Sources/Core/ChatRootView.swift` - the plan panel, transcript, and composer SwiftUI surface (message,
+  thought, tool-call, image rows; the permission approval card; the slash-command menu and the
+  model / mode / usage status line).
 - `Documentation/Schemas/Chat.md` - element schema doc; `Documentation/Elements/Chat.json` - insert template.
 - `Documentation/ActionUIChatDocumentation.swift` - `Bundle.module` accessor for the docs product.
 - `Schemas/Chat.json` - verifier schema (auto-discovered).
 - `Examples/Chat.json` - a sample view using the element; `Examples/ChatAgentic.json` - the scripted
   agentic demo; `Examples/ChatACP.json` - a live ACP session (OpenCode); `Examples/ChatOpenAI.json` - a
-  live openai-sse session (local llama-server).
+  live openai-sse session (local llama-server); `Examples/ChatReadOnly.json` - a `readOnly` viewer over a
+  pre-populated transcript.
+- `DemoApp/` - a dedicated macOS demo app for the ACP transport (a launcher that resolves an agent
+  through the login shell and hosts the session in a `Chat` element).

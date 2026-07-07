@@ -49,7 +49,7 @@ This target is a **static library**. It has two dependencies with different link
 - **ActionUI** - the add-on compiles against ActionUI's public API but does **not** embed it
   (`link: false` in `project.yml`). A static library never embeds its dependencies; the host app
   links ActionUI and this add-on, and ActionUI's symbols resolve at the host's final link.
-- **RichText** - a genuine third-party dependency whose view the element uses. With the Swift
+- **RichText** - the first-party remote SPM dependency whose view the element uses. With the Swift
   package, SPM pulls it (and RichText's own AsyncImageCache dependency) in transitively, so any host
   that links `ActionUIRichText` also links `RichText` + `AsyncImageCache` automatically.
 

@@ -2,8 +2,7 @@
 
 An optional ActionUI add-on that provides a **cached, off-main image** element (`CachedImage`),
 backed by the [AsyncImageCache](https://github.com/abra-code/AsyncImageCache) package. It is the
-second ActionUI add-on (after `ActionUIQuickLook`), and the first to depend on a third-party github
-package.
+second ActionUI add-on (after `ActionUIQuickLook`).
 
 ## What it adds
 
@@ -59,7 +58,7 @@ This target is a **static library**. It has two dependencies with different link
 - **ActionUI** - the add-on compiles against ActionUI's public API but does **not** embed it
   (`link: false` in `project.yml`). A static library never embeds its dependencies; the host app
   links ActionUI and this add-on, and ActionUI's symbols resolve at the host's final link.
-- **AsyncImageCache** - a genuine third-party dependency whose code the element actually uses. With
+- **AsyncImageCache** - the first-party remote SPM dependency whose code the element actually uses. With
   the Swift package, SPM pulls it in transitively, so any host that links `ActionUICachedImage` also
   links `AsyncImageCache` automatically - no extra step.
 

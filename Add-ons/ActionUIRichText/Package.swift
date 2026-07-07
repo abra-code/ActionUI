@@ -12,7 +12,7 @@
 //     this product only references ActionUI's symbols (resolved at the host's final link) - the same
 //     "compile against, do not link" relationship the standalone xcodegen project expresses with
 //     link: false.
-//   - RichText: a genuine third-party dependency (github.com/abra-code/RichText) whose view the
+//   - RichText: the first-party remote SPM dependency (github.com/abra-code/RichText) whose view the
 //     element uses. SPM pulls it (and its own AsyncImageCache dependency) transitively into any host
 //     that links this add-on, so the host links them too - no special handling needed here.
 //

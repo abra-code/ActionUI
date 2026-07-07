@@ -13,7 +13,7 @@
 //     this product only references ActionUI's symbols (resolved at the host's final link) - the same
 //     "compile against, do not link" relationship the standalone xcodegen project expresses with
 //     link: false.
-//   - AsyncImageCache: a genuine third-party dependency (github.com/abra-code/AsyncImageCache) whose
+//   - AsyncImageCache: the first-party remote SPM dependency (github.com/abra-code/AsyncImageCache) whose
 //     code the element actually uses. SPM pulls it transitively into any host that links this add-on,
 //     so the host links AsyncImageCache too - no special handling needed here.
 //
