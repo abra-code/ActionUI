@@ -19,8 +19,8 @@ struct TemplateContext {
 /// Per-view auxiliary state that MOST views never touch. A plain Text or Slider view model leaves
 /// this nil and carries a single pointer instead of a handful of empty collections; it is allocated
 /// lazily the first time an element actually populates one of these fields - a template instance, a
-/// container with runtime structural mutations, an in-flight pull-to-refresh, or a config-bearing
-/// element. Keeping the odds and ends in one clearly-labeled bag stops view-specific state from
+/// container with runtime structural mutations, or an in-flight pull-to-refresh. Keeping the odds and
+/// ends in one clearly-labeled bag stops view-specific state from
 /// accreting on the hot `ViewModel` type. Reached only through `ViewModel`'s forwarding accessors,
 /// so it inherits its main-actor isolation.
 @MainActor
@@ -39,21 +39,11 @@ final class ViewModelExtras {
     // no refresh is in flight.
     var refreshContinuation: CheckedContinuation<Void, Never>?
     var refreshSubtreeIDs: Set<Int>?
-    // The element's live NON-VISUAL config (see ActionUIElement's head comment): the document's
-    // "config" block, plus any runtime overrides from setElementConfig. Stored verbatim - the
-    // element's buildView is the one consumer and checks what it reads. Empty for the many elements
-    // without a config block, which is why it lives here rather than inline on ViewModel.
-    var config: [String: Any] = [:]
-    // Top-level config keys set at RUNTIME by a host via setElementConfig (as opposed to parsed from
-    // the document's "config" block). Lets an element distinguish host-provided config from
-    // document-provided config for security decisions - e.g. whether a transport.command that would
-    // spawn a subprocess was requested by trusted host code or by an untrusted document.
-    var configInjectedKeys: Set<String> = []
 }
 
 // Public as a type so it can appear in the public ActionUIViewConstruction signatures that
-// add-on element types implement. Only `value`, `states`, and the read side of `config`
-// are public surface; the rest of the view-model machinery (validated properties,
+// add-on element types implement. Only `value` and `states` are public surface; the rest of the
+// view-model machinery (validated properties,
 // template context, refresh/insertion state) stays internal, and `init()` is internal so
 // only the engine constructs view models.
 @MainActor
@@ -75,17 +65,6 @@ public class ViewModel: ObservableObject {
         let created = ViewModelExtras()
         extras = created
         return created
-    }
-
-    // The element's live NON-VISUAL config (see ActionUIElement's head comment): the
-    // document's "config" block, plus any runtime overrides from setElementConfig.
-    // Stored verbatim - the element's buildView is the one consumer and checks what it
-    // reads, so there is no central validation. Public read so element buildView
-    // implementations (including add-ons) can consume it; written only by the engine.
-    // Non-published like validatedProperties: mutations ring objectWillChange manually.
-    public internal(set) var config: [String: Any] {
-        get { extras?.config ?? [:] }
-        set { requireExtras.config = newValue }
     }
 
     var templateContext: TemplateContext? { // Set when rendering as a template instance
@@ -116,18 +95,6 @@ public class ViewModel: ObservableObject {
         self.states = [:]
         self.validatedProperties = [:]
         self.elementType = ""
-    }
-
-    // Records that `key` was set by a host at runtime (setElementConfig), not parsed from the document.
-    func markConfigHostInjected(_ key: String) {
-        requireExtras.configInjectedKeys.insert(key)
-    }
-
-    /// Whether the given top-level config key was set at runtime by a host via setElementConfig
-    /// (rather than coming from the document's "config" block). Public so element implementations
-    /// (including add-ons) can gate document-origin config for security decisions.
-    public func isConfigHostInjected(_ key: String) -> Bool {
-        extras?.configInjectedKeys.contains(key) ?? false
     }
 
     // Ends an in-flight pull-to-refresh, resuming the suspended `.refreshable` action so its

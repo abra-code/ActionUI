@@ -930,36 +930,6 @@ class Window:
                                           json.dumps(value))
 
     # ------------------------------------------------------------------
-    # Element config (non-visual operational settings)
-    # ------------------------------------------------------------------
-
-    def get_config(self, view_id: int, key: str) -> Optional[Any]:
-        """
-        Get a NON-VISUAL config value by key (e.g. "transport").
-
-        Config is the element's operational settings block (the document's
-        "config" dictionary, sibling of "properties") - what a complex element
-        DOES (wire protocol, transports, data sources), as opposed to
-        properties, which model SwiftUI modifiers. Returns None if not found.
-        """
-        raw = _actionui.get_element_config_json(self.uuid, view_id, key)
-        if raw is None:
-            return None
-        return json.loads(raw)
-
-    def set_config(self, view_id: int, key: str, value: Any):
-        """
-        Set a NON-VISUAL config value by key.
-
-        Stored verbatim: the element itself checks what it reads. The
-        canonical use is loading a static document and injecting runtime- or
-        session-specific settings (e.g. a resolved transport command) before
-        showing it.
-        """
-        _actionui.set_element_config_json(self.uuid, view_id, key,
-                                          json.dumps(value))
-
-    # ------------------------------------------------------------------
     # Element state (runtime / dynamic)
     # ------------------------------------------------------------------
 

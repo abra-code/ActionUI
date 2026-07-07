@@ -728,31 +728,6 @@ static PyObject* py_set_element_property_json(PyObject* self, PyObject* args) {
     return PyBool_FromLong(actionUISetElementPropertyJSON(windowUUID, viewID, propertyName, valueJSON));
 }
 
-// MARK: - Python API: Element Config (non-visual operational settings; the document's "config" block)
-
-static PyObject* py_get_element_config_json(PyObject* self, PyObject* args) {
-    const char* windowUUID;
-    long long viewID;
-    const char* key;
-    if (PyArg_ParseTuple(args, "sLs", &windowUUID, &viewID, &key) == 0)
-        return NULL;
-    char* json = actionUIGetElementConfigJSON(windowUUID, viewID, key);
-    if (json == NULL) Py_RETURN_NONE;
-    PyObject* result = PyUnicode_FromString(json);
-    actionUIFreeString(json);
-    return result;
-}
-
-static PyObject* py_set_element_config_json(PyObject* self, PyObject* args) {
-    const char* windowUUID;
-    long long viewID;
-    const char* key;
-    const char* valueJSON;
-    if (PyArg_ParseTuple(args, "sLss", &windowUUID, &viewID, &key, &valueJSON) == 0)
-        return NULL;
-    return PyBool_FromLong(actionUISetElementConfigJSON(windowUUID, viewID, key, valueJSON));
-}
-
 // MARK: - Python API: Element State
 
 static PyObject* py_get_element_state_json(PyObject* self, PyObject* args) {
@@ -1147,10 +1122,6 @@ static PyMethodDef ActionUIMethods[] = {
     /* Element properties */
     {"get_element_property_json",   py_get_element_property_json,   METH_VARARGS, "get_element_property_json(windowUUID, viewID, name) -> str|None"},
     {"set_element_property_json",   py_set_element_property_json,   METH_VARARGS, "set_element_property_json(windowUUID, viewID, name, valueJSON)"},
-
-    /* Element config (non-visual operational settings) */
-    {"get_element_config_json",     py_get_element_config_json,     METH_VARARGS, "get_element_config_json(windowUUID, viewID, key) -> str|None"},
-    {"set_element_config_json",     py_set_element_config_json,     METH_VARARGS, "set_element_config_json(windowUUID, viewID, key, valueJSON)"},
 
     /* Element state */
     {"get_element_state_json",      py_get_element_state_json,      METH_VARARGS, "get_element_state_json(windowUUID, viewID, key) -> str|None"},

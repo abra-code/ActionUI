@@ -187,19 +187,6 @@ class Window {
         _actionui.setElementPropertyJSON(this.uuid, viewId, name, JSON.stringify(value));
     }
 
-    // Element config: the element's NON-VISUAL operational settings (the document's
-    // "config" block, sibling of properties) - what a complex element DOES (wire
-    // protocol, transports, data sources). Stored verbatim; the element checks what it
-    // reads. Canonical use: load a static document, then inject runtime/session-specific
-    // settings (e.g. a resolved transport) before showing it.
-    getConfig(viewId, key) {
-        const raw = _actionui.getElementConfigJSON(this.uuid, viewId, key);
-        return raw != null ? JSON.parse(raw) : null;
-    }
-    setConfig(viewId, key, value) {
-        _actionui.setElementConfigJSON(this.uuid, viewId, key, JSON.stringify(value));
-    }
-
     // Element state
     getState(viewId, key) {
         const raw = _actionui.getElementStateJSON(this.uuid, viewId, key);

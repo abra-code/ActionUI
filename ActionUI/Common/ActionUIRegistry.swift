@@ -243,7 +243,7 @@ public class ActionUIRegistry {
         guard let concrete = element as? ActionUIElement else { return element }
         var merged = concrete.subviews ?? [:]
         for (key, value) in dynamic { merged[key] = value }
-        return ActionUIElement(id: concrete.id, type: concrete.type, properties: concrete.properties, config: concrete.config, subviews: merged)
+        return ActionUIElement(id: concrete.id, type: concrete.type, properties: concrete.properties, subviews: merged)
     }
 
     // Returns the insertable container map for a registered view type

@@ -258,15 +258,6 @@ win.setProperty(viewId, 'disabled', true)
 const val = win.getProperty(viewId, 'columns')   // parsed from JSON; null if absent
 ```
 
-#### Element config
-
-Non-visual operational settings: the document's `config` block (sibling of `properties`) - what a complex element does (wire protocol, transports, data sources), as opposed to properties, which model SwiftUI modifiers. Stored verbatim; the element checks what it reads. Canonical use: load a static document, then inject runtime/session-specific settings before showing it.
-
-```js
-win.setConfig(viewId, 'transport', { command: ['agent', 'acp'], cwd: '/tmp' })
-const transport = win.getConfig(viewId, 'transport')   // parsed from JSON; null if absent
-```
-
 #### Element state
 
 ```js
@@ -402,10 +393,6 @@ native.clearElementSelection(uuid, viewId)
 // Element properties (JSON strings)
 native.getElementPropertyJSON(uuid, viewId, name)
 native.setElementPropertyJSON(uuid, viewId, name, valueJSON)
-
-// Element config (JSON strings; non-visual operational settings)
-native.getElementConfigJSON(uuid, viewId, key)
-native.setElementConfigJSON(uuid, viewId, key, valueJSON)
 
 // Element state (JSON strings)
 native.getElementStateJSON(uuid, viewId, key)
