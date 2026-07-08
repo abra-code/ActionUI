@@ -394,6 +394,45 @@ final class OpenAITransportTests: XCTestCase {
                        "a turn superseded by a prime emits no terminal messageEnd, so nothing is finalized/persisted into the restored conversation")
     }
 
+    func testPrimeSeedsItemCounterSoContinuedTurnDoesNotReuseLoadedIds() async throws {
+        // A conversation saved in a PRIOR app run (itemCounter has since reset to 0) is
+        // restored: its assistant replies already carry openai-msg-1 / openai-msg-2. Continuing
+        // it must mint a FRESH id (openai-msg-3), NOT reuse openai-msg-N - a reused id makes the
+        // store's ForEach update the loaded bubble instead of appending (the reply overwrites an
+        // earlier answer on screen) and makes the journal's last-write-wins dedup drop the
+        // earlier answer (data loss). User ids (user-N) share no counter and must be ignored.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"the summary"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.primeHistory([
+            ChatMessage(id: "user-1", role: .local, text: "tell me a joke", isStreaming: false),
+            ChatMessage(id: "openai-msg-1", role: .agent, text: "joke 1", isStreaming: false),
+            ChatMessage(id: "user-2", role: .local, text: "another one", isStreaming: false),
+            ChatMessage(id: "openai-msg-2", role: .agent, text: "joke 2", isStreaming: false),
+        ])
+        await transport.start()
+        await transport.send(.prompt(text: "summarize prior conversation"))
+        let events = await collect(from: transport, until: isMessageEnd)
+        await transport.stop()
+
+        let ids = events.compactMap { event -> String? in
+            switch event {
+            case .messageStart(let itemID, _): return itemID
+            case .messageDelta(let itemID, _): return itemID
+            case .messageEnd(let itemID, _): return itemID
+            default: return nil
+            }
+        }
+        XCTAssertFalse(ids.isEmpty, "the continued turn emits a message")
+        XCTAssertFalse(ids.contains("openai-msg-1"), "must not reuse a loaded assistant id")
+        XCTAssertFalse(ids.contains("openai-msg-2"),
+                       "must not reuse the LAST loaded assistant id - that is the overwrite / data-loss bug")
+        XCTAssertTrue(ids.allSatisfy { $0 == "openai-msg-3" },
+                      "the continued turn mints the next fresh id past the loaded max suffix")
+    }
+
     // MARK: - Construction
 
     func testMissingBaseURLThrows() {

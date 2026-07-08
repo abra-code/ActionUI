@@ -155,14 +155,38 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
             }
             return ["role": role, "content": message.text]
         }
+        // Advance itemCounter past the assistant-reply ids already in the loaded transcript so
+        // a continued turn mints FRESH ids. Our per-turn ids are "openai-msg-<n>" /
+        // "openai-thought-<n>" from itemCounter, which starts at 0 for each fresh transport
+        // instance (every app launch). Restoring a conversation saved in a prior run would
+        // otherwise make the next turn reuse an id that already exists in the loaded items -
+        // and a reused id makes the store's ForEach UPDATE the old bubble instead of appending
+        // (the reply overwrites an earlier answer on screen) AND makes the journal's
+        // last-write-wins dedup drop the earlier answer (data loss). Both share itemCounter, so
+        // seeding past the max "openai-msg-<n>" suffix also clears the paired thought ids for
+        // every real turn (a reasoning-only turn with no message is the lone uncovered case,
+        // and it can only merge a collapsed thought bubble - never lose a message).
+        let maxLoadedSuffix = messages.compactMap(Self.itemSuffix).max()
         let stale = lock.withLock { () -> Task<Void, Never>? in
             generation += 1
+            if let maxLoadedSuffix, maxLoadedSuffix > itemCounter {
+                itemCounter = maxLoadedSuffix
+            }
             let previous = promptTask
             promptTask = nil
             conversation = mapped
             return previous
         }
         stale?.cancel()
+    }
+
+    /// The numeric suffix of one of our assistant-reply ids ("openai-msg-<n>"), or nil for any
+    /// other id (user-/system-/error- from the store, or a migrated/foreign id). Used to seed
+    /// itemCounter on restore so continued turns never reuse a loaded id.
+    private static func itemSuffix(_ message: ChatMessage) -> Int? {
+        let prefix = "openai-msg-"
+        guard message.id.hasPrefix(prefix) else { return nil }
+        return Int(message.id.dropFirst(prefix.count))
     }
 
     /// A snapshot of the wire history (role/content messages). Internal for tests.
