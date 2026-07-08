@@ -227,6 +227,12 @@ final class ChatStore: ObservableObject {
     /// always before any subsequent prompt, so no command-channel serialization is needed.
     private func primeTransportFromItems() {
         guard let transport else { return }
+        // Reserve every loaded item id first, so a continued turn cannot mint an id the transport
+        // already used in this transcript (ChatTransport.reserveIDs). This passes ALL ids -
+        // including thoughts and tool cards, which primeHistory omits - because a transport's
+        // per-turn id counter is shared across item kinds (a reasoning-only turn leaves a thought
+        // id with no paired message id, invisible to a messages-only prime).
+        transport.reserveIDs(seen: items.map(\.id))
         let messages: [ChatMessage] = items.compactMap { item in
             if case let .message(message) = item { return message }
             return nil

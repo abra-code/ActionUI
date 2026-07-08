@@ -46,12 +46,26 @@ public protocol ChatTransport: AnyObject, Sendable {
     /// notices) are omitted. A text-protocol transport maps role -> wire; a transport whose
     /// history lives server-side may ignore it. Default: no-op.
     func primeHistory(_ messages: [ChatMessage])
+    /// Reserves any id namespaces this transport MINTS, so a turn continued after a transcript
+    /// restore never reuses an id already present in the loaded items. `ids` is EVERY item id in
+    /// the restored transcript (messages, thoughts, tool cards, ...) - not just the messages
+    /// primeHistory receives - because a transport's per-turn id counter is typically shared
+    /// across item kinds. The store calls this SYNCHRONOUSLY alongside primeHistory on every
+    /// restore and on a transport (re)build, before any prompt. A reused id would make the
+    /// transcript's id-keyed ForEach update an existing bubble instead of appending, and the
+    /// journal's last-write-wins dedup drop the older item. openai-sse and acp override this
+    /// (both mint launch-reset per-turn ids); the local demo mints ids too but is not a
+    /// persistence path, so it keeps the default no-op.
+    func reserveIDs(seen ids: [String])
 }
 
 public extension ChatTransport {
     /// Default: a transport with no client-owned wire history (the demo `local` transport, or
     /// an agent transport whose conversation state lives server-side) ignores a prime.
     func primeHistory(_ messages: [ChatMessage]) {}
+    /// Default: no-op - only a transport that mints launch-reset per-turn ids a restore could
+    /// re-alias needs to override this (openai-sse and acp do).
+    func reserveIDs(seen ids: [String]) {}
 }
 
 /// The transport-relevant slice of a `Chat` element's configuration, handed to a

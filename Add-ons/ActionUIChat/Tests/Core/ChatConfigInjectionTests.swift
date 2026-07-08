@@ -66,8 +66,11 @@ private final class FakeInjectTransport: ChatTransport, @unchecked Sendable {
     private let continuation: AsyncStream<ChatEvent>.Continuation
     private let lock = NSLock()
     private var _primed: [[ChatMessage]] = []
+    private var _reserved: [[String]] = []
     /// Every primeHistory call's payload, in order (the store primes on attach and on each restore).
     var primedHistories: [[ChatMessage]] { lock.withLock { _primed } }
+    /// Every reserveIDs call's id list, in order (the store reserves alongside each prime).
+    var reservedIDs: [[String]] { lock.withLock { _reserved } }
     init() {
         var captured: AsyncStream<ChatEvent>.Continuation!
         self.events = AsyncStream { captured = $0 }
@@ -77,6 +80,7 @@ private final class FakeInjectTransport: ChatTransport, @unchecked Sendable {
     func send(_ command: ChatCommand) async {}
     func stop() async { continuation.finish() }
     func primeHistory(_ messages: [ChatMessage]) { lock.withLock { _primed.append(messages) } }
+    func reserveIDs(seen ids: [String]) { lock.withLock { _reserved.append(ids) } }
 }
 
 /// Captures the transport instance a factory builds, so a test can inspect it afterwards.
@@ -193,6 +197,10 @@ final class ChatConfigInjectionTests: XCTestCase {
         XCTAssertEqual(primed.map(\.id), ["u1", "a1"],
                        "restoring a transcript primes the transport with its MESSAGE items (thoughts/tool cards omitted)")
         XCTAssertEqual(primed.map(\.role), [.local, .agent])
+
+        let reserved = box.transport?.reservedIDs.last ?? []
+        XCTAssertEqual(reserved, ["u1", "t1", "a1"],
+                       "restore reserves EVERY loaded id (including the thought t1, which primeHistory omits) so a continued turn cannot reuse one")
         store.teardown()
     }
 

@@ -394,24 +394,23 @@ final class OpenAITransportTests: XCTestCase {
                        "a turn superseded by a prime emits no terminal messageEnd, so nothing is finalized/persisted into the restored conversation")
     }
 
-    func testPrimeSeedsItemCounterSoContinuedTurnDoesNotReuseLoadedIds() async throws {
-        // A conversation saved in a PRIOR app run (itemCounter has since reset to 0) is
-        // restored: its assistant replies already carry openai-msg-1 / openai-msg-2. Continuing
-        // it must mint a FRESH id (openai-msg-3), NOT reuse openai-msg-N - a reused id makes the
-        // store's ForEach update the loaded bubble instead of appending (the reply overwrites an
-        // earlier answer on screen) and makes the journal's last-write-wins dedup drop the
-        // earlier answer (data loss). User ids (user-N) share no counter and must be ignored.
+    // MARK: - Reserve ids (continue without reusing a loaded id)
+
+    func testReserveIDsSeedsCounterSoContinuedTurnDoesNotReuseLoadedIds() async throws {
+        // A conversation saved in a PRIOR app run (itemCounter has since reset to 0) is restored:
+        // its assistant replies already carry openai-msg-1 / openai-msg-2. The store reserves every
+        // loaded id before priming, so the continued turn must mint a FRESH id (openai-msg-3), NOT
+        // reuse openai-msg-N - a reused id makes the store's ForEach update the loaded bubble instead
+        // of appending (the reply overwrites an earlier answer) and makes the journal's
+        // last-write-wins dedup drop it (data loss). Non-counter ids must be ignored: user-N (from
+        // the store) and openai-tool-99 (tool cards are index-based, not from itemCounter) - if
+        // openai-tool-99 were reserved the turn would mint openai-msg-100, not openai-msg-3.
         let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"the summary"}}]}"#)
             + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
             + StubURLProtocol.doneEvent
         setChatStub(sse)
         let transport = try makeTransport()
-        transport.primeHistory([
-            ChatMessage(id: "user-1", role: .local, text: "tell me a joke", isStreaming: false),
-            ChatMessage(id: "openai-msg-1", role: .agent, text: "joke 1", isStreaming: false),
-            ChatMessage(id: "user-2", role: .local, text: "another one", isStreaming: false),
-            ChatMessage(id: "openai-msg-2", role: .agent, text: "joke 2", isStreaming: false),
-        ])
+        transport.reserveIDs(seen: ["user-1", "openai-msg-1", "user-2", "openai-msg-2", "openai-tool-99"])
         await transport.start()
         await transport.send(.prompt(text: "summarize prior conversation"))
         let events = await collect(from: transport, until: isMessageEnd)
@@ -431,6 +430,65 @@ final class OpenAITransportTests: XCTestCase {
                        "must not reuse the LAST loaded assistant id - that is the overwrite / data-loss bug")
         XCTAssertTrue(ids.allSatisfy { $0 == "openai-msg-3" },
                       "the continued turn mints the next fresh id past the loaded max suffix")
+    }
+
+    func testReserveIDsCoversReasoningOnlyThoughtIds() async throws {
+        // A reasoning-only turn (reasoning streamed, then no content: Stop before the first content
+        // delta, or a content-less reasoning response) persists an "openai-thought-<n>" with NO
+        // paired "openai-msg-<n>". A message-only reseed would miss it, so a continued turn could
+        // reuse the thought id - duplicating a SwiftUI id and overwriting the restored thought.
+        // reserveIDs sees every id, so it advances past the thought too. Here the max message suffix
+        // is 1 but a reasoning-only turn left openai-thought-5, so the next turn must be turn 6.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"reasoning_content":"hmm"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"ok"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.reserveIDs(seen: ["user-1", "openai-msg-1", "openai-thought-1", "openai-thought-5"])
+        await transport.start()
+        await transport.send(.prompt(text: "continue"))
+        let events = await collect(from: transport, until: isMessageEnd)
+        await transport.stop()
+
+        let messageIDs = events.compactMap { event -> String? in
+            if case .messageStart(let itemID, _) = event { return itemID }
+            return nil
+        }
+        let thoughtIDs = events.compactMap { event -> String? in
+            if case .thoughtDelta(let itemID, _) = event { return itemID }
+            return nil
+        }
+        XCTAssertEqual(messageIDs, ["openai-msg-6"],
+                       "the continued turn is seeded past the reasoning-only thought (openai-thought-5)")
+        XCTAssertFalse(thoughtIDs.contains("openai-thought-5"),
+                       "the paired thought id must not reuse the restored reasoning-only thought id")
+        XCTAssertTrue(thoughtIDs.allSatisfy { $0 == "openai-thought-6" },
+                      "the paired thought id is also seeded past openai-thought-5")
+    }
+
+    func testReserveIDsNeverRewindsTheCounter() async throws {
+        // Two reservations in a row (restore a long conversation, then switch to an OLDER/shorter
+        // one) must not rewind the counter into an id already reserved this session. After reserving
+        // up to 5, reserving a smaller max (2) is a no-op, so the next turn is openai-msg-6.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"a"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.reserveIDs(seen: ["openai-msg-5"])
+        transport.reserveIDs(seen: ["openai-msg-2"])          // smaller -> must not rewind
+        await transport.start()
+        await transport.send(.prompt(text: "next"))
+        let events = await collect(from: transport, until: isMessageEnd)
+        await transport.stop()
+
+        let ids = events.compactMap { event -> String? in
+            if case .messageStart(let itemID, _) = event { return itemID }
+            return nil
+        }
+        XCTAssertEqual(ids, ["openai-msg-6"],
+                       "reserving a smaller max after a larger one must not rewind the counter into a reused id")
     }
 
     // MARK: - Construction

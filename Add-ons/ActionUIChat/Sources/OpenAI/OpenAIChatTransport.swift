@@ -155,23 +155,8 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
             }
             return ["role": role, "content": message.text]
         }
-        // Advance itemCounter past the assistant-reply ids already in the loaded transcript so
-        // a continued turn mints FRESH ids. Our per-turn ids are "openai-msg-<n>" /
-        // "openai-thought-<n>" from itemCounter, which starts at 0 for each fresh transport
-        // instance (every app launch). Restoring a conversation saved in a prior run would
-        // otherwise make the next turn reuse an id that already exists in the loaded items -
-        // and a reused id makes the store's ForEach UPDATE the old bubble instead of appending
-        // (the reply overwrites an earlier answer on screen) AND makes the journal's
-        // last-write-wins dedup drop the earlier answer (data loss). Both share itemCounter, so
-        // seeding past the max "openai-msg-<n>" suffix also clears the paired thought ids for
-        // every real turn (a reasoning-only turn with no message is the lone uncovered case,
-        // and it can only merge a collapsed thought bubble - never lose a message).
-        let maxLoadedSuffix = messages.compactMap(Self.itemSuffix).max()
         let stale = lock.withLock { () -> Task<Void, Never>? in
             generation += 1
-            if let maxLoadedSuffix, maxLoadedSuffix > itemCounter {
-                itemCounter = maxLoadedSuffix
-            }
             let previous = promptTask
             promptTask = nil
             conversation = mapped
@@ -180,13 +165,32 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
         stale?.cancel()
     }
 
-    /// The numeric suffix of one of our assistant-reply ids ("openai-msg-<n>"), or nil for any
-    /// other id (user-/system-/error- from the store, or a migrated/foreign id). Used to seed
-    /// itemCounter on restore so continued turns never reuse a loaded id.
-    private static func itemSuffix(_ message: ChatMessage) -> Int? {
-        let prefix = "openai-msg-"
-        guard message.id.hasPrefix(prefix) else { return nil }
-        return Int(message.id.dropFirst(prefix.count))
+    /// Advances itemCounter past every id we minted that is still in the restored transcript, so a
+    /// continued turn mints FRESH ids. Our per-turn ids ("openai-msg-<n>" and the paired
+    /// "openai-thought-<n>") come from itemCounter, which starts at 0 for each fresh transport
+    /// instance (every app launch); without this, restoring a conversation saved in a prior run
+    /// makes the next turn reuse a loaded id, which makes the store's ForEach OVERWRITE an existing
+    /// bubble AND the journal's last-write-wins dedup drop the older item (data loss). The store
+    /// hands us EVERY item id (including thoughts, which primeHistory omits), so this also covers a
+    /// reasoning-only turn - a thought with no paired message. The `> itemCounter` guard only ever
+    /// advances the counter, so switching to an older/shorter conversation mid-session never rewinds
+    /// it and never re-collides.
+    func reserveIDs(seen ids: [String]) {
+        guard let maxSuffix = ids.compactMap(Self.itemSuffix).max() else { return }
+        lock.withLock {
+            if maxSuffix > itemCounter { itemCounter = maxSuffix }
+        }
+    }
+
+    /// The numeric suffix of one of our per-turn ids ("openai-msg-<n>" / "openai-thought-<n>"),
+    /// or nil for any other id (user-/system-/error- from the store, a "openai-tool-*" card, or a
+    /// migrated/foreign id). Message and thought ids share itemCounter, so reserving past either
+    /// keeps a continued turn from reusing a loaded id.
+    private static func itemSuffix(_ id: String) -> Int? {
+        for prefix in ["openai-msg-", "openai-thought-"] where id.hasPrefix(prefix) {
+            return Int(id.dropFirst(prefix.count))
+        }
+        return nil
     }
 
     /// A snapshot of the wire history (role/content messages). Internal for tests.

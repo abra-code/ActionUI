@@ -190,6 +190,31 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
         }
     }
 
+    /// Reserves the per-turn id namespaces this transport mints so a turn continued after a
+    /// transcript restore does not reuse a loaded id (see ChatTransport.reserveIDs). Our ids
+    /// ("acp-turn-<n>" / "acp-thought-<n>" / "acp-message-<n>") come from itemCounter, which
+    /// resets to 0 for each fresh transport instance (every app launch); a reused id would make
+    /// the store's ForEach overwrite an existing bubble and the journal's last-write-wins dedup
+    /// drop the older item. The client mints these display/journal ids regardless of the agent's
+    /// own server-side history, so this reservation is needed even though primeHistory is a no-op
+    /// for ACP.
+    func reserveIDs(seen ids: [String]) {
+        guard let maxSuffix = ids.compactMap(Self.itemSuffix).max() else { return }
+        lock.withLock {
+            if maxSuffix > itemCounter { itemCounter = maxSuffix }
+        }
+    }
+
+    /// The numeric suffix of one of our per-turn ids ("acp-turn-<n>" / "acp-thought-<n>" /
+    /// "acp-message-<n>"), or nil for any other id. All three share itemCounter, so reserving
+    /// past any of them keeps a continued turn from reusing a loaded id.
+    private static func itemSuffix(_ id: String) -> Int? {
+        for prefix in ["acp-turn-", "acp-thought-", "acp-message-"] where id.hasPrefix(prefix) {
+            return Int(id.dropFirst(prefix.count))
+        }
+        return nil
+    }
+
     /// Changes a session option. The primary method is the generic
     /// session/set_config_option { sessionId, configId, type: "select", value }, whose
     /// result carries the REFRESHED configOptions list (verified live against
