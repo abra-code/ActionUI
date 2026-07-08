@@ -60,9 +60,14 @@ private final class BuildCounter: @unchecked Sendable {
 }
 
 /// A no-op transport a test factory returns; its event stream never emits (the store just drains it).
+/// It records every primeHistory payload so a test can assert the store's restore -> prime wiring.
 private final class FakeInjectTransport: ChatTransport, @unchecked Sendable {
     let events: AsyncStream<ChatEvent>
     private let continuation: AsyncStream<ChatEvent>.Continuation
+    private let lock = NSLock()
+    private var _primed: [[ChatMessage]] = []
+    /// Every primeHistory call's payload, in order (the store primes on attach and on each restore).
+    var primedHistories: [[ChatMessage]] { lock.withLock { _primed } }
     init() {
         var captured: AsyncStream<ChatEvent>.Continuation!
         self.events = AsyncStream { captured = $0 }
@@ -71,6 +76,12 @@ private final class FakeInjectTransport: ChatTransport, @unchecked Sendable {
     func start() async {}
     func send(_ command: ChatCommand) async {}
     func stop() async { continuation.finish() }
+    func primeHistory(_ messages: [ChatMessage]) { lock.withLock { _primed.append(messages) } }
+}
+
+/// Captures the transport instance a factory builds, so a test can inspect it afterwards.
+private final class TransportBox: @unchecked Sendable {
+    var transport: FakeInjectTransport?
 }
 
 @MainActor
@@ -150,6 +161,73 @@ final class ChatConfigInjectionTests: XCTestCase {
         // A later states["config"] change must be ignored (frozen): the factory must not run again.
         source.config = ["protocol": name, "transport": ["changed": true]]
         XCTAssertEqual(counter.count, 1, "after the first viable build the element is frozen; a later states[\"config\"] change is ignored")
+        store.teardown()
+    }
+
+    // MARK: - Restore primes the transport wire history (P0-2 continue-in)
+
+    private func registerPrimingTransport(_ box: TransportBox) -> String {
+        let name = "prime-test-\(UUID().uuidString)"
+        ChatTransportRegistry.shared.register(name) { _, _ in
+            let transport = FakeInjectTransport()
+            box.transport = transport
+            return transport
+        }
+        return name
+    }
+
+    func testRestorePrimesTheTransportWithLoadedMessages() {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()   // builds + attaches the transport (primes an empty history)
+        XCTAssertTrue(store.isConfigured)
+
+        source.content = ChatTranscript(items: [
+            .message(ChatMessage(id: "u1", role: .local, text: "earlier question", isStreaming: false)),
+            .thought(ChatMessage(id: "t1", role: .agent, text: "thinking", isStreaming: false)),
+            .message(ChatMessage(id: "a1", role: .agent, text: "earlier answer", isStreaming: false)),
+        ])
+
+        let primed = box.transport?.primedHistories.last ?? []
+        XCTAssertEqual(primed.map(\.id), ["u1", "a1"],
+                       "restoring a transcript primes the transport with its MESSAGE items (thoughts/tool cards omitted)")
+        XCTAssertEqual(primed.map(\.role), [.local, .agent])
+        store.teardown()
+    }
+
+    func testNewChatClearPrimesAnEmptyWire() {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+        source.content = ChatTranscript(items: [.message(ChatMessage(id: "u1", role: .local, text: "q", isStreaming: false))])
+        XCTAssertEqual(box.transport?.primedHistories.last?.count, 1)
+        // A New Chat injects an empty transcript -> the transport is primed with an empty wire.
+        source.content = ChatTranscript(items: [])
+        XCTAssertEqual(box.transport?.primedHistories.last?.count, 0,
+                       "a cleared transcript primes an empty wire history, so the next turn starts fresh")
+        store.teardown()
+    }
+
+    func testTransportBuiltAfterRestorePrimesFromLoadedItems() {
+        // Content restored BEFORE a viable config exists: the transport does not exist yet, so the
+        // restore cannot prime it. When the config later builds the transport, attach() must prime
+        // it from the already-loaded items (else a continue would drop the pre-config history).
+        let box = TransportBox()
+        let name = registerPrimingTransport(box)
+        let source = FakeConfigSource()                     // no config yet
+        source.content = ChatTranscript(items: [
+            .message(ChatMessage(id: "u1", role: .local, text: "before config", isStreaming: false)),
+        ])
+        let store = makeStore(source: source)
+        store.start()                                       // loads content; no transport built yet
+        XCTAssertNil(box.transport, "no transport is built until a viable config arrives")
+
+        source.config = ["protocol": name]                  // now the transport builds + attaches
+        let primed = box.transport?.primedHistories.last ?? []
+        XCTAssertEqual(primed.map(\.id), ["u1"],
+                       "attach() primes the freshly built transport from the transcript restored before it existed")
         store.teardown()
     }
 }

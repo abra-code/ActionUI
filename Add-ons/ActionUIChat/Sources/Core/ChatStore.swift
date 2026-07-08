@@ -207,12 +207,31 @@ final class ChatStore: ObservableObject {
     /// Installs a built transport and starts draining its event stream.
     private func attach(_ transport: any ChatTransport) {
         self.transport = transport
+        // If a transcript was restored before the transport existed (content injected before a
+        // viable config), seed the new transport's wire history from it so a continue carries
+        // context. For a fresh session `items` is empty, so this primes an empty history.
+        primeTransportFromItems()
         eventTask = Task { [weak self] in
             await transport.start()
             for await event in transport.events {
                 self?.route(event)
             }
         }
+    }
+
+    /// Seeds the active transport's wire history from the current transcript's message items,
+    /// so a continued conversation is sent with its prior turns as context (and an empty /
+    /// cleared transcript resets the wire). No-op when no transport exists yet (attach()
+    /// re-primes once one is built). Message items only (role + text); the transport maps
+    /// role -> its own wire format. Called synchronously from applyLoadedTranscript and attach,
+    /// always before any subsequent prompt, so no command-channel serialization is needed.
+    private func primeTransportFromItems() {
+        guard let transport else { return }
+        let messages: [ChatMessage] = items.compactMap { item in
+            if case let .message(message) = item { return message }
+            return nil
+        }
+        transport.primeHistory(messages)
     }
 
     // MARK: - User intent
@@ -485,6 +504,10 @@ final class ChatStore: ObservableObject {
         if let maxSuffix {
             localCounter = max(localCounter, maxSuffix)
         }
+        // Seed the transport's wire history from the loaded transcript so typing continues the
+        // conversation WITH its prior turns as context (P0-2 continue-in). An empty transcript
+        // (New Chat clear) resets the wire. No-op if the transport is not built yet.
+        primeTransportFromItems()
     }
 
     /// The envelope fired to entryActionID: a monotonic sequence, the finalized entry's type

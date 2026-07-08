@@ -36,6 +36,22 @@ public protocol ChatTransport: AnyObject, Sendable {
     var events: AsyncStream<ChatEvent> { get }
     /// Ends the session and finishes `events` so the store's drain completes.
     func stop() async
+    /// Replaces the transport's wire history with a restored transcript's messages, so a
+    /// continued conversation is sent with its prior turns as context (and a cleared / new
+    /// transcript resets the wire). The store calls this SYNCHRONOUSLY on every content
+    /// restore (P0-2 continue-in seam) and whenever a transport is (re)built while a
+    /// transcript is already loaded - always before any subsequent prompt, so ordering holds
+    /// without serializing the async command channel. `messages` are the transcript's message
+    /// items in order (role + text); non-message items (thoughts, tool cards, images,
+    /// notices) are omitted. A text-protocol transport maps role -> wire; a transport whose
+    /// history lives server-side may ignore it. Default: no-op.
+    func primeHistory(_ messages: [ChatMessage])
+}
+
+public extension ChatTransport {
+    /// Default: a transport with no client-owned wire history (the demo `local` transport, or
+    /// an agent transport whose conversation state lives server-side) ignores a prime.
+    func primeHistory(_ messages: [ChatMessage]) {}
 }
 
 /// The transport-relevant slice of a `Chat` element's configuration, handed to a

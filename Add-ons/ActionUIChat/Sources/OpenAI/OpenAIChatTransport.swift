@@ -53,6 +53,7 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
     private var resolvedModel: String                // "auto" until start() resolves it (if it can)
     private var itemCounter = 0
     private var promptTask: Task<Void, Never>?
+    private var generation = 0                        // bumped on primeHistory; guards stale appends
 
     /// `transport` config: `baseURL` (the OpenAI-compatible endpoint, required, e.g.
     /// "http://127.0.0.1:8080/v1"), `model` (default "auto" -> resolved from /models),
@@ -137,6 +138,33 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
         }
     }
 
+    /// Replaces the wire history with a restored transcript's messages (P0-2 continue seam),
+    /// mapping ChatRole -> OpenAI wire role: local/remote -> "user", agent -> "assistant",
+    /// system -> "system"; empty-text items are dropped. Bumps `generation` and cancels any
+    /// in-flight turn so a stream finalizing after the swap cannot append into the freshly
+    /// loaded history (see appendAssistant / popLastUserMessage). Injecting an empty list (a
+    /// cleared / New Chat transcript) resets the wire to nothing.
+    func primeHistory(_ messages: [ChatMessage]) {
+        let mapped: [[String: Any]] = messages.compactMap { message in
+            guard !message.text.isEmpty else { return nil }
+            let role: String
+            switch message.role {
+            case .local, .remote: role = "user"
+            case .agent:          role = "assistant"
+            case .system:         role = "system"
+            }
+            return ["role": role, "content": message.text]
+        }
+        let stale = lock.withLock { () -> Task<Void, Never>? in
+            generation += 1
+            let previous = promptTask
+            promptTask = nil
+            conversation = mapped
+            return previous
+        }
+        stale?.cancel()
+    }
+
     /// A snapshot of the wire history (role/content messages). Internal for tests.
     var conversationSnapshot: [[String: Any]] {
         lock.withLock { conversation }
@@ -160,17 +188,17 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
         // Cancel any turn still in flight first (a composer that stays live during streaming
         // can submit again): otherwise the prior task streams on, un-stoppable, and both
         // replies interleave. Cancelling it makes it finalize as `cancelled`.
-        let (messageID, thoughtID, previous) = lock.withLock { () -> (String, String, Task<Void, Never>?) in
+        let (messageID, thoughtID, previous, gen) = lock.withLock { () -> (String, String, Task<Void, Never>?, Int) in
             conversation.append(["role": "user", "content": userText])
             itemCounter += 1
-            return ("openai-msg-\(itemCounter)", "openai-thought-\(itemCounter)", promptTask)
+            return ("openai-msg-\(itemCounter)", "openai-thought-\(itemCounter)", promptTask, generation)
         }
         previous?.cancel()
         let task = Task { [weak self] in
             guard let self else {
                 return
             }
-            await self.stream(messageID: messageID, thoughtID: thoughtID)
+            await self.stream(messageID: messageID, thoughtID: thoughtID, generation: gen)
         }
         lock.withLock { promptTask = task }
     }
@@ -178,7 +206,7 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
     /// One streamed chat-completions turn: POST stream:true and demux the SSE chunks onto
     /// ChatEvents. Accumulators (content, tool-call fragments, finish reason) are locals -
     /// only the shared conversation / model / counter go through the lock.
-    private func stream(messageID: String, thoughtID: String) async {
+    private func stream(messageID: String, thoughtID: String, generation gen: Int) async {
         let (messages, model) = lock.withLock { () -> ([[String: Any]], String) in
             var msgs: [[String: Any]] = []
             if !systemPrompt.isEmpty {
@@ -189,7 +217,7 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
         }
         let body = Self.chatRequestBody(model: model, messages: messages, params: params)
         guard let request = makeRequest(url: chatURL, body: body) else {
-            popLastUserMessage()
+            popLastUserMessage(generation: gen)
             eventSink.yield(.error(message: "openai-sse: could not encode the request body", recoverable: false))
             eventSink.yield(.messageEnd(itemID: messageID, stopReason: "error"))
             return
@@ -206,8 +234,9 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
                 throw OpenAITransportError("openai-sse: response was not HTTP")
             }
             if http.statusCode != 200 {
+                if isSuperseded(gen) { return }   // primed away: the error is for a conversation the user left
                 let message = await Self.errorBody(from: bytes, status: http.statusCode)
-                popLastUserMessage()
+                popLastUserMessage(generation: gen)
                 eventSink.yield(.error(message: message, recoverable: true))
                 eventSink.yield(.messageEnd(itemID: messageID, stopReason: "error"))
                 return
@@ -215,6 +244,7 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
 
             for try await line in bytes.lines {
                 try Task.checkCancellation()
+                if isSuperseded(gen) { return }   // primed away mid-stream: stay silent
                 guard let payload = Self.ssePayload(line) else {
                     continue
                 }
@@ -258,19 +288,20 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
                 }
             }
         } catch is CancellationError {
-            finalizeCancelled(messageID: messageID, partial: fullContent, messageStarted: messageStarted)
+            finalizeCancelled(messageID: messageID, partial: fullContent, messageStarted: messageStarted, generation: gen)
             return
         } catch let urlError as URLError where urlError.code == .cancelled {
-            finalizeCancelled(messageID: messageID, partial: fullContent, messageStarted: messageStarted)
+            finalizeCancelled(messageID: messageID, partial: fullContent, messageStarted: messageStarted, generation: gen)
             return
         } catch {
+            if isSuperseded(gen) { return }   // primed away: the error is for a conversation the user left
             // A connection failure or mid-stream disconnect: keep whatever streamed (and its
             // user turn), and surface the error (mirrors ACPChatTransport). If nothing
             // streamed, drop the dangling user message so retries do not accumulate.
             if messageStarted {
-                lock.withLock { conversation.append(["role": "assistant", "content": fullContent]) }
+                appendAssistant(fullContent, generation: gen)
             } else {
-                popLastUserMessage()
+                popLastUserMessage(generation: gen)
             }
             eventSink.yield(.error(message: "openai-sse request failed: \(error.localizedDescription)", recoverable: true))
             eventSink.yield(.messageEnd(itemID: messageID, stopReason: "error"))
@@ -279,11 +310,12 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
 
         // Normal completion. Tool cards + notice go out BEFORE the terminal messageEnd, so
         // the store's non-nil stopReason (which clears the streaming state) is the last word.
+        if isSuperseded(gen) { return }   // primed away after the stream finished: stay silent
         if !toolFragments.isEmpty {
             emitToolCards(toolFragments)
         }
         if messageStarted {
-            lock.withLock { conversation.append(["role": "assistant", "content": fullContent]) }
+            appendAssistant(fullContent, generation: gen)
         }
         eventSink.yield(.messageEnd(itemID: messageID, stopReason: finishReason ?? "stop"))
     }
@@ -304,12 +336,33 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
         eventSink.yield(.system(text: "The model requested tool call(s); the openai-sse transport renders them but does not execute them. Use an agent transport (e.g. \"acp\") for tool execution."))
     }
 
+    /// True once a primeHistory swapped the conversation since this turn began: the turn is
+    /// superseded (its user has left this conversation) and must emit NOTHING further - not a
+    /// trailing delta, not a terminal messageEnd - so no stray bubble or persisted entry lands
+    /// in the newly loaded conversation. A plain Stop (.cancel) does NOT bump `generation`, so
+    /// it is not superseded and still finalizes its partial normally.
+    private func isSuperseded(_ gen: Int) -> Bool {
+        lock.withLock { gen != generation }
+    }
+
+    /// Appends an assistant reply to the wire history only if the turn's generation is still
+    /// current. A primeHistory (conversation swap / clear) since this turn began bumps
+    /// `generation`, so a late finalize from a cancelled or failed stream cannot pollute the
+    /// freshly loaded history.
+    private func appendAssistant(_ content: String, generation gen: Int) {
+        lock.withLock {
+            guard gen == generation else { return }
+            conversation.append(["role": "assistant", "content": content])
+        }
+    }
+
     /// Finalizes the open message with its partial text on cancel (the streamed deltas are
     /// already in the store's buffer; a non-nil stopReason ends the turn). The user message
     /// stays in the wire history - a cancel is user intent, not a failure.
-    private func finalizeCancelled(messageID: String, partial: String, messageStarted: Bool) {
+    private func finalizeCancelled(messageID: String, partial: String, messageStarted: Bool, generation gen: Int) {
+        guard !isSuperseded(gen) else { return }   // primed away: stay silent (no stray bubble/entry)
         if messageStarted {
-            lock.withLock { conversation.append(["role": "assistant", "content": partial]) }
+            appendAssistant(partial, generation: gen)
         }
         eventSink.yield(.messageEnd(itemID: messageID, stopReason: "cancelled"))
     }
@@ -317,9 +370,11 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
     /// Drops the trailing user message from the wire history when a turn produced no
     /// assistant reply at all (a hard failure before anything streamed), so repeated
     /// failures against a down server do not accumulate a run of back-to-back user
-    /// messages that a strict server would reject on the eventual successful request.
-    private func popLastUserMessage() {
+    /// messages that a strict server would reject on the eventual successful request. Guarded
+    /// by generation so a swap since the turn began leaves the newly loaded history intact.
+    private func popLastUserMessage(generation gen: Int) {
         lock.withLock {
+            guard gen == generation else { return }
             if conversation.last?["role"] as? String == "user" {
                 conversation.removeLast()
             }

@@ -302,6 +302,98 @@ final class OpenAITransportTests: XCTestCase {
         XCTAssertTrue(history.isEmpty, "a hard failure with no reply drops the user message so retries do not accumulate back-to-back user turns")
     }
 
+    // MARK: - Prime history (P0-2 continue-in seam)
+
+    func testPrimeHistoryReplacesWireAndMapsRoles() throws {
+        let transport = try makeTransport()
+        transport.primeHistory([
+            ChatMessage(id: "1", role: .local, text: "earlier question", isStreaming: false),
+            ChatMessage(id: "2", role: .agent, text: "earlier answer", isStreaming: false),
+            ChatMessage(id: "3", role: .system, text: "a note", isStreaming: false),
+            ChatMessage(id: "4", role: .remote, text: "other party", isStreaming: false),
+            ChatMessage(id: "5", role: .agent, text: "", isStreaming: false),   // empty -> dropped
+        ])
+        let history = transport.conversationSnapshot
+        XCTAssertEqual(history.map { $0["role"] as? String }, ["user", "assistant", "system", "user"],
+                       "local/remote -> user, agent -> assistant, system -> system; the empty-text item is dropped")
+        XCTAssertEqual(history.map { $0["content"] as? String },
+                       ["earlier question", "earlier answer", "a note", "other party"])
+    }
+
+    func testEmptyPrimeResetsWire() throws {
+        let transport = try makeTransport()
+        transport.primeHistory([ChatMessage(id: "1", role: .local, text: "old", isStreaming: false)])
+        XCTAssertEqual(transport.conversationSnapshot.count, 1)
+        transport.primeHistory([])   // a New Chat clear
+        XCTAssertTrue(transport.conversationSnapshot.isEmpty, "an empty prime resets the wire history")
+    }
+
+    func testPrimeThenTurnContinuesWithPriorContext() async throws {
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"following up"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.primeHistory([
+            ChatMessage(id: "1", role: .local, text: "q1", isStreaming: false),
+            ChatMessage(id: "2", role: .agent, text: "a1", isStreaming: false),
+        ])
+        await transport.start()
+        await transport.send(.prompt(text: "q2"))
+        _ = await collect(from: transport, until: isMessageEnd)
+        let history = transport.conversationSnapshot
+        await transport.stop()
+
+        XCTAssertEqual(history.map { $0["content"] as? String }, ["q1", "a1", "q2", "following up"],
+                       "a continued turn appends AFTER the primed history, so the prior turns are sent as context")
+    }
+
+    func testPrimeDuringStreamDiscardsTheStaleReply() async throws {
+        // A turn is streaming when the user switches conversations (a re-prime). The cancelled
+        // stream must NOT append its reply into the freshly primed history (generation guard).
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"stale"}}]}"#)
+        setChatStub(sse, terminal: .hang)   // stream a delta, then never finish
+        let transport = try makeTransport()
+        transport.primeHistory([ChatMessage(id: "1", role: .local, text: "A", isStreaming: false)])
+        await transport.start()
+        await transport.send(.prompt(text: "mid"))
+        try await Task.sleep(nanoseconds: 250_000_000)   // let "stale" stream
+        transport.primeHistory([ChatMessage(id: "2", role: .agent, text: "B", isStreaming: false)])
+        try await Task.sleep(nanoseconds: 250_000_000)   // let the cancelled turn finalize
+        let history = transport.conversationSnapshot
+        await transport.stop()
+
+        XCTAssertEqual(history.map { $0["content"] as? String }, ["B"],
+                       "the re-prime replaces the wire; the cancelled turn's stale user+reply are not appended")
+    }
+
+    func testPrimeDuringStreamSilencesTheSupersededTurnsEvents() async throws {
+        // The store turns a stray messageDelta after a restore into a phantom bubble in the
+        // NEW conversation (and would persist it): a superseded turn must emit no terminal
+        // messageEnd (and no further deltas) once a prime swaps the conversation.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"stale"}}]}"#)
+        setChatStub(sse, terminal: .hang)   // stream a delta, then never finish
+        let transport = try makeTransport()
+        await transport.start()
+
+        let collector = Task { () -> [ChatEvent] in
+            var collected: [ChatEvent] = []
+            for await event in transport.events {
+                collected.append(event)
+            }
+            return collected
+        }
+        await transport.send(.prompt(text: "mid"))
+        try await Task.sleep(nanoseconds: 250_000_000)   // let messageStart + "stale" delta stream
+        transport.primeHistory([ChatMessage(id: "2", role: .agent, text: "B", isStreaming: false)])
+        try await Task.sleep(nanoseconds: 250_000_000)   // the superseded turn's terminal would fire here
+        await transport.stop()                            // finishes the event stream so the collector ends
+        let events = await collector.value
+
+        XCTAssertFalse(events.contains { if case .messageEnd = $0 { return true }; return false },
+                       "a turn superseded by a prime emits no terminal messageEnd, so nothing is finalized/persisted into the restored conversation")
+    }
+
     // MARK: - Construction
 
     func testMissingBaseURLThrows() {
