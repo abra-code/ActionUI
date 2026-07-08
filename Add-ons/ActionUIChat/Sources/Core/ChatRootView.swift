@@ -31,6 +31,10 @@ struct ChatRootView: View {
     // and a "jump to latest" pill appears; returning to the bottom or tapping the pill re-pins.
     @State private var isPinnedToBottom = true
     private static let bottomThreshold: CGFloat = 24   // within this many points of the bottom counts as pinned
+    // The awaiting-reply spinner shows only if the first token has not arrived within this delay, so a
+    // fast reply never flashes it. Driven by the body's .task(id:) tied to the awaiting condition.
+    @State private var awaitingLongEnough = false
+    private static let awaitingSpinnerDelay: Duration = .seconds(2)
 
     init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger, viewModel: ViewModel? = nil) {
         self.config = config
@@ -74,11 +78,31 @@ struct ChatRootView: View {
         }
         .onAppear { store.start() }
         .onDisappear { store.teardown() }
+        .task(id: isAwaitingReply) {
+            // Delay the awaiting spinner so a fast reply never flashes it: show it only if the
+            // awaiting state still holds after the delay. The id restarts this whenever the awaiting
+            // condition flips, so a reply arriving within the delay cancels the pending show.
+            guard isAwaitingReply else {
+                awaitingLongEnough = false
+                return
+            }
+            awaitingLongEnough = false
+            try? await Task.sleep(for: Self.awaitingSpinnerDelay)
+            if !Task.isCancelled {
+                awaitingLongEnough = true
+            }
+        }
     }
 
     /// While an approval is pending, the composer input pauses (the Stop control stays live).
     private var permissionPending: Bool {
         !store.pendingPermissions.isEmpty
+    }
+
+    /// The awaiting-reply gap: a prompt is in flight but nothing has streamed yet. The spinner shows
+    /// only once this has held for `awaitingSpinnerDelay` (gated by awaitingLongEnough in the body).
+    private var isAwaitingReply: Bool {
+        store.awaitingReply && !store.isStreaming
     }
 
     // MARK: - Transcript
@@ -90,6 +114,9 @@ struct ChatRootView: View {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(store.items) { item in
                             row(for: item).id(item.id)
+                        }
+                        if isAwaitingReply && awaitingLongEnough {
+                            awaitingIndicator
                         }
                         bottomSentinel(viewport: viewport)
                     }
@@ -190,13 +217,36 @@ struct ChatRootView: View {
         }
     }
 
+    // Shown in the gap between submitting a prompt and the first streamed reply event: a spinner
+    // styled like a nascent assistant message (role label + tinted bubble), so the transcript
+    // reflects that the model is working before the first token arrives. Once anything streams
+    // (isStreaming) or the turn ends, the store clears awaitingReply and this is gone.
+    private var awaitingIndicator: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if config.showRoleLabels {
+                let label = config.style(for: .agent).label
+                if !label.isEmpty {
+                    Text(label).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            ProgressView()
+                .controlSize(.small)
+                .padding(10)
+                .background(ChatTint.color(for: config.style(for: .agent).tint).opacity(0.12),
+                            in: RoundedRectangle(cornerRadius: 10))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .id("chat.awaiting.indicator")
+    }
+
     // MARK: - Composer
 
     @ViewBuilder
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
             inputField
-            if store.isStreaming {
+            if store.isStreaming || store.awaitingReply {
+                // Stop is live during the awaiting gap too, so a slow/hung first token is cancellable.
                 Button(role: .destructive) { store.stop() } label: {
                     Image(systemName: "stop.circle.fill").imageScale(.large)
                 }

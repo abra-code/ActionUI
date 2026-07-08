@@ -50,6 +50,7 @@ final class ChatStore: ObservableObject {
 
     @Published private(set) var items: [ChatItem] = []
     @Published private(set) var isStreaming = false       // a reply turn is in flight
+    @Published private(set) var awaitingReply = false      // a prompt was submitted but no reply event has arrived yet - the "connecting / thinking" gap before the first token. The view shows a spinner while awaitingReply && !isStreaming (isStreaming only flips true on the first streamed event, not at submit).
     @Published private(set) var isConfigured = false      // a viable transport has been built from states["config"]; the composer gates on this
     @Published private(set) var pendingPermissions: [PermissionRequest] = []   // FIFO; the card shows the head
     @Published private(set) var plan: [PlanEntry] = []    // the agent's current plan (whole-list replace)
@@ -260,6 +261,10 @@ final class ChatStore: ObservableObject {
         fire(config.sendActionID)
         fire(config.messageActionID)
         fireEntry(type: "message", id: itemID, data: ChatItem.message(message))
+        // Enter the awaiting-reply state: the turn is submitted but nothing has streamed back yet.
+        // Cleared by the terminal messageEnd / error (or a restore); until then the view shows a
+        // "thinking" spinner, because isStreaming only flips true on the first streamed event.
+        awaitingReply = true
         let transport = self.transport
         Task { await transport?.send(.prompt(text: text)) }
     }
@@ -301,6 +306,11 @@ final class ChatStore: ObservableObject {
         configCancellable = nil
         streamBuffers.removeAll()
         pendingPermissions.removeAll()
+        // Clear the in-flight turn state too: the @StateObject store outlives a disappear/reappear
+        // cycle, so a turn abandoned by teardown must not leave isStreaming / awaitingReply stuck
+        // true - which would show a permanent spinner and a dead Stop button on reappearance.
+        isStreaming = false
+        awaitingReply = false
         let transport = self.transport
         self.transport = nil
         Task { await transport?.stop() }
@@ -358,6 +368,7 @@ final class ChatStore: ObservableObject {
             // on cancel) is moot.
             if stopReason != nil {
                 isStreaming = false
+                awaitingReply = false
                 pendingPermissions.removeAll()
             }
 
@@ -466,6 +477,7 @@ final class ChatStore: ObservableObject {
             localCounter += 1
             let itemID = "error-\(localCounter)"
             items.append(.error(id: itemID, text: message))
+            awaitingReply = false   // defensive: a transport that errors without a trailing messageEnd still drops the spinner
             fire(config.errorActionID)
             fireEntry(type: "error", id: itemID, data: ChatItem.error(id: itemID, text: message))
         }
@@ -494,6 +506,7 @@ final class ChatStore: ObservableObject {
         plan = transcript.plan
         title = transcript.title
         isStreaming = false
+        awaitingReply = false
         pendingPermissions.removeAll()
         streamBuffers.removeAll()
         // Advance the id counter past any store-generated ids (user-/system-/error-N) in the loaded

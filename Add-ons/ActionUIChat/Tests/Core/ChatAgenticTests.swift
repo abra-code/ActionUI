@@ -83,6 +83,40 @@ final class ChatRouterTests: XCTestCase {
         XCTAssertFalse(store.isStreaming)
     }
 
+    func testAwaitingReplyShowsThenClearsAcrossATurn() {
+        let store = makeStore()
+        store.send("hello")
+        XCTAssertTrue(store.awaitingReply, "submitting a prompt enters the awaiting-reply state")
+        XCTAssertFalse(store.isStreaming, "nothing has streamed yet, so the spinner (awaitingReply && !isStreaming) shows")
+
+        store.route(.messageStart(itemID: "m1", role: .agent))
+        XCTAssertTrue(store.isStreaming, "the first streamed event takes over; the spinner hides because isStreaming is now true")
+
+        store.route(.messageEnd(itemID: "m1", stopReason: "end_turn"))
+        XCTAssertFalse(store.awaitingReply, "the finished turn clears awaitingReply so the spinner cannot reappear when isStreaming drops")
+        XCTAssertFalse(store.isStreaming)
+    }
+
+    func testAwaitingReplyClearsWhenATurnErrorsBeforeStreaming() {
+        let store = makeStore()
+        store.send("hello")
+        XCTAssertTrue(store.awaitingReply)
+        store.route(.error(message: "connection failed", recoverable: true))
+        XCTAssertFalse(store.awaitingReply, "an error before any content clears the awaiting state (no lingering spinner)")
+    }
+
+    func testTeardownClearsAStuckAwaitingReply() {
+        // The @StateObject store outlives a view disappear/reappear. A view torn down mid-await
+        // (awaitingReply true, nothing streamed yet) must not leave the flag stuck, or the
+        // reappearing view shows a permanent spinner + a dead Stop button.
+        let store = makeStore()
+        store.send("hello")
+        XCTAssertTrue(store.awaitingReply)
+        store.teardown()
+        XCTAssertFalse(store.awaitingReply, "teardown clears a mid-await awaitingReply so a reappearing view has no stale spinner")
+        XCTAssertFalse(store.isStreaming)
+    }
+
     func testHiddenSurfacesDropAgenticItems() {
         let store = makeStore(properties: ["surfaces": ["toolCalls": "hidden", "thoughts": "hidden"]])
         store.route(.thoughtDelta(itemID: "th1", text: "hidden"))
