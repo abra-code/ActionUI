@@ -99,8 +99,30 @@ enum DemoSetup {
         "QuickLook.compact": 72,         // QuickLook.compact.json (previewStyle: compact)
     ]
 
+    // Chat's operational settings (protocol + transport) are not document-declared - a host
+    // injects them at runtime into the element's states["config"] (see ActionUIChatDemo.swift's
+    // ACP demo for the pattern). Each entry here is (element id in that document, config value).
+    // A function, not a stored global, since `[String: Any]` is not Sendable.
+    private static func chatDemoConfig(for resource: String) -> (viewID: Int, config: [String: Any])? {
+        switch resource {
+        case "Chat":
+            return (80, ["protocol": "local", "transport": ["echo": true]])
+        case "Chat.modifierReturn":
+            return (81, ["protocol": "local", "transport": ["echo": true]])
+        case "Chat.markdown":
+            return (82, ["protocol": "local", "transport": ["echo": true, "reply": "markdown"]])
+        case "Chat.agentic":
+            return (83, ["protocol": "local", "transport": ["reply": "agentic"]])
+        default:
+            return nil
+        }
+    }
+
     @MainActor
     static func run(resource: String, windowUUID: String) {
+        if let (viewID, config) = chatDemoConfig(for: resource) {
+            ActionUISwift.setElementState(windowUUID: windowUUID, viewID: viewID, key: "config", value: config)
+        }
         // Drive the demo's QuickLook element with the bundled multi-page Sample.pdf at runtime (not a
         // hardcoded JSON path) so it works on macOS and iOS, where the file lives in the app bundle.
         // A multi-page PDF exercises Quick Look's embedded page scroller. Regenerate the PDF with
