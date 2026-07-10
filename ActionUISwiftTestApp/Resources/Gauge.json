@@ -1,35 +1,58 @@
 {
   "type": "VStack",
   "properties": {
-    "spacing": 10.0,
+    "spacing": 16.0,
     "alignment": "center",
     "padding": "default"
   },
   "children": [
     {
       "type": "Text",
-      "properties": {
-        "text": "Gauge Variants"
-      }
+      "properties": { "text": "Gauge Variants", "font": "headline" }
     },
     {
-      "type": "Gauge",
-      "properties": {
-        "value": 65,
-        "style": "accessoryCircular",
-        "range": {
-          "min": 0.0,
-          "max": 100.0
+      "type": "Text",
+      "properties": { "text": "Circular - intrinsic size", "font": "caption", "foregroundColor": "secondary" }
+    },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 28.0, "alignment": "center" },
+      "children": [
+        {
+          "type": "Gauge",
+          "properties": { "style": "accessoryCircular", "value": 65, "range": { "min": 0.0, "max": 100.0 }, "title": "65%", "tint": "blue", "foregroundColor": "blue" }
+        },
+        {
+          "type": "Gauge",
+          "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "title": "3/4", "tint": "green", "foregroundColor": "green" }
         }
-      }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "Circular - scaleEffect 2 (larger)", "font": "caption", "foregroundColor": "secondary" }
+    },
+    {
+      "type": "ZStack",
+      "properties": { "frame": { "width": 160, "height": 160 } },
+      "children": [
+        {
+          "type": "Gauge",
+          "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "scaleEffect": 2.0, "tint": "orange", "foregroundColor": "orange" }
+        }
+      ]
+    },
+    {
+      "type": "Text",
+      "properties": { "text": "Linear + default style", "font": "caption", "foregroundColor": "secondary" }
     },
     {
       "type": "Gauge",
-      "properties": {
-        "value": 0.4,
-        "title": "Level",
-        "style": "accessoryLinear"
-      }
+      "properties": { "style": "accessoryLinear", "value": 0.4, "title": "Level", "frame": { "maxWidth": "infinity" } }
+    },
+    {
+      "type": "Gauge",
+      "properties": { "value": 0.25, "title": "Default style shows its title", "frame": { "maxWidth": "infinity" } }
     }
   ]
 }

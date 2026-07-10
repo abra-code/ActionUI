@@ -1413,8 +1413,15 @@
 .aui-gauge-circular {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    /* SwiftUI's accessory-circular gauge has a fixed intrinsic diameter (~71pt) and
+       `scaleEffect` scales that (the CSS `scale` ModifierResolver applies), so the
+       ring is base * scaleEffect - the same model iOS uses. The old 40px undershot
+       the intrinsic: a framed, scaled ring (BodyMetrics: 180 ZStack, scaleEffect 2.7)
+       came out ~108px, ~1.8x too small vs iOS's ~192pt. 71px reproduces iOS both
+       framed (71 * 2.7 = 192) and bare. Overflow past a smaller frame is not clipped
+       here (no clipShape on web), matching iOS. */
+    width: 71px;
+    height: 71px;
     color: var(--aui-color-accent);
 }
 .aui-gauge-circular > * { grid-area: 1 / 1; }

@@ -37,6 +37,21 @@
         { "type": "Gauge", "properties": { "style": "accessoryLinearCapacity", "value": 0.8, "frame": { "width": 80 } } }
       ]
     },
+    { "type": "Text", "properties": { "text": "Circular gauge - intrinsic vs scaleEffect 2 (larger)", "font": "caption", "foregroundColor": "secondary" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 28, "alignment": "center" },
+      "children": [
+        { "type": "Gauge", "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "title": "3/4", "tint": "green", "foregroundColor": "green" } },
+        {
+          "type": "ZStack",
+          "properties": { "frame": { "width": 160, "height": 160 } },
+          "children": [
+            { "type": "Gauge", "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "scaleEffect": 2.0, "tint": "orange", "foregroundColor": "orange" } }
+          ]
+        }
+      ]
+    },
     { "type": "Divider" },
     {
       "type": "HStack",
