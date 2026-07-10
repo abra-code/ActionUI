@@ -41,16 +41,19 @@ test("disabled toggles class + property both ways", () => {
     assert.equal(n.disabled, false);
 });
 
-test("color properties resolve; foregroundStyle aliases foregroundColor; invalid resets + warns", () => {
+test("color properties: foregroundStyle sets color, foregroundColor is retired, invalid resets + warns", () => {
     const logger = makeLogger();
     const n = makeElement();
-    applyElementProperty(n, "foregroundColor", "#ff0000", logger);
-    assert.equal(n.style.color, "#ff0000");
     applyElementProperty(n, "foregroundStyle", "#00ff00", logger);
-    assert.equal(n.style.color, "#00ff00", "foregroundStyle is an alias for foregroundColor");
+    assert.equal(n.style.color, "#00ff00");
     applyElementProperty(n, "background", "#0000ff", logger);
     assert.equal(n.style.backgroundColor, "#0000ff");
     assert.equal(logger.warningCount(), 0);
+
+    // foregroundColor is the retired SwiftUI name (Apple/Android only honor foregroundStyle);
+    // it is no longer a recognized property.
+    assert.equal(applyElementProperty(n, "foregroundColor", "#ff0000", logger), false);
+    assert.ok(logger.warned("not a host-settable visual property"));
 
     applyElementProperty(n, "background", "notacolor", logger);
     assert.equal(n.style.backgroundColor, "", "an unresolvable color resets to default");

@@ -6,7 +6,7 @@
 //   hidden           Boolean
 //   disabled         Boolean
 //   opacity          Number 0..1
-//   foregroundColor  SwiftUI color name or hex string
+//   foregroundStyle  SwiftUI color name or hex string
 //   background       SwiftUI color name or hex string
 //   cornerRadius     Number
 //   font             Named text style ("largeTitle".."caption2") — CSS class
@@ -274,15 +274,13 @@ const PROPERTY_APPLIERS = {
         const control = node.querySelector?.("button, input, textarea, select");
         if (control) control.disabled = on;
     },
-    foregroundColor: (node, value, logger) => { node.style.color = resolveColor(value, logger) ?? ""; },
+    foregroundStyle: (node, value, logger) => { node.style.color = resolveColor(value, logger) ?? ""; },
     background: (node, value, logger) => { node.style.backgroundColor = resolveColor(value, logger) ?? ""; },
     // The independent CSS `scale` / `rotate` transform properties (not `transform`),
     // so the two compose without clobbering each other and each animates on its own.
     scaleEffect: (node, value) => { node.style.scale = typeof value === "number" ? String(value) : ""; },
     rotationEffect: (node, value) => { node.style.rotate = typeof value === "number" ? `${value}deg` : ""; },
 };
-// `foregroundStyle` is the canonical name; `foregroundColor` is its alias - both set color.
-PROPERTY_APPLIERS.foregroundStyle = PROPERTY_APPLIERS.foregroundColor;
 
 // Applies one runtime property mutation to [node]. Returns true if [name] is a
 // host-settable visual property (and was applied), false (with a warning) otherwise.
@@ -311,7 +309,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
         node.style.overflow = "hidden";
     }
 
-    const foreground = resolveColor(properties.foregroundColor, logger);
+    const foreground = resolveColor(properties.foregroundStyle, logger);
     if (foreground) node.style.color = foreground;
     const background = resolveColor(properties.background, logger);
     if (background) node.style.backgroundColor = background;

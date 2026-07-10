@@ -35,7 +35,7 @@
             "properties": {
               "text": "Size: ...",
               "font": "caption",
-              "foregroundColor": "#666666"
+              "foregroundStyle": "#666666"
             }
           }
         ]
@@ -46,7 +46,7 @@
       "properties": {
         "text": "Below GeometryReader",
         "font": "caption",
-        "foregroundColor": "#999999",
+        "foregroundStyle": "#999999",
         "padding": "default"
       }
     }

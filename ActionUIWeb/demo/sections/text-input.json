@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Text Input", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "TextField with a submit action; type a name and press Return or Greet (the status line at the bottom of the window echoes the result):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "TextField with a submit action; type a name and press Return or Greet (the status line at the bottom of the window echoes the result):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -14,7 +14,7 @@
     },
     { "type": "Toggle", "id": 3, "properties": { "title": "Shout the greeting", "actionID": "shoutChanged" } },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "SecureField (masked entry):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "SecureField (masked entry):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -24,7 +24,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "TextEditor (multi-line, scrolls internally):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "TextEditor (multi-line, scrolls internally):", "foregroundStyle": "secondary", "font": "callout" } },
     { "type": "TextEditor", "id": 95, "properties": { "placeholder": "Meeting notes…", "valueChangeActionID": "notesChanged", "frame": { "maxWidth": "infinity", "height": 90 } } }
   ]
 }

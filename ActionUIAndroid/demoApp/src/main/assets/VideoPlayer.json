@@ -47,7 +47,7 @@
       "properties": {
         "text": "Tap the video for the transport controls; the host can swap the source.",
         "font": "caption",
-        "foregroundColor": "#666666"
+        "foregroundStyle": "#666666"
       }
     }
   ]

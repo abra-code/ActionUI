@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Presentation", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Element-level presentation modifiers - a 'popover' / 'sheet' / 'fullScreenCover' subview opens off the carrier's own state (a Button taps it open; the host can also setElementState):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Element-level presentation modifiers - a 'popover' / 'sheet' / 'fullScreenCover' subview opens off the carrier's own state (a Button taps it open; the host can also setElementState):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12, "alignment": "center" },
@@ -17,7 +17,7 @@
             "properties": { "alignment": "leading", "spacing": 8, "padding": "default", "frame": { "width": 240 } },
             "children": [
               { "type": "Text", "properties": { "text": "Popover content", "font": "headline" } },
-              { "type": "Text", "properties": { "text": "A top-layer panel anchored to the button. Click outside or press Escape to dismiss.", "font": "footnote", "foregroundColor": "secondary" } },
+              { "type": "Text", "properties": { "text": "A top-layer panel anchored to the button. Click outside or press Escape to dismiss.", "font": "footnote", "foregroundStyle": "secondary" } },
               { "type": "Toggle", "id": 305, "properties": { "title": "A live control", "isOn": true } }
             ]
           }
@@ -25,7 +25,7 @@
         {
           "type": "Text",
           "id": 306,
-          "properties": { "text": "Text with a popover (tap me)", "foregroundColor": "accentColor", "popoverArrowEdge": "bottom" },
+          "properties": { "text": "Text with a popover (tap me)", "foregroundStyle": "accentColor", "popoverArrowEdge": "bottom" },
           "popover": {
             "type": "Text",
             "properties": { "text": "Any view can carry a popover.", "padding": "default" }
@@ -46,7 +46,7 @@
             "properties": { "alignment": "leading", "spacing": 14, "padding": "default", "frame": { "width": 360 } },
             "children": [
               { "type": "Text", "properties": { "text": "Sheet", "font": "title2" } },
-              { "type": "Text", "properties": { "text": "A native <dialog> shown with showModal(). Dismiss with Escape, the backdrop, or the button below (which calls setElementState sheetVisible=false).", "foregroundColor": "secondary" } },
+              { "type": "Text", "properties": { "text": "A native <dialog> shown with showModal(). Dismiss with Escape, the backdrop, or the button below (which calls setElementState sheetVisible=false).", "foregroundStyle": "secondary" } },
               { "type": "Toggle", "id": 307, "properties": { "title": "A live control inside the sheet", "isOn": false } },
               { "type": "Button", "properties": { "title": "Done", "buttonStyle": "borderedProminent", "actionID": "demoSheetClose" } }
             ]
@@ -61,7 +61,7 @@
             "properties": { "alignment": "center", "spacing": 16, "padding": "default", "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
             "children": [
               { "type": "Text", "properties": { "text": "Full Screen Cover", "font": "largeTitle" } },
-              { "type": "Text", "properties": { "text": "Fills the viewport. No OS cover on a desktop target - Escape or the button dismisses.", "foregroundColor": "secondary" } },
+              { "type": "Text", "properties": { "text": "Fills the viewport. No OS cover on a desktop target - Escape or the button dismisses.", "foregroundStyle": "secondary" } },
               { "type": "Button", "properties": { "title": "Close", "systemImage": "xmark", "buttonStyle": "borderedProminent", "actionID": "demoCoverClose" } }
             ]
           }
@@ -69,7 +69,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Window-level dialogs (a native top-layer <dialog>):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Window-level dialogs (a native top-layer <dialog>):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -79,7 +79,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Window-level modals (presentModal loads a JSON sub-document into a native <dialog>; the modal's Close button routes an actionID to dismissModal):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Window-level modals (presentModal loads a JSON sub-document into a native <dialog>; the modal's Close button routes an actionID to dismissModal):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -89,7 +89,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Window-level toast (a transient non-modal snackbar; rapid posts queue and show one at a time):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Window-level toast (a transient non-modal snackbar; rapid posts queue and show one at a time):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -99,7 +99,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "contextMenu (any view): right-click on a desktop, or long-press on touch, to open an action menu. contextMenu / contextMenuPreview are TOP-LEVEL subview keys holding real elements (Buttons for actions; an arbitrary preview view), modeled after SwiftUI's .contextMenu(menuItems:preview:). Below, a small image thumbnail enlarges in the preview; each Button fires its actionID (echoed above).", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "contextMenu (any view): right-click on a desktop, or long-press on touch, to open an action menu. contextMenu / contextMenuPreview are TOP-LEVEL subview keys holding real elements (Buttons for actions; an arbitrary preview view), modeled after SwiftUI's .contextMenu(menuItems:preview:). Below, a small image thumbnail enlarges in the preview; each Button fires its actionID (echoed above).", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Image",
       "id": 320,
@@ -124,7 +124,7 @@
         }
       }
     },
-    { "type": "Text", "properties": { "text": "...and the preview is an arbitrary view, so it can be an HStack of items side by side (which a menu list can't lay out):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "...and the preview is an arbitrary view, so it can be an HStack of items side by side (which a menu list can't lay out):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Text",
       "id": 321,
@@ -141,9 +141,9 @@
         "type": "HStack",
         "properties": { "spacing": 16, "padding": "default" },
         "children": [
-          { "type": "Image", "properties": { "systemName": "star.fill", "foregroundColor": "yellow", "imageScale": "large" } },
-          { "type": "Image", "properties": { "systemName": "heart.fill", "foregroundColor": "pink", "imageScale": "large" } },
-          { "type": "Image", "properties": { "systemName": "bolt.fill", "foregroundColor": "orange", "imageScale": "large" } }
+          { "type": "Image", "properties": { "systemName": "star.fill", "foregroundStyle": "yellow", "imageScale": "large" } },
+          { "type": "Image", "properties": { "systemName": "heart.fill", "foregroundStyle": "pink", "imageScale": "large" } },
+          { "type": "Image", "properties": { "systemName": "bolt.fill", "foregroundStyle": "orange", "imageScale": "large" } }
         ]
       }
     }

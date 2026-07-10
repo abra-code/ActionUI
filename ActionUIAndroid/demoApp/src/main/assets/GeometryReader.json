@@ -35,7 +35,7 @@
             "properties": {
               "text": "Tap 'Read size' to read states['size']",
               "font": "caption",
-              "foregroundColor": "#666666"
+              "foregroundStyle": "#666666"
             }
           }
         ]
@@ -54,7 +54,7 @@
       "properties": {
         "text": "Below GeometryReader",
         "font": "caption",
-        "foregroundColor": "#999999"
+        "foregroundStyle": "#999999"
       }
     }
   ]

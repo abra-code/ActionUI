@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Overview", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "This whole page is a NavigationSplitView shell - each sidebar entry is a separate, feature-focused JSON file loaded on demand by a LoadableView. browserHistory:web is on, so the browser Back/Forward buttons switch sections. The shell is responsive: narrow the window and it collapses to a single column (a Back arrow returns to the section list); the sidebarAdaptable TabView in Navigation likewise collapses its rail to a top strip.", "foregroundColor": "secondary" } },
-    { "type": "Text", "properties": { "text": "ActionUIWeb renders SwiftUI-shaped JSON to the DOM - the same documents that drive the Apple and Android renderers. The sections are split by feature so each stays focused.", "foregroundColor": "secondary" } }
+    { "type": "Text", "properties": { "text": "This whole page is a NavigationSplitView shell - each sidebar entry is a separate, feature-focused JSON file loaded on demand by a LoadableView. browserHistory:web is on, so the browser Back/Forward buttons switch sections. The shell is responsive: narrow the window and it collapses to a single column (a Back arrow returns to the section list); the sidebarAdaptable TabView in Navigation likewise collapses its rail to a top strip.", "foregroundStyle": "secondary" } },
+    { "type": "Text", "properties": { "text": "ActionUIWeb renders SwiftUI-shaped JSON to the DOM - the same documents that drive the Apple and Android renderers. The sections are split by feature so each stays focused.", "foregroundStyle": "secondary" } }
   ]
 }

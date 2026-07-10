@@ -12,7 +12,7 @@
     },
     {
       "type": "Text",
-      "properties": { "text": "Circular - intrinsic size", "font": "caption", "foregroundColor": "secondary" }
+      "properties": { "text": "Circular - intrinsic size", "font": "caption", "foregroundStyle": "secondary" }
     },
     {
       "type": "HStack",
@@ -20,17 +20,17 @@
       "children": [
         {
           "type": "Gauge",
-          "properties": { "style": "accessoryCircular", "value": 65, "range": { "min": 0.0, "max": 100.0 }, "title": "65%", "tint": "blue", "foregroundColor": "blue" }
+          "properties": { "style": "accessoryCircular", "value": 65, "range": { "min": 0.0, "max": 100.0 }, "title": "65%", "tint": "blue", "foregroundStyle": "blue" }
         },
         {
           "type": "Gauge",
-          "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "title": "3/4", "tint": "green", "foregroundColor": "green" }
+          "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "title": "3/4", "tint": "green", "foregroundStyle": "green" }
         }
       ]
     },
     {
       "type": "Text",
-      "properties": { "text": "Circular - scaleEffect 2 (larger)", "font": "caption", "foregroundColor": "secondary" }
+      "properties": { "text": "Circular - scaleEffect 2 (larger)", "font": "caption", "foregroundStyle": "secondary" }
     },
     {
       "type": "ZStack",
@@ -38,13 +38,13 @@
       "children": [
         {
           "type": "Gauge",
-          "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "scaleEffect": 2.0, "tint": "orange", "foregroundColor": "orange" }
+          "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "scaleEffect": 2.0, "tint": "orange", "foregroundStyle": "orange" }
         }
       ]
     },
     {
       "type": "Text",
-      "properties": { "text": "Linear + default style", "font": "caption", "foregroundColor": "secondary" }
+      "properties": { "text": "Linear + default style", "font": "caption", "foregroundStyle": "secondary" }
     },
     {
       "type": "Gauge",

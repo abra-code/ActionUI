@@ -2,7 +2,7 @@
   "type": "VStack",
   "properties": { "spacing": 12, "padding": 16, "alignment": "leading" },
   "children": [
-    { "type": "Text", "properties": { "text": "Runtime structural mutation: insertElement / insertRow / removeElement (Apple parity). Each button calls the host's ActionUIModel; the container recomposes.", "foregroundColor": "secondary", "font": "footnote" } },
+    { "type": "Text", "properties": { "text": "Runtime structural mutation: insertElement / insertRow / removeElement (Apple parity). Each button calls the host's ActionUIModel; the container recomposes.", "foregroundStyle": "secondary", "font": "footnote" } },
 
     { "type": "Text", "properties": { "text": "Flat container - VStack children", "font": "headline" } },
     {
@@ -32,8 +32,8 @@
       "properties": { "alignment": "leading", "horizontalSpacing": 24, "verticalSpacing": 6 },
       "rows": [
         [
-          { "type": "Text", "properties": { "text": "Name", "foregroundColor": "secondary" } },
-          { "type": "Text", "properties": { "text": "Note", "foregroundColor": "secondary" } }
+          { "type": "Text", "properties": { "text": "Name", "foregroundStyle": "secondary" } },
+          { "type": "Text", "properties": { "text": "Note", "foregroundStyle": "secondary" } }
         ]
       ]
     },

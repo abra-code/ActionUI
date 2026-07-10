@@ -27,7 +27,7 @@
    // Data is set at runtime via setElementRows(windowUUID:viewID:rows:).
    //
    // Note: The spacing and alignment properties are specific to HStack. Baseline View properties (padding, hidden,
-   // foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and
+   // foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and
    // additional View protocol modifiers are inherited and applied via
    // ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }

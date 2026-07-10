@@ -121,7 +121,7 @@ def main():
                 "properties": {
                     "content": "Enter your name above",
                     "font": "headline",
-                    "foregroundColor": "blue"
+                    "foregroundStyle": "blue"
                 }
             },
             {

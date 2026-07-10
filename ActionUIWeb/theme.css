@@ -1364,7 +1364,7 @@
 /* ---- Slider ---- */
 
 .aui-slider {
-    /* Native range control, tinted to the accent (foregroundColor overrides via
+    /* Native range control, tinted to the accent (foregroundStyle overrides via
        the inline accent-color the modifier resolver may set). */
     accent-color: var(--aui-color-accent);
     width: 100%;
@@ -1390,7 +1390,7 @@
 /* A read-only level indicator. Linear styles are a native <meter> — the DOM's
    own gauge element — tinted via the vendor bar pseudos (<meter> ignores
    accent-color); circular styles are a conic-gradient ring drawn in
-   currentColor (accent by default, so foregroundColor tints it) with the
+   currentColor (accent by default, so foregroundStyle tints it) with the
    title centered in the hole. */
 .aui-gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .aui-gauge-title { color: var(--aui-color-primary); }

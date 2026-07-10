@@ -23,7 +23,6 @@ All elements inherit these `properties` keys. None are required.
 | Property | Type | Notes |
 |----------|------|-------|
 | `foregroundStyle` | color | Text/icon color. Hex `#RRGGBB[AA]`, named (`red`, `blue`, etc.), or semantic (`primary`, `secondary`, etc.) |
-| `foregroundColor` | color | Alias for `foregroundStyle` |
 | `tint` | color | Interactive control tint (buttons, toggles, sliders) |
 | `background` | color | Background fill (string form). Use `background` top-level key for a view background. |
 | `opacity` | number | 0.0–1.0 |

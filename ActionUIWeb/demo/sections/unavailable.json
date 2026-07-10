@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Unavailable Views", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Empty states (ContentUnavailableView: hero glyph, title, description) and the built-in search variant:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Empty states (ContentUnavailableView: hero glyph, title, description) and the built-in search variant:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "top", "frame": { "maxWidth": "infinity" } },

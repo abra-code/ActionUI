@@ -85,7 +85,7 @@
     //
     //      Note: NavigationSplitView sidebar selection is handled by NavigationSplitView.buildSidebarList(),
     //      which constructs its own List(selection:) — it does not go through this List.buildView path.
-    //      Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity,
+    //      Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
     //      cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and
     //      applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
     //      The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.

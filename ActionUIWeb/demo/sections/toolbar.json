@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Toolbar", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Toolbar (chrome on any view: leading / trailing group / bottom bar). toolbarTitleDisplayMode 'large' renders a big title row; secondaryAction items collapse into the trailing overflow ('...') menu:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Toolbar (chrome on any view: leading / trailing group / bottom bar). toolbarTitleDisplayMode 'large' renders a big title row; secondaryAction items collapse into the trailing overflow ('...') menu:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "VStack",
       "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Documents", "toolbarTitleDisplayMode": "large", "frame": { "maxWidth": "infinity" } },
@@ -29,7 +29,7 @@
             { "type": "Button", "properties": { "title": "Duplicate", "systemImage": "plus.square.on.square", "actionID": "toolbarDuplicate" } }
           ]
         },
-        { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundColor": "secondary" } } }
+        { "type": "ToolbarItem", "properties": { "placement": "bottomBar" }, "content": { "type": "Text", "properties": { "text": "3 items", "foregroundStyle": "secondary" } } }
       ]
     }
   ]

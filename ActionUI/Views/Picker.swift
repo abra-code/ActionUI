@@ -19,7 +19,7 @@
    }
    // Note: actionID is triggered from the binding setter, so it only fires on user-initiated changes
    // (not on programmatic value updates). The selected tag is passed as `context` (Any?) to the handler.
-   // Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity,
+   // Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
    // cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
  }
  */

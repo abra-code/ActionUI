@@ -140,7 +140,7 @@ export class ActionUIModel {
     // reactive re-render, so this mutates the live node directly via the surgical
     // per-property appliers (ModifierResolver.applyElementProperty) - only the
     // animatable / host-driven *visual* View properties (opacity, hidden,
-    // cornerRadius, foregroundColor/Style, background, disabled, help); an
+    // cornerRadius, foregroundStyle, background, disabled, help); an
     // unsupported name warns and is a no-op. Same-node by design, so it does not
     // disturb input focus/scroll and a future `animation` transition can ease it.
     // The override is recorded per id (cleared on removeElement).

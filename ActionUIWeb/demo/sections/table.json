@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Table", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "A real <table> (the web is a desktop target, so it follows macOS rather than the Android no-op). The widest-ideal column auto-sizes to fill; the visible separator on each header's right edge is a drag handle - grab it to resize that column. The table sits in its own scroller (bounded here to maxHeight 200), so adding rows or widening columns past the frame scrolls instead of clipping. On a phone this table opts into stackedCards:web, so each row becomes a label:value card (narrow the window to see it).", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "A real <table> (the web is a desktop target, so it follows macOS rather than the Android no-op). The widest-ideal column auto-sizes to fill; the visible separator on each header's right edge is a drag handle - grab it to resize that column. The table sits in its own scroller (bounded here to maxHeight 200), so adding rows or widening columns past the frame scrolls instead of clipping. On a phone this table opts into stackedCards:web, so each row becomes a label:value card (narrow the window to see it).", "foregroundStyle": "secondary" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -30,7 +30,7 @@
         "frame": { "maxWidth": 460, "maxHeight": 200 }
       }
     },
-    { "type": "Text", "properties": { "text": "Programmatic selection (silent: select by index, find by content in the Name column, or deselect):", "foregroundColor": "secondary", "font": "footnote" } },
+    { "type": "Text", "properties": { "text": "Programmatic selection (silent: select by index, find by content in the Name column, or deselect):", "foregroundStyle": "secondary", "font": "footnote" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -41,7 +41,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Headerless table (columnHeadersVisibility: \"hidden\") - a static, design-time choice (as on Apple/Android): the header row is suppressed, so there is nothing to grab and the columns are not resizable.", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Headerless table (columnHeadersVisibility: \"hidden\") - a static, design-time choice (as on Apple/Android): the header row is suppressed, so there is nothing to grab and the columns are not resizable.", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Table",
       "id": 108,

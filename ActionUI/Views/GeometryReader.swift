@@ -30,7 +30,7 @@
  // pushing siblings to their minimum size. Use with care in stacks.
  //
  // Note: These properties are specific to GeometryReader. Baseline View properties (padding, hidden,
- // foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional
+ // foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional
  // View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to:
  // baseView, properties: element.properties).
 */

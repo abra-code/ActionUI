@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Shapes & Layout", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Shapes (fill, stroke, bare):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Shapes (fill, stroke, bare):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12 },
@@ -16,7 +16,7 @@
         { "type": "Ellipse", "properties": { "fill": "orange", "frame": { "width": 56, "height": 32 } } }
       ]
     },
-    { "type": "Text", "properties": { "text": "Color as a View (a greedy solid-color block - named, hex, or color.opacity; sized via frame):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Color as a View (a greedy solid-color block - named, hex, or color.opacity; sized via frame):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12, "alignment": "center" },
@@ -33,10 +33,10 @@
         }
       ]
     },
-    { "type": "Text", "properties": { "text": "A Color as a thin colored bar (240 x 2):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "A Color as a thin colored bar (240 x 2):", "foregroundStyle": "secondary", "font": "callout" } },
     { "type": "Color", "properties": { "color": "red", "frame": { "width": 240, "height": 2 } } },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "safeAreaInset (a bar pinned at an edge; the content takes the rest). Below is the layout in a bounded box; the real screen-edge clearance (under the home indicator) needs the page to fill the viewport - open the fullscreen demo and hide Safari's toolbar:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "safeAreaInset (a bar pinned at an edge; the content takes the rest). Below is the layout in a bounded box; the real screen-edge clearance (under the home indicator) needs the page to fill the viewport - open the fullscreen demo and hide Safari's toolbar:", "foregroundStyle": "secondary", "font": "callout" } },
     { "type": "Link", "properties": { "title": "Open the fullscreen SafeArea demo", "url": "safe-area.html" } },
     {
       "type": "ScrollView",
@@ -56,11 +56,11 @@
       "safeAreaInset": {
         "type": "HStack",
         "properties": { "safeAreaEdge": "bottom", "padding": 10, "background": "accentColor" },
-        "children": [ { "type": "Text", "properties": { "text": "Bottom bar (safeAreaInset)", "foregroundColor": "white" } } ]
+        "children": [ { "type": "Text", "properties": { "text": "Bottom bar (safeAreaInset)", "foregroundStyle": "white" } } ]
       }
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Frame alignment (content placed within a larger frame):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Frame alignment (content placed within a larger frame):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12 },
@@ -72,51 +72,51 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Overlay / background (view-valued decorations):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Overlay / background (view-valued decorations):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
       "children": [
         {
           "type": "Text",
-          "properties": { "text": "Background view", "padding": 12, "foregroundColor": "white", "cornerRadius": 10 },
+          "properties": { "text": "Background view", "padding": 12, "foregroundStyle": "white", "cornerRadius": 10 },
           "background": { "type": "RoundedRectangle", "properties": { "cornerRadius": 10, "fill": "indigo" } }
         },
         {
           "type": "Image",
-          "properties": { "systemName": "bell.fill", "imageScale": "large", "foregroundColor": "secondary", "frame": { "width": 44, "height": 44 }, "overlayAlignment": "topTrailing" },
-          "overlay": { "type": "Text", "properties": { "text": "3", "foregroundColor": "white", "background": "red", "cornerRadius": 8, "padding": { "top": 1, "bottom": 1, "leading": 6, "trailing": 6 }, "font": "caption2" } }
+          "properties": { "systemName": "bell.fill", "imageScale": "large", "foregroundStyle": "secondary", "frame": { "width": 44, "height": 44 }, "overlayAlignment": "topTrailing" },
+          "overlay": { "type": "Text", "properties": { "text": "3", "foregroundStyle": "white", "background": "red", "cornerRadius": 8, "padding": { "top": 1, "bottom": 1, "leading": 6, "trailing": 6 }, "font": "caption2" } }
         },
         {
           "type": "Text",
-          "properties": { "text": "Both", "padding": 14, "foregroundColor": "white", "overlayAlignment": "bottomTrailing" },
+          "properties": { "text": "Both", "padding": 14, "foregroundStyle": "white", "overlayAlignment": "bottomTrailing" },
           "background": { "type": "Capsule", "properties": { "fill": "teal" } },
-          "overlay": { "type": "Image", "properties": { "systemName": "checkmark.circle.fill", "foregroundColor": "white" } }
+          "overlay": { "type": "Image", "properties": { "systemName": "checkmark.circle.fill", "foregroundStyle": "white" } }
         }
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Grid (explicit rows, key/value):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Grid (explicit rows, key/value):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Grid",
       "properties": { "alignment": "leading", "horizontalSpacing": 16, "verticalSpacing": 6 },
       "rows": [
         [
-          { "type": "Text", "properties": { "text": "Name", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "Name", "foregroundStyle": "secondary" } },
           { "type": "Text", "properties": { "text": "ActionUIWeb" } }
         ],
         [
-          { "type": "Text", "properties": { "text": "Renderer", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "Renderer", "foregroundStyle": "secondary" } },
           { "type": "Text", "properties": { "text": "DOM + CSS" } }
         ],
         [
-          { "type": "Text", "properties": { "text": "Loaded from", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "Loaded from", "foregroundStyle": "secondary" } },
           { "type": "Label", "properties": { "title": "shapes-layout.json", "systemImage": "text.document" } }
         ]
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Group is a transparent passthrough - its children flow into the parent HStack as if it were not there:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Group is a transparent passthrough - its children flow into the parent HStack as if it were not there:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -125,16 +125,16 @@
         {
           "type": "Group",
           "children": [
-            { "type": "Image", "properties": { "systemName": "1.circle", "imageScale": "large", "foregroundColor": "accentColor" } },
-            { "type": "Image", "properties": { "systemName": "2.circle", "imageScale": "large", "foregroundColor": "accentColor" } },
-            { "type": "Image", "properties": { "systemName": "3.circle", "imageScale": "large", "foregroundColor": "accentColor" } }
+            { "type": "Image", "properties": { "systemName": "1.circle", "imageScale": "large", "foregroundStyle": "accentColor" } },
+            { "type": "Image", "properties": { "systemName": "2.circle", "imageScale": "large", "foregroundStyle": "accentColor" } },
+            { "type": "Image", "properties": { "systemName": "3.circle", "imageScale": "large", "foregroundStyle": "accentColor" } }
           ]
         },
         { "type": "Text", "properties": { "text": "After" } }
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "GeometryReader (a greedy box that fills its frame and reports its measured size to the host as states[\"size\"] - read it on demand, the same call on every platform). It fills the width; its height is a fixed 90 (the bounded-axis caveat: inside a vertical scroll there is no height to fill). Resize the window, then read the size:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "GeometryReader (a greedy box that fills its frame and reports its measured size to the host as states[\"size\"] - read it on demand, the same call on every platform). It fills the width; its height is a fixed 90 (the bounded-axis caveat: inside a vertical scroll there is no height to fill). Resize the window, then read the size:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "GeometryReader",
       "id": 410,
@@ -143,7 +143,7 @@
         "type": "VStack",
         "properties": { "alignment": "center", "spacing": 8 },
         "children": [
-          { "type": "Text", "properties": { "text": "I am a GeometryReader. My content sits at alignment 'center'.", "font": "footnote", "foregroundColor": "secondary" } },
+          { "type": "Text", "properties": { "text": "I am a GeometryReader. My content sits at alignment 'center'.", "font": "footnote", "foregroundStyle": "secondary" } },
           { "type": "Button", "properties": { "title": "Read my size", "systemImage": "ruler", "buttonStyle": "bordered", "actionID": "readGeometrySize" } }
         ]
       }

@@ -3,9 +3,9 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Lists", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "List in all three modes plus a data-driven grid. Rows for the data-driven collections are pushed from app.js once this section loads (viewDidLoadActionID).", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "List in all three modes plus a data-driven grid. Rows for the data-driven collections are pushed from app.js once this section loads (viewDidLoadActionID).", "foregroundStyle": "secondary" } },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "List (selectable children; a Button row keeps its own action):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "List (selectable children; a Button row keeps its own action):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "List",
       "id": 46,
@@ -18,7 +18,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "List with searchable (the field above emits each query change to the host via actionID; the status line below echoes it):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "List with searchable (the field above emits each query change to the host via actionID; the status line below echoes it):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "List",
       "id": 47,
@@ -35,13 +35,13 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable). Pull down from the top to refresh (touch devices): the host fetches and re-delivers rows, retracting the indicator.", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "List (homogeneous itemType rows via the rows API; selectable). Pull down from the top to refresh (touch devices): the host fetches and re-delivers rows, retracting the indicator.", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "List",
       "id": 45,
       "properties": { "itemType": { "viewType": "Text" }, "actionID": "homListSelect", "onRefreshActionID": "listRefresh", "frame": { "maxWidth": "infinity" } }
     },
-    { "type": "Text", "properties": { "text": "Programmatic selection (silent: fires no actionID; the host updates status itself):", "foregroundColor": "secondary", "font": "footnote" } },
+    { "type": "Text", "properties": { "text": "Programmatic selection (silent: fires no actionID; the host updates status itself):", "foregroundStyle": "secondary", "font": "footnote" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -52,7 +52,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "List (template repeater; $1/$2 column references, rows via the rows API):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "List (template repeater; $1/$2 column references, rows via the rows API):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "List",
       "id": 55,
@@ -66,7 +66,7 @@
       }
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "LazyVGrid (data-driven template mode; one substituted instance per row from the rows API, flowing into the grid):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "LazyVGrid (data-driven template mode; one substituted instance per row from the rows API, flowing into the grid):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "LazyVGrid",
       "id": 56,
@@ -75,13 +75,13 @@
         "type": "VStack",
         "properties": { "spacing": 4, "padding": 8 },
         "children": [
-          { "type": "Image", "properties": { "systemName": "$2", "imageScale": "large", "foregroundColor": "accentColor" } },
+          { "type": "Image", "properties": { "systemName": "$2", "imageScale": "large", "foregroundStyle": "accentColor" } },
           { "type": "Text", "properties": { "text": "$1", "font": "footnote" } }
         ]
       }
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "List with swipeActions: swipe a row left for trailing actions, right for leading (drag with the mouse or a touch). Tap a revealed action to fire its actionID; a full swipe fires that edge's first action. The status line below echoes it.", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "List with swipeActions: swipe a row left for trailing actions, right for leading (drag with the mouse or a touch). Tap a revealed action to fire its actionID; a full swipe fires that edge's first action. The status line below echoes it.", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "List",
       "id": 58,
@@ -116,13 +116,13 @@
           "type": "HStack",
           "properties": { "spacing": 10, "alignment": "center", "frame": { "minHeight": 56 } },
           "children": [
-            { "type": "Image", "properties": { "systemName": "building.2", "imageScale": "large", "foregroundColor": "secondary" } },
+            { "type": "Image", "properties": { "systemName": "building.2", "imageScale": "large", "foregroundStyle": "secondary" } },
             {
               "type": "VStack",
               "properties": { "spacing": 2, "alignment": "leading" },
               "children": [
                 { "type": "Text", "properties": { "text": "A taller row (title + subtitle)", "font": "body" } },
-                { "type": "Text", "properties": { "text": "When the row is tall, the actions stack the icon over the label (iOS Mail). Short rows above use an inline pill.", "font": "caption", "foregroundColor": "secondary" } }
+                { "type": "Text", "properties": { "text": "When the row is tall, the actions stack the icon over the label (iOS Mail). Short rows above use an inline pill.", "font": "caption", "foregroundStyle": "secondary" } }
               ]
             }
           ],

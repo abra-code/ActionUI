@@ -3,14 +3,14 @@
   "properties": { "alignment": "leading", "spacing": 16 },
   "children": [
     { "type": "Text", "properties": { "text": "animation Modifier Demo", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Same shapes and curves as the Swift View.animation.json. Each button calls win.setElementProperty(...) and the shape's animation modifier eases the change. Web note: the transition animates by CSS property, not by a watched \"value\" key, so the value key is informational here.", "font": "caption", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "Same shapes and curves as the Swift View.animation.json. Each button calls win.setElementProperty(...) and the shape's animation modifier eases the change. Web note: the transition animates by CSS property, not by a watched \"value\" key, so the value key is informational here.", "font": "caption", "foregroundStyle": "secondary" } },
 
     { "type": "Text", "properties": { "text": "\"spring\"  -  any mutation", "font": "headline" } },
     {
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
       "children": [
-        { "type": "Circle", "id": 101, "properties": { "foregroundColor": "blue", "frame": { "width": 70, "height": 70 }, "opacity": 1.0, "scaleEffect": 1.0, "animation": "spring" } },
+        { "type": "Circle", "id": 101, "properties": { "foregroundStyle": "blue", "frame": { "width": 70, "height": 70 }, "opacity": 1.0, "scaleEffect": 1.0, "animation": "spring" } },
         {
           "type": "VStack",
           "properties": { "spacing": 8, "alignment": "leading" },
@@ -25,12 +25,12 @@
     { "type": "Divider" },
 
     { "type": "Text", "properties": { "text": "\"easeInOut\", duration 0.5, value \"opacity\"", "font": "headline" } },
-    { "type": "Text", "properties": { "text": "On web both buttons animate (value scoping is a documented divergence; on Apple Scale would be instant).", "font": "caption", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "On web both buttons animate (value scoping is a documented divergence; on Apple Scale would be instant).", "font": "caption", "foregroundStyle": "secondary" } },
     {
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
       "children": [
-        { "type": "Rectangle", "id": 102, "properties": { "foregroundColor": "orange", "frame": { "width": 70, "height": 70 }, "cornerRadius": 8, "opacity": 1.0, "scaleEffect": 1.0, "animation": { "curve": "easeInOut", "duration": 0.5, "value": "opacity" } } },
+        { "type": "Rectangle", "id": 102, "properties": { "foregroundStyle": "orange", "frame": { "width": 70, "height": 70 }, "cornerRadius": 8, "opacity": 1.0, "scaleEffect": 1.0, "animation": { "curve": "easeInOut", "duration": 0.5, "value": "opacity" } } },
         {
           "type": "VStack",
           "properties": { "spacing": 8, "alignment": "leading" },
@@ -49,7 +49,7 @@
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
       "children": [
-        { "type": "RoundedRectangle", "id": 103, "properties": { "cornerRadius": 12, "foregroundColor": "green", "frame": { "width": 70, "height": 70 }, "scaleEffect": 1.0, "animation": { "curve": "bouncy", "value": "scaleEffect" } } },
+        { "type": "RoundedRectangle", "id": 103, "properties": { "cornerRadius": 12, "foregroundStyle": "green", "frame": { "width": 70, "height": 70 }, "scaleEffect": 1.0, "animation": { "curve": "bouncy", "value": "scaleEffect" } } },
         { "type": "Button", "properties": { "title": "Bounce scale", "buttonStyle": "bordered", "actionID": "anim.demo.103.scale" } }
       ]
     },
@@ -61,7 +61,7 @@
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
       "children": [
-        { "type": "Capsule", "id": 104, "properties": { "foregroundColor": "purple", "frame": { "width": 120, "height": 50 }, "animation": { "curve": "snappy", "delay": 0.15, "value": "foregroundStyle" } } },
+        { "type": "Capsule", "id": 104, "properties": { "foregroundStyle": "purple", "frame": { "width": 120, "height": 50 }, "animation": { "curve": "snappy", "delay": 0.15, "value": "foregroundStyle" } } },
         { "type": "Button", "properties": { "title": "Change color", "buttonStyle": "bordered", "actionID": "anim.demo.104.color" } }
       ]
     },
@@ -73,7 +73,7 @@
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
       "children": [
-        { "type": "Rectangle", "id": 105, "properties": { "foregroundColor": "red", "frame": { "width": 60, "height": 60 }, "cornerRadius": 4, "rotationEffect": 0.0, "animation": { "curve": "linear", "duration": 0.8, "value": "rotationEffect" } } },
+        { "type": "Rectangle", "id": 105, "properties": { "foregroundStyle": "red", "frame": { "width": 60, "height": 60 }, "cornerRadius": 4, "rotationEffect": 0.0, "animation": { "curve": "linear", "duration": 0.8, "value": "rotationEffect" } } },
         { "type": "Button", "properties": { "title": "Rotate 90", "buttonStyle": "bordered", "actionID": "anim.demo.105.rotate" } }
       ]
     }

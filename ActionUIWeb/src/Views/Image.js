@@ -14,7 +14,7 @@
 //   resizable. imageScale ("small"/"medium"/"large") sizes symbol glyphs.
 // Axis overrides for symbols: materialFill (0/1 or bool), materialWeight
 //   (100..700) — default to the SF→Material map's per-symbol tuning.
-// foregroundColor tints symbols (handled by ModifierResolver). Runtime value
+// foregroundStyle tints symbols (handled by ModifierResolver). Runtime value
 //   (setString) re-renders the source with simple "mixed" heuristics.
 
 import { register } from "../Common/ActionUIRegistry.js";

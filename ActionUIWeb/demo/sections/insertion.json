@@ -3,8 +3,8 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Insertion", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Insertion API (add / remove views at runtime):", "foregroundColor": "secondary", "font": "callout" } },
-    { "type": "Text", "properties": { "text": "The buttons call win.insertElement / removeElement against the VStack id 200. Inserted views are live - addressable, styled, and counted - with no rebuild of the surrounding tree.", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "Insertion API (add / remove views at runtime):", "foregroundStyle": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "The buttons call win.insertElement / removeElement against the VStack id 200. Inserted views are live - addressable, styled, and counted - with no rebuild of the surrounding tree.", "foregroundStyle": "secondary" } },
     {
       "type": "VStack",
       "id": 200,
@@ -23,17 +23,17 @@
         { "type": "Button", "properties": { "title": "Remove last", "systemImage": "minus", "buttonStyle": "bordered", "actionID": "insRemoveLast" } }
       ]
     },
-    { "type": "Text", "id": 210, "properties": { "text": "No insertions yet.", "foregroundColor": "secondary", "font": "footnote" } },
+    { "type": "Text", "id": 210, "properties": { "text": "No insertions yet.", "foregroundStyle": "secondary", "font": "footnote" } },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "insertRow into a Grid (id 220; rows have no id, so whole rows append/prepend):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "insertRow into a Grid (id 220; rows have no id, so whole rows append/prepend):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Grid",
       "id": 220,
       "properties": { "alignment": "leading", "horizontalSpacing": 16, "verticalSpacing": 4 },
       "rows": [
         [
-          { "type": "Text", "properties": { "text": "Name", "foregroundColor": "secondary" } },
-          { "type": "Text", "properties": { "text": "Note", "foregroundColor": "secondary" } }
+          { "type": "Text", "properties": { "text": "Name", "foregroundStyle": "secondary" } },
+          { "type": "Text", "properties": { "text": "Note", "foregroundStyle": "secondary" } }
         ]
       ]
     },

@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Pickers", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "The macOS Picker styles (menu, radio group, segmented), plus DatePicker and ColorPicker:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "The macOS Picker styles (menu, radio group, segmented), plus DatePicker and ColorPicker:", "foregroundStyle": "secondary", "font": "callout" } },
     { "type": "Picker", "id": 60, "properties": { "title": "Format", "options": [{ "title": "Plain Text", "tag": "txt" }, { "title": "Markdown", "tag": "md" }, { "title": "HTML", "tag": "html" }], "actionID": "formatChanged", "frame": { "maxWidth": "infinity" } } },
     { "type": "Picker", "id": 61, "properties": { "title": "Alignment", "pickerStyle": "radioGroup", "horizontalRadioGroupLayout": true, "options": [{ "title": "Leading", "tag": "lead" }, { "title": "Center", "tag": "center" }, { "title": "Trailing", "tag": "trail" }], "actionID": "alignChanged" } },
     { "type": "Picker", "id": 62, "properties": { "title": "View", "pickerStyle": "segmented", "options": [{ "title": "Day", "tag": "day" }, { "title": "Week", "tag": "week" }, { "title": "Month", "tag": "month" }], "actionID": "viewChanged" } },

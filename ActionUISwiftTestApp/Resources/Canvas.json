@@ -11,7 +11,7 @@
       "properties": {
         "text": "Canvas Drawing Primitives Test",
         "font": { "size": 24, "weight": "bold" },
-        "foregroundColor": "#333333"
+        "foregroundStyle": "#333333"
       }
     },
 
