@@ -247,8 +247,15 @@ final class ChatStoreV2RoutingTests: XCTestCase {
 @MainActor
 final class ChatStoreV2BehaviorTests: XCTestCase {
 
+    // Lets the store's `Task { await transport?.send(...) }` command emissions drain on the MainActor.
+    // Real sleeps interleaved with yields keep this robust when the whole suite runs together (a fixed
+    // yield count alone occasionally raced a lazily-initialized first run).
     private func settle() async {
-        for _ in 0..<5 { await Task.yield() }
+        for _ in 0..<3 {
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        await Task.yield()
     }
 
     private func makeStarted(features: [String: Any] = [:],
@@ -440,6 +447,30 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         } else {
             XCTFail("expected an optimistic local message")
         }
+    }
+
+    // The affordance-availability matrix the view reads to show/hide each menu item: an affordance is
+    // available only when the document's feature AND the transport's capability are both on.
+    func testAffordanceGatingMatrix() {
+        func caps(_ on: Bool) -> ChatTransportCapabilities {
+            on ? allCaps() : ChatTransportCapabilities()
+        }
+        // reactions
+        XCTAssertTrue(makeStarted(features: ["features": ["reactions": true]], capabilities: caps(true)).0.canReact)
+        XCTAssertFalse(makeStarted(features: ["features": ["reactions": true]], capabilities: caps(false)).0.canReact)
+        XCTAssertFalse(makeStarted(features: [:], capabilities: caps(true)).0.canReact)
+        // editing
+        XCTAssertTrue(makeStarted(features: ["features": ["editing": true]], capabilities: caps(true)).0.canEditMessages)
+        XCTAssertFalse(makeStarted(features: [:], capabilities: caps(true)).0.canEditMessages)
+        // deletion
+        XCTAssertTrue(makeStarted(features: ["features": ["deletion": true]], capabilities: caps(true)).0.canDeleteMessages)
+        XCTAssertFalse(makeStarted(features: ["features": ["deletion": true]], capabilities: caps(false)).0.canDeleteMessages)
+        // replies
+        XCTAssertTrue(makeStarted(features: ["features": ["replies": true]], capabilities: caps(true)).0.canReply)
+        XCTAssertFalse(makeStarted(features: [:], capabilities: caps(true)).0.canReply)
+        // attach is host-action-gated (not a capability): present iff attachActionID is set.
+        XCTAssertTrue(makeStarted(features: ["attachActionID": "chat.attach"], capabilities: caps(false)).0.canAttach)
+        XCTAssertFalse(makeStarted(features: [:], capabilities: caps(true)).0.canAttach)
     }
 
     func testPlainSendRoutesThroughPromptWhenReplyNotAllowed() async {

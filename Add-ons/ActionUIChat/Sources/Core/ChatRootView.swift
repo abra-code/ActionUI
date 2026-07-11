@@ -32,6 +32,20 @@ struct ChatRootView: View {
     @State private var isPinnedToBottom = true
     private static let bottomThreshold: CGFloat = 24   // within this many points of the bottom counts as pinned
 
+    // Person-to-person (v2) interaction state (dual alignment only). Reply / edit put a banner above
+    // the composer; delete confirms; a tapped reply quote scrolls to and briefly highlights the original.
+    @State private var replyTarget: ReplyTarget?
+    @State private var editTargetID: String?
+    @State private var deleteTarget: ChatMessage?
+    @State private var highlightedItemID: String?
+    @State private var scrollRequest: String?
+
+    private struct ReplyTarget: Identifiable {
+        let id: String
+        let excerpt: String
+        let sender: String?
+    }
+
     init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger, viewModel: ViewModel? = nil) {
         self.config = config
         _store = StateObject(wrappedValue: ChatStore(config: config, windowUUID: windowUUID,
@@ -74,6 +88,16 @@ struct ChatRootView: View {
         }
         .onAppear { store.start() }
         .onDisappear { store.teardown() }
+        .confirmationDialog("Delete this message?",
+                            isPresented: Binding(get: { deleteTarget != nil },
+                                                 set: { if !$0 { deleteTarget = nil } }),
+                            presenting: deleteTarget) { message in
+            Button("Delete", role: .destructive) {
+                store.deleteMessage(itemID: message.id)
+                deleteTarget = nil
+            }
+            Button("Cancel", role: .cancel) { deleteTarget = nil }
+        }
     }
 
     /// While an approval is pending, the composer input pauses (the Stop control stays live).
@@ -115,6 +139,14 @@ struct ChatRootView: View {
                 .onAppear {
                     // Loaded/restored transcripts start pinned at the latest entry.
                     scrollToBottom(proxy, animated: false)
+                }
+                .onChange(of: scrollRequest) { _, target in
+                    // Jump to a tapped reply quote's original message (a brief highlight follows).
+                    guard let target else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(target, anchor: .center)
+                    }
+                    scrollRequest = nil
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if !isPinnedToBottom {
@@ -213,13 +245,59 @@ struct ChatRootView: View {
                     DaySeparatorRow(date: date)
                 }
                 DualTranscriptRow(ctx: ctx, config: config, maxBubbleWidth: maxBubbleWidth,
-                                  showsSenderNames: showsSenderNames,
+                                  showsSenderNames: showsSenderNames, actions: dualActions,
+                                  highlighted: highlightedItemID == ctx.id,
                                   onResend: { store.resendMessage(itemID: $0) })
             }
             .padding(.top, ctx.info.isFirstInRun ? 8 : 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(ctx.id)
         }
+    }
+
+    /// The gated message affordances handed to each dual row. Gating (feature AND capability) is read
+    /// from the store; the closures set the composer's reply/edit banner, confirm a delete, toggle a
+    /// reaction, or scroll to a quoted message.
+    private var dualActions: DualRowActions {
+        DualRowActions(
+            canReply: store.canReply,
+            canEdit: store.canEditMessages,
+            canDelete: store.canDeleteMessages,
+            canReact: store.canReact,
+            reply: { beginReply($0) },
+            edit: { beginEdit($0) },
+            delete: { deleteTarget = $0 },
+            toggleReaction: { store.toggleReaction(itemID: $0, emoji: $1) },
+            jumpTo: { requestScroll(to: $0) }
+        )
+    }
+
+    private func beginReply(_ message: ChatMessage) {
+        editTargetID = nil
+        let sender = resolvedName(role: message.role, senderID: message.senderID, explicit: message.senderName)
+        replyTarget = ReplyTarget(id: message.id, excerpt: replyExcerpt(message.text), sender: sender)
+    }
+
+    private func beginEdit(_ message: ChatMessage) {
+        replyTarget = nil
+        editTargetID = message.id
+        store.draft = message.text
+    }
+
+    private func requestScroll(to id: String) {
+        scrollRequest = id
+        highlightedItemID = id
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if highlightedItemID == id {
+                highlightedItemID = nil
+            }
+        }
+    }
+
+    private func replyExcerpt(_ text: String) -> String {
+        let oneLine = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return oneLine.count > 120 ? String(oneLine.prefix(120)) + "\u{2026}" : oneLine
     }
 
     /// Builds the per-item render contexts: run/day placement from ChatTranscriptLayout, plus resolved
@@ -332,16 +410,26 @@ struct ChatRootView: View {
 
     @ViewBuilder
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            inputField
-            if store.isStreaming {
-                Button(role: .destructive) { store.stop() } label: {
-                    Image(systemName: "stop.circle.fill").imageScale(.large)
+        VStack(spacing: 4) {
+            composerBanner
+            HStack(alignment: .bottom, spacing: 8) {
+                if store.canAttach {
+                    Button { store.triggerAttach() } label: {
+                        Image(systemName: "paperclip").imageScale(.large)
+                    }
+                    .help("Attach")
+                    .disabled(permissionPending)
                 }
-                .help("Stop")
-                .keyboardShortcut(".", modifiers: .command)
-            } else {
-                sendButton
+                inputField
+                if store.isStreaming {
+                    Button(role: .destructive) { store.stop() } label: {
+                        Image(systemName: "stop.circle.fill").imageScale(.large)
+                    }
+                    .help("Stop")
+                    .keyboardShortcut(".", modifiers: .command)
+                } else {
+                    sendButton
+                }
             }
         }
         .padding(.horizontal, 12)
@@ -350,9 +438,61 @@ struct ChatRootView: View {
         .disabled(!config.inputEnabled)
     }
 
+    // The reply / edit indicator above the composer, with a cancel button. Nothing renders (and no
+    // vertical space is taken) when neither is active, so the v1 composer is unchanged.
+    @ViewBuilder
+    private var composerBanner: some View {
+        if let reply = replyTarget {
+            banner(icon: "arrowshape.turn.up.left", title: reply.sender.map { "Replying to \($0)" } ?? "Replying",
+                   detail: reply.excerpt) {
+                replyTarget = nil
+            }
+        } else if editTargetID != nil {
+            banner(icon: "pencil", title: "Editing message", detail: nil) {
+                editTargetID = nil
+                store.draft = ""
+            }
+        }
+    }
+
+    private func banner(icon: String, title: String, detail: String?, cancel: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.caption.weight(.medium))
+                if let detail, !detail.isEmpty {
+                    Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            Button { cancel() } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Submits the composer, honoring an active edit (emit editMessage) or reply (send with replyTo);
+    /// a plain submit is byte-identical to the v1 path.
+    private func submit() {
+        let text = store.draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            return
+        }
+        if let editID = editTargetID {
+            store.editMessage(itemID: editID, newText: text)
+            store.draft = ""
+            editTargetID = nil
+        } else {
+            store.submitDraft(replyTo: replyTarget?.id)
+            replyTarget = nil
+        }
+    }
+
     @ViewBuilder
     private var sendButton: some View {
-        let button = Button { store.submitDraft() } label: {
+        let button = Button { submit() } label: {
             Image(systemName: "arrow.up.circle.fill").imageScale(.large)
         }
         .help("Send")
@@ -377,7 +517,7 @@ struct ChatRootView: View {
             // Single-line composer: Return submits via onSubmit.
             TextField(config.placeholder, text: $store.draft)
                 .textFieldStyle(.plain)
-                .onSubmit { store.submitDraft() }
+                .onSubmit { submit() }
                 .disabled(permissionPending)
         }
     }

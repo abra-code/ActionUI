@@ -38,16 +38,18 @@ final class ChatDualSnapshotTests: XCTestCase {
 
         func msg(_ id: String, _ role: ChatRole, _ text: String, senderID: String? = nil, name: String? = nil,
                  time: String? = nil, status: MessageStatus? = nil, editedAt: String? = nil,
-                 deleted: Bool? = nil, reply: ReplyRef? = nil) -> ChatItem {
+                 deleted: Bool? = nil, reply: ReplyRef? = nil, reactions: [Reaction]? = nil) -> ChatItem {
             .message(ChatMessage(id: id, role: role, text: text, isStreaming: false, senderID: senderID,
-                                 senderName: name, timestamp: time, status: status, editedAt: editedAt,
-                                 replyTo: reply, deleted: deleted))
+                                 senderName: name, timestamp: time, status: status, reactions: reactions,
+                                 editedAt: editedAt, replyTo: reply, deleted: deleted))
         }
 
         let rows: [DualRowContext] = [
             ctx("m1", msg("m1", .remote, "Hey! Are we still on for tomorrow?", name: "Alex", time: "2026-07-09T09:00:00Z"),
                 isSelf: false, name: "Alex", time: "2026-07-09T09:00:00Z", first: true, last: false),
-            ctx("m2", msg("m2", .remote, "I found a great spot for lunch.", name: "Alex", time: "2026-07-09T09:00:20Z"),
+            ctx("m2", msg("m2", .remote, "I found a great spot for lunch.", name: "Alex", time: "2026-07-09T09:00:20Z",
+                          reactions: [Reaction(emoji: "\u{1F44D}", count: 2, mine: true),
+                                      Reaction(emoji: "\u{2764}\u{FE0F}", count: 1, mine: false)]),
                 isSelf: false, name: "Alex", time: "2026-07-09T09:00:20Z", first: false, last: true),
             ctx("m3", msg("m3", .local, "Yes! Sounds perfect.", time: "2026-07-10T10:15:00Z", status: .read),
                 isSelf: true, name: nil, time: "2026-07-10T10:15:00Z", newDay: true),
@@ -70,7 +72,9 @@ final class ChatDualSnapshotTests: XCTestCase {
                         DaySeparatorRow(date: date)
                     }
                     DualTranscriptRow(ctx: row, config: config, maxBubbleWidth: 300,
-                                      showsSenderNames: true, onResend: { _ in })
+                                      showsSenderNames: true,
+                                      actions: DualRowActions(canReply: true, canEdit: true, canDelete: true, canReact: true),
+                                      highlighted: false, onResend: { _ in })
                 }
                 .padding(.top, row.info.isFirstInRun ? 8 : 2)
                 .frame(maxWidth: .infinity, alignment: .leading)

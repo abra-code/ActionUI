@@ -16,6 +16,11 @@ import SwiftUI
 import ActionUI
 import RichText
 import AsyncImageCache
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 
 /// One transcript item reduced to what a dual row renders: the resolved sender identity, the
 /// parsed timestamp, self-authorship, and the run/day placement from ChatTranscriptLayout.
@@ -29,6 +34,25 @@ struct DualRowContext: Identifiable {
     let timestamp: Date?
 }
 
+/// The message affordances the transcript offers, each already gated (features AND capabilities) by
+/// the caller, plus the closures that run them. Copy is always available (ungated); the gated flags
+/// drive whether Reply / Edit / Delete / React appear.
+struct DualRowActions {
+    var canReply = false
+    var canEdit = false
+    var canDelete = false
+    var canReact = false
+    var reply: (ChatMessage) -> Void = { _ in }
+    var edit: (ChatMessage) -> Void = { _ in }
+    var delete: (ChatMessage) -> Void = { _ in }
+    var toggleReaction: (_ itemID: String, _ emoji: String) -> Void = { _, _ in }
+    var jumpTo: (String) -> Void = { _ in }
+
+    /// The fixed quick-reaction row shown at the top of the context menu (Unicode order per the plan):
+    /// thumbs up, heart, tears of joy, open mouth, crying, folded hands.
+    static let quickReactions = ["\u{1F44D}", "\u{2764}\u{FE0F}", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F64F}"]
+}
+
 /// Renders one dual-alignment row (dispatch by item kind). The caller places the optional day
 /// separator and the inter-run spacing; this view renders the item itself.
 struct DualTranscriptRow: View {
@@ -36,13 +60,16 @@ struct DualTranscriptRow: View {
     let config: ChatConfig
     let maxBubbleWidth: CGFloat
     let showsSenderNames: Bool
+    let actions: DualRowActions
+    let highlighted: Bool
     let onResend: (String) -> Void
 
     var body: some View {
         switch ctx.item {
         case .message(let message):
             DualMessageRow(ctx: ctx, message: message, config: config, maxBubbleWidth: maxBubbleWidth,
-                           showsSenderNames: showsSenderNames, onResend: onResend)
+                           showsSenderNames: showsSenderNames, actions: actions, highlighted: highlighted,
+                           onResend: onResend)
         case .image(_, let role, let image):
             // An image is a leading/trailing bubble too; reuse the shared image view inside the gutter frame.
             DualImageRow(ctx: ctx, role: role, image: image, config: config, maxBubbleWidth: maxBubbleWidth)
@@ -65,11 +92,14 @@ private struct DualMessageRow: View {
     let config: ChatConfig
     let maxBubbleWidth: CGFloat
     let showsSenderNames: Bool
+    let actions: DualRowActions
+    let highlighted: Bool
     let onResend: (String) -> Void
 
     private var isSelf: Bool { ctx.isSelf }
     private var isFirstInRun: Bool { ctx.info.isFirstInRun }
     private var isLastInRun: Bool { ctx.info.isLastInRun }
+    private var isTombstone: Bool { message.deleted == true }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 6) {
@@ -87,6 +117,14 @@ private struct DualMessageRow: View {
                         .padding(.horizontal, 4)
                 }
                 bubble
+                // Chips are an affordance, so they are gated on canReact (features AND capabilities),
+                // never on data presence alone - a seeded / inbound message can carry reaction data
+                // even when the document/transport does not enable reactions.
+                if actions.canReact, let reactions = message.reactions, !reactions.isEmpty {
+                    ReactionChips(reactions: reactions, alignSelf: isSelf) { emoji in
+                        actions.toggleReaction(message.id, emoji)
+                    }
+                }
                 if isLastInRun {
                     captionRow
                 }
@@ -103,14 +141,15 @@ private struct DualMessageRow: View {
     @ViewBuilder
     private var bubble: some View {
         Group {
-            if message.deleted == true {
+            if isTombstone {
                 Text("Message deleted")
                     .italic()
                     .foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     if let reply = message.replyTo {
-                        ReplyQuote(reply: reply)
+                        Button { actions.jumpTo(reply.itemID) } label: { ReplyQuote(reply: reply) }
+                            .buttonStyle(.plain)
                     }
                     content
                 }
@@ -119,8 +158,46 @@ private struct DualMessageRow: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(bubbleBackground, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.accentColor, lineWidth: highlighted ? 2 : 0)
+        )
         // No maxWidth:.infinity here: the bubble hugs its content (up to the column's maxBubbleWidth),
         // the messaging-app idiom, rather than filling the column like a v1 full-width row.
+        .contextMenu { if !isTombstone { bubbleMenu } }
+    }
+
+    // The message context menu: a quick-reaction row on top (when reactions are enabled), then the
+    // gated actions and the always-available Copy. Edit / Delete are own-message only (the caller's
+    // gate already accounts for that via canEdit / canDelete plus isSelf).
+    @ViewBuilder
+    private var bubbleMenu: some View {
+        if actions.canReact {
+            ControlGroup {
+                ForEach(DualRowActions.quickReactions, id: \.self) { emoji in
+                    Button(emoji) { actions.toggleReaction(message.id, emoji) }
+                }
+            }
+        }
+        if actions.canReply {
+            Button { actions.reply(message) } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
+        }
+        if actions.canEdit, isSelf {
+            Button { actions.edit(message) } label: { Label("Edit", systemImage: "pencil") }
+        }
+        Button { copyText() } label: { Label("Copy", systemImage: "doc.on.doc") }
+        if actions.canDelete, isSelf {
+            Button(role: .destructive) { actions.delete(message) } label: { Label("Delete", systemImage: "trash") }
+        }
+    }
+
+    private func copyText() {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(message.text, forType: .string)
+        #else
+        UIPasteboard.general.string = message.text
+        #endif
     }
 
     @ViewBuilder
@@ -238,6 +315,83 @@ private struct ReplyQuote: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Reaction chips
+
+/// A wrapping row of reaction chips under a bubble: emoji + count, `mine` tinted; tap toggles.
+private struct ReactionChips: View {
+    let reactions: [Reaction]
+    let alignSelf: Bool
+    let toggle: (String) -> Void
+
+    var body: some View {
+        ReactionFlow(spacing: 4) {
+            ForEach(reactions, id: \.emoji) { reaction in
+                Button { toggle(reaction.emoji) } label: {
+                    HStack(spacing: 3) {
+                        Text(reaction.emoji)
+                        if reaction.count > 1 {
+                            Text("\(reaction.count)").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(reaction.mine ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.14),
+                                in: Capsule())
+                    .overlay(Capsule().strokeBorder(reaction.mine ? Color.accentColor.opacity(0.5) : Color.clear))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: alignSelf ? .trailing : .leading)
+        .padding(.horizontal, 2)
+    }
+}
+
+/// A minimal wrapping (flow) layout: lays subviews left to right, wrapping to a new line when the
+/// proposed width is exceeded. Used for the reaction chip row.
+private struct ReactionFlow: Layout {
+    var spacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var widest: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                totalHeight += rowHeight + spacing
+                widest = max(widest, rowWidth)
+                rowWidth = 0
+                rowHeight = 0
+            }
+            rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+            rowHeight = max(rowHeight, size.height)
+        }
+        totalHeight += rowHeight
+        widest = max(widest, rowWidth)
+        return CGSize(width: min(maxWidth, widest), height: totalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
 

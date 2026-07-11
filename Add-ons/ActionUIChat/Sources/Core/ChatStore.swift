@@ -229,6 +229,23 @@ final class ChatStore: ObservableObject {
         Task { await transport?.send(.permissionResponse(requestID: requestID, optionID: optionID)) }
     }
 
+    // MARK: - Person-to-person (v2) affordance availability (view display gating)
+
+    // An affordance shows only when the document enables the feature AND the transport backs it. The
+    // command helpers below re-check the same gate defensively. `canAttach` is host-action-gated
+    // (attach is a host concern, not a transport capability).
+    var canReact: Bool { config.features.reactions && capabilities.reactions }
+    var canEditMessages: Bool { config.features.editing && capabilities.editing }
+    var canDeleteMessages: Bool { config.features.deletion && capabilities.deletion }
+    var canReply: Bool { config.features.replies && capabilities.replies }
+    var canAttach: Bool { !(config.attachActionID?.isEmpty ?? true) }
+
+    /// Fires the configured attach host action (the composer paperclip). The host mediates the picker
+    /// and hands the file to its transport out of band. No-op when `attachActionID` is unset.
+    func triggerAttach() {
+        fire(config.attachActionID)
+    }
+
     // MARK: - Person-to-person (v2) command helpers (view -> transport)
 
     // Each affordance is gated on the document's `features` AND the transport's `capabilities`;
