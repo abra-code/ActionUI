@@ -1,0 +1,39 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "A one-to-one person-to-person chat: dual alignment (your messages trailing with the role tint, theirs leading), timestamps and day separators, delivery status (Sending / Sent / Delivered / Read, and Failed with tap-to-retry), reactions, a reply, an edit, a file and a voice message, and a typing indicator. Driven by the scripted local-p2p transport; every affordance is gated by both this document's features and the transport's capabilities.", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 90,
+      "config": {
+        "protocol": "local-p2p",
+        "transport": { "scenario": "people" }
+      },
+      "properties": {
+        "appearance": {
+          "alignment": "dual",
+          "showRoleLabels": false,
+          "showTimestamps": true,
+          "showAvatars": true,
+          "showDeliveryStatus": true
+        },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "remote": { "label": "Alex", "tint": "secondary" }
+        },
+        "features": {
+          "reactions": true,
+          "editing": true,
+          "deletion": true,
+          "replies": true
+        },
+        "input": { "enabled": true, "placeholder": "Message Alex" },
+        "attachActionID": "chat.attach",
+        "sendActionID": "chat.send",
+        "messageActionID": "chat.message",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

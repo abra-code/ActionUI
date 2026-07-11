@@ -72,11 +72,33 @@ struct ChatConfig {
                                       // already covers collapsing; a side panel is a later surface)
     }
 
+    /// Which person-to-person / group (v2) conversation affordances the DOCUMENT enables.
+    /// All default false (opt-in). Effective availability of an affordance is this AND the
+    /// transport's matching `capabilities` flag - a document can request a feature the
+    /// active transport does not back, and it simply does not appear.
+    struct Features {
+        let reactions: Bool       // emoji reactions (quick-row + chips + toggle)
+        let editing: Bool         // edit own messages
+        let deletion: Bool        // delete own messages (tombstone)
+        let replies: Bool         // reply / quote a message
+    }
+
     let protocolName: String
     let alignment: Alignment
     let showRoleLabels: Bool
     let theme: String                 // "auto" | "light" | "dark"
     let roles: [String: RoleStyle]
+
+    // P2P (v2) appearance. Defaults keep a v1 (single-alignment) document pixel-identical:
+    // timestamps default ON only in dual alignment, OFF in single; avatars are opt-in;
+    // delivery status defaults ON but renders only on messages that carry a `status` (v1
+    // messages never do). Each renders only on items that actually carry the datum.
+    let showTimestamps: Bool
+    let showAvatars: Bool
+    let showDeliveryStatus: Bool
+
+    // P2P (v2) conversation affordances the document enables (gated further by transport capabilities).
+    let features: Features
 
     let inputEnabled: Bool
     let placeholder: String
@@ -93,6 +115,10 @@ struct ChatConfig {
     let errorActionID: String?
     let approveToolActionID: String?  // fired when an agent requests tool permission
     let entryActionID: String?        // fired per finalized transcript entry (incremental persistence, P0-2)
+    let attachActionID: String?       // fired by the composer's attach (paperclip) button; the host mediates
+                                      // the file picker and hands the file to its transport out of band. The
+                                      // button appears only when this is configured. The ONLY new v2 host action ID -
+                                      // every other v2 affordance flows as a ChatCommand to the transport.
 
     // Session transcript seam (P0-2).
     let readOnly: Bool           // history-viewer mode: no composer / menus, no transport start
@@ -127,14 +153,24 @@ struct ChatConfig {
 
         let appearance = properties["appearance"] as? [String: Any] ?? [:]
         let parsedAlignment = (appearance["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .single
-        if parsedAlignment == .dual {
-            logger.log("Chat appearance.alignment 'dual' is not yet honored (M4); rendering single-alignment", .verbose)
-        }
         alignment = parsedAlignment
         showRoleLabels = (appearance["showRoleLabels"] as? Bool) ?? true
         theme = (appearance["theme"] as? String) ?? "auto"
+        // Timestamps default ON in dual alignment, OFF in single - so a v1 (single) document is
+        // pixel-identical while a P2P (dual) document reads like a messaging app without opting in.
+        showTimestamps = (appearance["showTimestamps"] as? Bool) ?? (parsedAlignment == .dual)
+        showAvatars = (appearance["showAvatars"] as? Bool) ?? false
+        showDeliveryStatus = (appearance["showDeliveryStatus"] as? Bool) ?? true
 
         roles = Self.parseRoles(properties["roles"] as? [String: Any])
+
+        let featuresRaw = properties["features"] as? [String: Any] ?? [:]
+        features = Features(
+            reactions: (featuresRaw["reactions"] as? Bool) ?? false,
+            editing: (featuresRaw["editing"] as? Bool) ?? false,
+            deletion: (featuresRaw["deletion"] as? Bool) ?? false,
+            replies: (featuresRaw["replies"] as? Bool) ?? false
+        )
 
         let input = properties["input"] as? [String: Any] ?? [:]
         inputEnabled = (input["enabled"] as? Bool) ?? true
@@ -165,6 +201,7 @@ struct ChatConfig {
         errorActionID = properties["errorActionID"] as? String
         approveToolActionID = properties["approveToolActionID"] as? String
         entryActionID = properties["entryActionID"] as? String
+        attachActionID = properties["attachActionID"] as? String
 
         readOnly = (properties["readOnly"] as? Bool) ?? false
         // A pre-populated transcript in `properties.content` - a preview / testing convenience only.
@@ -220,11 +257,26 @@ struct ChatConfig {
     static func validate(_ properties: [String: Any], _ logger: any ActionUILogger) -> [String: Any] {
         var validated = properties
 
-        for key in ["appearance", "roles", "input", "surfaces"] where validated[key] != nil {
+        for key in ["appearance", "roles", "input", "surfaces", "features"] where validated[key] != nil {
             if !(validated[key] is [String: Any]) {
                 logger.log("Chat \(key) must be an object; ignoring", .warning)
                 validated[key] = nil
             }
+        }
+
+        if var featuresRaw = validated["features"] as? [String: Any] {
+            for (feature, value) in featuresRaw {
+                guard ["reactions", "editing", "deletion", "replies"].contains(feature) else {
+                    logger.log("Chat features.\(feature) is not a recognized feature; ignoring", .warning)
+                    featuresRaw[feature] = nil
+                    continue
+                }
+                if !(value is Bool) {
+                    logger.log("Chat features.\(feature) must be a Bool; ignoring", .warning)
+                    featuresRaw[feature] = nil
+                }
+            }
+            validated["features"] = featuresRaw
         }
 
         if var surfacesRaw = validated["surfaces"] as? [String: Any] {
@@ -246,7 +298,7 @@ struct ChatConfig {
             validated["surfaces"] = surfacesRaw
         }
 
-        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID", "entryActionID"] {
+        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID", "entryActionID", "attachActionID"] {
             if let value = validated[key], !(value is String) {
                 logger.log("Chat \(key) must be a String; ignoring", .warning)
                 validated[key] = nil
