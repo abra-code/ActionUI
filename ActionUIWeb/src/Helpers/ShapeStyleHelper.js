@@ -14,7 +14,7 @@
 //
 // Color vocabulary: named colors, hex, AND Apple semantic styles ("tint",
 // "separator", "fill", "fill.tertiary", "background.secondary", ...) via the
-// shared resolveColor - the same vocabulary the foregroundColor/background
+// shared resolveColor - the same vocabulary the foregroundStyle/background
 // modifiers accept. resolveColor maps every semantic name to its --aui-* token
 // (theme.css, light + dark), so a semantic fill/stroke is theme-correct here
 // just as on Apple and Android; only a genuinely unknown color warns and falls
@@ -32,7 +32,7 @@ import { resolveColor } from "../Common/ModifierResolver.js";
 // Returns { color, strokeWidth }; strokeWidth null means fill the shape
 // solidly. The bare-shape color is "currentColor" — the CSS analog of SwiftUI
 // filling an unstyled shape with its foreground style (.primary), so the
-// foregroundColor modifier tints it with no extra wiring.
+// foregroundStyle modifier tints it with no extra wiring.
 export function resolveShapePaint(properties, logger) {
     if (typeof properties.fill === "string") {
         const color = resolveColor(properties.fill, logger);

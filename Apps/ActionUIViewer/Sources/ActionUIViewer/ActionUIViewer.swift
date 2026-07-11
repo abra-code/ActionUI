@@ -128,10 +128,11 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         ActionUIDiff.register()
         ActionUICachedImage.register()
         ActionUIRichText.register()
-        // The viewer is a pure viewer: it renders documents but never injects a runtime transport, so
-        // a Chat's document-declared transport.command is stripped and the element degrades to
-        // 'local' (spawning a subprocess is a host privilege). A dedicated demo or a real app that
-        // wants a live subprocess transport injects it itself via setElementConfig.
+        // The viewer is a pure viewer: it renders documents but never injects a runtime transport. A
+        // Chat element takes its protocol/transport only from a host-injected states["config"], so in
+        // the viewer (which injects nothing) a Chat stays INERT - composer disabled, no transport. A
+        // real app supplies the transport itself at runtime via setElementState("config", ...) after
+        // the view is built.
 
         var jsonFilePath: String?
         var screenshotPath: String?

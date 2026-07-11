@@ -66,7 +66,7 @@ LoadableView — Load JSON UI definitions at runtime from files or URLs
 
 All views inherit modifiers from the base View implementation:
 - **Layout:** padding, frame, background, cornerRadius, position, offset
-- **Styling:** foregroundColor, font, opacity, shadow, border
+- **Styling:** foregroundStyle, font, opacity, shadow, border
 - **Sizing:** controlSize (mini, small, regular, large, extraLarge)
 - **Behavior:** hidden, disabled, actionID, keyboardShortcut
 - **Accessibility:** accessibilityLabel, accessibilityHint

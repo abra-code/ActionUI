@@ -96,7 +96,7 @@ test("opacity / hidden / cornerRadius / colors / help", () => {
     const cr = applied({ cornerRadius: 6 }).node;
     assert.equal(cr.style.borderRadius, "6px");
     assert.equal(cr.style.overflow, "hidden");
-    assert.match(applied({ foregroundColor: "blue" }).node.style.color, /var\(--aui-color-blue\)/);
+    assert.match(applied({ foregroundStyle: "blue" }).node.style.color, /var\(--aui-color-blue\)/);
     assert.match(applied({ background: "green" }).node.style.backgroundColor, /var\(--aui-color-green\)/);
     assert.equal(applied({ help: "tip" }).node.title, "tip");
 });

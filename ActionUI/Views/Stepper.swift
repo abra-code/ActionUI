@@ -15,7 +15,7 @@
                           // Takes precedence over "label" when both are present.
      "actionID": "stepper.changed", // Optional: String for action triggered on user-initiated value change
    }
-   // Note: These properties are specific to Stepper. Baseline View properties (padding, hidden, foregroundColor, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
+   // Note: These properties are specific to Stepper. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, disabled, etc.) are inherited and applied via ActionUIRegistry.shared.applyModifiers.
  }
 */
 

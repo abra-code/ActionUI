@@ -206,7 +206,7 @@
                 "padding": 8,
                 "background": "teal",
                 "cornerRadius": 6,
-                "foregroundColor": "white"
+                "foregroundStyle": "white"
               }
             },
             {
@@ -444,7 +444,7 @@
               "padding": 8,
               "background": "teal",
               "cornerRadius": 6,
-              "foregroundColor": "white"
+              "foregroundStyle": "white"
             }
           },
           {
@@ -591,7 +591,7 @@
               "padding": 8,
               "background": "indigo",
               "cornerRadius": 6,
-              "foregroundColor": "white"
+              "foregroundStyle": "white"
             }
           },
           {

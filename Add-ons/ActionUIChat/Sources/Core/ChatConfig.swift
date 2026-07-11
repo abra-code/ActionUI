@@ -1,17 +1,16 @@
 // Add-ons/ActionUIChat/Sources/Core/ChatConfig.swift
 //
-// Parses the `Chat` element's JSON into a typed config, from two document blocks:
-//   - `properties` (visual / presentation, modeled after SwiftUI modifiers):
-//     appearance, role styling, the composer (`input`), the agentic `surfaces`
-//     routing (M3: inline / collapsed / hidden; "panel" parses but renders inline
-//     until the M5 side panels), and the host-facing action IDs.
-//     `appearance.alignment: "dual"` is parsed-or-noted but only honored in M4.
-//   - `config` (NON-VISUAL operational settings): `protocol` selection and the
-//     `transport` object (interpreted by the chosen transport). Core stores the
-//     config block VERBATIM - no central validation - so `init` (the one consumer)
-//     checks these as it reads, warning and falling back rather than crashing.
-//     Hosts inject runtime/session-specific values via setElementConfig between
-//     loading a document and showing it.
+// Parses the `Chat` element's `properties` block (visual / presentation, modeled after
+// SwiftUI modifiers) into a typed config: appearance, role styling, the composer (`input`),
+// the agentic `surfaces` routing (M3: inline / collapsed / hidden; "panel" parses but renders
+// inline until the M5 side panels), the host-facing action IDs, and the read-only / restore
+// seam. `appearance.alignment: "dual"` is parsed-or-noted but only honored in M4.
+//
+// The element's OPERATIONAL settings (`protocol` + `transport`) are NOT here and are NOT
+// document-declared: a host injects them at runtime into states["config"] (see ChatStore),
+// where the transport is built once the config is viable and then frozen. Keeping the wire
+// protocol and the (subprocess-spawning) transport command out of the document is the security
+// boundary - a document is data and must not name what the host executes or connects to.
 //
 // `validate(_:_:)` is the element's `validateProperties` witness (properties only):
 // type-check each property, warn-and-drop anything ill-typed, never crash. Unknown
@@ -83,7 +82,6 @@ struct ChatConfig {
         let replies: Bool         // reply / quote a message
     }
 
-    let protocolName: String
     let alignment: Alignment
     let showRoleLabels: Bool
     let theme: String                 // "auto" | "light" | "dark"
@@ -103,8 +101,6 @@ struct ChatConfig {
     let inputEnabled: Bool
     let placeholder: String
     let submitOn: SubmitPolicy
-
-    let transport: [String: Any]      // opaque; the chosen transport validates it
 
     let surfaces: Surfaces
 
@@ -137,20 +133,7 @@ struct ChatConfig {
 
     // MARK: - Parse
 
-    init(properties: [String: Any], config: [String: Any], logger: any ActionUILogger) {
-        // Operational settings come from the element's config block, stored verbatim by
-        // core - so all checking happens here, on read.
-        protocolName = Self.parseProtocol(config["protocol"], logger)
-
-        if config["transport"] != nil, !(config["transport"] is [String: Any]) {
-            logger.log("Chat config.transport must be an object; ignoring", .warning)
-        }
-        transport = config["transport"] as? [String: Any] ?? [:]
-        // Protocol-specific validation of the transport block lives in the transport
-        // itself (e.g. ACPChatTransport.init requires a non-empty `command`), so core
-        // stays protocol-agnostic: it stores the block verbatim and the registry logs a
-        // clear reason if the chosen transport rejects it and the element degrades.
-
+    init(properties: [String: Any], logger: any ActionUILogger) {
         let appearance = properties["appearance"] as? [String: Any] ?? [:]
         let parsedAlignment = (appearance["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .single
         alignment = parsedAlignment
@@ -211,23 +194,6 @@ struct ChatConfig {
         initialContentRaw = properties["content"]
     }
 
-    /// Resolves config.protocol to a transport name. Any string is valid: which names
-    /// resolve to a transport is a RUNTIME fact (whether the host linked and registered
-    /// that transport's module), not something this parse can know, so there is no
-    /// hard-coded name list here. The registry decides when the chat starts - a name it
-    /// does not know degrades to "local" with a warning (ChatTransportRegistry.make). An
-    /// absent or non-string value defaults to "local".
-    private static func parseProtocol(_ raw: Any?, _ logger: any ActionUILogger) -> String {
-        guard let raw else {
-            return "local"
-        }
-        guard let name = raw as? String else {
-            logger.log("Chat config.protocol must be a String; defaulting to 'local'", .warning)
-            return "local"
-        }
-        return name
-    }
-
     private static func parseRoles(_ raw: [String: Any]?) -> [String: RoleStyle] {
         var resolved = defaultRoles
         guard let raw else { return resolved }
@@ -252,8 +218,8 @@ struct ChatConfig {
 
     // MARK: - Validation (the element's validateProperties witness)
 
-    // Properties only: `protocol` and `transport` live in the element's config block,
-    // which core stores verbatim - init() checks those as it reads them.
+    // Properties only. `protocol` and `transport` are not properties (and not document-declared):
+    // a host injects them at runtime into states["config"], which ChatStore consumes.
     static func validate(_ properties: [String: Any], _ logger: any ActionUILogger) -> [String: Any] {
         var validated = properties
 
@@ -311,29 +277,5 @@ struct ChatConfig {
         }
 
         return validated
-    }
-
-    // MARK: - Transport-command security guard (P0-3)
-
-    /// Strips a document-origin `transport.command` from a config block. A `transport.command` is an
-    /// argv that spawns a subprocess (e.g. the ACP transport); an ActionUI document is data and may
-    /// come from anywhere, so spawning a subprocess is a host privilege the document must not reach.
-    /// A command is honored ONLY when the host injected the whole `transport` at runtime via
-    /// setElementConfig (`transportHostInjected` == true, trusted host code); a command that arrived
-    /// from the JSON document is STRIPPED, so the element cannot spawn what a document requested and
-    /// the transport degrades to `local`. Pure (takes the origin as a parameter) so it is
-    /// unit-testable; `Chat.buildView` supplies the origin.
-    static func applyingTransportCommandGuard(_ config: [String: Any], transportHostInjected: Bool,
-                                              logger: any ActionUILogger) -> [String: Any] {
-        guard !transportHostInjected,
-              var transport = config["transport"] as? [String: Any],
-              transport["command"] != nil else {
-            return config
-        }
-        logger.log("Chat: a transport.command from the document is rejected (spawning a subprocess is a host privilege, not a document's). To launch a subprocess transport, inject it at runtime via setElementConfig from trusted host code. Degrading to 'local'.", .warning)
-        transport["command"] = nil
-        var gated = config
-        gated["transport"] = transport
-        return gated
     }
 }

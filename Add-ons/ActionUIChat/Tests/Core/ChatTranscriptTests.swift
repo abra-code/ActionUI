@@ -121,7 +121,7 @@ final class ChatTranscriptSeamTests: XCTestCase {
 
     private func makeStore(properties: [String: Any] = [:]) -> ChatStore {
         let logger = HistoryTestLogger()
-        return ChatStore(config: ChatConfig(properties: properties, config: [:], logger: logger),
+        return ChatStore(config: ChatConfig(properties: properties, logger: logger),
                          windowUUID: "history-window", elementID: 1, logger: logger)
     }
 
@@ -190,15 +190,15 @@ final class ChatTranscriptSeamTests: XCTestCase {
 final class ChatTranscriptConfigTests: XCTestCase {
 
     func testReadOnlyParsing() {
-        XCTAssertTrue(ChatConfig(properties: ["readOnly": true], config: [:], logger: HistoryTestLogger()).readOnly)
-        XCTAssertFalse(ChatConfig(properties: [:], config: [:], logger: HistoryTestLogger()).readOnly)
+        XCTAssertTrue(ChatConfig(properties: ["readOnly": true], logger: HistoryTestLogger()).readOnly)
+        XCTAssertFalse(ChatConfig(properties: [:], logger: HistoryTestLogger()).readOnly)
         // A non-Bool readOnly is dropped by validate.
         let validated = ChatConfig.validate(["readOnly": "yes"], HistoryTestLogger())
         XCTAssertNil(validated["readOnly"])
     }
 
     func testEntryActionIDParsing() {
-        XCTAssertEqual(ChatConfig(properties: ["entryActionID": "chat.entry"], config: [:], logger: HistoryTestLogger()).entryActionID, "chat.entry")
+        XCTAssertEqual(ChatConfig(properties: ["entryActionID": "chat.entry"], logger: HistoryTestLogger()).entryActionID, "chat.entry")
     }
 
     func testPrePopulatedContentKeptRawForOneTimeStoreDecode() {
@@ -207,14 +207,14 @@ final class ChatTranscriptConfigTests: XCTestCase {
             "items": [["type": "message", "message": ["id": "m1", "role": "agent", "text": "hi"]]],
         ]
         // The config keeps properties.content RAW (the store decodes it once at start, not per buildView).
-        let config = ChatConfig(properties: ["content": transcript], config: [:], logger: HistoryTestLogger())
+        let config = ChatConfig(properties: ["content": transcript], logger: HistoryTestLogger())
         let decoded = ChatTranscript.decode(from: config.initialContentRaw)
         XCTAssertEqual(decoded?.items.count, 1)
         XCTAssertEqual(decoded?.items.first?.id, "m1")
     }
 
     func testGarbagePrePopulatedContentDecodesToNil() {
-        let config = ChatConfig(properties: ["content": "not a transcript"], config: [:], logger: HistoryTestLogger())
+        let config = ChatConfig(properties: ["content": "not a transcript"], logger: HistoryTestLogger())
         XCTAssertNil(ChatTranscript.decode(from: config.initialContentRaw))
     }
 }
@@ -226,21 +226,34 @@ final class ChatTranscriptConfigTests: XCTestCase {
 @MainActor
 private final class FakeContentSource: ChatContentSource {
     var content: Any? {
-        didSet { observers.values.forEach { $0(content) } }
+        didSet { contentObservers.values.forEach { $0(content) } }
     }
-    private var observers: [Int: (Any?) -> Void] = [:]
+    var config: Any? {
+        didSet { configObservers.values.forEach { $0(config) } }
+    }
+    private var contentObservers: [Int: (Any?) -> Void] = [:]
+    private var configObservers: [Int: (Any?) -> Void] = [:]
     private var nextID = 0
 
-    init(seed: Any? = nil) {
+    init(seed: Any? = nil, config: Any? = nil) {
         self.content = seed
+        self.config = config
     }
 
     func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
         nextID += 1
         let id = nextID
-        observers[id] = handler
+        contentObservers[id] = handler
         handler(content)   // immediate current-value delivery, like @Published
-        return AnyCancellable { MainActor.assumeIsolated { self.observers[id] = nil } }
+        return AnyCancellable { MainActor.assumeIsolated { self.contentObservers[id] = nil } }
+    }
+
+    func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        nextID += 1
+        let id = nextID
+        configObservers[id] = handler
+        handler(config)
+        return AnyCancellable { MainActor.assumeIsolated { self.configObservers[id] = nil } }
     }
 }
 
@@ -249,7 +262,7 @@ final class ChatContentRestoreTests: XCTestCase {
 
     private func makeStore(properties: [String: Any] = [:], source: FakeContentSource) -> ChatStore {
         let logger = HistoryTestLogger()
-        return ChatStore(config: ChatConfig(properties: properties, config: [:], logger: logger),
+        return ChatStore(config: ChatConfig(properties: properties, logger: logger),
                          windowUUID: "restore-window", elementID: 1, logger: logger, contentSource: source)
     }
 

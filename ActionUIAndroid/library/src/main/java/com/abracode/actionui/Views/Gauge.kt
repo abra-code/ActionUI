@@ -2,6 +2,7 @@ package com.abracode.actionui.Views
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -9,7 +10,11 @@ import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUILogger
 import com.abracode.actionui.Common.ActionUIValueType
@@ -38,6 +43,15 @@ import kotlinx.serialization.json.contentOrNull
  *   * `range` - `{ "min": .., "max": .. }`, defaults to `0.0..1.0`.
  *   * `style` - one of Apple's four accessory styles, or absent for the
  *     platform-default gauge.
+ *   * `scaleEffect` - circular gauges reproduce SwiftUI's model: the ring has a
+ *     fixed intrinsic diameter ([CircularGaugeIntrinsicSide], ~71dp, matching
+ *     Apple's accessory-circular gauge) that the common-property `scaleEffect`
+ *     graphics transform scales, so the visual diameter is
+ *     `intrinsic * scaleEffect` on every platform. M3's circular indicator
+ *     hardcodes 40dp, so it is scaled up to the intrinsic diameter (see
+ *     [CircularRing]); the outer `scaleEffect` on the passed modifier does the
+ *     rest. No parent measurement / fill - a framed `ZStack` only reserves
+ *     layout space, exactly as on Apple.
  *
  * **Style mapping.** Compose Material3 has no gauge widget; the native fit is
  * its determinate progress indicators, so each SwiftUI style maps to the
@@ -88,12 +102,12 @@ object Gauge : ActionUIViewConstruction {
 
         when (config.style) {
             "accessoryCircular", "accessoryCircularCapacity" ->
-                Box(modifier = modifier, contentAlignment = Alignment.Center) {
-                    Ring(fraction, tint)
-                    if (config.title != null) {
-                        M3Text(text = config.title, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
+                CircularRing(
+                    fraction = fraction,
+                    tint = tint,
+                    title = config.title,
+                    modifier = modifier,
+                )
             "accessoryLinear", "accessoryLinearCapacity" ->
                 Box(modifier = modifier) { Bar(fraction, tint) }
             else ->
@@ -105,21 +119,52 @@ object Gauge : ActionUIViewConstruction {
     }
 }
 
+/**
+ * Circular gauge ring, reproducing SwiftUI's model: a fixed intrinsic diameter
+ * ([CircularGaugeIntrinsicSide]) that the common-property `scaleEffect` scales.
+ * M3's [CircularProgressIndicator] hardcodes a 40dp diameter (its internal
+ * `.size(CircularIndicatorDiameter)` overrides a caller `Modifier.size`), so it
+ * is drawn at 40dp and scaled up to the intrinsic diameter with [Modifier.scale].
+ * The wrapper [Box] is sized to the intrinsic diameter so the ring reserves the
+ * right layout space; the outer `scaleEffect` on [modifier] (a graphics
+ * transform) then scales the whole ring, so the visual diameter is
+ * `intrinsic * scaleEffect` - matching Apple and Web. No parent measurement.
+ */
+@Composable
+private fun CircularRing(
+    fraction: Float,
+    tint: Color?,
+    title: String?,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier.size(CircularGaugeIntrinsicSide),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Draw the fixed-40dp M3 indicator at the intrinsic diameter.
+        val innerScale = CircularGaugeIntrinsicSide / CircularGaugeM3Side
+        val color = tint ?: MaterialTheme.colorScheme.primary
+        val track = MaterialTheme.colorScheme.surfaceVariant
+        CircularProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.scale(innerScale),
+            color = color,
+            trackColor = track,
+            strokeWidth = circularGaugeStrokeWidth(),
+            strokeCap = StrokeCap.Round,
+        )
+        if (title != null) {
+            M3Text(text = title, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 @Composable
 private fun Bar(fraction: Float, tint: Color?) {
     if (tint != null) {
         LinearProgressIndicator(progress = { fraction }, color = tint)
     } else {
         LinearProgressIndicator(progress = { fraction })
-    }
-}
-
-@Composable
-private fun Ring(fraction: Float, tint: Color?) {
-    if (tint != null) {
-        CircularProgressIndicator(progress = { fraction }, color = tint)
-    } else {
-        CircularProgressIndicator(progress = { fraction })
     }
 }
 
@@ -135,6 +180,27 @@ internal data class GaugeConfig(
 private val VALID_GAUGE_STYLES = setOf(
     "accessoryCircular", "accessoryCircularCapacity", "accessoryLinear", "accessoryLinearCapacity",
 )
+
+/** M3 circular indicator's fixed diameter (CircularProgressIndicatorTokens.Size).
+ *  The indicator hardcodes this via an internal `.size()`; [CircularRing] scales
+ *  it up to [CircularGaugeIntrinsicSide]. */
+internal val CircularGaugeM3Side: Dp = 40.dp
+
+/**
+ * Intrinsic circular-gauge diameter, matching SwiftUI's accessory-circular gauge
+ * (~71pt, measured). `scaleEffect` (the common graphics transform on the passed
+ * modifier) scales this, so every platform renders `intrinsic * scaleEffect` -
+ * Web uses the same 71 base. Not a fill-the-parent size: a framed `ZStack` only
+ * reserves layout space, as on Apple.
+ */
+internal val CircularGaugeIntrinsicSide: Dp = 71.dp
+
+/**
+ * Stroke width in the M3 indicator's native (pre-scale) space. After the inner
+ * scale to the intrinsic diameter (and any outer `scaleEffect`), the visual
+ * stroke stays about 8% of the ring: `stroke * (intrinsic/40) ~= 0.08 * intrinsic`.
+ */
+internal fun circularGaugeStrokeWidth(): Dp = CircularGaugeM3Side * 0.08f
 
 /**
  * Resolves and validates the gauge properties, mirroring the Apple

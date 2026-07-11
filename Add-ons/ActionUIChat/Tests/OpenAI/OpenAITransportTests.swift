@@ -302,6 +302,195 @@ final class OpenAITransportTests: XCTestCase {
         XCTAssertTrue(history.isEmpty, "a hard failure with no reply drops the user message so retries do not accumulate back-to-back user turns")
     }
 
+    // MARK: - Prime history (P0-2 continue-in seam)
+
+    func testPrimeHistoryReplacesWireAndMapsRoles() throws {
+        let transport = try makeTransport()
+        transport.primeHistory([
+            ChatMessage(id: "1", role: .local, text: "earlier question", isStreaming: false),
+            ChatMessage(id: "2", role: .agent, text: "earlier answer", isStreaming: false),
+            ChatMessage(id: "3", role: .system, text: "a note", isStreaming: false),
+            ChatMessage(id: "4", role: .remote, text: "other party", isStreaming: false),
+            ChatMessage(id: "5", role: .agent, text: "", isStreaming: false),   // empty -> dropped
+        ])
+        let history = transport.conversationSnapshot
+        XCTAssertEqual(history.map { $0["role"] as? String }, ["user", "assistant", "system", "user"],
+                       "local/remote -> user, agent -> assistant, system -> system; the empty-text item is dropped")
+        XCTAssertEqual(history.map { $0["content"] as? String },
+                       ["earlier question", "earlier answer", "a note", "other party"])
+    }
+
+    func testEmptyPrimeResetsWire() throws {
+        let transport = try makeTransport()
+        transport.primeHistory([ChatMessage(id: "1", role: .local, text: "old", isStreaming: false)])
+        XCTAssertEqual(transport.conversationSnapshot.count, 1)
+        transport.primeHistory([])   // a New Chat clear
+        XCTAssertTrue(transport.conversationSnapshot.isEmpty, "an empty prime resets the wire history")
+    }
+
+    func testPrimeThenTurnContinuesWithPriorContext() async throws {
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"following up"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.primeHistory([
+            ChatMessage(id: "1", role: .local, text: "q1", isStreaming: false),
+            ChatMessage(id: "2", role: .agent, text: "a1", isStreaming: false),
+        ])
+        await transport.start()
+        await transport.send(.prompt(text: "q2"))
+        _ = await collect(from: transport, until: isMessageEnd)
+        let history = transport.conversationSnapshot
+        await transport.stop()
+
+        XCTAssertEqual(history.map { $0["content"] as? String }, ["q1", "a1", "q2", "following up"],
+                       "a continued turn appends AFTER the primed history, so the prior turns are sent as context")
+    }
+
+    func testPrimeDuringStreamDiscardsTheStaleReply() async throws {
+        // A turn is streaming when the user switches conversations (a re-prime). The cancelled
+        // stream must NOT append its reply into the freshly primed history (generation guard).
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"stale"}}]}"#)
+        setChatStub(sse, terminal: .hang)   // stream a delta, then never finish
+        let transport = try makeTransport()
+        transport.primeHistory([ChatMessage(id: "1", role: .local, text: "A", isStreaming: false)])
+        await transport.start()
+        await transport.send(.prompt(text: "mid"))
+        try await Task.sleep(nanoseconds: 250_000_000)   // let "stale" stream
+        transport.primeHistory([ChatMessage(id: "2", role: .agent, text: "B", isStreaming: false)])
+        try await Task.sleep(nanoseconds: 250_000_000)   // let the cancelled turn finalize
+        let history = transport.conversationSnapshot
+        await transport.stop()
+
+        XCTAssertEqual(history.map { $0["content"] as? String }, ["B"],
+                       "the re-prime replaces the wire; the cancelled turn's stale user+reply are not appended")
+    }
+
+    func testPrimeDuringStreamSilencesTheSupersededTurnsEvents() async throws {
+        // The store turns a stray messageDelta after a restore into a phantom bubble in the
+        // NEW conversation (and would persist it): a superseded turn must emit no terminal
+        // messageEnd (and no further deltas) once a prime swaps the conversation.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"stale"}}]}"#)
+        setChatStub(sse, terminal: .hang)   // stream a delta, then never finish
+        let transport = try makeTransport()
+        await transport.start()
+
+        let collector = Task { () -> [ChatEvent] in
+            var collected: [ChatEvent] = []
+            for await event in transport.events {
+                collected.append(event)
+            }
+            return collected
+        }
+        await transport.send(.prompt(text: "mid"))
+        try await Task.sleep(nanoseconds: 250_000_000)   // let messageStart + "stale" delta stream
+        transport.primeHistory([ChatMessage(id: "2", role: .agent, text: "B", isStreaming: false)])
+        try await Task.sleep(nanoseconds: 250_000_000)   // the superseded turn's terminal would fire here
+        await transport.stop()                            // finishes the event stream so the collector ends
+        let events = await collector.value
+
+        XCTAssertFalse(events.contains { if case .messageEnd = $0 { return true }; return false },
+                       "a turn superseded by a prime emits no terminal messageEnd, so nothing is finalized/persisted into the restored conversation")
+    }
+
+    // MARK: - Reserve ids (continue without reusing a loaded id)
+
+    func testReserveIDsSeedsCounterSoContinuedTurnDoesNotReuseLoadedIds() async throws {
+        // A conversation saved in a PRIOR app run (itemCounter has since reset to 0) is restored:
+        // its assistant replies already carry openai-msg-1 / openai-msg-2. The store reserves every
+        // loaded id before priming, so the continued turn must mint a FRESH id (openai-msg-3), NOT
+        // reuse openai-msg-N - a reused id makes the store's ForEach update the loaded bubble instead
+        // of appending (the reply overwrites an earlier answer) and makes the journal's
+        // last-write-wins dedup drop it (data loss). Non-counter ids must be ignored: user-N (from
+        // the store) and openai-tool-99 (tool cards are index-based, not from itemCounter) - if
+        // openai-tool-99 were reserved the turn would mint openai-msg-100, not openai-msg-3.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"the summary"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.reserveIDs(seen: ["user-1", "openai-msg-1", "user-2", "openai-msg-2", "openai-tool-99"])
+        await transport.start()
+        await transport.send(.prompt(text: "summarize prior conversation"))
+        let events = await collect(from: transport, until: isMessageEnd)
+        await transport.stop()
+
+        let ids = events.compactMap { event -> String? in
+            switch event {
+            case .messageStart(let itemID, _): return itemID
+            case .messageDelta(let itemID, _): return itemID
+            case .messageEnd(let itemID, _): return itemID
+            default: return nil
+            }
+        }
+        XCTAssertFalse(ids.isEmpty, "the continued turn emits a message")
+        XCTAssertFalse(ids.contains("openai-msg-1"), "must not reuse a loaded assistant id")
+        XCTAssertFalse(ids.contains("openai-msg-2"),
+                       "must not reuse the LAST loaded assistant id - that is the overwrite / data-loss bug")
+        XCTAssertTrue(ids.allSatisfy { $0 == "openai-msg-3" },
+                      "the continued turn mints the next fresh id past the loaded max suffix")
+    }
+
+    func testReserveIDsCoversReasoningOnlyThoughtIds() async throws {
+        // A reasoning-only turn (reasoning streamed, then no content: Stop before the first content
+        // delta, or a content-less reasoning response) persists an "openai-thought-<n>" with NO
+        // paired "openai-msg-<n>". A message-only reseed would miss it, so a continued turn could
+        // reuse the thought id - duplicating a SwiftUI id and overwriting the restored thought.
+        // reserveIDs sees every id, so it advances past the thought too. Here the max message suffix
+        // is 1 but a reasoning-only turn left openai-thought-5, so the next turn must be turn 6.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"reasoning_content":"hmm"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"ok"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.reserveIDs(seen: ["user-1", "openai-msg-1", "openai-thought-1", "openai-thought-5"])
+        await transport.start()
+        await transport.send(.prompt(text: "continue"))
+        let events = await collect(from: transport, until: isMessageEnd)
+        await transport.stop()
+
+        let messageIDs = events.compactMap { event -> String? in
+            if case .messageStart(let itemID, _) = event { return itemID }
+            return nil
+        }
+        let thoughtIDs = events.compactMap { event -> String? in
+            if case .thoughtDelta(let itemID, _) = event { return itemID }
+            return nil
+        }
+        XCTAssertEqual(messageIDs, ["openai-msg-6"],
+                       "the continued turn is seeded past the reasoning-only thought (openai-thought-5)")
+        XCTAssertFalse(thoughtIDs.contains("openai-thought-5"),
+                       "the paired thought id must not reuse the restored reasoning-only thought id")
+        XCTAssertTrue(thoughtIDs.allSatisfy { $0 == "openai-thought-6" },
+                      "the paired thought id is also seeded past openai-thought-5")
+    }
+
+    func testReserveIDsNeverRewindsTheCounter() async throws {
+        // Two reservations in a row (restore a long conversation, then switch to an OLDER/shorter
+        // one) must not rewind the counter into an id already reserved this session. After reserving
+        // up to 5, reserving a smaller max (2) is a no-op, so the next turn is openai-msg-6.
+        let sse = StubURLProtocol.sseEvent(#"{"choices":[{"delta":{"content":"a"}}]}"#)
+            + StubURLProtocol.sseEvent(#"{"choices":[{"delta":{},"finish_reason":"stop"}]}"#)
+            + StubURLProtocol.doneEvent
+        setChatStub(sse)
+        let transport = try makeTransport()
+        transport.reserveIDs(seen: ["openai-msg-5"])
+        transport.reserveIDs(seen: ["openai-msg-2"])          // smaller -> must not rewind
+        await transport.start()
+        await transport.send(.prompt(text: "next"))
+        let events = await collect(from: transport, until: isMessageEnd)
+        await transport.stop()
+
+        let ids = events.compactMap { event -> String? in
+            if case .messageStart(let itemID, _) = event { return itemID }
+            return nil
+        }
+        XCTAssertEqual(ids, ["openai-msg-6"],
+                       "reserving a smaller max after a larger one must not rewind the counter into a reused id")
+    }
+
     // MARK: - Construction
 
     func testMissingBaseURLThrows() {

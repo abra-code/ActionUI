@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Forms", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Form with Section, LabeledContent, GroupBox, DisclosureGroup:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Form with Section, LabeledContent, GroupBox, DisclosureGroup:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Form",
       "properties": { "frame": { "maxWidth": "infinity" } },

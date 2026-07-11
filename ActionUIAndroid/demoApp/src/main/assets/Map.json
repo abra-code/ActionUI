@@ -61,7 +61,7 @@
       "properties": {
         "text": "Pan the map, then read its center; the host can pan it back.",
         "font": "caption",
-        "foregroundColor": "#666666"
+        "foregroundStyle": "#666666"
       }
     }
   ]

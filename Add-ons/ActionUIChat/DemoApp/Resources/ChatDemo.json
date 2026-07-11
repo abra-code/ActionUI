@@ -1,13 +1,6 @@
 {
   "type": "Chat",
   "id": 1,
-  "config": {
-    "protocol": "acp",
-    "transport": {
-      "command": ["opencode", "acp"],
-      "cwd": "~"
-    }
-  },
   "properties": {
     "appearance": { "alignment": "single", "showRoleLabels": true },
     "roles": {

@@ -34,7 +34,7 @@
           { "type": "Label", "id": 1028, "properties": { "title": "Unavailable Views", "systemImage": "tray", "destinationViewId": 1118 } }
         ]
       },
-      "detail": { "type": "Text", "properties": { "text": "Pick a section from the sidebar.", "foregroundColor": "secondary" } },
+      "detail": { "type": "Text", "properties": { "text": "Pick a section from the sidebar.", "foregroundStyle": "secondary" } },
       "destinations": [
         { "type": "LoadableView", "id": 1100, "properties": { "name": "sections/overview.json" } },
         { "type": "LoadableView", "id": 1117, "properties": { "name": "sections/symbols.json" } },
@@ -60,6 +60,6 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundColor": "secondary", "font": "callout" } }
+    { "type": "Text", "id": 20, "properties": { "text": "Ready.", "foregroundStyle": "secondary", "font": "callout" } }
   ]
 }

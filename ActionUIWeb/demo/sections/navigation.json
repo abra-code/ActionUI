@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Navigation", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "TabView (sidebarAdaptable: a left rail, selection-bound, badges):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "TabView (sidebarAdaptable: a left rail, selection-bound, badges):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "TabView",
       "id": 130,
@@ -17,7 +17,7 @@
             "properties": { "alignment": "leading", "spacing": 6 },
             "children": [
               { "type": "Text", "properties": { "text": "Home", "font": "headline" } },
-              { "type": "Text", "properties": { "text": "Each tab keeps its own state across switches.", "foregroundColor": "secondary" } }
+              { "type": "Text", "properties": { "text": "Each tab keeps its own state across switches.", "foregroundStyle": "secondary" } }
             ]
           }
         },
@@ -34,7 +34,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Menu (pull-down: icons, a section, a divider):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Menu (pull-down: icons, a section, a divider):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Menu",
       "id": 170,
@@ -53,7 +53,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop). browserHistory:web is on, so the browser Back button pops a push, then switches section:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop). browserHistory:web is on, so the browser Back button pops a push, then switches section:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "NavigationStack",
       "id": 160,
@@ -74,7 +74,7 @@
               "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Note" },
               "children": [
                 { "type": "Text", "properties": { "text": "This destination was declared inline on the link.", "font": "headline" } },
-                { "type": "Text", "properties": { "text": "Inline destinations are hoisted by id (the Android/web constraint).", "foregroundColor": "secondary" } }
+                { "type": "Text", "properties": { "text": "Inline destinations are hoisted by id (the Android/web constraint).", "foregroundStyle": "secondary" } }
               ]
             }
           }
@@ -87,7 +87,7 @@
           "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Profile" },
           "children": [
             { "type": "Label", "properties": { "title": "Ada Lovelace", "systemImage": "person.crop.circle" } },
-            { "type": "Text", "properties": { "text": "Pushed by reference (destinationViewId 161). The toolbar action lives in the title bar.", "foregroundColor": "secondary" } }
+            { "type": "Text", "properties": { "text": "Pushed by reference (destinationViewId 161). The toolbar action lives in the title bar.", "foregroundStyle": "secondary" } }
           ],
           "toolbar": [
             { "type": "ToolbarItem", "properties": { "placement": "primaryAction" }, "content": { "type": "Button", "properties": { "title": "Edit", "systemImage": "pencil", "actionID": "toolbarEdit" } } }
@@ -99,7 +99,7 @@
           "properties": { "alignment": "leading", "spacing": 6, "navigationTitle": "Settings" },
           "children": [
             { "type": "Toggle", "properties": { "title": "Verbose logging", "style": "checkbox" } },
-            { "type": "Text", "properties": { "text": "Each pushed pane keeps its state across navigation.", "foregroundColor": "secondary" } }
+            { "type": "Text", "properties": { "text": "Each pushed pane keeps its state across navigation.", "foregroundStyle": "secondary" } }
           ],
           "toolbar": [
             { "type": "ToolbarItem", "properties": { "placement": "cancellationAction" }, "content": { "type": "Button", "properties": { "title": "Cancel", "actionID": "toolbarCancel" } } },
@@ -109,7 +109,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Runtime insertion into the exotic containers (Apple declares these insertable): add a tab to the TabView above, an item to the Menu above (re-open it), or a destination to the NavigationStack (a Library row is added alongside the push target, so it persists after Back):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Runtime insertion into the exotic containers (Apple declares these insertable): add a tab to the TabView above, an item to the Menu above (re-open it), or a destination to the NavigationStack (a Library row is added alongside the push target, so it persists after Back):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12, "alignment": "center" },
@@ -120,7 +120,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Link (a native <a> that navigates externally), ShareLink (the Web Share API), and EmptyView (renders nothing):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Link (a native <a> that navigates externally), ShareLink (the Web Share API), and EmptyView (renders nothing):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },

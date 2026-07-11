@@ -109,7 +109,7 @@
         {
           "type": "Text",
           "id": 60,
-          "properties": { "text": "$0.00", "font": { "size": 20, "weight": "bold" }, "foregroundColor": "blue" }
+          "properties": { "text": "$0.00", "font": { "size": 20, "weight": "bold" }, "foregroundStyle": "blue" }
         }
       ]
     }

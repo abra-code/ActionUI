@@ -26,7 +26,7 @@ final class ChatDualSnapshotTests: XCTestCase {
             "appearance": ["alignment": "dual", "showRoleLabels": true, "showAvatars": true,
                            "showTimestamps": true, "showDeliveryStatus": true],
             "features": ["reactions": true, "replies": true, "editing": true, "deletion": true],
-        ], config: [:], logger: SnapLogger())
+        ], logger: SnapLogger())
 
         func ctx(_ id: String, _ item: ChatItem, isSelf: Bool, name: String?, time: String?,
                  first: Bool = true, last: Bool = true, newDay: Bool = false) -> DualRowContext {

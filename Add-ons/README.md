@@ -26,8 +26,7 @@ needs that element.
 - **`ActionUICachedImage/`** - a `CachedImage` element: a cached, off-main image view backed by the
   [AsyncImageCache](https://github.com/abra-code/AsyncImageCache) github package (fetch/decode/
   downscale off the main thread, a two-tier memory + on-disk cache, and size-known-upfront layout
-  with no reflow on hydration). The first add-on to depend on a third-party github package. Owns
-  `Schemas/CachedImage.json`.
+  with no reflow on hydration). Owns `Schemas/CachedImage.json`.
 - **`ActionUIRichText/`** - a `RichText` element: a rich-text display view backed by the
   [RichText](https://github.com/abra-code/RichText) github package. It renders a whole Markdown
   document (headings, code blocks, quotes, lists, GFM tables, inline styling, links) into one native

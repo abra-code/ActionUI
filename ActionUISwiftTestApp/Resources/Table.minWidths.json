@@ -11,7 +11,7 @@
       "properties": {
         "text": "Drag the column dividers: each column refuses to shrink below its minWidth.",
         "font": "subheadline",
-        "foregroundColor": "secondary"
+        "foregroundStyle": "secondary"
       }
     },
     {

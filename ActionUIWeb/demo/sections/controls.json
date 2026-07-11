@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Controls", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Value controls bound through the model: a counter, a slider that drives a progress bar and two gauges, and a stepper.", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Value controls bound through the model: a counter, a slider that drives a progress bar and two gauges, and a stepper.", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -13,7 +13,7 @@
         { "type": "Text", "id": 10, "properties": { "text": "0", "font": "headline" } },
         { "type": "Button", "properties": { "systemImage": "plus", "actionID": "increment" } },
         { "type": "Spacer" },
-        { "type": "Button", "properties": { "title": "Reset", "systemImage": "arrow.counterclockwise", "buttonStyle": "borderless", "foregroundColor": "red", "actionID": "reset" } }
+        { "type": "Button", "properties": { "title": "Reset", "systemImage": "arrow.counterclockwise", "buttonStyle": "borderless", "foregroundStyle": "red", "actionID": "reset" } }
       ]
     },
     { "type": "Divider" },
@@ -35,6 +35,21 @@
         { "type": "Gauge", "id": 96, "properties": { "title": "Vol", "style": "accessoryCircular", "value": 40, "range": { "min": 0, "max": 100 } } },
         { "type": "Gauge", "id": 97, "properties": { "title": "Volume level", "value": 40, "range": { "min": 0, "max": 100 }, "frame": { "maxWidth": "infinity" } } },
         { "type": "Gauge", "properties": { "style": "accessoryLinearCapacity", "value": 0.8, "frame": { "width": 80 } } }
+      ]
+    },
+    { "type": "Text", "properties": { "text": "Circular gauge - intrinsic vs scaleEffect 2 (larger)", "font": "caption", "foregroundStyle": "secondary" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 28, "alignment": "center" },
+      "children": [
+        { "type": "Gauge", "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "title": "3/4", "tint": "green", "foregroundStyle": "green" } },
+        {
+          "type": "ZStack",
+          "properties": { "frame": { "width": 160, "height": 160 } },
+          "children": [
+            { "type": "Gauge", "properties": { "style": "accessoryCircularCapacity", "value": 0.75, "scaleEffect": 2.0, "tint": "orange", "foregroundStyle": "orange" } }
+          ]
+        }
       ]
     },
     { "type": "Divider" },

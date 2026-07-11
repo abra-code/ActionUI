@@ -206,13 +206,6 @@ function testElementProperty(uuid) {
     check('setElementPropertyJSON returns true', r === true);
 }
 
-function testElementConfig(uuid) {
-    console.log('\n=== Element config ===');
-    const vid = 12;
-    const r = native.setElementConfigJSON(uuid, vid, 'transport', JSON.stringify({ command: ['agent'] }));
-    check('setElementConfigJSON returns true', r === true);
-}
-
 function testElementState(uuid) {
     console.log('\n=== Element state ===');
     const vid = 13;
@@ -244,7 +237,6 @@ function testNoopCalls(uuid) {
     native.appendElementRowsJSON(uuid, vid, '[]');
     native.clearElementRows(uuid, vid);
     native.setElementPropertyJSON(uuid, vid, 'x', '{}');
-    native.setElementConfigJSON(uuid, vid, 'x', '{}');
     native.setElementStateJSON(uuid, vid, 'x', '{}');
     native.setElementStateFromString(uuid, vid, 'x', 'x');
 
@@ -257,7 +249,6 @@ function testNoopCalls(uuid) {
     check('getElementRowsJSON returns null', native.getElementRowsJSON(uuid, vid) === null);
     check('getElementColumnCount returns 0', native.getElementColumnCount(uuid, vid) === 0);
     check('getElementPropertyJSON returns null', native.getElementPropertyJSON(uuid, vid, 'x') === null);
-    check('getElementConfigJSON returns null', native.getElementConfigJSON(uuid, vid, 'x') === null);
     check('getElementStateJSON returns null', native.getElementStateJSON(uuid, vid, 'x') === null);
     check('getElementStateString returns null', native.getElementStateString(uuid, vid, 'x') === null);
 }
@@ -385,7 +376,6 @@ function main() {
     testElementColumnCount(testUuid);
     testElementRows(testUuid);
     testElementProperty(testUuid);
-    testElementConfig(testUuid);
     testElementState(testUuid);
     testElementInfo(testUuid);
     testNoopCalls(testUuid);

@@ -56,20 +56,23 @@ final class ChatTransportRegistry {
         name == Self.reservedLocalName || factories[name] != nil
     }
 
-    /// Builds the transport for a resolved config. `local` is built in; a registered
-    /// name builds through its factory (a throwing factory degrades to `local`); an
-    /// unregistered name degrades to `local`. Never fails - the element always gets a
-    /// transport.
-    func make(_ config: ChatConfig, logger: any ActionUILogger) -> any ChatTransport {
-        let transportConfig = ChatTransportConfig(protocolName: config.protocolName, settings: config.transport)
+    /// Builds the transport for a host-injected config, if it is VIABLE right now. Returns nil when a
+    /// REGISTERED protocol's factory throws (e.g. openai-sse before its baseURL, acp before its
+    /// command): that is a transient "config not complete yet" state, and the deferred-config element
+    /// stays inert and waits for a completer states["config"] rather than freezing on a fallback.
+    /// `local` (built in) and an UNREGISTERED name both yield a transport - an unregistered name is a
+    /// PERMANENT condition (registration happens at launch, never at runtime), so it degrades to
+    /// `local` with a warning rather than blocking the element forever.
+    func makeIfViable(protocolName: String, transport: [String: Any], logger: any ActionUILogger) -> (any ChatTransport)? {
+        let transportConfig = ChatTransportConfig(protocolName: protocolName, settings: transport)
 
-        if config.protocolName == Self.reservedLocalName {
+        if protocolName == Self.reservedLocalName {
             return LocalChatTransport(config: transportConfig, logger: logger)
         }
 
-        guard let factory = factories[config.protocolName] else {
+        guard let factory = factories[protocolName] else {
             logger.log(
-                "Chat transport '\(config.protocolName)' is not registered (link its module and call its register()); using 'local'",
+                "Chat transport '\(protocolName)' is not registered (link its module and call its register()); using 'local'",
                 .warning)
             return LocalChatTransport(config: transportConfig, logger: logger)
         }
@@ -77,8 +80,8 @@ final class ChatTransportRegistry {
         do {
             return try factory(transportConfig, logger)
         } catch {
-            logger.log("Chat transport '\(config.protocolName)' failed to start (\(error)); using 'local'", .warning)
-            return LocalChatTransport(config: transportConfig, logger: logger)
+            logger.log("Chat transport '\(protocolName)' not viable yet (\(error)); awaiting a complete config", .verbose)
+            return nil
         }
     }
 }

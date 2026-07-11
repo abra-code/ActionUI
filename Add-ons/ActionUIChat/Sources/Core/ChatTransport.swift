@@ -69,28 +69,55 @@ public protocol ChatTransport: AnyObject, Sendable {
     /// The P2P affordances this transport backs. Defaults to none (a v1 transport is
     /// unaffected), so only a transport that supports v2 features overrides it.
     var capabilities: ChatTransportCapabilities { get }
+    /// Replaces the transport's wire history with a restored transcript's messages, so a
+    /// continued conversation is sent with its prior turns as context (and a cleared / new
+    /// transcript resets the wire). The store calls this SYNCHRONOUSLY on every content
+    /// restore (P0-2 continue-in seam) and whenever a transport is (re)built while a
+    /// transcript is already loaded - always before any subsequent prompt, so ordering holds
+    /// without serializing the async command channel. `messages` are the transcript's message
+    /// items in order (role + text); non-message items (thoughts, tool cards, images,
+    /// notices) are omitted. A text-protocol transport maps role -> wire; a transport whose
+    /// history lives server-side may ignore it. Default: no-op.
+    func primeHistory(_ messages: [ChatMessage])
+    /// Reserves any id namespaces this transport MINTS, so a turn continued after a transcript
+    /// restore never reuses an id already present in the loaded items. `ids` is EVERY item id in
+    /// the restored transcript (messages, thoughts, tool cards, ...) - not just the messages
+    /// primeHistory receives - because a transport's per-turn id counter is typically shared
+    /// across item kinds. The store calls this SYNCHRONOUSLY alongside primeHistory on every
+    /// restore and on a transport (re)build, before any prompt. A reused id would make the
+    /// transcript's id-keyed ForEach update an existing bubble instead of appending, and the
+    /// journal's last-write-wins dedup drop the older item. openai-sse and acp override this
+    /// (both mint launch-reset per-turn ids); the local demo mints ids too but is not a
+    /// persistence path, so it keeps the default no-op.
+    func reserveIDs(seen ids: [String])
 }
 
 public extension ChatTransport {
     /// Default: no v2 capabilities. A v1 transport keeps its exact behavior without
     /// declaring anything; a P2P transport overrides this to opt into affordances.
     var capabilities: ChatTransportCapabilities { ChatTransportCapabilities() }
+    /// Default: a transport with no client-owned wire history (the demo `local` transport, or
+    /// an agent transport whose conversation state lives server-side) ignores a prime.
+    func primeHistory(_ messages: [ChatMessage]) {}
+    /// Default: no-op - only a transport that mints launch-reset per-turn ids a restore could
+    /// re-alias needs to override this (openai-sse and acp do).
+    func reserveIDs(seen ids: [String]) {}
 }
 
 /// The transport-relevant slice of a `Chat` element's configuration, handed to a
 /// transport factory. This is the ONLY configuration a transport sees: the element's
 /// visual properties (roles, surfaces, action IDs) stay inside the element and never
-/// reach a transport. `settings` is the element's `config.transport` object verbatim,
+/// reach a transport. `settings` is the host-injected `states["config"].transport` object verbatim,
 /// as the chosen protocol interprets it; the typed accessors are conveniences over it.
 ///
 /// Not `Sendable`: it carries the untyped `settings` dictionary and is used only at
 /// construction time on the main actor (a transport reads what it needs into its own
 /// Sendable state), so it never crosses an isolation boundary.
 public struct ChatTransportConfig {
-    /// The protocol name this transport was selected under (the element's
-    /// `config.protocol`). A transport registered under a single name can ignore it.
+    /// The protocol name this transport was selected under (the host-injected
+    /// `states["config"].protocol`). A transport registered under a single name can ignore it.
     public let protocolName: String
-    /// The `config.transport` object verbatim (protocol-specific; the chosen transport
+    /// The `states["config"].transport` object verbatim (protocol-specific; the chosen transport
     /// interprets it). Prefer the typed accessors below; reach for this only for shapes
     /// they do not cover.
     public let settings: [String: Any]

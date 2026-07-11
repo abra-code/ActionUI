@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Media & Web", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "AsyncImage (a browser <img>; an SF Symbol placeholder shows while loading and on failure):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "AsyncImage (a browser <img>; an SF Symbol placeholder shows while loading and on failure):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 12, "alignment": "top" },
@@ -13,7 +13,7 @@
           "properties": { "alignment": "leading", "spacing": 4 },
           "children": [
             { "type": "AsyncImage", "properties": { "url": "https://abracode.com/ActionUI/abracadabra.png", "cornerRadius": 8, "frame": { "width": 240, "height": 150 } } },
-            { "type": "Text", "properties": { "text": "Loaded from a URL", "foregroundColor": "secondary", "font": "footnote" } }
+            { "type": "Text", "properties": { "text": "Loaded from a URL", "foregroundStyle": "secondary", "font": "footnote" } }
           ]
         },
         {
@@ -21,13 +21,13 @@
           "properties": { "alignment": "leading", "spacing": 4 },
           "children": [
             { "type": "AsyncImage", "properties": { "url": "https://example.invalid/missing.png", "placeholder": "exclamationmark.triangle", "frame": { "width": 120, "height": 150 } } },
-            { "type": "Text", "properties": { "text": "Broken URL -> placeholder", "foregroundColor": "secondary", "font": "footnote" } }
+            { "type": "Text", "properties": { "text": "Broken URL -> placeholder", "foregroundStyle": "secondary", "font": "footnote" } }
           ]
         }
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "VideoPlayer (a native <video> with transport controls; bound its height with a frame):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "VideoPlayer (a native <video> with transport controls; bound its height with a frame):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "VideoPlayer",
       "properties": {
@@ -36,10 +36,10 @@
         "frame": { "maxWidth": 480, "height": 240 }
       }
     },
-    { "type": "Text", "properties": { "text": "A missing URL falls back to an error row:", "foregroundColor": "secondary", "font": "footnote" } },
+    { "type": "Text", "properties": { "text": "A missing URL falls back to an error row:", "foregroundStyle": "secondary", "font": "footnote" } },
     { "type": "VideoPlayer", "properties": {} },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "WebView (the web's own analog: a native <iframe>; inline html via srcdoc):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "WebView (the web's own analog: a native <iframe>; inline html via srcdoc):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "WebView",
       "properties": {
@@ -49,7 +49,7 @@
       }
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Canvas (a native <canvas> driving the shared JSON draw-command list - the same operations render on SwiftUI and Compose). Tap the last one:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Canvas (a native <canvas> driving the shared JSON draw-command list - the same operations render on SwiftUI and Compose). Tap the last one:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 16, "alignment": "center" },
@@ -123,7 +123,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "Map (the dependency-free default: an OpenStreetMap embed + a platform-aware 'Open in Maps' handoff to the native maps app). The Recenter button drives the host->view value bridge. Add ?maplibre to the URL to swap in a full MapLibre map (markers + a live pan->host bridge) from the same JSON. Bound its height with a frame:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Map (the dependency-free default: an OpenStreetMap embed + a platform-aware 'Open in Maps' handoff to the native maps app). The Recenter button drives the host->view value bridge. Add ?maplibre to the URL to swap in a full MapLibre map (markers + a live pan->host bridge) from the same JSON. Bound its height with a frame:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "Map",
       "id": 420,

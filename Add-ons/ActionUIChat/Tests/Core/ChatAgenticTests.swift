@@ -23,7 +23,7 @@ final class ChatRouterTests: XCTestCase {
 
     private func makeStore(properties: [String: Any] = [:]) -> ChatStore {
         let logger = TestLogger()
-        return ChatStore(config: ChatConfig(properties: properties, config: [:], logger: logger),
+        return ChatStore(config: ChatConfig(properties: properties, logger: logger),
                          windowUUID: "test-window", elementID: 1, logger: logger)
     }
 
@@ -80,6 +80,40 @@ final class ChatRouterTests: XCTestCase {
         store.route(.permissionRequest(makePermission()))
         store.route(.messageEnd(itemID: "m1", stopReason: "cancelled"))
         XCTAssertTrue(store.pendingPermissions.isEmpty, "a cancelled turn moots its permission requests")
+        XCTAssertFalse(store.isStreaming)
+    }
+
+    func testAwaitingReplyShowsThenClearsAcrossATurn() {
+        let store = makeStore()
+        store.send("hello")
+        XCTAssertTrue(store.awaitingReply, "submitting a prompt enters the awaiting-reply state")
+        XCTAssertFalse(store.isStreaming, "nothing has streamed yet, so the spinner (awaitingReply && !isStreaming) shows")
+
+        store.route(.messageStart(itemID: "m1", role: .agent))
+        XCTAssertTrue(store.isStreaming, "the first streamed event takes over; the spinner hides because isStreaming is now true")
+
+        store.route(.messageEnd(itemID: "m1", stopReason: "end_turn"))
+        XCTAssertFalse(store.awaitingReply, "the finished turn clears awaitingReply so the spinner cannot reappear when isStreaming drops")
+        XCTAssertFalse(store.isStreaming)
+    }
+
+    func testAwaitingReplyClearsWhenATurnErrorsBeforeStreaming() {
+        let store = makeStore()
+        store.send("hello")
+        XCTAssertTrue(store.awaitingReply)
+        store.route(.error(message: "connection failed", recoverable: true))
+        XCTAssertFalse(store.awaitingReply, "an error before any content clears the awaiting state (no lingering spinner)")
+    }
+
+    func testTeardownClearsAStuckAwaitingReply() {
+        // The @StateObject store outlives a view disappear/reappear. A view torn down mid-await
+        // (awaitingReply true, nothing streamed yet) must not leave the flag stuck, or the
+        // reappearing view shows a permanent spinner + a dead Stop button.
+        let store = makeStore()
+        store.send("hello")
+        XCTAssertTrue(store.awaitingReply)
+        store.teardown()
+        XCTAssertFalse(store.awaitingReply, "teardown clears a mid-await awaitingReply so a reappearing view has no stale spinner")
         XCTAssertFalse(store.isStreaming)
     }
 
@@ -166,7 +200,7 @@ final class ChatRouterTests: XCTestCase {
 final class ChatSurfacesConfigTests: XCTestCase {
 
     func testSurfacesDefaults() {
-        let config = ChatConfig(properties: [:], config: [:], logger: TestLogger())
+        let config = ChatConfig(properties: [:], logger: TestLogger())
         XCTAssertEqual(config.surfaces.toolCalls, .inline)
         XCTAssertEqual(config.surfaces.thoughts, .collapsed)
         XCTAssertNil(config.approveToolActionID)
@@ -176,66 +210,30 @@ final class ChatSurfacesConfigTests: XCTestCase {
         let config = ChatConfig(properties: [
             "surfaces": ["thoughts": "hidden"],
             "approveToolActionID": "chat.tool.approve",
-        ], config: [:], logger: TestLogger())
+        ], logger: TestLogger())
         XCTAssertEqual(config.surfaces.thoughts, .hidden)
         XCTAssertEqual(config.surfaces.toolCalls, .inline, "an absent surface keeps its default")
         XCTAssertEqual(config.approveToolActionID, "chat.tool.approve")
     }
 
     func testDiffsDefaultsToInline() {
-        let config = ChatConfig(properties: ["surfaces": ["toolCalls": "inline"]], config: [:], logger: TestLogger())
+        let config = ChatConfig(properties: ["surfaces": ["toolCalls": "inline"]], logger: TestLogger())
         XCTAssertEqual(config.surfaces.diffs, .inline, "a surfaces block that omits diffs keeps the inline default")
     }
 
     func testDiffsHiddenParses() {
-        let config = ChatConfig(properties: ["surfaces": ["diffs": "hidden"]], config: [:], logger: TestLogger())
+        let config = ChatConfig(properties: ["surfaces": ["diffs": "hidden"]], logger: TestLogger())
         XCTAssertEqual(config.surfaces.diffs, .hidden)
     }
 
     func testDiffsCollapsedCoercesToInline() {
-        let config = ChatConfig(properties: ["surfaces": ["diffs": "collapsed"]], config: [:], logger: TestLogger())
+        let config = ChatConfig(properties: ["surfaces": ["diffs": "collapsed"]], logger: TestLogger())
         XCTAssertEqual(config.surfaces.diffs, .inline, "the tool card's own fold covers collapsing; collapsed coerces to inline")
     }
 
     func testDiffsPanelCoercesToInline() {
-        let config = ChatConfig(properties: ["surfaces": ["diffs": "panel"]], config: [:], logger: TestLogger())
+        let config = ChatConfig(properties: ["surfaces": ["diffs": "panel"]], logger: TestLogger())
         XCTAssertEqual(config.surfaces.diffs, .inline, "a diff side panel is a later surface; panel coerces to inline")
-    }
-
-    // The non-visual settings live in the element's config block (a clean move - the
-    // element is unpublished, so the old properties placement is simply not honored).
-    func testOperationalSettingsComeFromConfig() {
-        let config = ChatConfig(properties: [:], config: [
-            "protocol": "custom",
-            "transport": ["echo": false, "reply": "markdown"],
-        ], logger: TestLogger())
-        XCTAssertEqual(config.protocolName, "custom", "any protocol name passes through at parse; the registry decides availability at runtime")
-        XCTAssertEqual(config.transport["reply"] as? String, "markdown")
-    }
-
-    func testProtocolAndTransportInPropertiesAreNotHonored() {
-        let config = ChatConfig(properties: [
-            "protocol": "custom",
-            "transport": ["echo": false],
-        ], config: [:], logger: TestLogger())
-        XCTAssertEqual(config.protocolName, "local", "protocol under properties is dead; config is the only source")
-        XCTAssertTrue(config.transport.isEmpty, "transport under properties is dead; config is the only source")
-    }
-
-    // Any string is a valid protocol name at parse time: which names resolve to a
-    // transport is a runtime fact (did the host register that module), so an unknown
-    // name is preserved here and the REGISTRY degrades it to local when the chat starts
-    // (covered by ChatTransportRegistryTests.testUnregisteredProtocolDegradesToLocal).
-    func testUnknownProtocolIsPreservedAtParseAndDegradedAtRuntime() {
-        let config = ChatConfig(properties: [:], config: ["protocol": "bogus"], logger: TestLogger())
-        XCTAssertEqual(config.protocolName, "bogus", "the name passes through parse unchanged; the registry decides at runtime")
-    }
-
-    @MainActor
-    func testUnregisteredProtocolDegradesToLocalTransport() {
-        let config = ChatConfig(properties: [:], config: ["protocol": "bogus"], logger: TestLogger())
-        let transport = ChatTransportRegistry.shared.make(config, logger: TestLogger())
-        XCTAssertTrue(transport is LocalChatTransport, "an unregistered protocol degrades to the built-in local transport")
     }
 
     func testValidateDropsUnknownSurfaceKeysAndModes() {

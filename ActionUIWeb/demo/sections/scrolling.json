@@ -3,7 +3,7 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "Scrolling", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Scroll horizontally:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Scroll horizontally:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "ScrollView",
       "properties": { "axis": "horizontal", "showsIndicators": false, "frame": { "maxWidth": "infinity" } },
@@ -21,7 +21,7 @@
       }
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "LazyVGrid (three flexible columns):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "LazyVGrid (three flexible columns):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "LazyVGrid",
       "properties": {
@@ -42,7 +42,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "ScrollViewReader (opens centered on Row 6; buttons scroll programmatically):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "ScrollViewReader (opens centered on Row 6; buttons scroll programmatically):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -68,7 +68,7 @@
             { "type": "Text", "id": 143, "properties": { "text": "Row 3" } },
             { "type": "Text", "id": 144, "properties": { "text": "Row 4" } },
             { "type": "Text", "id": 145, "properties": { "text": "Row 5" } },
-            { "type": "Text", "id": 146, "properties": { "text": "Row 6", "font": "headline", "foregroundColor": "accentColor" } },
+            { "type": "Text", "id": 146, "properties": { "text": "Row 6", "font": "headline", "foregroundStyle": "accentColor" } },
             { "type": "Text", "id": 147, "properties": { "text": "Row 7" } },
             { "type": "Text", "id": 148, "properties": { "text": "Row 8" } },
             { "type": "Text", "id": 149, "properties": { "text": "Row 9" } },

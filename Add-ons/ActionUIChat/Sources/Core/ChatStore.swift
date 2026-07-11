@@ -31,11 +31,17 @@ protocol ChatContentSource: AnyObject {
     /// Observes `states["content"]`; the handler is called with the current value on subscription and
     /// on every subsequent change (matching @Published semantics). Cancel to stop.
     func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable
+    /// Observes `states["config"]` - the host-injected operational config (protocol + transport) -
+    /// with the same current-value-on-subscription-and-on-change semantics. Cancel to stop.
+    func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable
 }
 
 extension ViewModel: ChatContentSource {
     func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
         $states.sink { handler($0["content"]) }
+    }
+    func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        $states.sink { handler($0["config"]) }
     }
 }
 
@@ -44,6 +50,8 @@ final class ChatStore: ObservableObject {
 
     @Published private(set) var items: [ChatItem] = []
     @Published private(set) var isStreaming = false       // a reply turn is in flight
+    @Published private(set) var awaitingReply = false      // a prompt was submitted but no reply event has arrived yet - the "connecting / thinking" gap before the first token. The view shows a spinner while awaitingReply && !isStreaming (isStreaming only flips true on the first streamed event, not at submit).
+    @Published private(set) var isConfigured = false      // a viable transport has been built from states["config"]; the composer gates on this
     @Published private(set) var pendingPermissions: [PermissionRequest] = []   // FIFO; the card shows the head
     @Published private(set) var plan: [PlanEntry] = []    // the agent's current plan (whole-list replace)
     @Published private(set) var usage: UsageInfo?         // latest token/cost status, when the agent reports it
@@ -75,6 +83,15 @@ final class ChatStore: ObservableObject {
     private var eventTask: Task<Void, Never>?
     private var localCounter = 0
     private var didLoadInitial = false
+
+    // Config-injection seam (states["config"]). The operational config (protocol + transport) is NOT
+    // document-declared: the store observes states["config"] and builds the transport once it first
+    // resolves to a VIABLE config, then FREEZES - `didConfigure` latches, `resolvedTransportConfig`
+    // holds the frozen decision, and later states["config"] changes are ignored. On reappearance the
+    // torn-down transport is rebuilt from the frozen decision (not from a possibly-changed state).
+    private var didConfigure = false
+    private var resolvedTransportConfig: ChatTransportConfig?
+    private var configCancellable: AnyCancellable?
 
     // Coalescing: streaming deltas accumulate per item here and are flushed to the published
     // transcript at most ~20 Hz, so the Markdown re-parse runs on a fixed cadence instead of once
@@ -151,19 +168,114 @@ final class ChatStore: ObservableObject {
             }
         }
 
-        // readOnly is the history-viewer mode: no transport, no composer (ChatRootView gates those).
-        // The transport is (re)built once per appearance.
-        guard !config.readOnly, transport == nil else {
+        // readOnly is the history-viewer mode: no transport, no config observation (ChatRootView
+        // gates the composer / menus).
+        guard !config.readOnly else {
             return
         }
-        let transport = ChatTransportRegistry.shared.make(config, logger: logger)
+
+        // (Re)subscribe to the host-injected operational config through states["config"]. The sink
+        // delivers the current value on subscription AND on every change, so INIT-time injection is
+        // never "too late": whenever a viable config arrives, reconcileConfig builds the transport.
+        if configCancellable == nil, let contentSource {
+            configCancellable = contentSource.observeChatConfig { [weak self] newConfig in
+                self?.reconcileConfig(newConfig)
+            }
+        }
+
+        // Reappearance: the transport was torn down on disappear but the config decision is frozen -
+        // rebuild it from the frozen decision (ignoring any post-freeze states["config"] change).
+        if didConfigure, transport == nil, let resolved = resolvedTransportConfig,
+           let rebuilt = ChatTransportRegistry.shared.makeIfViable(
+               protocolName: resolved.protocolName, transport: resolved.settings, logger: logger) {
+            attach(rebuilt)
+        }
+    }
+
+    // MARK: - Config injection (states["config"]) -> deferred, frozen transport
+
+    /// Handles a host-injected operational config from states["config"]. Builds the transport the
+    /// FIRST time the config resolves to a viable one, then FREEZES: `didConfigure` latches so a later
+    /// states["config"] change is ignored for this element (a new element is needed to switch
+    /// transport). A config that is not yet viable (e.g. openai-sse before its baseURL, or acp before
+    /// its command) does NOT freeze - the element stays inert and waits for a completer config.
+    /// Internal so tests can drive an injection directly (as the config subscription does).
+    func reconcileConfig(_ raw: Any?) {
+        guard !config.readOnly, !didConfigure else {
+            return
+        }
+        guard let (protocolName, transportSettings) = Self.parseTransportConfig(raw) else {
+            return   // no config object yet (states["config"] absent / not a dict) - stay inert
+        }
+        guard let built = ChatTransportRegistry.shared.makeIfViable(
+                protocolName: protocolName, transport: transportSettings, logger: logger) else {
+            logger.log("Chat config for protocol '\(protocolName)' is not viable yet; awaiting a complete states[\"config\"]", .verbose)
+            return
+        }
+        // First viable config wins and freezes.
+        didConfigure = true
+        resolvedTransportConfig = ChatTransportConfig(protocolName: protocolName, settings: transportSettings)
+        isConfigured = true
+        attach(built)
+    }
+
+    /// Parses states["config"] into (protocolName, transport). Accepts a dict, a JSON string, or JSON
+    /// Data (matching setElementState / setElementStateFromString). A missing `protocol` defaults to
+    /// "local"; a missing `transport` is an empty object. Returns nil when there is no config object.
+    private static func parseTransportConfig(_ raw: Any?) -> (protocolName: String, transport: [String: Any])? {
+        let dict: [String: Any]?
+        switch raw {
+        case let value as [String: Any]:
+            dict = value
+        case let string as String:
+            dict = (string.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any]
+        case let data as Data:
+            dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        default:
+            dict = nil
+        }
+        guard let dict else {
+            return nil
+        }
+        let protocolName = (dict["protocol"] as? String) ?? ChatTransportRegistry.reservedLocalName
+        let transportSettings = (dict["transport"] as? [String: Any]) ?? [:]
+        return (protocolName, transportSettings)
+    }
+
+    /// Installs a built transport and starts draining its event stream.
+    private func attach(_ transport: any ChatTransport) {
         self.transport = transport
+        // If a transcript was restored before the transport existed (content injected before a
+        // viable config), seed the new transport's wire history from it so a continue carries
+        // context. For a fresh session `items` is empty, so this primes an empty history.
+        primeTransportFromItems()
         eventTask = Task { [weak self] in
             await transport.start()
             for await event in transport.events {
                 self?.route(event)
             }
         }
+    }
+
+    /// Seeds the active transport's wire history from the current transcript's message items,
+    /// so a continued conversation is sent with its prior turns as context (and an empty /
+    /// cleared transcript resets the wire). No-op when no transport exists yet (attach()
+    /// re-primes once one is built). Message items only (role + text); the transport maps
+    /// role -> its own wire format. Called synchronously from applyLoadedTranscript and attach,
+    /// always before any subsequent prompt, so no command-channel serialization is needed.
+    private func primeTransportFromItems() {
+        guard let transport else { return }
+        // Reserve every loaded item id first, so a continued turn cannot mint an id the transport
+        // already used in this transcript (ChatTransport.reserveIDs). This passes ALL ids -
+        // including thoughts and tool cards, which primeHistory omits - because a transport's
+        // per-turn id counter is shared across item kinds (a reasoning-only turn leaves a thought
+        // id with no paired message id, invisible to a messages-only prime).
+        transport.reserveIDs(seen: items.map(\.id))
+        let messages: [ChatMessage] = items.compactMap { item in
+            if case let .message(message) = item { return message }
+            return nil
+        }
+        transport.primeHistory(messages)
     }
 
     // MARK: - User intent
@@ -195,6 +307,10 @@ final class ChatStore: ObservableObject {
         fire(config.sendActionID)
         fire(config.messageActionID)
         fireEntry(type: "message", id: itemID, data: ChatItem.message(message))
+        // Enter the awaiting-reply state: the turn is submitted but nothing has streamed back yet.
+        // Cleared by the terminal messageEnd / error (or a restore); until then the view shows a
+        // "thinking" spinner, because isStreaming only flips true on the first streamed event.
+        awaitingReply = true
         let transport = self.transport
         if repliesAllowed {
             Task { await transport?.send(.sendMessage(text: text, replyTo: replyTo)) }
@@ -372,12 +488,19 @@ final class ChatStore: ObservableObject {
         eventTask = nil
         contentCancellable?.cancel()
         contentCancellable = nil
+        configCancellable?.cancel()
+        configCancellable = nil
         streamBuffers.removeAll()
         pendingPermissions.removeAll()
         scheduler.cancel(Self.readMarkKey)
         for participant in typingParticipants {
             scheduler.cancel(Self.typingExpiryKey(participant.id))
         }
+        // Clear the in-flight turn state too: the @StateObject store outlives a disappear/reappear
+        // cycle, so a turn abandoned by teardown must not leave isStreaming / awaitingReply stuck
+        // true - which would show a permanent spinner and a dead Stop button on reappearance.
+        isStreaming = false
+        awaitingReply = false
         let transport = self.transport
         self.transport = nil
         Task { await transport?.stop() }
@@ -435,6 +558,7 @@ final class ChatStore: ObservableObject {
             // on cancel) is moot.
             if stopReason != nil {
                 isStreaming = false
+                awaitingReply = false
                 pendingPermissions.removeAll()
             }
 
@@ -543,6 +667,7 @@ final class ChatStore: ObservableObject {
             localCounter += 1
             let itemID = "error-\(localCounter)"
             items.append(.error(id: itemID, text: message))
+            awaitingReply = false   // defensive: a transport that errors without a trailing messageEnd still drops the spinner
             fire(config.errorActionID)
             fireEntry(type: "error", id: itemID, data: ChatItem.error(id: itemID, text: message))
 
@@ -641,6 +766,7 @@ final class ChatStore: ObservableObject {
         title = transcript.title
         participants = transcript.participants ?? []
         isStreaming = false
+        awaitingReply = false
         pendingPermissions.removeAll()
         streamBuffers.removeAll()
         // A restored session supersedes any read-mark / typing state.
@@ -649,6 +775,10 @@ final class ChatStore: ObservableObject {
         // Advance the id counter past any store-generated ids in the loaded transcript, so a
         // subsequent user/system/error item cannot collide with a loaded one.
         advanceLocalCounter(past: transcript.items)
+        // Seed the transport's wire history from the loaded transcript so typing continues the
+        // conversation WITH its prior turns as context (P0-2 continue-in). An empty transcript
+        // (New Chat clear) resets the wire. No-op if the transport is not built yet.
+        primeTransportFromItems()
     }
 
     /// The envelope fired to entryActionID: a monotonic sequence, the finalized entry's type

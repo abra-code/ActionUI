@@ -1364,7 +1364,7 @@
 /* ---- Slider ---- */
 
 .aui-slider {
-    /* Native range control, tinted to the accent (foregroundColor overrides via
+    /* Native range control, tinted to the accent (foregroundStyle overrides via
        the inline accent-color the modifier resolver may set). */
     accent-color: var(--aui-color-accent);
     width: 100%;
@@ -1390,7 +1390,7 @@
 /* A read-only level indicator. Linear styles are a native <meter> — the DOM's
    own gauge element — tinted via the vendor bar pseudos (<meter> ignores
    accent-color); circular styles are a conic-gradient ring drawn in
-   currentColor (accent by default, so foregroundColor tints it) with the
+   currentColor (accent by default, so foregroundStyle tints it) with the
    title centered in the hole. */
 .aui-gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .aui-gauge-title { color: var(--aui-color-primary); }
@@ -1413,8 +1413,15 @@
 .aui-gauge-circular {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    /* SwiftUI's accessory-circular gauge has a fixed intrinsic diameter (~71pt) and
+       `scaleEffect` scales that (the CSS `scale` ModifierResolver applies), so the
+       ring is base * scaleEffect - the same model iOS uses. The old 40px undershot
+       the intrinsic: a framed, scaled ring (BodyMetrics: 180 ZStack, scaleEffect 2.7)
+       came out ~108px, ~1.8x too small vs iOS's ~192pt. 71px reproduces iOS both
+       framed (71 * 2.7 = 192) and bare. Overflow past a smaller frame is not clipped
+       here (no clipShape on web), matching iOS. */
+    width: 71px;
+    height: 71px;
     color: var(--aui-color-accent);
 }
 .aui-gauge-circular > * { grid-area: 1 / 1; }

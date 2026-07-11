@@ -3,14 +3,14 @@
   "properties": { "alignment": "leading", "spacing": 12 },
   "children": [
     { "type": "Text", "properties": { "text": "setElementProperty", "font": "title2" } },
-    { "type": "Text", "properties": { "text": "Each button calls win.setElementProperty(id, name, value) from app.js to mutate the live element's visual property at runtime - no rebuild, the same node is changed in place. Supported: opacity, hidden, cornerRadius, foregroundColor, background, disabled, help.", "foregroundColor": "secondary" } },
+    { "type": "Text", "properties": { "text": "Each button calls win.setElementProperty(id, name, value) from app.js to mutate the live element's visual property at runtime - no rebuild, the same node is changed in place. Supported: opacity, hidden, cornerRadius, foregroundStyle, background, disabled, help.", "foregroundStyle": "secondary" } },
     { "type": "Divider" },
     {
       "type": "Text",
       "id": 1200,
       "properties": { "text": "I am the target element (id 1200).", "padding": 16, "background": "#e5e7eb", "cornerRadius": 6, "frame": { "maxWidth": "infinity" } }
     },
-    { "type": "Text", "properties": { "text": "Opacity / visibility:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Opacity / visibility:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -21,7 +21,7 @@
         { "type": "Button", "properties": { "title": "Show", "buttonStyle": "bordered", "actionID": "propShow" } }
       ]
     },
-    { "type": "Text", "properties": { "text": "Color / shape:", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Color / shape:", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },
@@ -41,7 +41,7 @@
       ]
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "disabled (on a real control - tap it, then disable it):", "foregroundColor": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "disabled (on a real control - tap it, then disable it):", "foregroundStyle": "secondary", "font": "callout" } },
     { "type": "Button", "id": 1201, "properties": { "title": "Tap me (id 1201)", "buttonStyle": "borderedProminent", "actionID": "propTargetTapped" } },
     {
       "type": "HStack",

@@ -25,7 +25,7 @@
    // states["content"] ([[String]]) holds the current rows.
    //
    // Note: These properties are specific to GroupBox. Baseline View properties (padding, hidden,
-   // foregroundColor, font, background, frame, opacity, cornerRadius, actionID, disabled) and
+   // foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and
    // additional View protocol modifiers are inherited and applied via
    // ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }

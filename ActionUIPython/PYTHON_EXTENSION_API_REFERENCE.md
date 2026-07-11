@@ -534,13 +534,6 @@ window.clear_rows(view_id)
 window.set_property(view_id, "disabled", True)
 val = window.get_property(view_id, "columns")
 
-# Non-visual config (the document's "config" block, sibling of "properties"):
-# operational settings - what a complex element does (wire protocol, transports,
-# data sources). Canonical use: load a static document, then inject runtime- or
-# session-specific settings before showing it.
-window.set_config(view_id, "transport", {"command": ["agent", "acp"], "cwd": "/tmp"})
-transport = window.get_config(view_id, "transport")
-
 # Runtime state
 window.set_state(view_id, "isLoading", True)
 loading = window.get_state(view_id, "isLoading")       # -> bool

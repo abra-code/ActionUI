@@ -19,13 +19,16 @@ streamed replies, collapsed thoughts, tool-call cards, and the permission gate.
   session - which is a launcher UI, not a static document.
 
 The app demonstrates the embedding story the ActionUI way: the UI is the STATIC bundled
-`Resources/ChatDemo.json` (build-verified against the schemas), and the host injects the
-runtime/session-specific parts - the resolved `transport.command` and `cwd` - into the
-element's non-visual `config` block. `ActionUISwift.loadView` registers the document's
-model tree synchronously and the element's view is built lazily on first render, so
-calling `ActionUISwift.setElementConfig(.. "transport" ..)` between the two configures
-the Chat element before it exists. No JSON is generated at runtime. The chat's action
-IDs are observed through a host action handler (shown live in the session footer).
+`Resources/ChatDemo.json` (build-verified against the schemas, properties only - no
+element-level config block), and the element is built INERT (no transport, disabled
+composer) until the host injects the runtime/session-specific parts - `protocol` and the
+resolved `transport.command` / `cwd` - into the element's `states["config"]`.
+`ActionUISwift.loadView` registers the document's model tree synchronously and the
+element's view is built lazily on first render, so calling
+`ActionUISwift.setElementState(.. "config" ..)` between the two configures the Chat
+element before it exists. No JSON is generated at runtime. The transport is built once
+this config arrives and then frozen for that element's lifetime; the chat's action IDs
+are observed through a host action handler (shown live in the session footer).
 
 The scripted no-agent demos remain in ActionUIAddOnTestApp (`Chat.agentic.json` fakes a
 full agentic turn with the local transport, no install required). From a terminal,

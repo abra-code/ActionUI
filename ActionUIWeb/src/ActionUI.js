@@ -220,7 +220,7 @@ export class Window {
     // Property bridge — runtime mutation of a visual View property (same name as
     // the Swift/Kotlin setElementProperty). Web has no reactive re-render, so this
     // mutates the live node directly; it covers the host-driven visual properties
-    // (opacity, hidden, cornerRadius, foregroundColor/Style, background, disabled,
+    // (opacity, hidden, cornerRadius, foregroundStyle, background, disabled,
     // help). See ActionUIModel.setElementProperty / ModifierResolver.applyElementProperty.
     setElementProperty(viewID, propertyName, value) {
         this.model.setElementProperty(viewID, propertyName, value);

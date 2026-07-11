@@ -15,11 +15,14 @@
 // user's login shell.
 //
 // The document itself is the STATIC bundled Resources/ChatDemo.json - the ActionUI way:
-// static JSON describes the UI, and the host injects the runtime/session-specific parts
-// (the resolved transport.command and cwd) into the element's non-visual config block.
-// loadView loads the document's model tree synchronously, the element's view is built
-// lazily on first render, so setElementConfig(.."transport"..) between the two lands
-// before the Chat element exists - no JSON is ever generated.
+// static JSON describes the UI (properties only - no element-level config block exists
+// anymore), and the element is built INERT (no transport, disabled composer) until a host
+// injects the runtime/session-specific protocol + transport (the resolved agent command and
+// cwd) into the element's states["config"]. loadView loads the document's model tree
+// synchronously, the element's view is built lazily on first render, so
+// setElementState(.."config"..) between the two lands before the Chat element exists - no
+// JSON is ever generated. The transport is built once this config arrives and then frozen;
+// switching agents means starting a fresh Chat element (see startSession() below).
 
 import SwiftUI
 import AppKit
@@ -214,14 +217,16 @@ struct ChatDemoView: View {
         nextSessionNumber += 1
         let windowUUID = "chat-acp-demo-\(number)"
         // The ActionUI pattern: load the STATIC document (this registers its model tree
-        // synchronously), then inject the runtime/session-specific transport through the
-        // element's non-visual config block. The element's view is built lazily on first
-        // render, so the injected transport is what the Chat element starts with.
+        // synchronously), then inject the whole runtime config { protocol, transport } into
+        // the element's states["config"] via setElementState. The element is inert until this
+        // lands; its view is built lazily on first render, so the injected config is what the
+        // Chat element starts with, and the transport is then frozen for this element's life.
         let view = AnyView(ActionUISwift.loadView(from: documentURL, windowUUID: windowUUID, isContentView: true))
-        ActionUISwift.setElementConfig(windowUUID: windowUUID,
+        ActionUISwift.setElementState(windowUUID: windowUUID,
                                        viewID: chatElementID,
-                                       key: "transport",
-                                       value: ["command": command, "cwd": workingDirectory])
+                                       key: "config",
+                                       value: ["protocol": "acp",
+                                               "transport": ["command": command, "cwd": workingDirectory]])
         session = ChatSession(number: number,
                               windowUUID: windowUUID,
                               view: view,

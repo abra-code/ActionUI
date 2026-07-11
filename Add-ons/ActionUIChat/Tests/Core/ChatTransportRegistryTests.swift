@@ -2,9 +2,12 @@
 //
 // Unit tests for the transport registry (P0-6): a registered factory builds its own
 // transport; the reserved `local` name cannot be overridden; the latest registration
-// for a name wins; an unregistered name and a throwing factory both degrade to the
-// built-in `local` transport. The registry is a main-actor singleton with no unregister
-// API, so each test uses a protocol name unique to it to avoid cross-test pollution.
+// for a name wins. Viability (`makeIfViable`): an UNREGISTERED name degrades to the
+// built-in `local` (a PERMANENT condition - registration happens at launch), while a
+// REGISTERED factory that throws returns nil (NOT viable yet - the deferred-config
+// element stays inert until a completer states["config"] arrives, rather than freezing
+// on a `local` fallback). The registry is a main-actor singleton with no unregister API,
+// so each test uses a protocol name unique to it to avoid cross-test pollution.
 
 import XCTest
 @testable import ActionUIChatCore
@@ -37,41 +40,46 @@ private final class FakeTransport: ChatTransport, @unchecked Sendable {
 @MainActor
 final class ChatTransportRegistryTests: XCTestCase {
 
-    private func config(protocolName: String) -> ChatConfig {
-        ChatConfig(properties: [:], config: ["protocol": protocolName], logger: RegistryTestLogger())
+    private func makeIfViable(_ protocolName: String, transport: [String: Any] = [:]) -> (any ChatTransport)? {
+        ChatTransportRegistry.shared.makeIfViable(protocolName: protocolName, transport: transport, logger: RegistryTestLogger())
     }
 
-    private func make(_ protocolName: String) -> any ChatTransport {
-        ChatTransportRegistry.shared.make(config(protocolName: protocolName), logger: RegistryTestLogger())
+    /// Unwraps a transport the test expects to be built (non-nil); fails otherwise.
+    private func requireTransport(_ protocolName: String, transport: [String: Any] = [:],
+                                  file: StaticString = #filePath, line: UInt = #line) -> any ChatTransport {
+        guard let built = makeIfViable(protocolName, transport: transport) else {
+            XCTFail("expected a viable transport for '\(protocolName)'", file: file, line: line)
+            return LocalChatTransport(config: ChatTransportConfig(), logger: RegistryTestLogger())
+        }
+        return built
     }
 
     func testRegisteredFactoryBuildsItsTransport() {
         ChatTransportRegistry.shared.register("registry-test-basic") { config, _ in
             FakeTransport(marker: "basic:\(config.protocolName)")
         }
-        let transport = make("registry-test-basic")
-        XCTAssertEqual((transport as? FakeTransport)?.marker, "basic:registry-test-basic",
+        XCTAssertEqual((requireTransport("registry-test-basic") as? FakeTransport)?.marker, "basic:registry-test-basic",
                        "the registered factory should build the transport, and see the resolved protocol name")
     }
 
     func testUnregisteredProtocolDegradesToLocal() {
-        let transport = make("registry-test-unregistered-name")
-        XCTAssertTrue(transport is LocalChatTransport, "an unregistered protocol must degrade to the built-in local transport")
+        XCTAssertTrue(requireTransport("registry-test-unregistered-name") is LocalChatTransport,
+                      "an unregistered protocol is a permanent condition and must degrade to the built-in local transport")
     }
 
     func testLocalIsBuiltInWithoutRegistration() {
-        XCTAssertTrue(make("local") is LocalChatTransport)
+        XCTAssertTrue(requireTransport("local") is LocalChatTransport)
     }
 
     func testLocalNameIsReservedAndNotOverridable() {
         ChatTransportRegistry.shared.register("local") { _, _ in FakeTransport(marker: "hijack") }
-        XCTAssertTrue(make("local") is LocalChatTransport, "registering 'local' must be ignored; the built-in always wins")
+        XCTAssertTrue(requireTransport("local") is LocalChatTransport, "registering 'local' must be ignored; the built-in always wins")
     }
 
     func testLastRegistrationWins() {
         ChatTransportRegistry.shared.register("registry-test-override") { _, _ in FakeTransport(marker: "first") }
         ChatTransportRegistry.shared.register("registry-test-override") { _, _ in FakeTransport(marker: "second") }
-        XCTAssertEqual((make("registry-test-override") as? FakeTransport)?.marker, "second")
+        XCTAssertEqual((requireTransport("registry-test-override") as? FakeTransport)?.marker, "second")
     }
 
     func testEmptyNameIsIgnored() {
@@ -79,11 +87,11 @@ final class ChatTransportRegistryTests: XCTestCase {
         XCTAssertFalse(ChatTransportRegistry.shared.isRegistered(""))
     }
 
-    func testThrowingFactoryDegradesToLocal() {
+    func testThrowingFactoryIsNotViable() {
         struct FactoryError: Error {}
         ChatTransportRegistry.shared.register("registry-test-throws") { _, _ in throw FactoryError() }
-        XCTAssertTrue(make("registry-test-throws") is LocalChatTransport,
-                      "a factory that throws must degrade to local, not propagate the error")
+        XCTAssertNil(makeIfViable("registry-test-throws"),
+                     "a registered factory that throws is not viable yet - makeIfViable returns nil so the element stays deferred (it does NOT degrade to local)")
     }
 
     func testIsRegistered() {

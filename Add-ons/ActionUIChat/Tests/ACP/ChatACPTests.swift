@@ -346,6 +346,27 @@ final class ACPDemuxTests: XCTestCase {
             return XCTFail("unexpected event sequence: \(events)")
         }
     }
+
+    func testReserveIDsSeedsCounterPastLoadedAcpIds() async throws {
+        // Continuing an ACP transcript restored from a prior run must not reuse a loaded id. ACP
+        // mints "acp-turn-/thought-/message-<n>" from a launch-reset counter, so reserving past the
+        // max loaded suffix (here acp-thought-5) makes the next reply mint acp-message-6. A non-acp
+        // id (user-1) is ignored.
+        let transport = try makeTransport()
+        transport.reserveIDs(seen: ["acp-turn-1", "acp-message-3", "acp-thought-5", "user-1"])
+        transport.handleNotification("session/update", chunk("agent_message_chunk", "reply"))
+        await transport.stop()
+
+        var events: [ChatEvent] = []
+        for await event in transport.events {
+            events.append(event)
+        }
+        guard case .messageStart(let id, .agent) = events.first else {
+            return XCTFail("expected a message start, got: \(events)")
+        }
+        XCTAssertEqual(id, "acp-message-6",
+                       "a continued ACP turn mints past the max loaded acp-* suffix (5), never reusing a loaded id")
+    }
 }
 
 // MARK: - Permission round-trip

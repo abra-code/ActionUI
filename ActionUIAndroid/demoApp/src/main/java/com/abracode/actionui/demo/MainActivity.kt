@@ -615,7 +615,7 @@ class MainActivity : ComponentActivity() {
             tryMutate("Add row") {
                 ActionUIModel.insertRow(
                     windowUUID = windowUUID, parentID = 2,
-                    jsonString = """[{"type":"Text","id":$id,"properties":{"text":"Row $id"}},{"type":"Text","properties":{"text":"added at runtime","foregroundColor":"secondary"}}]""",
+                    jsonString = """[{"type":"Text","id":$id,"properties":{"text":"Row $id"}},{"type":"Text","properties":{"text":"added at runtime","foregroundStyle":"secondary"}}]""",
                 )
             }
         }

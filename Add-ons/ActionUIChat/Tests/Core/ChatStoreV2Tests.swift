@@ -83,6 +83,28 @@ private func allCaps() -> ChatTransportCapabilities {
                               deletion: true, replies: true, readReceipts: true, fileTransfer: true)
 }
 
+// A minimal ChatContentSource that injects a fixed states["config"] the way the engine's ViewModel
+// does: a new observer receives the current value immediately (the @Published semantics the store
+// relies on), so the store builds + freezes its transport synchronously during start().
+@MainActor
+private final class FakeConfigSource: ChatContentSource {
+    private let config: Any?
+
+    init(config: Any?) {
+        self.config = config
+    }
+
+    func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        handler(nil)
+        return AnyCancellable {}
+    }
+
+    func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        handler(config)
+        return AnyCancellable {}
+    }
+}
+
 // MARK: - Event routing (no transport needed)
 
 @MainActor
@@ -90,7 +112,7 @@ final class ChatStoreV2RoutingTests: XCTestCase {
 
     private func makeStore(scheduler: ManualChatScheduler = ManualChatScheduler()) -> ChatStore {
         let logger = P3Logger()
-        return ChatStore(config: ChatConfig(properties: [:], config: [:], logger: logger),
+        return ChatStore(config: ChatConfig(properties: [:], logger: logger),
                          windowUUID: "w", elementID: 1, logger: logger, scheduler: scheduler)
     }
 
@@ -266,8 +288,12 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         let proto = "mock-p2p-\(UUID().uuidString)"
         ChatTransportRegistry.shared.register(proto) { _, _ in MockP2PTransport(capabilities: capabilities, sink: sink) }
         let logger = P3Logger()
-        let config = ChatConfig(properties: features, config: ["protocol": proto], logger: logger)
-        let store = ChatStore(config: config, windowUUID: "w", elementID: 1, logger: logger, scheduler: scheduler)
+        let config = ChatConfig(properties: features, logger: logger)
+        // The protocol is injected through states["config"] (not the document): the source delivers it
+        // synchronously on subscribe, so start() builds + freezes the mock transport before returning.
+        let source = FakeConfigSource(config: ["protocol": proto])
+        let store = ChatStore(config: config, windowUUID: "w", elementID: 1, logger: logger,
+                              contentSource: source, scheduler: scheduler)
         store.start()
         return (store, sink)
     }

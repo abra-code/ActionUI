@@ -160,8 +160,8 @@ app.action("propFade",        () => win.setElementProperty(PROP_TARGET, "opacity
 app.action("propRestore",     () => win.setElementProperty(PROP_TARGET, "opacity", 1));
 app.action("propHide",        () => win.setElementProperty(PROP_TARGET, "hidden", true));
 app.action("propShow",        () => win.setElementProperty(PROP_TARGET, "hidden", false));
-app.action("propRedText",     () => win.setElementProperty(PROP_TARGET, "foregroundColor", "red"));
-app.action("propDefaultText", () => win.setElementProperty(PROP_TARGET, "foregroundColor", "primary"));
+app.action("propRedText",     () => win.setElementProperty(PROP_TARGET, "foregroundStyle", "red"));
+app.action("propDefaultText", () => win.setElementProperty(PROP_TARGET, "foregroundStyle", "primary"));
 app.action("propBlueBg",      () => win.setElementProperty(PROP_TARGET, "background", "#3b82f6"));
 app.action("propGrayBg",      () => win.setElementProperty(PROP_TARGET, "background", "#e5e7eb"));
 app.action("propRound",       () => win.setElementProperty(PROP_TARGET, "cornerRadius", 24));
@@ -193,7 +193,7 @@ const ANIM_COLORS = ["purple", "orange", "blue", "green", "pink"];
 let animColorIdx = 0;
 app.action("anim.demo.104.color", () => {
     animColorIdx = (animColorIdx + 1) % ANIM_COLORS.length;
-    win.setElementProperty(104, "foregroundColor", ANIM_COLORS[animColorIdx]);
+    win.setElementProperty(104, "foregroundStyle", ANIM_COLORS[animColorIdx]);
 });
 let animRotation = 0;
 app.action("anim.demo.105.rotate", () => {
@@ -215,7 +215,7 @@ const panelADescription = {
     properties: { alignment: "leading", spacing: 6, padding: 12, background: "#eff6ff", cornerRadius: 8, frame: { maxWidth: "infinity" } },
     children: [
         { type: "Text", properties: { text: "Panel A", font: "headline" } },
-        { type: "Text", id: 1, properties: { text: "Independent surface. Set my text from the host.", foregroundColor: "secondary", font: "callout" } },
+        { type: "Text", id: 1, properties: { text: "Independent surface. Set my text from the host.", foregroundStyle: "secondary", font: "callout" } },
         { type: "Button", properties: { title: "Ping from inside A", buttonStyle: "bordered", actionID: "panelPing" } },
     ],
 };
@@ -552,7 +552,7 @@ app.action("insAddRow", () => {
     const id = insSeq++;
     win.insertRow(220, [
         { type: "Text", id, properties: { text: `Row ${id}` } },
-        { type: "Text", properties: { text: "added at runtime", foregroundColor: "secondary" } },
+        { type: "Text", properties: { text: "added at runtime", foregroundStyle: "secondary" } },
     ]);
 });
 
@@ -677,7 +677,7 @@ const sheetModal = {
     properties: { alignment: "leading", spacing: 14, padding: "default", frame: { width: 380 } },
     children: [
         { type: "Text", properties: { text: "Sheet Modal", font: "title2" } },
-        { type: "Text", properties: { text: "Loaded from a JSON description via presentModal. This field binds into the window model by id.", foregroundColor: "secondary" } },
+        { type: "Text", properties: { text: "Loaded from a JSON description via presentModal. This field binds into the window model by id.", foregroundStyle: "secondary" } },
         { type: "TextField", id: 500, properties: { title: "Note", prompt: "Type something" } },
         { type: "Button", properties: { title: "Close", buttonStyle: "borderedProminent", actionID: "dismissThisModal" } },
     ],
@@ -687,7 +687,7 @@ const coverModal = {
     properties: { alignment: "center", spacing: 16, padding: "default", frame: { maxWidth: "infinity", maxHeight: "infinity" } },
     children: [
         { type: "Text", properties: { text: "Cover Modal", font: "largeTitle" } },
-        { type: "Text", properties: { text: "A full-viewport modal. Press Escape or use the button to dismiss.", foregroundColor: "secondary" } },
+        { type: "Text", properties: { text: "A full-viewport modal. Press Escape or use the button to dismiss.", foregroundStyle: "secondary" } },
         { type: "Button", properties: { title: "Close", systemImage: "xmark", buttonStyle: "borderedProminent", actionID: "dismissThisModal" } },
     ],
 };

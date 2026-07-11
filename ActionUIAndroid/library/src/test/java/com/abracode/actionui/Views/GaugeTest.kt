@@ -134,4 +134,19 @@ class GaugeTest {
         assertEquals(0f, gaugeFraction(5.0, 5.0, 5.0), 0f)
         assertEquals(0f, gaugeFraction(10.0, 0.0, 5.0), 0f)
     }
+
+    @Test
+    fun `circular gauge uses SwiftUI's accessory-circular intrinsic diameter`() {
+        // The ring is a fixed intrinsic diameter that scaleEffect scales (the SwiftUI
+        // model, shared with Web's 71px base). No parent measurement / fill.
+        assertEquals(71f, CircularGaugeIntrinsicSide.value, 1e-4f)
+        assertEquals(40f, CircularGaugeM3Side.value, 1e-4f)
+    }
+
+    @Test
+    fun `circular stroke is a fixed fraction of the M3 default diameter`() {
+        // In the M3 indicator's native (pre-scale) space; the inner scale to the
+        // intrinsic diameter then keeps the visual stroke ~8% of the ring.
+        assertEquals(40f * 0.08f, circularGaugeStrokeWidth().value, 1e-4f)
+    }
 }

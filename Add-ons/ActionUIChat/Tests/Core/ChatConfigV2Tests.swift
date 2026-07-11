@@ -17,7 +17,7 @@ private final class ConfigV2Logger: ActionUILogger {
 final class ChatConfigV2AppearanceTests: XCTestCase {
 
     private func config(_ properties: [String: Any]) -> ChatConfig {
-        ChatConfig(properties: properties, config: [:], logger: ConfigV2Logger())
+        ChatConfig(properties: properties, logger: ConfigV2Logger())
     }
 
     // showTimestamps defaults to the alignment: ON in dual, OFF in single (so a v1 single
@@ -52,7 +52,7 @@ final class ChatConfigV2AppearanceTests: XCTestCase {
 final class ChatConfigV2FeaturesTests: XCTestCase {
 
     private func config(_ properties: [String: Any]) -> ChatConfig {
-        ChatConfig(properties: properties, config: [:], logger: ConfigV2Logger())
+        ChatConfig(properties: properties, logger: ConfigV2Logger())
     }
 
     func testFeaturesDefaultAllFalse() {
