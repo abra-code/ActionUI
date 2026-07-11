@@ -15,6 +15,46 @@
           "syntaxHighlighting": true,
           "frame": { "maxWidth": "infinity" }
         }
+      },
+
+      { "type": "Text", "properties": { "text": "widthBehavior: fill vs hug", "font": "headline", "padding": { "top": 12 } } },
+      { "type": "Text", "properties": { "text": "fill (default) stretches to the full column; hug sizes to the content (the messaging-bubble idiom). Backgrounds below show each element's actual width.", "font": "caption", "foregroundStyle": "secondary" } },
+
+      { "type": "Text", "properties": { "text": "fill - fills the column:", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "RichText",
+        "properties": {
+          "markdown": "Short message.",
+          "widthBehavior": "fill",
+          "padding": 10,
+          "background": "fill.tertiary",
+          "cornerRadius": 12
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "hug - sizes to the text:", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "RichText",
+        "properties": {
+          "markdown": "Short message.",
+          "widthBehavior": "hug",
+          "padding": 10,
+          "background": "fill.tertiary",
+          "cornerRadius": 12
+        }
+      },
+
+      { "type": "Text", "properties": { "text": "hug + frame.maxWidth - wraps at the cap:", "font": "caption", "foregroundStyle": "secondary" } },
+      {
+        "type": "RichText",
+        "properties": {
+          "markdown": "A longer message that exceeds the cap, so it wraps onto multiple lines at the maxWidth instead of stretching the bubble any wider.",
+          "widthBehavior": "hug",
+          "padding": 10,
+          "background": "fill.tertiary",
+          "cornerRadius": 12,
+          "frame": { "maxWidth": 260 }
+        }
       }
     ]
   }

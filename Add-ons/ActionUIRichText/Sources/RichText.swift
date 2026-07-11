@@ -9,8 +9,12 @@
                                              // Optional: Markdown source to render; seeds the element value.
                                              //           "" or nil renders an empty document.
      "baseFontSize": 15,                     // Optional: Number; base font point size. Omit for Dynamic Type body.
-     "syntaxHighlighting": true              // Optional: Bool; color fenced code blocks by language. Default from
+     "syntaxHighlighting": true,             // Optional: Bool; color fenced code blocks by language. Default from
                                              //           the RichText theme.
+     "widthBehavior": "fill"                 // Optional: "fill" (default) fills the proposed width, left-aligned -
+                                             //           block / document layout. "hug" sizes to the content
+                                             //           width, wrapping only when it exceeds the proposal (the
+                                             //           messaging-bubble idiom; pair with frame.maxWidth to cap).
    }
    // Note: baseline View properties (padding, hidden, background, frame, opacity, cornerRadius, actionID,
    // onAppearActionID, onDisappearActionID, etc.) are inherited from base View. The document is read-only but
@@ -66,6 +70,15 @@ struct RichTextView: ActionUIViewConstruction {
             validated["syntaxHighlighting"] = nil
         }
 
+        if let behavior = validated["widthBehavior"] {
+            if let string = behavior as? String, string == "fill" || string == "hug" {
+                // valid
+            } else {
+                logger.log("RichText widthBehavior must be \"fill\" or \"hug\"; ignoring", .warning)
+                validated["widthBehavior"] = nil
+            }
+        }
+
         return validated
     }
 
@@ -88,10 +101,14 @@ struct RichTextView: ActionUIViewConstruction {
         // would draw single-line grid tables on every platform, losing that). RichText picks the engine
         // at construction; there is no runtime table-based switching to defer to.
         //
+        // "fill" (default) fills the proposed width like a document block; "hug" sizes to the content and
+        // wraps only at the proposal - pair it with frame.maxWidth for a content-hugging bubble.
+        let behavior: RichTextWidthBehavior = (properties["widthBehavior"] as? String) == "hug" ? .hug : .fill
+
         // Unqualified `RichText` is the imported package view (the element type is RichTextView, so
         // nothing local shadows it). Module-qualifying as `RichText.RichText` does NOT work: `import
         // RichText` brings the type `RichText` into scope, which shadows the module name of the same name.
-        return RichText(markdown: markdown, theme: theme)
+        return RichText(markdown: markdown, theme: theme).widthBehavior(behavior)
     }
 
     // Baseline View modifiers (frame, padding, background, cornerRadius, opacity, ...) are applied by the registry.
