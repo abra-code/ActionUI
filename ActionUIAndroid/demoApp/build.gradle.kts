@@ -40,6 +40,8 @@ dependencies {
     implementation(project(":library"))
     // Exactly one Map provider module; it self-registers at startup.
     implementation(project(":map-osm"))
+    // The CachedImage add-on element; it self-registers at startup (ContentProvider).
+    implementation(project(":addon-cachedimage"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)

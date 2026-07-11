@@ -452,6 +452,28 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        // CachedImage.json: the String value bridge on the add-on element (id 80).
+        // "cachedimage.read" reads the current image URL; "cachedimage.swap"
+        // writes a different URL, swapping the image from the host side (the
+        // wrapped AsyncImageCache view re-loads on the new URL).
+        ActionUIModel.registerActionHandler("cachedimage.read") { _, windowUUID, _, _, _ ->
+            val url = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 80)
+            Toast.makeText(this, "CachedImage URL: $url", Toast.LENGTH_SHORT).show()
+        }
+        ActionUIModel.registerActionHandler("cachedimage.swap") { _, windowUUID, _, _, _ ->
+            // Cycle through DISTINCT seed URLs so every tap visibly swaps. Writing the same URL twice is a
+            // no-op (the wrapped view keys its load on the URL, SwiftUI parity - the ViewModel value is a
+            // structural-equality mutableState, so an identical write triggers no recomposition), so a
+            // constant swap URL would appear to "work only the first time".
+            val current = ActionUIModel.getElementValueAsString(windowUUID = windowUUID, viewID = 80)
+            val seeds = listOf("swapped", "mountains", "forest", "harbor")
+            val next = seeds[(seeds.indexOfFirst { current?.contains("/seed/$it/") == true } + 1) % seeds.size]
+            ActionUIModel.setElementValueFromString(
+                windowUUID = windowUUID, viewID = 80,
+                value = "https://picsum.photos/seed/$next/1024/768",
+            )
+        }
+
         // VideoPlayer.json: the String value bridge. "video.read" reads the
         // current source URL; "video.swap" writes a different URL, swapping the
         // video from the host side.
