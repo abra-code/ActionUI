@@ -51,6 +51,19 @@ final class ChatStore: ObservableObject {
     @Published private(set) var availableCommands: [SlashCommand] = []      // the agent's slash commands (composer menu)
     @Published var draft: String = ""                     // composer text
 
+    // Person-to-person (v2) surfaces the view observes.
+    @Published private(set) var participants: [Participant] = []             // group roster (sender-name / avatar resolution)
+    @Published private(set) var typingParticipants: [TypingParticipant] = [] // who is currently typing (drives the typing row)
+    @Published private(set) var hasEarlier: Bool = true                      // false once a history page reports no more
+    @Published private(set) var isLoadingEarlier: Bool = false               // a history page is in flight
+
+    /// A participant currently shown in the typing indicator. `id` is the sender key (senderID, or a
+    /// stable fallback for a rosterless 1:1 chat); `name` labels the row when known.
+    struct TypingParticipant: Identifiable, Equatable {
+        let id: String
+        let name: String?
+    }
+
     private(set) var title: String?                       // app-owned session label, passed through the transcript
 
     let config: ChatConfig
@@ -78,12 +91,36 @@ final class ChatStore: ObservableObject {
     private var contentCancellable: AnyCancellable?
     private var entrySequence = 0
 
-    init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger, contentSource: (any ChatContentSource)? = nil) {
+    // Person-to-person (v2) time-based behavior state. The scheduler is injectable so the
+    // typing-expiry / read-mark-debounce / typing-throttle logic is tested with a virtual clock.
+    private let scheduler: any ChatScheduler
+    private var pinnedToBottom = true            // the view reports scroll pinning (drives read marks)
+    private var sceneActive = true               // the view reports foreground/active (drives read marks)
+    private var lastReadMarkItemID: String?      // the last id we emitted markRead up to (advance-only)
+    private var isTypingActive = false           // we have an outstanding setTyping(true) not yet stopped
+    private var lastTypingSentAt: Date?          // throttle: when we last emitted setTyping(true)
+
+    // Injectable-clock timings (seconds).
+    private let typingExpiry: TimeInterval = 10  // failsafe removal of a typing indicator if "stopped" is lost
+    private let readMarkDebounce: TimeInterval = 2
+    private let typingThrottle: TimeInterval = 4 // minimum gap between outgoing setTyping(true) signals
+    private static let readMarkKey = "readmark"
+    private static func typingExpiryKey(_ senderKey: String) -> String { "typing.expire.\(senderKey)" }
+
+    init(config: ChatConfig, windowUUID: String, elementID: Int, logger: any ActionUILogger,
+         contentSource: (any ChatContentSource)? = nil, scheduler: (any ChatScheduler)? = nil) {
         self.config = config
         self.windowUUID = windowUUID
         self.elementID = elementID
         self.logger = logger
         self.contentSource = contentSource
+        self.scheduler = scheduler ?? RealChatScheduler()
+    }
+
+    /// The active transport's advertised P2P capabilities (none before the transport is built).
+    /// Every v2 affordance is gated on this AND the document's `features` config.
+    private var capabilities: ChatTransportCapabilities {
+        transport?.capabilities ?? ChatTransportCapabilities()
     }
 
     /// Loads any pre-populated transcript (a document `properties.content`, a testing convenience) once,
@@ -131,26 +168,39 @@ final class ChatStore: ObservableObject {
 
     // MARK: - User intent
 
-    /// Submits the current composer draft, if non-empty.
-    func submitDraft() {
+    /// Submits the current composer draft, if non-empty. `replyTo` (set by the reply flow) quotes a message.
+    func submitDraft(replyTo: String? = nil) {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         draft = ""
-        send(text)
+        stopTypingSignal()                 // sending ends the typing state
+        send(text, replyTo: replyTo)
     }
 
-    /// Appends the user's message optimistically, fires `sendActionID` /
-    /// `messageActionID`, and forwards a `.prompt` to the transport.
-    func send(_ text: String) {
+    /// Appends the user's message optimistically, fires `sendActionID` / `messageActionID`, and
+    /// forwards it to the transport. A plain send goes as `.prompt` (the v1 path, honored by every
+    /// transport); a reply goes as `.sendMessage(text, replyTo:)` when both the document's `replies`
+    /// feature and the transport's `replies` capability allow it (otherwise it degrades to a plain
+    /// send). When the transport backs read receipts, the optimistic message starts at `.sending` so
+    /// the delivery ladder shows; otherwise it carries no status (v1 / agent transports unchanged).
+    func send(_ text: String, replyTo: String? = nil) {
         localCounter += 1
         let itemID = "user-\(localCounter)"
-        let message = ChatMessage(id: itemID, role: .local, text: text, isStreaming: false)
+        let repliesAllowed = replyTo != nil && config.features.replies && capabilities.replies
+        let replyRef = repliesAllowed ? replyTo.flatMap(makeReplyRef) : nil
+        let status: MessageStatus? = capabilities.readReceipts ? .sending : nil
+        let message = ChatMessage(id: itemID, role: .local, text: text, isStreaming: false,
+                                  status: status, replyTo: replyRef)
         items.append(.message(message))
         fire(config.sendActionID)
         fire(config.messageActionID)
         fireEntry(type: "message", id: itemID, data: ChatItem.message(message))
         let transport = self.transport
-        Task { await transport?.send(.prompt(text: text)) }
+        if repliesAllowed {
+            Task { await transport?.send(.sendMessage(text: text, replyTo: replyTo)) }
+        } else {
+            Task { await transport?.send(.prompt(text: text)) }
+        }
     }
 
     /// Requests cancellation of the in-flight turn.
@@ -179,6 +229,117 @@ final class ChatStore: ObservableObject {
         Task { await transport?.send(.permissionResponse(requestID: requestID, optionID: optionID)) }
     }
 
+    // MARK: - Person-to-person (v2) command helpers (view -> transport)
+
+    // Each affordance is gated on the document's `features` AND the transport's `capabilities`;
+    // the view gates the same way for display, so a command only reaches here when both allow it,
+    // but the guard is repeated defensively (a stale view, a programmatic call).
+
+    /// Toggles the local user's reaction with `emoji` on a message. The add / remove direction is
+    /// derived from the current reaction set (remove when already `mine`, else add).
+    func toggleReaction(itemID: String, emoji: String) {
+        guard config.features.reactions, capabilities.reactions else {
+            return
+        }
+        let mine = reactions(of: itemID)?.first(where: { $0.emoji == emoji })?.mine ?? false
+        let transport = self.transport
+        Task { await transport?.send(.toggleReaction(itemID: itemID, emoji: emoji, add: !mine)) }
+    }
+
+    /// Edits an own message. Not optimistic: the transport confirms with `.messageEdited`.
+    func editMessage(itemID: String, newText: String) {
+        guard config.features.editing, capabilities.editing else {
+            return
+        }
+        let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return
+        }
+        let transport = self.transport
+        Task { await transport?.send(.editMessage(itemID: itemID, newText: trimmed)) }
+    }
+
+    /// Deletes an own message. Not optimistic: the transport confirms with `.messageDeleted`.
+    func deleteMessage(itemID: String) {
+        guard config.features.deletion, capabilities.deletion else {
+            return
+        }
+        let transport = self.transport
+        Task { await transport?.send(.deleteMessage(itemID: itemID)) }
+    }
+
+    /// Retries a `failed` message (the delivery-status "tap to retry" affordance). Not feature-gated -
+    /// resend is intrinsic to sending; it only reaches a P2P transport that produced the failed state.
+    func resendMessage(itemID: String) {
+        guard case .message(let message)? = item(itemID), message.status == .failed else {
+            return
+        }
+        mutateMessage(itemID, kind: "resend") { $0.status = .sending }
+        let transport = self.transport
+        Task { await transport?.send(.resendMessage(itemID: itemID)) }
+    }
+
+    /// Cancels an in-flight file / voice transfer.
+    func cancelFileTransfer(itemID: String) {
+        guard capabilities.fileTransfer else {
+            return
+        }
+        let transport = self.transport
+        Task { await transport?.send(.cancelFileTransfer(itemID: itemID)) }
+    }
+
+    // MARK: - Person-to-person (v2) store-initiated behaviors
+
+    /// The view reports the transcript scrolled near the top. When the transport pages and there is
+    /// (or may be) earlier history not already loading, request the previous page.
+    func scrolledNearTop() {
+        guard capabilities.paging, hasEarlier, !isLoadingEarlier, let topID = items.first?.id else {
+            return
+        }
+        isLoadingEarlier = true
+        let transport = self.transport
+        Task { await transport?.send(.loadEarlier(beforeItemID: topID, limit: 50)) }
+    }
+
+    /// The view reports whether the transcript is pinned to the bottom (drives read receipts).
+    func setPinnedToBottom(_ pinned: Bool) {
+        pinnedToBottom = pinned
+        maybeScheduleReadMark()
+    }
+
+    /// The view reports whether the scene is active / foreground (drives read receipts).
+    func setSceneActive(_ active: Bool) {
+        sceneActive = active
+        maybeScheduleReadMark()
+    }
+
+    /// Composer text activity: emit an outgoing typing signal, throttled to at most one per
+    /// `typingThrottle` seconds. Called on each keystroke by the view when the draft is non-empty.
+    func notifyComposerActivity() {
+        guard capabilities.typing else {
+            return
+        }
+        let now = scheduler.now
+        if let last = lastTypingSentAt, now.timeIntervalSince(last) < typingThrottle {
+            return
+        }
+        lastTypingSentAt = now
+        isTypingActive = true
+        let transport = self.transport
+        Task { await transport?.send(.setTyping(isTyping: true)) }
+    }
+
+    /// Ends the outgoing typing state (on send, clear, or blur). A no-op when not currently typing.
+    func stopTypingSignal() {
+        guard capabilities.typing, isTypingActive else {
+            return
+        }
+        isTypingActive = false
+        lastTypingSentAt = nil
+        let transport = self.transport
+        Task { await transport?.send(.setTyping(isTyping: false)) }
+    }
+
     /// Finishes the transport (ending its event stream so the drain task completes)
     /// and tears down. Called from the view's `.onDisappear`; idempotent.
     func teardown() {
@@ -188,6 +349,10 @@ final class ChatStore: ObservableObject {
         contentCancellable = nil
         streamBuffers.removeAll()
         pendingPermissions.removeAll()
+        scheduler.cancel(Self.readMarkKey)
+        for participant in typingParticipants {
+            scheduler.cancel(Self.typingExpiryKey(participant.id))
+        }
         let transport = self.transport
         self.transport = nil
         Task { await transport?.stop() }
@@ -356,14 +521,74 @@ final class ChatStore: ObservableObject {
             fire(config.errorActionID)
             fireEntry(type: "error", id: itemID, data: ChatItem.error(id: itemID, text: message))
 
-        // --- P2P (v2) events. Only the `local-p2p` and real P2P transports emit these; the
-        //     reduction (upsert, status ladder / watermark, reactions, edit, delete, member /
-        //     call append, file progress, typing with expiry, participants, history prepend)
-        //     lands in P3. No v1 transport emits them, so these no-ops leave v1 behavior exact.
-        case .messageReceived, .messageStatusChanged, .messageStatusWatermark, .reactionsChanged,
-             .messageEdited, .messageDeleted, .memberEvent, .callEvent, .fileAdded, .fileProgress,
-             .typingChanged, .participantsChanged, .historyPage:
-            break
+        // --- P2P (v2) events. Only the `local-p2p` and real P2P transports emit these; a v1
+        //     transport never does, so v1 behavior is untouched. These do NOT drive
+        //     awaitingReply / isStreaming (that is agentic-turn state, kept separate).
+
+        case .messageReceived(let message):
+            let existed = upsertMessage(message)
+            fire(config.messageActionID)
+            fireEntry(type: "message", id: message.id, data: ChatItem.message(message.finalized), updated: existed)
+            maybeScheduleReadMark()
+
+        case .messageStatusChanged(let itemID, let status):
+            mutateMessage(itemID, kind: "message_status") { $0.status = status }
+
+        case .messageStatusWatermark(let status, let upToItemID):
+            applyStatusWatermark(status: status, upTo: upToItemID)
+
+        case .reactionsChanged(let itemID, let reactions):
+            mutateMessage(itemID, kind: "reactions") { $0.reactions = reactions }
+
+        case .messageEdited(let itemID, let newText, let editedAt):
+            mutateMessage(itemID, kind: "edit") {
+                $0.text = newText
+                $0.editedAt = editedAt
+            }
+
+        case .messageDeleted(let itemID):
+            mutateMessage(itemID, kind: "delete") {
+                $0.deleted = true
+                $0.text = ""     // a tombstone renders no text; blank it so a persisted copy carries none
+            }
+
+        case .memberEvent(let event):
+            items.append(.memberEvent(event))
+            fireEntry(type: "memberEvent", id: event.id, data: ChatItem.memberEvent(event))
+            maybeScheduleReadMark()
+
+        case .callEvent(let event):
+            items.append(.callEvent(event))
+            fireEntry(type: "callEvent", id: event.id, data: ChatItem.callEvent(event))
+            maybeScheduleReadMark()
+
+        case .fileAdded(let file):
+            let existed = upsertFile(file)
+            fire(config.messageActionID)
+            // Fire the file entry on add, and again (updated) once its transfer is terminal - like a
+            // tool call - so per-tick progress does not spam the entry channel.
+            let terminal = file.transferStatus == .completed || file.transferStatus == .failed || file.transferStatus == .cancelled
+            if !existed || terminal {
+                fireEntry(type: "file", id: file.id, data: ChatItem.file(file), updated: existed)
+            }
+            maybeScheduleReadMark()
+
+        case .fileProgress(let itemID, let progress, let transferStatus):
+            let terminal = transferStatus == .completed || transferStatus == .failed || transferStatus == .cancelled
+            mutateFile(itemID, fireEntry: terminal) {
+                $0.progress = progress
+                $0.transferStatus = transferStatus
+            }
+
+        case .typingChanged(let isTyping, let senderID, let senderName):
+            updateTypingIndicator(isTyping: isTyping, senderID: senderID, senderName: senderName)
+
+        case .participantsChanged(let roster):
+            participants = roster
+            fireEntry(type: "participants", id: nil, data: roster)
+
+        case .historyPage(let older, let hasMore):
+            prependHistory(older, hasMore: hasMore)
         }
     }
 
@@ -389,44 +614,42 @@ final class ChatStore: ObservableObject {
         usage = transcript.usage
         plan = transcript.plan
         title = transcript.title
+        participants = transcript.participants ?? []
         isStreaming = false
         pendingPermissions.removeAll()
         streamBuffers.removeAll()
-        // Advance the id counter past any store-generated ids (user-/system-/error-N) in the loaded
-        // transcript, so a subsequent user/system/error item cannot collide with a loaded one (which
-        // would break ForEach identity and messageIndex lookups).
-        let generatedPrefixes = ["user-", "system-", "error-"]
-        let maxSuffix = transcript.items.compactMap { item -> Int? in
-            let id = item.id
-            for prefix in generatedPrefixes where id.hasPrefix(prefix) {
-                return Int(id.dropFirst(prefix.count))
-            }
-            return nil
-        }.max()
-        if let maxSuffix {
-            localCounter = max(localCounter, maxSuffix)
-        }
+        // A restored session supersedes any read-mark / typing state.
+        lastReadMarkItemID = nil
+        typingParticipants.removeAll()
+        // Advance the id counter past any store-generated ids in the loaded transcript, so a
+        // subsequent user/system/error item cannot collide with a loaded one.
+        advanceLocalCounter(past: transcript.items)
     }
 
     /// The envelope fired to entryActionID: a monotonic sequence, the finalized entry's type
-    /// and id (for idempotent upsert on the app side), and the entry's JSON.
+    /// and id (for idempotent upsert on the app side), and the entry's JSON. `updated` is set
+    /// only on a POST-finalization re-fire of an already-seen id (a status change, reaction,
+    /// edit, delete, or terminal file transfer); it is omitted otherwise, so a v1 entry's
+    /// envelope is byte-identical to before.
     private struct EntryEnvelope<Payload: Encodable>: Encodable {
         let sequence: Int
         let type: String
         let id: String?
         let data: Payload
+        let updated: Bool?
     }
 
     /// Fires `entryActionID` (when configured) with a JSON envelope for one finalized transcript
     /// entry, so the host can persist incrementally without polling. Never called on streaming deltas.
-    private func fireEntry<Payload: Encodable>(type: String, id: String?, data: Payload) {
+    /// `updated` marks a re-fire for an id the host already has (upsert-and-mark-updated).
+    private func fireEntry<Payload: Encodable>(type: String, id: String?, data: Payload, updated: Bool = false) {
         guard let actionID = config.entryActionID, !actionID.isEmpty else {
             return
         }
         // Compute the next sequence but commit it only if the payload encodes, so an encode failure
         // does not burn a number (a host detecting dropped events by a sequence gap would false-positive).
         let next = entrySequence + 1
-        let envelope = EntryEnvelope(sequence: next, type: type, id: id, data: data)
+        let envelope = EntryEnvelope(sequence: next, type: type, id: id, data: data, updated: updated ? true : nil)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         guard let jsonData = try? encoder.encode(envelope), let json = String(data: jsonData, encoding: .utf8) else {
@@ -535,6 +758,250 @@ final class ChatStore: ObservableObject {
         }
     }
 
+    // MARK: - Person-to-person (v2) routing helpers
+
+    /// Inserts a complete message, or replaces one with the same id in place (server echo /
+    /// out-of-order correction), preserving position. Returns whether the id already existed.
+    @discardableResult
+    private func upsertMessage(_ message: ChatMessage) -> Bool {
+        if let index = anyItemIndex(message.id) {
+            // Replace in place ONLY when the existing item is a message; a collision with a
+            // different-typed item sharing an id is logged and left alone (never clobbered),
+            // matching the tolerant posture of the in-place mutators.
+            if case .message = items[index] {
+                items[index] = .message(message.finalized)
+            } else {
+                logger.log("Chat messageReceived id '\(message.id)' collides with a non-message item; ignoring", .verbose)
+            }
+            return true
+        }
+        items.append(.message(message.finalized))
+        return false
+    }
+
+    /// Inserts a file item, or replaces one with the same id in place. Returns whether it existed.
+    @discardableResult
+    private func upsertFile(_ file: ChatFile) -> Bool {
+        if let index = anyItemIndex(file.id) {
+            if case .file = items[index] {
+                items[index] = .file(file)
+            } else {
+                logger.log("Chat fileAdded id '\(file.id)' collides with a non-file item; ignoring", .verbose)
+            }
+            return true
+        }
+        items.append(.file(file))
+        return false
+    }
+
+    /// Mutates a message by id in place and re-fires its entry as an update. Unknown id is a logged
+    /// no-op (the v1 tolerant posture).
+    private func mutateMessage(_ id: String, kind: String, _ transform: (inout ChatMessage) -> Void) {
+        guard let index = anyItemIndex(id), case .message(var message) = items[index] else {
+            logger.log("Chat \(kind) for unknown message '\(id)'; ignoring", .verbose)
+            return
+        }
+        transform(&message)
+        items[index] = .message(message)
+        fireEntry(type: "message", id: id, data: ChatItem.message(message.finalized), updated: true)
+    }
+
+    /// Mutates a file by id in place; re-fires its entry only when its transfer reached a terminal
+    /// state (`fireOnTerminal`), so per-tick progress does not spam the entry channel.
+    private func mutateFile(_ id: String, fireEntry fireOnTerminal: Bool, _ transform: (inout ChatFile) -> Void) {
+        guard let index = anyItemIndex(id), case .file(var file) = items[index] else {
+            logger.log("Chat file update for unknown file '\(id)'; ignoring", .verbose)
+            return
+        }
+        transform(&file)
+        items[index] = .file(file)
+        if fireOnTerminal {
+            fireEntry(type: "file", id: id, data: ChatItem.file(file), updated: true)
+        }
+    }
+
+    /// Applies a delivery/read watermark: every OWN message at or before `upToItemID` that carries a
+    /// LOWER ladder status advances to `status`. A message with no status or a `failed` status is
+    /// skipped (both have a nil watermarkRank), so the watermark never overwrites a failure and never
+    /// invents a status. Unknown target id is a logged no-op.
+    private func applyStatusWatermark(status: MessageStatus, upTo upToItemID: String) {
+        guard let targetIndex = anyItemIndex(upToItemID) else {
+            logger.log("Chat status watermark for unknown item '\(upToItemID)'; ignoring", .verbose)
+            return
+        }
+        guard let newRank = status.watermarkRank else {
+            return   // a watermark to `failed` is not a ladder move
+        }
+        for index in 0...targetIndex {
+            guard case .message(var message) = items[index], isSelfMessage(message) else {
+                continue
+            }
+            guard let currentRank = message.status?.watermarkRank, currentRank < newRank else {
+                continue   // no status, failed, or already at/above the watermark
+            }
+            message.status = status
+            items[index] = .message(message)
+            fireEntry(type: "message", id: message.id, data: ChatItem.message(message.finalized), updated: true)
+        }
+    }
+
+    /// Maintains the typing indicator for one sender, with a per-sender expiry failsafe so a lost
+    /// "stopped typing" signal cannot pin the indicator forever.
+    private func updateTypingIndicator(isTyping: Bool, senderID: String?, senderName: String?) {
+        let key = senderID ?? "anon"
+        if isTyping {
+            if let index = typingParticipants.firstIndex(where: { $0.id == key }) {
+                typingParticipants[index] = TypingParticipant(id: key, name: senderName)
+            } else {
+                typingParticipants.append(TypingParticipant(id: key, name: senderName))
+            }
+            scheduler.schedule(Self.typingExpiryKey(key), after: typingExpiry) { [weak self] in
+                self?.removeTypingParticipant(key)
+            }
+        } else {
+            removeTypingParticipant(key)
+            scheduler.cancel(Self.typingExpiryKey(key))
+        }
+    }
+
+    private func removeTypingParticipant(_ key: String) {
+        typingParticipants.removeAll { $0.id == key }
+    }
+
+    /// Prepends an older history page (chronological order) to the top, updates the paging flags,
+    /// and advances the id counter past any generated ids in the page (collision safety).
+    private func prependHistory(_ older: [ChatItem], hasMore: Bool) {
+        if !older.isEmpty {
+            items.insert(contentsOf: older, at: 0)
+            advanceLocalCounter(past: older)
+        }
+        hasEarlier = hasMore
+        isLoadingEarlier = false
+    }
+
+    /// Schedules a debounced markRead when pinned to the bottom and active and the last incoming item
+    /// advanced past what was last marked. Only when the transport backs read receipts.
+    private func maybeScheduleReadMark() {
+        guard capabilities.readReceipts, pinnedToBottom, sceneActive else {
+            return
+        }
+        guard let target = lastIncomingItemID(), target != lastReadMarkItemID else {
+            return
+        }
+        scheduler.schedule(Self.readMarkKey, after: readMarkDebounce) { [weak self] in
+            self?.emitReadMark(upTo: target)
+        }
+    }
+
+    private func emitReadMark(upTo target: String) {
+        // Re-assert the guard at FIRE time, not just at schedule time: during the debounce window the
+        // user may have scrolled away or the scene may have backgrounded, in which case the message
+        // must NOT be marked read (a receipt-privacy bug otherwise).
+        guard capabilities.readReceipts, pinnedToBottom, sceneActive else {
+            return
+        }
+        guard anyItemIndex(target) != nil, target != lastReadMarkItemID else {
+            return
+        }
+        lastReadMarkItemID = target
+        let transport = self.transport
+        Task { await transport?.send(.markRead(upToItemID: target)) }
+    }
+
+    /// The last transcript item from someone else (a message or file not authored by the local user);
+    /// the target a read mark advances up to. Member / call events are not "read" targets.
+    private func lastIncomingItemID() -> String? {
+        for item in items.reversed() {
+            switch item {
+            case .message(let message) where !isSelfMessage(message): return message.id
+            case .file(let file) where !isSelfFile(file):             return file.id
+            default:                                                  continue
+            }
+        }
+        return nil
+    }
+
+    /// Advances `localCounter` past any store-generated ids (user- / system- / error-N) in `items`,
+    /// so a later generated item cannot collide with one already present (which would break
+    /// ForEach identity and index lookups).
+    private func advanceLocalCounter(past items: [ChatItem]) {
+        let generatedPrefixes = ["user-", "system-", "error-"]
+        let maxSuffix = items.compactMap { item -> Int? in
+            let id = item.id
+            for prefix in generatedPrefixes where id.hasPrefix(prefix) {
+                return Int(id.dropFirst(prefix.count))
+            }
+            return nil
+        }.max()
+        if let maxSuffix {
+            localCounter = max(localCounter, maxSuffix)
+        }
+    }
+
+    // Self-authorship: role `.local`, or a senderID that resolves to a participant marked isSelf.
+    private func isSelfMessage(_ message: ChatMessage) -> Bool {
+        if message.role == .local {
+            return true
+        }
+        if let senderID = message.senderID {
+            return participants.first(where: { $0.id == senderID })?.isSelf == true
+        }
+        return false
+    }
+
+    private func isSelfFile(_ file: ChatFile) -> Bool {
+        if file.role == .local {
+            return true
+        }
+        if let senderID = file.senderID {
+            return participants.first(where: { $0.id == senderID })?.isSelf == true
+        }
+        return false
+    }
+
+    private func anyItemIndex(_ id: String) -> Int? {
+        items.firstIndex { $0.id == id }
+    }
+
+    private func item(_ id: String) -> ChatItem? {
+        items.first { $0.id == id }
+    }
+
+    private func reactions(of id: String) -> [Reaction]? {
+        if case .message(let message)? = item(id) {
+            return message.reactions
+        }
+        return nil
+    }
+
+    /// Builds the reply reference for an optimistic reply: the original's id, a pre-truncated plain
+    /// excerpt, and the resolved sender name.
+    private func makeReplyRef(_ itemID: String) -> ReplyRef? {
+        switch item(itemID) {
+        case .message(let message):
+            return ReplyRef(itemID: itemID, excerpt: replyExcerpt(message.text), senderName: resolvedSenderName(message))
+        case .file(let file):
+            return ReplyRef(itemID: itemID, excerpt: file.name, senderName: file.senderName)
+        default:
+            return nil
+        }
+    }
+
+    private func replyExcerpt(_ text: String) -> String {
+        let oneLine = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return oneLine.count > 200 ? String(oneLine.prefix(200)) : oneLine
+    }
+
+    private func resolvedSenderName(_ message: ChatMessage) -> String? {
+        if let name = message.senderName {
+            return name
+        }
+        if let senderID = message.senderID {
+            return participants.first(where: { $0.id == senderID })?.name
+        }
+        return nil
+    }
+
     private func fire(_ actionID: String?) {
         guard let actionID, !actionID.isEmpty else { return }
         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0)
@@ -542,5 +1009,18 @@ final class ChatStore: ObservableObject {
 
     deinit {
         eventTask?.cancel()
+    }
+}
+
+private extension ChatMessage {
+    /// A copy guaranteed non-streaming, for persistence / upsert (a P2P message arrives complete,
+    /// but normalize defensively so a stored message is never marked streaming).
+    var finalized: ChatMessage {
+        guard isStreaming else {
+            return self
+        }
+        var copy = self
+        copy.isStreaming = false
+        return copy
     }
 }
