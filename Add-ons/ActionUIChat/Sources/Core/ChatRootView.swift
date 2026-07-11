@@ -187,6 +187,10 @@ struct ChatRootView: View {
                 .font(.caption)
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity, alignment: .center)
+        case .memberEvent, .callEvent, .file:
+            // P2P (v2) rows (member / call captions, file / voice items) are built in P6.
+            // No v1 document produces these items, so the placeholder never renders for v1.
+            EmptyView()
         }
     }
 

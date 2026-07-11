@@ -34,31 +34,117 @@ public enum ChatRole: String, Sendable, Hashable, Codable {
     case system     // session / system notices
 }
 
+/// Delivery state of an own (outgoing) message, rendered as a caption under the last
+/// message of a run (P2P / group chat). The four ladder states advance monotonically
+/// (`sending` -> `sent` -> `delivered` -> `read`); `failed` is OUTSIDE the ladder and
+/// is never overwritten by a status watermark. v1 messages never carry a status, so
+/// the delivery-status affordance stays invisible for them.
+public enum MessageStatus: String, Sendable, Hashable, Codable {
+    case sending, sent, delivered, read, failed
+
+    /// Position in the delivery ladder (`sending` < `sent` < `delivered` < `read`);
+    /// `nil` for `failed`, which sits outside the ladder. A watermark advances a
+    /// message's status only when the new rank is higher, so it never regresses a
+    /// message and never touches a `failed` one.
+    public var watermarkRank: Int? {
+        switch self {
+        case .sending:   return 0
+        case .sent:      return 1
+        case .delivered: return 2
+        case .read:      return 3
+        case .failed:    return nil
+        }
+    }
+}
+
+/// One aggregated emoji reaction on a message: the emoji, how many participants added
+/// it, and whether the local user is one of them (`mine` drives the tinted-chip
+/// treatment and the toggle affordance). A transport replaces the whole reaction set
+/// per message (`.reactionsChanged`), so counts are always authoritative.
+public struct Reaction: Equatable, Sendable, Codable {
+    public let emoji: String
+    public let count: Int
+    public let mine: Bool
+
+    public init(emoji: String, count: Int, mine: Bool) {
+        self.emoji = emoji
+        self.count = count
+        self.mine = mine
+    }
+}
+
+/// A reference to the message being replied to, carried on the replying message so the
+/// quoted-excerpt block renders without a second lookup. `excerpt` is pre-truncated by
+/// the producer (plain text, ~200 chars max); `itemID` is the original message's id, so
+/// tapping the quote can scroll to it. `senderName` labels the quote when known.
+public struct ReplyRef: Equatable, Sendable, Codable {
+    public let itemID: String
+    public let excerpt: String
+    public let senderName: String?
+
+    public init(itemID: String, excerpt: String, senderName: String? = nil) {
+        self.itemID = itemID
+        self.excerpt = excerpt
+        self.senderName = senderName
+    }
+}
+
 /// A single conversation message. `text` accumulates streaming deltas; `isStreaming`
 /// is true while the turn that owns it is still in flight (drives the streaming row
 /// treatment and the Stop affordance). The `id` is stable so the transcript's
 /// `LazyVStack` does not re-diff finalized rows while the last message streams.
 ///
-/// A message enters and leaves a transport only as itemID + role + text deltas
-/// (ChatEvent), never as this whole value, so it is not part of the transport API - but
-/// it IS part of the persisted transcript (P0-2), so it is public and Codable. The
-/// transient `isStreaming` render flag is NOT serialized: a loaded message is always
-/// final (decodes with isStreaming == false).
+/// A streaming (agentic) message enters and leaves a transport only as itemID + role +
+/// text deltas (ChatEvent), never as this whole value; a P2P message, by contrast,
+/// arrives complete (`.messageReceived`). Either way it IS part of the persisted
+/// transcript (P0-2), so it is public and Codable. The transient `isStreaming` render
+/// flag is NOT serialized: a loaded message is always final (decodes with isStreaming
+/// == false).
+///
+/// The `senderID` / `senderName` / `avatarURL` / `timestamp` / `status` / `reactions` /
+/// `editedAt` / `replyTo` / `deleted` fields are the ADDITIVE P2P (v2) layer: all
+/// optional, all omitted-when-nil, so a v1 message serializes byte-identically. Sender
+/// resolution order (the view / the ports follow it): message `senderName` / `avatarURL`
+/// -> transcript `participants` looked up by `senderID` -> the role default from config.
 public struct ChatMessage: Identifiable, Equatable, Sendable, Codable {
     public let id: String
     public let role: ChatRole
     public var text: String
     public var isStreaming: Bool
 
-    public init(id: String, role: ChatRole, text: String, isStreaming: Bool) {
+    // P2P (v2) additive fields; all optional, nil for v1 messages.
+    public var senderID: String?      // participant identity (group chats)
+    public var senderName: String?    // per-message sender name (rosterless transports)
+    public var avatarURL: String?     // per-message avatar override
+    public var timestamp: String?     // RFC 3339 with timezone; parsed to Date for display
+    public var status: MessageStatus? // delivery state of an own message
+    public var reactions: [Reaction]? // aggregated emoji reactions
+    public var editedAt: String?      // RFC 3339; when present, the row shows an "(edited)" badge
+    public var replyTo: ReplyRef?     // the message this one replies to
+    public var deleted: Bool?         // tombstone; when true the view ignores `text`
+
+    public init(id: String, role: ChatRole, text: String, isStreaming: Bool,
+                senderID: String? = nil, senderName: String? = nil, avatarURL: String? = nil,
+                timestamp: String? = nil, status: MessageStatus? = nil, reactions: [Reaction]? = nil,
+                editedAt: String? = nil, replyTo: ReplyRef? = nil, deleted: Bool? = nil) {
         self.id = id
         self.role = role
         self.text = text
         self.isStreaming = isStreaming
+        self.senderID = senderID
+        self.senderName = senderName
+        self.avatarURL = avatarURL
+        self.timestamp = timestamp
+        self.status = status
+        self.reactions = reactions
+        self.editedAt = editedAt
+        self.replyTo = replyTo
+        self.deleted = deleted
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, role, text
+        case senderID, senderName, avatarURL, timestamp, status, reactions, editedAt, replyTo, deleted
     }
 
     public init(from decoder: Decoder) throws {
@@ -67,6 +153,15 @@ public struct ChatMessage: Identifiable, Equatable, Sendable, Codable {
         self.role = try container.decode(ChatRole.self, forKey: .role)
         self.text = try container.decode(String.self, forKey: .text)
         self.isStreaming = false
+        self.senderID = try container.decodeIfPresent(String.self, forKey: .senderID)
+        self.senderName = try container.decodeIfPresent(String.self, forKey: .senderName)
+        self.avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+        self.timestamp = try container.decodeIfPresent(String.self, forKey: .timestamp)
+        self.status = try container.decodeIfPresent(MessageStatus.self, forKey: .status)
+        self.reactions = try container.decodeIfPresent([Reaction].self, forKey: .reactions)
+        self.editedAt = try container.decodeIfPresent(String.self, forKey: .editedAt)
+        self.replyTo = try container.decodeIfPresent(ReplyRef.self, forKey: .replyTo)
+        self.deleted = try container.decodeIfPresent(Bool.self, forKey: .deleted)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -74,6 +169,16 @@ public struct ChatMessage: Identifiable, Equatable, Sendable, Codable {
         try container.encode(id, forKey: .id)
         try container.encode(role, forKey: .role)
         try container.encode(text, forKey: .text)
+        // v2 fields: omitted-when-nil, so a v1 message encodes byte-identically to before.
+        try container.encodeIfPresent(senderID, forKey: .senderID)
+        try container.encodeIfPresent(senderName, forKey: .senderName)
+        try container.encodeIfPresent(avatarURL, forKey: .avatarURL)
+        try container.encodeIfPresent(timestamp, forKey: .timestamp)
+        try container.encodeIfPresent(status, forKey: .status)
+        try container.encodeIfPresent(reactions, forKey: .reactions)
+        try container.encodeIfPresent(editedAt, forKey: .editedAt)
+        try container.encodeIfPresent(replyTo, forKey: .replyTo)
+        try container.encodeIfPresent(deleted, forKey: .deleted)
     }
 }
 
@@ -354,10 +459,166 @@ public struct SlashCommand: Identifiable, Equatable, Sendable {
     }
 }
 
+/// A membership / roster change in a group conversation, rendered as a centered caption
+/// (the same visual family as `.system`). `actorName` is who performed the change,
+/// `subjectName` who it targeted (both optional - a transport may know only one); `detail`
+/// carries the free-form remainder (the new name on a rename, the new role on a role change).
+public struct MemberEvent: Identifiable, Equatable, Sendable, Codable {
+    public enum Kind: String, Sendable, Codable {
+        case joined, left, invited, removed, roleChanged, renamed
+    }
+    public let id: String
+    public let timestamp: String?
+    public let kind: Kind
+    public let actorName: String?
+    public let subjectName: String?
+    public let detail: String?
+
+    public init(id: String, timestamp: String? = nil, kind: Kind,
+                actorName: String? = nil, subjectName: String? = nil, detail: String? = nil) {
+        self.id = id
+        self.timestamp = timestamp
+        self.kind = kind
+        self.actorName = actorName
+        self.subjectName = subjectName
+        self.detail = detail
+    }
+}
+
+/// A call log entry, rendered as a centered caption with a phone / video glyph. `kind`
+/// distinguishes a missed incoming / outgoing call from a completed or declined one;
+/// `durationSeconds` is present on a completed call, `isVideo` selects the glyph.
+public struct CallEvent: Identifiable, Equatable, Sendable, Codable {
+    public enum Kind: String, Sendable, Codable {
+        case missedIncoming, missedOutgoing, completed, declined
+    }
+    public let id: String
+    public let timestamp: String?
+    public let kind: Kind
+    public let durationSeconds: Int?
+    public let isVideo: Bool?
+
+    public init(id: String, timestamp: String? = nil, kind: Kind,
+                durationSeconds: Int? = nil, isVideo: Bool? = nil) {
+        self.id = id
+        self.timestamp = timestamp
+        self.kind = kind
+        self.durationSeconds = durationSeconds
+        self.isVideo = isVideo
+    }
+}
+
+/// The state of a file / voice-message transfer, independent of the message delivery
+/// `status`: a file can be delivered as a message while its bytes are still transferring.
+public enum FileTransferStatus: String, Sendable, Hashable, Codable {
+    case pending, transferring, completed, failed, cancelled
+}
+
+/// A file attachment or voice message in the transcript. One case covers both: `kind`
+/// selects the rendering (a document row vs. a voice player). `url` points at the file
+/// when available (local or downloaded); while it is still arriving, `transferStatus` /
+/// `progress` drive the transfer UI. `durationSeconds` is the clip length for a voice
+/// message. `status` is the message-level delivery state (as on `ChatMessage`), separate
+/// from `transferStatus` (the byte-transfer state).
+public struct ChatFile: Identifiable, Equatable, Sendable, Codable {
+    public enum Kind: String, Sendable, Codable {
+        case file, voice
+    }
+    public let id: String
+    public let role: ChatRole
+    public let senderID: String?
+    public let senderName: String?
+    public let timestamp: String?
+    public let status: MessageStatus?
+    public let name: String
+    public let sizeBytes: Int?
+    public let url: URL?
+    public let kind: Kind
+    public let durationSeconds: Int?
+    public var transferStatus: FileTransferStatus
+    public var progress: Double?      // 0...1 while transferring; nil when unknown / not applicable
+
+    public init(id: String, role: ChatRole, senderID: String? = nil, senderName: String? = nil,
+                timestamp: String? = nil, status: MessageStatus? = nil, name: String,
+                sizeBytes: Int? = nil, url: URL? = nil, kind: Kind = .file,
+                durationSeconds: Int? = nil, transferStatus: FileTransferStatus = .completed,
+                progress: Double? = nil) {
+        self.id = id
+        self.role = role
+        self.senderID = senderID
+        self.senderName = senderName
+        self.timestamp = timestamp
+        self.status = status
+        self.name = name
+        self.sizeBytes = sizeBytes
+        self.url = url
+        self.kind = kind
+        self.durationSeconds = durationSeconds
+        self.transferStatus = transferStatus
+        self.progress = progress
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, role, senderID, senderName, timestamp, status, name, sizeBytes, url, kind, durationSeconds, transferStatus, progress
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.role = try container.decode(ChatRole.self, forKey: .role)
+        self.senderID = try container.decodeIfPresent(String.self, forKey: .senderID)
+        self.senderName = try container.decodeIfPresent(String.self, forKey: .senderName)
+        self.timestamp = try container.decodeIfPresent(String.self, forKey: .timestamp)
+        self.status = try container.decodeIfPresent(MessageStatus.self, forKey: .status)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.sizeBytes = try container.decodeIfPresent(Int.self, forKey: .sizeBytes)
+        self.url = try container.decodeIfPresent(URL.self, forKey: .url)
+        self.kind = try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .file
+        self.durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        self.transferStatus = try container.decodeIfPresent(FileTransferStatus.self, forKey: .transferStatus) ?? .completed
+        self.progress = try container.decodeIfPresent(Double.self, forKey: .progress)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(role, forKey: .role)
+        try container.encodeIfPresent(senderID, forKey: .senderID)
+        try container.encodeIfPresent(senderName, forKey: .senderName)
+        try container.encodeIfPresent(timestamp, forKey: .timestamp)
+        try container.encodeIfPresent(status, forKey: .status)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(sizeBytes, forKey: .sizeBytes)
+        try container.encodeIfPresent(url, forKey: .url)
+        try container.encode(kind, forKey: .kind)
+        try container.encodeIfPresent(durationSeconds, forKey: .durationSeconds)
+        try container.encode(transferStatus, forKey: .transferStatus)
+        try container.encodeIfPresent(progress, forKey: .progress)
+    }
+}
+
+/// A conversation participant (the group roster). `isSelf` marks the local user (used to
+/// derive dual alignment when a message's role does not). Carried on `ChatTranscript` so
+/// a message's `senderID` resolves to a name / avatar without a per-message copy.
+public struct Participant: Identifiable, Equatable, Sendable, Codable {
+    public let id: String
+    public let name: String
+    public let avatarURL: String?
+    public let isSelf: Bool?
+
+    public init(id: String, name: String, avatarURL: String? = nil, isSelf: Bool? = nil) {
+        self.id = id
+        self.name = name
+        self.avatarURL = avatarURL
+        self.isSelf = isSelf
+    }
+}
+
 /// A heterogeneous, arrival-ordered transcript entry. M1 carries messages plus
 /// system / error notices; M3 adds thoughts (reasoning, `ChatMessage`-shaped but
-/// visually folded) and tool-call cards. Plan / terminal panels are M5 side
-/// surfaces and live outside the transcript.
+/// visually folded) and tool-call cards; the P2P (v2) layer adds member events, call
+/// events, and file / voice items. Plan / terminal panels are M5 side surfaces and
+/// live outside the transcript.
 ///
 /// The store's render model - transports emit ChatEvents and the store builds ChatItems
 /// from them - and, since P0-2, the unit of the persisted transcript, so it is public and
@@ -370,6 +631,9 @@ public enum ChatItem: Identifiable, Equatable, Sendable, Codable {
     case image(id: String, role: ChatRole, image: ChatImage)
     case system(id: String, text: String)
     case error(id: String, text: String)
+    case memberEvent(MemberEvent)
+    case callEvent(CallEvent)
+    case file(ChatFile)
 
     public var id: String {
         switch self {
@@ -379,15 +643,18 @@ public enum ChatItem: Identifiable, Equatable, Sendable, Codable {
         case .image(let id, _, _):   return id
         case .system(let id, _):     return id
         case .error(let id, _):      return id
+        case .memberEvent(let event): return event.id
+        case .callEvent(let event):  return event.id
+        case .file(let file):        return file.id
         }
     }
 
     private enum CodingKeys: String, CodingKey {
-        case type, message, toolCall, id, role, image, text
+        case type, message, toolCall, id, role, image, text, memberEvent, callEvent, file
     }
 
     private enum ItemType: String, Codable {
-        case message, thought, toolCall, image, system, error
+        case message, thought, toolCall, image, system, error, memberEvent, callEvent, file
     }
 
     public init(from decoder: Decoder) throws {
@@ -410,6 +677,12 @@ public enum ChatItem: Identifiable, Equatable, Sendable, Codable {
         case .error:
             self = .error(id: try container.decode(String.self, forKey: .id),
                           text: try container.decode(String.self, forKey: .text))
+        case .memberEvent:
+            self = .memberEvent(try container.decode(MemberEvent.self, forKey: .memberEvent))
+        case .callEvent:
+            self = .callEvent(try container.decode(CallEvent.self, forKey: .callEvent))
+        case .file:
+            self = .file(try container.decode(ChatFile.self, forKey: .file))
         }
     }
 
@@ -438,6 +711,15 @@ public enum ChatItem: Identifiable, Equatable, Sendable, Codable {
             try container.encode(ItemType.error, forKey: .type)
             try container.encode(id, forKey: .id)
             try container.encode(text, forKey: .text)
+        case .memberEvent(let event):
+            try container.encode(ItemType.memberEvent, forKey: .type)
+            try container.encode(event, forKey: .memberEvent)
+        case .callEvent(let event):
+            try container.encode(ItemType.callEvent, forKey: .type)
+            try container.encode(event, forKey: .callEvent)
+        case .file(let file):
+            try container.encode(ItemType.file, forKey: .type)
+            try container.encode(file, forKey: .file)
         }
     }
 }
@@ -454,18 +736,23 @@ public struct ChatTranscript: Equatable, Sendable, Codable {
     public let usage: UsageInfo?
     public let plan: [PlanEntry]
     public let title: String?
+    public let participants: [Participant]?   // group roster (v2); nil / omitted for v1
 
+    /// `version` defaults to 1 so a transcript with no v2 content serializes byte-identically
+    /// to a v1 transcript; a producer that includes P2P content (participants, v2 items /
+    /// fields) passes `version: 2`. The decoder accepts either (v1 = v2 fields absent).
     public init(version: Int = 1, items: [ChatItem], usage: UsageInfo? = nil,
-                plan: [PlanEntry] = [], title: String? = nil) {
+                plan: [PlanEntry] = [], title: String? = nil, participants: [Participant]? = nil) {
         self.version = version
         self.items = items
         self.usage = usage
         self.plan = plan
         self.title = title
+        self.participants = participants
     }
 
     private enum CodingKeys: String, CodingKey {
-        case version, items, usage, plan, title
+        case version, items, usage, plan, title, participants
     }
 
     public init(from decoder: Decoder) throws {
@@ -475,6 +762,7 @@ public struct ChatTranscript: Equatable, Sendable, Codable {
         self.usage = try container.decodeIfPresent(UsageInfo.self, forKey: .usage)
         self.plan = try container.decodeIfPresent([PlanEntry].self, forKey: .plan) ?? []
         self.title = try container.decodeIfPresent(String.self, forKey: .title)
+        self.participants = try container.decodeIfPresent([Participant].self, forKey: .participants)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -486,6 +774,7 @@ public struct ChatTranscript: Equatable, Sendable, Codable {
             try container.encode(plan, forKey: .plan)
         }
         try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(participants, forKey: .participants)   // omitted when nil: v1 shape unchanged
     }
 
     /// Decodes a restored value into a transcript: a ChatTranscript passes through; a JSON object /
@@ -537,6 +826,22 @@ public enum ChatEvent: Sendable {
     case image(itemID: String, role: ChatRole, image: ChatImage)   // a standalone image element
     case system(text: String)
     case error(message: String, recoverable: Bool)
+
+    // --- P2P (v2) additive vocabulary. Existing (streaming / agentic) transports never
+    //     emit these; the store routes them in P3. All are transport -> store.
+    case messageReceived(ChatMessage)                              // insert/UPSERT a complete message by id
+    case messageStatusChanged(itemID: String, status: MessageStatus)
+    case messageStatusWatermark(status: MessageStatus, upToItemID: String)  // apply to own msgs up to id (ladder rule)
+    case reactionsChanged(itemID: String, reactions: [Reaction])  // full replacement
+    case messageEdited(itemID: String, newText: String, editedAt: String)
+    case messageDeleted(itemID: String)                           // sets tombstone
+    case memberEvent(MemberEvent)                                 // append a roster-change item
+    case callEvent(CallEvent)                                     // append a call-log item
+    case fileAdded(ChatFile)                                      // insert/upsert a file item by id
+    case fileProgress(itemID: String, progress: Double?, transferStatus: FileTransferStatus)
+    case typingChanged(isTyping: Bool, senderID: String?, senderName: String?)
+    case participantsChanged([Participant])                       // update the roster
+    case historyPage(items: [ChatItem], hasMore: Bool)           // OLDER items (chronological), prepended
 }
 
 /// Normalized outbound command the UI hands a transport. A plain-text user turn,
@@ -549,4 +854,19 @@ public enum ChatCommand: Sendable {
     case cancel
     case permissionResponse(requestID: String, optionID: String?)
     case setConfigOption(optionID: String, value: String)
+
+    // --- P2P (v2) additive vocabulary. `.prompt` cannot gain an optional associated value
+    //     source-compatibly (it would break every `case .prompt(let text)` site), so the
+    //     reply-carrying send is a NEW case; a transport that does not support a capability
+    //     ignores the corresponding command (the store gates emission on `capabilities`).
+    //     All are store -> transport.
+    case sendMessage(text: String, replyTo: String?)   // a P2P send, optionally quoting a message
+    case toggleReaction(itemID: String, emoji: String, add: Bool)
+    case editMessage(itemID: String, newText: String)
+    case deleteMessage(itemID: String)
+    case resendMessage(itemID: String)                 // retry a `failed` message
+    case markRead(upToItemID: String)
+    case loadEarlier(beforeItemID: String, limit: Int)
+    case setTyping(isTyping: Bool)
+    case cancelFileTransfer(itemID: String)
 }

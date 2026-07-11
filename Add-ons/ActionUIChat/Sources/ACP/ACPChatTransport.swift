@@ -187,6 +187,11 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
 
         case .setConfigOption(let optionID, let value):
             await performSetConfigOption(optionID: optionID, value: value)
+
+        case .sendMessage, .toggleReaction, .editMessage, .deleteMessage, .resendMessage,
+             .markRead, .loadEarlier, .setTyping, .cancelFileTransfer:
+            // ACP advertises no P2P capabilities, so the store never emits these; ignore.
+            break
         }
     }
 

@@ -355,6 +355,15 @@ final class ChatStore: ObservableObject {
             items.append(.error(id: itemID, text: message))
             fire(config.errorActionID)
             fireEntry(type: "error", id: itemID, data: ChatItem.error(id: itemID, text: message))
+
+        // --- P2P (v2) events. Only the `local-p2p` and real P2P transports emit these; the
+        //     reduction (upsert, status ladder / watermark, reactions, edit, delete, member /
+        //     call append, file progress, typing with expiry, participants, history prepend)
+        //     lands in P3. No v1 transport emits them, so these no-ops leave v1 behavior exact.
+        case .messageReceived, .messageStatusChanged, .messageStatusWatermark, .reactionsChanged,
+             .messageEdited, .messageDeleted, .memberEvent, .callEvent, .fileAdded, .fileProgress,
+             .typingChanged, .participantsChanged, .historyPage:
+            break
         }
     }
 

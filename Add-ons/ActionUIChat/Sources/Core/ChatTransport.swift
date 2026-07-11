@@ -23,6 +23,36 @@ import ActionUI
 /// from ActionUI.)
 public typealias ChatLogger = ActionUILogger
 
+/// Which P2P (v2) conversation affordances a transport backs. The store consults this
+/// before emitting the corresponding command (typing signals, read marks, paging, ...),
+/// and the view combines it with the document's `features` config: an affordance appears
+/// only when BOTH the document enables it AND the transport supports it. Every flag
+/// defaults to false, so a v1 transport (which does not set `capabilities`) advertises no
+/// v2 capability and behaves exactly as before.
+public struct ChatTransportCapabilities: Sendable, Equatable {
+    public var paging: Bool          // answers `.loadEarlier` with `.historyPage`
+    public var typing: Bool          // relays `.setTyping` / emits `.typingChanged`
+    public var reactions: Bool       // relays `.toggleReaction` / emits `.reactionsChanged`
+    public var editing: Bool         // relays `.editMessage` / emits `.messageEdited`
+    public var deletion: Bool        // relays `.deleteMessage` / emits `.messageDeleted`
+    public var replies: Bool         // relays `.sendMessage(replyTo:)`
+    public var readReceipts: Bool    // relays `.markRead` / emits status watermarks
+    public var fileTransfer: Bool    // emits `.fileAdded` / `.fileProgress`, relays `.cancelFileTransfer`
+
+    public init(paging: Bool = false, typing: Bool = false, reactions: Bool = false,
+                editing: Bool = false, deletion: Bool = false, replies: Bool = false,
+                readReceipts: Bool = false, fileTransfer: Bool = false) {
+        self.paging = paging
+        self.typing = typing
+        self.reactions = reactions
+        self.editing = editing
+        self.deletion = deletion
+        self.replies = replies
+        self.readReceipts = readReceipts
+        self.fileTransfer = fileTransfer
+    }
+}
+
 /// One wire protocol's adapter. `Sendable` so the store can drive it from async
 /// contexts; `events` is a single-consumer stream the store drains. Construction is
 /// NOT a protocol requirement - a transport is built by the factory closure registered
@@ -36,6 +66,15 @@ public protocol ChatTransport: AnyObject, Sendable {
     var events: AsyncStream<ChatEvent> { get }
     /// Ends the session and finishes `events` so the store's drain completes.
     func stop() async
+    /// The P2P affordances this transport backs. Defaults to none (a v1 transport is
+    /// unaffected), so only a transport that supports v2 features overrides it.
+    var capabilities: ChatTransportCapabilities { get }
+}
+
+public extension ChatTransport {
+    /// Default: no v2 capabilities. A v1 transport keeps its exact behavior without
+    /// declaring anything; a P2P transport overrides this to opt into affordances.
+    var capabilities: ChatTransportCapabilities { ChatTransportCapabilities() }
 }
 
 /// The transport-relevant slice of a `Chat` element's configuration, handed to a
@@ -209,6 +248,13 @@ final class LocalChatTransport: ChatTransport, @unchecked Sendable {
             if let refreshed {
                 continuation.yield(.configOptionsChanged(refreshed))
             }
+
+        case .sendMessage, .toggleReaction, .editMessage, .deleteMessage, .resendMessage,
+             .markRead, .loadEarlier, .setTyping, .cancelFileTransfer:
+            // The built-in `local` transport advertises no P2P capabilities, so the store
+            // never emits these; ignore any that arrive. The scripted `local-p2p` transport
+            // (a separate protocol) handles them.
+            break
         }
     }
 

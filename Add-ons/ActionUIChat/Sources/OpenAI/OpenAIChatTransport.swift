@@ -134,6 +134,11 @@ final class OpenAIChatTransport: ChatTransport, @unchecked Sendable {
         case .permissionResponse:
             // openai-sse never emits permission requests (no agent tool loop); nothing to answer.
             break
+
+        case .sendMessage, .toggleReaction, .editMessage, .deleteMessage, .resendMessage,
+             .markRead, .loadEarlier, .setTyping, .cancelFileTransfer:
+            // openai-sse advertises no P2P capabilities, so the store never emits these; ignore.
+            break
         }
     }
 
