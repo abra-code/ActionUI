@@ -285,13 +285,21 @@ final class ChatStore: ObservableObject {
         Task { await transport?.send(.deleteMessage(itemID: itemID)) }
     }
 
-    /// Retries a `failed` message (the delivery-status "tap to retry" affordance). Not feature-gated -
-    /// resend is intrinsic to sending; it only reaches a P2P transport that produced the failed state.
+    /// Retries a `failed` message OR a `failed` file / voice transfer (the "tap to retry" affordance).
+    /// Not feature-gated - resend is intrinsic to sending; it only reaches a P2P transport that produced
+    /// the failed state. Both reuse the one `.resendMessage(itemID:)` command (no separate file case).
     func resendMessage(itemID: String) {
-        guard case .message(let message)? = item(itemID), message.status == .failed else {
+        switch item(itemID) {
+        case .message(let message) where message.status == .failed:
+            mutateMessage(itemID, kind: "resend") { $0.status = .sending }
+        case .file(let file) where file.transferStatus == .failed:
+            mutateFile(itemID, fireEntry: false) {
+                $0.transferStatus = .transferring
+                $0.progress = 0
+            }
+        default:
             return
         }
-        mutateMessage(itemID, kind: "resend") { $0.status = .sending }
         let transport = self.transport
         Task { await transport?.send(.resendMessage(itemID: itemID)) }
     }

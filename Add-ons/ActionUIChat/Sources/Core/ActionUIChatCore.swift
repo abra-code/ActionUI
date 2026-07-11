@@ -27,6 +27,12 @@ public enum ActionUIChatCore {
     @MainActor
     public static func register() {
         ActionUIRegistry.shared.register(Chat.self)   // JSON token: "Chat"
+        // The scripted person-to-person / group backend (`config.protocol == "local-p2p"`), a built-in
+        // like `local`: it drives the ChatPeople / ChatGroup examples and the dual-alignment UI with no
+        // wire. Registered here (not reserved) so a host can still override the name if it wants.
+        ChatTransportRegistry.shared.register("local-p2p") { config, _ in
+            LocalP2PTransport(config: config)
+        }
     }
 
     /// Registers a transport factory under a protocol name (the element's

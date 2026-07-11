@@ -431,6 +431,17 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         }
     }
 
+    func testResendAlsoRetriesAFailedFileTransfer() async {
+        let (store, sink) = makeStarted(capabilities: allCaps())
+        store.route(.fileAdded(ChatFile(id: "f1", role: .local, name: "a.pdf", transferStatus: .failed)))
+        store.resendMessage(itemID: "f1")
+        await settle()
+        XCTAssertTrue({ if case .resendMessage("f1") = sink.all().first { return true }; return false }())
+        for case .file(let file) in store.items where file.id == "f1" {
+            XCTAssertEqual(file.transferStatus, .transferring, "a retried file transfer restarts as transferring")
+        }
+    }
+
     func testReplySendRoutesThroughSendMessageWhenAllowed() async {
         let (store, sink) = makeStarted(features: ["features": ["replies": true]], capabilities: allCaps())
         store.route(.messageReceived(remote("orig")))

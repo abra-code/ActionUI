@@ -78,9 +78,12 @@ struct ChatDemoView: View {
     @State private var isStarting = false
     @State private var startError: String?
     @State private var nextSessionNumber = 1
+    @State private var demoSession: DemoSession?
 
     var body: some View {
-        if let session {
+        if let demoSession {
+            DemoSessionView(session: demoSession) { self.demoSession = nil }
+        } else if let session {
             ChatSessionView(session: session,
                             onNewSession: { startSession() },
                             onConfigure: { self.session = nil })
@@ -144,9 +147,40 @@ struct ChatDemoView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(isStarting || commandLine.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+
+            Divider().padding(.vertical, 4)
+
+            // Scripted person-to-person / group demos: no agent, no wire - the built-in local-p2p
+            // transport drives a full dual-alignment conversation (timestamps, delivery status,
+            // reactions, replies, edits, files, voice, member/call events, typing, paged history).
+            Text("Scripted demos (no agent needed)")
+                .font(.headline)
+            Text("Dual-alignment person-to-person and group chat driven by the built-in local-p2p transport.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Person-to-Person Demo") {
+                    startDemo(resource: "ChatPeople", title: "Person-to-Person")
+                }
+                Button("Group Demo") {
+                    startDemo(resource: "ChatGroup", title: "Group Chat")
+                }
+            }
+
             Spacer()
         }
         .padding(20)
+    }
+
+    private func startDemo(resource: String, title: String) {
+        guard let url = Bundle.main.url(forResource: resource, withExtension: "json") else {
+            startError = "The bundled \(resource).json resource is missing."
+            return
+        }
+        let windowUUID = "chat-demo-\(resource)-\(nextSessionNumber)"
+        nextSessionNumber += 1
+        let view = AnyView(ActionUISwift.loadView(from: url, windowUUID: windowUUID, isContentView: true))
+        demoSession = DemoSession(title: title, view: view)
     }
 
     private func startSession() {
@@ -203,6 +237,43 @@ struct ChatDemoView: View {
         panel.prompt = "Use as Working Directory"
         if panel.runModal() == .OK, let url = panel.url {
             workingDirectory = url.path
+        }
+    }
+}
+
+/// A scripted person-to-person / group demo: a loaded example document (protocol local-p2p,
+/// no agent, no injection) and its title.
+struct DemoSession: Identifiable {
+    let id = UUID()
+    let title: String
+    let view: AnyView
+}
+
+/// Presents a scripted demo with a back button to the launcher.
+struct DemoSessionView: View {
+    let session: DemoSession
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    onBack()
+                } label: {
+                    Label("Demos", systemImage: "chevron.left")
+                }
+                Spacer()
+                Text(session.title).font(.headline)
+                Spacer()
+                // Balance the leading button so the title stays centered.
+                Label("Demos", systemImage: "chevron.left").hidden()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            Divider()
+            session.view
+                .id(session.id)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

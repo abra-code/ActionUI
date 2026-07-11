@@ -8,9 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		18138100712A428A8C2CA301 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = 92B10998085E4C637100F163 /* ActionUISwiftAdapter */; };
+		566CC9BB4B3C75DA25C94A4E /* ChatGroup.json in Resources */ = {isa = PBXBuildFile; fileRef = 7291A6805848D082CA053543 /* ChatGroup.json */; };
 		56C52162818FE000C78A51FA /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = C88B9A94E4E949A6C843D8F7 /* ActionUI */; };
 		624A3DE94845A8D3659FF73B /* ActionUIChatDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A636050A224540B690011A /* ActionUIChatDemo.swift */; };
 		676859A47EC2C80F8417A962 /* ChatDemo.json in Resources */ = {isa = PBXBuildFile; fileRef = 3599ACC47257E391AAF8ED0F /* ChatDemo.json */; };
+		E1568DABBF066E2A5604CFD1 /* ChatPeople.json in Resources */ = {isa = PBXBuildFile; fileRef = 4146D7AEDAED56A7D0745D02 /* ChatPeople.json */; };
 		EBA740876D550735196BB52B /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = FDFF336B89F1748C340140D2 /* ActionUIChat */; };
 /* End PBXBuildFile section */
 
@@ -18,8 +20,10 @@
 		1B4427F6039553D2EB6FBB7D /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../../..; sourceTree = SOURCE_ROOT; };
 		3599ACC47257E391AAF8ED0F /* ChatDemo.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ChatDemo.json; sourceTree = "<group>"; };
 		40472E2072DBDF6F399FE0E6 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ..; sourceTree = SOURCE_ROOT; };
+		4146D7AEDAED56A7D0745D02 /* ChatPeople.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ChatPeople.json; sourceTree = "<group>"; };
 		50A636050A224540B690011A /* ActionUIChatDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIChatDemo.swift; sourceTree = "<group>"; };
 		63846DB9A8D2CD603DEB6B0F /* ActionUIChatDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUIChatDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7291A6805848D082CA053543 /* ChatGroup.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ChatGroup.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,6 +44,8 @@
 			isa = PBXGroup;
 			children = (
 				3599ACC47257E391AAF8ED0F /* ChatDemo.json */,
+				7291A6805848D082CA053543 /* ChatGroup.json */,
+				4146D7AEDAED56A7D0745D02 /* ChatPeople.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -145,6 +151,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				676859A47EC2C80F8417A962 /* ChatDemo.json in Resources */,
+				566CC9BB4B3C75DA25C94A4E /* ChatGroup.json in Resources */,
+				E1568DABBF066E2A5604CFD1 /* ChatPeople.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

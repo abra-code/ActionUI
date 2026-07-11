@@ -63,8 +63,21 @@ final class ChatDualSnapshotTests: XCTestCase {
                 isSelf: true, name: nil, time: "2026-07-10T10:19:00Z"),
             ctx("m7", msg("m7", .remote, "", name: "Alex", time: "2026-07-10T10:20:00Z", deleted: true),
                 isSelf: false, name: "Alex", time: "2026-07-10T10:20:00Z"),
+            ctx("ev1", .memberEvent(MemberEvent(id: "ev1", kind: .joined, subjectName: "Sam")),
+                isSelf: false, name: nil, time: nil),
+            ctx("call1", .callEvent(CallEvent(id: "call1", kind: .missedIncoming, isVideo: true)),
+                isSelf: false, name: nil, time: nil),
+            ctx("file1", .file(ChatFile(id: "file1", role: .remote, senderID: "alex", senderName: "Alex",
+                                        timestamp: "2026-07-10T10:22:00Z", name: "itinerary.pdf", sizeBytes: 284_160,
+                                        url: URL(string: "https://ex.test/i.pdf"), kind: .file,
+                                        transferStatus: .transferring, progress: 0.6)),
+                isSelf: false, name: "Alex", time: "2026-07-10T10:22:00Z"),
+            ctx("voice1", .file(ChatFile(id: "voice1", role: .local, senderID: "me", timestamp: "2026-07-10T10:23:00Z",
+                                         name: "voice.m4a", kind: .voice, durationSeconds: 14, transferStatus: .completed)),
+                isSelf: true, name: nil, time: "2026-07-10T10:23:00Z"),
         ]
 
+        let audioController = ChatAudioController()
         let view = VStack(alignment: .leading, spacing: 0) {
             ForEach(rows) { row in
                 VStack(alignment: .leading, spacing: 4) {
@@ -74,11 +87,12 @@ final class ChatDualSnapshotTests: XCTestCase {
                     DualTranscriptRow(ctx: row, config: config, maxBubbleWidth: 300,
                                       showsSenderNames: true,
                                       actions: DualRowActions(canReply: true, canEdit: true, canDelete: true, canReact: true),
-                                      highlighted: false, onResend: { _ in })
+                                      highlighted: false, audio: audioController, onResend: { _ in })
                 }
                 .padding(.top, row.info.isFirstInRun ? 8 : 2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            TypingIndicatorRow(names: ["Sam"]).padding(.top, 6)
         }
         .padding(12)
         .frame(width: 460)

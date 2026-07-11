@@ -1,0 +1,39 @@
+{
+  "type": "VStack",
+  "properties": { "spacing": 8, "padding": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "A group chat with four participants: dual alignment with per-sender names and avatars, timestamps and day separators, member events (joins / leaves / a rename) and a call event rendered as centered captions, reactions and replies, and paged history (scroll to the top to load earlier messages). Driven by the scripted local-p2p transport; sender identity resolves from the transcript participants roster.", "font": "headline" } },
+    {
+      "type": "Chat",
+      "id": 91,
+      "config": {
+        "protocol": "local-p2p",
+        "transport": { "scenario": "group" }
+      },
+      "properties": {
+        "appearance": {
+          "alignment": "dual",
+          "showRoleLabels": true,
+          "showTimestamps": true,
+          "showAvatars": true,
+          "showDeliveryStatus": true
+        },
+        "roles": {
+          "local": { "label": "You", "tint": "accent" },
+          "remote": { "label": "", "tint": "secondary" }
+        },
+        "features": {
+          "reactions": true,
+          "editing": false,
+          "deletion": true,
+          "replies": true
+        },
+        "input": { "enabled": true, "placeholder": "Message the group" },
+        "attachActionID": "chat.attach",
+        "sendActionID": "chat.send",
+        "messageActionID": "chat.message",
+        "frame": { "maxWidth": "infinity", "maxHeight": "infinity" }
+      }
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import SwiftUI
 import ActionUI
 import RichText
 import AsyncImageCache
+import AVFoundation
 #if canImport(AppKit)
 import AppKit
 #elseif canImport(UIKit)
@@ -47,6 +48,7 @@ struct DualRowActions {
     var delete: (ChatMessage) -> Void = { _ in }
     var toggleReaction: (_ itemID: String, _ emoji: String) -> Void = { _, _ in }
     var jumpTo: (String) -> Void = { _ in }
+    var cancelTransfer: (String) -> Void = { _ in }
 
     /// The fixed quick-reaction row shown at the top of the context menu (Unicode order per the plan):
     /// thumbs up, heart, tears of joy, open mouth, crying, folded hands.
@@ -62,6 +64,7 @@ struct DualTranscriptRow: View {
     let showsSenderNames: Bool
     let actions: DualRowActions
     let highlighted: Bool
+    @ObservedObject var audio: ChatAudioController
     let onResend: (String) -> Void
 
     var body: some View {
@@ -73,14 +76,68 @@ struct DualTranscriptRow: View {
         case .image(_, let role, let image):
             // An image is a leading/trailing bubble too; reuse the shared image view inside the gutter frame.
             DualImageRow(ctx: ctx, role: role, image: image, config: config, maxBubbleWidth: maxBubbleWidth)
+        case .file(let file):
+            DualFileRow(ctx: ctx, file: file, config: config, maxBubbleWidth: maxBubbleWidth,
+                        showsSenderNames: showsSenderNames, audio: audio,
+                        onCancel: { actions.cancelTransfer(file.id) },
+                        onRetry: { onResend(file.id) })
+        case .memberEvent(let event):
+            CenteredCaption(text: MemberEventText.caption(event), systemImage: "person.2", tint: .secondary)
+        case .callEvent(let event):
+            CenteredCaption(text: CallEventText.caption(event),
+                            systemImage: (event.isVideo ?? false) ? "video" : "phone", tint: callTint(event))
         case .system(_, let text):
             CenteredCaption(text: text, systemImage: nil, tint: .secondary)
         case .error(_, let text):
             CenteredCaption(text: text, systemImage: "exclamationmark.triangle", tint: .red)
-        case .thought, .toolCall, .memberEvent, .callEvent, .file:
-            // Agentic surfaces are not part of a P2P conversation; member/call/file rows are built in P6.
+        case .thought, .toolCall:
+            // Agentic surfaces are not part of a P2P conversation.
             EmptyView()
         }
+    }
+
+    private func callTint(_ event: CallEvent) -> Color {
+        switch event.kind {
+        case .missedIncoming, .missedOutgoing, .declined: return .red
+        case .completed:                                  return .secondary
+        }
+    }
+}
+
+// MARK: - Member / call event captions
+
+enum MemberEventText {
+    static func caption(_ event: MemberEvent) -> String {
+        let subject = event.subjectName ?? "Someone"
+        let actor = event.actorName ?? "Someone"
+        switch event.kind {
+        case .joined:      return "\(subject) joined"
+        case .left:        return "\(subject) left"
+        case .invited:     return "\(actor) invited \(subject)"
+        case .removed:     return "\(actor) removed \(subject)"
+        case .roleChanged: return "\(subject) is now \(event.detail ?? "updated")"
+        case .renamed:     return "\(actor) changed the name to \(event.detail ?? "a new name")"
+        }
+    }
+}
+
+enum CallEventText {
+    static func caption(_ event: CallEvent) -> String {
+        let kind = (event.isVideo ?? false) ? "video call" : "call"
+        switch event.kind {
+        case .missedIncoming: return "Missed \(kind)"
+        case .missedOutgoing: return "Unanswered \(kind)"
+        case .declined:       return "Declined \(kind)"
+        case .completed:
+            if let seconds = event.durationSeconds {
+                return "\(kind.capitalized(with: nil)) \u{00B7} \(durationText(seconds))"
+            }
+            return kind.capitalized(with: nil)
+        }
+    }
+
+    static func durationText(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 }
 
@@ -146,6 +203,11 @@ private struct DualMessageRow: View {
                     .italic()
                     .foregroundStyle(.secondary)
             } else {
+                // The bubble hugs its content (the messaging idiom), rather than filling the column like a
+                // v1 full-width row. No .frame(maxWidth:) here: a maxWidth frame FILLS up to its cap, which
+                // would stretch the bubble. Instead the content hugs itself - RichText via .widthBehavior(.hug)
+                // (see `content`) and the reply quote by not filling - each capped by the column-width proposal
+                // that DualTranscriptRow already applies (.frame(maxWidth: maxBubbleWidth) at the row level).
                 VStack(alignment: .leading, spacing: 4) {
                     if let reply = message.replyTo {
                         Button { actions.jumpTo(reply.itemID) } label: { ReplyQuote(reply: reply) }
@@ -162,8 +224,6 @@ private struct DualMessageRow: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(Color.accentColor, lineWidth: highlighted ? 2 : 0)
         )
-        // No maxWidth:.infinity here: the bubble hugs its content (up to the column's maxBubbleWidth),
-        // the messaging-app idiom, rather than filling the column like a v1 full-width row.
         .contextMenu { if !isTombstone { bubbleMenu } }
     }
 
@@ -205,7 +265,9 @@ private struct DualMessageRow: View {
         if message.text.isEmpty && message.isStreaming {
             Text("\u{2026}").foregroundStyle(.secondary)
         } else {
-            RichText(markdown: message.text)
+            // .hug so a dual bubble sizes to its text (up to the column width) instead of filling the
+            // column like a v1 full-width row. The enclosing bubble's .frame(maxWidth:) is the cap.
+            RichText(markdown: message.text).widthBehavior(.hug)
         }
     }
 
@@ -296,6 +358,245 @@ private struct DualImageRow: View {
     }
 }
 
+// MARK: - File / voice row
+
+/// One shared audio slot per chat: starting one voice message stops any other. Only local (or already
+/// downloaded) file URLs play directly; a remote URL that has not been fetched simply does not start.
+@MainActor
+final class ChatAudioController: ObservableObject {
+    @Published private(set) var playingID: String?
+    @Published private(set) var progress: Double = 0     // 0...1
+
+    private var player: AVAudioPlayer?
+    private var delegate: PlayerDelegate?
+    private var ticker: Timer?
+
+    func toggle(id: String, url: URL?) {
+        if playingID == id {
+            stop()
+            return
+        }
+        stop()
+        guard let url, url.isFileURL, let player = try? AVAudioPlayer(contentsOf: url) else {
+            return
+        }
+        let delegate = PlayerDelegate()
+        delegate.controller = self
+        player.delegate = delegate
+        self.player = player
+        self.delegate = delegate
+        playingID = id
+        player.play()
+        let ticker = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let player = self.player, player.duration > 0 else { return }
+                self.progress = player.currentTime / player.duration
+            }
+        }
+        self.ticker = ticker
+    }
+
+    func stop() {
+        ticker?.invalidate()
+        ticker = nil
+        player?.stop()
+        player = nil
+        delegate = nil
+        playingID = nil
+        progress = 0
+    }
+
+    private final class PlayerDelegate: NSObject, AVAudioPlayerDelegate {
+        weak var controller: ChatAudioController?
+        func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+            Task { @MainActor [weak controller] in controller?.stop() }
+        }
+    }
+}
+
+/// A file attachment or voice message, aligned like a message bubble. A document file shows an icon +
+/// name + size + transfer state (a progress bar with a cancel button while transferring, a retry on
+/// failure); a voice message shows a play/pause button + a progress bar + the elapsed/total time.
+private struct DualFileRow: View {
+    let ctx: DualRowContext
+    let file: ChatFile
+    let config: ChatConfig
+    let maxBubbleWidth: CGFloat
+    let showsSenderNames: Bool
+    @ObservedObject var audio: ChatAudioController
+    let onCancel: () -> Void
+    let onRetry: () -> Void
+
+    private var isSelf: Bool { ctx.isSelf }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            if isSelf {
+                Spacer(minLength: 40)
+            } else if config.showAvatars {
+                if ctx.info.isLastInRun {
+                    AvatarView(url: ctx.avatarURL, name: ctx.senderName, size: 28)
+                } else {
+                    Color.clear.frame(width: 28, height: 1)
+                }
+            }
+            VStack(alignment: isSelf ? .trailing : .leading, spacing: 2) {
+                if !isSelf, ctx.info.isFirstInRun, showsSenderNames, let name = ctx.senderName, !name.isEmpty {
+                    Text(name).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
+                }
+                bubble
+            }
+            .frame(maxWidth: maxBubbleWidth, alignment: isSelf ? .trailing : .leading)
+            if !isSelf {
+                Spacer(minLength: 40)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: isSelf ? .trailing : .leading)
+    }
+
+    @ViewBuilder
+    private var bubble: some View {
+        Group {
+            if file.kind == .voice {
+                voiceContent
+            } else {
+                fileContent
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(minWidth: 180, alignment: .leading)
+        .background(isSelf ? ChatTint.color(for: config.style(for: .local).tint).opacity(0.22)
+                           : Color.secondary.opacity(0.14),
+                    in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var isPlaying: Bool { audio.playingID == file.id }
+
+    private var voiceContent: some View {
+        HStack(spacing: 10) {
+            Button {
+                audio.toggle(id: file.id, url: file.url)
+            } label: {
+                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 3) {
+                ProgressView(value: isPlaying ? audio.progress : 0)
+                    .frame(width: 120)
+                Text(durationLabel).font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var fileContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.fill").font(.title3).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(file.name).font(.callout.weight(.medium)).lineLimit(1)
+                    Text(transferSubtitle).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            if file.transferStatus == .transferring {
+                HStack(spacing: 8) {
+                    ProgressView(value: file.progress ?? 0).frame(maxWidth: .infinity)
+                    Button(action: onCancel) {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else if file.transferStatus == .failed {
+                Button(action: onRetry) {
+                    Label("Transfer failed \u{2013} tap to retry", systemImage: "exclamationmark.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var durationLabel: String {
+        guard let seconds = file.durationSeconds else {
+            return "Voice message"
+        }
+        if isPlaying, audio.progress > 0 {
+            let elapsed = Int(audio.progress * Double(seconds))
+            return "\(CallEventText.durationText(elapsed)) / \(CallEventText.durationText(seconds))"
+        }
+        return CallEventText.durationText(seconds)
+    }
+
+    private var transferSubtitle: String {
+        var parts: [String] = []
+        if let size = file.sizeBytes {
+            parts.append(Self.formatSize(size))
+        }
+        switch file.transferStatus {
+        case .pending:      parts.append("Waiting\u{2026}")
+        case .transferring: parts.append("\(Int((file.progress ?? 0) * 100))%")
+        case .cancelled:    parts.append("Cancelled")
+        case .completed, .failed: break
+        }
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    static func formatSize(_ bytes: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+}
+
+// MARK: - Typing indicator
+
+/// An animated three-dot bubble at the transcript bottom, shown while participants are typing. Distinct
+/// from the agentic awaiting indicator; driven by the store's `typingParticipants`.
+struct TypingIndicatorRow: View {
+    let names: [String]
+    @State private var phase = 0
+
+    private let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.secondary)
+                        .frame(width: 6, height: 6)
+                        .opacity(phase == index ? 1 : 0.3)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Color.secondary.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
+            if let label = typingLabel {
+                Text(label).font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 40)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onReceive(timer) { _ in
+            phase = (phase + 1) % 3
+        }
+        .transition(.opacity)
+    }
+
+    private var typingLabel: String? {
+        let known = names.filter { !$0.isEmpty }
+        switch known.count {
+        case 0:  return nil
+        case 1:  return "\(known[0]) is typing\u{2026}"
+        case 2:  return "\(known[0]) and \(known[1]) are typing\u{2026}"
+        default: return "Several people are typing\u{2026}"
+        }
+    }
+}
+
 // MARK: - Reply quote (display; the tap-to-scroll + compose banner are P5)
 
 private struct ReplyQuote: View {
@@ -313,7 +614,11 @@ private struct ReplyQuote: View {
                 Text(reply.excerpt).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // fixedSize(vertical): the accent bar is a RoundedRectangle, which is greedy vertically; without this
+        // it expands to whatever height the bubble is proposed. Hug the row to its text height instead (the
+        // bar then matches that height). No maxWidth:.infinity, so the quote hugs its excerpt and the bubble
+        // can hug too - the bubble's column-width proposal caps how wide a long quote may grow.
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.vertical, 2)
     }
 }

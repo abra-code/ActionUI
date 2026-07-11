@@ -79,7 +79,8 @@ Four layers, transport at the bottom, SwiftUI at the top, a router in the middle
 
 - `ChatTransport` (`Sources/Core/ChatTransport.swift`) - speaks one wire protocol, emits a normalized
   `ChatEvent` stream, accepts normalized `ChatCommand`s. `LocalChatTransport` (scripted; also the
-  `agentic` demo turn) is the only built-in and ships in Core. `ACPChatTransport` lives in its own
+  `agentic` demo turn) and `LocalP2PTransport` (the scripted person-to-person / group backend behind
+  `local-p2p`) are built in and ship in Core. `ACPChatTransport` lives in its own
   module (`Sources/ACP/`, macOS - `ACPConnection.swift` is the stdio JSON-RPC framing,
   `ACPChatTransport.swift` is the ACP method vocabulary and the `session/update` demux, kept in one file
   on purpose). `OpenAIChatTransport` (`Sources/OpenAI/`) streams an OpenAI-compatible

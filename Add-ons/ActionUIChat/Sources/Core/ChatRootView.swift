@@ -39,6 +39,10 @@ struct ChatRootView: View {
     @State private var deleteTarget: ChatMessage?
     @State private var highlightedItemID: String?
     @State private var scrollRequest: String?
+    // Paging: the id of the former top item, captured when a page is requested, so the scroll position
+    // can be restored to it after older items prepend (no visual jump).
+    @State private var pagingAnchorID: String?
+    @StateObject private var audio = ChatAudioController()
 
     private struct ReplyTarget: Identifiable {
         let id: String
@@ -87,7 +91,10 @@ struct ChatRootView: View {
             }
         }
         .onAppear { store.start() }
-        .onDisappear { store.teardown() }
+        .onDisappear {
+            store.teardown()
+            audio.stop()   // a playing voice message must not outlive the view
+        }
         .confirmationDialog("Delete this message?",
                             isPresented: Binding(get: { deleteTarget != nil },
                                                  set: { if !$0 { deleteTarget = nil } }),
@@ -115,7 +122,15 @@ struct ChatRootView: View {
                     // run tightens; single alignment keeps the exact v1 spacing so it is pixel-identical.
                     LazyVStack(alignment: .leading, spacing: config.alignment == .dual ? 0 : 10) {
                         if config.alignment == .dual {
+                            topPagingSentinel(viewport: viewport)
+                            if store.isLoadingEarlier {
+                                loadEarlierHeader
+                            }
                             dualContent(maxBubbleWidth: max(120, (viewport.size.width - 24) * 0.75))
+                            if !store.typingParticipants.isEmpty {
+                                TypingIndicatorRow(names: store.typingParticipants.compactMap(\.name))
+                                    .padding(.top, 6)
+                            }
                         } else {
                             ForEach(store.items) { item in
                                 row(for: item).id(item.id)
@@ -127,14 +142,23 @@ struct ChatRootView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .trackScrolledToBottom($isPinnedToBottom, threshold: Self.bottomThreshold)
-                .onChange(of: store.items) { _, _ in
-                    // Follow new content ONLY while pinned; reading back must not fight streaming.
-                    // The follow is NON-animated: it settles the offset in the same layout pass as the
-                    // content grows, so the geometry detector never observes the mid-animation state
-                    // (content grown, offset lagging) and spuriously unpins during fast streaming.
+                .onChange(of: store.items) { old, new in
+                    // A prepended history page: restore the scroll to the anchored former-top item so the
+                    // view does not jump (non-animated, same layout pass). Takes precedence over the pin.
+                    if let anchor = pagingAnchorID, new.count > old.count, new.first?.id != old.first?.id {
+                        proxy.scrollTo(anchor, anchor: .top)
+                        pagingAnchorID = nil
+                        return
+                    }
+                    // Otherwise follow new content ONLY while pinned; reading back must not fight streaming.
+                    // The follow is NON-animated so the geometry detector never observes the mid-animation
+                    // state (content grown, offset lagging) and spuriously unpins during fast streaming.
                     if isPinnedToBottom {
                         scrollToBottom(proxy, animated: false)
                     }
+                }
+                .onChange(of: isPinnedToBottom) { _, pinned in
+                    store.setPinnedToBottom(pinned)
                 }
                 .onAppear {
                     // Loaded/restored transcripts start pinned at the latest entry.
@@ -246,7 +270,7 @@ struct ChatRootView: View {
                 }
                 DualTranscriptRow(ctx: ctx, config: config, maxBubbleWidth: maxBubbleWidth,
                                   showsSenderNames: showsSenderNames, actions: dualActions,
-                                  highlighted: highlightedItemID == ctx.id,
+                                  highlighted: highlightedItemID == ctx.id, audio: audio,
                                   onResend: { store.resendMessage(itemID: $0) })
             }
             .padding(.top, ctx.info.isFirstInRun ? 8 : 2)
@@ -268,8 +292,49 @@ struct ChatRootView: View {
             edit: { beginEdit($0) },
             delete: { deleteTarget = $0 },
             toggleReaction: { store.toggleReaction(itemID: $0, emoji: $1) },
-            jumpTo: { requestScroll(to: $0) }
+            jumpTo: { requestScroll(to: $0) },
+            cancelTransfer: { store.cancelFileTransfer(itemID: $0) }
         )
+    }
+
+    /// The near-top detector for paging: a 1 pt marker at the very top of the transcript; when it comes
+    /// within a page-trigger distance of the viewport top, request the previous history page (once).
+    private func topPagingSentinel(viewport: GeometryProxy) -> some View {
+        Color.clear
+            .frame(height: 1)
+            .background(
+                GeometryReader { marker in
+                    Color.clear.preference(
+                        key: ScrolledNearTopKey.self,
+                        value: marker.frame(in: .global).minY >= viewport.frame(in: .global).minY - 200)
+                }
+            )
+            .onPreferenceChange(ScrolledNearTopKey.self) { nearTop in
+                if nearTop {
+                    requestEarlierPage()
+                }
+            }
+    }
+
+    private var loadEarlierHeader: some View {
+        HStack {
+            Spacer()
+            ProgressView().controlSize(.small)
+            Text("Loading earlier messages\u{2026}").font(.caption2).foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.vertical, 6)
+    }
+
+    /// Requests the previous page, anchoring the current top item so the prepend does not jump the view.
+    /// Gated on NOT being pinned to the bottom so a short seed (whose content fits the viewport, leaving
+    /// the top sentinel near-top on first appear) does not auto-load history before the user scrolls up.
+    private func requestEarlierPage() {
+        guard !isPinnedToBottom, store.hasEarlier, !store.isLoadingEarlier else {
+            return
+        }
+        pagingAnchorID = store.items.first?.id
+        store.scrolledNearTop()
     }
 
     private func beginReply(_ message: ChatMessage) {
@@ -551,6 +616,16 @@ struct ChatRootView: View {
 /// preference collapses to the fail-safe direction - the pill stays, auto-scroll stays suspended -
 /// rather than re-pinning and yanking the reader back on the next streaming delta.
 private struct ScrolledToBottomKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = nextValue()
+    }
+}
+
+/// Whether the transcript's top is within the paging-trigger distance of the viewport top. Emitted by
+/// the top sentinel; drives the load-earlier request. Defaults FALSE so a de-materialized sentinel does
+/// not spuriously trigger paging.
+private struct ScrolledNearTopKey: PreferenceKey {
     static let defaultValue = false
     static func reduce(value: inout Bool, nextValue: () -> Bool) {
         value = nextValue()

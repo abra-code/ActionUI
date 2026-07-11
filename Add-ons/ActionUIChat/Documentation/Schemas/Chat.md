@@ -132,13 +132,26 @@ JSON schema and usage documentation for `Chat` (ActionUIChat add-on).
 // now render inside the tool card's detail as a real line diff (the DiffView product of the sibling
 // ActionUIDiff add-on, which these tool cards consume: hunks, old / new line-number gutters, +/-
 // markers; routed by surfaces.diffs, "hidden" drops them). Transports are separate, statically linked
-// modules behind a registry: "local" is the only built-in, and a host adds a protocol by linking its
+// modules behind a registry: "local" (a scripted echo / agentic demo) and "local-p2p" (a scripted
+// person-to-person / group demo) are built in, and a host adds another protocol by linking its
 // module (ActionUIChatOpenAI for "openai-sse", ActionUIChatACP for "acp") and calling its register() - or
 // by linking the umbrella ActionUIChat product, whose register() wires every bundled transport at once; a
 // protocol whose module was not registered degrades to "local". The "openai-sse" transport streams an
 // OpenAI-compatible /v1/chat/completions endpoint (llama-server, mlx_lm.server, or any compatible server):
 // plain streaming chat with reasoning folded into thoughts, tool calls rendered as (unexecuted) cards, and
-// token usage in the status bar - no agent process required. Dual alignment and the remaining M5 surfaces
+// token usage in the status bar - no agent process required.
+//
+// And person-to-person / group chat (appearance.alignment "dual"): your messages align trailing with the
+// role tint, everyone else's leading, the messaging-app layout. It adds - all additive, all optional, so a
+// v1 document is unchanged - message timestamps and day separators, per-sender names and avatars (or an
+// initials disc), delivery status (Sending / Sent / Delivered / Read, and Failed with tap-to-retry), emoji
+// reactions, replies (a tappable quoted-excerpt block), message editing and deletion (a tombstone), member
+// and call events (centered captions), file and voice-message items (a transfer progress bar / an audio
+// player), a typing indicator, and paged history (scroll to the top to load earlier). Each interactive
+// affordance appears only when the document enables it (the "features" object) AND the active transport
+// advertises the matching capability; those conversation actions flow to the transport as commands, and the
+// sole new host action ID is "attachActionID" (the composer's attach button). The built-in "local-p2p"
+// transport scripts all of it with no wire (the ChatPeople / ChatGroup examples). The remaining surfaces
 // (terminals, multi-session) arrive in later milestones (see Private/chat-element-design.md).
 //
 // Session transcript (P0-2): the element has no scalar value - its session transcript is CONTENT. A host
