@@ -80,7 +80,8 @@ private final class MockP2PTransport: ChatTransport, @unchecked Sendable {
 // Full-capability set for the command / behavior tests.
 private func allCaps() -> ChatTransportCapabilities {
     ChatTransportCapabilities(paging: true, typing: true, reactions: true, editing: true,
-                              deletion: true, replies: true, readReceipts: true, fileTransfer: true)
+                              deletion: true, replies: true, readReceipts: true, fileTransfer: true,
+                              messageIdentity: true)
 }
 
 // A minimal ChatContentSource that injects a fixed states["config"] the way the engine's ViewModel
@@ -474,8 +475,9 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         store.draft = "sure"
         store.submitDraft(replyTo: "orig")
         await settle()
-        // The optimistic local message carries the reply ref; the transport gets sendMessage.
-        XCTAssertTrue({ if case .sendMessage("sure", "orig") = sink.all().first { return true }; return false }(),
+        // The optimistic local message carries the reply ref; the transport gets sendMessage with the
+        // optimistic id as its localID handle.
+        XCTAssertTrue({ if case .sendMessage("sure", "orig", _) = sink.all().first { return true }; return false }(),
                       "a gated reply routes through sendMessage")
         let last = store.items.last
         if case .message(let m)? = last {
@@ -510,17 +512,104 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         XCTAssertFalse(makeStarted(features: [:], capabilities: caps(true)).0.canAttach)
     }
 
-    func testPlainSendRoutesThroughPromptWhenReplyNotAllowed() async {
-        // replies feature off: even with replyTo, it degrades to a plain prompt.
+    func testPlainSendDropsReplyRefWhenRepliesNotAllowed() async {
+        // replies feature off: even with replyTo, the reply degrades. Under a messageIdentity transport
+        // a plain send still routes through sendMessage (carrying the localID handle), but with a nil ref.
         let (store, sink) = makeStarted(features: [:], capabilities: allCaps())
         store.route(.messageReceived(remote("orig")))
         store.draft = "hi"
         store.submitDraft(replyTo: "orig")
         await settle()
-        XCTAssertTrue({ if case .prompt("hi") = sink.all().first { return true }; return false }(),
-                      "reply not enabled -> plain prompt, replyTo dropped")
+        XCTAssertTrue({ if case .sendMessage("hi", nil, _) = sink.all().first { return true }; return false }(),
+                      "reply not enabled -> sendMessage with the ref dropped")
         if case .message(let m)? = store.items.last {
             XCTAssertNil(m.replyTo, "the dropped reply leaves no ref on the optimistic message")
         }
+    }
+
+    // MARK: - Optimistic-id reconciliation (messageIdentity)
+
+    func testReKeyOnConfirmationPreservesFieldsAndLandsLaterEvents() async {
+        let (store, sink) = makeStarted(capabilities: allCaps())
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        // A messageIdentity send routes through sendMessage carrying the optimistic id as its localID.
+        XCTAssertTrue({ if case .sendMessage("hi", nil, "user-1") = sink.all().first { return true }; return false }(),
+                      "a messageIdentity plain send routes through sendMessage with the optimistic localID")
+        XCTAssertEqual(store.items.last?.id, "user-1")
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.status, .sending, "readReceipts capability -> optimistic sending status")
+        } else {
+            XCTFail("expected an optimistic local message")
+        }
+        // Confirmation re-keys the item in place, preserving text / status.
+        store.route(.messageIDConfirmed(localID: "user-1", serverID: "srv-9"))
+        XCTAssertEqual(store.items.last?.id, "srv-9", "the optimistic item is re-keyed to its server id")
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.text, "hi")
+            XCTAssertEqual(m.status, .sending, "status is preserved across the re-key")
+        }
+        // A later server-keyed status change lands on the re-keyed item.
+        store.route(.messageStatusChanged(itemID: "srv-9", status: .delivered))
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.status, .delivered, "the ladder advances on the re-keyed item")
+        }
+    }
+
+    func testPreConfirmFailureAddressesTheOptimisticId() async {
+        let (store, sink) = makeStarted(capabilities: allCaps())
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        // Before any server id exists, a send failure is addressed by the optimistic localID.
+        store.route(.messageStatusChanged(itemID: "user-1", status: .failed))
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.status, .failed)
+        } else {
+            XCTFail("expected the optimistic message")
+        }
+        // The retry emits resendMessage keyed by the same optimistic id.
+        store.resendMessage(itemID: "user-1")
+        await settle()
+        XCTAssertTrue(sink.all().contains { if case .resendMessage("user-1") = $0 { return true }; return false },
+                      "a pre-confirm retry resends by the optimistic id")
+    }
+
+    func testConfirmationWithExistingServerIdDropsOptimisticDuplicate() async {
+        let (store, _) = makeStarted(capabilities: allCaps())
+        // The server delivered the message as its own item first.
+        store.route(.messageReceived(ChatMessage(id: "srv-1", role: .local, text: "hi", isStreaming: false)))
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        XCTAssertEqual(store.items.count, 2, "the seeded server item plus the optimistic send")
+        store.route(.messageIDConfirmed(localID: "user-1", serverID: "srv-1"))
+        XCTAssertEqual(store.items.count, 1, "the optimistic duplicate is dropped")
+        XCTAssertFalse(store.items.contains { $0.id == "user-1" }, "no optimistic item remains")
+        XCTAssertTrue(store.items.contains { $0.id == "srv-1" })
+    }
+
+    func testConfirmationForUnknownIdIsAHarmlessNoOp() async {
+        let (store, _) = makeStarted(capabilities: allCaps())
+        store.route(.messageReceived(remote("r1")))
+        let before = store.items.count
+        store.route(.messageIDConfirmed(localID: "nope", serverID: "x"))
+        XCTAssertEqual(store.items.count, before, "an unknown localID is a no-op")
+        // Idempotent: a second confirmation for an already-reconciled/unknown id is also a no-op.
+        store.route(.messageIDConfirmed(localID: "nope", serverID: "x"))
+        XCTAssertEqual(store.items.count, before)
+    }
+
+    func testV1TransportStillRoutesThroughPrompt() async {
+        // No messageIdentity, no replies: the send is byte-identical to the v1 prompt path.
+        let (store, sink) = makeStarted(capabilities: ChatTransportCapabilities())
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        XCTAssertTrue({ if case .prompt("hi") = sink.all().first { return true }; return false }(),
+                      "a v1 transport still emits .prompt")
+        XCTAssertFalse(sink.all().contains { if case .sendMessage = $0 { return true }; return false },
+                       "a v1 transport never sees sendMessage")
     }
 }

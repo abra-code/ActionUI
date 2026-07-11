@@ -222,5 +222,6 @@ final class ChatModelV2ValueTests: XCTestCase {
         XCTAssertFalse(caps.replies)
         XCTAssertFalse(caps.readReceipts)
         XCTAssertFalse(caps.fileTransfer)
+        XCTAssertFalse(caps.messageIdentity)
     }
 }

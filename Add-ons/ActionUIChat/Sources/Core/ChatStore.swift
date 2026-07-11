@@ -312,8 +312,14 @@ final class ChatStore: ObservableObject {
         // "thinking" spinner, because isStreaming only flips true on the first streamed event.
         awaitingReply = true
         let transport = self.transport
-        if repliesAllowed {
-            Task { await transport?.send(.sendMessage(text: text, replyTo: replyTo)) }
+        // A `messageIdentity` transport always sends through `.sendMessage` (reply or not), carrying the
+        // optimistic `itemID` as `localID` so the transport can address the in-flight message before it
+        // has a server id (to fail it) and reconcile it (via `.messageIDConfirmed`) once it does. A v1 /
+        // agent transport (messageIdentity false, replies false) still uses `.prompt`, byte-for-byte as before.
+        let useMessageSend = capabilities.messageIdentity || repliesAllowed
+        if useMessageSend {
+            let ref = repliesAllowed ? replyTo : nil
+            Task { await transport?.send(.sendMessage(text: text, replyTo: ref, localID: itemID)) }
         } else {
             Task { await transport?.send(.prompt(text: text)) }
         }
@@ -681,6 +687,9 @@ final class ChatStore: ObservableObject {
             fireEntry(type: "message", id: message.id, data: ChatItem.message(message.finalized), updated: existed)
             maybeScheduleReadMark()
 
+        case .messageIDConfirmed(let localID, let serverID):
+            reconcileMessageID(localID: localID, serverID: serverID)
+
         case .messageStatusChanged(let itemID, let status):
             mutateMessage(itemID, kind: "message_status") { $0.status = status }
 
@@ -949,6 +958,33 @@ final class ChatStore: ObservableObject {
         return false
     }
 
+    /// Re-keys the optimistic message `localID` to the server-assigned `serverID` in place, so every
+    /// later server-keyed event (status, reactions, edit, delete) targets the right item. The transport
+    /// MUST emit `.messageIDConfirmed` BEFORE any event keyed by `serverID`. Tolerant: an unknown /
+    /// already-reconciled `localID` is a logged no-op; a `serverID` that already names a different item
+    /// means the server also delivered the message as its own item, so the optimistic duplicate is dropped
+    /// (the confirmation entry still fires, so a persisting host renames the localID row rather than orphaning it).
+    ///
+    /// The optimistic entry was already fired to `entryActionID` under `localID` and the confirmed row is
+    /// now `serverID`; the `messageIdConfirmed` entry lets a persisting host reconcile the two as a rename.
+    private func reconcileMessageID(localID: String, serverID: String) {
+        guard localID != serverID else { return }
+        guard let index = anyItemIndex(localID), case .message(let message) = items[index] else {
+            logger.log("Chat messageIDConfirmed for unknown/optimistic id '\(localID)'; ignoring", .verbose)
+            return
+        }
+        if let existing = anyItemIndex(serverID), existing != index {
+            items.remove(at: index)   // server already delivered this as its own item; drop the optimistic duplicate
+            // Still fire the confirmation so a persisting host renames its optimistic `localID` row onto the
+            // server one (idempotent upsert by id) rather than orphaning it - same signal as the re-key path.
+            fireEntry(type: "messageIdConfirmed", id: serverID, data: MessageIDConfirmation(localID: localID, serverID: serverID))
+            logger.log("Chat messageIDConfirmed serverID '\(serverID)' already present; dropped optimistic '\(localID)'", .verbose)
+            return
+        }
+        items[index] = .message(message.reidentified(serverID))
+        fireEntry(type: "messageIdConfirmed", id: serverID, data: MessageIDConfirmation(localID: localID, serverID: serverID))
+    }
+
     /// Mutates a message by id in place and re-fires its entry as an update. Unknown id is a logged
     /// no-op (the v1 tolerant posture).
     private func mutateMessage(_ id: String, kind: String, _ transform: (inout ChatMessage) -> Void) {
@@ -1178,4 +1214,20 @@ private extension ChatMessage {
         copy.isStreaming = false
         return copy
     }
+
+    /// A copy with a new id (ChatMessage.id is a let). Used to re-key an optimistic message to its
+    /// server-assigned id on `.messageIDConfirmed`.
+    func reidentified(_ newID: String) -> ChatMessage {
+        ChatMessage(id: newID, role: role, text: text, isStreaming: isStreaming,
+                    senderID: senderID, senderName: senderName, avatarURL: avatarURL,
+                    timestamp: timestamp, status: status, reactions: reactions,
+                    editedAt: editedAt, replyTo: replyTo, deleted: deleted)
+    }
+}
+
+/// The `messageIdConfirmed` entry payload: lets a persisting host (entryActionID) rename its stored
+/// row from the optimistic `localID` to the server-assigned `serverID`.
+private struct MessageIDConfirmation: Encodable {
+    let localID: String
+    let serverID: String
 }

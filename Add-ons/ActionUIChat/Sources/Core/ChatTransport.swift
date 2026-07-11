@@ -38,10 +38,25 @@ public struct ChatTransportCapabilities: Sendable, Equatable {
     public var replies: Bool         // relays `.sendMessage(replyTo:)`
     public var readReceipts: Bool    // relays `.markRead` / emits status watermarks
     public var fileTransfer: Bool    // emits `.fileAdded` / `.fileProgress`, relays `.cancelFileTransfer`
+    public var messageIdentity: Bool // assigns server-side ids to sent messages and confirms them
+                                     // via `.messageIDConfirmed`; the store routes every send through
+                                     // `.sendMessage` carrying a client `localID` and re-keys the
+                                     // optimistic item on confirmation. Server-authoritative transports
+                                     // (SimpleX, Matrix) set this; demo/agent transports leave it false.
+                                     //
+                                     // Ordering / failure contract a `messageIdentity` transport MUST honor:
+                                     // - Emit `.messageIDConfirmed(localID:serverID:)` BEFORE any event keyed
+                                     //   by that `serverID` (status ladder, reactions, edit, delete).
+                                     // - Before confirmation, address the in-flight message by its `localID`
+                                     //   (e.g. `.messageStatusChanged(itemID: localID, status: .failed)` on a
+                                     //   send failure; the user's retry arrives as `.resendMessage(itemID: localID)`).
+                                     // - A send that fails and is later retried and succeeds emits
+                                     //   `.messageIDConfirmed` at the point it succeeds.
 
     public init(paging: Bool = false, typing: Bool = false, reactions: Bool = false,
                 editing: Bool = false, deletion: Bool = false, replies: Bool = false,
-                readReceipts: Bool = false, fileTransfer: Bool = false) {
+                readReceipts: Bool = false, fileTransfer: Bool = false,
+                messageIdentity: Bool = false) {
         self.paging = paging
         self.typing = typing
         self.reactions = reactions
@@ -50,6 +65,7 @@ public struct ChatTransportCapabilities: Sendable, Equatable {
         self.replies = replies
         self.readReceipts = readReceipts
         self.fileTransfer = fileTransfer
+        self.messageIdentity = messageIdentity
     }
 }
 
