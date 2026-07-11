@@ -87,9 +87,15 @@ struct ChatRootView: View {
         GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(store.items) { item in
-                            row(for: item).id(item.id)
+                    // Dual alignment (P2P / group) uses zero base spacing + per-run top padding so a
+                    // run tightens; single alignment keeps the exact v1 spacing so it is pixel-identical.
+                    LazyVStack(alignment: .leading, spacing: config.alignment == .dual ? 0 : 10) {
+                        if config.alignment == .dual {
+                            dualContent(maxBubbleWidth: max(120, (viewport.size.width - 24) * 0.75))
+                        } else {
+                            ForEach(store.items) { item in
+                                row(for: item).id(item.id)
+                            }
                         }
                         bottomSentinel(viewport: viewport)
                     }
@@ -192,6 +198,134 @@ struct ChatRootView: View {
             // No v1 document produces these items, so the placeholder never renders for v1.
             EmptyView()
         }
+    }
+
+    // MARK: - Dual-alignment transcript (P2P / group)
+
+    /// The dual-alignment rows: each item placed by the pure ChatTranscriptLayout (run grouping +
+    /// day separators), with a day-separator caption before an item that starts a new calendar day,
+    /// and tighter spacing inside a run.
+    @ViewBuilder
+    private func dualContent(maxBubbleWidth: CGFloat) -> some View {
+        ForEach(dualRows) { ctx in
+            VStack(alignment: .leading, spacing: 4) {
+                if ctx.info.startsNewDay, let date = ctx.timestamp {
+                    DaySeparatorRow(date: date)
+                }
+                DualTranscriptRow(ctx: ctx, config: config, maxBubbleWidth: maxBubbleWidth,
+                                  showsSenderNames: showsSenderNames,
+                                  onResend: { store.resendMessage(itemID: $0) })
+            }
+            .padding(.top, ctx.info.isFirstInRun ? 8 : 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .id(ctx.id)
+        }
+    }
+
+    /// Builds the per-item render contexts: run/day placement from ChatTranscriptLayout, plus resolved
+    /// sender identity (message overrides -> participant roster -> role default) and self-authorship.
+    private var dualRows: [DualRowContext] {
+        let items = store.items
+        let inputs = items.map { item -> ChatTranscriptLayout.Input in
+            switch item {
+            case .message(let message):
+                return ChatTranscriptLayout.Input(senderKey: senderKey(role: message.role, senderID: message.senderID),
+                                                  groupable: true, timestamp: ChatTimestamp.parse(message.timestamp))
+            case .image(_, let role, _):
+                return ChatTranscriptLayout.Input(senderKey: senderKey(role: role, senderID: nil),
+                                                  groupable: true, timestamp: nil)
+            case .file(let file):
+                return ChatTranscriptLayout.Input(senderKey: senderKey(role: file.role, senderID: file.senderID),
+                                                  groupable: true, timestamp: ChatTimestamp.parse(file.timestamp))
+            default:
+                // system / error / member / call / thought / toolCall: never grouped; unique key.
+                return ChatTranscriptLayout.Input(senderKey: item.id, groupable: false,
+                                                  timestamp: nonGroupableTimestamp(item))
+            }
+        }
+        let layout = ChatTranscriptLayout.layout(inputs)
+        return zip(items, layout).map { item, info in buildContext(item: item, info: info) }
+    }
+
+    private func buildContext(item: ChatItem, info: ChatTranscriptLayout.Info) -> DualRowContext {
+        switch item {
+        case .message(let message):
+            return DualRowContext(id: item.id, item: item, info: info,
+                                  isSelf: isSelf(role: message.role, senderID: message.senderID),
+                                  senderName: resolvedName(role: message.role, senderID: message.senderID, explicit: message.senderName),
+                                  avatarURL: resolvedAvatar(senderID: message.senderID, explicit: message.avatarURL),
+                                  timestamp: ChatTimestamp.parse(message.timestamp))
+        case .image(_, let role, _):
+            return DualRowContext(id: item.id, item: item, info: info,
+                                  isSelf: isSelf(role: role, senderID: nil),
+                                  senderName: resolvedName(role: role, senderID: nil, explicit: nil),
+                                  avatarURL: nil, timestamp: nil)
+        case .file(let file):
+            return DualRowContext(id: item.id, item: item, info: info,
+                                  isSelf: isSelf(role: file.role, senderID: file.senderID),
+                                  senderName: resolvedName(role: file.role, senderID: file.senderID, explicit: file.senderName),
+                                  avatarURL: resolvedAvatar(senderID: file.senderID, explicit: nil),
+                                  timestamp: ChatTimestamp.parse(file.timestamp))
+        default:
+            return DualRowContext(id: item.id, item: item, info: info, isSelf: false,
+                                  senderName: nil, avatarURL: nil, timestamp: nonGroupableTimestamp(item))
+        }
+    }
+
+    private func nonGroupableTimestamp(_ item: ChatItem) -> Date? {
+        switch item {
+        case .memberEvent(let event): return ChatTimestamp.parse(event.timestamp)
+        case .callEvent(let event):   return ChatTimestamp.parse(event.timestamp)
+        default:                      return nil
+        }
+    }
+
+    // Sender resolution (mirrors the store): self is role `.local` or a senderID marked isSelf in the roster.
+    private func isSelf(role: ChatRole, senderID: String?) -> Bool {
+        if role == .local {
+            return true
+        }
+        if let senderID {
+            return store.participants.first(where: { $0.id == senderID })?.isSelf == true
+        }
+        return false
+    }
+
+    private func senderKey(role: ChatRole, senderID: String?) -> String {
+        if isSelf(role: role, senderID: senderID) {
+            return "self"
+        }
+        return senderID ?? role.rawValue
+    }
+
+    private func resolvedName(role: ChatRole, senderID: String?, explicit: String?) -> String? {
+        if let explicit, !explicit.isEmpty {
+            return explicit
+        }
+        if let senderID, let participant = store.participants.first(where: { $0.id == senderID }) {
+            return participant.name
+        }
+        let label = config.style(for: role).label
+        return label.isEmpty ? nil : label
+    }
+
+    private func resolvedAvatar(senderID: String?, explicit: String?) -> String? {
+        if let explicit, !explicit.isEmpty {
+            return explicit
+        }
+        if let senderID {
+            return store.participants.first(where: { $0.id == senderID })?.avatarURL
+        }
+        return nil
+    }
+
+    /// Show a sender-name label above the first message of a run when role labels are on, or when the
+    /// conversation has more than one non-self participant (a group).
+    private var showsSenderNames: Bool {
+        if config.showRoleLabels {
+            return true
+        }
+        return store.participants.filter { $0.isSelf != true }.count > 1
     }
 
     // MARK: - Composer
@@ -807,8 +941,8 @@ private struct ImageRow: View {
 // ActionUI's ColorHelper is internal, so the add-on resolves the common color
 // tokens locally for M1 (the same token vocabulary). Promoting a public color
 // resolver in core would let this defer to the framework; tracked as a later
-// refinement.
-private enum ChatTint {
+// refinement. Internal (not private) so the dual-alignment rows share it.
+enum ChatTint {
     static func color(for token: String) -> Color {
         switch token.lowercased() {
         case "accent":              return .accentColor
