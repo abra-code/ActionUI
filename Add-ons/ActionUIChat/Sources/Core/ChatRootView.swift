@@ -525,6 +525,7 @@ struct ChatRootView: View {
     @ViewBuilder
     private var composer: some View {
         VStack(spacing: 4) {
+            connectionBanner
             composerBanner
             HStack(alignment: .bottom, spacing: 8) {
                 if store.canAttach {
@@ -552,8 +553,23 @@ struct ChatRootView: View {
         .buttonStyle(.borderless)
         // Also disabled until a host has injected a viable states["config"] and the transport is
         // live (isConfigured): the element is inert until configured, so the composer never lets a
-        // user type into a void.
-        .disabled(!config.inputEnabled || !store.isConfigured)
+        // user type into a void. A reportsConnectionState transport additionally gates on connectivity
+        // (isConnectionReady); a v1 / agent transport leaves that always true.
+        .disabled(!config.inputEnabled || !store.isConfigured || !store.isConnectionReady)
+    }
+
+    // A one-line connectivity notice above the composer, shown only while a reportsConnectionState
+    // transport is not connected (so the disabled composer is explained). Nothing renders - and no
+    // vertical space is taken - for a v1 / agent transport or once connected, so the v1 composer is
+    // unchanged.
+    @ViewBuilder
+    private var connectionBanner: some View {
+        if let text = store.connectionBannerText {
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+        }
     }
 
     // The reply / edit indicator above the composer, with a cancel button. Nothing renders (and no

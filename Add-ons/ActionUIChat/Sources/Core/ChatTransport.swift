@@ -52,11 +52,14 @@ public struct ChatTransportCapabilities: Sendable, Equatable {
                                      //   send failure; the user's retry arrives as `.resendMessage(itemID: localID)`).
                                      // - A send that fails and is later retried and succeeds emits
                                      //   `.messageIDConfirmed` at the point it succeeds.
+    public var reportsConnectionState: Bool  // emits `.connectionStateChanged`; the composer gates on
+                                             // `connected`. A transport that never reports leaves this
+                                             // false and the composer is never connection-gated.
 
     public init(paging: Bool = false, typing: Bool = false, reactions: Bool = false,
                 editing: Bool = false, deletion: Bool = false, replies: Bool = false,
                 readReceipts: Bool = false, fileTransfer: Bool = false,
-                messageIdentity: Bool = false) {
+                messageIdentity: Bool = false, reportsConnectionState: Bool = false) {
         self.paging = paging
         self.typing = typing
         self.reactions = reactions
@@ -66,6 +69,7 @@ public struct ChatTransportCapabilities: Sendable, Equatable {
         self.readReceipts = readReceipts
         self.fileTransfer = fileTransfer
         self.messageIdentity = messageIdentity
+        self.reportsConnectionState = reportsConnectionState
     }
 }
 

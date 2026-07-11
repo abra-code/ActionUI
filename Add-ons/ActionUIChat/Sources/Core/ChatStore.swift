@@ -64,6 +64,7 @@ final class ChatStore: ObservableObject {
     @Published private(set) var typingParticipants: [TypingParticipant] = [] // who is currently typing (drives the typing row)
     @Published private(set) var hasEarlier: Bool = true                      // false once a history page reports no more
     @Published private(set) var isLoadingEarlier: Bool = false               // a history page is in flight
+    @Published private(set) var connectionState: ChatConnectionState = .connecting  // link state; only a reportsConnectionState transport drives it (else the composer ignores it)
 
     /// A participant currently shown in the typing indicator. `id` is the sender key (senderID, or a
     /// stable fallback for a rosterless 1:1 chat); `name` labels the row when known.
@@ -138,6 +139,27 @@ final class ChatStore: ObservableObject {
     /// Every v2 affordance is gated on this AND the document's `features` config.
     private var capabilities: ChatTransportCapabilities {
         transport?.capabilities ?? ChatTransportCapabilities()
+    }
+
+    /// The composer may accept input only when the transport is not connection-gated, or is connected.
+    /// A v1 / agent transport (reportsConnectionState == false) is always ready, so its composer is
+    /// never connection-gated.
+    var isConnectionReady: Bool {
+        !capabilities.reportsConnectionState || connectionState == .connected
+    }
+
+    /// A one-line banner string when a reporting transport is not yet connected; nil otherwise (so a
+    /// v1 / agent transport, or a connected one, shows no banner).
+    var connectionBannerText: String? {
+        guard capabilities.reportsConnectionState, connectionState != .connected else {
+            return nil
+        }
+        switch connectionState {
+        case .connecting:   return "Connecting..."
+        case .reconnecting: return "Reconnecting..."
+        case .offline:      return "Offline"
+        case .connected:    return nil
+        }
     }
 
     /// Loads any pre-populated transcript (a document `properties.content`, a testing convenience) once,
@@ -245,6 +267,7 @@ final class ChatStore: ObservableObject {
     /// Installs a built transport and starts draining its event stream.
     private func attach(_ transport: any ChatTransport) {
         self.transport = transport
+        connectionState = .connecting   // ignored unless the transport reports connection state; a rebuilt transport re-gates until it reconnects
         // If a transcript was restored before the transport existed (content injected before a
         // viable config), seed the new transport's wire history from it so a continue carries
         // context. For a fresh session `items` is empty, so this primes an empty history.
@@ -507,6 +530,7 @@ final class ChatStore: ObservableObject {
         // true - which would show a permanent spinner and a dead Stop button on reappearance.
         isStreaming = false
         awaitingReply = false
+        connectionState = .connecting   // reset for cleanliness; the composer is already gated by isConfigured while torn down
         let transport = self.transport
         self.transport = nil
         Task { await transport?.stop() }
@@ -748,6 +772,9 @@ final class ChatStore: ObservableObject {
 
         case .historyPage(let older, let hasMore):
             prependHistory(older, hasMore: hasMore)
+
+        case .connectionStateChanged(let state):
+            connectionState = state
         }
     }
 

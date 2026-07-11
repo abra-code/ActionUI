@@ -803,6 +803,13 @@ public struct ChatTranscript: Equatable, Sendable, Codable {
     }
 }
 
+/// A `reportsConnectionState` transport's link state, emitted via `.connectionStateChanged`.
+/// The composer gates on `connected`; every other state disables it (with a one-line banner).
+/// A transport that never reports leaves the composer un-gated.
+public enum ChatConnectionState: String, Sendable, Equatable, Codable {
+    case connecting, connected, reconnecting, offline
+}
+
 /// Normalized inbound event a transport emits. Transport-agnostic: the `local`
 /// transport emits the message lifecycle (plus the agentic cases in its scripted
 /// "agentic" demo style); the ACP transport emits the full vocabulary.
@@ -843,6 +850,7 @@ public enum ChatEvent: Sendable {
     case typingChanged(isTyping: Bool, senderID: String?, senderName: String?)
     case participantsChanged([Participant])                       // update the roster
     case historyPage(items: [ChatItem], hasMore: Bool)           // OLDER items (chronological), prepended
+    case connectionStateChanged(ChatConnectionState)             // link state; the composer gates on `connected`
 }
 
 /// Normalized outbound command the UI hands a transport. A plain-text user turn,

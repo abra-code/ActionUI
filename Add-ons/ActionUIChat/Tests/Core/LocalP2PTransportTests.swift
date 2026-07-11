@@ -102,6 +102,19 @@ final class LocalP2PTransportTests: XCTestCase {
                       "the peer replies")
     }
 
+    func testStartReportsConnected() async {
+        let transport = makeTransport(scenario: "people")
+        let sink = consume(transport)
+        await transport.start()
+        await settle()
+        let events = sink.all()
+        await transport.stop()
+
+        XCTAssertTrue(transport.capabilities.reportsConnectionState, "local-p2p reports connection state")
+        XCTAssertTrue(events.contains { if case .connectionStateChanged(.connected) = $0 { return true }; return false },
+                      "the link comes up on start")
+    }
+
     func testSendConfirmsAServerIdThenDrivesTheLadderOnIt() async {
         let transport = makeTransport(scenario: "people")
         let sink = consume(transport)

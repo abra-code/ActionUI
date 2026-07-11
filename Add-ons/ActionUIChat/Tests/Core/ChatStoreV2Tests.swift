@@ -81,7 +81,7 @@ private final class MockP2PTransport: ChatTransport, @unchecked Sendable {
 private func allCaps() -> ChatTransportCapabilities {
     ChatTransportCapabilities(paging: true, typing: true, reactions: true, editing: true,
                               deletion: true, replies: true, readReceipts: true, fileTransfer: true,
-                              messageIdentity: true)
+                              messageIdentity: true, reportsConnectionState: true)
 }
 
 // A minimal ChatContentSource that injects a fixed states["config"] the way the engine's ViewModel
@@ -439,9 +439,12 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         store.editMessage(itemID: "m1", newText: "hello")
         store.deleteMessage(itemID: "m1")
         await settle()
-        XCTAssertEqual(sink.all().count, 2)
-        XCTAssertTrue({ if case .editMessage("m1", "hello") = sink.all()[0] { return true }; return false }())
-        XCTAssertTrue({ if case .deleteMessage("m1") = sink.all()[1] { return true }; return false }())
+        // Both commands are emitted; each goes out in its own Task, so the store does not guarantee their
+        // relative order on the wire - assert presence, not position.
+        let commands = sink.all()
+        XCTAssertEqual(commands.count, 2)
+        XCTAssertTrue(commands.contains { if case .editMessage("m1", "hello") = $0 { return true }; return false })
+        XCTAssertTrue(commands.contains { if case .deleteMessage("m1") = $0 { return true }; return false })
     }
 
     func testResendOnlyForFailed() async {
@@ -611,5 +614,80 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
                       "a v1 transport still emits .prompt")
         XCTAssertFalse(sink.all().contains { if case .sendMessage = $0 { return true }; return false },
                        "a v1 transport never sees sendMessage")
+    }
+
+    // MARK: - Connection-state gating (reportsConnectionState)
+
+    func testConnectionGatingOnForAReportingTransport() {
+        let (store, _) = makeStarted(capabilities: allCaps())
+        // A reporting transport starts connection-gated (state .connecting).
+        XCTAssertFalse(store.isConnectionReady, "a reporting transport is not ready until connected")
+        XCTAssertEqual(store.connectionBannerText, "Connecting...")
+
+        store.route(.connectionStateChanged(.connected))
+        XCTAssertTrue(store.isConnectionReady, "connected -> ready")
+        XCTAssertNil(store.connectionBannerText, "no banner when connected")
+
+        store.route(.connectionStateChanged(.reconnecting))
+        XCTAssertFalse(store.isConnectionReady)
+        XCTAssertEqual(store.connectionBannerText, "Reconnecting...")
+
+        store.route(.connectionStateChanged(.offline))
+        XCTAssertFalse(store.isConnectionReady)
+        XCTAssertEqual(store.connectionBannerText, "Offline")
+    }
+
+    func testConnectionGatingOffForAV1Transport() {
+        // A transport that does not report connection state never gates the composer, whatever the
+        // store's connectionState happens to be.
+        let (store, _) = makeStarted(capabilities: ChatTransportCapabilities())
+        XCTAssertTrue(store.isConnectionReady, "no reportsConnectionState -> always ready")
+        XCTAssertNil(store.connectionBannerText, "no reportsConnectionState -> no banner")
+        store.route(.connectionStateChanged(.offline))
+        XCTAssertTrue(store.isConnectionReady, "still ready: the transport does not report connection state")
+        XCTAssertNil(store.connectionBannerText)
+    }
+
+    // End-to-end through the REAL local-p2p transport wired to a real store (not a mock + hand-routed
+    // events): a send is re-keyed to the server id and laddered to .read, and the link reports connected.
+    func testLocalP2PEndToEndReKeysLaddersAndConnects() async {
+        let proto = "local-p2p-e2e-\(UUID().uuidString)"
+        ChatTransportRegistry.shared.register(proto) { config, _ in LocalP2PTransport(config: config) }
+        let logger = P3Logger()
+        // The store holds `contentSource` weakly (the engine's ViewModel owns it), so the source must
+        // stay alive for the whole test or the config subscription is torn down before it delivers.
+        let source = FakeConfigSource(config: ["protocol": proto,
+                                               "transport": ["scenario": "people", "stepMs": 0]])
+        let store = ChatStore(config: ChatConfig(properties: [:], logger: logger),
+                              windowUUID: "w", elementID: 1, logger: logger,
+                              contentSource: source, scheduler: ManualChatScheduler())
+        store.start()
+        await settle()
+        XCTAssertEqual(store.connectionState, .connected, "the link comes up on start")
+        XCTAssertTrue(store.isConnectionReady)
+
+        store.draft = "ping"
+        store.submitDraft()
+        await settle()
+
+        // The message we sent ("ping") was optimistically "user-1" and is now re-keyed to a srv-* id,
+        // laddered to .read by the peer's watermark - all addressed by the server id, never "user-1".
+        let sent = store.items.compactMap { item -> ChatMessage? in
+            if case .message(let m) = item, m.text == "ping" { return m }
+            return nil
+        }.first
+        let reKeyedID = sent?.id
+        let reKeyedStatus = sent?.status
+        let hasOptimistic = store.items.contains { $0.id == "user-1" }
+
+        // Tear the transport down and settle BEFORE asserting/returning, so this real-transport test
+        // leaves no drain / ladder tasks outliving it to perturb the rest of the suite's timing.
+        store.teardown()
+        await settle()
+
+        XCTAssertNotNil(reKeyedID, "the sent message is present")
+        XCTAssertEqual(reKeyedID?.hasPrefix("srv-"), true, "the optimistic id was re-keyed to the server id")
+        XCTAssertEqual(reKeyedStatus, .read, "the delivery ladder reached .read on the re-keyed id")
+        XCTAssertFalse(hasOptimistic, "no optimistic id remains")
     }
 }

@@ -25,7 +25,7 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
     let capabilities = ChatTransportCapabilities(
         paging: true, typing: true, reactions: true, editing: true,
         deletion: true, replies: true, readReceipts: true, fileTransfer: true,
-        messageIdentity: true)
+        messageIdentity: true, reportsConnectionState: true)
 
     private let scenario: String            // "people" | "group"
     private let stepDelay: UInt64           // ns between scripted beats (0 in tests)
@@ -55,6 +55,10 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
     func start() async {
         continuation.yield(.sessionReady(sessionID: "local-p2p", configOptions: []))
         continuation.yield(.participantsChanged(roster()))
+        // The link comes up: the composer starts connection-gated (the store defaults to .connecting)
+        // and enables on this. The store seeds .connecting, so this is already a visible transition;
+        // at stepMs 0 (tests) it lands deterministically.
+        continuation.yield(.connectionStateChanged(.connected))
         buildHistory()
         for event in seedConversation() {
             continuation.yield(event)
