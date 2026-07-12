@@ -1,0 +1,10 @@
+{
+  "type": "RichText",
+  "id": 90,
+  "properties": {
+    "markdown": "# Markdown in one view\n\nThe whole document renders through the RichText add-on: **strong**, *emphasis*, ***both***, ~~strike~~, `inline code`, a [link](https://swift.org), and an autolink https://example.com.\n\n- A bullet list\n- With a second item\n\n1. Ordered\n2. Items\n\n```kotlin\n// greet by name\nfun greet(name: String) =\n    \"Hello, $name\"\n```\n\n> A block quote, drawn with a gutter bar.\n\n| Feature | Supported |\n| --- | --- |\n| Tables | yes |\n| Copy | HTML / Markdown |",
+    "syntaxHighlighting": true,
+    "padding": 16,
+    "frame": { "maxWidth": "infinity" }
+  }
+}

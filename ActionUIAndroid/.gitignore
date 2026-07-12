@@ -9,6 +9,9 @@
 /.idea/assetWizardSettings.xml
 /.idea/deploymentTargetSelector.xml
 /.idea/shelf/
+# The IDE project lives only at the ActionUIAndroid root; ignore any stray module-level .idea a module gets
+# when opened as a standalone project (the /.idea rules above are root-anchored and do not cover nested dirs).
+/*/.idea/
 .DS_Store
 build/
 /captures

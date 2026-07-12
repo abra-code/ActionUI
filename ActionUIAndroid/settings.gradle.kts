@@ -45,3 +45,23 @@ if (asyncImageCacheBuild.exists()) {
     println("[ActionUIAndroid] AsyncImageCache not found at $asyncImageCacheBuild; " +
         "skipping :addon-cachedimage and :addon-testapp (core build unaffected).")
 }
+
+// The RichText add-on wraps the RichText Compose renderer, consumed via composite build (its
+// `com.abracode:richtext` module is substituted for the binary dependency). RichText itself depends on
+// AsyncImageCache (inline images), so it needs the AsyncImageCache composite build above too - hence the guard
+// requires BOTH sibling checkouts. RichText lives beside ActionUI (this build is nested one level deeper as
+// ActionUI/ActionUIAndroid), so it is two directories up. Include ONLY when present, so a standalone checkout
+// still configures the core library + demoApp.
+val richTextBuild = rootDir.resolve("../../RichText/android")
+if (richTextBuild.exists() && asyncImageCacheBuild.exists()) {
+    // Name it explicitly: its directory is also "android" (like AsyncImageCache/android), which would collide on
+    // the default dir-derived build path ":android". The name is just a build identifier; the dependency
+    // substitution is by the com.abracode:richtext coordinate, so naming does not affect it. RichText's own
+    // settings include AsyncImageCache/android too, but that is the same directory as the include above, so
+    // Gradle coalesces them into one build.
+    includeBuild(richTextBuild) { name = "richtext" }
+    include(":addon-richtext")
+} else {
+    println("[ActionUIAndroid] RichText not found at $richTextBuild (or AsyncImageCache missing); " +
+        "skipping :addon-richtext (core build unaffected).")
+}
