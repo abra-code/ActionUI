@@ -251,8 +251,8 @@ final class ChatConfigInjectionTests: XCTestCase {
 
     /// The injected transcript JSON with a "prime" key riding on it, as MLXChat's restore
     /// scripts emit it (the key is transient: ChatTranscript's codec drops it, so it never
-    /// reaches persistence).
-    private func transcriptJSON(items: [ChatItem], prime: Bool?) throws -> String {
+    /// reaches persistence). `prime` is true / false / the string "defer" / nil (key omitted).
+    private func transcriptJSON(items: [ChatItem], prime: Any?) throws -> String {
         let data = try JSONEncoder().encode(ChatTranscript(items: items))
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         if let prime {
@@ -307,6 +307,111 @@ final class ChatConfigInjectionTests: XCTestCase {
         source.content = try transcriptJSON(items: restoreItems, prime: nil)
         XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
                        "no prime key -> context follows display (the documented default), pinning existing behavior")
+        store.teardown()
+    }
+
+    // MARK: - The "defer" directive (seamless browsing: display now, prime on the next send)
+
+    func testDeferredRestorePrimesOnSendNotOnLoad() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+        let attachPrimes = box.transport?.primedHistories.count ?? 0
+
+        source.content = try transcriptJSON(items: restoreItems, prime: "defer")
+        XCTAssertEqual(store.items.count, 2, "a deferred restore still displays the transcript")
+        XCTAssertEqual(box.transport?.primedHistories.count, attachPrimes,
+                       "\"prime\": \"defer\" must not touch the agent on load - browsing is free")
+        XCTAssertEqual(box.transport?.reservedIDs.last, ["u1", "a1"],
+                       "id reservation still happens on a deferred restore (collision safety)")
+        XCTAssertEqual(store.contextState, .pending, "the indicator reports the context loads on the next message")
+
+        store.send("continue")
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
+                       "the first send replays the displayed conversation before the prompt")
+        XCTAssertEqual(store.contextState, .synced)
+        store.teardown()
+    }
+
+    func testBrowsingAwayAndBackSkipsTheRePrime() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        source.content = try transcriptJSON(items: restoreItems, prime: true)   // conversation A, primed
+        let primeCount = box.transport?.primedHistories.count
+        let otherItems: [ChatItem] = [
+            .message(ChatMessage(id: "x1", role: .local, text: "another conversation", isStreaming: false)),
+        ]
+        source.content = try transcriptJSON(items: otherItems, prime: "defer")  // browse B: agent untouched
+        XCTAssertEqual(store.contextState, .pending)
+        source.content = try transcriptJSON(items: restoreItems, prime: "defer") // back to A
+        XCTAssertEqual(store.contextState, .synced,
+                       "the agent still holds A, so returning to it is already synced")
+        store.send("go on")
+        XCTAssertEqual(box.transport?.primedHistories.count, primeCount,
+                       "sending into the conversation the agent already holds fires no re-prime")
+        store.teardown()
+    }
+
+    func testReconfigureAfterDeferredRestoreDefersToTheNextSend() throws {
+        // The host-driven model switch after a deferred restore: the NEW transport (a fresh
+        // agent) is not primed eagerly either - the conversation carries over on the next send.
+        let counter = BuildCounter()
+        let box = TransportBox()
+        let name = "inject-test-reconfig-defer-\(UUID().uuidString)"
+        ChatTransportRegistry.shared.register(name) { _, _ in
+            counter.count += 1
+            let transport = FakeInjectTransport()
+            box.transport = transport
+            return transport
+        }
+        let source = FakeConfigSource(config: ["protocol": name, "transport": ["model": "A"]])
+        let store = makeStore(source: source)
+        store.start()
+        source.content = try transcriptJSON(items: restoreItems, prime: "defer")
+
+        source.config = ["protocol": name, "transport": ["model": "B"]]
+        XCTAssertEqual(counter.count, 2)
+        XCTAssertEqual(box.transport?.primedHistories.count, 0,
+                       "the re-configured transport is not primed eagerly under a deferred directive")
+        XCTAssertEqual(store.contextState, .pending)
+        store.send("carry on")
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
+                       "the switched agent inherits the conversation with the first send")
+        store.teardown()
+    }
+
+    func testSupersededTurnTerminalDoesNotDowngradeARestoredContext() throws {
+        // A restore lands while a turn is streaming: the restore path sets the truthful
+        // context state, and the superseded turn's terminal messageEnd (stopReason
+        // "cancelled", always the next terminal on the ordered event stream) must NOT
+        // re-run the turn-end bookkeeping - it would downgrade a correct .synced to
+        // .pending and force a wasted duplicate prime on the next send.
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        store.route(.messageStart(itemID: "turn-1", role: .agent))   // a turn is in flight
+        source.content = try transcriptJSON(items: restoreItems, prime: true)   // restore mid-turn
+        XCTAssertEqual(store.contextState, .synced, "the resume restore primes and syncs")
+        let primeCount = box.transport?.primedHistories.count
+
+        store.route(.messageEnd(itemID: "turn-1", stopReason: "cancelled"))     // superseded turn resolves
+        XCTAssertEqual(store.contextState, .synced,
+                       "the superseded turn's terminal must not downgrade the restored state")
+        store.send("continue")
+        XCTAssertEqual(box.transport?.primedHistories.count, primeCount,
+                       "no duplicate prime: the send after the restore trusts the synced snapshot")
+
+        // A REAL cancellation (no restore in between) still marks the context unknown.
+        store.route(.messageStart(itemID: "turn-2", role: .agent))
+        store.route(.messageEnd(itemID: "turn-2", stopReason: "cancelled"))
+        XCTAssertEqual(store.contextState, .pending,
+                       "a genuinely cancelled turn leaves a partial exchange agent-side; the next send re-primes")
         store.teardown()
     }
 

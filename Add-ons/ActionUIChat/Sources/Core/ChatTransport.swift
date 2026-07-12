@@ -91,10 +91,11 @@ public protocol ChatTransport: AnyObject, Sendable {
     var capabilities: ChatTransportCapabilities { get }
     /// Replaces the transport's wire history with a restored transcript's messages, so a
     /// continued conversation is sent with its prior turns as context (and a cleared / new
-    /// transcript resets the wire). The store calls this SYNCHRONOUSLY on every content
-    /// restore (P0-2 continue-in seam) and whenever a transport is (re)built while a
-    /// transcript is already loaded - always before any subsequent prompt, so ordering holds
-    /// without serializing the async command channel. `messages` are the transcript's message
+    /// transcript resets the wire). The store calls this SYNCHRONOUSLY on a content restore
+    /// (P0-2 continue-in seam), whenever a transport is (re)built while a transcript is
+    /// already loaded, and - for a restore deferred by the "prime": "defer" directive -
+    /// right before the first prompt that follows it; always before any subsequent prompt,
+    /// so ordering holds without serializing the async command channel. `messages` are the transcript's message
     /// items in order (role + text); non-message items (thoughts, tool cards, images,
     /// notices) are omitted. A text-protocol transport maps role -> wire; a transport whose
     /// history lives server-side may ignore it. Default: no-op.

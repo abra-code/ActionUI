@@ -87,9 +87,14 @@ struct ChatRootView: View {
                 Divider()
                 composer
             }
-            if store.usage != nil || !store.configOptions.isEmpty {
+            // The context indicator (an online/offline-style dot: does the model remember the
+            // conversation shown?) rides on the status bar for a live, configured session; a
+            // non-synced state forces the bar visible so "loads on next message" is never hidden.
+            let contextState: ChatContextState? = (!config.readOnly && store.isConfigured) ? store.contextState : nil
+            if store.usage != nil || !store.configOptions.isEmpty || (contextState ?? .synced) != .synced {
                 Divider()
-                SessionStatusBar(usage: store.usage, options: store.configOptions) { optionID, value in
+                SessionStatusBar(usage: store.usage, options: store.configOptions,
+                                 contextState: contextState) { optionID, value in
                     store.setConfigOption(optionID, value: value)
                 }
             }
@@ -923,14 +928,17 @@ private struct PlanPanel: View {
 
 // MARK: - Session status bar (agentic, M5)
 
-// A thin status line under the composer: the session's model / mode (from the agent's
-// session-start config options) and token / cost usage when the agent reports it. An
-// option with several choices is a menu - selecting sends .setConfigOption, and the
-// display updates when the transport confirms (never optimistically, so a failed
-// change needs no revert). Single-choice options render as plain text.
+// A thin status line under the composer: the context indicator (whether the model
+// remembers the conversation shown - it may load lazily, on the next send), the
+// session's model / mode (from the agent's session-start config options), and token /
+// cost usage when the agent reports it. An option with several choices is a menu -
+// selecting sends .setConfigOption, and the display updates when the transport
+// confirms (never optimistically, so a failed change needs no revert). Single-choice
+// options render as plain text.
 private struct SessionStatusBar: View {
     let usage: UsageInfo?
     let options: [SessionConfigOption]
+    let contextState: ChatContextState?
     let select: (String, String) -> Void
 
     var body: some View {
@@ -969,11 +977,54 @@ private struct SessionStatusBar: View {
                     .monospacedDigit()
                     .lineLimit(1)
             }
+            // Right-aligned, under the message field: the trailing edge of the status line.
+            if let contextState {
+                contextIndicator(contextState)
+            }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
+    }
+
+    /// The context dot + caption. Green = the model remembers the conversation shown; orange =
+    /// it loads with the next message (a deferred restore, or a re-sync after a cancelled turn);
+    /// gray = an intentionally fresh context behind a displayed transcript (Read Only).
+    private func contextIndicator(_ state: ChatContextState) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(indicatorColor(state))
+                .frame(width: 7, height: 7)
+            Text(indicatorLabel(state))
+                .lineLimit(1)
+        }
+        .help(indicatorHelp(state))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func indicatorColor(_ state: ChatContextState) -> Color {
+        switch state {
+        case .synced:  return .green
+        case .pending: return .orange
+        case .fresh:   return .secondary
+        }
+    }
+
+    private func indicatorLabel(_ state: ChatContextState) -> String {
+        switch state {
+        case .synced:  return "Context loaded"
+        case .pending: return "Context on next message"
+        case .fresh:   return "Fresh context"
+        }
+    }
+
+    private func indicatorHelp(_ state: ChatContextState) -> String {
+        switch state {
+        case .synced:  return "The model remembers the conversation shown."
+        case .pending: return "The conversation shown will load into the model with your next message."
+        case .fresh:   return "The transcript is shown for reference; the model starts with a fresh context."
+        }
     }
 
     private func usageText(_ usage: UsageInfo) -> String {
