@@ -119,14 +119,16 @@ fun ActionUIViewConstruction.BuildViewWithModifiers(element: ActionUIElement, mo
     } else {
         null
     }
-    // Runtime-reactive control environment for this element's subtree, resolved on
-    // the effective (host-merged) element: `disabled` -> LocalActionUIEnabled (so a
-    // setElementProperty(disabled, true/false) re-enables/disables in both directions,
-    // Apple/web parity) and `hidden` -> LocalActionUIInputEnabled (so a hidden subtree's
-    // scroll containers stop stealing touch from a visible sibling; see ControlEnvironment.kt).
-    // Both only narrow, preserving SwiftUI's AND-down across ancestors.
+    // Runtime-reactive environment for this element's subtree, resolved on the
+    // effective (host-merged) element so setElementProperty writes reach it:
+    // foregroundStyle/tint (-> LocalContentColor/LocalActionUITint, OVERRIDE) and
+    // disabled/hidden (-> LocalActionUIEnabled/LocalActionUIInputEnabled, NARROW).
+    // One provider carries them all off effective.properties (ReactiveEnvironment.kt);
+    // the parent's static ProvideTextStyleEnvironment still carries the non-reactive
+    // font/alignment/selection/control style. See ReactiveEnvironment.kt for why the
+    // reactive environment is one provider bounded by axis, not one per property.
     val logger = LocalActionUILogger.current
-    ProvideDisabledEnvironment(effective.properties, logger) {
+    ProvideReactiveEnvironment(effective.properties, logger) {
         if (enter != null) {
             val visibleState = remember(effective.id) { MutableTransitionState(false) }
             LaunchedEffect(effective.id) { visibleState.targetState = true }

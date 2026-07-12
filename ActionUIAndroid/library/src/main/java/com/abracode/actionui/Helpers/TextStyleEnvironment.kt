@@ -3,7 +3,6 @@ package com.abracode.actionui.Helpers
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -36,7 +35,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * Compose mechanism for ambient, inheritable values:
  *
  *   * `font`            -> merged into [LocalTextStyle]   (read by `Text`)
- *   * `foregroundStyle` -> [LocalContentColor]            (read by `Text`)
+ *   * `foregroundStyle` -> `LocalContentColor`            (read by `Text`)
  *   * `tint`            -> [LocalActionUITint]             (read by the controls)
  *   * `multilineTextAlignment` -> `textAlign` merged into [LocalTextStyle]
  *     (SwiftUI's environment alignment for wrapped lines: leading/center/trailing)
@@ -45,21 +44,32 @@ import kotlinx.serialization.json.JsonPrimitive
  *     long-press selectable; `disabled` opts a subtree back out inside an
  *     enabled ancestor, exactly Compose's `DisableSelection` contract)
  *
- * [LocalTextStyle] and [LocalContentColor] are Material3's own locals, which
+ * [LocalTextStyle] and `LocalContentColor` are Material3's own locals, which
  * `Text` already consults, so propagating through them styles descendant text
  * with no change to the `Text` builder. There is no universal "tint" local in
  * Compose (Material components take explicit color params), so [LocalActionUITint]
  * is introduced here and read by the interactive control builders (Button,
  * Toggle, Slider, ProgressView).
  *
- * The shared entry point is [ProvideTextStyleEnvironment], applied once per
- * element at the point the element is built - in `ActionUI.Render` for the root
- * and in each container's child loop for the rest - so an element's own
- * font/color/tint style both itself and its subtree, exactly once. The static
- * control environment (`buttonStyle` / `controlSize` / `labelsHidden` - locals
- * and parsing in `ControlEnvironment.kt`) rides the same wrapper, for the same
- * reason. (`disabled` is NOT here: it is runtime-reactive, provided on the
- * effective element by `ProvideDisabledEnvironment`; see `ControlEnvironment.kt`.)
+ * `font`, `multilineTextAlignment`, and `textSelection` - plus the static control
+ * environment (`buttonStyle` / `controlSize` / `labelsHidden`, locals and parsing
+ * in `ControlEnvironment.kt`) - ride [ProvideTextStyleEnvironment], applied once
+ * per element at the point it is built (in `ActionUI.Render` for the root and in
+ * each container's child loop for the rest, off the parent's static child
+ * properties), so an element's own font/alignment/selection style both itself and
+ * its subtree, exactly once.
+ *
+ * `foregroundStyle` and `tint` are NOT here: like `disabled` / `hidden`, they must
+ * be RUNTIME-REACTIVE (`setElementProperty(foregroundStyle/tint, ...)`), matching
+ * Apple (which reads them off the mutated `validatedProperties` every render) and
+ * web (whose runtime applier recolors). So they are resolved and provided - together
+ * with `disabled` / `hidden` - by [ProvideReactiveEnvironment] at the shared build
+ * entry point (`ViewModifierHelper.BuildViewWithModifiers`), on the host-merged
+ * *effective* element (`ViewModel.propertyOverrides`), NOT off the parent's static
+ * child properties. (The per-row `template` path, which builds throw-away instances
+ * directly, applies the same provider on the substituted row properties in
+ * `TemplateHelper`.) See `ReactiveEnvironment.kt` for why the reactive environment
+ * is one provider rather than one per property.
  *
  * **Known divergences from SwiftUI** (Compose has no direct equivalent):
  *   * Named text styles (`title`, `body`, ...) map onto the nearest Material3
@@ -78,13 +88,15 @@ val LocalActionUITint: ProvidableCompositionLocal<Color?> =
     compositionLocalOf { null }
 
 /**
- * Wraps [content] in the inherited environment derived from [properties] - the
- * text-styling trio (`font`, `foregroundStyle`, `tint`) plus the static control
- * environment (`buttonStyle`, `controlSize`, `labelsHidden`; locals and parsing
- * in `ControlEnvironment.kt`). `disabled` is handled separately (runtime-reactive,
- * see `ProvideDisabledEnvironment`). When none is present the [content] is invoked
- * directly with no provider, so the common case (most elements carry none) adds
- * no composition overhead.
+ * Wraps [content] in the STATIC inherited environment derived from the parent's
+ * authored [properties] - `font`, `multilineTextAlignment`, `textSelection`, and
+ * the static control environment (`buttonStyle`, `controlSize`, `labelsHidden`;
+ * locals and parsing in `ControlEnvironment.kt`). The runtime-reactive properties
+ * (`foregroundStyle`, `tint`, `disabled`, `hidden`) are NOT here: they are provided
+ * off the host-merged effective element by [ProvideReactiveEnvironment]
+ * (`ReactiveEnvironment.kt`). When none is present the [content] is invoked directly
+ * with no provider, so the common case (most elements carry none) adds no
+ * composition overhead.
  */
 @Composable
 fun ProvideTextStyleEnvironment(
@@ -97,18 +109,12 @@ fun ProvideTextStyleEnvironment(
         return
     }
 
-    // Captured in composition so foregroundStyle/tint can resolve Apple semantic
-    // color names (e.g. "secondary", "tint", "link") to adaptive Material roles.
-    val colorScheme = MaterialTheme.colorScheme
     val fontStyle = resolveFontStyle(properties["font"], logger)
-    val foreground = resolveStyleColor(properties.stringProperty("foregroundStyle"), "foregroundStyle", colorScheme, logger)
-    val tint = resolveStyleColor(properties.stringProperty("tint"), "tint", colorScheme, logger)
+    // `foregroundStyle` / `tint` (and `disabled` / `hidden`) are NOT resolved here:
+    // they are runtime-reactive and provided on the host-merged effective element by
+    // [ProvideReactiveEnvironment] (see the class note), not off the parent's static
+    // child properties this provider reads.
     // `labelsHidden: false` provides nothing - `.labelsHidden()` has no inverse.
-    // NOTE: `disabled` is intentionally NOT handled here. It must be runtime-
-    // reactive in both directions (setElementProperty), so it is resolved on the
-    // host-merged effective element by ProvideDisabledEnvironment at the shared
-    // build entry point (ViewModifierHelper / TemplateHelper), not off the
-    // parent's static child properties this provider reads. See ControlEnvironment.kt.
     val labelsHidden = resolveLabelsHidden(properties, logger)
     val buttonStyle = properties.stringProperty("buttonStyle")?.let { parseButtonStyle(it, logger) }
     val controlSize = properties.stringProperty("controlSize")?.let { parseControlSize(it, logger) }
@@ -122,8 +128,6 @@ fun ProvideTextStyleEnvironment(
             textAlign?.let { merged = merged.copy(textAlign = it) }
             add(LocalTextStyle provides merged)
         }
-        foreground?.let { add(LocalContentColor provides it) }
-        tint?.let { add(LocalActionUITint provides it) }
         if (labelsHidden) add(LocalActionUILabelsHidden provides true)
         buttonStyle?.let { add(LocalActionUIButtonStyle provides it) }
         controlSize?.let { add(LocalActionUIControlSize provides it) }
@@ -184,9 +188,10 @@ internal fun resolveTextSelection(name: String?, logger: ActionUILogger? = null)
  * Apple semantic names (`secondary`, `tint`, `link`, `fill.tertiary`, ...) resolve
  * to adaptive Material roles via [resolveColorOrSemantic] using the [colorScheme]
  * captured at the (composable) call site; literal hex/named colors fall through to
- * `parseColor`.
+ * `parseColor`. Called by [ProvideReactiveEnvironment] (the runtime-reactive
+ * foregroundStyle/tint provider on the host-merged effective element).
  */
-private fun resolveStyleColor(
+internal fun resolveStyleColor(
     name: String?,
     property: String,
     colorScheme: ColorScheme,

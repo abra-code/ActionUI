@@ -182,7 +182,7 @@ object Button : ActionUIViewConstruction {
 
         // The inherited control environment. `buttonStyle`/`controlSize` are provided
         // from the element's own (static) properties by ProvideTextStyleEnvironment;
-        // `enabled` comes from ProvideDisabledEnvironment, which resolves `disabled` on
+        // `enabled` comes from ProvideReactiveEnvironment, which resolves `disabled` on
         // the host-merged effective element (so setElementProperty(disabled) is
         // reactive both ways) and only narrows across ancestors. Reading the locals
         // therefore covers the inherited and the self-declared case alike.

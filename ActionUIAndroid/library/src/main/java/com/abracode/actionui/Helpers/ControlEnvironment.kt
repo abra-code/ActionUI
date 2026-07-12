@@ -1,7 +1,5 @@
 package com.abracode.actionui.Helpers
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import com.abracode.actionui.Common.ActionUILogger
@@ -32,14 +30,15 @@ import kotlinx.serialization.json.JsonPrimitive
  * (`setElementProperty(disabled, true/false)`), matching Apple (which reads
  * `disabled` off the mutated `validatedProperties` every render) and web (whose
  * runtime applier toggles it either way). So `disabled` is resolved and provided
- * by [ProvideDisabledEnvironment] at the shared build entry point
- * (`ViewModifierHelper.BuildViewWithModifiers`), on the host-merged *effective*
- * element (`ViewModel.propertyOverrides`) - the same place `hidden` becomes
- * reactive - NOT off the parent's static child properties.
+ * by [ProvideReactiveEnvironment] (`ReactiveEnvironment.kt`) at the shared build
+ * entry point (`ViewModifierHelper.BuildViewWithModifiers`), on the host-merged
+ * *effective* element (`ViewModel.propertyOverrides`) - the same provider and place
+ * `hidden`, `foregroundStyle`, and `tint` become reactive - NOT off the parent's
+ * static child properties.
  *
  * **`disabled` combination.** SwiftUI ANDs `isEnabled` down the hierarchy: a
  * `.disabled(false)` cannot re-enable a subtree an ancestor disabled.
- * [ProvideDisabledEnvironment] mirrors that by only ever narrowing - it provides
+ * [ProvideReactiveEnvironment] mirrors that by only ever narrowing - it provides
  * `LocalActionUIEnabled = false` only when the element itself resolves
  * `disabled: true`; when `disabled` is `false`/absent it provides nothing, so the
  * subtree inherits the ancestor value. Because each element re-runs this on its
@@ -77,7 +76,7 @@ val LocalActionUILabelsHidden: ProvidableCompositionLocal<Boolean> =
 /**
  * Whether user input (scroll gestures in particular) may reach this subtree.
  * `true` by default; provided `false` for a `hidden` subtree by
- * [ProvideDisabledEnvironment].
+ * [ProvideReactiveEnvironment].
  *
  * A `hidden` element is invisible AND non-interactive on Apple (`.hidden()`,
  * removed from hit-testing) and web (`display:none`, removed from the layout and
@@ -156,8 +155,8 @@ internal fun resolveDisabled(properties: JsonObject, logger: ActionUILogger? = n
 }
 
 /**
- * Provides the runtime-reactive control-environment locals for an element's
- * subtree, resolved from its (effective) [properties]:
+ * The runtime-reactive control-environment locals for an element's subtree,
+ * resolved from its (effective) [properties]:
  *
  *   * `disabled` -> [LocalActionUIEnabled] (`false` when the element resolves
  *     `disabled: true`; see the class note on the narrowing rule).
@@ -165,36 +164,19 @@ internal fun resolveDisabled(properties: JsonObject, logger: ActionUILogger? = n
  *     `hidden`, so its scrollable containers stop stealing touch from a visible
  *     sibling behind them in a section-switcher ZStack; see the local's note).
  *
- * Called from the shared build entry point (`ViewModifierHelper`) on the
- * host-merged effective element, and from `TemplateHelper` for template rows, so
- * both are runtime-reactive (a `setElementProperty(disabled/hidden, ...)` write
- * reaches them). Both locals only ever NARROW (a value is provided only to turn
- * the flag on), so a descendant cannot re-enable what an ancestor removed, while
- * an element re-enabling its OWN authored flag inherits the ancestor value.
- * Adds no provider (invokes [content] directly) in the common case where the
- * element is neither disabled nor hidden.
+ * These are provided by [ProvideReactiveEnvironment] (`ReactiveEnvironment.kt`),
+ * the single reactive-environment provider applied at the shared build entry point
+ * (`ViewModifierHelper`) on the host-merged effective element and in `TemplateHelper`
+ * for template rows, so a `setElementProperty(disabled/hidden, ...)` write reaches
+ * them. Both locals only ever NARROW (a value is provided only to turn the flag on),
+ * so a descendant cannot re-enable what an ancestor removed, while an element
+ * re-enabling its OWN authored flag inherits the ancestor value. The decision funcs
+ * below ([disabledLocalOverride] / [inputEnabledLocalOverride]) are pure so the
+ * narrowing rule is unit-testable independently of composition.
  */
-@Composable
-fun ProvideDisabledEnvironment(
-    properties: JsonObject?,
-    logger: ActionUILogger? = null,
-    content: @Composable () -> Unit,
-) {
-    val disabledValue = disabledLocalOverride(properties, logger)
-    val inputValue = inputEnabledLocalOverride(properties)
-    if (disabledValue == null && inputValue == null) {
-        content()
-        return
-    }
-    val provided = buildList {
-        disabledValue?.let { add(LocalActionUIEnabled provides it) }
-        inputValue?.let { add(LocalActionUIInputEnabled provides it) }
-    }
-    CompositionLocalProvider(*provided.toTypedArray()) { content() }
-}
 
 /**
- * The value [ProvideDisabledEnvironment] provides for [LocalActionUIEnabled] given an element's
+ * The value [ProvideReactiveEnvironment] provides for [LocalActionUIEnabled] given an element's
  * (effective) [properties], or `null` to inherit the ancestor value. Only ever `false`
  * (the NARROWING rule): `disabled: true` -> `false`; `disabled: false`/absent -> `null`. So a
  * descendant cannot re-enable a subtree a disabled ancestor turned off (SwiftUI AND-down), while
@@ -205,7 +187,7 @@ internal fun disabledLocalOverride(properties: JsonObject?, logger: ActionUILogg
     if (properties?.let { resolveDisabled(it, logger) } == true) false else null
 
 /**
- * The value [ProvideDisabledEnvironment] provides for [LocalActionUIInputEnabled], or `null` to
+ * The value [ProvideReactiveEnvironment] provides for [LocalActionUIInputEnabled], or `null` to
  * inherit. Only ever `false` (narrowing): a `hidden` element removes input (scroll) from its
  * subtree so it stops stealing touch from a visible sibling (see [LocalActionUIInputEnabled]).
  */

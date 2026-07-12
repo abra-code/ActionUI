@@ -7,6 +7,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -101,5 +103,53 @@ class ViewModifierHelperTest {
         val merged = mergeProperties(null, mapOf("opacity" to JsonPrimitive(0.1)))
         assertEquals(1, merged.size)
         assertEquals(JsonPrimitive(0.1), merged["opacity"])
+    }
+
+    // MARK: - Reactive foregroundStyle / tint (the setElementProperty recolor path)
+    //
+    // Regression: on Android these two were resolved off the parent's STATIC child
+    // properties (ProvideTextStyleEnvironment), so a host setElementProperty recolor
+    // never took effect - the BodyMetrics BMI gauge/category stayed the authored
+    // green. They now resolve off the host-merged EFFECTIVE element
+    // (ProvideReactiveEnvironment reads the mergeProperties output below). These tests
+    // pin that data path: the authored color resolves before an override, the
+    // override color after (green -> orange).
+
+    @Test
+    fun `foregroundStyle and tint overrides merge into the effective element`() {
+        val authored = buildJsonObject {
+            put("foregroundStyle", "green")
+            put("tint", "green")
+            put("value", 24.2)
+        }
+        // Before any host write the effective element is the authored one.
+        assertEquals("green", authored.stringProperty("foregroundStyle"))
+        assertEquals("green", authored.stringProperty("tint"))
+
+        // A host setElementProperty(foregroundStyle/tint, "orange") lands here.
+        val effective = mergeProperties(
+            authored,
+            mapOf(
+                "foregroundStyle" to JsonPrimitive("orange"),
+                "tint" to JsonPrimitive("orange"),
+            )
+        )
+        assertEquals("orange", effective.stringProperty("foregroundStyle"))
+        assertEquals("orange", effective.stringProperty("tint"))
+        assertEquals(JsonPrimitive(24.2), effective["value"])   // untouched keys preserved
+    }
+
+    @Test
+    fun `the merged color name resolves to the recolored Color`() {
+        // Named colors resolve without a ColorScheme (only semantic names need one).
+        val authored = buildJsonObject { put("foregroundStyle", "green") }
+        val before = resolveColorOrSemantic(authored.stringProperty("foregroundStyle")!!, null)
+
+        val effective = mergeProperties(authored, mapOf("foregroundStyle" to JsonPrimitive("orange")))
+        val after = resolveColorOrSemantic(effective.stringProperty("foregroundStyle")!!, null)
+
+        assertNotNull(before)
+        assertNotNull(after)
+        assertNotEquals("a host recolor must change the resolved Color", before, after)
     }
 }

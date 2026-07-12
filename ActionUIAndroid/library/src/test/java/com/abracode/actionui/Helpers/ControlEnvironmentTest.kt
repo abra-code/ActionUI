@@ -124,7 +124,7 @@ class ControlEnvironmentTest {
 
     // ---- disabledLocalOverride: runtime-reactive `disabled`, both directions + narrowing (#33) ----
     //
-    // These test the decision ProvideDisabledEnvironment makes on the host-merged EFFECTIVE element
+    // These test the decision ProvideReactiveEnvironment makes on the host-merged EFFECTIVE element
     // (authored properties + setElementProperty overrides, merged by ViewModifierHelper.mergeProperties).
     // `null` means "provide nothing" -> the subtree inherits the ancestor value (SwiftUI AND-down);
     // `false` means "narrow this subtree to disabled". The end-to-end control behaviour (a re-enabled

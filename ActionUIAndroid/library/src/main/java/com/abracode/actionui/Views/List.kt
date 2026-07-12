@@ -150,7 +150,7 @@ object ListView : ActionUIViewConstruction {
         // a bare Box that reserves the same bounded viewport size (the reserve-space semantics stay,
         // Missing_Features #30) but carries no scrollable/pointer node, so hit-testing falls through
         // to the visible sibling behind. LocalActionUIInputEnabled is provided false for a hidden
-        // subtree by ProvideDisabledEnvironment (see ControlEnvironment.kt).
+        // subtree by ProvideReactiveEnvironment (see ReactiveEnvironment.kt).
         if (!LocalActionUIInputEnabled.current) {
             Box(listModifier)
             return
