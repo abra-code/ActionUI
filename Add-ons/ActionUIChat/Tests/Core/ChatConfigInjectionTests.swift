@@ -4,9 +4,10 @@
 // element takes its protocol + transport NOT from the document but from a runtime
 // injection into states["config"] (the same @Published states channel as the P0-2
 // states["content"] restore). The store DEFERS building the transport until the config
-// first resolves to a VIABLE one, then FREEZES it - a later states["config"] change is
-// ignored (a new element is needed to switch transport). Until configured the element is
-// inert (isConfigured == false, no transport); readOnly never builds a transport.
+// first resolves to a VIABLE one; after that an IDENTICAL injection is deduped while a
+// DIFFERENT viable one re-configures in place (tear down + attach + re-prime from the
+// loaded items - the host-driven model switch). Until configured the element is inert
+// (isConfigured == false, no transport); readOnly never builds a transport.
 
 import XCTest
 import Combine
@@ -149,22 +150,50 @@ final class ChatConfigInjectionTests: XCTestCase {
         store.teardown()
     }
 
-    func testFrozenAfterFirstViableConfig() {
+    func testIdenticalConfigReinjectionIsIgnored() {
         let counter = BuildCounter()
-        let name = "inject-test-freeze-\(UUID().uuidString)"
+        let name = "inject-test-dedup-\(UUID().uuidString)"
         ChatTransportRegistry.shared.register(name) { _, _ in
             counter.count += 1
             return FakeInjectTransport()
         }
-        let source = FakeConfigSource(config: ["protocol": name])
+        let source = FakeConfigSource(config: ["protocol": name, "transport": ["key": "v"]])
         let store = makeStore(source: source)
         store.start()
         XCTAssertTrue(store.isConfigured)
         XCTAssertEqual(counter.count, 1, "the first viable config builds the transport once")
 
-        // A later states["config"] change must be ignored (frozen): the factory must not run again.
-        source.config = ["protocol": name, "transport": ["changed": true]]
-        XCTAssertEqual(counter.count, 1, "after the first viable build the element is frozen; a later states[\"config\"] change is ignored")
+        // The observation re-delivers on every states change: an IDENTICAL config must not rebuild.
+        source.config = ["protocol": name, "transport": ["key": "v"]]
+        XCTAssertEqual(counter.count, 1, "re-injecting the same resolved config is a no-op")
+        store.teardown()
+    }
+
+    func testChangedConfigReconfiguresAndReprimesFromItems() {
+        let counter = BuildCounter()
+        let box = TransportBox()
+        let name = "inject-test-reconfig-\(UUID().uuidString)"
+        ChatTransportRegistry.shared.register(name) { _, _ in
+            counter.count += 1
+            let transport = FakeInjectTransport()
+            box.transport = transport
+            return transport
+        }
+        let source = FakeConfigSource(config: ["protocol": name, "transport": ["model": "A"]])
+        let store = makeStore(source: source)
+        store.start()
+        source.content = ChatTranscript(items: [
+            .message(ChatMessage(id: "u1", role: .local, text: "q", isStreaming: false)),
+        ])
+        XCTAssertEqual(counter.count, 1)
+
+        // A DIFFERENT viable config re-configures in place (the host-driven model switch):
+        // a new transport is built, and attach() re-primes it from the loaded items so the
+        // conversation carries over.
+        source.config = ["protocol": name, "transport": ["model": "B"]]
+        XCTAssertEqual(counter.count, 2, "a changed config tears down the old transport and builds the new one")
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1"],
+                       "the re-configured transport is seeded with the loaded conversation")
         store.teardown()
     }
 
@@ -215,6 +244,174 @@ final class ChatConfigInjectionTests: XCTestCase {
         source.content = ChatTranscript(items: [])
         XCTAssertEqual(box.transport?.primedHistories.last?.count, 0,
                        "a cleared transcript primes an empty wire history, so the next turn starts fresh")
+        store.teardown()
+    }
+
+    // MARK: - The transient "prime" directive (Read Only restore: display without context)
+
+    /// The injected transcript JSON with a "prime" key riding on it, as MLXChat's restore
+    /// scripts emit it (the key is transient: ChatTranscript's codec drops it, so it never
+    /// reaches persistence). `prime` is true / false / the string "defer" / nil (key omitted).
+    private func transcriptJSON(items: [ChatItem], prime: Any?) throws -> String {
+        let data = try JSONEncoder().encode(ChatTranscript(items: items))
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        if let prime {
+            object["prime"] = prime
+        }
+        let out = try JSONSerialization.data(withJSONObject: object)
+        return try XCTUnwrap(String(data: out, encoding: .utf8))
+    }
+
+    private let restoreItems: [ChatItem] = [
+        .message(ChatMessage(id: "u1", role: .local, text: "earlier question", isStreaming: false)),
+        .message(ChatMessage(id: "a1", role: .agent, text: "earlier answer", isStreaming: false)),
+    ]
+
+    func testPrimeFalseRestoreDisplaysItemsButPrimesEmpty() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        source.content = try transcriptJSON(items: restoreItems, prime: false)
+        XCTAssertEqual(store.items.count, 2, "a Read Only restore still displays the transcript")
+        XCTAssertEqual(box.transport?.primedHistories.last?.count, 0,
+                       "\"prime\": false seeds an EMPTY wire history (fresh context) while the transcript displays")
+        XCTAssertEqual(box.transport?.reservedIDs.last, ["u1", "a1"],
+                       "id reservation is collision safety, independent of the prime directive")
+        store.teardown()
+    }
+
+    func testSameTranscriptWithFlippedPrimeFlagIsNotDeduped() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        source.content = try transcriptJSON(items: restoreItems, prime: false)
+        XCTAssertEqual(box.transport?.primedHistories.last?.count, 0)
+        // The user reopens the SAME conversation, now choosing Resume: the identical
+        // transcript with a flipped flag must re-apply, not be swallowed by the dedup.
+        source.content = try transcriptJSON(items: restoreItems, prime: true)
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
+                       "re-injecting the same transcript with a flipped prime flag re-applies and primes the messages")
+        store.teardown()
+    }
+
+    func testAbsentPrimeKeyDefaultsToPrimingMessages() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        source.content = try transcriptJSON(items: restoreItems, prime: nil)
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
+                       "no prime key -> context follows display (the documented default), pinning existing behavior")
+        store.teardown()
+    }
+
+    // MARK: - The "defer" directive (seamless browsing: display now, prime on the next send)
+
+    func testDeferredRestorePrimesOnSendNotOnLoad() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+        let attachPrimes = box.transport?.primedHistories.count ?? 0
+
+        source.content = try transcriptJSON(items: restoreItems, prime: "defer")
+        XCTAssertEqual(store.items.count, 2, "a deferred restore still displays the transcript")
+        XCTAssertEqual(box.transport?.primedHistories.count, attachPrimes,
+                       "\"prime\": \"defer\" must not touch the agent on load - browsing is free")
+        XCTAssertEqual(box.transport?.reservedIDs.last, ["u1", "a1"],
+                       "id reservation still happens on a deferred restore (collision safety)")
+        XCTAssertEqual(store.contextState, .pending, "the indicator reports the context loads on the next message")
+
+        store.send("continue")
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
+                       "the first send replays the displayed conversation before the prompt")
+        XCTAssertEqual(store.contextState, .synced)
+        store.teardown()
+    }
+
+    func testBrowsingAwayAndBackSkipsTheRePrime() throws {
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        source.content = try transcriptJSON(items: restoreItems, prime: true)   // conversation A, primed
+        let primeCount = box.transport?.primedHistories.count
+        let otherItems: [ChatItem] = [
+            .message(ChatMessage(id: "x1", role: .local, text: "another conversation", isStreaming: false)),
+        ]
+        source.content = try transcriptJSON(items: otherItems, prime: "defer")  // browse B: agent untouched
+        XCTAssertEqual(store.contextState, .pending)
+        source.content = try transcriptJSON(items: restoreItems, prime: "defer") // back to A
+        XCTAssertEqual(store.contextState, .synced,
+                       "the agent still holds A, so returning to it is already synced")
+        store.send("go on")
+        XCTAssertEqual(box.transport?.primedHistories.count, primeCount,
+                       "sending into the conversation the agent already holds fires no re-prime")
+        store.teardown()
+    }
+
+    func testReconfigureAfterDeferredRestoreDefersToTheNextSend() throws {
+        // The host-driven model switch after a deferred restore: the NEW transport (a fresh
+        // agent) is not primed eagerly either - the conversation carries over on the next send.
+        let counter = BuildCounter()
+        let box = TransportBox()
+        let name = "inject-test-reconfig-defer-\(UUID().uuidString)"
+        ChatTransportRegistry.shared.register(name) { _, _ in
+            counter.count += 1
+            let transport = FakeInjectTransport()
+            box.transport = transport
+            return transport
+        }
+        let source = FakeConfigSource(config: ["protocol": name, "transport": ["model": "A"]])
+        let store = makeStore(source: source)
+        store.start()
+        source.content = try transcriptJSON(items: restoreItems, prime: "defer")
+
+        source.config = ["protocol": name, "transport": ["model": "B"]]
+        XCTAssertEqual(counter.count, 2)
+        XCTAssertEqual(box.transport?.primedHistories.count, 0,
+                       "the re-configured transport is not primed eagerly under a deferred directive")
+        XCTAssertEqual(store.contextState, .pending)
+        store.send("carry on")
+        XCTAssertEqual(box.transport?.primedHistories.last?.map(\.id), ["u1", "a1"],
+                       "the switched agent inherits the conversation with the first send")
+        store.teardown()
+    }
+
+    func testSupersededTurnTerminalDoesNotDowngradeARestoredContext() throws {
+        // A restore lands while a turn is streaming: the restore path sets the truthful
+        // context state, and the superseded turn's terminal messageEnd (stopReason
+        // "cancelled", always the next terminal on the ordered event stream) must NOT
+        // re-run the turn-end bookkeeping - it would downgrade a correct .synced to
+        // .pending and force a wasted duplicate prime on the next send.
+        let box = TransportBox()
+        let source = FakeConfigSource(config: ["protocol": registerPrimingTransport(box)])
+        let store = makeStore(source: source)
+        store.start()
+
+        store.route(.messageStart(itemID: "turn-1", role: .agent))   // a turn is in flight
+        source.content = try transcriptJSON(items: restoreItems, prime: true)   // restore mid-turn
+        XCTAssertEqual(store.contextState, .synced, "the resume restore primes and syncs")
+        let primeCount = box.transport?.primedHistories.count
+
+        store.route(.messageEnd(itemID: "turn-1", stopReason: "cancelled"))     // superseded turn resolves
+        XCTAssertEqual(store.contextState, .synced,
+                       "the superseded turn's terminal must not downgrade the restored state")
+        store.send("continue")
+        XCTAssertEqual(box.transport?.primedHistories.count, primeCount,
+                       "no duplicate prime: the send after the restore trusts the synced snapshot")
+
+        // A REAL cancellation (no restore in between) still marks the context unknown.
+        store.route(.messageStart(itemID: "turn-2", role: .agent))
+        store.route(.messageEnd(itemID: "turn-2", stopReason: "cancelled"))
+        XCTAssertEqual(store.contextState, .pending,
+                       "a genuinely cancelled turn leaves a partial exchange agent-side; the next send re-primes")
         store.teardown()
     }
 

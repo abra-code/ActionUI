@@ -38,10 +38,28 @@ public struct ChatTransportCapabilities: Sendable, Equatable {
     public var replies: Bool         // relays `.sendMessage(replyTo:)`
     public var readReceipts: Bool    // relays `.markRead` / emits status watermarks
     public var fileTransfer: Bool    // emits `.fileAdded` / `.fileProgress`, relays `.cancelFileTransfer`
+    public var messageIdentity: Bool // assigns server-side ids to sent messages and confirms them
+                                     // via `.messageIDConfirmed`; the store routes every send through
+                                     // `.sendMessage` carrying a client `localID` and re-keys the
+                                     // optimistic item on confirmation. Server-authoritative transports
+                                     // (SimpleX, Matrix) set this; demo/agent transports leave it false.
+                                     //
+                                     // Ordering / failure contract a `messageIdentity` transport MUST honor:
+                                     // - Emit `.messageIDConfirmed(localID:serverID:)` BEFORE any event keyed
+                                     //   by that `serverID` (status ladder, reactions, edit, delete).
+                                     // - Before confirmation, address the in-flight message by its `localID`
+                                     //   (e.g. `.messageStatusChanged(itemID: localID, status: .failed)` on a
+                                     //   send failure; the user's retry arrives as `.resendMessage(itemID: localID)`).
+                                     // - A send that fails and is later retried and succeeds emits
+                                     //   `.messageIDConfirmed` at the point it succeeds.
+    public var reportsConnectionState: Bool  // emits `.connectionStateChanged`; the composer gates on
+                                             // `connected`. A transport that never reports leaves this
+                                             // false and the composer is never connection-gated.
 
     public init(paging: Bool = false, typing: Bool = false, reactions: Bool = false,
                 editing: Bool = false, deletion: Bool = false, replies: Bool = false,
-                readReceipts: Bool = false, fileTransfer: Bool = false) {
+                readReceipts: Bool = false, fileTransfer: Bool = false,
+                messageIdentity: Bool = false, reportsConnectionState: Bool = false) {
         self.paging = paging
         self.typing = typing
         self.reactions = reactions
@@ -50,6 +68,8 @@ public struct ChatTransportCapabilities: Sendable, Equatable {
         self.replies = replies
         self.readReceipts = readReceipts
         self.fileTransfer = fileTransfer
+        self.messageIdentity = messageIdentity
+        self.reportsConnectionState = reportsConnectionState
     }
 }
 
@@ -71,10 +91,11 @@ public protocol ChatTransport: AnyObject, Sendable {
     var capabilities: ChatTransportCapabilities { get }
     /// Replaces the transport's wire history with a restored transcript's messages, so a
     /// continued conversation is sent with its prior turns as context (and a cleared / new
-    /// transcript resets the wire). The store calls this SYNCHRONOUSLY on every content
-    /// restore (P0-2 continue-in seam) and whenever a transport is (re)built while a
-    /// transcript is already loaded - always before any subsequent prompt, so ordering holds
-    /// without serializing the async command channel. `messages` are the transcript's message
+    /// transcript resets the wire). The store calls this SYNCHRONOUSLY on a content restore
+    /// (P0-2 continue-in seam), whenever a transport is (re)built while a transcript is
+    /// already loaded, and - for a restore deferred by the "prime": "defer" directive -
+    /// right before the first prompt that follows it; always before any subsequent prompt,
+    /// so ordering holds without serializing the async command channel. `messages` are the transcript's message
     /// items in order (role + text); non-message items (thoughts, tool cards, images,
     /// notices) are omitted. A text-protocol transport maps role -> wire; a transport whose
     /// history lives server-side may ignore it. Default: no-op.

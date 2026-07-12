@@ -222,5 +222,20 @@ final class ChatModelV2ValueTests: XCTestCase {
         XCTAssertFalse(caps.replies)
         XCTAssertFalse(caps.readReceipts)
         XCTAssertFalse(caps.fileTransfer)
+        XCTAssertFalse(caps.messageIdentity)
+        XCTAssertFalse(caps.reportsConnectionState)
+    }
+
+    /// The connection-state raw values are the wire strings a reporting transport and the store share.
+    func testConnectionStateRawValuesRoundTrip() throws {
+        for state in [ChatConnectionState.connecting, .connected, .reconnecting, .offline] {
+            let data = try JSONEncoder().encode(state)
+            let decoded = try JSONDecoder().decode(ChatConnectionState.self, from: data)
+            XCTAssertEqual(decoded, state)
+        }
+        XCTAssertEqual(ChatConnectionState.connecting.rawValue, "connecting")
+        XCTAssertEqual(ChatConnectionState.connected.rawValue, "connected")
+        XCTAssertEqual(ChatConnectionState.reconnecting.rawValue, "reconnecting")
+        XCTAssertEqual(ChatConnectionState.offline.rawValue, "offline")
     }
 }

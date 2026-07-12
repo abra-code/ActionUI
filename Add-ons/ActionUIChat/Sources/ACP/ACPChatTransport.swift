@@ -64,6 +64,16 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
     private var permissionCounter = 0
     private var pendingPermissions: [String: CheckedContinuation<String?, Never>] = [:]
 
+    // Priming state (session/prime, an mlx-agent extension): the store seeds the wire
+    // history on every content restore / New Chat clear (ChatTransport.primeHistory);
+    // this transport forwards it to agents that advertise the `sessionPrime` capability.
+    private var supportsPrime = false                 // initialize: agentCapabilities.sessionPrime == true
+    private var pendingPrime: [ChatMessage]?          // prime requested before session/new resolved (last write wins)
+    private var primeTask: Task<Void, Never>?         // in-flight wire prime; prompts chain behind it
+    private var hasPrimedOnce = false                 // a non-empty prime was enqueued (an empty reset is meaningful after this)
+    private var hasEverPrompted = false               // a turn ran (an empty reset is meaningful after this too)
+    private var turnGeneration = 0                    // guards finishTurn's promptTask clear against a newer registration
+
     /// `transport` config: `command` (argv array, required), `cwd` (string, defaults to
     /// the host's current directory), `mcpServers` (array of ACP server declarations,
     /// passed through verbatim).
@@ -130,6 +140,8 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
             if let version = (initResult["protocolVersion"] as? NSNumber)?.intValue, version != 1 {
                 logger.log("ACP: agent negotiated protocol version \(version) (client speaks 1); continuing", .warning)
             }
+            let agentCaps = initResult["agentCapabilities"] as? [String: Any]
+            lock.withLock { supportsPrime = (agentCaps?["sessionPrime"] as? Bool) ?? false }
             let authMethods = (initResult["authMethods"] as? [[String: Any]]) ?? []
 
             do {
@@ -141,9 +153,22 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
                     throw ACPConnectionError(code: nil, message: "session/new returned no sessionId")
                 }
                 let options = Self.parseConfigOptions(session)
+                // Publish the session AND flush a prime that arrived before it existed (the
+                // store primes on attach, BEFORE start() runs) in ONE lock acquisition:
+                // once sessionID is visible, a live-session primeHistory registers its own
+                // primeTask directly - a separate flush lock could then overwrite it with
+                // the older stash and put two primes on the wire. Registered as primeTask
+                // so a prompt racing in right after sessionReady chains behind it.
                 lock.withLock {
                     self.sessionID = sessionID
                     self.sessionOptions = options
+                    if let stash = pendingPrime {
+                        pendingPrime = nil
+                        if !stash.isEmpty { hasPrimedOnce = true }
+                        primeTask = Task { [weak self] in
+                            await self?.sendPrime(stash)
+                        }
+                    }
                 }
                 eventSink.yield(.sessionReady(sessionID: sessionID, configOptions: options))
             } catch {
@@ -220,6 +245,108 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
         return nil
     }
 
+    // MARK: - Priming (session/prime, mlx-agent extension)
+
+    /// Replaces the agent's conversational context with the restored transcript's messages
+    /// (empty = fresh context), for agents that advertise the `sessionPrime` capability.
+    /// Called synchronously by the store on every content restore and on transport attach,
+    /// always before any subsequent prompt.
+    ///
+    /// Deadlock guard (invariant, do not weaken): the snapshot of the other side's task and
+    /// the registration of our own task happen inside ONE lock acquisition, on BOTH this
+    /// path and startTurn, and the Task bodies await only the snapshotted values. Separate
+    /// lock acquisitions (or a fresh field read inside a Task body) admit a circular await -
+    /// a prompt submitted in the same instant as a restore could make the prompt task await
+    /// the new prime while the prime awaits that very prompt, wedging the composer for the
+    /// life of the transport. With both snapshot-and-register pairs atomic, every task can
+    /// only await tasks registered strictly before its own registration, so the wait graph
+    /// is acyclic under any interleaving.
+    func primeHistory(_ messages: [ChatMessage]) {
+        // Model context is user/assistant text only: session notices (.system) and P2P
+        // (.remote) are display items, not conversation the model produced or saw.
+        let wire = messages.filter { ($0.role == .local || $0.role == .agent) && !$0.text.isEmpty }
+        let cancelTurn: (connection: ACPConnection, sessionID: String)? = lock.withLock {
+            // An empty prime is a context RESET; it only means something once the agent-side
+            // context could be non-empty (a prior prime or a completed turn). Suppressing the
+            // virgin case avoids a useless session/prime [] on every window open.
+            if wire.isEmpty && !hasPrimedOnce && !hasEverPrompted {
+                return nil
+            }
+            guard let sessionID else {
+                // Session not up yet (attach primes before start()): stash, last write wins;
+                // start() flushes it right after session/new. The capability is unknown
+                // until initialize resolves, so the stash is unconditional.
+                pendingPrime = wire
+                return nil
+            }
+            guard supportsPrime else {
+                // Full no-op for agents without the capability - including the mid-turn
+                // cancel below, so a foreign ACP agent keeps today's behavior exactly.
+                logger.log("ACP: agent does not advertise sessionPrime; the restored context will not reach the model", .warning)
+                return nil
+            }
+            if !wire.isEmpty { hasPrimedOnce = true }
+            let previousPrime = primeTask
+            let inFlightTurn = promptTask
+            primeTask = Task { [weak self] in
+                await previousPrime?.value   // last prime wins; never two on the wire at once
+                await inFlightTurn?.value    // the agent's busy flag clears when the turn RESOLVES
+                await self?.sendPrime(wire)
+            }
+            // A restore during a streaming turn: the turn must be cancelled for inFlightTurn
+            // to resolve (the store has already cleared its streaming UI state). The notify
+            // goes out after this lock releases; ordering is safe because the prime is sent
+            // only after the cancelled prompt's RESPONSE arrives.
+            if inFlightTurn != nil, let connection {
+                return (connection, sessionID)
+            }
+            return nil
+        }
+        if let cancelTurn {
+            cancelTurn.connection.notify("session/cancel", ["sessionId": cancelTurn.sessionID])
+            resolveAllPermissions(with: nil)
+        }
+    }
+
+    /// Sends one session/prime request. A first -32003 is an expected transient (the agent
+    /// clears its busy flag a hair after responding to a cancelled prompt), so one bounded
+    /// retry; anything else surfaces as a system line - a failed prime must not kill the
+    /// session, but the user must know Resume did not take.
+    private func sendPrime(_ messages: [ChatMessage]) async {
+        let (connection, sessionID, supported) = lock.withLock { (self.connection, self.sessionID, self.supportsPrime) }
+        guard let connection, let sessionID else {
+            return
+        }
+        guard supported else {
+            logger.log("ACP: agent does not advertise sessionPrime; the restored context will not reach the model", .warning)
+            return
+        }
+        let wire: [[String: Any]] = messages.map {
+            ["role": $0.role == .local ? "user" : "assistant", "content": $0.text]
+        }
+        var lastError: Error?
+        for attempt in 0..<2 {
+            if attempt > 0 {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+            do {
+                let result = try await connection.request("session/prime", [
+                    "sessionId": sessionID,
+                    "messages": wire,
+                ])
+                let count = (result["primed"] as? NSNumber)?.intValue ?? wire.count
+                logger.log("ACP: primed \(count) messages (\(wire.count) sent)", .verbose)
+                return
+            } catch let error as ACPConnectionError where error.code == -32003 {
+                lastError = error   // transient: the cancelled turn had not fully resolved agent-side
+            } catch {
+                lastError = error
+                break
+            }
+        }
+        eventSink.yield(.system(text: "Could not restore the conversation context to the agent: \(lastError.map { "\($0)" } ?? "unknown error")"))
+    }
+
     /// Changes a session option. The primary method is the generic
     /// session/set_config_option { sessionId, configId, type: "select", value }, whose
     /// result carries the REFRESHED configOptions list (verified live against
@@ -274,8 +401,9 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
     }
 
     func stop() async {
-        let (connection, task) = lock.withLock { (self.connection, self.promptTask) }
+        let (connection, task, prime) = lock.withLock { (self.connection, self.promptTask, self.primeTask) }
         task?.cancel()
+        prime?.cancel()
         resolveAllPermissions(with: nil)
         connection?.stop()
         eventSink.finish()
@@ -289,27 +417,42 @@ final class ACPChatTransport: ChatTransport, @unchecked Sendable {
             eventSink.yield(.error(message: "ACP session is not ready; message not sent", recoverable: true))
             return
         }
-        let task = Task { [weak self] in
-            do {
-                let result = try await connection.request("session/prompt", [
-                    "sessionId": sessionID,
-                    "prompt": [["type": "text", "text": prompt]],
-                ])
-                let stopReason = (result["stopReason"] as? String) ?? "end_turn"
-                self?.finishTurn(stopReason: stopReason)
-            } catch {
-                self?.eventSink.yield(.error(message: "ACP turn failed: \(error)", recoverable: true))
-                self?.finishTurn(stopReason: "error")
+        // Snapshot the in-flight prime and register the prompt task under ONE lock
+        // acquisition, and await only the snapshot - see the deadlock guard on
+        // primeHistory. A prime on the wire strictly precedes this prompt.
+        lock.withLock {
+            let inFlightPrime = primeTask
+            hasEverPrompted = true
+            turnGeneration += 1
+            let generation = turnGeneration
+            promptTask = Task { [weak self] in
+                await inFlightPrime?.value
+                do {
+                    let result = try await connection.request("session/prompt", [
+                        "sessionId": sessionID,
+                        "prompt": [["type": "text", "text": prompt]],
+                    ])
+                    let stopReason = (result["stopReason"] as? String) ?? "end_turn"
+                    self?.finishTurn(stopReason: stopReason, generation: generation)
+                } catch {
+                    self?.eventSink.yield(.error(message: "ACP turn failed: \(error)", recoverable: true))
+                    self?.finishTurn(stopReason: "error", generation: generation)
+                }
             }
         }
-        lock.withLock { promptTask = task }
     }
 
-    /// Ends the turn: closes whatever item is still open and emits the terminal
+    /// Ends the turn: closes whatever item is still open, emits the terminal
     /// messageEnd carrying the turn's real stopReason (a non-nil stopReason is what
-    /// flips the store out of its streaming state).
-    private func finishTurn(stopReason: String) {
+    /// flips the store out of its streaming state), and clears `promptTask` so
+    /// "a turn is in flight" stays a truthful test (primeHistory's cancel path keys
+    /// on it). Generation-guarded: only the turn that registered the current task
+    /// clears it, so a stale finish can never unregister a newer turn.
+    private func finishTurn(stopReason: String, generation: Int) {
         let itemID = lock.withLock { () -> String in
+            if turnGeneration == generation {
+                promptTask = nil
+            }
             openThoughtID = nil
             if let open = openMessageID {
                 openMessageID = nil

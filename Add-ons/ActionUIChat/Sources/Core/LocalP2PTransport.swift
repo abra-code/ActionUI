@@ -24,13 +24,13 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
     private let continuation: AsyncStream<ChatEvent>.Continuation
     let capabilities = ChatTransportCapabilities(
         paging: true, typing: true, reactions: true, editing: true,
-        deletion: true, replies: true, readReceipts: true, fileTransfer: true)
+        deletion: true, replies: true, readReceipts: true, fileTransfer: true,
+        messageIdentity: true, reportsConnectionState: true)
 
     private let scenario: String            // "people" | "group"
     private let stepDelay: UInt64           // ns between scripted beats (0 in tests)
     private let lock = NSLock()
-    private var replyCounter = 0            // peer / generated ids (peer-N)
-    private var ownSendCounter = 0          // reconstructs the store's optimistic "user-N" send ids
+    private var replyCounter = 0            // peer / generated / own server ids (peer-N, srv-N)
     private var tasks: [Task<Void, Never>] = []
 
     // Synthetic older history for paging: OLDEST first. `.loadEarlier` serves pages from the tail.
@@ -55,6 +55,10 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
     func start() async {
         continuation.yield(.sessionReady(sessionID: "local-p2p", configOptions: []))
         continuation.yield(.participantsChanged(roster()))
+        // The link comes up: the composer starts connection-gated (the store defaults to .connecting)
+        // and enables on this. The store seeds .connecting, so this is already a visible transition;
+        // at stepMs 0 (tests) it lands deterministically.
+        continuation.yield(.connectionStateChanged(.connected))
         buildHistory()
         for event in seedConversation() {
             continuation.yield(event)
@@ -85,8 +89,10 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
 
     func send(_ command: ChatCommand) async {
         switch command {
-        case .prompt(let text), .sendMessage(let text, _):
-            handleUserSend(text: text, replyTo: replyToOf(command))
+        case .prompt(let text):
+            handleUserSend(text: text, replyTo: nil, localID: nextID(prefix: "user"))   // legacy path; mint a handle
+        case .sendMessage(let text, let replyTo, let localID):
+            handleUserSend(text: text, replyTo: replyTo, localID: localID)
 
         case .toggleReaction(let itemID, let emoji, let add):
             // Reflect the toggle authoritatively (the store sent optimistic intent; we echo the result).
@@ -120,18 +126,19 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
 
     // MARK: - User send -> scripted reply
 
-    private func handleUserSend(text: String, replyTo: String?) {
-        // The store already appended the optimistic local message with id user-N and status .sending.
-        // Drive its delivery ladder, then answer with a scripted peer reply and a typing burst.
+    private func handleUserSend(text: String, replyTo: String?, localID: String) {
+        // The store already appended the optimistic local message keyed by `localID`. Confirm a
+        // server id FIRST (the store re-keys the item), then drive the delivery ladder on the SERVER
+        // id - exactly what a server-authoritative transport (SimpleX, Matrix) does: no reconstructed
+        // "user-N" counting, own messages addressed only by the id the server assigned.
+        let serverID = nextID(prefix: "srv")
+        continuation.yield(.messageIDConfirmed(localID: localID, serverID: serverID))
         spawn { [weak self] in
             guard let self else { return }
-            let ownID = self.currentOwnMessageID()
             await self.pause(1)
-            if let ownID {
-                self.continuation.yield(.messageStatusChanged(itemID: ownID, status: .sent))
-                await self.pause(1)
-                self.continuation.yield(.messageStatusChanged(itemID: ownID, status: .delivered))
-            }
+            self.continuation.yield(.messageStatusChanged(itemID: serverID, status: .sent))
+            await self.pause(1)
+            self.continuation.yield(.messageStatusChanged(itemID: serverID, status: .delivered))
             self.emitPeerTyping()
             await self.pause(2)
             self.continuation.yield(.typingChanged(isTyping: false, senderID: self.peerID, senderName: self.peerName))
@@ -139,20 +146,8 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
             self.continuation.yield(.messageReceived(self.peerMessage(
                 id: replyID, text: self.scriptedReply(to: text), minutesAgo: 0)))
             // The peer reads our message.
-            if let ownID {
-                await self.pause(1)
-                self.continuation.yield(.messageStatusWatermark(status: .read, upToItemID: ownID))
-            }
-        }
-    }
-
-    // The store labels our optimistic sends user-1, user-2, ... (its localCounter, which - absent a
-    // restore or system/error item, neither of which this mock emits - advances once per send). We
-    // track the same count so the delivery ladder targets the real optimistic message id.
-    private func currentOwnMessageID() -> String? {
-        lock.withLock {
-            ownSendCounter += 1
-            return "user-\(ownSendCounter)"
+            await self.pause(1)
+            self.continuation.yield(.messageStatusWatermark(status: .read, upToItemID: serverID))
         }
     }
 
@@ -272,13 +267,6 @@ final class LocalP2PTransport: ChatTransport, @unchecked Sendable {
                             editedAt: String? = nil) -> ChatMessage {
         ChatMessage(id: id, role: .local, text: text, isStreaming: false, senderID: "me",
                     timestamp: Self.stamp(daysAgo: daysAgo, minute: minute), status: status, editedAt: editedAt)
-    }
-
-    private func replyToOf(_ command: ChatCommand) -> String? {
-        if case .sendMessage(_, let replyTo) = command {
-            return replyTo
-        }
-        return nil
     }
 
     private func nextID(prefix: String) -> String {

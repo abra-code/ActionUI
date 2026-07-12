@@ -45,6 +45,24 @@ extension ViewModel: ChatContentSource {
     }
 }
 
+/// The transient restore directive riding on injected content JSON (the `"prime"` key):
+/// how a restored transcript relates to the agent's conversational context.
+enum ChatPrimeDirective: Equatable {
+    case resume     // "prime": true / absent - replay the transcript into the agent NOW
+    case fresh      // "prime": false - display the transcript, seed an EMPTY context NOW
+    case deferred   // "prime": "defer" - display only; sync the context lazily on the next send
+}
+
+/// Whether the agent's conversational context matches the displayed transcript - the state
+/// behind the status bar's context indicator (an online/offline-style cue) and the deferred
+/// prime decision at send time. Optimistic by construction: a transport that cannot prime
+/// (no capability) logs a warning instead of failing, so the indicator reflects intent.
+enum ChatContextState: Equatable {
+    case synced    // the agent remembers the conversation shown
+    case pending   // the conversation shown reaches the agent with the next message
+    case fresh     // intentionally empty context behind a displayed transcript ("prime": false)
+}
+
 @MainActor
 final class ChatStore: ObservableObject {
 
@@ -57,6 +75,7 @@ final class ChatStore: ObservableObject {
     @Published private(set) var usage: UsageInfo?         // latest token/cost status, when the agent reports it
     @Published private(set) var configOptions: [SessionConfigOption] = []   // model/mode/... advertised at session start
     @Published private(set) var availableCommands: [SlashCommand] = []      // the agent's slash commands (composer menu)
+    @Published private(set) var contextState: ChatContextState = .synced    // does the agent context match the display (status-bar indicator)
     @Published var draft: String = ""                     // composer text
 
     // Person-to-person (v2) surfaces the view observes.
@@ -64,6 +83,7 @@ final class ChatStore: ObservableObject {
     @Published private(set) var typingParticipants: [TypingParticipant] = [] // who is currently typing (drives the typing row)
     @Published private(set) var hasEarlier: Bool = true                      // false once a history page reports no more
     @Published private(set) var isLoadingEarlier: Bool = false               // a history page is in flight
+    @Published private(set) var connectionState: ChatConnectionState = .connecting  // link state; only a reportsConnectionState transport drives it (else the composer ignores it)
 
     /// A participant currently shown in the typing indicator. `id` is the sender key (senderID, or a
     /// stable fallback for a rosterless 1:1 chat); `name` labels the row when known.
@@ -86,9 +106,11 @@ final class ChatStore: ObservableObject {
 
     // Config-injection seam (states["config"]). The operational config (protocol + transport) is NOT
     // document-declared: the store observes states["config"] and builds the transport once it first
-    // resolves to a VIABLE config, then FREEZES - `didConfigure` latches, `resolvedTransportConfig`
-    // holds the frozen decision, and later states["config"] changes are ignored. On reappearance the
-    // torn-down transport is rebuilt from the frozen decision (not from a possibly-changed state).
+    // resolves to a VIABLE config. `resolvedTransportConfig` holds the applied decision: an IDENTICAL
+    // later injection is ignored (the observation re-delivers on every states change), a DIFFERENT
+    // viable one re-configures in place (tear down + attach; the wire history re-primes from the
+    // loaded items). On reappearance the torn-down transport is rebuilt from the applied decision
+    // (not from a possibly-changed state).
     private var didConfigure = false
     private var resolvedTransportConfig: ChatTransportConfig?
     private var configCancellable: AnyCancellable?
@@ -107,6 +129,51 @@ final class ChatStore: ObservableObject {
     private var lastLoadedContent: ChatTranscript?
     private var contentCancellable: AnyCancellable?
     private var entrySequence = 0
+    // Transient restore directive riding on the injected content JSON (not part of the
+    // ChatTranscript persistence codec): "prime": false displays the transcript but seeds the
+    // transport with an EMPTY wire history (fresh context); "prime": "defer" displays the
+    // transcript WITHOUT touching the agent and syncs the context lazily when the user next
+    // sends (the seamless-browsing restore); absent/true keeps the documented contract -
+    // context follows display, immediately. Remembered so a transport rebuilt on reappearance
+    // or re-configure (attach) re-applies the user's last choice, and so a re-inject that only
+    // flips the flag is not swallowed by the lastLoadedContent dedup.
+    private var lastPrimeDirective: ChatPrimeDirective = .resume
+
+    // Context-identity tracking behind `contextState` (published above with the other view
+    // surfaces) and the deferred prime. `wireContext` mirrors what the agent's context is
+    // believed to hold, as (speaker, text) pairs under the same filter primeHistory targets;
+    // nil = unknown (a cancelled / errored turn left a partial exchange agent-side), which
+    // forces a re-prime on the next send. Updated only at discrete events (prime, turn end,
+    // restore) - never during streaming.
+    private var wireContext: [WireEntry]? = []
+
+    // A restore that arrived while a turn was in flight supersedes that turn: the restore
+    // path already set the truthful context state (and the transport chains any prime behind
+    // the cancelled prompt's resolution), so the superseded turn's terminal messageEnd -
+    // which is always the NEXT terminal on the ordered event stream - must not re-run the
+    // turn-end bookkeeping (it would nil the snapshot and downgrade a correct .synced,
+    // costing a wasted duplicate prime on the next send). Swallow-once; reset on attach
+    // (a new transport is a new event stream, so a stale flag must not swallow a real end).
+    private var supersededTurnPending = false
+
+    /// One (speaker, text) pair of the agent-visible conversation - the equality unit for
+    /// "does the agent's context match the display".
+    private struct WireEntry: Equatable {
+        let local: Bool
+        let text: String
+    }
+
+    /// The agent-visible pairs of a transcript: message items with a conversational role and
+    /// non-empty text (the same filter the ACP transport applies to a prime payload).
+    private static func wireEntries(from items: [ChatItem]) -> [WireEntry] {
+        items.compactMap { item in
+            guard case .message(let message) = item,
+                  message.role == .local || message.role == .agent, !message.text.isEmpty else {
+                return nil
+            }
+            return WireEntry(local: message.role == .local, text: message.text)
+        }
+    }
 
     // Person-to-person (v2) time-based behavior state. The scheduler is injectable so the
     // typing-expiry / read-mark-debounce / typing-throttle logic is tested with a virtual clock.
@@ -138,6 +205,27 @@ final class ChatStore: ObservableObject {
     /// Every v2 affordance is gated on this AND the document's `features` config.
     private var capabilities: ChatTransportCapabilities {
         transport?.capabilities ?? ChatTransportCapabilities()
+    }
+
+    /// The composer may accept input only when the transport is not connection-gated, or is connected.
+    /// A v1 / agent transport (reportsConnectionState == false) is always ready, so its composer is
+    /// never connection-gated.
+    var isConnectionReady: Bool {
+        !capabilities.reportsConnectionState || connectionState == .connected
+    }
+
+    /// A one-line banner string when a reporting transport is not yet connected; nil otherwise (so a
+    /// v1 / agent transport, or a connected one, shows no banner).
+    var connectionBannerText: String? {
+        guard capabilities.reportsConnectionState, connectionState != .connected else {
+            return nil
+        }
+        switch connectionState {
+        case .connecting:   return "Connecting..."
+        case .reconnecting: return "Reconnecting..."
+        case .offline:      return "Offline"
+        case .connected:    return nil
+        }
     }
 
     /// Loads any pre-populated transcript (a document `properties.content`, a testing convenience) once,
@@ -195,24 +283,55 @@ final class ChatStore: ObservableObject {
     // MARK: - Config injection (states["config"]) -> deferred, frozen transport
 
     /// Handles a host-injected operational config from states["config"]. Builds the transport the
-    /// FIRST time the config resolves to a viable one, then FREEZES: `didConfigure` latches so a later
-    /// states["config"] change is ignored for this element (a new element is needed to switch
-    /// transport). A config that is not yet viable (e.g. openai-sse before its baseURL, or acp before
-    /// its command) does NOT freeze - the element stays inert and waits for a completer config.
+    /// FIRST time the config resolves to a viable one; after that an IDENTICAL config is ignored
+    /// (the subscription re-delivers the current value on every states change), while a DIFFERENT
+    /// viable config RE-CONFIGURES: the old transport is torn down and the new one attached, and
+    /// attach() re-seeds the new transport's wire history from the loaded items - this is the
+    /// host-driven in-place switch (e.g. MLXChat re-injects the transport argv with a new --model,
+    /// and the conversation carries over via the prime). A config that is not yet viable (e.g.
+    /// openai-sse before its baseURL, or acp before its command) neither builds nor re-configures -
+    /// the element keeps its current state and waits for a completer config.
     /// Internal so tests can drive an injection directly (as the config subscription does).
     func reconcileConfig(_ raw: Any?) {
-        guard !config.readOnly, !didConfigure else {
+        guard !config.readOnly else {
             return
         }
         guard let (protocolName, transportSettings) = Self.parseTransportConfig(raw) else {
             return   // no config object yet (states["config"] absent / not a dict) - stay inert
+        }
+        // Dedup: the config observation delivers the current value on subscription and on every
+        // states change; the resolved config only re-applies when it actually CHANGED.
+        if didConfigure, let resolved = resolvedTransportConfig,
+           resolved.protocolName == protocolName,
+           NSDictionary(dictionary: resolved.settings).isEqual(to: transportSettings) {
+            return
         }
         guard let built = ChatTransportRegistry.shared.makeIfViable(
                 protocolName: protocolName, transport: transportSettings, logger: logger) else {
             logger.log("Chat config for protocol '\(protocolName)' is not viable yet; awaiting a complete states[\"config\"]", .verbose)
             return
         }
-        // First viable config wins and freezes.
+        if didConfigure {
+            // Re-configuration: stop the old transport cleanly and clear any in-flight turn
+            // state it can no longer resolve (a stuck isStreaming would show a permanent
+            // spinner and a dead Stop button on the new transport), plus the old session's
+            // status surfaces (plan/usage/options/commands) - the new session re-emits its
+            // own at sessionReady, and stale ones would misdescribe it until then.
+            logger.log("Chat config changed; re-configuring the transport (protocol '\(protocolName)')", .verbose)
+            eventTask?.cancel()
+            eventTask = nil
+            streamBuffers.removeAll()
+            pendingPermissions.removeAll()
+            isStreaming = false
+            awaitingReply = false
+            plan = []
+            usage = nil
+            configOptions = []
+            availableCommands = []
+            let old = transport
+            transport = nil
+            Task { await old?.stop() }
+        }
         didConfigure = true
         resolvedTransportConfig = ChatTransportConfig(protocolName: protocolName, settings: transportSettings)
         isConfigured = true
@@ -245,9 +364,18 @@ final class ChatStore: ObservableObject {
     /// Installs a built transport and starts draining its event stream.
     private func attach(_ transport: any ChatTransport) {
         self.transport = transport
+        connectionState = .connecting   // ignored unless the transport reports connection state; a rebuilt transport re-gates until it reconnects
+        // A freshly attached transport fronts a NEW agent session, so its context is
+        // known-empty until a prime reaches it (immediately below, or lazily at send time
+        // for a deferred directive). A new transport is also a new event stream: a stale
+        // supersession flag from the old one must not swallow a real turn end.
+        wireContext = []
+        supersededTurnPending = false
         // If a transcript was restored before the transport existed (content injected before a
         // viable config), seed the new transport's wire history from it so a continue carries
-        // context. For a fresh session `items` is empty, so this primes an empty history.
+        // context - applying the last prime directive: an immediate directive seeds the wire
+        // now; the deferred one leaves the new agent untouched until the user actually sends.
+        // For a fresh session `items` is empty, so this primes an empty history.
         primeTransportFromItems()
         eventTask = Task { [weak self] in
             await transport.start()
@@ -269,13 +397,39 @@ final class ChatStore: ObservableObject {
         // already used in this transcript (ChatTransport.reserveIDs). This passes ALL ids -
         // including thoughts and tool cards, which primeHistory omits - because a transport's
         // per-turn id counter is shared across item kinds (a reasoning-only turn leaves a thought
-        // id with no paired message id, invisible to a messages-only prime).
+        // id with no paired message id, invisible to a messages-only prime). Id reservation is
+        // independent of the prime directive: it is collision safety, not context choice.
         transport.reserveIDs(seen: items.map(\.id))
-        let messages: [ChatMessage] = items.compactMap { item in
+        let current = Self.wireEntries(from: items)
+        switch lastPrimeDirective {
+        case .resume:
+            // Context follows display, immediately (the documented default).
+            transport.primeHistory(messageItems)
+            wireContext = current
+            contextState = .synced
+        case .fresh:
+            // "prime": false (a Read Only restore) shows the transcript but seeds an EMPTY wire
+            // history, so continuing types against a fresh context instead of a misleading one.
+            // Never re-primed at send time - the divergence is the user's choice.
+            transport.primeHistory([])
+            wireContext = []
+            contextState = current.isEmpty ? .synced : .fresh
+        case .deferred:
+            // Display only: the agent is untouched. If its context already matches the display
+            // (the user browsed away and back without sending), it is still synced and the next
+            // send skips the prime entirely; otherwise the prime fires lazily in
+            // syncDeferredContext() when the user next sends.
+            contextState = (wireContext == current) ? .synced : .pending
+        }
+    }
+
+    /// The transcript's message items (role + text) - the payload primeHistory takes
+    /// (the transport maps role -> its own wire format and filters display-only roles).
+    private var messageItems: [ChatMessage] {
+        items.compactMap { item in
             if case let .message(message) = item { return message }
             return nil
         }
-        transport.primeHistory(messages)
     }
 
     // MARK: - User intent
@@ -296,6 +450,7 @@ final class ChatStore: ObservableObject {
     /// send). When the transport backs read receipts, the optimistic message starts at `.sending` so
     /// the delivery ladder shows; otherwise it carries no status (v1 / agent transports unchanged).
     func send(_ text: String, replyTo: String? = nil) {
+        syncDeferredContext()
         localCounter += 1
         let itemID = "user-\(localCounter)"
         let repliesAllowed = replyTo != nil && config.features.replies && capabilities.replies
@@ -312,11 +467,34 @@ final class ChatStore: ObservableObject {
         // "thinking" spinner, because isStreaming only flips true on the first streamed event.
         awaitingReply = true
         let transport = self.transport
-        if repliesAllowed {
-            Task { await transport?.send(.sendMessage(text: text, replyTo: replyTo)) }
+        // A `messageIdentity` transport always sends through `.sendMessage` (reply or not), carrying the
+        // optimistic `itemID` as `localID` so the transport can address the in-flight message before it
+        // has a server id (to fail it) and reconcile it (via `.messageIDConfirmed`) once it does. A v1 /
+        // agent transport (messageIdentity false, replies false) still uses `.prompt`, byte-for-byte as before.
+        let useMessageSend = capabilities.messageIdentity || repliesAllowed
+        if useMessageSend {
+            let ref = repliesAllowed ? replyTo : nil
+            Task { await transport?.send(.sendMessage(text: text, replyTo: ref, localID: itemID)) }
         } else {
             Task { await transport?.send(.prompt(text: text)) }
         }
+    }
+
+    /// The lazy half of a deferred restore: when the displayed conversation has not reached
+    /// the agent (contextState .pending), replay it NOW - synchronously, before the prompt is
+    /// dispatched, so the transport's prime-before-prompt ordering holds (ACP chains the
+    /// prompt behind the registered prime task). Skipped when the agent's context already
+    /// matches the display, so browsing away and back never pays a prime; a .fresh context is
+    /// never re-primed (its divergence is the user's choice). Called at the top of send(),
+    /// before the optimistic user message appends (the prompt itself carries the new text).
+    private func syncDeferredContext() {
+        guard contextState == .pending, let transport else { return }
+        let current = Self.wireEntries(from: items)
+        if wireContext != current {
+            transport.primeHistory(messageItems)
+        }
+        wireContext = current
+        contextState = .synced
     }
 
     /// Requests cancellation of the in-flight turn.
@@ -501,6 +679,7 @@ final class ChatStore: ObservableObject {
         // true - which would show a permanent spinner and a dead Stop button on reappearance.
         isStreaming = false
         awaitingReply = false
+        connectionState = .connecting   // reset for cleanliness; the composer is already gated by isConfigured while torn down
         let transport = self.transport
         self.transport = nil
         Task { await transport?.stop() }
@@ -556,10 +735,11 @@ final class ChatStore: ObservableObject {
             // interleaves tool calls mid-turn). A non-nil stopReason ends the whole turn:
             // streaming state clears, and a permission request the turn abandoned (e.g.
             // on cancel) is moot.
-            if stopReason != nil {
+            if let stopReason {
                 isStreaming = false
                 awaitingReply = false
                 pendingPermissions.removeAll()
+                trackContextAfterTurn(stopReason: stopReason)
             }
 
         case .thoughtDelta(let itemID, let text):
@@ -681,6 +861,9 @@ final class ChatStore: ObservableObject {
             fireEntry(type: "message", id: message.id, data: ChatItem.message(message.finalized), updated: existed)
             maybeScheduleReadMark()
 
+        case .messageIDConfirmed(let localID, let serverID):
+            reconcileMessageID(localID: localID, serverID: serverID)
+
         case .messageStatusChanged(let itemID, let status):
             mutateMessage(itemID, kind: "message_status") { $0.status = status }
 
@@ -739,6 +922,9 @@ final class ChatStore: ObservableObject {
 
         case .historyPage(let older, let hasMore):
             prependHistory(older, hasMore: hasMore)
+
+        case .connectionStateChanged(let state):
+            connectionState = state
         }
     }
 
@@ -749,17 +935,53 @@ final class ChatStore: ObservableObject {
     /// current-value delivery, or a repeated identical restore); a new transcript replaces the
     /// session. Internal so tests can drive a restore directly (as the content subscription does).
     func reconcileRestoredContent(_ newContent: Any?) {
-        guard let transcript = ChatTranscript.decode(from: newContent), transcript != lastLoadedContent else {
+        guard let transcript = ChatTranscript.decode(from: newContent) else {
             return
         }
+        // The transient "prime" directive rides on the raw injected JSON (Codable drops the
+        // unknown key from ChatTranscript, so it never reaches persistence). It participates
+        // in the dedup: the same transcript re-injected with a flipped flag must re-apply
+        // (e.g. the user reopens a conversation Read Only after having resumed it).
+        let prime = Self.parsePrimeDirective(newContent)
+        guard transcript != lastLoadedContent || prime != lastPrimeDirective else {
+            return
+        }
+        lastPrimeDirective = prime
         applyLoadedTranscript(transcript)
         lastLoadedContent = transcript
+    }
+
+    /// Reads the transient `prime` directive off a raw states["content"] value, accepting the
+    /// same three shapes ChatTranscript.decode does (dict / JSON string / Data). true / absent /
+    /// unparseable -> resume (context follows display, the documented default); false -> fresh;
+    /// "defer" -> deferred (display now, prime lazily on the next send).
+    private static func parsePrimeDirective(_ raw: Any?) -> ChatPrimeDirective {
+        let dict: [String: Any]?
+        switch raw {
+        case let value as [String: Any]:
+            dict = value
+        case let string as String:
+            dict = (string.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any]
+        case let data as Data:
+            dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        default:
+            dict = nil
+        }
+        switch dict?["prime"] {
+        case let flag as Bool:
+            return flag ? .resume : .fresh
+        case let mode as String where mode == "defer":
+            return .deferred
+        default:
+            return .resume
+        }
     }
 
     /// Replaces the session state with a loaded transcript: items render in their final states
     /// (no live continuations), the streaming / permission / buffer state is cleared, and the
     /// status surfaces are restored. Appended turns (if a transport runs) land after the loaded items.
     private func applyLoadedTranscript(_ transcript: ChatTranscript) {
+        let turnWasInFlight = isStreaming || awaitingReply
         items = transcript.items
         usage = transcript.usage
         plan = transcript.plan
@@ -775,9 +997,24 @@ final class ChatStore: ObservableObject {
         // Advance the id counter past any store-generated ids in the loaded transcript, so a
         // subsequent user/system/error item cannot collide with a loaded one.
         advanceLocalCounter(past: transcript.items)
+        // A restore mid-turn supersedes the turn: its terminal messageEnd must not re-run
+        // the turn-end context bookkeeping (see supersededTurnPending).
+        if turnWasInFlight {
+            supersededTurnPending = true
+        }
+        // A deferred restore arriving mid-turn still cancels the in-flight turn - its stream
+        // has nowhere to render now that the items were replaced. (The immediate directives
+        // cancel inside the transport's primeHistory.) The agent is left holding a partial
+        // exchange, so the context becomes unknown and the next send re-primes.
+        if lastPrimeDirective == .deferred, turnWasInFlight {
+            wireContext = nil
+            let transport = self.transport
+            Task { await transport?.send(.cancel) }
+        }
         // Seed the transport's wire history from the loaded transcript so typing continues the
         // conversation WITH its prior turns as context (P0-2 continue-in). An empty transcript
-        // (New Chat clear) resets the wire. No-op if the transport is not built yet.
+        // (New Chat clear) resets the wire; a deferred directive only marks the context pending.
+        // No-op if the transport is not built yet.
         primeTransportFromItems()
     }
 
@@ -850,6 +1087,32 @@ final class ChatStore: ObservableObject {
             if streamingText(at: index) != text {
                 mutateStreamingText(at: index) { $0.text = text }
             }
+        }
+    }
+
+    /// Context bookkeeping at turn end. A cleanly ended turn grew the agent's context and the
+    /// display together, so a synced context stays synced and the tracked snapshot advances.
+    /// A cancelled / errored turn leaves the agent holding a partial exchange the display may
+    /// not mirror: the context becomes unknown, and a synced state drops to pending so the
+    /// next send re-primes from the display (a wasted re-prime is safe; a silently divergent
+    /// context is not). A .fresh context diverges further with every turn, so its snapshot
+    /// goes unknown too (a later deferred restore of that conversation then re-primes).
+    private func trackContextAfterTurn(stopReason: String) {
+        // The terminal event of a turn a restore already superseded: the restore path set
+        // the truthful state; running the bookkeeping below would wrongly discard it.
+        if supersededTurnPending {
+            supersededTurnPending = false
+            return
+        }
+        if stopReason == "cancelled" || stopReason == "error" {
+            wireContext = nil
+            if contextState == .synced {
+                contextState = .pending
+            }
+        } else if contextState == .synced {
+            wireContext = Self.wireEntries(from: items)
+        } else {
+            wireContext = nil
         }
     }
 
@@ -947,6 +1210,33 @@ final class ChatStore: ObservableObject {
         }
         items.append(.file(file))
         return false
+    }
+
+    /// Re-keys the optimistic message `localID` to the server-assigned `serverID` in place, so every
+    /// later server-keyed event (status, reactions, edit, delete) targets the right item. The transport
+    /// MUST emit `.messageIDConfirmed` BEFORE any event keyed by `serverID`. Tolerant: an unknown /
+    /// already-reconciled `localID` is a logged no-op; a `serverID` that already names a different item
+    /// means the server also delivered the message as its own item, so the optimistic duplicate is dropped
+    /// (the confirmation entry still fires, so a persisting host renames the localID row rather than orphaning it).
+    ///
+    /// The optimistic entry was already fired to `entryActionID` under `localID` and the confirmed row is
+    /// now `serverID`; the `messageIdConfirmed` entry lets a persisting host reconcile the two as a rename.
+    private func reconcileMessageID(localID: String, serverID: String) {
+        guard localID != serverID else { return }
+        guard let index = anyItemIndex(localID), case .message(let message) = items[index] else {
+            logger.log("Chat messageIDConfirmed for unknown/optimistic id '\(localID)'; ignoring", .verbose)
+            return
+        }
+        if let existing = anyItemIndex(serverID), existing != index {
+            items.remove(at: index)   // server already delivered this as its own item; drop the optimistic duplicate
+            // Still fire the confirmation so a persisting host renames its optimistic `localID` row onto the
+            // server one (idempotent upsert by id) rather than orphaning it - same signal as the re-key path.
+            fireEntry(type: "messageIdConfirmed", id: serverID, data: MessageIDConfirmation(localID: localID, serverID: serverID))
+            logger.log("Chat messageIDConfirmed serverID '\(serverID)' already present; dropped optimistic '\(localID)'", .verbose)
+            return
+        }
+        items[index] = .message(message.reidentified(serverID))
+        fireEntry(type: "messageIdConfirmed", id: serverID, data: MessageIDConfirmation(localID: localID, serverID: serverID))
     }
 
     /// Mutates a message by id in place and re-fires its entry as an update. Unknown id is a logged
@@ -1178,4 +1468,20 @@ private extension ChatMessage {
         copy.isStreaming = false
         return copy
     }
+
+    /// A copy with a new id (ChatMessage.id is a let). Used to re-key an optimistic message to its
+    /// server-assigned id on `.messageIDConfirmed`.
+    func reidentified(_ newID: String) -> ChatMessage {
+        ChatMessage(id: newID, role: role, text: text, isStreaming: isStreaming,
+                    senderID: senderID, senderName: senderName, avatarURL: avatarURL,
+                    timestamp: timestamp, status: status, reactions: reactions,
+                    editedAt: editedAt, replyTo: replyTo, deleted: deleted)
+    }
+}
+
+/// The `messageIdConfirmed` entry payload: lets a persisting host (entryActionID) rename its stored
+/// row from the optimistic `localID` to the server-assigned `serverID`.
+private struct MessageIDConfirmation: Encodable {
+    let localID: String
+    let serverID: String
 }

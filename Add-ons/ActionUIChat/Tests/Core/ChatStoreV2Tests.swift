@@ -80,7 +80,8 @@ private final class MockP2PTransport: ChatTransport, @unchecked Sendable {
 // Full-capability set for the command / behavior tests.
 private func allCaps() -> ChatTransportCapabilities {
     ChatTransportCapabilities(paging: true, typing: true, reactions: true, editing: true,
-                              deletion: true, replies: true, readReceipts: true, fileTransfer: true)
+                              deletion: true, replies: true, readReceipts: true, fileTransfer: true,
+                              messageIdentity: true, reportsConnectionState: true)
 }
 
 // A minimal ChatContentSource that injects a fixed states["config"] the way the engine's ViewModel
@@ -438,9 +439,12 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         store.editMessage(itemID: "m1", newText: "hello")
         store.deleteMessage(itemID: "m1")
         await settle()
-        XCTAssertEqual(sink.all().count, 2)
-        XCTAssertTrue({ if case .editMessage("m1", "hello") = sink.all()[0] { return true }; return false }())
-        XCTAssertTrue({ if case .deleteMessage("m1") = sink.all()[1] { return true }; return false }())
+        // Both commands are emitted; each goes out in its own Task, so the store does not guarantee their
+        // relative order on the wire - assert presence, not position.
+        let commands = sink.all()
+        XCTAssertEqual(commands.count, 2)
+        XCTAssertTrue(commands.contains { if case .editMessage("m1", "hello") = $0 { return true }; return false })
+        XCTAssertTrue(commands.contains { if case .deleteMessage("m1") = $0 { return true }; return false })
     }
 
     func testResendOnlyForFailed() async {
@@ -474,8 +478,9 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         store.draft = "sure"
         store.submitDraft(replyTo: "orig")
         await settle()
-        // The optimistic local message carries the reply ref; the transport gets sendMessage.
-        XCTAssertTrue({ if case .sendMessage("sure", "orig") = sink.all().first { return true }; return false }(),
+        // The optimistic local message carries the reply ref; the transport gets sendMessage with the
+        // optimistic id as its localID handle.
+        XCTAssertTrue({ if case .sendMessage("sure", "orig", _) = sink.all().first { return true }; return false }(),
                       "a gated reply routes through sendMessage")
         let last = store.items.last
         if case .message(let m)? = last {
@@ -510,17 +515,179 @@ final class ChatStoreV2BehaviorTests: XCTestCase {
         XCTAssertFalse(makeStarted(features: [:], capabilities: caps(true)).0.canAttach)
     }
 
-    func testPlainSendRoutesThroughPromptWhenReplyNotAllowed() async {
-        // replies feature off: even with replyTo, it degrades to a plain prompt.
+    func testPlainSendDropsReplyRefWhenRepliesNotAllowed() async {
+        // replies feature off: even with replyTo, the reply degrades. Under a messageIdentity transport
+        // a plain send still routes through sendMessage (carrying the localID handle), but with a nil ref.
         let (store, sink) = makeStarted(features: [:], capabilities: allCaps())
         store.route(.messageReceived(remote("orig")))
         store.draft = "hi"
         store.submitDraft(replyTo: "orig")
         await settle()
-        XCTAssertTrue({ if case .prompt("hi") = sink.all().first { return true }; return false }(),
-                      "reply not enabled -> plain prompt, replyTo dropped")
+        XCTAssertTrue({ if case .sendMessage("hi", nil, _) = sink.all().first { return true }; return false }(),
+                      "reply not enabled -> sendMessage with the ref dropped")
         if case .message(let m)? = store.items.last {
             XCTAssertNil(m.replyTo, "the dropped reply leaves no ref on the optimistic message")
         }
+    }
+
+    // MARK: - Optimistic-id reconciliation (messageIdentity)
+
+    func testReKeyOnConfirmationPreservesFieldsAndLandsLaterEvents() async {
+        let (store, sink) = makeStarted(capabilities: allCaps())
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        // A messageIdentity send routes through sendMessage carrying the optimistic id as its localID.
+        XCTAssertTrue({ if case .sendMessage("hi", nil, "user-1") = sink.all().first { return true }; return false }(),
+                      "a messageIdentity plain send routes through sendMessage with the optimistic localID")
+        XCTAssertEqual(store.items.last?.id, "user-1")
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.status, .sending, "readReceipts capability -> optimistic sending status")
+        } else {
+            XCTFail("expected an optimistic local message")
+        }
+        // Confirmation re-keys the item in place, preserving text / status.
+        store.route(.messageIDConfirmed(localID: "user-1", serverID: "srv-9"))
+        XCTAssertEqual(store.items.last?.id, "srv-9", "the optimistic item is re-keyed to its server id")
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.text, "hi")
+            XCTAssertEqual(m.status, .sending, "status is preserved across the re-key")
+        }
+        // A later server-keyed status change lands on the re-keyed item.
+        store.route(.messageStatusChanged(itemID: "srv-9", status: .delivered))
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.status, .delivered, "the ladder advances on the re-keyed item")
+        }
+    }
+
+    func testPreConfirmFailureAddressesTheOptimisticId() async {
+        let (store, sink) = makeStarted(capabilities: allCaps())
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        // Before any server id exists, a send failure is addressed by the optimistic localID.
+        store.route(.messageStatusChanged(itemID: "user-1", status: .failed))
+        if case .message(let m)? = store.items.last {
+            XCTAssertEqual(m.status, .failed)
+        } else {
+            XCTFail("expected the optimistic message")
+        }
+        // The retry emits resendMessage keyed by the same optimistic id.
+        store.resendMessage(itemID: "user-1")
+        await settle()
+        XCTAssertTrue(sink.all().contains { if case .resendMessage("user-1") = $0 { return true }; return false },
+                      "a pre-confirm retry resends by the optimistic id")
+    }
+
+    func testConfirmationWithExistingServerIdDropsOptimisticDuplicate() async {
+        let (store, _) = makeStarted(capabilities: allCaps())
+        // The server delivered the message as its own item first.
+        store.route(.messageReceived(ChatMessage(id: "srv-1", role: .local, text: "hi", isStreaming: false)))
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        XCTAssertEqual(store.items.count, 2, "the seeded server item plus the optimistic send")
+        store.route(.messageIDConfirmed(localID: "user-1", serverID: "srv-1"))
+        XCTAssertEqual(store.items.count, 1, "the optimistic duplicate is dropped")
+        XCTAssertFalse(store.items.contains { $0.id == "user-1" }, "no optimistic item remains")
+        XCTAssertTrue(store.items.contains { $0.id == "srv-1" })
+    }
+
+    func testConfirmationForUnknownIdIsAHarmlessNoOp() async {
+        let (store, _) = makeStarted(capabilities: allCaps())
+        store.route(.messageReceived(remote("r1")))
+        let before = store.items.count
+        store.route(.messageIDConfirmed(localID: "nope", serverID: "x"))
+        XCTAssertEqual(store.items.count, before, "an unknown localID is a no-op")
+        // Idempotent: a second confirmation for an already-reconciled/unknown id is also a no-op.
+        store.route(.messageIDConfirmed(localID: "nope", serverID: "x"))
+        XCTAssertEqual(store.items.count, before)
+    }
+
+    func testV1TransportStillRoutesThroughPrompt() async {
+        // No messageIdentity, no replies: the send is byte-identical to the v1 prompt path.
+        let (store, sink) = makeStarted(capabilities: ChatTransportCapabilities())
+        store.draft = "hi"
+        store.submitDraft()
+        await settle()
+        XCTAssertTrue({ if case .prompt("hi") = sink.all().first { return true }; return false }(),
+                      "a v1 transport still emits .prompt")
+        XCTAssertFalse(sink.all().contains { if case .sendMessage = $0 { return true }; return false },
+                       "a v1 transport never sees sendMessage")
+    }
+
+    // MARK: - Connection-state gating (reportsConnectionState)
+
+    func testConnectionGatingOnForAReportingTransport() {
+        let (store, _) = makeStarted(capabilities: allCaps())
+        // A reporting transport starts connection-gated (state .connecting).
+        XCTAssertFalse(store.isConnectionReady, "a reporting transport is not ready until connected")
+        XCTAssertEqual(store.connectionBannerText, "Connecting...")
+
+        store.route(.connectionStateChanged(.connected))
+        XCTAssertTrue(store.isConnectionReady, "connected -> ready")
+        XCTAssertNil(store.connectionBannerText, "no banner when connected")
+
+        store.route(.connectionStateChanged(.reconnecting))
+        XCTAssertFalse(store.isConnectionReady)
+        XCTAssertEqual(store.connectionBannerText, "Reconnecting...")
+
+        store.route(.connectionStateChanged(.offline))
+        XCTAssertFalse(store.isConnectionReady)
+        XCTAssertEqual(store.connectionBannerText, "Offline")
+    }
+
+    func testConnectionGatingOffForAV1Transport() {
+        // A transport that does not report connection state never gates the composer, whatever the
+        // store's connectionState happens to be.
+        let (store, _) = makeStarted(capabilities: ChatTransportCapabilities())
+        XCTAssertTrue(store.isConnectionReady, "no reportsConnectionState -> always ready")
+        XCTAssertNil(store.connectionBannerText, "no reportsConnectionState -> no banner")
+        store.route(.connectionStateChanged(.offline))
+        XCTAssertTrue(store.isConnectionReady, "still ready: the transport does not report connection state")
+        XCTAssertNil(store.connectionBannerText)
+    }
+
+    // End-to-end through the REAL local-p2p transport wired to a real store (not a mock + hand-routed
+    // events): a send is re-keyed to the server id and laddered to .read, and the link reports connected.
+    func testLocalP2PEndToEndReKeysLaddersAndConnects() async {
+        let proto = "local-p2p-e2e-\(UUID().uuidString)"
+        ChatTransportRegistry.shared.register(proto) { config, _ in LocalP2PTransport(config: config) }
+        let logger = P3Logger()
+        // The store holds `contentSource` weakly (the engine's ViewModel owns it), so the source must
+        // stay alive for the whole test or the config subscription is torn down before it delivers.
+        let source = FakeConfigSource(config: ["protocol": proto,
+                                               "transport": ["scenario": "people", "stepMs": 0]])
+        let store = ChatStore(config: ChatConfig(properties: [:], logger: logger),
+                              windowUUID: "w", elementID: 1, logger: logger,
+                              contentSource: source, scheduler: ManualChatScheduler())
+        store.start()
+        await settle()
+        XCTAssertEqual(store.connectionState, .connected, "the link comes up on start")
+        XCTAssertTrue(store.isConnectionReady)
+
+        store.draft = "ping"
+        store.submitDraft()
+        await settle()
+
+        // The message we sent ("ping") was optimistically "user-1" and is now re-keyed to a srv-* id,
+        // laddered to .read by the peer's watermark - all addressed by the server id, never "user-1".
+        let sent = store.items.compactMap { item -> ChatMessage? in
+            if case .message(let m) = item, m.text == "ping" { return m }
+            return nil
+        }.first
+        let reKeyedID = sent?.id
+        let reKeyedStatus = sent?.status
+        let hasOptimistic = store.items.contains { $0.id == "user-1" }
+
+        // Tear the transport down and settle BEFORE asserting/returning, so this real-transport test
+        // leaves no drain / ladder tasks outliving it to perturb the rest of the suite's timing.
+        store.teardown()
+        await settle()
+
+        XCTAssertNotNil(reKeyedID, "the sent message is present")
+        XCTAssertEqual(reKeyedID?.hasPrefix("srv-"), true, "the optimistic id was re-keyed to the server id")
+        XCTAssertEqual(reKeyedStatus, .read, "the delivery ladder reached .read on the re-keyed id")
+        XCTAssertFalse(hasOptimistic, "no optimistic id remains")
     }
 }

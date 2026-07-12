@@ -193,7 +193,8 @@ struct Chat: ActionUIViewConstruction {
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // The Chat element's operational config (protocol + transport) is NOT read here and is NOT
         // document-declared: a host injects it at runtime into states["config"], which ChatStore
-        // observes and uses to build the transport once it is viable, then freezes it. buildView
+        // observes and uses to build the transport once it is viable (a CHANGED viable config
+        // later re-configures in place; an identical one is deduped). buildView
         // parses only the visual/behavioral `properties`; `model` is handed to the store so it can
         // observe states["content"] (session restore) and states["config"] (transport).
         let config = ChatConfig(properties: properties, logger: logger)

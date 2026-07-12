@@ -102,6 +102,49 @@ final class LocalP2PTransportTests: XCTestCase {
                       "the peer replies")
     }
 
+    func testStartReportsConnected() async {
+        let transport = makeTransport(scenario: "people")
+        let sink = consume(transport)
+        await transport.start()
+        await settle()
+        let events = sink.all()
+        await transport.stop()
+
+        XCTAssertTrue(transport.capabilities.reportsConnectionState, "local-p2p reports connection state")
+        XCTAssertTrue(events.contains { if case .connectionStateChanged(.connected) = $0 { return true }; return false },
+                      "the link comes up on start")
+    }
+
+    func testSendConfirmsAServerIdThenDrivesTheLadderOnIt() async {
+        let transport = makeTransport(scenario: "people")
+        let sink = consume(transport)
+        await transport.start()
+        await settle()
+        sink.clear()
+        await transport.send(.sendMessage(text: "Are you around?", replyTo: nil, localID: "user-1"))
+        await settle()
+        let events = sink.all()
+        await transport.stop()
+
+        // The transport confirms a server id for the optimistic localID before any server-keyed event.
+        guard let serverID = events.compactMap({ event -> String? in
+            if case .messageIDConfirmed(let localID, let serverID) = event, localID == "user-1" { return serverID }
+            return nil
+        }).first else {
+            return XCTFail("expected a messageIDConfirmed for the sent localID")
+        }
+        XCTAssertTrue(serverID.hasPrefix("srv-"), "the demo mints a srv-* server id")
+        // Every own-message status event after confirmation is keyed by the server id, never "user-1".
+        let statusIDs = events.compactMap { event -> String? in
+            if case .messageStatusChanged(let id, _) = event { return id }
+            return nil
+        }
+        XCTAssertFalse(statusIDs.isEmpty, "the delivery ladder runs")
+        XCTAssertTrue(statusIDs.allSatisfy { $0 == serverID }, "the ladder targets the server id, not the optimistic id")
+        XCTAssertTrue(events.contains { if case .messageStatusWatermark(let s, let id) = $0 { return s == .read && id == serverID }; return false },
+                      "the peer's read watermark targets the server id")
+    }
+
     func testReactionEditDeleteAreEchoed() async {
         let transport = makeTransport(scenario: "people")
         let sink = consume(transport)
