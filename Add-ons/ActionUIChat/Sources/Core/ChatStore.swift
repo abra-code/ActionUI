@@ -87,9 +87,11 @@ final class ChatStore: ObservableObject {
 
     // Config-injection seam (states["config"]). The operational config (protocol + transport) is NOT
     // document-declared: the store observes states["config"] and builds the transport once it first
-    // resolves to a VIABLE config, then FREEZES - `didConfigure` latches, `resolvedTransportConfig`
-    // holds the frozen decision, and later states["config"] changes are ignored. On reappearance the
-    // torn-down transport is rebuilt from the frozen decision (not from a possibly-changed state).
+    // resolves to a VIABLE config. `resolvedTransportConfig` holds the applied decision: an IDENTICAL
+    // later injection is ignored (the observation re-delivers on every states change), a DIFFERENT
+    // viable one re-configures in place (tear down + attach; the wire history re-primes from the
+    // loaded items). On reappearance the torn-down transport is rebuilt from the applied decision
+    // (not from a possibly-changed state).
     private var didConfigure = false
     private var resolvedTransportConfig: ChatTransportConfig?
     private var configCancellable: AnyCancellable?
@@ -108,6 +110,13 @@ final class ChatStore: ObservableObject {
     private var lastLoadedContent: ChatTranscript?
     private var contentCancellable: AnyCancellable?
     private var entrySequence = 0
+    // Transient restore directive riding on the injected content JSON (not part of the
+    // ChatTranscript persistence codec): "prime": false displays the transcript but seeds the
+    // transport with an EMPTY wire history (fresh context); absent/true keeps the documented
+    // contract - context follows display. Remembered so a transport rebuilt on reappearance
+    // (attach) re-primes per the user's last choice, and so a re-inject that only flips the
+    // flag is not swallowed by the lastLoadedContent dedup.
+    private var lastPrimeDirective = true
 
     // Person-to-person (v2) time-based behavior state. The scheduler is injectable so the
     // typing-expiry / read-mark-debounce / typing-throttle logic is tested with a virtual clock.
@@ -217,24 +226,55 @@ final class ChatStore: ObservableObject {
     // MARK: - Config injection (states["config"]) -> deferred, frozen transport
 
     /// Handles a host-injected operational config from states["config"]. Builds the transport the
-    /// FIRST time the config resolves to a viable one, then FREEZES: `didConfigure` latches so a later
-    /// states["config"] change is ignored for this element (a new element is needed to switch
-    /// transport). A config that is not yet viable (e.g. openai-sse before its baseURL, or acp before
-    /// its command) does NOT freeze - the element stays inert and waits for a completer config.
+    /// FIRST time the config resolves to a viable one; after that an IDENTICAL config is ignored
+    /// (the subscription re-delivers the current value on every states change), while a DIFFERENT
+    /// viable config RE-CONFIGURES: the old transport is torn down and the new one attached, and
+    /// attach() re-seeds the new transport's wire history from the loaded items - this is the
+    /// host-driven in-place switch (e.g. MLXChat re-injects the transport argv with a new --model,
+    /// and the conversation carries over via the prime). A config that is not yet viable (e.g.
+    /// openai-sse before its baseURL, or acp before its command) neither builds nor re-configures -
+    /// the element keeps its current state and waits for a completer config.
     /// Internal so tests can drive an injection directly (as the config subscription does).
     func reconcileConfig(_ raw: Any?) {
-        guard !config.readOnly, !didConfigure else {
+        guard !config.readOnly else {
             return
         }
         guard let (protocolName, transportSettings) = Self.parseTransportConfig(raw) else {
             return   // no config object yet (states["config"] absent / not a dict) - stay inert
+        }
+        // Dedup: the config observation delivers the current value on subscription and on every
+        // states change; the resolved config only re-applies when it actually CHANGED.
+        if didConfigure, let resolved = resolvedTransportConfig,
+           resolved.protocolName == protocolName,
+           NSDictionary(dictionary: resolved.settings).isEqual(to: transportSettings) {
+            return
         }
         guard let built = ChatTransportRegistry.shared.makeIfViable(
                 protocolName: protocolName, transport: transportSettings, logger: logger) else {
             logger.log("Chat config for protocol '\(protocolName)' is not viable yet; awaiting a complete states[\"config\"]", .verbose)
             return
         }
-        // First viable config wins and freezes.
+        if didConfigure {
+            // Re-configuration: stop the old transport cleanly and clear any in-flight turn
+            // state it can no longer resolve (a stuck isStreaming would show a permanent
+            // spinner and a dead Stop button on the new transport), plus the old session's
+            // status surfaces (plan/usage/options/commands) - the new session re-emits its
+            // own at sessionReady, and stale ones would misdescribe it until then.
+            logger.log("Chat config changed; re-configuring the transport (protocol '\(protocolName)')", .verbose)
+            eventTask?.cancel()
+            eventTask = nil
+            streamBuffers.removeAll()
+            pendingPermissions.removeAll()
+            isStreaming = false
+            awaitingReply = false
+            plan = []
+            usage = nil
+            configOptions = []
+            availableCommands = []
+            let old = transport
+            transport = nil
+            Task { await old?.stop() }
+        }
         didConfigure = true
         resolvedTransportConfig = ChatTransportConfig(protocolName: protocolName, settings: transportSettings)
         isConfigured = true
@@ -292,12 +332,17 @@ final class ChatStore: ObservableObject {
         // already used in this transcript (ChatTransport.reserveIDs). This passes ALL ids -
         // including thoughts and tool cards, which primeHistory omits - because a transport's
         // per-turn id counter is shared across item kinds (a reasoning-only turn leaves a thought
-        // id with no paired message id, invisible to a messages-only prime).
+        // id with no paired message id, invisible to a messages-only prime). Id reservation is
+        // independent of the prime directive: it is collision safety, not context choice.
         transport.reserveIDs(seen: items.map(\.id))
-        let messages: [ChatMessage] = items.compactMap { item in
-            if case let .message(message) = item { return message }
-            return nil
-        }
+        // "prime": false (a Read Only restore) shows the transcript but seeds an EMPTY wire
+        // history, so continuing types against a fresh context instead of a misleading one.
+        let messages: [ChatMessage] = lastPrimeDirective
+            ? items.compactMap { item in
+                if case let .message(message) = item { return message }
+                return nil
+            }
+            : []
         transport.primeHistory(messages)
     }
 
@@ -785,11 +830,38 @@ final class ChatStore: ObservableObject {
     /// current-value delivery, or a repeated identical restore); a new transcript replaces the
     /// session. Internal so tests can drive a restore directly (as the content subscription does).
     func reconcileRestoredContent(_ newContent: Any?) {
-        guard let transcript = ChatTranscript.decode(from: newContent), transcript != lastLoadedContent else {
+        guard let transcript = ChatTranscript.decode(from: newContent) else {
             return
         }
+        // The transient "prime" directive rides on the raw injected JSON (Codable drops the
+        // unknown key from ChatTranscript, so it never reaches persistence). It participates
+        // in the dedup: the same transcript re-injected with a flipped flag must re-apply
+        // (e.g. the user reopens a conversation Read Only after having resumed it).
+        let prime = Self.parsePrimeDirective(newContent)
+        guard transcript != lastLoadedContent || prime != lastPrimeDirective else {
+            return
+        }
+        lastPrimeDirective = prime
         applyLoadedTranscript(transcript)
         lastLoadedContent = transcript
+    }
+
+    /// Reads the transient `prime` boolean off a raw states["content"] value, accepting the
+    /// same three shapes ChatTranscript.decode does (dict / JSON string / Data). Absent or
+    /// unparseable -> true (context follows display, the documented default).
+    private static func parsePrimeDirective(_ raw: Any?) -> Bool {
+        let dict: [String: Any]?
+        switch raw {
+        case let value as [String: Any]:
+            dict = value
+        case let string as String:
+            dict = (string.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) }) as? [String: Any]
+        case let data as Data:
+            dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        default:
+            dict = nil
+        }
+        return dict?["prime"] as? Bool ?? true
     }
 
     /// Replaces the session state with a loaded transcript: items render in their final states
