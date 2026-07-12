@@ -1,11 +1,14 @@
 // Add-ons/ActionUIChat/Sources/Core/ActionUIChatCore.swift
 //
-// Public entry point for the Chat add-on's CORE module: the `Chat` element, the
-// transcript / store / views, and the built-in `local` transport plus the transport
-// registry. A host that links only ActionUIChatCore gets the element and `local`; any
-// other protocol degrades to `local` with a clear log. To make another protocol
-// available, link its module and call its register() (e.g. ActionUIChatACP.register()),
-// or a host can register its own transport with `registerTransport`.
+// Public entry point for the Chat add-on's CORE module: the `Chat` element glue over the
+// standalone ChatView package. The component (transcript / store / views, the built-in
+// `local` and `local-p2p` transports, and the transport registry) lives in ChatView and is
+// re-exported here, so a host that imports ActionUIChatCore (or the umbrella) still sees
+// the frozen transport contract (ChatTransport, ChatEvent, ChatCommand, ...) unchanged.
+// A host that links only ActionUIChatCore gets the element and the built-ins; any other
+// protocol degrades to `local` with a clear log. To make another protocol available, link
+// its module and call its register() (e.g. ActionUIChatACP.register()), or a host can
+// register its own transport with `registerTransport`.
 //
 // Most hosts link the umbrella `ActionUIChat` product and call `ActionUIChat.register()`
 // instead, which registers the element and every bundled transport in one call.
@@ -18,21 +21,18 @@
 
 import Foundation
 import ActionUI
+@_exported import ChatView
 
 public enum ActionUIChatCore {
 
-    /// Registers the `Chat` element type and the built-in `local` transport with the
-    /// shared ActionUI registry. Call once at app launch, before building any window
-    /// that uses "Chat". Idempotent: a second call simply re-binds the same token.
+    /// Registers the `Chat` element type with the shared ActionUI registry and routes the
+    /// component registry's registration-time diagnostics into the host's ActionUI logger.
+    /// Call once at app launch, before building any window that uses "Chat". Idempotent:
+    /// a second call simply re-binds the same token.
     @MainActor
     public static func register() {
+        ChatTransportRegistry.shared.logger = ChatLoggerAdapter(base: ActionUIModel.shared.logger)
         ActionUIRegistry.shared.register(Chat.self)   // JSON token: "Chat"
-        // The scripted person-to-person / group backend (`config.protocol == "local-p2p"`), a built-in
-        // like `local`: it drives the ChatPeople / ChatGroup examples and the dual-alignment UI with no
-        // wire. Registered here (not reserved) so a host can still override the name if it wants.
-        ChatTransportRegistry.shared.register("local-p2p") { config, _ in
-            LocalP2PTransport(config: config)
-        }
     }
 
     /// Registers a transport factory under a protocol name (the element's
@@ -47,7 +47,7 @@ public enum ActionUIChatCore {
 }
 
 /// Plain C entry point so any host adapter - C, C++, Objective-C, or Objective-C++ -
-/// can register the core element + `local` transport without the Swift or Objective-C
+/// can register the core element + built-in transports without the Swift or Objective-C
 /// runtime. Mirrors the umbrella's `ActionUIChat_register`. `@_cdecl` symbols are not
 /// emitted into the generated `-Swift.h`, so the caller forward-declares it:
 ///

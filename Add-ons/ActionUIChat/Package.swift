@@ -8,13 +8,16 @@
 // against, do not link" relationship the standalone xcodegen project expresses with
 // link: false.
 //
-// Transport modules are split so a host links only what it needs (P0-6):
-//   - ActionUIChatCore  - the `Chat` element, transcript / store / views, the built-in
-//                         `local` transport, and the transport registry. `local` is the
-//                         only built-in; every other protocol degrades to `local`.
-//   - ActionUIChatACP   - the ACP transport (macOS): `"protocol": "acp"`.
-//   - ActionUIChatOpenAI - the OpenAI SSE transport (all platforms): `"protocol": "openai-sse"`.
-//   - ActionUIChat      - the umbrella: depends on Core + every bundled transport; its
+// The chat implementation itself lives in the standalone ChatView package (a sibling repo):
+// the component owns the transcript, store, transports, and views. This add-on is the thin
+// ActionUI wrapper: the `Chat` element (JSON properties -> ChatConfiguration, action-ID
+// callbacks via the component's host-event sink, states["content"] / states["config"]
+// exposure through ChatContentSource) plus per-transport register shims that preserve the
+// established module split:
+//   - ActionUIChatCore  - the `Chat` element glue; re-exports ChatView (the component).
+//   - ActionUIChatACP   - registers the component's ACP transport (macOS): `"protocol": "acp"`.
+//   - ActionUIChatOpenAI - registers the OpenAI SSE transport: `"protocol": "openai-sse"`.
+//   - ActionUIChat      - the umbrella: depends on Core + every bundled transport shim; its
 //                         register() wires them all, preserving the single-import experience.
 // A host links a transport module and calls its register() to make that protocol available;
 // the strong reference from register() is what pulls the module's archive in at link time.
@@ -32,61 +35,55 @@ let package = Package(
         // The umbrella: element + every bundled transport, one import, one register(). The
         // default product for a host that just wants "everything the add-on ships".
         .library(name: "ActionUIChat", targets: ["ActionUIChat"]),
-        // Core only: the element + the built-in `local` transport + the registry. A host
-        // links this plus the transport modules it actually wants.
+        // Core only: the element + the component (with its built-in `local` / `local-p2p`
+        // transports and the registry). A host links this plus the transport modules it wants.
         .library(name: "ActionUIChatCore", targets: ["ActionUIChatCore"]),
-        // The ACP transport module (add on top of Core for `"protocol": "acp"`).
+        // The ACP transport shim (add on top of Core for `"protocol": "acp"`).
         .library(name: "ActionUIChatACP", targets: ["ActionUIChatACP"]),
-        // The OpenAI SSE transport module (add on top of Core for `"protocol": "openai-sse"`).
+        // The OpenAI SSE transport shim (add on top of Core for `"protocol": "openai-sse"`).
         .library(name: "ActionUIChatOpenAI", targets: ["ActionUIChatOpenAI"]),
         // Resource-only docs product, mirroring core ActionUIDocumentation. A client that links
         // this gets the add-on's schema doc + insert template copied into its bundle.
         .library(name: "ActionUIChatDocumentation", targets: ["ActionUIChatDocumentation"]),
     ],
     dependencies: [
-        .package(path: "../.."),                    // the ActionUI package at the repo root
-        // RichText and AsyncImageCache are their own repos (github.com/abra-code); SPM resolves them
-        // (RichText transitively pulls AsyncImageCache, same URL identity). No released tags yet, so
-        // pin the branch; switch to `from: "x.y.z"` once they are tagged. The standalone xcodegen
-        // project overrides both with local paths for inspection builds (see project.yml).
-        .package(url: "https://github.com/abra-code/RichText", branch: "main"),          // renders message Markdown
-        .package(path: "../ActionUIDiff"),      // the sibling add-on whose DiffView product renders tool-card diffs
-        .package(url: "https://github.com/abra-code/AsyncImageCache", branch: "main"),   // CachedImage for image items
+        .package(path: "../.."),                // the ActionUI package at the repo root
+        // The standalone chat component in its own sibling repo (which itself depends on
+        // RichText, AsyncImageCache, and DiffView). Referenced by local filesystem path while
+        // the component repos are developed side by side; switch to the github URL
+        // (branch/tag) once the repo is pushed.
+        .package(path: "../../../ChatView"),
     ],
     targets: [
-        // Core: the element, transcript / store / views, models, `local` transport, registry.
+        // Core: the `Chat` element glue over the ChatView component.
         .target(
             name: "ActionUIChatCore",
             dependencies: [
                 .product(name: "ActionUI", package: "ActionUI"),
-                .product(name: "RichText", package: "RichText"),
-                .product(name: "DiffView", package: "ActionUIDiff"),
-                .product(name: "AsyncImageCache", package: "AsyncImageCache"),  // CachedImage for image items
+                .product(name: "ChatView", package: "ChatView"),
             ],
             path: "Sources/Core"
         ),
-        // The ACP transport: launches an Agent Client Protocol agent as a subprocess (macOS).
-        // Depends on Core for the transport contract; registers the `acp` factory.
+        // The ACP register shim: forwards to the component's ChatViewACP.register() (macOS).
         .target(
             name: "ActionUIChatACP",
             dependencies: [
                 "ActionUIChatCore",
-                .product(name: "ActionUI", package: "ActionUI"),
+                .product(name: "ChatViewACP", package: "ChatView"),
             ],
             path: "Sources/ACP"
         ),
-        // The OpenAI SSE transport: streams /v1/chat/completions (llama-server, mlx_lm.server,
-        // any OpenAI-compatible endpoint). Cross-platform (URLSession). Registers `openai-sse`.
+        // The OpenAI SSE register shim: forwards to ChatViewOpenAI.register().
         .target(
             name: "ActionUIChatOpenAI",
             dependencies: [
                 "ActionUIChatCore",
-                .product(name: "ActionUI", package: "ActionUI"),
+                .product(name: "ChatViewOpenAI", package: "ChatView"),
             ],
             path: "Sources/OpenAI"
         ),
-        // The umbrella: depends on Core + every bundled transport, re-exports Core, and its
-        // register() wires them all. Existing hosts link this product unchanged.
+        // The umbrella: depends on Core + every bundled transport shim, re-exports Core, and
+        // its register() wires them all. Existing hosts link this product unchanged.
         .target(
             name: "ActionUIChat",
             dependencies: [
@@ -108,49 +105,18 @@ let package = Package(
                 .copy("Elements"),
             ]
         ),
-        // Core tests: the `local` transport's canned reply content and streaming chunker, the
-        // store's router reductions and `surfaces` config, and the transport registry
-        // (register / override / reserved / unknown-name degrade). `@testable` reaches internals.
-        .testTarget(
-            name: "ActionUIChatCoreTests",
-            dependencies: [
-                "ActionUIChatCore",
-                .product(name: "ActionUI", package: "ActionUI"),
-            ],
-            path: "Tests/Core"
-        ),
-        // ACP tests: the JSON-RPC framing / correlation, the payload parsers, the
-        // session/update demux and message segmentation, and the permission round-trip -
-        // all without spawning a real agent. macOS-only content (guarded in the sources).
-        .testTarget(
-            name: "ActionUIChatACPTests",
-            dependencies: [
-                "ActionUIChatACP",
-                "ActionUIChatCore",
-                .product(name: "ActionUI", package: "ActionUI"),
-            ],
-            path: "Tests/ACP"
-        ),
-        // OpenAI tests: the pure SSE-chunk / usage / models / request-body parsers, plus
-        // end-to-end streaming, non-200, disconnect, and cancel via a URLProtocol stub.
-        .testTarget(
-            name: "ActionUIChatOpenAITests",
-            dependencies: [
-                "ActionUIChatOpenAI",
-                "ActionUIChatCore",
-                .product(name: "ActionUI", package: "ActionUI"),
-            ],
-            path: "Tests/OpenAI"
-        ),
-        // Umbrella tests: assert ActionUIChat.register() wires the element + every bundled
-        // transport (the single-import contract). `@testable` Core to read the registry.
+        // Add-on tests: the umbrella wiring (element + every bundled transport registered),
+        // the ChatConfig action-ID parsing / validate witness, and the host-event ->
+        // actionHandler dispatch mapping. The component's own suites live in the ChatView repo.
         .testTarget(
             name: "ActionUIChatTests",
             dependencies: [
                 "ActionUIChat",
                 "ActionUIChatCore",
+                .product(name: "ActionUI", package: "ActionUI"),
+                .product(name: "ChatView", package: "ChatView"),
             ],
-            path: "Tests/Umbrella"
+            path: "Tests"
         ),
     ]
 )

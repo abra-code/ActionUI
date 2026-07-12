@@ -1,17 +1,20 @@
 // Add-ons/ActionUIChat/Sources/ACP/ActionUIChatACP.swift
 //
-// Public entry point for the ACP transport module. Links against ActionUIChatCore and
-// registers the `acp` transport factory so a document with `"protocol": "acp"` resolves
-// to an ACP agent subprocess. A host that wants ACP links this module and calls
+// Public entry point for the Chat add-on's ACP transport module. The transport itself
+// (ACPChatTransport: an Agent Client Protocol agent launched as a subprocess, newline-
+// delimited JSON-RPC over stdio) lives in the ChatView package's ChatViewACP product;
+// this module is the register shim that preserves the add-on's established module split
+// and C entry point. A host that wants ACP links this module and calls
 // ActionUIChatACP.register() in addition to registering the element (via
 // ActionUIChatCore.register() or the umbrella ActionUIChat.register(), which does both).
 //
-// The strong reference from this register() to ChatTransportRegistry is what makes the
-// linker extract this archive member: linking the module and registering the transport
+// The strong reference from this register() to ChatViewACP is what makes the linker
+// extract the transport archive member: linking the module and registering the transport
 // are the same fact by construction.
 
 import Foundation
 import ActionUIChatCore
+import ChatViewACP
 
 public enum ActionUIChatACP {
 
@@ -22,11 +25,7 @@ public enum ActionUIChatACP {
     /// unregistered protocol.
     @MainActor
     public static func register() {
-#if os(macOS)
-        ActionUIChatCore.registerTransport("acp") { config, logger in
-            try ACPChatTransport(config: config, logger: logger)
-        }
-#endif
+        ChatViewACP.register()
     }
 }
 

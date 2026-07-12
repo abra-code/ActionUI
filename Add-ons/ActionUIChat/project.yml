@@ -8,11 +8,14 @@
 # (A static library never embeds its dependencies' object code anyway; link: false makes
 # that intent explicit.)
 #
-# Static-library targets mirror the SPM products: ActionUIChatCore (element + built-in local
-# transport + registry), ActionUIChatACP (the ACP transport, macOS), ActionUIChatOpenAI (the
-# OpenAI SSE transport), and the ActionUIChat umbrella (depends on all; its register() wires
-# them). The inter-target dependencies are also link: false - each is a static lib the host
-# links; the target dependency exists for build order and Swift-module visibility only.
+# The chat implementation lives in the standalone ChatView package (a sibling repo of
+# ActionUI); this add-on is the thin element wrapper plus per-transport register shims.
+# Static-library targets mirror the SPM products: ActionUIChatCore (the Chat element glue,
+# re-exporting the ChatView component), ActionUIChatACP (the ACP register shim, macOS),
+# ActionUIChatOpenAI (the OpenAI SSE register shim), and the ActionUIChat umbrella (depends
+# on all; its register() wires them). The inter-target dependencies are also link: false -
+# each is a static lib the host links; the target dependency exists for build order and
+# Swift-module visibility only.
 
 name: ActionUIChat
 
@@ -25,18 +28,8 @@ options:
 packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
-  RichText:
-    # Standalone component (renders message Markdown), referenced by github URL to match Package.swift
-    # and the ActionUIRichText add-on. Resolved from github (network on first resolve, then cached).
-    url: https://github.com/abra-code/RichText
-    branch: main
-  ActionUIDiff:
-    path: ../ActionUIDiff   # the sibling add-on whose DiffView product renders tool-card diffs
-  AsyncImageCache:
-    # Standalone image cache (CachedImage for image items), referenced by github URL to match
-    # Package.swift; same URL identity as RichText's own transitive AsyncImageCache dependency.
-    url: https://github.com/abra-code/AsyncImageCache
-    branch: main
+  ChatView:
+    path: ../../../ChatView   # the standalone chat component repo (sibling of ActionUI)
 
 targets:
   ActionUIChatCore:
@@ -48,15 +41,9 @@ targets:
       - package: ActionUI
         product: ActionUI
         link: false       # compile-time module dependency only; host links ActionUI
-      - package: RichText
-        product: RichText
-        link: false       # compile-time module dependency only; host links RichText
-      - package: ActionUIDiff
-        product: DiffView
-        link: false       # compile-time module dependency only; host links DiffView
-      - package: AsyncImageCache
-        product: AsyncImageCache
-        link: false       # CachedImage for image items; host links AsyncImageCache
+      - package: ChatView
+        product: ChatView
+        link: false       # compile-time module dependency only; host links ChatView
     settings:
       base:
         SWIFT_VERSION: "6.0"
@@ -71,9 +58,9 @@ targets:
     dependencies:
       - target: ActionUIChatCore
         link: false       # compile-against the Core module; host links it
-      - package: ActionUI
-        product: ActionUI
-        link: false
+      - package: ChatView
+        product: ChatViewACP
+        link: false       # compile-time module dependency only; host links ChatViewACP
     settings:
       base:
         SWIFT_VERSION: "6.0"
@@ -88,9 +75,9 @@ targets:
     dependencies:
       - target: ActionUIChatCore
         link: false       # compile-against the Core module; host links it
-      - package: ActionUI
-        product: ActionUI
-        link: false
+      - package: ChatView
+        product: ChatViewOpenAI
+        link: false       # compile-time module dependency only; host links ChatViewOpenAI
     settings:
       base:
         SWIFT_VERSION: "6.0"

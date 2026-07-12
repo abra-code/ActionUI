@@ -28,8 +28,8 @@ the appearance differ, not the view.
   `available_commands_update`), typing `/` lists and filters them and a tap fills the draft; the command
   still sends as ordinary prompt text for the agent to interpret.
 - **Agent-proposed file diffs**, rendered inside a tool card's detail as a real line diff - hunks,
-  old / new line-number gutters, +/- markers - by the `DiffView` product of the sibling **ActionUIDiff**
-  add-on, which these tool cards consume (routed by `surfaces.diffs`; `hidden` drops them).
+  old / new line-number gutters, +/- markers - by the standalone **DiffView** package, which these
+  tool cards consume (routed by `surfaces.diffs`; `hidden` drops them).
 - **The ACP transport** (macOS): the element launches any [Agent Client Protocol](https://agentclientprotocol.com)
   agent as a subprocess (newline-delimited JSON-RPC over stdio), negotiates capabilities (advertising no
   fs / terminal services), opens a session, demuxes the `session/update` stream onto those surfaces,
@@ -103,30 +103,37 @@ previews / testing only, not the production restore path.
 
 ## Internal architecture
 
-Four layers, transport at the bottom, SwiftUI at the top, a router in the middle (the key idea):
+The chat implementation lives in the standalone **ChatView** package (a sibling repo); this add-on is
+the thin ActionUI wrapper over it. Inside the component: four layers, transport at the bottom, SwiftUI
+at the top, a router in the middle (the key idea):
 
-- `ChatTransport` (`Sources/Core/ChatTransport.swift`) - speaks one wire protocol, emits a normalized
-  `ChatEvent` stream, accepts normalized `ChatCommand`s. `LocalChatTransport` (scripted; also the
-  `agentic` demo turn) and `LocalP2PTransport` (the scripted person-to-person / group backend behind
-  `local-p2p`) are built in and ship in Core. `ACPChatTransport` lives in its own
-  module (`Sources/ACP/`, macOS - `ACPConnection.swift` is the stdio JSON-RPC framing,
-  `ACPChatTransport.swift` is the ACP method vocabulary and the `session/update` demux, kept in one file
-  on purpose). `OpenAIChatTransport` (`Sources/OpenAI/`) streams an OpenAI-compatible
-  `/v1/chat/completions` endpoint (SSE line parser; owns the conversation array since the wire is
-  stateless). A transport is built by the factory a module registers for its protocol name (see below).
-- `ChatTransportRegistry` (`Sources/Core/ChatTransportRegistry.swift`) - the `@MainActor` table mapping a
-  protocol name to its factory. `local` is reserved; the element resolves its transport here when the
-  chat starts, degrading an unregistered name to `local` with a logged reason.
-- `ChatStore` (`ChatStore.swift`) - the `@MainActor` source of truth. Its `route(_:)` is the
-  **pre-filter**: chat text -> transcript, thoughts and tool-call cards -> transcript items styled per
-  the `surfaces` config, the plan -> the pinned panel, permission requests -> the pending-approval queue,
-  system / error -> their own items. A non-agentic transport never emits the richer events, so the same
-  code renders a plain conversation with no special cases.
-- `ChatRootView` (`ChatRootView.swift`) - the pinned plan panel, the transcript (`ScrollView` +
-  `LazyVStack`, auto-scroll), and the composer with its slash-command menu and the status line
-  (model / mode menus, token / cost usage). Tool-card diffs render through the sibling ActionUIDiff
-  add-on's `DiffView`.
-- `ChatModel.swift` / `ChatConfig.swift` - the transport-agnostic value types and the JSON config.
+- `ChatTransport` (ChatView `Sources/ChatView/ChatTransport.swift`) - speaks one wire protocol, emits a
+  normalized `ChatEvent` stream, accepts normalized `ChatCommand`s. `LocalChatTransport` (scripted; also
+  the `agentic` demo turn) and `LocalP2PTransport` (the scripted person-to-person / group backend behind
+  `local-p2p`) are built in. `ACPChatTransport` lives in the component's `ChatViewACP` product (macOS -
+  `ACPConnection.swift` is the stdio JSON-RPC framing, `ACPChatTransport.swift` is the ACP method
+  vocabulary and the `session/update` demux, kept in one file on purpose). `OpenAIChatTransport`
+  (`ChatViewOpenAI`) streams an OpenAI-compatible `/v1/chat/completions` endpoint (SSE line parser; owns
+  the conversation array since the wire is stateless). A transport is built by the factory a module
+  registers for its protocol name (see below).
+- `ChatTransportRegistry` - the `@MainActor` table mapping a protocol name to its factory. `local` is
+  reserved; the component resolves its transport here when the chat starts, degrading an unregistered
+  name to `local` with a logged reason.
+- `ChatStore` - the `@MainActor` source of truth. Its `route(_:)` is the **pre-filter**: chat text ->
+  transcript, thoughts and tool-call cards -> transcript items styled per the `surfaces` config, the
+  plan -> the pinned panel, permission requests -> the pending-approval queue, system / error -> their
+  own items. A non-agentic transport never emits the richer events, so the same code renders a plain
+  conversation with no special cases.
+- `ChatView` (the component's public SwiftUI entry point) - the pinned plan panel, the transcript
+  (`ScrollView` + `LazyVStack`, auto-scroll), and the composer with its slash-command menu and the
+  status line (model / mode menus, token / cost usage). Tool-card diffs render through the standalone
+  `DiffView` package.
+
+This add-on contributes the element glue only: `Chat` (the `ActionUIViewConstruction` witness) maps the
+document's `properties` to the component's typed `ChatConfiguration`, installs the host-event sink that
+routes the component's `ChatHostEvent`s to the configured action IDs through `ActionUIModel.actionHandler`,
+adapts the logger, and conforms `ViewModel` to the component's `ChatContentSource` so `states["content"]` /
+`states["config"]` reach the component.
 
 ## Design: compiles against ActionUI, does not link it
 
@@ -147,17 +154,17 @@ Abracode.framework) register without the Swift runtime; the caller forward-decla
 
 ## Consuming it
 
-`Package.swift` makes this a Swift package (macOS / iOS / visionOS). It depends on the sibling `RichText`
-and `AsyncImageCache` components (their own repos under github.com/abra-code) and on the sibling
-`ActionUIDiff` add-on (whose `DiffView` renders tool-card diffs). Transports are split into modules so a
-host links only what it needs:
+`Package.swift` makes this a Swift package (macOS / iOS / visionOS). It depends on ActionUI and on the
+standalone `ChatView` component package, which itself depends on the sibling `RichText`,
+`AsyncImageCache`, and `DiffView` components. Transports are split into modules so a host links only
+what it needs:
 
 - `ActionUIChat` - the **umbrella**: the element + every bundled transport, one import, one `register()`.
   This is the default; existing hosts use it unchanged.
-- `ActionUIChatCore` - the element + the built-in `local` transport + the registry. Link this plus the
-  transport modules you actually want.
-- `ActionUIChatACP` - the ACP transport (macOS). Add on top of Core for `"protocol": "acp"`.
-- `ActionUIChatOpenAI` - the OpenAI SSE transport (all platforms). Add on top of Core for `"protocol": "openai-sse"`.
+- `ActionUIChatCore` - the element + the component (with its built-in `local` / `local-p2p` transports
+  and the registry). Link this plus the transport modules you actually want.
+- `ActionUIChatACP` - the ACP transport shim (macOS). Add on top of Core for `"protocol": "acp"`.
+- `ActionUIChatOpenAI` - the OpenAI SSE transport shim (all platforms). Add on top of Core for `"protocol": "openai-sse"`.
 
 The batteries-included path (everything the add-on ships) links the umbrella:
 
@@ -220,33 +227,25 @@ automatically:
 
 ## Files
 
-- `project.yml` - xcodegen spec (static libs, ActionUI as `link: false` package dep).
+- `project.yml` - xcodegen spec (static libs; ActionUI and ChatView as `link: false` package deps).
 - `Sources/Umbrella/ActionUIChat.swift` - the umbrella `register()` (element + every bundled transport) +
   plain C `ActionUIChat_register()`; re-exports Core.
-- `Sources/Core/ActionUIChatCore.swift` - Core `register()` (element + `local`), `registerTransport(_:factory:)`,
-  and the C `ActionUIChatCore_register()`.
-- `Sources/Core/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head comment).
-- `Sources/Core/ChatModel.swift` - transport-agnostic value types (ChatRole, ChatItem, ChatEvent, ChatCommand);
-  the ChatEvent/ChatCommand contract and the types they carry are the frozen public transport API.
-- `Sources/Core/ChatConfig.swift` - JSON parsing + validation of the document's `properties` (visual /
-  presentation only); the operational `protocol` + `transport` are not document-declared - a host injects
-  them at runtime into `states["config"]` (see `ChatStore.swift`).
-- `Sources/Core/ChatTransport.swift` - the `ChatTransport` protocol, `ChatTransportConfig`, `ChatLogger`, the
-  factory type, and the built-in `LocalChatTransport`.
-- `Sources/Core/ChatTransportRegistry.swift` - the `@MainActor` protocol-name -> factory registry.
-- `Sources/ACP/ActionUIChatACP.swift` - the ACP module's `register()` (registers the `acp` factory) + C entry point.
-- `Sources/ACP/ACPConnection.swift` - newline-delimited JSON-RPC 2.0 over a subprocess's stdio (macOS).
-- `Sources/ACP/ACPChatTransport.swift` - the ACP transport: capability negotiation, session lifecycle,
-  the `session/update` -> `ChatEvent` demux, and the permission round-trip.
-- `Sources/OpenAI/ActionUIChatOpenAI.swift` - the OpenAI module's `register()` (registers the
-  `openai-sse` factory) + C entry point.
-- `Sources/OpenAI/OpenAIChatTransport.swift` - the OpenAI SSE transport: the streaming
-  `/v1/chat/completions` request, the SSE-chunk demux (content / reasoning / tool_calls / usage), and
-  model `auto` resolution.
-- `Sources/Core/ChatStore.swift` - the `@MainActor` store + the router (pre-filter).
-- `Sources/Core/ChatRootView.swift` - the plan panel, transcript, and composer SwiftUI surface (message,
-  thought, tool-call, image rows; the permission approval card; the slash-command menu and the
-  model / mode / usage status line).
+- `Sources/Core/ActionUIChatCore.swift` - Core `register()` (element + registry logger wiring),
+  `registerTransport(_:factory:)`, the C `ActionUIChatCore_register()`, and the `@_exported import
+  ChatView` that keeps the component's transport contract reachable through this module.
+- `Sources/Core/Chat.swift` - the `ActionUIViewConstruction` element type (with the documented head
+  comment) and `hostEventSink` (the ChatHostEvent -> actionHandler dispatch mapping).
+- `Sources/Core/ChatConfig.swift` - action-ID parsing + `validate()` (the validateProperties witness);
+  delegates the visual keys to the component's `ChatConfiguration`. The operational `protocol` +
+  `transport` are not document-declared - a host injects them at runtime into `states["config"]`.
+- `Sources/Core/ChatActionUIBridge.swift` - the ActionUILogger -> ChatLogger adapter and the `ViewModel`
+  conformance to the component's `ChatContentSource`.
+- `Sources/ACP/ActionUIChatACP.swift` - the ACP register shim (forwards to `ChatViewACP.register()`) + C entry point.
+- `Sources/OpenAI/ActionUIChatOpenAI.swift` - the OpenAI register shim (forwards to
+  `ChatViewOpenAI.register()`) + C entry point.
+
+Everything else - the store, views, models, transports, registry, configuration - lives in the ChatView
+package (see its own README).
 - `Documentation/Schemas/Chat.md` - element schema doc; `Documentation/Elements/Chat.json` - insert template.
 - `Documentation/ActionUIChatDocumentation.swift` - `Bundle.module` accessor for the docs product.
 - `Schemas/Chat.json` - verifier schema (auto-discovered).

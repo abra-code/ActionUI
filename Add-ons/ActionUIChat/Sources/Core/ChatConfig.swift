@@ -1,110 +1,29 @@
 // Add-ons/ActionUIChat/Sources/Core/ChatConfig.swift
 //
-// Parses the `Chat` element's `properties` block (visual / presentation, modeled after
-// SwiftUI modifiers) into a typed config: appearance, role styling, the composer (`input`),
-// the agentic `surfaces` routing (M3: inline / collapsed / hidden; "panel" parses but renders
-// inline until the M5 side panels), the host-facing action IDs, and the read-only / restore
-// seam. `appearance.alignment: "dual"` is parsed-or-noted but only honored in M4.
+// The ADD-ON side of the Chat element's `properties` block: parses the host-facing action
+// IDs, delegates the visual / behavioral keys to the component's ChatConfiguration, and
+// owns `validate(_:_:)` - the element's validateProperties witness (type-check each
+// property, warn-and-drop anything ill-typed, never crash; unknown keys are left
+// untouched - the verifier flags those separately).
 //
 // The element's OPERATIONAL settings (`protocol` + `transport`) are NOT here and are NOT
 // document-declared: a host injects them at runtime into states["config"] (see ChatStore),
-// where the transport is built once the config is viable and then frozen. Keeping the wire
-// protocol and the (subprocess-spawning) transport command out of the document is the security
+// where the transport is built once the config is viable. Keeping the wire protocol and
+// the (subprocess-spawning) transport command out of the document is the security
 // boundary - a document is data and must not name what the host executes or connects to.
-//
-// `validate(_:_:)` is the element's `validateProperties` witness (properties only):
-// type-check each property, warn-and-drop anything ill-typed, never crash. Unknown
-// keys are left untouched (the verifier flags those separately).
 
 import Foundation
 import ActionUI
 
 struct ChatConfig {
 
-    /// Transcript layout. `single` (M1 default): every message leading / full-width,
-    /// parties distinguished by tint + label. `dual` (M4): incoming leading, outgoing
-    /// trailing. M1 renders `single` regardless and notes a `dual` request.
-    enum Alignment: String {
-        case single
-        case dual
-    }
+    /// The component's typed configuration, parsed from the same `properties` dictionary.
+    /// attachEnabled / emitsEntryEvents derive from the matching action IDs being configured.
+    let configuration: ChatConfiguration
 
-    /// Composer submit policy - the Cmd+Return gap, solved inside the element.
-    /// `return`: single-line field, Return submits. `modifierReturn`: multiline field,
-    /// Return inserts a newline, Cmd+Return submits. `shiftReturnNewline`: treated like
-    /// `return` in M1 (Shift+Return newline is a later refinement).
-    enum SubmitPolicy: String {
-        case `return`
-        case modifierReturn = "modifier-return"
-        case shiftReturnNewline = "shift-return-newline"
-    }
-
-    /// Per-role appearance. `side` drives layout only in `dual` alignment; in `single`
-    /// only `label` and `tint` are used.
-    struct RoleStyle {
-        let side: String      // "leading" | "trailing" | "center"
-        let label: String
-        let tint: String      // an ActionUI color token, e.g. "accent", "secondary"
-    }
-
-    /// How an agentic surface presents. `inline`: in the transcript, expanded.
-    /// `collapsed`: in the transcript, folded behind a disclosure. `hidden`: dropped.
-    /// `panel` (a side region) is an M5 presentation; it parses today and renders inline.
-    enum SurfaceMode: String {
-        case inline
-        case collapsed
-        case hidden
-        case panel
-    }
-
-    /// Routing for the agentic stream (design doc section 8). Only transports that
-    /// emit these events are affected; a plain chat transport never produces them.
-    struct Surfaces {
-        let toolCalls: SurfaceMode    // default inline
-        let thoughts: SurfaceMode     // default collapsed
-        let plan: SurfaceMode         // default panel (a pinned region ABOVE the transcript -
-                                      // the plan is a status surface, never interleaved as chat;
-                                      // "inline" is coerced to panel with a note)
-        let diffs: SurfaceMode        // default inline (rendered by the DiffView component inside
-                                      // the tool card's detail); hidden drops them; collapsed /
-                                      // panel are coerced to inline with a note (the card's fold
-                                      // already covers collapsing; a side panel is a later surface)
-    }
-
-    /// Which person-to-person / group (v2) conversation affordances the DOCUMENT enables.
-    /// All default false (opt-in). Effective availability of an affordance is this AND the
-    /// transport's matching `capabilities` flag - a document can request a feature the
-    /// active transport does not back, and it simply does not appear.
-    struct Features {
-        let reactions: Bool       // emoji reactions (quick-row + chips + toggle)
-        let editing: Bool         // edit own messages
-        let deletion: Bool        // delete own messages (tombstone)
-        let replies: Bool         // reply / quote a message
-    }
-
-    let alignment: Alignment
-    let showRoleLabels: Bool
-    let theme: String                 // "auto" | "light" | "dark"
-    let roles: [String: RoleStyle]
-
-    // P2P (v2) appearance. Defaults keep a v1 (single-alignment) document pixel-identical:
-    // timestamps default ON only in dual alignment, OFF in single; avatars are opt-in;
-    // delivery status defaults ON but renders only on messages that carry a `status` (v1
-    // messages never do). Each renders only on items that actually carry the datum.
-    let showTimestamps: Bool
-    let showAvatars: Bool
-    let showDeliveryStatus: Bool
-
-    // P2P (v2) conversation affordances the document enables (gated further by transport capabilities).
-    let features: Features
-
-    let inputEnabled: Bool
-    let placeholder: String
-    let submitOn: SubmitPolicy
-
-    let surfaces: Surfaces
-
-    // Host-facing event IDs, dispatched through ActionUIModel.actionHandler.
+    // Host-facing event IDs. The component emits ChatHostEvents; the sink installed by
+    // Chat.buildView maps each event to its configured action ID and dispatches through
+    // ActionUIModel.actionHandler.
     let sendActionID: String?
     let stopActionID: String?
     let messageActionID: String?
@@ -116,68 +35,7 @@ struct ChatConfig {
                                       // button appears only when this is configured. The ONLY new v2 host action ID -
                                       // every other v2 affordance flows as a ChatCommand to the transport.
 
-    // Session transcript seam (P0-2).
-    let readOnly: Bool           // history-viewer mode: no composer / menus, no transport start
-    let initialContentRaw: Any?  // properties.content verbatim (a preview / testing convenience, NOT the
-                                 // production restore path); the store decodes it ONCE at start
-
-    // MARK: - Defaults
-
-    /// Default role styling, applied when `roles` (or a given role) is absent.
-    static let defaultRoles: [String: RoleStyle] = [
-        "local":  RoleStyle(side: "trailing", label: "You",   tint: "accent"),
-        "agent":  RoleStyle(side: "leading",  label: "Agent", tint: "secondary"),
-        "remote": RoleStyle(side: "leading",  label: "",      tint: "secondary"),
-        "system": RoleStyle(side: "center",   label: "",      tint: "secondary"),
-    ]
-
-    // MARK: - Parse
-
-    init(properties: [String: Any], logger: any ActionUILogger) {
-        let appearance = properties["appearance"] as? [String: Any] ?? [:]
-        let parsedAlignment = (appearance["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .single
-        alignment = parsedAlignment
-        showRoleLabels = (appearance["showRoleLabels"] as? Bool) ?? true
-        theme = (appearance["theme"] as? String) ?? "auto"
-        // Timestamps default ON in dual alignment, OFF in single - so a v1 (single) document is
-        // pixel-identical while a P2P (dual) document reads like a messaging app without opting in.
-        showTimestamps = (appearance["showTimestamps"] as? Bool) ?? (parsedAlignment == .dual)
-        showAvatars = (appearance["showAvatars"] as? Bool) ?? false
-        showDeliveryStatus = (appearance["showDeliveryStatus"] as? Bool) ?? true
-
-        roles = Self.parseRoles(properties["roles"] as? [String: Any])
-
-        let featuresRaw = properties["features"] as? [String: Any] ?? [:]
-        features = Features(
-            reactions: (featuresRaw["reactions"] as? Bool) ?? false,
-            editing: (featuresRaw["editing"] as? Bool) ?? false,
-            deletion: (featuresRaw["deletion"] as? Bool) ?? false,
-            replies: (featuresRaw["replies"] as? Bool) ?? false
-        )
-
-        let input = properties["input"] as? [String: Any] ?? [:]
-        inputEnabled = (input["enabled"] as? Bool) ?? true
-        placeholder = (input["placeholder"] as? String) ?? "Message"
-        submitOn = (input["submitOn"] as? String).flatMap(SubmitPolicy.init(rawValue:)) ?? .return
-
-        let surfacesRaw = properties["surfaces"] as? [String: Any] ?? [:]
-        var planMode = (surfacesRaw["plan"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .panel
-        if planMode == .inline {
-            logger.log("Chat surfaces.plan 'inline' is not a plan presentation (the plan is a pinned status surface); rendering as panel", .verbose)
-            planMode = .panel
-        }
-        var diffsMode = (surfacesRaw["diffs"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .inline
-        if diffsMode == .collapsed || diffsMode == .panel {
-            logger.log("Chat surfaces.diffs '\(diffsMode.rawValue)' renders inline (the tool card's fold covers collapsing; a diff panel is a later surface)", .verbose)
-            diffsMode = .inline
-        }
-        surfaces = Surfaces(
-            toolCalls: (surfacesRaw["toolCalls"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .inline,
-            thoughts: (surfacesRaw["thoughts"] as? String).flatMap(SurfaceMode.init(rawValue:)) ?? .collapsed,
-            plan: planMode,
-            diffs: diffsMode
-        )
-
+    init(properties: [String: Any], logger: any ChatLogger) {
         sendActionID = properties["sendActionID"] as? String
         stopActionID = properties["stopActionID"] as? String
         messageActionID = properties["messageActionID"] as? String
@@ -186,34 +44,10 @@ struct ChatConfig {
         entryActionID = properties["entryActionID"] as? String
         attachActionID = properties["attachActionID"] as? String
 
-        readOnly = (properties["readOnly"] as? Bool) ?? false
-        // A pre-populated transcript in `properties.content` - a preview / testing convenience only.
-        // The production restore path is a runtime setElementState("content", ...), which the store
-        // observes separately; a static UI document should not carry session data. Kept RAW here so it
-        // is not re-decoded on every buildView; the store decodes it once at start.
-        initialContentRaw = properties["content"]
-    }
-
-    private static func parseRoles(_ raw: [String: Any]?) -> [String: RoleStyle] {
-        var resolved = defaultRoles
-        guard let raw else { return resolved }
-        for (key, value) in raw {
-            guard let entry = value as? [String: Any] else { continue }
-            let base = resolved[key] ?? RoleStyle(side: "leading", label: "", tint: "secondary")
-            resolved[key] = RoleStyle(
-                side: entry["side"] as? String ?? base.side,
-                label: entry["label"] as? String ?? base.label,
-                tint: entry["tint"] as? String ?? base.tint
-            )
-        }
-        return resolved
-    }
-
-    // MARK: - Lookups used by the view
-
-    func style(for role: ChatRole) -> RoleStyle {
-        roles[role.rawValue] ?? Self.defaultRoles[role.rawValue]
-            ?? RoleStyle(side: "leading", label: "", tint: "secondary")
+        var configuration = ChatConfiguration(dictionary: properties, logger: logger)
+        configuration.attachEnabled = !(attachActionID?.isEmpty ?? true)
+        configuration.emitsEntryEvents = !(entryActionID?.isEmpty ?? true)
+        self.configuration = configuration
     }
 
     // MARK: - Validation (the element's validateProperties witness)
@@ -252,12 +86,12 @@ struct ChatConfig {
                     surfacesRaw[surface] = nil
                     continue
                 }
-                guard let mode = value as? String, SurfaceMode(rawValue: mode) != nil else {
+                guard let mode = value as? String, ChatConfiguration.SurfaceMode(rawValue: mode) != nil else {
                     logger.log("Chat surfaces.\(surface) must be one of inline / collapsed / hidden / panel; ignoring", .warning)
                     surfacesRaw[surface] = nil
                     continue
                 }
-                if mode == SurfaceMode.panel.rawValue {
+                if mode == ChatConfiguration.SurfaceMode.panel.rawValue {
                     logger.log("Chat surfaces.\(surface) 'panel' is not yet honored (M5); rendering inline", .verbose)
                 }
             }

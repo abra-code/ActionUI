@@ -167,13 +167,18 @@
  Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
  cornerRadius, actionID, disabled, onAppearActionID, onDisappearActionID, etc.) are inherited from base View.
 
- Implementation note: the "Chat" element lives in the ActionUIChatCore module and conforms to ActionUI's
- public ActionUIViewConstruction contract. The type and its witnesses are internal - an internal type
- conforming to a public protocol keeps internal witnesses. The module's public surface is small:
- ActionUIChatCore.register() (element + built-in "local" transport), registerTransport(_:factory:), and the
- frozen transport contract a transport module builds against (ChatTransport, ChatEvent, ChatCommand,
- ChatTransportConfig, ChatLogger, and the value types those carry). The umbrella ActionUIChat.register()
- registers the element and every bundled transport in one call.
+ Implementation note: the "Chat" element is a thin wrapper over the standalone ChatView package
+ (a sibling repo): the component owns the transcript, store, transports, and views; this module
+ conforms it to ActionUI's public ActionUIViewConstruction contract, maps the element's JSON
+ properties to the component's ChatConfiguration, adapts the logger, exposes states["content"] /
+ states["config"] to the component through ChatContentSource, and routes the component's host
+ events (ChatHostEvent) to the configured action IDs. The type and its witnesses are internal -
+ an internal type conforming to a public protocol keeps internal witnesses. The module's public
+ surface is small: ActionUIChatCore.register() (element + registry logger wiring),
+ registerTransport(_:factory:), and - re-exported from ChatView - the frozen transport contract
+ a transport module builds against (ChatTransport, ChatEvent, ChatCommand, ChatTransportConfig,
+ ChatLogger, and the value types those carry). The umbrella ActionUIChat.register() registers
+ the element and every bundled transport in one call.
  */
 
 import SwiftUI
@@ -192,13 +197,47 @@ struct Chat: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // The Chat element's operational config (protocol + transport) is NOT read here and is NOT
-        // document-declared: a host injects it at runtime into states["config"], which ChatStore
-        // observes and uses to build the transport once it is viable (a CHANGED viable config
-        // later re-configures in place; an identical one is deduped). buildView
-        // parses only the visual/behavioral `properties`; `model` is handed to the store so it can
-        // observe states["content"] (session restore) and states["config"] (transport).
-        let config = ChatConfig(properties: properties, logger: logger)
-        return ChatRootView(config: config, windowUUID: windowUUID, elementID: element.id, logger: logger, viewModel: model)
+        // document-declared: a host injects it at runtime into states["config"], which the component's
+        // store observes (through ChatContentSource) and uses to build the transport once it is viable
+        // (a CHANGED viable config later re-configures in place; an identical one is deduped).
+        // buildView parses only the visual/behavioral `properties`, derives the host event sink from
+        // the configured action IDs, and hands `model` to the component as the content/config source.
+        let chatLogger = ChatLoggerAdapter(base: logger)
+        let config = ChatConfig(properties: properties, logger: chatLogger)
+        let sink = Self.hostEventSink(config: config, windowUUID: windowUUID, elementID: element.id)
+        return ChatView(configuration: config.configuration, logger: chatLogger,
+                        contentSource: model, hostEvents: sink)
+    }
+
+    /// Maps component host events to the configured ActionUI action IDs. A named internal
+    /// static function (rather than an inline closure) so the add-on test suite can
+    /// exercise the dispatch mapping directly.
+    static func hostEventSink(config: ChatConfig, windowUUID: String, elementID: Int) -> ChatHostEventSink {
+        return { event in
+            let actionID: String?
+            var context: Any? = nil
+            switch event {
+            case .send:
+                actionID = config.sendActionID
+            case .stop:
+                actionID = config.stopActionID
+            case .attach:
+                actionID = config.attachActionID
+            case .messageFinalized:
+                actionID = config.messageActionID
+            case .error:
+                actionID = config.errorActionID
+            case .toolApprovalRequested:
+                actionID = config.approveToolActionID
+            case .entry(let json):
+                actionID = config.entryActionID
+                context = json
+            }
+            guard let actionID, !actionID.isEmpty else {
+                return
+            }
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: context)
+        }
     }
 
     // Baseline View modifiers (frame, padding, background, ...) are applied by the registry.
