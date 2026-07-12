@@ -8,9 +8,10 @@
 // not link" relationship the standalone xcodegen project expresses with link: false. The host links
 // this product + ActionUI and calls ActionUIDiff.register().
 //
-// This package ships two consumable libraries: DiffView is the pure diff-viewer component (imports
-// SwiftUI / Foundation only, no ActionUI) that ActionUIChat consumes directly for its tool-card
-// diffs; ActionUIDiff adds the `Diff` element wrapper on top of it for JSON documents.
+// The pure diff-viewer component (module DiffView: SwiftUI / Foundation only, no ActionUI) lives in
+// its own repo (github.com/abra-code/DiffView) - the same relationship RichText has to the
+// ActionUIRichText add-on. This package ships the `Diff` element wrapper on top of it for JSON
+// documents; the chat component consumes the DiffView package directly.
 
 import PackageDescription
 
@@ -22,8 +23,6 @@ let package = Package(
         .visionOS("2.6"),
     ],
     products: [
-        // The pure component (no ActionUI). Consumed directly by ActionUIChat, like RichText.
-        .library(name: "DiffView", targets: ["DiffView"]),
         .library(name: "ActionUIDiff", targets: ["ActionUIDiff"]),
         // Resource-only docs product, mirroring core ActionUIDocumentation. A client that links
         // this gets the add-on's schema doc + insert template copied into its bundle.
@@ -31,17 +30,16 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
+        // The standalone diff-viewer component in its own sibling repo. Referenced by local
+        // filesystem path while the component repos are developed side by side; switch to the
+        // github URL (branch/tag) once the repo is pushed.
+        .package(path: "../../../DiffView"),
     ],
     targets: [
-        // The standalone diff-viewer component: SwiftUI / Foundation only, no ActionUI dependency.
-        .target(
-            name: "DiffView",
-            path: "Sources/DiffView"
-        ),
         .target(
             name: "ActionUIDiff",
             dependencies: [
-                "DiffView",
+                .product(name: "DiffView", package: "DiffView"),
                 .product(name: "ActionUI", package: "ActionUI"),
             ],
             path: "Sources/ActionUIDiff"
@@ -58,10 +56,13 @@ let package = Package(
                 .copy("Elements"),
             ]
         ),
-        // Component tests (DiffView) plus element-level tests (ActionUIDiff); both reach internals.
+        // Element-level tests (ActionUIDiff); the component's own tests live in the DiffView repo.
         .testTarget(
             name: "DiffTests",
-            dependencies: ["DiffView", "ActionUIDiff"],
+            dependencies: [
+                "ActionUIDiff",
+                .product(name: "DiffView", package: "DiffView"),
+            ],
             path: "Tests"
         ),
     ]

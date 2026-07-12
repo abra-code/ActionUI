@@ -7,46 +7,24 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5CB17EE33C428A218C0A462F /* DiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C5FFB346DD5F85ACDB300A /* DiffView.swift */; };
-		624EFDFD35988489A14DB0BE /* DiffModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2214B3342D83CA6F29398B /* DiffModel.swift */; };
 		6CE8B03D2B4EC71606B342CC /* ActionUIDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD55BBAD7AECE2CFDD1CEA7 /* ActionUIDiff.swift */; };
 		E02AA73761B2649D6B434E1B /* Diff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746E99387E9E3AFE048248AD /* Diff.swift */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		32712B96DA96CDC06BE29789 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = CE30F9382E8659EAC4E46875 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7080D1D46F0DAECED93F6BD3;
-			remoteInfo = DiffView;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
-		2B2214B3342D83CA6F29398B /* DiffModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffModel.swift; sourceTree = "<group>"; };
+		33493525CDBC4388B9081196 /* DiffView */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiffView; path = ../../../DiffView; sourceTree = SOURCE_ROOT; };
 		746E99387E9E3AFE048248AD /* Diff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diff.swift; sourceTree = "<group>"; };
 		79971926670BDF327CB17542 /* libActionUIDiff.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIDiff.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		7EBC1AB8D5877488ADF001FE /* libDiffView.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDiffView.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1C5FFB346DD5F85ACDB300A /* DiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffView.swift; sourceTree = "<group>"; };
 		AA0C4414E0578E7E934075DD /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
 		EDD55BBAD7AECE2CFDD1CEA7 /* ActionUIDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIDiff.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		4292DC399CAE8B8CFC56EB25 /* DiffView */ = {
-			isa = PBXGroup;
-			children = (
-				2B2214B3342D83CA6F29398B /* DiffModel.swift */,
-				A1C5FFB346DD5F85ACDB300A /* DiffView.swift */,
-			);
-			path = DiffView;
-			sourceTree = "<group>";
-		};
 		539E3C55C518D09F10409885 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
 				AA0C4414E0578E7E934075DD /* ActionUI */,
+				33493525CDBC4388B9081196 /* DiffView */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -55,7 +33,6 @@
 			isa = PBXGroup;
 			children = (
 				79971926670BDF327CB17542 /* libActionUIDiff.a */,
-				7EBC1AB8D5877488ADF001FE /* libDiffView.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,7 +41,6 @@
 			isa = PBXGroup;
 			children = (
 				9B548333C34F52AD35653A0F /* ActionUIDiff */,
-				4292DC399CAE8B8CFC56EB25 /* DiffView */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -90,24 +66,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7080D1D46F0DAECED93F6BD3 /* DiffView */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5687364BB25BDEB1B5E295D3 /* Build configuration list for PBXNativeTarget "DiffView" */;
-			buildPhases = (
-				5241A8C744B70251E238718B /* Sources */,
-				77C7038A978624A3C42D63EC /* Copy Swift Objective-C Interface Header */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = DiffView;
-			packageProductDependencies = (
-			);
-			productName = DiffView;
-			productReference = 7EBC1AB8D5877488ADF001FE /* libDiffView.a */;
-			productType = "com.apple.product-type.library.static";
-		};
 		FA570F06352F6B3ABCDC5A18 /* ActionUIDiff */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 049F05EBB4EAEEB30CD25EEA /* Build configuration list for PBXNativeTarget "ActionUIDiff" */;
@@ -118,8 +76,8 @@
 			buildRules = (
 			);
 			dependencies = (
-				5BBD7E5610EE49129A53C616 /* PBXTargetDependency */,
 				72A88C775835CBC842EA3923 /* PBXTargetDependency */,
+				3404D402B1D53E86EEA27C49 /* PBXTargetDependency */,
 			);
 			name = ActionUIDiff;
 			packageProductDependencies = (
@@ -150,6 +108,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				5099851F26094B15A8775485 /* XCLocalSwiftPackageReference "../.." */,
+				3BB32B026D2B013FFE3F34E5 /* XCLocalSwiftPackageReference "../../../DiffView" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FAB30C278572D919A37CADD /* Products */;
@@ -157,28 +116,11 @@
 			projectRoot = "";
 			targets = (
 				FA570F06352F6B3ABCDC5A18 /* ActionUIDiff */,
-				7080D1D46F0DAECED93F6BD3 /* DiffView */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		77C7038A978624A3C42D63EC /* Copy Swift Objective-C Interface Header */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
-			);
-			name = "Copy Swift Objective-C Interface Header";
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-		};
 		7894194962D73BACF9639463 /* Copy Swift Objective-C Interface Header */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -198,15 +140,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		5241A8C744B70251E238718B /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				624EFDFD35988489A14DB0BE /* DiffModel.swift in Sources */,
-				5CB17EE33C428A218C0A462F /* DiffView.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		6539185EA6EFDDB199F0D440 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -219,14 +152,13 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		5BBD7E5610EE49129A53C616 /* PBXTargetDependency */ = {
+		3404D402B1D53E86EEA27C49 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7080D1D46F0DAECED93F6BD3 /* DiffView */;
-			targetProxy = 32712B96DA96CDC06BE29789 /* PBXContainerItemProxy */;
+			productRef = "TEMP_0BAB92B4-9DB8-45F5-83B8-F4734F9196CF" /* ActionUI */;
 		};
 		72A88C775835CBC842EA3923 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_4DCC58F7-E2BB-4947-821F-CBB6F6D65803" /* ActionUI */;
+			productRef = "TEMP_E237B88E-CA38-4CC5-947E-79D3B9288210" /* DiffView */;
 		};
 /* End PBXTargetDependency section */
 
@@ -310,22 +242,6 @@
 			};
 			name = Debug;
 		};
-		7A0C39EBE3143F3013F04404 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.DiffView;
-				PRODUCT_MODULE_NAME = DiffView;
-				SDKROOT = macosx;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Release;
-		};
 		B075B7F4224DF0093CB05ACE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -382,22 +298,6 @@
 			};
 			name = Release;
 		};
-		B3EA0E99DFA62C3A8709AE5B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.actionui.DiffView;
-				PRODUCT_MODULE_NAME = DiffView;
-				SDKROOT = macosx;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
-		};
 		F4522059D3FBD1763BCB41E2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -426,15 +326,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		5687364BB25BDEB1B5E295D3 /* Build configuration list for PBXNativeTarget "DiffView" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				B3EA0E99DFA62C3A8709AE5B /* Debug */,
-				7A0C39EBE3143F3013F04404 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		F8DCBC526FF4B1BBEC0CDCA5 /* Build configuration list for PBXProject "ActionUIDiff" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -447,6 +338,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		3BB32B026D2B013FFE3F34E5 /* XCLocalSwiftPackageReference "../../../DiffView" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../DiffView;
+		};
 		5099851F26094B15A8775485 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
@@ -454,9 +349,13 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_4DCC58F7-E2BB-4947-821F-CBB6F6D65803" /* ActionUI */ = {
+		"TEMP_0BAB92B4-9DB8-45F5-83B8-F4734F9196CF" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
+		};
+		"TEMP_E237B88E-CA38-4CC5-947E-79D3B9288210" /* DiffView */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DiffView;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

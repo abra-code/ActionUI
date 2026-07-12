@@ -1,13 +1,13 @@
 # xcodegen spec for the ActionUIDiff add-on.
 # Generate the Xcode project with:  xcodegen generate   (run in this directory)
 #
-# This add-on ships two static libraries. DiffView is the pure diff-viewer component (SwiftUI /
-# Foundation only, no ActionUI). ActionUIDiff is the `Diff` element wrapper: it COMPILES AGAINST
-# ActionUI's public API but does NOT link the ActionUI static library - the dependency below is
-# `link: false`, so ActionUI is used only for its Swift module (build order + import visibility) -
-# and depends on DiffView, also `link: false`. The HOST app links ActionUI, DiffView, and this
-# add-on, and calls ActionUIDiff.register() once at launch. (A static library never embeds its
-# dependencies' object code anyway; link: false makes that intent explicit.)
+# This add-on ships one static library: ActionUIDiff, the `Diff` element wrapper. It COMPILES
+# AGAINST ActionUI's public API but does NOT link the ActionUI static library - the dependency
+# below is `link: false`, so ActionUI is used only for its Swift module (build order + import
+# visibility) - and depends the same way on the DiffView package (the pure diff-viewer component,
+# now in its own sibling repo). The HOST app links ActionUI, DiffView, and this add-on, and calls
+# ActionUIDiff.register() once at launch. (A static library never embeds its dependencies' object
+# code anyway; link: false makes that intent explicit.)
 
 name: ActionUIDiff
 
@@ -20,26 +20,18 @@ options:
 packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
+  DiffView:
+    path: ../../../DiffView   # the standalone diff-viewer component repo (sibling of ActionUI)
 
 targets:
-  DiffView:
-    type: library.static
-    platform: macOS
-    sources:
-      - path: Sources/DiffView
-    settings:
-      base:
-        SWIFT_VERSION: "6.0"
-        SKIP_INSTALL: "YES"
-        PRODUCT_MODULE_NAME: DiffView
-
   ActionUIDiff:
     type: library.static
     platform: macOS
     sources:
       - path: Sources/ActionUIDiff
     dependencies:
-      - target: DiffView
+      - package: DiffView
+        product: DiffView
         link: false       # compile-time module dependency only; host links DiffView
       - package: ActionUI
         product: ActionUI
@@ -54,5 +46,4 @@ schemes:
   ActionUIDiff:
     build:
       targets:
-        DiffView: all
         ActionUIDiff: all

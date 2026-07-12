@@ -21,20 +21,6 @@
                ReferencedContainer = "container:ActionUIDiff.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7080D1D46F0DAECED93F6BD3"
-               BuildableName = "libDiffView.a"
-               BlueprintName = "DiffView"
-               ReferencedContainer = "container:ActionUIDiff.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
