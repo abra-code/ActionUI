@@ -36,9 +36,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
-        // AsyncImageCache has no released tags yet, so pin the branch. Switch to `from: "x.y.z"`
-        // once the package is tagged.
-        .package(url: "https://github.com/abra-code/AsyncImageCache", branch: "main"),
+        // AsyncImageCache is consumed as a versioned release.
+        .package(url: "https://github.com/abra-code/AsyncImageCache", from: "0.1.0"),
     ],
     targets: [
         .target(

@@ -144,11 +144,11 @@
 /* Begin PBXTargetDependency section */
 		0C8229032A0B55EEB0141715 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_5272E912-69BA-476D-A934-09631C2AFCB0" /* RichText */;
+			productRef = "TEMP_19B5DCB2-4730-4451-9E20-8E73667E3814" /* RichText */;
 		};
 		1EDCBABBBC5349DDB7AA069B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_07554347-8920-436F-A168-6ED661904155" /* ActionUI */;
+			productRef = "TEMP_39C09C9A-AF8E-43BF-A983-1B6B4437E719" /* ActionUI */;
 		};
 /* End PBXTargetDependency section */
 
@@ -339,21 +339,21 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/abra-code/RichText";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_07554347-8920-436F-A168-6ED661904155" /* ActionUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ActionUI;
-		};
-		"TEMP_5272E912-69BA-476D-A934-09631C2AFCB0" /* RichText */ = {
+		"TEMP_19B5DCB2-4730-4451-9E20-8E73667E3814" /* RichText */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 82D5AD5577F299DFA07821BE /* XCRemoteSwiftPackageReference "RichText" */;
 			productName = RichText;
+		};
+		"TEMP_39C09C9A-AF8E-43BF-A983-1B6B4437E719" /* ActionUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

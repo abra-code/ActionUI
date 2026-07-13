@@ -144,11 +144,11 @@
 /* Begin PBXTargetDependency section */
 		74B8DA6476EC95B3B57A11DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_67654A73-3950-41E3-886C-DF74B76C4556" /* ActionUI */;
+			productRef = "TEMP_F7DC3AAE-6365-4544-A650-31A67935CAAA" /* ActionUI */;
 		};
 		8A6A05496B12E7F5C43CA5EC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_AF0E74AF-F5C2-4190-8EFB-A412C0825ED7" /* AsyncImageCache */;
+			productRef = "TEMP_67124F2C-5B48-4112-94F6-31CC0BF822B4" /* AsyncImageCache */;
 		};
 /* End PBXTargetDependency section */
 
@@ -339,21 +339,21 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/abra-code/AsyncImageCache";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_67654A73-3950-41E3-886C-DF74B76C4556" /* ActionUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ActionUI;
-		};
-		"TEMP_AF0E74AF-F5C2-4190-8EFB-A412C0825ED7" /* AsyncImageCache */ = {
+		"TEMP_67124F2C-5B48-4112-94F6-31CC0BF822B4" /* AsyncImageCache */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 2D986D1C3156197B3BE8AF15 /* XCRemoteSwiftPackageReference "AsyncImageCache" */;
 			productName = AsyncImageCache;
+		};
+		"TEMP_F7DC3AAE-6365-4544-A650-31A67935CAAA" /* ActionUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ActionUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

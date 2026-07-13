@@ -24,7 +24,7 @@ packages:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
   AsyncImageCache:
     url: https://github.com/abra-code/AsyncImageCache
-    branch: main
+    from: "0.1.0"
 
 targets:
   ActionUICachedImage:

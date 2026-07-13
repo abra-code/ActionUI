@@ -35,9 +35,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
-        // RichText has no released tags yet, so pin the branch. Switch to `from: "x.y.z"` once the
-        // package is tagged. (RichText itself pulls AsyncImageCache; SPM resolves it transitively.)
-        .package(url: "https://github.com/abra-code/RichText", branch: "main"),
+        // RichText is consumed as a versioned release. (RichText itself pulls AsyncImageCache;
+        // SPM resolves it transitively.)
+        .package(url: "https://github.com/abra-code/RichText", from: "0.1.0"),
     ],
     targets: [
         .target(

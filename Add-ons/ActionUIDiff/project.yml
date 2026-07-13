@@ -21,7 +21,10 @@ packages:
   ActionUI:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
   DiffView:
-    path: ../../../DiffView   # the standalone diff-viewer component repo (sibling of ActionUI)
+    # The standalone diff-viewer component repo, referenced by github URL to match
+    # Package.swift. Resolved from github (network on first resolve, then cached).
+    url: https://github.com/abra-code/DiffView
+    from: "0.1.0"
 
 targets:
   ActionUIDiff:

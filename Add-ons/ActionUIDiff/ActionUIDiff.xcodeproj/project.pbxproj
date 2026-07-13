@@ -12,7 +12,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		33493525CDBC4388B9081196 /* DiffView */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiffView; path = ../../../DiffView; sourceTree = SOURCE_ROOT; };
 		746E99387E9E3AFE048248AD /* Diff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diff.swift; sourceTree = "<group>"; };
 		79971926670BDF327CB17542 /* libActionUIDiff.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIDiff.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0C4414E0578E7E934075DD /* ActionUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUI; path = ../..; sourceTree = SOURCE_ROOT; };
@@ -24,7 +23,6 @@
 			isa = PBXGroup;
 			children = (
 				AA0C4414E0578E7E934075DD /* ActionUI */,
-				33493525CDBC4388B9081196 /* DiffView */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -107,8 +105,8 @@
 			mainGroup = CA89204538C3662423650093;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A69A5901BDDE6C368A0FB6BA /* XCRemoteSwiftPackageReference "DiffView" */,
 				5099851F26094B15A8775485 /* XCLocalSwiftPackageReference "../.." */,
-				3BB32B026D2B013FFE3F34E5 /* XCLocalSwiftPackageReference "../../../DiffView" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FAB30C278572D919A37CADD /* Products */;
@@ -154,11 +152,11 @@
 /* Begin PBXTargetDependency section */
 		3404D402B1D53E86EEA27C49 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_0BAB92B4-9DB8-45F5-83B8-F4734F9196CF" /* ActionUI */;
+			productRef = "TEMP_D921FBDB-28C3-4CF9-81A0-394DE5F96D82" /* ActionUI */;
 		};
 		72A88C775835CBC842EA3923 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_E237B88E-CA38-4CC5-947E-79D3B9288210" /* DiffView */;
+			productRef = "TEMP_994A5288-DABD-4411-9810-6559C2EC54B8" /* DiffView */;
 		};
 /* End PBXTargetDependency section */
 
@@ -338,24 +336,32 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		3BB32B026D2B013FFE3F34E5 /* XCLocalSwiftPackageReference "../../../DiffView" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../DiffView;
-		};
 		5099851F26094B15A8775485 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A69A5901BDDE6C368A0FB6BA /* XCRemoteSwiftPackageReference "DiffView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/abra-code/DiffView";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
-		"TEMP_0BAB92B4-9DB8-45F5-83B8-F4734F9196CF" /* ActionUI */ = {
+		"TEMP_994A5288-DABD-4411-9810-6559C2EC54B8" /* DiffView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A69A5901BDDE6C368A0FB6BA /* XCRemoteSwiftPackageReference "DiffView" */;
+			productName = DiffView;
+		};
+		"TEMP_D921FBDB-28C3-4CF9-81A0-394DE5F96D82" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
-		};
-		"TEMP_E237B88E-CA38-4CC5-947E-79D3B9288210" /* DiffView */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DiffView;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

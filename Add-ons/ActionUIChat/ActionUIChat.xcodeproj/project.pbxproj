@@ -55,7 +55,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		1D58DDBCE1AAE45E980C9086 /* ChatView */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ChatView; path = ../../../ChatView; sourceTree = SOURCE_ROOT; };
 		35001F12AE5280DF469A9A34 /* libActionUIChatOpenAI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIChatOpenAI.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AA0F390148DC623462B3C09 /* ActionUIChatACP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionUIChatACP.swift; sourceTree = "<group>"; };
 		3ADFD8628EF32B8D7430BF62 /* libActionUIChatCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libActionUIChatCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -116,7 +115,6 @@
 			isa = PBXGroup;
 			children = (
 				E2D0D3682609D260E1B85415 /* ActionUI */,
-				1D58DDBCE1AAE45E980C9086 /* ChatView */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -251,8 +249,8 @@
 			mainGroup = E34C486BCF946F55FDB7E33E;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				3F8836FC5015EC6EB82510B0 /* XCRemoteSwiftPackageReference "ChatView" */,
 				CC8FC57848AC9B40A3CE44A7 /* XCLocalSwiftPackageReference "../.." */,
-				DB98EA5D421CCF1159174976 /* XCLocalSwiftPackageReference "../../../ChatView" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 42F660AD6FAA551C77B55ABF /* Products */;
@@ -375,7 +373,7 @@
 /* Begin PBXTargetDependency section */
 		00BC176F81F56E0CB7AE8525 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_04DB8B56-2664-40D6-BD2B-8331F86D9363" /* ChatView */;
+			productRef = "TEMP_98488B9B-3402-415E-84A9-93CFC9AB7910" /* ChatView */;
 		};
 		12AE6206D9A542A696BCD072 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -394,7 +392,7 @@
 		};
 		3E82EA73166876D90557F763 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_DB9FEF28-4DEF-4B98-B3F1-6ED0571B2696" /* ChatViewACP */;
+			productRef = "TEMP_CADA4B17-9564-4A82-902B-74AECDC54506" /* ChatViewACP */;
 		};
 		43188FDBA234B081869792A6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -403,11 +401,11 @@
 		};
 		8AAB34252113FC65C32F10D6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_B758EB5B-6544-4676-AB38-75D3E6BD85AC" /* ActionUI */;
+			productRef = "TEMP_F9DF104F-1CF1-405A-BA8E-7CBA9D0B5F1C" /* ActionUI */;
 		};
 		B8924B81B06B30EDBA8A0A7C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = "TEMP_39ACA5EB-A48E-4344-AF50-5899CC8A2447" /* ChatViewOpenAI */;
+			productRef = "TEMP_28F06C75-3C5E-42D2-93DB-65C1E1FBA79A" /* ChatViewOpenAI */;
 		};
 		D849A1569B57E27187AD0BC8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -719,28 +717,38 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
-		DB98EA5D421CCF1159174976 /* XCLocalSwiftPackageReference "../../../ChatView" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../ChatView;
-		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCSwiftPackageProductDependency section */
-		"TEMP_04DB8B56-2664-40D6-BD2B-8331F86D9363" /* ChatView */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ChatView;
+/* Begin XCRemoteSwiftPackageReference section */
+		3F8836FC5015EC6EB82510B0 /* XCRemoteSwiftPackageReference "ChatView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/abra-code/ChatView";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
 		};
-		"TEMP_39ACA5EB-A48E-4344-AF50-5899CC8A2447" /* ChatViewOpenAI */ = {
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		"TEMP_28F06C75-3C5E-42D2-93DB-65C1E1FBA79A" /* ChatViewOpenAI */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 3F8836FC5015EC6EB82510B0 /* XCRemoteSwiftPackageReference "ChatView" */;
 			productName = ChatViewOpenAI;
 		};
-		"TEMP_B758EB5B-6544-4676-AB38-75D3E6BD85AC" /* ActionUI */ = {
+		"TEMP_98488B9B-3402-415E-84A9-93CFC9AB7910" /* ChatView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3F8836FC5015EC6EB82510B0 /* XCRemoteSwiftPackageReference "ChatView" */;
+			productName = ChatView;
+		};
+		"TEMP_CADA4B17-9564-4A82-902B-74AECDC54506" /* ChatViewACP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3F8836FC5015EC6EB82510B0 /* XCRemoteSwiftPackageReference "ChatView" */;
+			productName = ChatViewACP;
+		};
+		"TEMP_F9DF104F-1CF1-405A-BA8E-7CBA9D0B5F1C" /* ActionUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ActionUI;
-		};
-		"TEMP_DB9FEF28-4DEF-4B98-B3F1-6ED0571B2696" /* ChatViewACP */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ChatViewACP;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -48,11 +48,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),                // the ActionUI package at the repo root
-        // The standalone chat component in its own sibling repo (which itself depends on
-        // RichText, AsyncImageCache, and DiffView). Referenced by local filesystem path while
-        // the component repos are developed side by side; switch to the github URL
-        // (branch/tag) once the repo is pushed.
-        .package(path: "../../../ChatView"),
+        // The standalone chat component in its own repo (github.com/abra-code), which itself
+        // depends on RichText, AsyncImageCache, and DiffView. Consumed as a versioned release.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.1.0"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.

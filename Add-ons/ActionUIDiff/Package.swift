@@ -30,10 +30,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../.."),   // the ActionUI package at the repo root
-        // The standalone diff-viewer component in its own sibling repo. Referenced by local
-        // filesystem path while the component repos are developed side by side; switch to the
-        // github URL (branch/tag) once the repo is pushed.
-        .package(path: "../../../DiffView"),
+        // The standalone diff-viewer component in its own repo (github.com/abra-code),
+        // consumed as a versioned release.
+        .package(url: "https://github.com/abra-code/DiffView", from: "0.1.0"),
     ],
     targets: [
         .target(
