@@ -6,7 +6,6 @@ build/
 DerivedData/
 .build/
 .swiftpm/
-Package.resolved
 
 # Xcode per-user state inside the committed .xcodeproj
 xcuserdata/
