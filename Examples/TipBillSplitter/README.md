@@ -84,7 +84,7 @@ The `web/` folder references the framework and the UI through two symlinks
 just works when served from the ActionUI repo root:
 
 ```
-cd /Users/tkukielk/git/ActionUI
+cd ${HOME}/git/ActionUI
 python3 -m http.server 8080 --protocol HTTP/1.1
 # then open http://localhost:8080/Examples/TipBillSplitter/web/
 ```

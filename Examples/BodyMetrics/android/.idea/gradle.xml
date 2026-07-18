@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/../../../ActionUIAndroid" name="ActionUIAndroid">
+                <projects>
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/addon-cachedimage" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/addon-richtext" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/addon-testapp" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/demoApp" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/library" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/map-google" />
+                  <project path="$PROJECT_DIR$/../../../ActionUIAndroid/map-osm" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/../../../../AsyncImageCache/android" name="AsyncImageCache">
+                <projects>
+                  <project path="$PROJECT_DIR$/../../../../AsyncImageCache/android" />
+                  <project path="$PROJECT_DIR$/../../../../AsyncImageCache/android/asyncimagecache" />
+                  <project path="$PROJECT_DIR$/../../../../AsyncImageCache/android/demo" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/../../../../RichText/android" name="RichText">
+                <projects>
+                  <project path="$PROJECT_DIR$/../../../../RichText/android" />
+                  <project path="$PROJECT_DIR$/../../../../RichText/android/demo" />
+                  <project path="$PROJECT_DIR$/../../../../RichText/android/richtext" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
+        <option name="testRunner" value="CHOOSE_PER_TEST" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/addon-cachedimage" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/addon-richtext" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/addon-testapp" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/demoApp" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/library" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/map-google" />
+            <option value="$PROJECT_DIR$/../../../ActionUIAndroid/map-osm" />
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/bodymetrics" />
+            <option value="$PROJECT_DIR$/../../../../AsyncImageCache/android" />
+            <option value="$PROJECT_DIR$/../../../../AsyncImageCache/android/asyncimagecache" />
+            <option value="$PROJECT_DIR$/../../../../AsyncImageCache/android/demo" />
+            <option value="$PROJECT_DIR$/../../../../RichText/android" />
+            <option value="$PROJECT_DIR$/../../../../RichText/android/demo" />
+            <option value="$PROJECT_DIR$/../../../../RichText/android/richtext" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>

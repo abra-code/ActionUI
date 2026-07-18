@@ -2,7 +2,7 @@
 
 **Complexity:** Level 1 / 5 (difficulty score 1.0 - the canonical first applet).
 **Previous:** none - start here.
-**Next:** [Pocket Calculator](../PocketCalculator/) (Level 2) - a button grid driving a host-side state machine. *(planned)*
+**Next:** [Pocket Calculator](../PocketCalculator/) (Level 2) - a button grid driving a host-side state machine.
 
 The smallest real ActionUI app: one JSON screen plus a thin native host per platform. It converts a number between Celsius, Fahrenheit, and Kelvin, recomputing live as you type or change a unit.
 
@@ -54,7 +54,7 @@ The `web/` folder references the framework and the UI through two symlinks
 so it just works when served from the ActionUI repo root:
 
 ```
-cd /Users/tkukielk/git/ActionUI
+cd ${HOME}/git/ActionUI
 python3 -m http.server 8080 --protocol HTTP/1.1
 # then open http://localhost:8080/Examples/TemperatureConverter/web/
 ```

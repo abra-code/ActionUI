@@ -1,0 +1,157 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12,
+    "alignment": "center",
+    "padding": 16,
+    "frame": {
+      "minWidth": 320,
+      "idealWidth": 380,
+      "minHeight": 480,
+      "idealHeight": 520,
+      "maxWidth": "infinity",
+      "maxHeight": "infinity",
+      "alignment": "top"
+    }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Body Metrics",
+        "font": { "size": 24, "weight": "bold" },
+        "frame": { "maxWidth": "infinity", "alignment": "leading" }
+      }
+    },
+    {
+      "type": "Toggle",
+      "id": 10,
+      "properties": {
+        "title": "Imperial units (ft/in, lb)",
+        "style": "switch",
+        "isOn": false,
+        "actionID": "bmi.recompute",
+        "frame": { "maxWidth": "infinity" }
+      }
+    },
+    {
+      "type": "GroupBox",
+      "properties": { "frame": { "maxWidth": "infinity" } },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 12, "alignment": "leading", "frame": { "maxWidth": "infinity" } },
+          "children": [
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4, "alignment": "leading", "frame": { "maxWidth": "infinity" } },
+              "children": [
+                {
+                  "type": "HStack",
+                  "properties": { "spacing": 8, "frame": { "maxWidth": "infinity" } },
+                  "children": [
+                    { "type": "Text", "properties": { "text": "Height", "font": "headline" } },
+                    { "type": "Spacer" },
+                    {
+                      "type": "Text",
+                      "id": 21,
+                      "properties": { "text": "170 cm", "font": { "weight": "semibold" }, "foregroundStyle": "secondary" }
+                    }
+                  ]
+                },
+                {
+                  "type": "Slider",
+                  "id": 20,
+                  "properties": {
+                    "value": 170.0,
+                    "range": { "min": 100.0, "max": 220.0 },
+                    "valueChangeActionID": "bmi.recompute",
+                    "frame": { "maxWidth": "infinity" }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "VStack",
+              "properties": { "spacing": 4, "alignment": "leading", "frame": { "maxWidth": "infinity" } },
+              "children": [
+                {
+                  "type": "HStack",
+                  "properties": { "spacing": 8, "frame": { "maxWidth": "infinity" } },
+                  "children": [
+                    { "type": "Text", "properties": { "text": "Weight", "font": "headline" } },
+                    { "type": "Spacer" },
+                    {
+                      "type": "Text",
+                      "id": 31,
+                      "properties": { "text": "70 kg", "font": { "weight": "semibold" }, "foregroundStyle": "secondary" }
+                    }
+                  ]
+                },
+                {
+                  "type": "Slider",
+                  "id": 30,
+                  "properties": {
+                    "value": 70.0,
+                    "range": { "min": 30.0, "max": 200.0 },
+                    "valueChangeActionID": "bmi.recompute",
+                    "frame": { "maxWidth": "infinity" }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ZStack",
+      "properties": {
+        "alignment": "center",
+        "frame": { "width": 192, "height": 192 }
+      },
+      "children": [
+        {
+          "type": "Gauge",
+          "id": 40,
+          "properties": {
+            "style": "accessoryCircularCapacity",
+            "value": 24.2,
+            "range": { "min": 10.0, "max": 40.0 },
+            "scaleEffect": 2.7,
+            "foregroundStyle": "green",
+            "tint": "green"
+          }
+        },
+        {
+          "type": "VStack",
+          "properties": { "spacing": 2, "alignment": "center" },
+          "children": [
+            {
+              "type": "Text",
+              "id": 50,
+              "properties": {
+                "text": "24.2",
+                "font": { "size": 36, "weight": "bold", "design": "rounded" },
+                "textSelection": "enabled"
+              }
+            },
+            {
+              "type": "Text",
+              "properties": { "text": "BMI", "font": "caption", "foregroundStyle": "secondary" }
+            },
+            {
+              "type": "Text",
+              "id": 60,
+              "properties": {
+                "text": "Normal",
+                "font": { "size": 14, "weight": "semibold" },
+                "foregroundStyle": "green"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
