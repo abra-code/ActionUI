@@ -1598,6 +1598,12 @@
        scroll height - escaping an ancestor ScrollView/overflow clip. */
     position: relative;
 }
+/* When the bar is told to fill its width (SwiftUI .frame(maxWidth: .infinity)),
+   the segments divide that width equally, matching a native segmented control -
+   otherwise the content-sized segments leave the extra width as an empty stub on
+   the trailing edge. Scoped to the fill case so a content-sized segmented bar
+   (no maxWidth) keeps its natural per-segment widths. */
+.aui-picker-segmented.aui-fill-width .aui-segment { flex: 1 1 0; min-width: 0; }
 .aui-picker-segmented .aui-segment:first-child { border-left: none; }
 .aui-picker-segmented .aui-segment > input { position: absolute; opacity: 0; pointer-events: none; }
 .aui-picker-segmented .aui-segment:has(> input:checked) { background: var(--aui-color-accent); color: #fff; }
