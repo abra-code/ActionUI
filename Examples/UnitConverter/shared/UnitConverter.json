@@ -1,0 +1,116 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 16,
+    "alignment": "center",
+    "padding": 20,
+    "frame": { "minWidth": 320, "idealWidth": 380, "minHeight": 340, "idealHeight": 380 }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Unit Converter", "font": "largeTitle" }
+    },
+    {
+      "type": "GroupBox",
+      "properties": { "frame": { "maxWidth": 300 } },
+      "children": [
+        {
+          "type": "VStack",
+          "properties": { "spacing": 14, "alignment": "center", "frame": { "maxWidth": "infinity" } },
+          "children": [
+            {
+              "type": "Picker",
+              "id": 5,
+              "properties": {
+                "pickerStyle": "segmented",
+                "frame": { "maxWidth": "infinity" },
+                "options": [
+                  { "title": "Length", "tag": "length" },
+                  { "title": "Mass", "tag": "mass" },
+                  { "title": "Temp", "tag": "temperature" }
+                ],
+                "actionID": "unit.category",
+                "onAppearActionID": "unit.category"
+              }
+            },
+            {
+              "type": "HStack",
+              "properties": { "spacing": 10, "alignment": "center", "frame": { "maxWidth": "infinity" } },
+              "children": [
+                {
+                  "type": "TextField",
+                  "id": 10,
+                  "properties": {
+                    "prompt": "Amount",
+                    "font": "title2",
+                    "padding": 14,
+                    "background": "fill.tertiary",
+                    "cornerRadius": 12,
+                    "frame": { "maxWidth": "infinity" },
+                    "valueChangeActionID": "unit.recompute"
+                  }
+                },
+                {
+                  "type": "Picker",
+                  "id": 20,
+                  "properties": {
+                    "pickerStyle": "menu",
+                    "options": [
+                      { "title": "meter", "tag": "L0" },
+                      { "title": "centimeter", "tag": "L1" },
+                      { "title": "kilometer", "tag": "L2" },
+                      { "title": "inch", "tag": "L3" },
+                      { "title": "foot", "tag": "L4" },
+                      { "title": "mile", "tag": "L5" }
+                    ],
+                    "actionID": "unit.recompute"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "Image",
+              "properties": { "systemName": "arrow.down", "foregroundStyle": "secondary" }
+            },
+            {
+              "type": "HStack",
+              "properties": { "spacing": 10, "alignment": "center", "frame": { "maxWidth": "infinity" } },
+              "children": [
+                {
+                  "type": "Text",
+                  "id": 40,
+                  "properties": {
+                    "text": "",
+                    "font": "title2",
+                    "padding": 14,
+                    "background": "fill.tertiary",
+                    "cornerRadius": 12,
+                    "frame": { "maxWidth": "infinity", "alignment": "leading" },
+                    "textSelection": "enabled"
+                  }
+                },
+                {
+                  "type": "Picker",
+                  "id": 30,
+                  "properties": {
+                    "pickerStyle": "menu",
+                    "options": [
+                      { "title": "meter", "tag": "L0" },
+                      { "title": "centimeter", "tag": "L1" },
+                      { "title": "kilometer", "tag": "L2" },
+                      { "title": "inch", "tag": "L3" },
+                      { "title": "foot", "tag": "L4" },
+                      { "title": "mile", "tag": "L5" }
+                    ],
+                    "actionID": "unit.recompute"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

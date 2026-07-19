@@ -27,3 +27,8 @@ Tools/verifier/verifier/__pycache__
 Tools/verifier/__pycache__
 Tools/material_symbols/__pycache__
 ActionUIAndroid/.idea/androidTestResultsUserPreferences.xml
+
+# Android Studio / IntelliJ project state in example apps: per-developer IDE
+# config, not source. Ignored across every example (was causing tracked-file
+# churn like caches/deviceStreaming.xml, gradle.xml, vcs.xml).
+Examples/**/.idea/

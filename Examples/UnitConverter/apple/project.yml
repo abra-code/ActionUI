@@ -1,0 +1,57 @@
+# XcodeGen spec for the Unit Converter Apple app (iOS + macOS).
+#
+# Generate the (committed) .xcodeproj with:  ./generate_xcodeproj.sh
+# (or: brew install xcodegen && xcodegen generate)
+#
+# What makes this example different from the simpler ones: the conversion logic is
+# a shared C file (shared/c/convert.c). It is packaged as the LOCAL Swift package
+# `ConvertC/` (a single pure-C library target whose public header is convert.h).
+# Xcode links that C target into the app and the Swift host imports it as a Clang
+# module (`import ConvertC`). The identical .c is compiled by the Android NDK, so
+# both platforms run the same math.
+#
+# `platform: [iOS, macOS]` makes XcodeGen emit two targets/schemes,
+# UnitConverter_iOS and UnitConverter_macOS, from the one source set.
+
+name: UnitConverter
+
+options:
+  bundleIdPrefix: com.abracode.actionui.examples
+  deploymentTarget:
+    iOS: "17.6"
+    macOS: "14.6"
+  createIntermediateGroups: true
+
+packages:
+  # The ActionUI Swift package at the repo root (three levels up from apple/).
+  ActionUI:
+    path: ../../../
+  # The shared-C brain, as a local Swift package (one pure-C library target).
+  ConvertC:
+    path: ConvertC
+
+targets:
+  UnitConverter:
+    type: application
+    platform: [iOS, macOS]
+    sources:
+      - path: UnitConverterApp.swift
+      # The shared JSON, copied into the app bundle as UnitConverter.json.
+      - path: ../shared/UnitConverter.json
+        buildPhase: resources
+    dependencies:
+      - package: ActionUI
+        product: ActionUI
+      - package: ActionUI
+        product: ActionUISwiftAdapter
+      # Links shared/c/convert.c (via the ConvertC package) into the app and makes
+      # the `import ConvertC` Clang module available to the Swift host.
+      - package: ConvertC
+        product: ConvertC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.abracode.actionui.examples.UnitConverter
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
