@@ -9,6 +9,9 @@ import assert from "node:assert/strict";
 import { installDom, makeElement, makeLogger } from "./dom-stub.mjs";
 import { applyElementProperty } from "../src/Common/ModifierResolver.js";
 import { ActionUIModel } from "../src/Common/ActionUIModel.js";
+// Importing the Picker view registers its runtime "options" applier (a view module
+// contributing to setElementProperty via registerElementPropertyApplier).
+import "../src/Views/Picker.js";
 
 test("opacity / hidden / cornerRadius / help set the right styles, hidden bidirectionally", () => {
     const logger = makeLogger();
@@ -79,6 +82,44 @@ test("an unsupported property returns false and warns", () => {
     const n = makeElement();
     assert.equal(applyElementProperty(n, "text", "hello", logger), false);
     assert.ok(logger.warned("not a host-settable visual property"));
+});
+
+test("Picker 'options' applier rebuilds a menu <select>'s options, preserving a surviving selection", () => {
+    installDom();
+    const logger = makeLogger();
+    const select = makeElement("select");
+    // Seed it as a length menu, "L3" selected.
+    for (const [title, tag] of [["meter", "L0"], ["inch", "L3"]]) {
+        const opt = makeElement("option");
+        opt.value = tag;
+        opt.textContent = title;
+        select.appendChild(opt);
+    }
+    select.value = "L3";
+
+    // Repopulate to a different category: the old selection is gone, so it falls to
+    // the first new option.
+    assert.equal(
+        applyElementProperty(select, "options",
+            [{ title: "Celsius", tag: "T0" }, { title: "Kelvin", tag: "T2" }], logger),
+        true,
+    );
+    assert.deepEqual(select.children.map((o) => o.value), ["T0", "T2"]);
+    assert.equal(select.value, "T0", "a dropped selection falls to the first option");
+    assert.equal(logger.warningCount(), 0);
+
+    // A repopulation that still contains the current selection keeps it.
+    select.value = "T2";
+    applyElementProperty(select, "options",
+        [{ title: "Celsius", tag: "T0" }, { title: "Fahrenheit", tag: "T1" }, { title: "Kelvin", tag: "T2" }], logger);
+    assert.equal(select.value, "T2", "a surviving selection is preserved");
+});
+
+test("Picker 'options' applier warns and no-ops on a non-menu node", () => {
+    const logger = makeLogger();
+    const fieldset = makeElement("fieldset"); // radioGroup / segmented skin
+    assert.equal(applyElementProperty(fieldset, "options", [{ title: "x", tag: "1" }], logger), true);
+    assert.ok(logger.warned("only for a menu-style Picker"));
 });
 
 test("ActionUIModel.setElementProperty applies to the node by id and records the override", () => {

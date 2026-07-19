@@ -282,6 +282,15 @@ const PROPERTY_APPLIERS = {
     rotationEffect: (node, value) => { node.style.rotate = typeof value === "number" ? `${value}deg` : ""; },
 };
 
+// Lets a view module contribute a runtime `setElementProperty` applier for a
+// property it reads inside its own buildView (e.g. Picker `options`). Apple/Android
+// recompose such properties for free off the mutated element; the web has no
+// reactive re-render, so the owning view registers a surgical DOM rebuild here at
+// import time. Keeps the structural knowledge in the view, not in this generic file.
+export function registerElementPropertyApplier(name, applier) {
+    PROPERTY_APPLIERS[name] = applier;
+}
+
 // Applies one runtime property mutation to [node]. Returns true if [name] is a
 // host-settable visual property (and was applied), false (with a warning) otherwise.
 export function applyElementProperty(node, name, value, logger) {

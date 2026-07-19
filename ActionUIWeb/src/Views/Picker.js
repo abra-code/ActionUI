@@ -25,7 +25,7 @@
 //            is passed as context. Programmatic setString is silent.
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { markHandlesAction } from "../Common/ModifierResolver.js";
+import { markHandlesAction, registerElementPropertyApplier } from "../Common/ModifierResolver.js";
 
 // The macOS-valid styles (the web's default skin is macOS-flavored). "wheel" is
 // iOS/visionOS-only, so it warns here as it does on macOS.
@@ -137,6 +137,35 @@ register("Picker", {
         }
         return select;
     },
+});
+
+// Runtime `setElementProperty(id, "options", [...])`: rebuild a menu-style Picker's
+// <select> options in place. This is the web analog of Apple/Android recomposing the
+// Picker off the mutated `options` property (they get it for free from the reactive
+// element; the web has no re-render, so we surgically replace the option DOM). Only
+// the <select> skin is covered: the segmented/radioGroup skins bind to a fixed set of
+// <input> nodes, so a runtime rebuild would orphan their bindings - deferred, warned.
+// The same <select> node is kept, so its value binding stays intact; a prior selection
+// is preserved when it survives the new list, else it falls to the first option (a host
+// that means to reselect calls setString right after, exactly as the demo hosts do).
+registerElementPropertyApplier("options", (node, value, logger) => {
+    const select = node?.tagName === "SELECT" ? node : node?.querySelector?.("select");
+    if (!select) {
+        logger.log("setElementProperty 'options' is supported only for a menu-style Picker on web; ignored", "warning");
+        return;
+    }
+    const previous = select.value;
+    const sections = extractSections(value, logger);
+    const useSections = sections.length > 1 || sections.some((section) => section.title);
+    select.replaceChildren();
+    for (const section of sections) {
+        const parent = (useSections && section.title)
+            ? select.appendChild(makeOptGroup(section.title))
+            : select;
+        for (const item of section.items) parent.appendChild(makeOption(item));
+    }
+    const tags = sections.flatMap((section) => section.items).map((item) => item.tag);
+    select.value = tags.includes(previous) ? previous : (tags[0] ?? "");
 });
 
 function makeOption({ title, tag }) {
