@@ -356,6 +356,21 @@ export function applyViewModifiers(node, element, properties, ctx) {
         });
     }
 
+    // onAppearActionID: SwiftUI `.onAppear` parity (Apple/Android fire it when the
+    // element enters composition; see ActionHookHelper.kt / View.swift). The web has
+    // no reactive lifecycle, so we fire once after the synchronous mount via a
+    // microtask - by then the node is in the DOM and the host's app.action handlers
+    // are registered (they run in the same synchronous task as presentWindow). viewID
+    // is the element id and context is null, matching the native hosts. Guarded per
+    // node so a rebuild of the same node fires at most once. (onDisappearActionID has
+    // no web element-unmount lifecycle yet; deferred.)
+    if (typeof properties.onAppearActionID === "string" && !node.dataset.auiAppeared) {
+        node.dataset.auiAppeared = "1";
+        const onAppearActionID = properties.onAppearActionID;
+        const viewID = element.id;
+        queueMicrotask(() => ctx.model.dispatchAction(onAppearActionID, viewID, 0, null));
+    }
+
     applyHoverDrop(node, element, properties, ctx);
 
     // contextMenu (any view): a right-click / long-press floating menu of action

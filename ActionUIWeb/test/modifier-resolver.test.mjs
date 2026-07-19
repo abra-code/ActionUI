@@ -184,3 +184,19 @@ test("actionID wires a click that dispatches; markHandlesAction opts out", () =>
     applyViewModifiers(handled, { id: 9 }, { actionID: "go" }, ctx);
     assert.equal(handled.listenerCount("click"), 0, "a control that handles its own action gets no generic click");
 });
+
+test("onAppearActionID fires once after mount, with id + null context, guarded per node", async () => {
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    const node = makeElement();
+    applyViewModifiers(node, { id: 5 }, { onAppearActionID: "init" }, ctx);
+    assert.deepEqual(dispatched, [], "does not fire synchronously during build (waits for mount)");
+
+    await Promise.resolve(); // flush the microtask
+    assert.deepEqual(dispatched, [["init", 5, 0, null]], "fires once with (actionID, id, viewPartID 0, null context)");
+
+    // Re-applying to the same node (a rebuild) must not re-fire: it is guarded per node.
+    applyViewModifiers(node, { id: 5 }, { onAppearActionID: "init" }, ctx);
+    await Promise.resolve();
+    assert.equal(dispatched.length, 1, "guarded per node: no second fire on the same node");
+});
