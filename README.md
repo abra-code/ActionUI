@@ -1,8 +1,10 @@
 # ActionUI
 
-**Build SwiftUI interfaces from JSON — designed for AI-assisted development and rapid prototyping**
+**Build native interfaces from JSON, across Apple, Android, and the Web — designed for AI-assisted development and rapid prototyping**
 
-ActionUI is a SwiftUI library that renders dynamic UIs from JSON descriptions. It replaces Interface Builder, Storyboards, or hand-coded SwiftUI with a simple, declarative format that's both human-readable and AI-friendly.
+ActionUI renders dynamic UIs from JSON descriptions. One JSON document drives **three native renderers** from a shared schema: SwiftUI on Apple platforms, Jetpack Compose on Android, and DOM/CSS in the browser. It replaces Interface Builder, Storyboards, or hand-coded UI with a simple, declarative format that's both human-readable and AI-friendly.
+
+**[Try the live browser demo →](https://abracode.com/ActionUIWeb/demo/)** (no install, no local server)
 
 ## Quick Example
 
@@ -31,17 +33,17 @@ ActionUI is a SwiftUI library that renders dynamic UIs from JSON descriptions. I
 }
 ```
 
-This produces a fully native SwiftUI form — no Swift code, no Xcode storyboards.
+This produces a fully native form — a SwiftUI form on Apple, a Compose form on Android, a DOM form on the Web — from the same JSON, with no per-platform UI code and no storyboards.
 
 ## Key Features
 
-- **50+ SwiftUI components** — layouts, inputs, tables, maps, video, canvas, and more
+- **Three native renderers, one JSON** — SwiftUI (Apple), Jetpack Compose (Android), DOM/CSS (Web), at feature parity across ~57 components — layouts, inputs, tables, maps, video, canvas, and more
 - **Runtime flexibility** — load UIs from JSON files or network without recompilation
+- **Add-on architecture** — third-party element types (Chat, Diff, RichText, QuickLook, CachedImage) plug into the engine without living in core
 - **Python bridge** — build complete macOS apps in Python with `import actionui`
-- **Multi-window, menu bar, dialogs** — native macOS app features out of the box
+- **Multi-window, menu bar, dialogs** — native app features out of the box
 - **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
-- **Cross-platform** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
-- ActionUI for **Android** in active development 
+- **Apple platforms** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
 - **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript
 
 ## Example Apps using ActionUI
@@ -85,7 +87,7 @@ app.run()
 
 **Fail Gracefully** — Invalid JSON doesn't crash. Properties are validated, missing values get defaults, and the UI degrades gracefully.
 
-**Platform Native** — ActionUI doesn't abstract away SwiftUI — it embraces it. The generated views are real SwiftUI views with full performance and capabilities.
+**Platform Native** — ActionUI doesn't abstract platforms away — it embraces each one. The generated views are real SwiftUI views on Apple, real Compose composables on Android, and real DOM on the Web, with each platform's full performance and capabilities.
 
 **Minimal Complexity** — JSON defines the UI, your code handles the logic. No state management framework, no build toolchain, no widget hierarchy to manage.
 
@@ -100,6 +102,7 @@ app.run()
 | tvOS     | 17.6+          |
 | visionOS | 2.6+           |
 | Android  | 12.0+          |
+| Web      | Any modern browser (ES modules, no build step) |
 
 ## License
 

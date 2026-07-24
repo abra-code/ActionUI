@@ -1,10 +1,11 @@
 # ActionUI Python Bridge vs tkinter
 
 > **Scope note:** This comparison covers macOS desktop use only. tkinter is a
-> desktop UI toolkit (macOS, Windows, Linux via Tk) with no mobile support.
-> ActionUI now also targets iOS and Android; for those platforms, tkinter is
-> not a relevant alternative — see `Comparison-vs-ReactNative.md` for the
-> cross-platform perspective.
+> desktop UI toolkit (macOS, Windows, Linux via Tk) with no mobile or web
+> support. ActionUI now also targets iOS, Android, and the browser (a
+> zero-dependency DOM/CSS renderer) from the same JSON; for those platforms,
+> tkinter is not a relevant alternative — see `Comparison-vs-ReactNative.md`
+> for the cross-platform perspective.
 
 A comparison of ActionUI's Python module with Python's built-in tkinter for building desktop applications on macOS.
 

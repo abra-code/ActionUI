@@ -1,8 +1,12 @@
-# ActionUI Architecture
+# ActionUI Architecture (Apple Platforms)
+
+> **Scope:** This document describes the **Apple-platform renderer** (SwiftUI on macOS, iOS, iPadOS, watchOS, tvOS, visionOS), which is the reference implementation. ActionUI renders the same JSON on two other platforms — **Android** (Jetpack Compose) and the **Web** (DOM/CSS) — through independent renderers that mirror this architecture. The [Android Architecture](#android-architecture) and [Web Architecture](#web-architecture) sections near the end summarize how each maps onto this design and where it differs. The pipeline, model, action system, and language adapters below are Apple-specific unless noted.
 
 ## Overview
 
 ActionUI renders SwiftUI views from JSON descriptions. There is no intermediate runtime, virtual DOM, or reconciliation step — JSON is parsed into validated properties and constructed directly as SwiftUI views.
+
+The design goal shared across all three renderers is the same: parse a platform-neutral JSON document into validated properties, then construct native views directly in the host UI framework, with no framework-specific markup in the JSON. Each renderer keeps its source tree laid out the same way (one file per element, grouped into `Common` / `Helpers` / `Views`) so the three stay diffable against one another.
 
 ## Pipeline
 
@@ -144,6 +148,37 @@ The Python module is built from `ActionUIPython/` using `build_and_install.sh`, 
 - visionOS 2.6+
 
 Platform-specific views (e.g., Table on macOS) are conditionally available. Unsupported features degrade gracefully with validation warnings.
+
+## Android Architecture
+
+The Android renderer targets **Android 12.0+** and reproduces this architecture in Kotlin with **Jetpack Compose** as the native UI framework in place of SwiftUI.
+
+**What is the same:**
+- The same JSON schema, element names, and property names. A document written for Apple renders on Android with no changes.
+- The same pipeline shape: a registry maps type strings to per-element constructors, each element validates its properties and builds a native view, and a central model holds view state and routes action callbacks by string ID.
+- The same one-file-per-element source layout, kept parallel to the Swift tree so behavior can be diffed element-for-element.
+- The same graceful-degradation contract: unknown types or properties produce validation warnings rather than crashes.
+
+**What differs:**
+- Views are **Compose composables** rather than SwiftUI views; state flows through Compose's recomposition instead of SwiftUI's, so there is likewise no virtual DOM or manual diffing.
+- Platform-native chrome is Material: toolbars and menu icons use the Material Symbols font, the window-level toast is a Material snackbar, and semantic colors resolve to adaptive theme colors.
+- Optional capabilities that carry heavy dependencies (notably **Map**) ship as self-registering provider modules — `:map-osm` (Leaflet/OpenStreetMap, no API key) or `:map-google` (maps-compose) — so an app that shows no map links no map engine. This module-registration pattern is the same idea the Apple add-on architecture later adopted.
+- Add-ons exist on Android too (`:addon-cachedimage`, `:addon-richtext`), though a few Apple add-ons (e.g. the Chat element) are not yet ported.
+
+## Web Architecture
+
+The Web renderer targets any modern browser and reproduces this architecture in **plain JavaScript**, emitting **real DOM elements styled with CSS** as the native UI layer. It uses ES modules directly — **no build step, no bundler, no framework runtime, no dependencies** — and serves as static files from any URL prefix.
+
+**What is the same:**
+- The same JSON schema and the same registry → validate → build → apply-modifiers pipeline, with a central model holding view state and dispatching actions by string ID.
+- The same one-file-per-element layout (`Common` / `Helpers` / `Views`), kept parallel to the Swift and Kotlin trees.
+- The same runtime surface — `setElementProperty`, structural mutation (`insertElement` / `insertRow` / `removeElement`), programmatic row selection, dialogs/sheets/popovers, toast, lifecycle hooks, and the `animation` modifier.
+
+**What differs:**
+- Views are **DOM nodes**; the "no virtual DOM, no reconciliation" property here means the renderer manipulates the real DOM directly rather than diffing a shadow tree, so the `animation` modifier is expressed over armed CSS transitions.
+- A dedicated **mobile/touch adaptation layer** presents sheets, popovers, and menus as bottom action sheets on phones, collapses TabView to a bottom tab bar and NavigationSplitView to a stack, and adds left-edge swipe-back, pull-to-refresh, and safe-area handling — behaviors the Apple and Android UI frameworks provide natively.
+- SF Symbol names are resolved to Material Symbol glyphs for the web font, and lazy containers use `content-visibility` plus incremental rendering in place of the native lazy stacks.
+- There is no compiled language adapter layer; app logic is JavaScript in the page. A [live demo](https://abracode.com/ActionUIWeb/demo/) runs the renderer directly from static files.
 
 ## Tools
 
