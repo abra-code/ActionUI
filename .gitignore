@@ -32,3 +32,4 @@ ActionUIAndroid/.idea/androidTestResultsUserPreferences.xml
 # config, not source. Ignored across every example (was causing tracked-file
 # churn like caches/deviceStreaming.xml, gradle.xml, vcs.xml).
 Examples/**/.idea/
+Scripts/make-release.sh
