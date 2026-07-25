@@ -53,7 +53,7 @@ let package = Package(
         // 0.2.2 is the floor: 0.2.1 carries the deferred-chase fix for the AppKit layout-loop
         // crash (older ChatViews can kill the host app on a message send), 0.2.2 grows the
         // composer with its content under both submit policies.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.3"),
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.4"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.
