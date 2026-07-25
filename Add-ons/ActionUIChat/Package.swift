@@ -50,9 +50,10 @@ let package = Package(
         .package(path: "../.."),                // the ActionUI package at the repo root
         // The standalone chat component in its own repo (github.com/abra-code), which itself
         // depends on RichText, AsyncImageCache, and DiffView. Consumed as a versioned release.
-        // 0.2.1 is the floor: it carries the deferred-chase fix for the AppKit layout-loop
-        // crash (older ChatViews can kill the host app on a message send).
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.1"),
+        // 0.2.2 is the floor: 0.2.1 carries the deferred-chase fix for the AppKit layout-loop
+        // crash (older ChatViews can kill the host app on a message send), 0.2.2 grows the
+        // composer with its content under both submit policies.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.2"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.
