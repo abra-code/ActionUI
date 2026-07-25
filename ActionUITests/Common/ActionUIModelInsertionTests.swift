@@ -427,4 +427,106 @@ final class ActionUIModelInsertionTests: XCTestCase {
         let id = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 10))
         XCTAssertEqual(id, 10)
     }
+
+    // MARK: - PlatformFilter integration (`<key>:<platform>` overrides)
+
+    // Runtime insertions must run through PlatformFilter just like window-root and
+    // LoadableView loading do, so per-platform `<key>:<platform>` overrides resolve
+    // identically whether an element arrives at load time or is inserted later.
+    // Regression test for the Apple insert path, which previously decoded without
+    // filtering while Android and Web filtered at the equivalent points.
+    //
+    // These tests use `apple` for the winning variant because it matches every Apple
+    // platform this test target can run on, and `android` for the dropped variant
+    // because it never matches on Apple — so the expected outcome is the same on
+    // macOS, iOS, tvOS, etc. (The macOS-only specificity test is guarded below.)
+
+    private func suffixedTextDict(id: Int) -> [String: Any] {
+        [
+            "id": id,
+            "type": "Text",
+            "properties": [
+                "text": "base",
+                "text:apple": "apple-value",
+                "text:android": "android-value",
+            ],
+        ]
+    }
+
+    private func firstInsertedChild(of parentID: Int) -> ActionUIElement? {
+        (model.windowModels[windowUUID]?.viewModels[parentID]?.dynamicSubviews?["children"] as? [ActionUIElement])?.first
+    }
+
+    func testInsertElementResolvesPlatformSuffix() throws {
+        try loadVStack(id: 1)
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: suffixedTextDict(id: 10))
+
+        let inserted = firstInsertedChild(of: 1)
+        XCTAssertEqual(inserted?.properties["text"] as? String, "apple-value", "Apple-suffixed value should win over the base value")
+        XCTAssertNil(inserted?.properties["text:apple"], "Suffixed key should be normalized away after filtering")
+        XCTAssertNil(inserted?.properties["text:android"], "Inactive-platform key should be dropped")
+    }
+
+    func testInsertElementViaJSONStringResolvesPlatformSuffix() throws {
+        try loadVStack(id: 1)
+        let json = #"{"id": 30, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:android": "android-value"}}"#
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, json: json)
+
+        let inserted = firstInsertedChild(of: 1)
+        XCTAssertEqual(inserted?.properties["text"] as? String, "apple-value", "JSON-string insert should filter through the same path")
+        XCTAssertNil(inserted?.properties["text:android"], "Inactive-platform key should be dropped")
+    }
+
+    func testInsertElementFiltersNestedChildren() throws {
+        // The filter recurses the whole inserted subtree, so a suffixed key on a
+        // nested static child of the inserted element must resolve too.
+        try loadVStack(id: 1)
+        let json = """
+        {
+            "id": 10,
+            "type": "VStack",
+            "properties": {},
+            "children": [
+                {"id": 20, "type": "Text", "properties": {"text": "base", "text:apple": "apple-value", "text:android": "android-value"}}
+            ]
+        }
+        """
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, json: json)
+
+        let insertedParent = firstInsertedChild(of: 1)
+        let nestedChild = (insertedParent?.subviews?["children"] as? [ActionUIElement])?.first
+        XCTAssertEqual(nestedChild?.properties["text"] as? String, "apple-value", "Nested child suffixes should resolve (filter recurses the subtree)")
+        XCTAssertNil(nestedChild?.properties["text:android"], "Nested inactive-platform key should be dropped")
+    }
+
+    func testInsertRowResolvesPlatformSuffix() throws {
+        try loadGrid(id: 1)
+        _ = try model.insertRow(windowUUID: windowUUID, parentID: 1, cells: [suffixedTextDict(id: 20)])
+
+        let insertedCell = (model.windowModels[windowUUID]?.viewModels[1]?.dynamicSubviews?["rows"] as? [[ActionUIElement]])?.first?.first
+        XCTAssertEqual(insertedCell?.properties["text"] as? String, "apple-value", "Apple-suffixed value should win in an inserted row cell")
+        XCTAssertNil(insertedCell?.properties["text:apple"], "Suffixed key should be normalized away after filtering")
+        XCTAssertNil(insertedCell?.properties["text:android"], "Inactive-platform key should be dropped")
+    }
+
+    #if os(macOS)
+    func testInsertElementPlatformSuffixSpecificityMacOS() throws {
+        // On macOS the active set is ["macos", "apple"]; a specific `:macos` key must
+        // beat the broader `:apple` key, which in turn beats the unsuffixed base.
+        try loadVStack(id: 1)
+        let dict: [String: Any] = [
+            "id": 10,
+            "type": "Text",
+            "properties": [
+                "text": "base",
+                "text:apple": "apple-value",
+                "text:macos": "macos-value",
+            ],
+        ]
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: dict)
+
+        let inserted = firstInsertedChild(of: 1)
+        XCTAssertEqual(inserted?.properties["text"] as? String, "macos-value", "Specific :macos suffix should beat the broader :apple suffix")
+    }
+    #endif
 }

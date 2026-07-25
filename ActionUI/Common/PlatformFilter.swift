@@ -26,8 +26,13 @@ import Foundation
  depend on which platform is reading it. See Stage 0 §Design notes in
  Private/Android_Development_Plan.md.
 
- Not wired into the parsing pipeline yet — written ahead of integration for
- review and cross-platform parity.
+ Wired into the load pipeline in `WindowModel`: `loadDescription(from:format:)`,
+ `loadDescription(from:)`, and `loadSubViewDescription(...)` all run the raw JSON/
+ plist through `applyPlatformFilter` (using `runtimeActiveSet`) before decoding, so
+ no suffixed keys reach the typed decoder. The Android (`ActionUI.kt`, `ActionUIModel`,
+ `LoadableLoader`) and Web (`ActionUI.js`, `ActionUIModel.js`, `LoadableView.js`,
+ `ModalHost.js`, `MenuBar.js`) renderers filter at the equivalent points, so the
+ `<key>:<platform>` override works identically on all three platforms.
 */
 public struct PlatformFilter {
 

@@ -894,7 +894,9 @@ public class ActionUIModel: ObservableObject {
             throw InsertError.windowNotFound(windowUUID)
         }
         let resolvedContainer = try resolveContainer(parentID: parentID, windowModel: windowModel, requestedContainer: container, expectedShape: .flat)
-        let newElement = try ActionUIElement(from: dict, logger: logger)
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger)
+        let filteredDict = filter.filter(dict) as? [String: Any] ?? dict
+        let newElement = try ActionUIElement(from: filteredDict, logger: logger)
         return try windowModel.insertElement(newElement, parentID: parentID, container: resolvedContainer, position: position)
     }
 
@@ -935,7 +937,11 @@ public class ActionUIModel: ObservableObject {
             throw InsertError.windowNotFound(windowUUID)
         }
         let resolvedContainer = try resolveContainer(parentID: parentID, windowModel: windowModel, requestedContainer: container, expectedShape: .rows)
-        let elements = try cells.map { try ActionUIElement(from: $0, logger: logger) }
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet, logger: logger)
+        let elements = try cells.map { cell -> ActionUIElement in
+            let filteredCell = filter.filter(cell) as? [String: Any] ?? cell
+            return try ActionUIElement(from: filteredCell, logger: logger)
+        }
         return try windowModel.insertRow(elements, parentID: parentID, container: resolvedContainer, position: position)
     }
 
