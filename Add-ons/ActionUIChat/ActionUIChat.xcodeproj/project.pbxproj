@@ -725,7 +725,7 @@
 			repositoryURL = "https://github.com/abra-code/ChatView";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.2.5;
+				minimumVersion = 0.2.6;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

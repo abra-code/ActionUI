@@ -50,14 +50,17 @@ let package = Package(
         .package(path: "../.."),                // the ActionUI package at the repo root
         // The standalone chat component in its own repo (github.com/abra-code), which itself
         // depends on RichText, AsyncImageCache, and DiffView. Consumed as a versioned release.
-        // 0.2.5 is the floor, and it is a hard one: it is the real fix for the AppKit layout-loop
-        // crash that kills the host app mid-answer. Every earlier ChatView follows the stream
-        // through ScrollViewProxy, whose pending actions SwiftUI applies from inside
-        // NSHostingView.layout - which is the crash. 0.2.1 and 0.2.3 only deferred the call, so
-        // they lowered the odds and crashed again; 0.2.5 moves the clip view directly instead.
+        // 0.2.6 is the floor, and it is a hard one: it is the actual fix for the AppKit layout-loop
+        // crash that kills the host app mid-answer. The cause is a scroller-width loop - a legacy
+        // (non-overlay) vertical scroller takes 17pt from the content, so when the transcript's
+        // height lands within a line of the viewport's, showing the scroller rewraps the rows enough
+        // to make it unnecessary and hiding it makes it necessary again, forever. 0.2.6 reserves the
+        // scroller so the content width cannot change. Note that 0.2.1, 0.2.3 and 0.2.5 were each
+        // committed as the fix for this same crash and none of them were: they all addressed who
+        // issues the scroll, and the loop runs with no scroll in flight at all.
         // Also carries 0.2.4 (the transcript no longer scrolls the reader back) and 0.2.2 (the
         // composer grows with its content under both submit policies).
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.5"),
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.6"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.
