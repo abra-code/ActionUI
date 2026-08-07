@@ -8,10 +8,16 @@
 // the icon to text on its asset path; the web already has the glyph path.
 //
 // Properties (ContentUnavailableView.swift):
-//   title       String (the primary message; default "No Content")
-//   systemImage String SF Symbol (default "exclamationmark.triangle" when absent,
-//               mirroring Swift's fallback Label icon)
-//   description String (secondary text; omitted when absent)
+//   title        String (the primary message; default "No Content")
+//   systemImage  String SF Symbol (default "exclamationmark.triangle" when absent,
+//                mirroring Swift's fallback Label icon)
+//   materialName String - the explicit-Material-glyph escape hatch, the same seam
+//                Image/Button/Label carry and the twin of Android's
+//                `materialName:android`. It WINS over systemImage, because it is
+//                only ever authored when the SF name has no mapping: without it an
+//                unmapped hero symbol leaves the empty state with no icon at all,
+//                and an empty state is exactly where the icon does the most work.
+//   description  String (secondary text; omitted when absent)
 //   search      Bool - the built-in search appearance (magnifyingglass +
 //               "No Results"); when true, title/systemImage/description are ignored
 //   query       String - the search term shown in the message
@@ -21,7 +27,7 @@
 // setString("planets") on a search view re-renders it as "No Results for ...".
 
 import { register } from "../Common/ActionUIRegistry.js";
-import { systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
+import { materialNameGlyph, systemSymbolGlyph } from "../Helpers/SymbolIcon.js";
 
 register("ContentUnavailableView", {
     valueType: "string",
@@ -36,6 +42,10 @@ register("ContentUnavailableView", {
         if (validated.systemImage !== undefined && typeof validated.systemImage !== "string") {
             logger.log("ContentUnavailableView systemImage must be a String; ignoring", "warning");
             delete validated.systemImage;
+        }
+        if (validated.materialName !== undefined && typeof validated.materialName !== "string") {
+            logger.log("ContentUnavailableView materialName must be a String; ignoring", "warning");
+            delete validated.materialName;
         }
         if (validated.description !== undefined && typeof validated.description !== "string") {
             logger.log("ContentUnavailableView description must be a String; ignoring", "warning");
@@ -65,10 +75,17 @@ register("ContentUnavailableView", {
 
         const render = (value) => {
             node.replaceChildren();
+            // The search variant is fixed (matching Apple, which ignores the icon
+            // properties there); otherwise materialName wins over systemImage.
+            const explicit = isSearch ? null
+                : (typeof properties.materialName === "string" ? properties.materialName : null);
             const glyphName = isSearch ? "magnifyingglass"
                 : (typeof properties.systemImage === "string" ? properties.systemImage : "exclamationmark.triangle");
-            const glyph = systemSymbolGlyph(glyphName, { imageScale: "large" }, ctx.logger, (n) =>
-                `ContentUnavailableView systemImage '${n}' has no SF->Material mapping; icon omitted.`);
+            const glyph = explicit !== null
+                ? materialNameGlyph(explicit, { imageScale: "large" })
+                : systemSymbolGlyph(glyphName, { imageScale: "large" }, ctx.logger, (n) =>
+                    `ContentUnavailableView systemImage '${n}' has no SF->Material mapping; icon omitted. `
+                    + `Use 'materialName' for an explicit Material glyph.`);
             glyph.classList.add("aui-content-unavailable-icon");
             node.appendChild(glyph);
 

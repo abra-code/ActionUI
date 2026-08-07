@@ -99,3 +99,44 @@ test("Picker: invalid options/style/title dropped", () => {
     assert.equal(validate("Picker", { pickerStyle: "nope" }).pickerStyle, undefined);
     assert.equal(validate("Picker", { title: 5 }).title, undefined);
 });
+
+test("ContentUnavailableView: materialName is validated like the other strings", () => {
+    assert.equal(validate("ContentUnavailableView", { materialName: 5 }).materialName, undefined);
+    assert.equal(validate("ContentUnavailableView", { materialName: "history" }).materialName, "history");
+});
+
+// The empty state is mostly icon, so losing the glyph to an unmapped SF name is the
+// worst place to lose it. `materialName` is the escape hatch every other glyph-bearing
+// element carries (Image/Button/Label/Menu/TabView, and Android's own
+// ContentUnavailableView); this one used to ignore it. See Missing_Features #39.
+test("ContentUnavailableView: materialName draws a glyph and wins over systemImage", () => {
+    installDom();
+    // The hero glyph is the first child. Not a class query: the stub's `classList.add`
+    // writes to a set it never syncs back to `className`, which is what
+    // querySelectorAll matches on - so the icon's added class is invisible to it, while
+    // the span's own assigned `className` is not.
+    const glyph = (props) => {
+        const node = getConstruction("ContentUnavailableView").buildView(
+            { type: "ContentUnavailableView" }, props, { logger: makeLogger() });
+        const first = node.children[0];
+        assert.ok(first && String(first.className).includes("aui-symbol"),
+                  "the hero glyph is the first child");
+        return first;
+    };
+
+    // A materialName is a font LIGATURE, so it lands in the glyph node synchronously.
+    // A systemImage has to go through the SF->Material map, so its node starts blank -
+    // which is exactly how the two paths are told apart here.
+    assert.equal(glyph({ title: "No activity yet", materialName: "history" }).textContent, "history",
+                 "materialName is rendered as the ligature");
+    assert.equal(glyph({ title: "x", systemImage: "clock.arrow.circlepath", materialName: "history" }).textContent,
+                 "history",
+                 "materialName wins - it is only ever authored when the SF name has no mapping");
+    assert.equal(glyph({ title: "x", systemImage: "clock.arrow.circlepath" }).textContent, "",
+                 "without it the glyph waits on the SF->Material map (and stays empty when unmapped)");
+
+    // The search variant is fixed on Apple and ignores the icon properties; it must not
+    // start honouring materialName here.
+    assert.notEqual(glyph({ search: true, query: "planets", materialName: "history" }).textContent, "history",
+                    "the search variant keeps its own magnifying glass");
+});
