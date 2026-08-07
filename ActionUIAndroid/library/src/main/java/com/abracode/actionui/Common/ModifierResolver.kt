@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
@@ -117,7 +119,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * stay inner so a corner badge overlay is not clipped by the carrier's
  * rounding, as on Apple.
  *
- * Opacity (and `hidden`, which is `alpha(0)`) sit outside the decoration so they
+ * Opacity (and `hidden`, which is `alpha(0)` plus an input block and an
+ * accessibility hide - see [hiddenSubtree]) sit outside the decoration so they
  * fade the entire visual subtree including the background, not just inner
  * content; alpha is a draw-layer effect, so its position relative to the pure
  * layout modifiers (`frame`/`padding`) is visually inert - only its place
@@ -202,9 +205,44 @@ fun Modifier.applyOuterProperties(
 
     // ---- Opacity / visibility (outside decoration so the whole subtree fades) ----
     properties.floatProperty("opacity")?.let { m = m.alpha(animator?.float("opacity", it) ?: it) }
-    if (properties.booleanProperty("hidden") == true) m = m.alpha(0f)
+    if (properties.booleanProperty("hidden") == true) m = m.hiddenSubtree()
     return m
 }
+
+/**
+ * `hidden: true`: invisible, NON-INTERACTIVE, and absent from the accessibility
+ * tree - while still occupying its layout space, which is the behaviour Apple's
+ * `.hidden()` defines and that authors write against.
+ *
+ * `alpha(0f)` alone was only the first of those three. A hidden element stayed
+ * fully laid out AND fully hit-testable, so a hidden Button sitting over visible
+ * content silently swallowed taps meant for what was underneath, and TalkBack
+ * still announced controls that were not on screen. Apple's `.hidden()` and web's
+ * `display: none` both take the view out of hit testing and out of accessibility,
+ * so this was a real cross-platform divergence rather than a cosmetic one:
+ * identical JSON behaved differently on Android in a way no author could see.
+ *
+ * Found by SharedCare brief 13, whose Activity section authors two hidden
+ * interactive elements over visible content - a "Clear filters" Button centred in
+ * the feed's own space, and a full-width "Show earlier" Button pinned across the
+ * bottom of the section body, which overlaps the SCHEDULE body in the same
+ * ZStack. Both intercepted taps meant for what was underneath. The out-of-scope
+ * note on Missing_Features #34 had predicted exactly this.
+ *
+ * Input is blocked by consuming on the INITIAL pass, which is what keeps the event
+ * from reaching descendants; a `clickable` on a child runs on the main pass and so
+ * never sees it.
+ */
+private fun Modifier.hiddenSubtree(): Modifier = this
+    .alpha(0f)
+    .pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+            }
+        }
+    }
+    .semantics { hideFromAccessibility() }
 
 /**
  * The inner half of the common-property chain - the element's own size and
