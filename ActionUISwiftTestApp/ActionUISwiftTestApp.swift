@@ -840,6 +840,12 @@ struct JSONSelectorView: View {
         #endif
     }
 
+    // Set by the -openResource test hook below; shared across selector windows. @MainActor
+    // rather than nonisolated(unsafe) - every access is from an .onAppear closure formed in
+    // View.body, which is already MainActor-isolated, so this is a checked guarantee instead
+    // of the compiler being told to look away.
+    @MainActor private static var didAutoOpenResource = false
+
     // Compute jsonFiles outside view builder
     private var jsonFiles: [String] {
         Bundle.main.paths(forResourcesOfType: "json", inDirectory: nil)
@@ -871,6 +877,37 @@ struct JSONSelectorView: View {
                 .navigationTitle("JSON Selector")
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("json_selector_list")
+                // Test hook: the multi-window twin of the single-window `-openResource`
+                // hook below, so a document can be opened on launch without driving the
+                // selector.
+                //
+                // Why it is needed: `.accessibilityElement(children: .combine)` above
+                // collapses this List into ONE element, so the per-resource Buttons are not
+                // exposed to assistive technology or to XCUITest. ActionUITestAppTests.swift
+                // does try to tap them (`jsonList.buttons[name]`), and those three tests are
+                // FAILING as of 2026-08-08 - 12 failures across the 4 UI configurations -
+                // which is consistent with this being the cause. Unrelated to this hook and
+                // not fixed here, but worth knowing before trusting that path.
+                //
+                // Fires ONCE per launch, not once per selector window. macOS restores
+                // previously-open selector windows, so an un-guarded hook opened one
+                // document window per restored selector and left several identical
+                // windows on screen - which XCUITest then refuses to act on, because
+                // "the PUSH button" no longer identifies a single element.
+                //
+                // windowUUID is the resource name rather than a fresh UUID (unlike the
+                // manual Button above) so that re-opening the same resource focuses the
+                // existing window instead of stacking another. One window, one
+                // ActionUIModel.windowModels entry, one set of view models - intentional.
+                .onAppear {
+                    guard !Self.didAutoOpenResource,
+                          let idx = CommandLine.arguments.firstIndex(of: "-openResource"),
+                          idx + 1 < CommandLine.arguments.count else { return }
+                    let name = CommandLine.arguments[idx + 1]
+                    guard jsonFiles.contains(name) else { return }
+                    Self.didAutoOpenResource = true
+                    openWindow(value: WindowIdentifier(resourceName: name, windowUUID: name))
+                }
             }
             else {
             #if canImport(UIKit)

@@ -1,0 +1,87 @@
+{
+  "type": "NavigationStack",
+  "id": 1,
+  "properties": {},
+  "toolbar": [
+    {
+      "type": "ToolbarItem",
+      "id": 10,
+      "properties": { "placement": "automatic" },
+      "content": {
+        "type": "Button",
+        "id": 11,
+        "properties": { "title": "STACKBAR", "actionID": "toolbartest.stackbar" }
+      }
+    }
+  ],
+  "content": {
+    "type": "VStack",
+    "id": 2,
+    "properties": { "navigationTitle": "ToolbarRoot" },
+    "children": [
+      { "type": "Text", "id": 3, "properties": { "text": "root body" } },
+      {
+        "type": "NavigationLink",
+        "id": 30,
+        "properties": { "title": "PUSH_WITH_BAR", "destinationViewId": 500 }
+      },
+      {
+        "type": "NavigationLink",
+        "id": 31,
+        "properties": { "title": "PUSH_NO_BAR", "destinationViewId": 600 }
+      }
+    ],
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "id": 20,
+        "properties": { "placement": "automatic" },
+        "content": {
+          "type": "Button",
+          "id": 21,
+          "properties": { "title": "ROOTBAR", "actionID": "toolbartest.rootbar" }
+        }
+      }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 500,
+      "properties": { "navigationTitle": "ToolbarDestWithBar" },
+      "children": [
+        { "type": "Text", "id": 501, "properties": { "text": "dest with bar" } }
+      ],
+      "toolbar": [
+        {
+          "type": "ToolbarItem",
+          "id": 40,
+          "properties": { "placement": "automatic" },
+          "content": {
+            "type": "Button",
+            "id": 41,
+            "properties": { "title": "DESTBARA", "actionID": "toolbartest.destbara" }
+          }
+        },
+        {
+          "type": "ToolbarItem",
+          "id": 50,
+          "properties": { "placement": "automatic" },
+          "content": {
+            "type": "Button",
+            "id": 51,
+            "properties": { "title": "DESTBARB", "actionID": "toolbartest.destbarb" }
+          }
+        }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 600,
+      "properties": { "navigationTitle": "ToolbarDestNoBar" },
+      "children": [
+        { "type": "Text", "id": 601, "properties": { "text": "dest without bar" } }
+      ]
+    }
+  ]
+}

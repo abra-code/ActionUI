@@ -1,0 +1,93 @@
+{
+  "type": "NavigationSplitView",
+  "id": 1,
+  "properties": {
+    "columnVisibility": "all"
+  },
+  "toolbar": [
+    {
+      "type": "ToolbarItem",
+      "id": 10,
+      "properties": { "placement": "automatic" },
+      "content": {
+        "type": "Button",
+        "id": 11,
+        "properties": { "title": "SPLITBAR", "actionID": "toolbartest.splitbar" }
+      }
+    }
+  ],
+  "sidebar": {
+    "type": "List",
+    "id": 2,
+    "properties": {
+      "navigationTitle": "ToolbarSidebar",
+      "navigationSplitViewColumnWidth": { "min": 200, "ideal": 260, "max": 320 }
+    },
+    "children": [
+      { "type": "Text", "id": 3, "properties": { "text": "sidebar body" } }
+    ],
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "id": 20,
+        "properties": { "placement": "automatic" },
+        "content": {
+          "type": "Button",
+          "id": 21,
+          "properties": { "title": "SIDEBARBAR", "actionID": "toolbartest.sidebarbar" }
+        }
+      }
+    ]
+  },
+  "detail": {
+    "type": "NavigationStack",
+    "id": 4,
+    "content": {
+      "type": "VStack",
+      "id": 5,
+      "properties": { "navigationTitle": "ToolbarDetailRoot" },
+      "children": [
+        { "type": "Text", "id": 6, "properties": { "text": "detail root body" } },
+        {
+          "type": "NavigationLink",
+          "id": 30,
+          "properties": { "title": "PUSH_INNER", "destinationViewId": 500 }
+        }
+      ],
+      "toolbar": [
+        {
+          "type": "ToolbarItem",
+          "id": 40,
+          "properties": { "placement": "automatic" },
+          "content": {
+            "type": "Button",
+            "id": 41,
+            "properties": { "title": "DETAILROOTBAR", "actionID": "toolbartest.detailrootbar" }
+          }
+        }
+      ]
+    },
+    "destinations": [
+      {
+        "type": "VStack",
+        "id": 500,
+        "properties": { "navigationTitle": "ToolbarInnerDest" },
+        "children": [
+          { "type": "Text", "id": 501, "properties": { "text": "inner dest body" } }
+        ],
+        "toolbar": [
+          {
+            "type": "ToolbarItem",
+            "id": 50,
+            "properties": { "placement": "automatic" },
+            "content": {
+              "type": "Button",
+              "id": 51,
+              "properties": { "title": "INNERDESTBAR", "actionID": "toolbartest.innerdestbar" }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
