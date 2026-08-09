@@ -82,6 +82,8 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 
 `overlay`, `background` (view), `sheet`, `popover`, `fullScreenCover`, `toolbar`
 
+`persistentToolbar` - on `NavigationStack` / `NavigationSplitView` only: toolbar items that stay in the bar on every screen inside the container. A `toolbar` on those two types is a deprecated alias for it. Apple platforms only for now.
+
 ### Shapes
 
 `Circle`, `Ellipse`, `Rectangle`, `RoundedRectangle`, `Capsule` — accept View base properties (foregroundStyle, frame, etc.)

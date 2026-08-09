@@ -12,7 +12,19 @@
       "content": {
         "type": "Button",
         "id": 11,
-        "properties": { "title": "SPLITBAR", "actionID": "toolbartest.splitbar" }
+        "properties": { "title": "SALIAS", "actionID": "toolbartest.splitbar" }
+      }
+    }
+  ],
+  "persistentToolbar": [
+    {
+      "type": "ToolbarItem",
+      "id": 60,
+      "properties": { "placement": "automatic" },
+      "content": {
+        "type": "Button",
+        "id": 61,
+        "properties": { "title": "SPERS", "actionID": "toolbartest.splitpersist" }
       }
     }
   ],
@@ -20,7 +32,7 @@
     "type": "List",
     "id": 2,
     "properties": {
-      "navigationTitle": "ToolbarSidebar",
+      "navigationTitle": "TBSide",
       "navigationSplitViewColumnWidth": { "min": 200, "ideal": 260, "max": 320 }
     },
     "children": [
@@ -34,7 +46,7 @@
         "content": {
           "type": "Button",
           "id": 21,
-          "properties": { "title": "SIDEBARBAR", "actionID": "toolbartest.sidebarbar" }
+          "properties": { "title": "SIDE", "actionID": "toolbartest.sidebarbar" }
         }
       }
     ]
@@ -45,7 +57,7 @@
     "content": {
       "type": "VStack",
       "id": 5,
-      "properties": { "navigationTitle": "ToolbarDetailRoot" },
+      "properties": { "navigationTitle": "TBDetail" },
       "children": [
         { "type": "Text", "id": 6, "properties": { "text": "detail root body" } },
         {
@@ -62,7 +74,7 @@
           "content": {
             "type": "Button",
             "id": 41,
-            "properties": { "title": "DETAILROOTBAR", "actionID": "toolbartest.detailrootbar" }
+            "properties": { "title": "DROOT", "actionID": "toolbartest.detailrootbar" }
           }
         }
       ]
@@ -71,7 +83,7 @@
       {
         "type": "VStack",
         "id": 500,
-        "properties": { "navigationTitle": "ToolbarInnerDest" },
+        "properties": { "navigationTitle": "TBInner" },
         "children": [
           { "type": "Text", "id": 501, "properties": { "text": "inner dest body" } }
         ],
@@ -83,7 +95,7 @@
             "content": {
               "type": "Button",
               "id": 51,
-              "properties": { "title": "INNERDESTBAR", "actionID": "toolbartest.innerdestbar" }
+              "properties": { "title": "DINNER", "actionID": "toolbartest.innerdestbar" }
             }
           }
         ]

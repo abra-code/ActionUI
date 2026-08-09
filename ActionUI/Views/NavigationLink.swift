@@ -66,7 +66,15 @@ struct NavigationLink: ActionUIViewConstruction {
              return SwiftUI.NavigationLink(title) {
                   if let windowModel = ActionUIModel.shared.windowModels[windowUUID],
                    let childModel = windowModel.viewModels[destination.id] {
-                    ActionUIView(element: destination, model: childModel, windowUUID: windowUUID)
+                    // A screen inside the enclosing stack like any other, so it carries that
+                    // container's persistentToolbar too. Form 2's destinations are built by
+                    // NavigationStack itself and handled there; this form is pushed straight
+                    // from here, and without this it would be the one screen that loses them.
+                    PersistentToolbar.onScreen(
+                        ActionUIView(element: destination, model: childModel, windowUUID: windowUUID),
+                        element: destination,
+                        windowUUID: windowUUID
+                    )
                 }
               }
         }

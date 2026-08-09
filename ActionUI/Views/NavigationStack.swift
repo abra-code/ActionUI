@@ -37,6 +37,31 @@
    ]
  }
 
+// Persistent toolbar: items that stay in the bar on every screen inside the stack
+// (the root and every pushed destination), rather than only on the screen that declares them.
+// Same ToolbarItem / ToolbarItemGroup shapes as the per-screen "toolbar" key, and they
+// compose with it - a destination's own items and the persistent ones share one bar.
+ {
+   "type": "NavigationStack",
+   "id": 1,
+   "persistentToolbar": [
+     { "type": "ToolbarItem", "id": 16, "properties": { "placement": "topBarTrailing" },
+       "content": { "type": "Image", "id": 17, "properties": { "systemName": "arrow.clockwise" } } }
+   ],
+   "content": { ... },
+   "destinations": [ ... ]
+ }
+ // A "toolbar" declared on the NavigationStack itself is a DEPRECATED ALIAS for
+ // "persistentToolbar"; it still works and logs a one-time warning. It was never a SCREEN
+ // toolbar: macOS put it in the shared window toolbar, where it already persisted, and iOS
+ // rendered it nowhere unless the stack was nested inside another navigation container, in
+ // which case it surfaced in the OUTER bar. That last case is the one this changes - those
+ // items now appear on every screen inside this stack instead of on the screen outside it.
+ // To give only the root screen a toolbar, declare it on "content". There is no
+ // per-destination opt-out: set "hidden" on the item's CONTENT to blank it - note that hides the
+ // content without reclaiming the slot, so it still counts against the bar's space.
+ // Implemented on Apple platforms only so far: Android and web currently ignore the key.
+
  // Observable state (via getElementState / setElementState):
  //   states["navigationPath"]  [Int]   Current navigation path as array of destination IDs.
  //                                     Empty when at root. Write to push/pop programmatically:
@@ -77,6 +102,11 @@ struct NavigationStack: ActionUIViewConstruction {
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
         let contentModel = windowModel?.viewModels[content.id]
 
+        // Items that stay in the bar wherever the user navigates inside this stack.
+        // PersistentToolbar.onContainer / .onScreen pick the site that is right for the
+        // platform and no-op on the other - see the comment on PersistentToolbar.
+        let persistentItems = ToolbarHelper.persistentToolbarItems(of: element)
+
         // Detect selectable-list pattern: content is a List with actionID,
         // children have destinationViewId, and destinations array exists.
         let isSelectableListPattern: Bool = {
@@ -95,28 +125,41 @@ struct NavigationStack: ActionUIViewConstruction {
         if isSelectableListPattern {
             // Selectable-list-with-destinations pattern: NavigationStack manages the path
             // and builds the content List with selection binding (like NavigationSplitView sidebar).
-            return NavigationPathContainer(model: model, contentModel: contentModel!) { pathBinding in
+            let container = NavigationPathContainer(model: model, contentModel: contentModel!) { pathBinding in
                 SwiftUI.NavigationStack(path: pathBinding) {
-                    Self.buildContentList(
-                        content: content,
-                        contentModel: contentModel!,
-                        destinations: destinations,
-                        pathBinding: pathBinding,
-                        windowModel: windowModel,
-                        windowUUID: windowUUID,
-                        navStackElement: element
+                    PersistentToolbar.onScreen(
+                        Self.buildContentList(
+                            content: content,
+                            contentModel: contentModel!,
+                            destinations: destinations,
+                            pathBinding: pathBinding,
+                            windowModel: windowModel,
+                            windowUUID: windowUUID,
+                            navStackElement: element
+                        ),
+                        element: content,
+                        windowUUID: windowUUID
                     )
                     .navigationDestination(for: Int.self) { destinationViewId in
                         if let target = destinations.first(where: { $0.id == destinationViewId }),
                            let targetModel = windowModel?.viewModels[target.id] {
-                            ActionUIView(element: target, model: targetModel, windowUUID: windowUUID)
+                            PersistentToolbar.onScreen(
+                                ActionUIView(element: target, model: targetModel, windowUUID: windowUUID),
+                                element: target,
+                                windowUUID: windowUUID
+                            )
                         } else {
-                            SwiftUI.Text("Destination \(destinationViewId) not found")
-                                .foregroundStyle(.red)
+                            PersistentToolbar.onScreen(
+                                SwiftUI.Text("Destination \(destinationViewId) not found")
+                                    .foregroundStyle(.red),
+                                element: nil,
+                                windowUUID: windowUUID
+                            )
                         }
                     }
                 }
             }
+            return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
         } else {
             // Standard NavigationLink-based navigation (no selection binding).
             // Wrap in NavigationPathContainer so the `navigationPath` state drives
@@ -124,28 +167,45 @@ struct NavigationStack: ActionUIViewConstruction {
             // There is no row selection to clear on pop-to-root here, so
             // clearsSelectionOnPopToRoot is false; contentModel is only observed
             // (falling back to the stack's own model when content has no model).
-            return NavigationPathContainer(model: model, contentModel: contentModel ?? model, clearsSelectionOnPopToRoot: false) { pathBinding in
+            let container = NavigationPathContainer(model: model, contentModel: contentModel ?? model, clearsSelectionOnPopToRoot: false) { pathBinding in
                 SwiftUI.NavigationStack(path: pathBinding) {
                     if let windowModel = windowModel,
                        let childModel = contentModel {
-                        ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
+                        PersistentToolbar.onScreen(
+                            ActionUIView(element: content, model: childModel, windowUUID: windowUUID),
+                            element: content,
+                            windowUUID: windowUUID
+                        )
                           .navigationDestination(for: Int.self) { destinationViewId in
                             if let target = destinations.first(where: { $0.id == destinationViewId }) {
                                 if let targetModel = windowModel.viewModels[target.id] {
-                                   ActionUIView(element: target, model: targetModel, windowUUID: windowUUID)
+                                   PersistentToolbar.onScreen(
+                                       ActionUIView(element: target, model: targetModel, windowUUID: windowUUID),
+                                       element: target,
+                                       windowUUID: windowUUID
+                                   )
                                 }
                                 else {
-                                    SwiftUI.Text("Destination \(destinationViewId) has no model")
-                                        .foregroundStyle(.red)
+                                    PersistentToolbar.onScreen(
+                                        SwiftUI.Text("Destination \(destinationViewId) has no model")
+                                            .foregroundStyle(.red),
+                                        element: nil,
+                                        windowUUID: windowUUID
+                                    )
                                 }
                             } else {
-                                SwiftUI.Text("Destination \(destinationViewId) not found")
-                                    .foregroundStyle(.red)
+                                PersistentToolbar.onScreen(
+                                    SwiftUI.Text("Destination \(destinationViewId) not found")
+                                        .foregroundStyle(.red),
+                                    element: nil,
+                                    windowUUID: windowUUID
+                                )
                             }
                         }
                     }
                 }
             }
+            return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
         }
     }
 

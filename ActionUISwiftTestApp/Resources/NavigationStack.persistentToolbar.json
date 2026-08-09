@@ -10,14 +10,26 @@
       "content": {
         "type": "Button",
         "id": 11,
-        "properties": { "title": "STACKBAR", "actionID": "toolbartest.stackbar" }
+        "properties": { "title": "ALIAS", "actionID": "toolbartest.stackbar" }
+      }
+    }
+  ],
+  "persistentToolbar": [
+    {
+      "type": "ToolbarItem",
+      "id": 60,
+      "properties": { "placement": "automatic" },
+      "content": {
+        "type": "Button",
+        "id": 61,
+        "properties": { "title": "PERS", "actionID": "toolbartest.persistbar" }
       }
     }
   ],
   "content": {
     "type": "VStack",
     "id": 2,
-    "properties": { "navigationTitle": "ToolbarRoot" },
+    "properties": { "navigationTitle": "TBRoot" },
     "children": [
       { "type": "Text", "id": 3, "properties": { "text": "root body" } },
       {
@@ -29,6 +41,19 @@
         "type": "NavigationLink",
         "id": 31,
         "properties": { "title": "PUSH_NO_BAR", "destinationViewId": 600 }
+      },
+      {
+        "type": "NavigationLink",
+        "id": 32,
+        "properties": { "title": "PUSH_INLINE" },
+        "destination": {
+          "type": "VStack",
+          "id": 700,
+          "properties": { "navigationTitle": "TBInline" },
+          "children": [
+            { "type": "Text", "id": 701, "properties": { "text": "inline dest body" } }
+          ]
+        }
       }
     ],
     "toolbar": [
@@ -39,7 +64,7 @@
         "content": {
           "type": "Button",
           "id": 21,
-          "properties": { "title": "ROOTBAR", "actionID": "toolbartest.rootbar" }
+          "properties": { "title": "ROOT", "actionID": "toolbartest.rootbar" }
         }
       }
     ]
@@ -48,7 +73,7 @@
     {
       "type": "VStack",
       "id": 500,
-      "properties": { "navigationTitle": "ToolbarDestWithBar" },
+      "properties": { "navigationTitle": "TBDestA" },
       "children": [
         { "type": "Text", "id": 501, "properties": { "text": "dest with bar" } }
       ],
@@ -60,7 +85,7 @@
           "content": {
             "type": "Button",
             "id": 41,
-            "properties": { "title": "DESTBARA", "actionID": "toolbartest.destbara" }
+            "properties": { "title": "DSTA", "actionID": "toolbartest.destbara" }
           }
         },
         {
@@ -70,7 +95,7 @@
           "content": {
             "type": "Button",
             "id": 51,
-            "properties": { "title": "DESTBARB", "actionID": "toolbartest.destbarb" }
+            "properties": { "title": "DSTB", "actionID": "toolbartest.destbarb" }
           }
         }
       ]
@@ -78,7 +103,7 @@
     {
       "type": "VStack",
       "id": 600,
-      "properties": { "navigationTitle": "ToolbarDestNoBar" },
+      "properties": { "navigationTitle": "TBDestB" },
       "children": [
         { "type": "Text", "id": 601, "properties": { "text": "dest without bar" } }
       ]

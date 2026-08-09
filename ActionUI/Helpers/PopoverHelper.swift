@@ -32,12 +32,20 @@ struct PopoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
                     }
                 }
                 .popover(isPresented: isPresented, arrowEdge: arrowEdge) {
-                    ActionUIView(element: popoverElement, model: popoverModel, windowUUID: windowUUID)
+                    // Its own presentation context with its own bar: an enclosing navigation
+                    // container's persistentToolbar stops here.
+                    PersistentToolbar.acrossPresentation(
+                        ActionUIView(element: popoverElement, model: popoverModel, windowUUID: windowUUID)
+                    )
                 }
         } else {
             content
                 .popover(isPresented: isPresented, arrowEdge: arrowEdge) {
-                    ActionUIView(element: popoverElement, model: popoverModel, windowUUID: windowUUID)
+                    // Its own presentation context with its own bar: an enclosing navigation
+                    // container's persistentToolbar stops here.
+                    PersistentToolbar.acrossPresentation(
+                        ActionUIView(element: popoverElement, model: popoverModel, windowUUID: windowUUID)
+                    )
                 }
         }
     }

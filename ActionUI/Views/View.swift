@@ -1727,12 +1727,19 @@ struct View: ActionUIViewConstruction {
             )
         }
 
-        // Apply toolbar modifier if the element has a "toolbar" subview array with items
-        if let toolbarItems = element.subviews?["toolbar"] as? [any ActionUIElementBase],
-           !toolbarItems.isEmpty {
+        // Apply this element's own "toolbar" as a SCREEN toolbar.
+        //
+        // screenToolbarItems returns nothing for a navigation container: a toolbar authored on a
+        // NavigationStack or NavigationSplitView belongs to the CONTAINER, not to a screen, and
+        // is a deprecated alias for "persistentToolbar". Those items are applied by the
+        // container's own builder, which knows where each platform needs them (outside the
+        // container on macOS, published to every screen elsewhere). Applying them here as well
+        // would double them on macOS and misplace them elsewhere.
+        let screenToolbarItems = ToolbarHelper.screenToolbarItems(of: element)
+        if !screenToolbarItems.isEmpty {
             modifiedView = ToolbarModifierView(
                 content: AnyView(modifiedView),
-                toolbarItems: toolbarItems,
+                toolbarItems: screenToolbarItems,
                 windowUUID: windowUUID
             )
         }

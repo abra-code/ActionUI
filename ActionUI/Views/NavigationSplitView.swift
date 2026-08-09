@@ -49,6 +49,28 @@
  // NavigationLink is NOT needed in the sidebar for NavigationSplitView.
  // Use NavigationLink only inside NavigationStack for push-based navigation.
 
+// Persistent toolbar: items that stay in the bar wherever the user navigates inside the split
+// view, rather than only on the column that declares them. Same ToolbarItem / ToolbarItemGroup
+// shapes as the per-screen "toolbar" key, and they compose with it.
+ {
+   "type": "NavigationSplitView",
+   "id": 1,
+   "persistentToolbar": [
+     { "type": "ToolbarItem", "id": 16, "properties": { "placement": "primaryAction" },
+       "content": { "type": "Image", "id": 17, "properties": { "systemName": "arrow.clockwise" } } }
+   ],
+   "sidebar": { ... },
+   "detail": { ... }
+ }
+ // A "toolbar" declared on the NavigationSplitView itself is a DEPRECATED ALIAS for
+ // "persistentToolbar"; it still works and logs a one-time warning.
+ // Where the items land is per platform: macOS puts them in the shared window toolbar; platforms
+ // whose columns each own a bar put them on the detail column, and on the leading columns only in
+ // compact width, where the split view collapses into one stack rooted at the sidebar. A column
+ // that is ITSELF a NavigationStack is the exception - there the items go onto that stack's own
+ // screens, since a toolbar applied around a stack does not reach the bars inside it.
+ // Implemented on Apple platforms only so far: Android and web currently ignore the key.
+
  // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
 
 // Observable state (via getElementState / setElementState):
@@ -98,6 +120,11 @@ struct NavigationSplitView: ActionUIViewConstruction {
 
         let windowModel = ActionUIModel.shared.windowModels[windowUUID]
 
+        // Items that stay in the bar wherever the user navigates inside this split view.
+        // macOS applies them once outside the container (all columns share one window toolbar);
+        // elsewhere they go on the columns - see PersistentToolbar.
+        let persistentItems = ToolbarHelper.persistentToolbarItems(of: element)
+
         if !destinations.isEmpty {
             // Selection-driven destination switching:
             // Sidebar List children declare a "destinationViewId" property linking to a destination view.
@@ -141,69 +168,84 @@ struct NavigationSplitView: ActionUIViewConstruction {
 
             if let content = content {
                 // 3-pane with destinations: sidebar selection drives detail switching
-                return ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+                let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
                     SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-                        SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID)
+                        PersistentToolbar.onSplitViewColumn(
+                            SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID),
+                            windowUUID: windowUUID, isDetail: false,
+                            columnIsNavigationContainer: ToolbarHelper.isNavigationContainer(sidebar.type)
+                        )
                     } content: {
-                        if let childModel = windowModel?.viewModels[content.id] {
-                            ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
-                        } else {
-                            SwiftUI.EmptyView()
-                        }
+                        Self.staticColumn(content, windowModel: windowModel, windowUUID: windowUUID, isDetail: false)
                     } detail: {
                         DestinationDetailView(model: model, destinations: destinations, defaultDetail: detail, windowModel: windowModel, windowUUID: windowUUID)
                     }
                 }
+                return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
             } else {
                 // 2-pane with destinations: sidebar selection drives detail switching
-                return ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+                let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
                     SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-                        SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID)
+                        PersistentToolbar.onSplitViewColumn(
+                            SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID),
+                            windowUUID: windowUUID, isDetail: false,
+                            columnIsNavigationContainer: ToolbarHelper.isNavigationContainer(sidebar.type)
+                        )
                     } detail: {
                         DestinationDetailView(model: model, destinations: destinations, defaultDetail: detail, windowModel: windowModel, windowUUID: windowUUID)
                     }
                 }
+                return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
             }
         } else if let content = content {
             // 3-pane without destinations: static sidebar | content | detail
-            return ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+            let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
                 SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-                    if let childModel = windowModel?.viewModels[sidebar.id] {
-                        ActionUIView(element: sidebar, model: childModel, windowUUID: windowUUID)
-                    } else {
-                        SwiftUI.EmptyView()
-                    }
+                    Self.staticColumn(sidebar, windowModel: windowModel, windowUUID: windowUUID, isDetail: false)
                 } content: {
-                    if let childModel = windowModel?.viewModels[content.id] {
-                        ActionUIView(element: content, model: childModel, windowUUID: windowUUID)
-                    } else {
-                        SwiftUI.EmptyView()
-                    }
+                    Self.staticColumn(content, windowModel: windowModel, windowUUID: windowUUID, isDetail: false)
                 } detail: {
-                    if let childModel = windowModel?.viewModels[detail.id] {
-                        ActionUIView(element: detail, model: childModel, windowUUID: windowUUID)
-                    } else {
-                        SwiftUI.EmptyView()
-                    }
+                    Self.staticColumn(detail, windowModel: windowModel, windowUUID: windowUUID, isDetail: true)
                 }
             }
+            return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
         } else {
             // 2-pane without destinations: static sidebar | detail
-            return ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+            let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
                 SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
-                    if let childModel = windowModel?.viewModels[sidebar.id] {
-                        ActionUIView(element: sidebar, model: childModel, windowUUID: windowUUID)
-                    } else {
-                        SwiftUI.EmptyView()
-                    }
+                    Self.staticColumn(sidebar, windowModel: windowModel, windowUUID: windowUUID, isDetail: false)
                 } detail: {
-                    if let childModel = windowModel?.viewModels[detail.id] {
-                        ActionUIView(element: detail, model: childModel, windowUUID: windowUUID)
-                    } else {
-                        SwiftUI.EmptyView()
-                    }
+                    Self.staticColumn(detail, windowModel: windowModel, windowUUID: windowUUID, isDetail: true)
                 }
             }
+            return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
+        }
+    }
+
+    /// One statically-declared column (sidebar, content or detail), with the split view's
+    /// persistent items applied where this platform needs them.
+    ///
+    /// The is-a-container check lives here rather than at the call site because this is where the
+    /// column's ELEMENT is known, and a column that is itself a NavigationStack has to apply
+    /// those items to its own screens instead of having them wrapped around it - a toolbar
+    /// applied outside a stack does not reach the bars of the screens inside it.
+    @ViewBuilder
+    private static func staticColumn(_ element: any ActionUIElementBase, windowModel: WindowModel?, windowUUID: String, isDetail: Bool) -> some SwiftUI.View {
+        PersistentToolbar.onSplitViewColumn(
+            Self.columnBody(element, windowModel: windowModel, windowUUID: windowUUID),
+            windowUUID: windowUUID,
+            isDetail: isDetail,
+            columnIsNavigationContainer: ToolbarHelper.isNavigationContainer(element.type)
+        )
+    }
+
+    /// The column's content itself, or an EmptyView when the element has no ViewModel.
+    @ViewBuilder
+    private static func columnBody(_ element: any ActionUIElementBase, windowModel: WindowModel?, windowUUID: String) -> some SwiftUI.View {
+        if let childModel = windowModel?.viewModels[element.id] {
+            ActionUIView(element: element, model: childModel, windowUUID: windowUUID)
+        } else {
+            SwiftUI.EmptyView()
         }
     }
 
@@ -280,12 +322,27 @@ struct NavigationSplitView: ActionUIViewConstruction {
         let windowUUID: String
 
         var body: some SwiftUI.View {
+            // The persistent items are applied HERE, not around the whole column, because which
+            // element occupies the detail changes with the selection - and whether that element
+            // is itself a navigation container (which must carry the items on its own screens
+            // instead) changes with it. Wrapping the column once could only ever be right for
+            // one of the destinations.
             if let selectedId = model.states["selectedDestination"] as? Int,
                let target = destinations.first(where: { $0.id == selectedId }),
                let targetModel = windowModel?.viewModels[target.id] {
-                ActionUIView(element: target, model: targetModel, windowUUID: windowUUID)
+                PersistentToolbar.onSplitViewColumn(
+                    ActionUIView(element: target, model: targetModel, windowUUID: windowUUID),
+                    windowUUID: windowUUID,
+                    isDetail: true,
+                    columnIsNavigationContainer: ToolbarHelper.isNavigationContainer(target.type)
+                )
             } else if let childModel = windowModel?.viewModels[defaultDetail.id] {
-                ActionUIView(element: defaultDetail, model: childModel, windowUUID: windowUUID)
+                PersistentToolbar.onSplitViewColumn(
+                    ActionUIView(element: defaultDetail, model: childModel, windowUUID: windowUUID),
+                    windowUUID: windowUUID,
+                    isDetail: true,
+                    columnIsNavigationContainer: ToolbarHelper.isNavigationContainer(defaultDetail.type)
+                )
             } else {
                 SwiftUI.EmptyView()
             }

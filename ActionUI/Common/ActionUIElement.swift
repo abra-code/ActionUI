@@ -47,7 +47,7 @@ public protocol ActionUIElementBase: Identifiable, Codable, Sendable {
     var id: Int { get }
     var type: String { get }
     var properties: [String: Any] { get }
-    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "overlay", "background"
+    var subviews: [String: Any]? { get } // optional dictionary with "children", "rows", "content", "destination", "sidebar", "detail", "label", "popover", "destinations", "toolbar", "persistentToolbar", "overlay", "background"
 }
 
 @MainActor
@@ -114,7 +114,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
 
     // Codable conformance for encoding
     enum ElementCodingKeys: String, CodingKey {
-        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions, safeAreaInset
+        case id, type, properties, children, rows, content, destination, sidebar, detail, label, popover, commands, destinations, template, sheet, fullScreenCover, toolbar, persistentToolbar, overlay, background, contextMenu, contextMenuPreview, swipeActions, safeAreaInset
     }
     
     public init(from decoder: Decoder) throws {
@@ -141,7 +141,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         // `swipeActions` is likewise an array subview (the swipe action Buttons) - SwiftUI's
         // `.swipeActions(edge:allowsFullSwipe:)` is a ViewBuilder of Buttons; each Button
         // carries an optional `edge` ("leading"/"trailing") read at apply time (View.swift).
-        for key in ["children", "destinations", "toolbar", "contextMenu", "swipeActions"] {
+        // `persistentToolbar` holds the same ToolbarItem shapes as `toolbar`, but belongs to a
+        // navigation container rather than to one screen: its items stay in the bar on every
+        // screen inside that container (see NavigationStack / NavigationSplitView).
+        for key in ["children", "destinations", "toolbar", "persistentToolbar", "contextMenu", "swipeActions"] {
             if let children = try container.decodeIfPresent([ActionUIElement].self, forKey: ElementCodingKeys(rawValue: key)!) {
                 if subviews == nil { subviews = [:] }
                 subviews![key] = children
@@ -207,8 +210,8 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
             return
         }
         
-        // Encode children, destinations, toolbar, contextMenu, and swipeActions arrays
-        for key in ["children", "destinations", "toolbar", "contextMenu", "swipeActions"] {
+        // Encode children, destinations, toolbar, persistentToolbar, contextMenu, and swipeActions arrays
+        for key in ["children", "destinations", "toolbar", "persistentToolbar", "contextMenu", "swipeActions"] {
             if let children = subviews[key] as? [ActionUIElement] {
                 try container.encodeIfPresent(children, forKey: ElementCodingKeys(rawValue: key)!)
             } else {
@@ -249,9 +252,9 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
         let properties = dictionary["properties"] as? [String: Any] ?? [:]
         var subviews: [String: Any]?
         
-        for key in ["children", "destinations", "toolbar"] {
+        for key in ["children", "destinations", "toolbar", "persistentToolbar"] {
             let childrenArray = dictionary[key] as? [[String: Any]]
-            // Note: JSON specifies "children"/"destinations"/"toolbar" as top-level keys, but we move them to subviews
+            // Note: JSON specifies "children"/"destinations"/"toolbar"/"persistentToolbar" as top-level keys, but we move them to subviews
             let children = try childrenArray?.map { try ActionUIElement(from: $0, logger: logger) }
             if children != nil {
                 if subviews == nil { subviews = [:] }
@@ -336,7 +339,7 @@ extension ActionUIElement {
             return ActionUIElement(id: normalizedID, type: element.type, properties: element.properties, subviews: nil)
         }
 
-        for key in ["children", "destinations", "toolbar"] {
+        for key in ["children", "destinations", "toolbar", "persistentToolbar"] {
             if let children = subviews[key] as? [ActionUIElement] {
                 subviews[key] = children.map { normalizeTemplateID($0, counter: &counter) }
             }
@@ -422,7 +425,7 @@ extension ActionUIElement: Equatable {
 // that DO need it (Codable, normalizeTemplateID, ==) handle it explicitly.
 enum ActionUISubviewContainers {
     /// Container keys holding an array of child elements.
-    static let arrayKeys = ["children", "destinations", "toolbar", "commands", "contextMenu", "swipeActions"]
+    static let arrayKeys = ["children", "destinations", "toolbar", "persistentToolbar", "commands", "contextMenu", "swipeActions"]
     /// Container key holding an array-of-arrays of child elements (Grid rows).
     static let rowsKey = "rows"
     /// Container keys holding a single child element.

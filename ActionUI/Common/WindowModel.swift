@@ -159,6 +159,24 @@ class WindowModel: ObservableObject {
         viewModel.states = ActionUIRegistry.shared.getInitialStates(forElementType: element.type, model: viewModel)
         targetViewModels[element.id] = viewModel
         
+        // A "toolbar" on a navigation container is the deprecated spelling of "persistentToolbar":
+        // it was never a screen toolbar on any platform, and the hosts disagreed about what to do
+        // with it. Warned here because this walk visits every element exactly once per load - so
+        // once per document, and once more each time a LoadableView or a modal reloads a subtree
+        // that contains one, which is the right granularity for "this document needs editing".
+        if ToolbarHelper.isNavigationContainer(element.type),
+           let aliased = element.subviews?["toolbar"] as? [any ActionUIElementBase], !aliased.isEmpty {
+            logger.log("Deprecated: 'toolbar' on \(element.type) (id \(element.id), window \(windowUUID)) is treated as 'persistentToolbar' - its items stay in the bar on every screen inside the container. Rename the key to silence this; declare a screen's own toolbar on that screen's element instead.", .warning)
+        }
+
+        // And the opposite mistake, which would otherwise be silent: only a navigation container
+        // reads "persistentToolbar", so anywhere else the items decode, get view models, and
+        // render nothing at all.
+        if !ToolbarHelper.isNavigationContainer(element.type),
+           let misplaced = element.subviews?["persistentToolbar"] as? [any ActionUIElementBase], !misplaced.isEmpty {
+            logger.log("'persistentToolbar' on \(element.type) (id \(element.id), window \(windowUUID)) is ignored - only NavigationStack and NavigationSplitView have screens to keep it on. Use 'toolbar' for this view's own toolbar, or move the key to the enclosing navigation container.", .warning)
+        }
+
         // If this element has a template, initialize states["content"] for data-driven rendering.
         // Do NOT recurse into template children — they are stateless blueprints, not live views.
         if element.subviews?["template"] != nil {

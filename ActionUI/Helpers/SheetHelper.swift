@@ -27,7 +27,12 @@ struct SheetModifierView<Content: SwiftUI.View>: SwiftUI.View {
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0)
                 }
             }) {
-                ActionUIView(element: sheetElement, model: sheetModel, windowUUID: windowUUID)
+                // A sheet is its own presentation context with its own bar, so an enclosing
+                // navigation container's persistentToolbar stops here - see
+                // PersistentToolbar.acrossPresentation.
+                PersistentToolbar.acrossPresentation(
+                    ActionUIView(element: sheetElement, model: sheetModel, windowUUID: windowUUID)
+                )
             }
     }
 }
@@ -54,7 +59,9 @@ struct FullScreenCoverModifierView<Content: SwiftUI.View>: SwiftUI.View {
                 ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0)
             }
         }
-        let coverContent = ActionUIView(element: coverElement, model: coverModel, windowUUID: windowUUID)
+        let coverContent = PersistentToolbar.acrossPresentation(
+            ActionUIView(element: coverElement, model: coverModel, windowUUID: windowUUID)
+        )
 #if os(iOS)
         content
             .fullScreenCover(isPresented: isPresented, onDismiss: dismissAction) {
