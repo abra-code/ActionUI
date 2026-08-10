@@ -32,13 +32,29 @@ let negativeIDCounter = -1;
 // place real elements (an Image preview, an HStack), not a button-descriptor array.
 // "swipeActions" is likewise an array subview (the swipe action Buttons) — SwiftUI's
 // `.swipeActions(edge:allowsFullSwipe:)`, a ViewBuilder of real Button elements.
-const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar", "contextMenu", "swipeActions"];
+// "persistentToolbar" is the same ToolbarItem/ToolbarItemGroup shape as "toolbar", but
+// declared on a NavigationStack / NavigationSplitView: its items stay in the bar on every
+// screen inside that container instead of on the one screen that declares them. Only those
+// two types read it (Views/NavigationStack.js, Views/NavigationSplitView.js); anywhere else
+// it renders nothing and Window.fromJSON warns.
+const SUBVIEW_ARRAY_KEYS = ["children", "destinations", "toolbar", "persistentToolbar", "contextMenu", "swipeActions"];
 const SUBVIEW_SINGLE_KEYS = ["content", "label", "template", "sidebar", "detail", "destination",
     "sheet", "fullScreenCover", "popover", "overlay", "background", "contextMenuPreview", "safeAreaInset"];
 // Keys whose value is an array of arrays of elements (Grid's "rows": one inner
 // array per GridRow). Stored as [[ActionUIElement]], mirroring Grid.swift's
 // `subviews["rows"] as? [[any ActionUIElementBase]]`.
 const SUBVIEW_NESTED_ARRAY_KEYS = ["rows"];
+
+// The element types that own a navigation context rather than being a single screen. A
+// toolbar authored on one of these belongs to the CONTAINER, not to the screen it happens
+// to sit next to. Defined here, in the model, because both the parser (below) and the
+// renderer (Helpers/ToolbarHelper.js) have to agree on the list and the model is the layer
+// neither of them can avoid importing.
+export const NAVIGATION_CONTAINER_TYPES = new Set(["NavigationStack", "NavigationSplitView"]);
+
+export function isNavigationContainer(type) {
+    return NAVIGATION_CONTAINER_TYPES.has(type);
+}
 
 export class ActionUIElement {
     constructor(id, type, properties, subviews) {
@@ -91,6 +107,30 @@ export class ActionUIElement {
                 subviews[key] = rows;
             }
         }
+        // The two ways a toolbar key can be authored where nothing will read it. Reported
+        // here because fromObject visits every element exactly once, on EVERY parse path -
+        // the window document, a LoadableView, a modal description, a runtime insertion -
+        // so a misauthored sub-document says so too. The renderer stays silent: by build
+        // time the key has already been folded into the container's items or dropped, and
+        // a render-time warning would repeat on every pane switch.
+        const container = NAVIGATION_CONTAINER_TYPES.has(raw.type);
+        if (container && subviews?.toolbar?.length) {
+            logger.log(
+                `Deprecated: 'toolbar' on ${raw.type} (id ${id}) is treated as 'persistentToolbar' - its items `
+                + "stay in the bar on every screen inside the container. Rename the key to silence this; declare "
+                + "a screen's own toolbar on that screen's element instead.",
+                "warning",
+            );
+        }
+        if (!container && subviews?.persistentToolbar?.length) {
+            logger.log(
+                `'persistentToolbar' on ${raw.type} (id ${id}) is ignored - only NavigationStack and `
+                + "NavigationSplitView have screens to keep it on. Use 'toolbar' for this view's own toolbar, or "
+                + "move the key to the enclosing navigation container.",
+                "warning",
+            );
+        }
+
         return new ActionUIElement(id, raw.type, properties, subviews);
     }
 
@@ -145,5 +185,12 @@ export class ActionUIElement {
     // empty array. Rendered as screen chrome by ToolbarHelper, not built directly.
     toolbar() {
         return this.subviews?.toolbar ?? [];
+    }
+
+    // A navigation container's persistent chrome carriers: the items it keeps in the bar
+    // on every screen inside it. Read through Helpers/ToolbarHelper.js's
+    // persistentToolbarItems(), which also folds in the deprecated `toolbar` spelling.
+    persistentToolbar() {
+        return this.subviews?.persistentToolbar ?? [];
     }
 }

@@ -60,6 +60,12 @@ import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 import { prefersReducedMotion } from "../Helpers/Modality.js";
 import { attachEdgeBackSwipe } from "../Helpers/EdgeSwipe.js";
+import {
+    persistentToolbarItems,
+    buildPersistentToolbar,
+    attachPersistentToolbarMounts,
+    movePersistentToolbar,
+} from "../Helpers/ToolbarHelper.js";
 
 const VALID_COLUMN_VISIBILITIES = ["automatic", "all", "doubleColumn", "detail"];
 const VALID_STYLES = ["automatic", "balanced", "prominentDetail"];
@@ -161,6 +167,20 @@ register("NavigationSplitView", {
         const destinationNodes = [];
         let defaultDetailNode = null;
 
+        // This split view's persistent items: built ONCE, moved to whichever pane is
+        // showing (see placePersistentToolbar). The detail side carries them whenever it
+        // is visible, so one authored item never appears once per visible column; the
+        // sidebar only carries them in the compact one-column flow, where the detail is
+        // hidden and the items would otherwise vanish. Same rule as iOS, which withdraws
+        // them from the leading column in regular width.
+        const persistentGroups = buildPersistentToolbar(persistentToolbarItems(element), ctx);
+        const persistentSlots = persistentGroups === null ? [] : Object.keys(persistentGroups);
+        const detailMountsByNode = new Map(); // built detail node -> { slot: mountNode }
+        let defaultDetailMounts = {};
+        let sidebarMounts = {};
+        let sidebarHostNode = null;         // built lazily; hidden whenever it is not in use
+        let ensureSidebarMounts = () => {}; // replaced in the selection-driven form
+
         // Opt-in browser back/forward (authored `browserHistory:web`, off by
         // default): a user selection adds a history entry, a popstate restores the
         // selection. See Helpers/NavigationHistory.js.
@@ -240,6 +260,10 @@ register("NavigationSplitView", {
             compact = next;
             if (compact) fillSidebarWidth(); else restoreSidebarWidth();
             applyPaneVisibility();
+            // Collapsing or expanding changes which pane is on screen, so the items may
+            // have to follow: in compact with nothing selected the sidebar is the only
+            // pane visible, and the detail node holding them is hidden.
+            placePersistentToolbar();
         };
 
         // Cross-fade the detail content when the shown destination changes in the
@@ -257,6 +281,31 @@ register("NavigationSplitView", {
                 { duration: 200, easing: "ease-out" },
             );
         };
+        // Moves the ONE persistent node into whatever is on screen now. The sidebar is the
+        // target only when it is the only pane showing (compact, selection-driven, nothing
+        // selected); otherwise the visible detail node is, so the items sit in the pane the
+        // user is actually navigating and appear exactly once.
+        const placePersistentToolbar = () => {
+            if (persistentGroups === null) return;
+            if (compact && selectionDriven && selectedDestination === 0) {
+                ensureSidebarMounts();
+                if (sidebarHostNode !== null) sidebarHostNode.style.display = "";
+                movePersistentToolbar(persistentGroups, sidebarMounts, ctx.logger);
+                return;
+            }
+            // Hide the sidebar's bar again once the items leave it. Building it lazily is
+            // not enough on its own: narrowing the window and widening it back would
+            // otherwise leave the empty strip - with its bottom rule - permanently above
+            // the first sidebar row, which is the thing the lazy build set out to avoid.
+            if (sidebarHostNode !== null) sidebarHostNode.style.display = "none";
+            const target = destinationsById.get(selectedDestination) ?? null;
+            movePersistentToolbar(
+                persistentGroups,
+                target === null ? defaultDetailMounts : detailMountsByNode.get(target),
+                ctx.logger,
+            );
+        };
+
         const showDetail = () => {
             if (!selectionDriven) return;
             const target = destinationsById.get(selectedDestination) ?? null;
@@ -267,6 +316,7 @@ register("NavigationSplitView", {
                 animateDetailIn(shown);
             }
             lastDetailNode = shown;
+            placePersistentToolbar();
         };
         const applySelection = () => {
             rowsByDest.forEach((row, destId) => {
@@ -329,14 +379,22 @@ register("NavigationSplitView", {
 
             // Detail host: the default detail plus one node per destination, built
             // once and toggled by display.
-            defaultDetailNode = detail ? ctx.build(detail) : document.createElement("div");
+            // Every detail node gets its own mount points, because any of them can be the
+            // visible one. The wrapped node is what gets stored and display-toggled.
+            const mountedDefault = attachPersistentToolbarMounts(
+                detail ? ctx.build(detail) : document.createElement("div"),
+                persistentSlots,
+            );
+            defaultDetailNode = mountedDefault.node;
+            defaultDetailMounts = mountedDefault.mounts;
             detailPane.appendChild(defaultDetailNode);
             for (const dest of destinations) {
                 if (dest.id <= 0) continue; // detail targets are addressed by id
-                const destNode = ctx.build(dest);
-                destinationsById.set(dest.id, destNode);
-                destinationNodes.push(destNode);
-                detailPane.appendChild(destNode);
+                const mounted = attachPersistentToolbarMounts(ctx.build(dest), persistentSlots);
+                destinationsById.set(dest.id, mounted.node);
+                destinationNodes.push(mounted.node);
+                detailMountsByNode.set(mounted.node, mounted.mounts);
+                detailPane.appendChild(mounted.node);
             }
 
             // Sidebar rows built from the List's children (the List itself is not built).
@@ -376,6 +434,19 @@ register("NavigationSplitView", {
                 sidebarPane.appendChild(row);
             }
 
+            // The sidebar builds its rows directly rather than through the registry, so it
+            // has no chrome host to merge into and needs one of its own. Built LAZILY, on
+            // the first placement that actually targets the sidebar: expanded, the items
+            // always live in the detail, and an eagerly-built bar would be a permanently
+            // empty strip with a rule under it above the first row on every desktop render.
+            ensureSidebarMounts = () => {
+                if (sidebarHostNode !== null) return;
+                const mounted = attachPersistentToolbarMounts(document.createElement("div"), persistentSlots);
+                sidebarMounts = mounted.mounts;
+                sidebarHostNode = mounted.node;
+                sidebarPane.insertBefore(sidebarHostNode, sidebarPane.children[0] ?? null);
+            };
+
             if (threePane) {
                 const contentPane = document.createElement("div");
                 contentPane.className = "aui-nav-split-content";
@@ -386,9 +457,21 @@ register("NavigationSplitView", {
                 node.append(sidebarPane, detailPane);
             }
         } else {
-            // Static form: build each declared pane through the registry.
+            // Static form: build each declared pane through the registry. Both panes are
+            // always on screen here (compact stacks them vertically rather than showing
+            // one at a time), so the detail carries the persistent items and the sidebar
+            // never does - the same one-item-once rule as the expanded selection-driven
+            // layout. A split with no `detail` still gets a host, or the items would have
+            // nowhere to live.
             sidebarPane.appendChild(ctx.build(sidebar));
-            if (detail) detailPane.appendChild(ctx.build(detail));
+            if (detail || persistentSlots.length > 0) {
+                const mountedStaticDetail = attachPersistentToolbarMounts(
+                    detail ? ctx.build(detail) : document.createElement("div"),
+                    persistentSlots,
+                );
+                defaultDetailMounts = mountedStaticDetail.mounts;
+                detailPane.appendChild(mountedStaticDetail.node);
+            }
             if (threePane) {
                 const contentPane = document.createElement("div");
                 contentPane.className = "aui-nav-split-content";
@@ -449,6 +532,9 @@ register("NavigationSplitView", {
         }
 
         applySelection();
+        // applySelection reaches placePersistentToolbar only through showDetail, which is
+        // a no-op in the static form, so the first placement is made explicitly here.
+        placePersistentToolbar();
         return node;
     },
 });

@@ -54,10 +54,19 @@
     },
     { "type": "Divider" },
     { "type": "Text", "properties": { "text": "NavigationStack (push navigation; by-reference + inline destinations, Back to pop). browserHistory:web is on, so the browser Back button pops a push, then switches section:", "foregroundStyle": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "The Sync item below is declared once, in the stack's persistentToolbar, and stays in the bar on every screen inside it - including the inline note, which declares no toolbar of its own. Profile and Settings add their own items beside it. It is ONE element: the renderer moves that node between panes rather than building a copy per screen, so its id still addresses exactly one node.", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "NavigationStack",
       "id": 160,
       "properties": { "browserHistory:web": true, "frame": { "maxWidth": "infinity" } },
+      "persistentToolbar": [
+        {
+          "type": "ToolbarItem",
+          "id": 168,
+          "properties": { "placement": "topBarTrailing" },
+          "content": { "type": "Button", "id": 169, "properties": { "title": "Sync", "systemImage": "arrow.clockwise", "actionID": "nav.sync" } }
+        }
+      ],
       "content": {
         "type": "VStack",
         "id": 164,

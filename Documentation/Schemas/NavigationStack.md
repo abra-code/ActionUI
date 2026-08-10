@@ -63,7 +63,9 @@ JSON schema and usage documentation for `NavigationStack`.
  // To give only the root screen a toolbar, declare it on "content". There is no
  // per-destination opt-out: set "hidden" on the item's CONTENT to blank it - note that hides the
  // content without reclaiming the slot, so it still counts against the bar's space.
- // Implemented on Apple platforms and Android; web currently ignores the key.
+ // Implemented on all four hosts. On the web, persistent items authored "secondaryAction" get their
+ // own overflow menu rather than joining the screen's, so a document using that placement on BOTH
+ // a screen and its container shows two "..." menus there where Apple shows one.
 
  // Observable state (via getElementState / setElementState):
  //   states["navigationPath"]  [Int]   Current navigation path as array of destination IDs.

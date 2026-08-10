@@ -27,6 +27,14 @@
 // el.focus() and exposed via documentShim.activeElement. Reset per installDom.
 let focusedElement = null;
 
+// Removes a node from whatever parent currently holds it, so an insert can re-add it.
+function detachNode(node) {
+    const parent = node.parentNode;
+    if (!parent) return;
+    parent.children = parent.children.filter((n) => n !== node);
+    node.parentNode = null;
+}
+
 // A fake element exposing the surface the renderer uses.
 export function makeElement(tag = "div") {
     const classes = new Set();
@@ -60,10 +68,18 @@ export function makeElement(tag = "div") {
         },
         parentNode: null,
         setAttribute(key, val) { el[key] = val; },
-        append(...nodes) { nodes.forEach((n) => { if (n) n.parentNode = el; }); el.children.push(...nodes); },
-        appendChild(node) { if (node) node.parentNode = el; el.children.push(node); return node; },
+        // Inserting a node that already has a parent MOVES it: the real DOM detaches it
+        // from the old parent first, and code that reparents a node (NavigationStack moves
+        // one persistent-toolbar node between panes) relies on that to keep exactly one
+        // live node per element id. Without the detach the stub reported the node in every
+        // pane it had ever been in, so a one-instance assertion failed no matter what the
+        // renderer did - it could not tell a correct move from a per-pane copy.
+        append(...nodes) { nodes.forEach((n) => { if (n) { detachNode(n); n.parentNode = el; el.children.push(n); } }); },
+        appendChild(node) { if (node) { detachNode(node); node.parentNode = el; el.children.push(node); } return node; },
         insertBefore(node, ref) {
             if (!node) return node;
+            if (node === ref) return node; // the real DOM makes this a no-op
+            detachNode(node);
             node.parentNode = el;
             const i = ref ? el.children.indexOf(ref) : -1;
             if (i < 0) el.children.push(node); else el.children.splice(i, 0, node);
@@ -71,6 +87,7 @@ export function makeElement(tag = "div") {
         },
         replaceChildren(...nodes) {
             el.children.forEach((n) => { if (n && n.parentNode === el) n.parentNode = null; });
+            nodes.forEach((n) => { if (n) detachNode(n); });
             nodes.forEach((n) => { if (n) n.parentNode = el; });
             el.children = nodes;
         },

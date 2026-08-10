@@ -72,7 +72,9 @@ JSON schema and usage documentation for `NavigationSplitView`.
  // compact width, where the split view collapses into one stack rooted at the sidebar. A column
  // that is ITSELF a NavigationStack is the exception - there the items go onto that stack's own
  // screens, since a toolbar applied around a stack does not reach the bars inside it.
- // Implemented on Apple platforms and Android; web currently ignores the key.
+ // Implemented on all four hosts. On the web, persistent items authored "secondaryAction" get their
+ // own overflow menu rather than joining the screen's, so a document using that placement on BOTH
+ // a screen and its container shows two "..." menus there where Apple shows one.
 
  // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
 

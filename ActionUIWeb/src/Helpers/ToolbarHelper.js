@@ -32,8 +32,10 @@ import { makeFloatingPanel } from "./PopoverPlacement.js";
 // The navigation containers own their own per-pane chrome (NavigationStack
 // renders chrome on each destination it builds; NavigationSplitView on its
 // panes), so the container element itself is never wrapped — mirrors Android's
-// hasRootToolbarChrome exclusion.
-const NAV_CONTAINER_TYPES = new Set(["NavigationStack", "NavigationSplitView"]);
+// hasRootToolbarChrome exclusion. The list lives in the model (ActionUIElement.js)
+// because the parser needs it too, and the model is the layer neither side can
+// avoid importing - one definition rather than two that can drift.
+import { isNavigationContainer } from "../Common/ActionUIElement.js";
 
 // Maps a SwiftUI toolbar placement to a web chrome slot. The web is a
 // macOS-like desktop target: iOS leading/trailing map to the bar ends, the
@@ -63,11 +65,30 @@ function resolveSlot(placement) {
     }
 }
 
-// Flattens an element's `toolbar` into chrome buckets by slot. Pure (logging
-// aside), so it is unit-testable.
-export function resolveToolbar(element, logger) {
+// The items a navigation container keeps in the bar on every screen inside it: its
+// `persistentToolbar`, plus its `toolbar` as a DEPRECATED ALIAS.
+//
+// The alias exists because a container-level `toolbar` was never a screen toolbar on any
+// host - the web dropped it outright at wrapWithToolbar's guard, macOS put it in the
+// window toolbar where it already persisted - so reading it here gives all four hosts one
+// behavior and keeps existing documents working. ActionUIElement.fromObject warns at parse
+// time when it sees one. Pure.
+export function persistentToolbarItems(element) {
+    return [...element.persistentToolbar(), ...element.toolbar()];
+}
+
+// The items to apply as THIS SCREEN's own toolbar. Empty for a navigation container: its
+// `toolbar` belongs to the container, and the container applies it to every screen inside
+// instead. Pure.
+export function screenToolbarItems(element) {
+    return isNavigationContainer(element.type) ? [] : element.toolbar();
+}
+
+// Flattens a list of ToolbarItem / ToolbarItemGroup carriers into chrome buckets by slot.
+// Pure (logging aside).
+function bucketItems(items, logger) {
     const buckets = { leading: [], principal: [], trailing: [], overflow: [], bottom: [] };
-    for (const item of element.toolbar()) {
+    for (const item of items) {
         const placement = item.properties?.placement;
         const contents = item.type === "ToolbarItemGroup"
             ? item.children()
@@ -80,6 +101,12 @@ export function resolveToolbar(element, logger) {
         buckets[slot].push(...contents);
     }
     return buckets;
+}
+
+// Flattens an element's own `toolbar` into chrome buckets by slot. Pure (logging
+// aside), so it is unit-testable.
+export function resolveToolbar(element, logger) {
+    return bucketItems(screenToolbarItems(element), logger);
 }
 
 // The navigation-title size modes (Apple's `toolbarTitleDisplayMode`, mirrored in
@@ -181,7 +208,7 @@ function buildOverflowMenu(items, ctx) {
 // `navigationTitle`; otherwise returns bodyNode unchanged. The navigation
 // containers are never wrapped (they own their per-pane chrome).
 export function wrapWithToolbar(bodyNode, element, properties, ctx) {
-    if (NAV_CONTAINER_TYPES.has(element.type)) return bodyNode;
+    if (isNavigationContainer(element.type)) return bodyNode;
 
     const hasToolbar = element.toolbar().length > 0;
     const title = typeof properties.navigationTitle === "string" ? properties.navigationTitle : null;
@@ -254,4 +281,160 @@ export function wrapWithToolbar(bodyNode, element, properties, ctx) {
     }
 
     return host;
+}
+
+// ---------------------------------------------------------------------------
+// persistentToolbar: ONE instance, reparented
+//
+// The web builds every destination pane up front and toggles `display`, so all panes are
+// live in the DOM at once. Merging a container's persistent items into each pane's bar
+// would put N live nodes behind ONE authored id, and `ActionUIModel.findNode` resolves an
+// id to a SINGLE node (`querySelector` returns the first match) - so a host
+// `setElementProperty` would update the first pane's copy and silently miss the rest. That
+// bug is invisible on a one-destination smoke test, which is exactly how it would ship.
+//
+// Instead the items are built once, owned by the container, and MOVED into the visible
+// pane's bar whenever the active pane changes. One node, one id: every existing property
+// applier and the whole host-addressing path keep working untouched. And one bar: the
+// persistent items share the pane's own bar rather than adding a second, which is what
+// both Apple hosts do.
+// ---------------------------------------------------------------------------
+
+const PERSISTENT_MOUNT_CLASS = "aui-toolbar-persistent-mount";
+
+// The bar slots a persistent group can occupy. `overflow` is not among them: persistent
+// secondaryAction items ride at the end of the trailing group instead (see below).
+const PERSISTENT_SLOTS = ["leading", "principal", "trailing", "bottom"];
+
+function hasClass(node, className) {
+    return typeof node?.className === "string" && node.className.split(/\s+/).includes(className);
+}
+
+// First direct child carrying `className`, or null. Deliberately not `querySelector`: this
+// only ever wants a direct child, and a descendant match would find an inner element's own
+// chrome (a pane can contain another toolbar host) and mount the items into the wrong bar.
+function findChildByClass(node, className) {
+    for (const child of node.children ?? []) {
+        if (hasClass(child, className)) return child;
+    }
+    return null;
+}
+
+// Builds the ONE set of nodes for a container's persistent items, keyed by the bar slot
+// each belongs in; null when there are none. These nodes are never rebuilt, only moved.
+export function buildPersistentToolbar(items, ctx) {
+    if (!items.length) return null;
+    const buckets = bucketItems(items, ctx.logger);
+    const groups = {};
+    for (const slot of PERSISTENT_SLOTS) {
+        const contents = buckets[slot];
+        // Persistent secondaryAction items get their own overflow menu at the end of the
+        // trailing group. Apple folds them into the screen's single menu; the web cannot,
+        // because a pane's menu is built per pane while this node is built once. So a
+        // document that uses secondaryAction on BOTH a screen and its container shows two
+        // "..." menus here where Apple shows one. Documented divergence, not a bug to hunt.
+        const overflow = slot === "trailing" && buckets.overflow.length ? buckets.overflow : null;
+        if (!contents.length && overflow === null) continue;
+        const group = document.createElement("span");
+        group.className = `aui-toolbar-persistent aui-toolbar-persistent-${slot}`;
+        contents.forEach((el) => group.appendChild(renderChromeItem(el, ctx)));
+        if (overflow !== null) group.appendChild(buildOverflowMenu(overflow, ctx));
+        groups[slot] = group;
+    }
+    return Object.keys(groups).length ? groups : null;
+}
+
+function ensureTopMount(host, slot) {
+    let bar = findChildByClass(host, "aui-toolbar-top");
+    if (bar === null) {
+        // The pane declared no toolbar and no navigationTitle, so it has no action bar to
+        // merge into. It needs one now: a screen inside a container with persistent items
+        // gets a bar even when it declares nothing itself.
+        bar = document.createElement("div");
+        bar.className = "aui-toolbar-bar aui-toolbar-top";
+        const leading = document.createElement("div");
+        leading.className = "aui-toolbar-leading";
+        const principal = document.createElement("div");
+        principal.className = "aui-toolbar-principal";
+        const trailing = document.createElement("div");
+        trailing.className = "aui-toolbar-trailing";
+        bar.append(leading, principal, trailing);
+        host.insertBefore(bar, host.children[0] ?? null);
+    }
+    let slotNode = findChildByClass(bar, `aui-toolbar-${slot}`);
+    if (slotNode === null) {
+        slotNode = document.createElement("div");
+        slotNode.className = `aui-toolbar-${slot}`;
+        bar.appendChild(slotNode);
+    }
+    const mount = document.createElement("span");
+    mount.className = PERSISTENT_MOUNT_CLASS;
+    // Appended LAST, after whatever the screen declared in this slot, so a persistent item
+    // keeps the same outer position as screens change.
+    slotNode.appendChild(mount);
+    return mount;
+}
+
+function ensureBottomMount(host) {
+    let bar = findChildByClass(host, "aui-toolbar-bottom");
+    if (bar === null) {
+        bar = document.createElement("div");
+        bar.className = "aui-toolbar-bar aui-toolbar-bottom";
+        host.appendChild(bar);
+    }
+    const mount = document.createElement("span");
+    mount.className = PERSISTENT_MOUNT_CLASS;
+    bar.appendChild(mount);
+    return mount;
+}
+
+// Gives one pane a mount point per slot in `slots`, creating the chrome host and whichever
+// bar rows it is missing. Returns the node to place in the pane - `builtNode` itself when
+// it was already a chrome host, otherwise a new host wrapping it - and the mount per slot.
+export function attachPersistentToolbarMounts(builtNode, slots) {
+    if (!slots.length) return { node: builtNode, mounts: {} };
+
+    let host = builtNode;
+    if (!hasClass(host, "aui-toolbar-host")) {
+        host = document.createElement("div");
+        host.className = "aui-toolbar-host";
+        host.dataset.auiTitleMode = "automatic";
+        const body = document.createElement("div");
+        body.className = "aui-toolbar-body";
+        body.appendChild(builtNode);
+        host.appendChild(body);
+    }
+
+    const mounts = {};
+    for (const slot of slots) {
+        mounts[slot] = slot === "bottom" ? ensureBottomMount(host) : ensureTopMount(host, slot);
+    }
+    return { node: host, mounts };
+}
+
+// Moves the persistent groups into one pane's mount points. Called synchronously from the
+// pane switch, so it lands before paint and there is no flash of a bar without its items.
+// `appendChild` on a node that already has a parent detaches it from that parent, which is
+// what keeps exactly one live node per authored id.
+//
+// A missing mount is a bug in the caller, not an authoring error: every pane is given a
+// mount for every slot the container occupies. It leaves the group where it is - stranded
+// in the pane the user just left, which is at least visible and traceable - and says so,
+// rather than removing it and leaving the author looking for items that are simply gone.
+export function movePersistentToolbar(groups, mounts, logger) {
+    if (groups === null) return;
+    for (const slot of Object.keys(groups)) {
+        const mount = mounts?.[slot];
+        if (!mount) {
+            logger?.log(`persistentToolbar: no '${slot}' mount in the pane being shown; items left in place`, "warning");
+            continue;
+        }
+        // Already there: do nothing. Re-appending a node to its current parent is a real
+        // move in the DOM, and moving a node blurs anything focused inside it - so a
+        // no-op placement (a repeated setState of the same selection, a compact crossing
+        // that does not change which pane shows) would silently steal focus from a
+        // persistent button the user is tabbing through.
+        if (groups[slot].parentNode === mount) continue;
+        mount.appendChild(groups[slot]);
+    }
 }

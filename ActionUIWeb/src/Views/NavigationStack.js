@@ -51,6 +51,12 @@ import { NAV_PUSH_EVENT } from "./NavigationLink.js";
 import { registerNavigationHistory } from "../Helpers/NavigationHistory.js";
 import { prefersReducedMotion } from "../Helpers/Modality.js";
 import { attachEdgeBackSwipe } from "../Helpers/EdgeSwipe.js";
+import {
+    persistentToolbarItems,
+    buildPersistentToolbar,
+    attachPersistentToolbarMounts,
+    movePersistentToolbar,
+} from "../Helpers/ToolbarHelper.js";
 
 const NAV_PATH_KEY = "navigationPath";
 
@@ -90,6 +96,15 @@ register("NavigationStack", {
         // Destination registry: destinations[] (authoritative) + inline link
         // destinations hoisted from the content subtree, keyed by id.
         const destMap = buildDestinationMap(content, destinations);
+
+        // This stack's persistent items: built ONCE here, then moved into whichever pane
+        // is visible (see showTop). Every pane gets a mount point per occupied slot, even
+        // one that declares no toolbar of its own - that pane still shows the container's
+        // items, which is the whole point of the key.
+        const persistentGroups = buildPersistentToolbar(persistentToolbarItems(element), ctx);
+        const persistentSlots = persistentGroups === null ? [] : Object.keys(persistentGroups);
+        const destMounts = new Map(); // dest id -> { slot: mountNode }
+        let rootMounts = {};
 
         let path = []; // dest ids, root-to-top; empty = root
 
@@ -168,14 +183,21 @@ register("NavigationStack", {
                 }
                 listBox.appendChild(row);
             }
-            rootPane.appendChild(listBox);
+            // The selectable-List form builds its rows directly rather than through the
+            // registry, so it has no chrome host of its own; the mount call makes one when
+            // there are persistent items, and is a pass-through when there are none.
+            const mountedList = attachPersistentToolbarMounts(listBox, persistentSlots);
+            rootMounts = mountedList.mounts;
+            rootPane.appendChild(mountedList.node);
         } else {
             // Normal form: the content is built through the registry, so its own
             // `navigationTitle`/`toolbar` renders as chrome (ToolbarHelper) — the
             // stack adds no title of its own here.
             const body = document.createElement("div");
             body.className = "aui-nav-stack-body";
-            body.appendChild(ctx.build(content));
+            const mountedRoot = attachPersistentToolbarMounts(ctx.build(content), persistentSlots);
+            rootMounts = mountedRoot.mounts;
+            body.appendChild(mountedRoot.node);
             rootPane.appendChild(body);
         }
         node.appendChild(rootPane);
@@ -206,14 +228,16 @@ register("NavigationStack", {
             pane.appendChild(bar);
             const body = document.createElement("div");
             body.className = "aui-nav-stack-body";
-            body.appendChild(bodyContentNode);
+            const mounted = attachPersistentToolbarMounts(bodyContentNode, persistentSlots);
+            body.appendChild(mounted.node);
             pane.appendChild(body);
-            return pane;
+            return { pane, mounts: mounted.mounts };
         };
 
         for (const [id, destEl] of destMap) {
-            const pane = makeDestPane(ctx.build(destEl));
+            const { pane, mounts } = makeDestPane(ctx.build(destEl));
             destPanes.set(id, pane);
+            destMounts.set(id, mounts);
             destOrder.push(id);
             node.appendChild(pane);
         }
@@ -240,6 +264,10 @@ register("NavigationStack", {
             const top = path.length ? path[path.length - 1] : null;
             rootPane.style.display = top === null ? "" : "none";
             destPanes.forEach((pane, id) => { pane.style.display = id === top ? "" : "none"; });
+            // Move the ONE persistent node into the pane that just became visible. Runs
+            // here, synchronously with the display toggle, so it lands before paint and
+            // the incoming bar is never seen without its items.
+            movePersistentToolbar(persistentGroups, top === null ? rootMounts : destMounts.get(top), ctx.logger);
             // Selectable-List form: highlight the pushed row, cleared at root.
             rowsByDest.forEach((row, destId) => {
                 const on = path.includes(destId);
@@ -285,9 +313,10 @@ register("NavigationStack", {
                 shape: ContainerShape.FLAT,
                 childIds: () => [...destOrder],
                 insert: (contentNode, id, index, destEl) => {
-                    const pane = makeDestPane(contentNode);
+                    const { pane, mounts } = makeDestPane(contentNode);
                     destMap.set(id, destEl);
                     destPanes.set(id, pane);
+                    destMounts.set(id, mounts);
                     destOrder.splice(index, 0, id);
                     node.appendChild(pane); // hidden; order among panes is display-toggled, not visual
                 },
@@ -296,6 +325,7 @@ register("NavigationStack", {
                     if (i < 0) return false;
                     destPanes.get(id)?.remove();
                     destPanes.delete(id);
+                    destMounts.delete(id);
                     destMap.delete(id);
                     destOrder.splice(i, 1);
                     if (path.includes(id)) { path = path.filter((p) => p !== id); showTop(); commitHistory("replace"); }

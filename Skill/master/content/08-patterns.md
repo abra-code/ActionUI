@@ -39,7 +39,7 @@ Large apps split UI across multiple JSON files loaded on demand. Each tab or sec
 
 Use the `toolbar` top-level key (not inside `properties`) on any view to attach toolbar items. `ToolbarItem` holds a single `content` view; `ToolbarItemGroup` holds multiple items under `children`.
 
-One exception: on a `NavigationStack` or `NavigationSplitView`, `toolbar` is a DEPRECATED spelling of `persistentToolbar` and logs a warning. Put a screen's toolbar on that screen's own element (the stack's `content`, or a destination); use `persistentToolbar` on the container only for items that must stay in the bar on EVERY screen inside it, such as a global status indicator. Those items cost bar space on every screen, so keep them to one or two. Apple platforms and Android; web ignores the key for now.
+One exception: on a `NavigationStack` or `NavigationSplitView`, `toolbar` is a DEPRECATED spelling of `persistentToolbar` and logs a warning. Put a screen's toolbar on that screen's own element (the stack's `content`, or a destination); use `persistentToolbar` on the container only for items that must stay in the bar on EVERY screen inside it, such as a global status indicator. Those items cost bar space on every screen, so keep them to one or two. Implemented on all four hosts.
 
 ```json
 {
