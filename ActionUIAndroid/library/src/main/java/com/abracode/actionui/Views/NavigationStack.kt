@@ -24,8 +24,11 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalPersistentToolbarItems
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.ToolbarHost
+import com.abracode.actionui.Helpers.isNavigationContainer
+import com.abracode.actionui.Helpers.persistentToolbarItems
 import com.abracode.actionui.Helpers.stringProperty
 
 /**
@@ -114,7 +117,18 @@ object NavigationStack : ActionUIViewConstruction {
             }
         }
 
-        CompositionLocalProvider(LocalNavPush provides push) {
+        // This stack's persistent items, appended to whatever an enclosing container already
+        // published. Appending rather than replacing is what makes a stack nested in a split
+        // view's detail pane keep the outer container's items as well as its own.
+        val inheritedPersistent = LocalPersistentToolbarItems.current
+        val persistent = remember(element, inheritedPersistent) {
+            inheritedPersistent + persistentToolbarItems(element)
+        }
+
+        CompositionLocalProvider(
+            LocalNavPush provides push,
+            LocalPersistentToolbarItems provides persistent,
+        ) {
             NavHost(navController = navController, startDestination = NAV_ROOT_ROUTE, modifier = modifier) {
                 composable(NAV_ROOT_ROUTE) {
                     RenderNavChild(content, logger)
@@ -183,9 +197,15 @@ private fun currentDestinationPath(navController: NavController): List<Int> =
 
 /**
  * Renders one navigation child (root content or a destination) through the normal
- * pipeline. When the element declares a `toolbar` or a `navigationTitle`, the body
- * is wrapped in a [ToolbarHost] (a `Scaffold` + `TopAppBar` / `BottomAppBar`); see
+ * pipeline. When the element declares a `toolbar` or a `navigationTitle`, or the
+ * enclosing container published persistent items, the body is wrapped in a
+ * [ToolbarHost] (a `Scaffold` + `TopAppBar` / `BottomAppBar`); see
  * `Helpers/ToolbarHelper.kt`. Otherwise it renders bare.
+ *
+ * This is the single site where a container's persistent items reach a screen, which is
+ * why both the root route and the destination route call it: a destination that declares
+ * no toolbar of its own still gets a bar when the container has persistent items, which
+ * is the whole point of the feature.
  */
 @Composable
 private fun RenderNavChild(element: ActionUIElement?, logger: ActionUILogger) {
@@ -196,10 +216,21 @@ private fun RenderNavChild(element: ActionUIElement?, logger: ActionUILogger) {
             builder.BuildViewWithModifiers(element, Modifier)
         }
     }
+    // A nested navigation container is not a screen. It renders its own screens and merges
+    // what it inherits into each of their bars, so wrapping it here would put the items in
+    // a bar ABOVE its NavHost and stack a second bar over every screen inside it.
+    if (isNavigationContainer(element.type)) {
+        body()
+        return
+    }
+    val persistent = LocalPersistentToolbarItems.current
     val hasChrome = element.toolbar != null ||
-        element.properties?.stringProperty("navigationTitle") != null
+        element.properties?.stringProperty("navigationTitle") != null ||
+        persistent.isNotEmpty()
     if (hasChrome) {
-        ToolbarHost(element, logger) { inner -> Box(Modifier.padding(inner)) { body() } }
+        ToolbarHost(element, logger, persistentItems = persistent) { inner ->
+            Box(Modifier.padding(inner)) { body() }
+        }
     } else {
         body()
     }

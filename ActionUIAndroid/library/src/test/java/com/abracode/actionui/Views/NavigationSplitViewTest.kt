@@ -26,6 +26,58 @@ class NavigationSplitViewTest {
     }
 
     @Test
+    fun `splitPanePersistence gives every pane the items when collapsed`() {
+        // One pane on screen at a time, and it can be any of them, so all of them carry
+        // the items and only the visible one is ever seen.
+        listOf(true, false).forEach { threePane ->
+            listOf(true, false).forEach { empty ->
+                val p = splitPanePersistence(collapsed = true, threePane = threePane, deepestPaneIsEmpty = empty)
+                assertTrue("$threePane/$empty", p.list && p.detail && p.extra)
+            }
+        }
+    }
+
+    @Test
+    fun `splitPanePersistence gives only the deepest pane the items when expanded`() {
+        // Two-pane: the detail is deepest. Three-pane: the extra is, and the middle
+        // content pane must NOT also carry them or one authored item shows twice.
+        val twoPane = splitPanePersistence(collapsed = false, threePane = false, deepestPaneIsEmpty = false)
+        assertFalse(twoPane.list)
+        assertTrue(twoPane.detail)
+        assertFalse(twoPane.extra)
+
+        val threePane = splitPanePersistence(collapsed = false, threePane = true, deepestPaneIsEmpty = false)
+        assertFalse(threePane.list)
+        assertFalse(threePane.detail)
+        assertTrue(threePane.extra)
+    }
+
+    @Test
+    fun `splitPanePersistence falls back to the list pane when the deepest pane is empty`() {
+        // A selection-driven split with no `detail` renders NOTHING in its deepest pane
+        // until the first selection. Wide, that pane is on screen and blank, so items left
+        // there would be invisible - the one layout where they could vanish entirely.
+        listOf(true, false).forEach { threePane ->
+            val p = splitPanePersistence(collapsed = false, threePane = threePane, deepestPaneIsEmpty = true)
+            assertTrue("$threePane", p.list)
+            assertFalse("$threePane", p.detail || p.extra)
+        }
+    }
+
+    @Test
+    fun `splitPanePersistence always places the items somewhere`() {
+        // The invariant behind all three cases: no combination loses them.
+        listOf(true, false).forEach { collapsed ->
+            listOf(true, false).forEach { threePane ->
+                listOf(true, false).forEach { empty ->
+                    val p = splitPanePersistence(collapsed, threePane, empty)
+                    assertTrue("$collapsed/$threePane/$empty", p.list || p.detail || p.extra)
+                }
+            }
+        }
+    }
+
+    @Test
     fun `seeds selectedDestination and columnVisibility to defaults`() {
         assertEquals(
             mapOf("selectedDestination" to 0, "columnVisibility" to "all"),

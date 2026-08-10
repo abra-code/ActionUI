@@ -63,7 +63,7 @@ JSON schema and usage documentation for `NavigationStack`.
  // To give only the root screen a toolbar, declare it on "content". There is no
  // per-destination opt-out: set "hidden" on the item's CONTENT to blank it - note that hides the
  // content without reclaiming the slot, so it still counts against the bar's space.
- // Implemented on Apple platforms only so far: Android and web currently ignore the key.
+ // Implemented on Apple platforms and Android; web currently ignores the key.
 
  // Observable state (via getElementState / setElementState):
  //   states["navigationPath"]  [Int]   Current navigation path as array of destination IDs.

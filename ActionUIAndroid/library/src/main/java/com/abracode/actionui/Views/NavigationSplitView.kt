@@ -40,9 +40,12 @@ import com.abracode.actionui.Common.LocalActionUILogger
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
+import com.abracode.actionui.Helpers.LocalPersistentToolbarItems
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.ToolbarHost
 import com.abracode.actionui.Helpers.intProperty
+import com.abracode.actionui.Helpers.isNavigationContainer
+import com.abracode.actionui.Helpers.persistentToolbarItems
 import com.abracode.actionui.Helpers.stringProperty
 import kotlinx.coroutines.launch
 
@@ -192,30 +195,94 @@ object NavigationSplitView : ActionUIViewConstruction {
             }
         }
 
+        // This split view's persistent items, appended to whatever an enclosing container
+        // already published (see LocalPersistentToolbarItems).
+        val inheritedPersistent = LocalPersistentToolbarItems.current
+        val persistent = remember(element, inheritedPersistent) {
+            inheritedPersistent + persistentToolbarItems(element)
+        }
+
+        // Which panes carry them - see [splitPanePersistence] for the rule.
+        val collapsed = directive.maxHorizontalPartitions <= 1
+        // A selection-driven split with no `detail` fallback shows NOTHING in its deepest
+        // pane until the first selection. Wide, that pane is on screen and empty, so items
+        // parked there would be invisible; the list pane has to hold them until a
+        // destination exists to hold them instead.
+        val deepestPaneIsEmpty = destinations[selected] == null && detail == null
+        val carriers = splitPanePersistence(collapsed, threePane, deepestPaneIsEmpty)
+        val listPanePersistent = if (carriers.list) persistent else emptyList()
+        val detailPanePersistent = if (carriers.detail) persistent else emptyList()
+        val extraPanePersistent = if (carriers.extra) persistent else emptyList()
+
         NavigableListDetailPaneScaffold(
             navigator = navigator,
             modifier = modifier,
             listPane = {
                 AnimatedPane {
-                    SidebarPane(sidebar, destinations, selected, logger, onSelect)
+                    CompositionLocalProvider(LocalPersistentToolbarItems provides listPanePersistent) {
+                        SidebarPane(sidebar, destinations, selected, logger, onSelect)
+                    }
                 }
             },
             detailPane = {
                 AnimatedPane {
-                    if (content != null) {
-                        RenderPane(content, logger)
-                    } else {
-                        DetailPane(selected, destinations, detail, logger)
+                    CompositionLocalProvider(LocalPersistentToolbarItems provides detailPanePersistent) {
+                        if (content != null) {
+                            RenderPane(content, logger)
+                        } else {
+                            DetailPane(selected, destinations, detail, logger)
+                        }
                     }
                 }
             },
             extraPane = if (threePane) {
-                { AnimatedPane { DetailPane(selected, destinations, detail, logger) } }
+                {
+                    AnimatedPane {
+                        CompositionLocalProvider(LocalPersistentToolbarItems provides extraPanePersistent) {
+                            DetailPane(selected, destinations, detail, logger)
+                        }
+                    }
+                }
             } else {
                 null
             },
         )
     }
+}
+
+/** Which of a split view's panes carry the container's persistent toolbar items. */
+internal data class SplitPanePersistence(val list: Boolean, val detail: Boolean, val extra: Boolean)
+
+/**
+ * Decides which panes carry the persistent items, given whether the window is too narrow
+ * to show two panes at once ([collapsed]), whether there is a middle `content` pane
+ * ([threePane]), and whether the deepest pane currently has nothing to render
+ * ([deepestPaneIsEmpty]).
+ *
+ * Every pane renders its OWN bar, so handing the items to all of them would show one
+ * authored item once per visible column. Two rules resolve that:
+ *
+ *  - Collapsed, exactly one pane is on screen at a time and it can be any of them, so all
+ *    panes carry the items and only the visible one is ever seen.
+ *  - Expanded, only the DEEPEST pane carries them - the one a selection drives, so they
+ *    keep the same place as the user navigates. This is the same rule iOS applies by
+ *    withdrawing the items from the leading column in regular width.
+ *
+ * The exception is [deepestPaneIsEmpty]: a selection-driven split with no `detail`
+ * fallback renders nothing at all in its deepest pane until the first selection, so items
+ * parked there would be on screen and invisible. The list pane holds them until there is
+ * a destination to hold them instead. Pure, so it is unit-testable - the alternative is a
+ * rule that can only be checked by looking at a tablet.
+ */
+internal fun splitPanePersistence(
+    collapsed: Boolean,
+    threePane: Boolean,
+    deepestPaneIsEmpty: Boolean,
+): SplitPanePersistence {
+    if (collapsed) return SplitPanePersistence(list = true, detail = true, extra = true)
+    if (deepestPaneIsEmpty) return SplitPanePersistence(list = true, detail = false, extra = false)
+    // Deepest is the extra pane when there is a middle content pane, else the detail.
+    return SplitPanePersistence(list = false, detail = !threePane, extra = threePane)
 }
 
 /** SwiftUI `NavigationSplitViewVisibility`, mapped to adaptive-navigator intent. */
@@ -383,8 +450,19 @@ private fun PaneChrome(
     logger: ActionUILogger,
     content: @Composable (Modifier) -> Unit,
 ) {
-    if (paneHasChrome(element)) {
-        ToolbarHost(element, logger) { inner -> content(Modifier.padding(inner)) }
+    // A pane that is itself a navigation container renders its own screens and merges the
+    // published items into each of their bars; a bar here would sit above its NavHost and
+    // stack a second one over every screen inside. This is the split fixture's own shape - a
+    // NavigationStack in the detail pane - and SharedCare's wide shell.
+    if (isNavigationContainer(element.type)) {
+        content(Modifier)
+        return
+    }
+    val persistent = LocalPersistentToolbarItems.current
+    if (paneHasChrome(element) || persistent.isNotEmpty()) {
+        ToolbarHost(element, logger, persistentItems = persistent) { inner ->
+            content(Modifier.padding(inner))
+        }
     } else {
         content(Modifier)
     }

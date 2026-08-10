@@ -126,7 +126,7 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(
                     tonalElevation = 3.dp,
                     shadowElevation = 3.dp,
                 ) {
-                    ElementContent(popoverElement, logger)
+                    ClearPersistentToolbarItems { ElementContent(popoverElement, logger) }
                 }
             }
         }

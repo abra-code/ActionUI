@@ -218,6 +218,80 @@ class WindowModelTest {
         assertEquals("grp", window.viewModels[5]?.value)
     }
 
+    private class CapturingLogger : ActionUILogger {
+        val warnings = mutableListOf<String>()
+        override fun log(message: String, level: LoggerLevel) {
+            if (level == LoggerLevel.warning) warnings.add(message)
+        }
+    }
+
+    private fun toolbarItem(contentId: Int, text: String) = ActionUIElement(
+        type = "ToolbarItem",
+        content = ActionUIElement(
+            id = contentId, type = "TextField",
+            properties = buildJsonObject { put("text", text) },
+        ),
+    )
+
+    @Test
+    fun `descends into persistentToolbar item content`() {
+        // Same contract as `toolbar`: the items are consumed by the chrome, but their
+        // content must register so a host can address a persistent control by id - and so
+        // `hidden` on one works, which is the only per-screen opt-out this feature has.
+        val root = ActionUIElement(
+            id = 1, type = "NavigationStack",
+            persistentToolbar = listOf(toolbarItem(3, "pers")),
+        )
+        val window = model()
+        window.loadDescription(root)
+
+        assertEquals("pers", window.viewModels[3]?.value)
+    }
+
+    @Test
+    fun `warns once when a navigation container carries the deprecated toolbar alias`() {
+        val logger = CapturingLogger()
+        val window = WindowModel(windowUUID = "W", logger = logger)
+        window.loadDescription(
+            ActionUIElement(id = 1, type = "NavigationStack", toolbar = listOf(toolbarItem(3, "alias"))),
+        )
+
+        assertEquals(1, logger.warnings.size)
+        assertTrue(logger.warnings[0].contains("Deprecated"))
+        assertTrue(logger.warnings[0].contains("NavigationStack"))
+        assertTrue(logger.warnings[0].contains("persistentToolbar"))
+    }
+
+    @Test
+    fun `warns when persistentToolbar is declared somewhere that cannot render it`() {
+        // The opposite mistake, and the silent one: only the two containers read the key,
+        // so anywhere else the items decode, get view models, and render nothing at all.
+        val logger = CapturingLogger()
+        val window = WindowModel(windowUUID = "W", logger = logger)
+        window.loadDescription(
+            ActionUIElement(id = 1, type = "VStack", persistentToolbar = listOf(toolbarItem(3, "lost"))),
+        )
+
+        assertEquals(1, logger.warnings.size)
+        assertTrue(logger.warnings[0].contains("ignored"))
+        assertTrue(logger.warnings[0].contains("VStack"))
+    }
+
+    @Test
+    fun `the two persistentToolbar warnings stay quiet on correct documents`() {
+        val logger = CapturingLogger()
+        val window = WindowModel(windowUUID = "W", logger = logger)
+        window.loadDescription(
+            ActionUIElement(
+                id = 1, type = "NavigationStack",
+                persistentToolbar = listOf(toolbarItem(3, "pers")),
+                content = ActionUIElement(id = 2, type = "VStack", toolbar = listOf(toolbarItem(4, "screen"))),
+            ),
+        )
+
+        assertTrue(logger.warnings.toString(), logger.warnings.isEmpty())
+    }
+
     @Test
     fun `NavigationStack seeds an empty navigation path state`() {
         val window = model()

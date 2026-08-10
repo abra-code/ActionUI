@@ -50,6 +50,13 @@ import kotlinx.serialization.json.JsonObject
  *     element; consumed by the navigation screen's `ToolbarHost` (Scaffold top/
  *     bottom bar), not rendered inline. Registered (in [subElements]) so each
  *     item's `content`/`children` get [ViewModel]s.
+ *   * [persistentToolbar] - the same `ToolbarItem`/`ToolbarItemGroup` shapes, but
+ *     declared on a `NavigationStack` / `NavigationSplitView` and kept in the bar
+ *     on EVERY screen inside that container rather than on the one screen that
+ *     declares them. Read only by those two containers (see
+ *     `Helpers/ToolbarHelper.kt`); anywhere else it renders nothing and
+ *     `WindowModel` warns at load. A `toolbar` on one of those two types is a
+ *     deprecated alias for it. Registered (in [subElements]) like [toolbar].
  *   * [sheet] / [fullScreenCover] - the element-level modal subviews any element
  *     may declare; presented by `Helpers/ElementModalHost.kt` when the carrier's
  *     `states["sheetVisible"]` / `states["fullScreenCoverVisible"]` flips true,
@@ -88,6 +95,7 @@ interface ActionUIElementBase {
     val sidebar: ActionUIElement?
     val detail: ActionUIElement?
     val toolbar: List<ActionUIElement>?
+    val persistentToolbar: List<ActionUIElement>?
     val sheet: ActionUIElement?
     val fullScreenCover: ActionUIElement?
     val popover: ActionUIElement?
@@ -123,6 +131,7 @@ data class ActionUIElement(
     override val sidebar: ActionUIElement? = null,
     override val detail: ActionUIElement? = null,
     override val toolbar: List<ActionUIElement>? = null,
+    override val persistentToolbar: List<ActionUIElement>? = null,
     override val sheet: ActionUIElement? = null,
     override val fullScreenCover: ActionUIElement? = null,
     override val popover: ActionUIElement? = null,
@@ -150,6 +159,7 @@ fun ActionUIElement.subElements(): List<ActionUIElement> = buildList {
     sidebar?.let { add(it) }
     detail?.let { add(it) }
     toolbar?.let { addAll(it) }
+    persistentToolbar?.let { addAll(it) }
     sheet?.let { add(it) }
     fullScreenCover?.let { add(it) }
     popover?.let { add(it) }

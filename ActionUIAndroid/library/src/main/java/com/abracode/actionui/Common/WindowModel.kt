@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.abracode.actionui.Helpers.isNavigationContainer
 
 /**
  * Owns the runtime state for a single window: its root [element] and the pool of
@@ -216,6 +217,32 @@ class WindowModel(
                 viewModel.states.putAll(builder.initialStates(element))
             }
             into[element.id] = viewModel
+        }
+
+        // A `toolbar` on a navigation container is the deprecated spelling of
+        // `persistentToolbar`: it was never a screen toolbar on any platform, and the hosts
+        // disagreed about what to do with it (Android simply never read it). Warned here
+        // because this walk visits every element exactly once per load - so once per
+        // document, and once more when a sub- or modal description brings in another one.
+        if (isNavigationContainer(element.type) && !element.toolbar.isNullOrEmpty()) {
+            logger.log(
+                "Deprecated: 'toolbar' on ${element.type} (id ${element.id}, window $windowUUID) is treated as " +
+                    "'persistentToolbar' - its items stay in the bar on every screen inside the container. Rename " +
+                    "the key to silence this; declare a screen's own toolbar on that screen's element instead.",
+                LoggerLevel.warning,
+            )
+        }
+
+        // And the opposite mistake, which would otherwise be silent: only a navigation
+        // container reads `persistentToolbar`, so anywhere else the items decode, get view
+        // models, and render nothing at all.
+        if (!isNavigationContainer(element.type) && !element.persistentToolbar.isNullOrEmpty()) {
+            logger.log(
+                "'persistentToolbar' on ${element.type} (id ${element.id}, window $windowUUID) is ignored - only " +
+                    "NavigationStack and NavigationSplitView have screens to keep it on. Use 'toolbar' for this " +
+                    "view's own toolbar, or move the key to the enclosing navigation container.",
+                LoggerLevel.warning,
+            )
         }
 
         element.subElements().forEach { populateViewModels(it, into) }
@@ -444,6 +471,7 @@ class WindowModel(
         e.sidebar?.let { add(it) }
         e.detail?.let { add(it) }
         e.toolbar?.let { addAll(it) }
+        e.persistentToolbar?.let { addAll(it) }
         e.sheet?.let { add(it) }
         e.fullScreenCover?.let { add(it) }
         e.popover?.let { add(it) }

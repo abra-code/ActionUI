@@ -1,0 +1,86 @@
+{
+  "type": "NavigationStack",
+  "id": 1,
+  "properties": { "frame": { "height": 560 } },
+  "persistentToolbar": [
+    {
+      "type": "ToolbarItem",
+      "id": 60,
+      "properties": { "placement": "topBarTrailing" },
+      "content": {
+        "type": "Button",
+        "id": 61,
+        "properties": { "title": "PERS", "systemImage": "arrow.clockwise", "actionID": "toolbar.persist" }
+      }
+    }
+  ],
+  "content": {
+    "type": "VStack",
+    "id": 2,
+    "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "navigationTitle": "TBRoot" },
+    "toolbar": [
+      {
+        "type": "ToolbarItem",
+        "id": 20,
+        "properties": { "placement": "topBarLeading" },
+        "content": { "type": "Button", "id": 21, "properties": { "title": "ROOT", "actionID": "toolbar.root" } }
+      }
+    ],
+    "children": [
+      {
+        "type": "Text",
+        "id": 3,
+        "properties": {
+          "text": "PERS is declared on the NavigationStack, not on any screen. It stays in the top bar on all three screens below; ROOT / DSTA / DSTB come and go with the screen that declares them. The second destination declares no toolbar at all and still gets a bar, which is the point."
+        }
+      },
+      { "type": "NavigationLink", "id": 30, "properties": { "title": "Push a screen WITH its own bar", "destinationViewId": 500 } },
+      { "type": "NavigationLink", "id": 31, "properties": { "title": "Push a screen with NO bar of its own", "destinationViewId": 600 } },
+      {
+        "type": "NavigationLink",
+        "id": 32,
+        "properties": { "title": "Push an INLINE destination" },
+        "destination": {
+          "type": "VStack",
+          "id": 700,
+          "properties": { "spacing": 8, "padding": 16, "navigationTitle": "TBInline" },
+          "children": [
+            { "type": "Text", "id": 701, "properties": { "text": "An inline destination, built by a different route from the destinations array. PERS is here too." } }
+          ]
+        }
+      }
+    ]
+  },
+  "destinations": [
+    {
+      "type": "VStack",
+      "id": 500,
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "TBDestA" },
+      "toolbar": [
+        {
+          "type": "ToolbarItem",
+          "id": 40,
+          "properties": { "placement": "topBarTrailing" },
+          "content": { "type": "Button", "id": 41, "properties": { "title": "DSTA", "actionID": "toolbar.desta" } }
+        },
+        {
+          "type": "ToolbarItem",
+          "id": 50,
+          "properties": { "placement": "secondaryAction" },
+          "content": { "type": "Button", "id": 51, "properties": { "title": "DSTB", "actionID": "toolbar.destb" } }
+        }
+      ],
+      "children": [
+        { "type": "Text", "id": 501, "properties": { "text": "This screen declares DSTA (trailing) and DSTB (overflow). PERS sits beside DSTA, after it, so the persistent item keeps the outer edge as screens change." } }
+      ]
+    },
+    {
+      "type": "VStack",
+      "id": 600,
+      "properties": { "spacing": 8, "padding": 16 },
+      "children": [
+        { "type": "Text", "id": 601, "properties": { "text": "This screen declares no toolbar, no items and deliberately no navigationTitle either - nothing that would give it chrome of its own. Before persistentToolbar it had no top bar at all on Android; the bar above carries PERS and exists only because the container declared it." } }
+      ]
+    }
+  ]
+}

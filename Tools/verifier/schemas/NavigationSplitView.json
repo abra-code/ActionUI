@@ -8,7 +8,7 @@
   "content":      { "required": false, "description": "Middle content column (3-pane only)" },
   "detail":       { "required": true,  "description": "Detail column view" },
   "destinations": { "required": false, "description": "Array of destination views; sidebar List children link via destinationViewId" },
-  "persistentToolbar": { "required": false, "description": "Array of ToolbarItem / ToolbarItemGroup elements that stay in the bar wherever the user navigates inside the split view, composing with each screen's own 'toolbar'. A 'toolbar' declared on the NavigationSplitView itself is a deprecated alias for this key. Implemented on Apple platforms only so far - Android and web currently ignore it" },
+  "persistentToolbar": { "required": false, "description": "Array of ToolbarItem / ToolbarItemGroup elements that stay in the bar wherever the user navigates inside the split view, composing with each screen's own 'toolbar'. A 'toolbar' declared on the NavigationSplitView itself is a deprecated alias for this key. Implemented on Apple platforms and Android; web currently ignores it" },
   "ownProperties": {
     "columnVisibility": { "types": ["string"], "required": false, "enum": ["automatic","all","doubleColumn","detail"], "description": "Defaults to 'all'" },
     "style":            { "types": ["string"], "required": false, "enum": ["automatic","balanced","prominentDetail"], "description": "Defaults to 'automatic'" }
