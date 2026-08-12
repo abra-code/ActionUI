@@ -99,7 +99,7 @@ All elements inherit these `properties` keys. None are required.
 
 | Property | Type | Notes |
 |----------|------|-------|
-| `actionID` | string | Tap/click action |
+| `actionID` | string | Tap/click action. On `VStack`/`HStack`/`ZStack` it makes the WHOLE container tappable - the rich-cell idiom; see 08-patterns.md |
 | `valueChangeActionID` | string | Fires when observable value changes |
 | `onAppearActionID` | string | |
 | `onDisappearActionID` | string | |
@@ -232,6 +232,8 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 
 `overlay`, `background` (view), `sheet`, `popover`, `fullScreenCover`, `toolbar`
 
+`persistentToolbar` - on `NavigationStack` / `NavigationSplitView` only: toolbar items that stay in the bar on every screen inside the container. A `toolbar` on those two types is a deprecated alias for it. Implemented on all four hosts.
+
 ### Shapes
 
 `Circle`, `Ellipse`, `Rectangle`, `RoundedRectangle`, `Capsule` — accept View base properties (foregroundStyle, frame, etc.)
@@ -295,6 +297,8 @@ Large apps split UI across multiple JSON files loaded on demand. Each tab or sec
 ### Toolbar with ToolbarItem / ToolbarItemGroup
 
 Use the `toolbar` top-level key (not inside `properties`) on any view to attach toolbar items. `ToolbarItem` holds a single `content` view; `ToolbarItemGroup` holds multiple items under `children`.
+
+One exception: on a `NavigationStack` or `NavigationSplitView`, `toolbar` is a DEPRECATED spelling of `persistentToolbar` and logs a warning. Put a screen's toolbar on that screen's own element (the stack's `content`, or a destination); use `persistentToolbar` on the container only for items that must stay in the bar on EVERY screen inside it, such as a global status indicator. Those items cost bar space on every screen, so keep them to one or two. Implemented on all four hosts.
 
 ```json
 {
@@ -473,6 +477,62 @@ no-ops that are very hard to debug from the JSON alone:
 - Programmatic `options`/value updates can fire the control's
   `actionID`/`valueChangeActionID` with transitional or bogus values —
   handlers must validate what they receive.
+
+### Whole-cell tap: a rich row that is ONE tap target
+
+Put `actionID` on the `VStack`/`HStack`/`ZStack` itself and the whole container
+becomes tappable. This is how you build a cell that is an avatar, a name and a
+status line rather than a small glyph `Button` wedged inside one: `Button`
+renders title + `systemImage` only, so it can never BE the rich cell.
+
+```json
+{
+  "type": "VStack", "id": 900,
+  "template": {
+    "type": "HStack",
+    "properties": { "actionID": "receiver.open", "padding": 8, "frame": { "maxWidth": "infinity" } },
+    "children": [
+      { "type": "Image", "properties": { "systemName": "$1" } },
+      { "type": "Text",  "properties": { "text": "$2" } },
+      { "type": "Spacer" },
+      { "type": "Button", "properties": { "title": "Done", "actionID": "receiver.done" } }
+    ]
+  }
+}
+```
+
+What the handler receives:
+
+- **Inside a `template` row**: `viewID` is the owning container's id (900 here)
+  and `viewPartID` is the row index, exactly as for a `Button` in the same row.
+  A template instance's own id is 0 and identifies nothing, so this is the only
+  way a data-driven cell can say which row was tapped.
+- **Outside a template**: the element's own id, with `viewPartID` 0.
+
+A `Button` (or any control) nested inside keeps its own tap: pressing "Done"
+fires `receiver.done` and does NOT also fire `receiver.open`. The same holds for
+a tappable container nested inside another one, and for a tappable cell inside a
+selectable `List` row - the innermost action wins and nothing else fires.
+
+The target covers the container's FINAL box, `padding` and `frame` included, so
+give the cell a `padding` when you want the gaps around the children to be part
+of the tap area. An unpadded stack hugs its content, and the space between
+children is still inside the box.
+
+Accessibility comes with it on all three hosts: the cell is announced as a
+single button reading its children's labels, and it is reachable by keyboard
+(Enter or Space on the web, where a plain container would otherwise be
+unreachable). That is the reason to prefer this over a leading-glyph `Button` -
+one focusable element with one action, instead of a small target beside inert
+text.
+
+A `disabled: true` container is inert and gets no tap target, and so is one
+inside a disabled ancestor.
+
+Web note: on the web ANY element carrying an `actionID` is clickable, not only
+these three containers - that predates the pattern and still holds. Apple and
+Android wire only `VStack`/`HStack`/`ZStack`, so keep the `actionID` on one of
+them if the document has to behave identically everywhere.
 
 ### Table column minimum widths
 

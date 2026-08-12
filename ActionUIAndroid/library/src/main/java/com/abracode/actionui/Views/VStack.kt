@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.stackMeasurePolicy
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.containerActionModifier
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
@@ -49,7 +50,9 @@ object VStack : ActionUIViewConstruction {
             // vertical distribution - inflexible children reserve their height,
             // flexible ones split the remainder - rather than Compose Column's.
             Layout(
-                modifier = modifier,
+                // The container tap wraps the chain from OUTSIDE (see containerActionModifier):
+                // appending it would put the tap inside the padding, leaving a dead ring.
+                modifier = containerActionModifier(element, modifier),
                 content = {
                     // Template (data-driven) mode wins over children, as on Apple.
                     val template = element.template

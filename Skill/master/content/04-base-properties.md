@@ -45,7 +45,7 @@ All elements inherit these `properties` keys. None are required.
 
 | Property | Type | Notes |
 |----------|------|-------|
-| `actionID` | string | Tap/click action |
+| `actionID` | string | Tap/click action. On `VStack`/`HStack`/`ZStack` it makes the WHOLE container tappable - the rich-cell idiom; see 08-patterns.md |
 | `valueChangeActionID` | string | Fires when observable value changes |
 | `onAppearActionID` | string | |
 | `onDisappearActionID` | string | |

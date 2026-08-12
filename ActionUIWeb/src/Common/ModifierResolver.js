@@ -240,10 +240,46 @@ function applyFrameAlignment(node, alignment, logger) {
     node.style.placeItems = place;
 }
 
-// Interactive controls wire actionID themselves with control-specific
-// semantics; they set this flag to opt out of the generic click handler.
+// "This node dispatches its own action." Two consumers, and both readings matter:
+//  - at BUILD time, the generic actionID wiring below skips a node already marked, so an
+//    interactive control (Button, Toggle, Picker, ...) keeps its control-specific semantics
+//    instead of getting a second, generic click handler;
+//  - at CLICK time, `innerHandlerServed` treats a marked DESCENDANT as having served the
+//    click, so an enclosing tappable container stands down.
+// A tappable container marks itself too, after it is wired - it does dispatch its own
+// action, so a container above it must not fire as well.
 export function markHandlesAction(node) {
     node.dataset.auiHandlesAction = "1";
+}
+
+// True when a bubbling click was already served by a descendant that dispatches its
+// own action - a Button, a Toggle, a Picker: anything that called markHandlesAction.
+// Walking UP from the event target and stopping AT `node` keeps the question local: a
+// marked ancestor above this container answered for that container, not for this one,
+// and a marked `node` itself never reaches here (the caller checks it first).
+function innerHandlerServed(event, node) {
+    for (let n = event.target; n && n !== node; n = n.parentNode) {
+        if (n.dataset?.auiHandlesAction) return true;
+    }
+    return false;
+}
+
+// True when this node, or any ancestor, is disabled - asked at EVENT time, not wire time.
+//
+// A tappable container is a plain <div role="button">, not a native control, so neither
+// defense a real control gets applies to it: there is no `node.disabled` to set, and the
+// `.aui-disabled { pointer-events: none }` rule stops POINTER events only. A keyboard
+// Enter/Space on a focused disabled cell still reached the listener and dispatched, so
+// "a disabled container is inert" held for the mouse and quietly failed for the keyboard -
+// exactly the direction this pattern is supposed to be an improvement in.
+//
+// Reading the class off the nearest disabled ancestor answers both halves in one check -
+// the element's own `disabled` and an inherited one - and stays correct when a host flips
+// it later through setElementProperty, because that applier toggles this same class.
+// Apple needs two separate routes here (ContainerAction.resolve for the container's own
+// `disabled`, \.isEnabled for an ancestor's) and Android gets both from LocalActionUIEnabled.
+function containerActionDisabled(node) {
+    return node.closest?.(".aui-disabled") != null;
 }
 
 // Per-property appliers for runtime `setElementProperty` mutations — each sets ONE
@@ -350,9 +386,72 @@ export function applyViewModifiers(node, element, properties, ctx) {
 
     if (typeof properties.help === "string") node.title = properties.help;
 
-    if (typeof properties.actionID === "string" && !node.dataset.auiHandlesAction) {
-        node.addEventListener("click", () => {
-            ctx.model.dispatchAction(properties.actionID, element.id);
+    // A view carrying an actionID is tappable as a whole - the way a rich cell wants to
+    // be: one target, one a11y element, instead of a small glyph Button inside it.
+    //
+    // Two things were wrong here. Inside a template row the dispatch carried
+    // `element.id`, which Helpers/TemplateHelper.js forces to 0 on every cloned
+    // instance, so a whole-cell tap arrived with NO row identity and no way to recover
+    // one - the handler could not tell row 0 from row 9. It now reads
+    // ctx.templateContext, exactly as Views/Button.js does two files over.
+    //
+    // And a DOM click BUBBLES, which the other two hosts do not have to think about:
+    // SwiftUI resolves a tap to the innermost control and Compose's inner clickable
+    // consumes the press, so on those hosts exactly one handler runs. On the web every
+    // ancestor listener runs unless something stops it, and that produced three separate
+    // double-dispatches:
+    //
+    //   1. a Button (or any control that called markHandlesAction) inside a tappable
+    //      container fired its own action AND the container's;
+    //   2. a tappable container inside ANOTHER tappable container fired both;
+    //   3. a tappable container inside a selectable List row fired the cell action AND
+    //      selected the row - List guards with its own `INTERACTIVE_SELECTOR` of native
+    //      control tags, and a container is a plain <div> that never matches it.
+    //
+    // `innerHandlerServed` answers (1). Marking the node and stopping propagation answers
+    // (2) and (3) together, and is the convention already used by Views/List.js and
+    // Views/Table.js for a cell's own tap: once this container has served the click, no
+    // ancestor should treat it as theirs. markHandlesAction must come AFTER the wire-time
+    // check above, or the container would opt itself out before it is wired.
+    // A blank actionID is refused rather than wiring a target that dispatches an
+    // unroutable empty id - matching ContainerAction.resolve on Apple and
+    // containerActionDispatch on Android, so all three hosts agree.
+    if (typeof properties.actionID === "string" && properties.actionID.trim() !== ""
+        && !node.dataset.auiHandlesAction) {
+        const actionID = properties.actionID;
+        const templateContext = ctx.templateContext;
+        const viewID = templateContext ? templateContext.parentID : element.id;
+        const viewPartID = templateContext ? templateContext.rowIndex : 0;
+        markHandlesAction(node);
+        const dispatch = () => ctx.model.dispatchAction(actionID, viewID, viewPartID, null);
+        node.addEventListener("click", (event) => {
+            if (containerActionDisabled(node)) return;
+            if (innerHandlerServed(event, node)) return;
+            event.stopPropagation();
+            dispatch();
+        });
+        // The accessibility and keyboard half of "one tap target". A bare <div> with a click
+        // listener is invisible to a screen reader and unreachable by keyboard, so without
+        // this the pattern is an improvement for a mouse and a regression for everyone else -
+        // the opposite of the reason to prefer it over a leading-glyph Button. Views/List.js
+        // does the same for its rows (role, tabIndex, Enter/Space). Apple gets there with
+        // .accessibilityAddTraits(.isButton); Android with clickable(role = Role.Button),
+        // which merges descendant semantics for free.
+        //
+        // A container disabled at build time is kept OUT of the tab order rather than left
+        // as a focusable stop that does nothing - `disabled` is not a real attribute on a
+        // <div>, so nothing else would remove it. `containerActionDisabled` above is still
+        // what makes it inert, since a host can flip `disabled` later.
+        node.setAttribute("role", "button");
+        node.tabIndex = containerActionDisabled(node) ? -1 : 0;
+        node.style.cursor = "pointer";
+        node.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            if (containerActionDisabled(node)) return;
+            if (innerHandlerServed(event, node)) return; // a focused inner control answers first
+            event.preventDefault();                      // Space would scroll the page
+            event.stopPropagation();
+            dispatch();
         });
     }
 

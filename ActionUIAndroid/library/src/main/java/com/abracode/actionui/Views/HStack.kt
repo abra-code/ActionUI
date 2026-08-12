@@ -22,6 +22,7 @@ import com.abracode.actionui.Common.stackMeasurePolicy
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.containerActionModifier
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
@@ -50,7 +51,9 @@ object HStack : ActionUIViewConstruction {
             // ones split the remainder - rather than Compose Row's, which lets a
             // greedy child (a TextField) starve a compact sibling (a Picker).
             Layout(
-                modifier = modifier,
+                // The container tap wraps the chain from OUTSIDE (see containerActionModifier):
+                // appending it would put the tap inside the padding, leaving a dead ring.
+                modifier = containerActionModifier(element, modifier),
                 content = {
                     // Template (data-driven) mode wins over children, as on Apple:
                     // one substituted instance per row (Helpers/TemplateHelper.kt).

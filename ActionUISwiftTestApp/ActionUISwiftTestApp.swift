@@ -240,6 +240,26 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 30, rows: vstackChipRows)
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Tap a row or chip to see the action here.")
         }
+        // Whole-cell tap dispatch, fixture VStack.containerAction.json.
+        // The log APPENDS rather than replaces, because the question the UI test asks is not
+        // "what fired last" but "did anything ELSE also fire": a Button inside a tappable
+        // cell must be the only dispatch, and a replace-style status would hide the second
+        // one behind the first.
+        var cellTapLog = ""
+        ActionUISwift.registerActionHandler(actionID: "celltap.load") { _, windowUUID, _, _, _ in
+            cellTapLog = ""
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 900, rows: [["One"], ["Two"], ["Three"]])
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 910, value: "Log: ")
+        }
+        ActionUISwift.registerActionHandler(actionID: "celltap.cell") { _, windowUUID, viewID, viewPartID, _ in
+            cellTapLog += "C\(viewID)-\(viewPartID);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 910, value: "Log: \(cellTapLog)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "celltap.button") { _, windowUUID, viewID, viewPartID, _ in
+            cellTapLog += "B\(viewID)-\(viewPartID);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 910, value: "Log: \(cellTapLog)")
+        }
+
         ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.append") { _, windowUUID, _, _, _ in
             let row = vstackTemplateExtraRows[vstackTemplateAppendIndex % vstackTemplateExtraRows.count]
             vstackTemplateAppendIndex += 1

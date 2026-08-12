@@ -66,17 +66,18 @@
       }
     },
     { "type": "Divider" },
-    { "type": "Text", "properties": { "text": "LazyVGrid (data-driven template mode; one substituted instance per row from the rows API, flowing into the grid):", "foregroundStyle": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "LazyVGrid (data-driven template mode; one substituted instance per row from the rows API, flowing into the grid). The cell VStack carries an actionID, so the whole cell is one tap target - tap the icon, the label or the space between them and the status line reports the grid id and the row index. The nested Pin button keeps its own tap: pressing it fires only Pin, not the cell.", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "LazyVGrid",
       "id": 56,
       "properties": { "columns": [{ "flexible": true }, { "flexible": true }, { "flexible": true }], "spacing": 10, "frame": { "maxWidth": "infinity" } },
       "template": {
         "type": "VStack",
-        "properties": { "spacing": 4, "padding": 8 },
+        "properties": { "spacing": 4, "padding": 8, "actionID": "gridCellTap" },
         "children": [
           { "type": "Image", "properties": { "systemName": "$2", "imageScale": "large", "foregroundStyle": "accentColor" } },
-          { "type": "Text", "properties": { "text": "$1", "font": "footnote" } }
+          { "type": "Text", "properties": { "text": "$1", "font": "footnote" } },
+          { "type": "Button", "properties": { "title": "Pin", "buttonStyle": "bordered", "controlSize": "small", "actionID": "gridCellPin" } }
         ]
       }
     },

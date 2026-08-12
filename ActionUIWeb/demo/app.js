@@ -480,6 +480,17 @@ app.action("tmplListSelect", () => {
     win.setString(20, 0, win.getString(55) ? `Folder: ${row[0]}.` : "No folder selected.");
 });
 
+// Whole-cell tap on the template grid (56). The actionID is on the cell's VStack, not on
+// a Button inside it, so the whole cell is the target - which is the only way to make a
+// rich cell (icon + label + anything else) tappable, since a Button renders title +
+// systemImage only. Inside a template the dispatch carries the OWNING grid's id and the
+// row index: a cloned instance's own id is 0 and identifies nothing.
+app.action("gridCellTap", (ctx) =>
+    win.setString(20, 0, `Cell tapped: grid ${ctx.viewID}, row ${ctx.viewPartID}.`));
+// The nested Button keeps its own tap - pressing Pin does NOT also fire the cell action.
+app.action("gridCellPin", (ctx) =>
+    win.setString(20, 0, `Pin tapped: grid ${ctx.viewID}, row ${ctx.viewPartID} (the cell did not also fire).`));
+
 // Programmatic selection (Table 100 / homogeneous List 45). It is silent — no
 // selection action fires — so each handler updates the status itself from the
 // method's return: selectElementRow returns the selected row's columns (or null

@@ -1,0 +1,50 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12,
+    "alignment": "leading",
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": { "text": "Whole-cell tap dispatch", "font": "headline" }
+    },
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Each row is an HStack carrying an actionID. Tap the row body and the cell action fires with the row index; tap the button and only the button action fires - the inner clickable consumes the press.",
+        "font": "footnote"
+      }
+    },
+    {
+      "type": "Button",
+      "properties": { "title": "Load", "actionID": "celltap.load", "buttonStyle": "borderedProminent" }
+    },
+    {
+      "type": "VStack",
+      "id": 900,
+      "properties": { "alignment": "leading", "spacing": 4 },
+      "template": {
+        "type": "HStack",
+        "properties": {
+          "spacing": 10,
+          "actionID": "celltap.cell",
+          "padding": 8,
+          "frame": { "maxWidth": "infinity" }
+        },
+        "children": [
+          { "type": "Image", "properties": { "systemName": "$1" } },
+          { "type": "Text", "properties": { "text": "$2" } },
+          { "type": "Spacer" },
+          { "type": "Button", "properties": { "title": "Button $2", "actionID": "celltap.button" } }
+        ]
+      }
+    },
+    {
+      "type": "Text",
+      "id": 910,
+      "properties": { "text": "Log: " }
+    }
+  ]
+}

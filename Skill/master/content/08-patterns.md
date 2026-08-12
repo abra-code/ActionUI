@@ -219,6 +219,62 @@ no-ops that are very hard to debug from the JSON alone:
   `actionID`/`valueChangeActionID` with transitional or bogus values —
   handlers must validate what they receive.
 
+### Whole-cell tap: a rich row that is ONE tap target
+
+Put `actionID` on the `VStack`/`HStack`/`ZStack` itself and the whole container
+becomes tappable. This is how you build a cell that is an avatar, a name and a
+status line rather than a small glyph `Button` wedged inside one: `Button`
+renders title + `systemImage` only, so it can never BE the rich cell.
+
+```json
+{
+  "type": "VStack", "id": 900,
+  "template": {
+    "type": "HStack",
+    "properties": { "actionID": "receiver.open", "padding": 8, "frame": { "maxWidth": "infinity" } },
+    "children": [
+      { "type": "Image", "properties": { "systemName": "$1" } },
+      { "type": "Text",  "properties": { "text": "$2" } },
+      { "type": "Spacer" },
+      { "type": "Button", "properties": { "title": "Done", "actionID": "receiver.done" } }
+    ]
+  }
+}
+```
+
+What the handler receives:
+
+- **Inside a `template` row**: `viewID` is the owning container's id (900 here)
+  and `viewPartID` is the row index, exactly as for a `Button` in the same row.
+  A template instance's own id is 0 and identifies nothing, so this is the only
+  way a data-driven cell can say which row was tapped.
+- **Outside a template**: the element's own id, with `viewPartID` 0.
+
+A `Button` (or any control) nested inside keeps its own tap: pressing "Done"
+fires `receiver.done` and does NOT also fire `receiver.open`. The same holds for
+a tappable container nested inside another one, and for a tappable cell inside a
+selectable `List` row - the innermost action wins and nothing else fires.
+
+The target covers the container's FINAL box, `padding` and `frame` included, so
+give the cell a `padding` when you want the gaps around the children to be part
+of the tap area. An unpadded stack hugs its content, and the space between
+children is still inside the box.
+
+Accessibility comes with it on all three hosts: the cell is announced as a
+single button reading its children's labels, and it is reachable by keyboard
+(Enter or Space on the web, where a plain container would otherwise be
+unreachable). That is the reason to prefer this over a leading-glyph `Button` -
+one focusable element with one action, instead of a small target beside inert
+text.
+
+A `disabled: true` container is inert and gets no tap target, and so is one
+inside a disabled ancestor.
+
+Web note: on the web ANY element carrying an `actionID` is clickable, not only
+these three containers - that predates the pattern and still holds. Apple and
+Android wire only `VStack`/`HStack`/`ZStack`, so keep the `actionID` on one of
+them if the document has to behave identically everywhere.
+
 ### Table column minimum widths
 
 Always declare `minWidths` alongside `widths` — the default per-column

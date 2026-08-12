@@ -67,6 +67,25 @@ export function makeElement(tag = "div") {
             contains: (c) => classes.has(c),
         },
         parentNode: null,
+        // Nearest ancestor-OR-SELF matching `selector`, which is the part of `closest` the
+        // renderer depends on: ModifierResolver asks ".aui-disabled" ("is this node, or
+        // anything above it, disabled?") and List.js asks a comma-separated tag list
+        // ("button, input, select, textarea, a") to tell a click on a control from a click
+        // on inert row content. Starting at the node ITSELF, not its parent, is what makes
+        // the first question answer true for a container carrying its own `disabled`.
+        // Unsupported selector shapes return null rather than throwing, matching the
+        // permissive spirit of the rest of this stub.
+        closest(selector) {
+            if (typeof selector !== "string") return null;
+            const parts = selector.split(",").map((s) => s.trim()).filter(Boolean);
+            const matches = (n) => parts.some((part) => (part.startsWith(".")
+                ? !!n.classList?.contains(part.slice(1))
+                : n.tagName === part.toUpperCase()));
+            for (let n = el; n; n = n.parentNode) {
+                if (matches(n)) return n;
+            }
+            return null;
+        },
         setAttribute(key, val) { el[key] = val; },
         // Inserting a node that already has a parent MOVES it: the real DOM detaches it
         // from the old parent first, and code that reparents a node (NavigationStack moves
@@ -111,8 +130,52 @@ export function makeElement(tag = "div") {
             walk(el);
             return out;
         },
+        // The element's own listener sets, reachable from a descendant so `fire` can
+        // walk up and bubble. Not a DOM property - the real DOM keeps this private.
+        __events: events,
         // --- test helpers (not part of the DOM API) ---
-        fire(name, ev = {}) { [...(events[name] || [])].forEach((fn) => fn({ target: el, ...ev })); },
+        // `fire` dispatches on this element and then walks UP the parent chain, the way
+        // a real DOM event bubbles. Bubbling is what makes a nested-handler test honest:
+        // a Button inside a container that also carries an actionID triggers BOTH
+        // listeners in a browser, so a stub that only ever fired locally could neither
+        // see that double dispatch nor prove a guard against it. `stopPropagation()`
+        // ends the walk, as in the DOM. Pass `{ bubbles: false }` for the events that
+        // genuinely do not bubble (focus, blur).
+        //
+        // stopPropagation() ends the walk at the end of the CURRENT node's listeners, as
+        // in the DOM: the remaining listeners on that node still run, only ancestors are
+        // skipped. (Skipping the rest of the current node's listeners too would be
+        // stopImmediatePropagation, which nothing here needs.)
+        //
+        // preventDefault is a no-op that records itself. It exists because bubbling made
+        // ancestor handlers reachable from a descendant `fire` for the first time, and
+        // several of them call it (Views/List.js, Views/NavigationStack.js,
+        // Helpers/ContextMenuModifier.js). Without it those handlers would throw on an
+        // event this stub synthesized rather than on anything the renderer did wrong.
+        fire(name, ev = {}) {
+            const { bubbles = true, ...rest } = ev;
+            let propagating = true;
+            // preventDefault goes BEFORE the spread so a caller-supplied spy still wins -
+            // several tests pass one and assert it was called. stopPropagation goes AFTER,
+            // because the walk below depends on it and a caller must not be able to
+            // substitute one that does not stop anything.
+            const event = {
+                target: el,
+                defaultPrevented: false,
+                preventDefault() { event.defaultPrevented = true; },
+                ...rest,
+                stopPropagation() { propagating = false; },
+            };
+            for (let n = el; n; n = n.parentNode) {
+                const handlers = n.__events?.[name];
+                if (handlers) {
+                    event.currentTarget = n;
+                    [...handlers].forEach((fn) => fn(event));
+                }
+                if (!bubbles || !propagating) break;
+            }
+            return event;
+        },
         listenerCount(name) { return events[name] ? events[name].size : 0; },
     };
     return el;

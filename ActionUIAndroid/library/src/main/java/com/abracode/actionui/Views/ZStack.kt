@@ -16,6 +16,7 @@ import com.abracode.actionui.Common.parseAlignment
 import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.containerActionModifier
 import com.abracode.actionui.Helpers.templateRows
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -72,7 +73,9 @@ object ZStack : ActionUIViewConstruction {
             }
         } ?: Alignment.Center
 
-        Box(modifier = modifier, contentAlignment = alignment) {
+        // The container tap wraps the chain from OUTSIDE (see containerActionModifier):
+        // appending it would put the tap inside the padding, leaving a dead ring.
+        Box(modifier = containerActionModifier(element, modifier), contentAlignment = alignment) {
             // Template (data-driven) mode wins over children, as on Apple:
             // one substituted instance per row. See Helpers/TemplateHelper.kt.
             val template = element.template

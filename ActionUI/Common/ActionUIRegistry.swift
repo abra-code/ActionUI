@@ -268,6 +268,17 @@ public class ActionUIRegistry {
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
         modifiedView = View.applyModifiers(modifiedView, element, windowUUID, properties, logger)
 
+        // Whole-container tap (Helpers/ContainerActionHelper.swift): a VStack/HStack/ZStack
+        // carrying an actionID becomes ONE tap target. Applied here, last, because the target
+        // has to cover the container's FINAL box - the frame, padding and background that
+        // View.applyModifiers just added. Applied inside buildView instead, the shape sizes to
+        // the stack's intrinsic content, and a padded full-width tinted row is dead everywhere
+        // its children do not happen to draw. A no-op for every other element type, and for a
+        // tappable container that declares no actionID.
+        modifiedView = ContainerAction.apply(
+            modifiedView, element: element, model: model, windowUUID: windowUUID, properties: properties
+        )
+
         return AnyView(modifiedView)
     }
 }

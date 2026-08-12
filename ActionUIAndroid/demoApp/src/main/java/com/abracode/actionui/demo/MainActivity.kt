@@ -294,6 +294,33 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Chip tapped: ${row?.lastOrNull() ?: "?"} (row $viewPartID)", Toast.LENGTH_SHORT).show()
         }
 
+        // VStack.containerAction.json - whole-cell tap dispatch.
+        // The log APPENDS rather than replaces, because the question this fixture answers is
+        // not "what fired last" but "did anything ELSE also fire": a Button inside a tappable
+        // cell must be the only dispatch, and a replace-style status would hide the second
+        // one behind the first.
+        var cellTapLog = ""
+        ActionUIModel.registerActionHandler("celltap.load") { _, windowUUID, _, _, _ ->
+            cellTapLog = ""
+            ActionUIModel.setElementRows(
+                windowUUID = windowUUID, viewID = 900,
+                rows = listOf(
+                    listOf("tray.fill", "Inbox"),
+                    listOf("archivebox.fill", "Archive"),
+                    listOf("trash.fill", "Trash"),
+                ),
+            )
+            ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 910, value = "Log: ")
+        }
+        ActionUIModel.registerActionHandler("celltap.cell") { _, windowUUID, viewID, viewPartID, _ ->
+            cellTapLog += "C$viewID-$viewPartID;"
+            ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 910, value = "Log: $cellTapLog")
+        }
+        ActionUIModel.registerActionHandler("celltap.button") { _, windowUUID, viewID, viewPartID, _ ->
+            cellTapLog += "B$viewID-$viewPartID;"
+            ActionUIModel.setElementValueFromString(windowUUID = windowUUID, viewID = 910, value = "Log: $cellTapLog")
+        }
+
         // View.animation.json - the animation modifier driven by the property
         // API. Each handler mutates one property through setElementProperty;
         // whether (and how) the transition animates is decided entirely by the

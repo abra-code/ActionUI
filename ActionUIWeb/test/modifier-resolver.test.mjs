@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeElement, makeLogger } from "./dom-stub.mjs";
-import { resolveColor, applyViewModifiers, markHandlesAction } from "../src/Common/ModifierResolver.js";
+import { resolveColor, applyViewModifiers, markHandlesAction, applyElementProperty } from "../src/Common/ModifierResolver.js";
 
 test("resolveColor: named -> CSS var, hex pass-through, unknown warns -> null", () => {
     const logger = makeLogger();
@@ -177,12 +177,231 @@ test("actionID wires a click that dispatches; markHandlesAction opts out", () =>
     const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
     applyViewModifiers(node, { id: 9 }, { actionID: "go" }, ctx);
     node.fire("click");
-    assert.deepEqual(dispatched, [["go", 9]], "click dispatches actionID with the element id");
+    assert.deepEqual(dispatched, [["go", 9, 0, null]], "click dispatches actionID with the element id");
 
     const handled = makeElement();
     markHandlesAction(handled);
     applyViewModifiers(handled, { id: 9 }, { actionID: "go" }, ctx);
     assert.equal(handled.listenerCount("click"), 0, "a control that handles its own action gets no generic click");
+});
+
+// --- a container actionID inside a template row -------------
+//
+// The whole point of a container actionID is the rich tappable cell: an avatar, a name
+// and a status line under ONE target, instead of a small glyph Button inside the cell.
+// That only works if the dispatch says WHICH row was tapped.
+
+test("actionID inside a template row dispatches the owning container id and row index", () => {
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = {
+        logger: makeLogger(),
+        model: { dispatchAction: (...a) => dispatched.push(a) },
+        templateContext: { parentID: 100, rowIndex: 4 },
+    };
+    // TemplateHelper forces every cloned instance's id to 0, so element.id carries no
+    // row identity and never can - the context is the only source of it.
+    applyViewModifiers(node, { id: 0 }, { actionID: "row.open" }, ctx);
+    node.fire("click");
+    assert.deepEqual(dispatched, [["row.open", 100, 4, null]],
+        "dispatches (owning container id, row index), matching Views/Button.js");
+});
+
+test("row 0 dispatches the owning container id, not the cell's own", () => {
+    // JS-specific hazard, and the reason this row gets its own test: 0 is falsy, so the
+    // natural shorthand (`templateContext?.rowIndex ? ... : ...`, or `parentID || id`)
+    // collapses "row zero" into "no template" and sends the FIRST cell - the one every
+    // manual check taps first - to the wrong handler.
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = {
+        logger: makeLogger(),
+        model: { dispatchAction: (...a) => dispatched.push(a) },
+        templateContext: { parentID: 100, rowIndex: 0 },
+    };
+    applyViewModifiers(node, { id: 0 }, { actionID: "row.open" }, ctx);
+    node.fire("click");
+    assert.deepEqual(dispatched, [["row.open", 100, 0, null]],
+        "row 0 is a real row: the context decides, not the index's truthiness");
+});
+
+test("a marked descendant serves the click; the enclosing container does not also fire", () => {
+    const container = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(container, { id: 7 }, { actionID: "cell.open" }, ctx);
+
+    // Stand in for a Button: it marks itself and wires its own dispatch, as Button.js does.
+    const button = makeElement("button");
+    markHandlesAction(button);
+    button.addEventListener("click", () => dispatched.push(["button.delete", 8, 0, null]));
+    container.appendChild(button);
+
+    button.fire("click"); // bubbles to the container, as in a browser
+    assert.deepEqual(dispatched, [["button.delete", 8, 0, null]],
+        "only the button's action fires - the container stands down");
+});
+
+test("a click on plain content inside the container still fires the container action", () => {
+    const container = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(container, { id: 7 }, { actionID: "cell.open" }, ctx);
+
+    const label = makeElement("span"); // a Text: no action of its own, not marked
+    container.appendChild(label);
+
+    label.fire("click");
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]],
+        "unmarked content is part of the cell's tap target");
+});
+
+test("a tappable container inside another tappable container: only the inner one fires", () => {
+    // Web is the only host that has to arrange this: SwiftUI resolves a tap to the innermost
+    // gesture and Compose's inner clickable consumes the press, but a DOM click bubbles, so
+    // without a guard BOTH containers dispatch. An avatar block with its own action inside a
+    // tappable row is the ordinary shape that hits it.
+    const outer = makeElement();
+    const inner = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(outer, { id: 7 }, { actionID: "row.open" }, ctx);
+    applyViewModifiers(inner, { id: 8 }, { actionID: "avatar.open" }, ctx);
+    outer.appendChild(inner);
+
+    inner.fire("click");
+    assert.deepEqual(dispatched, [["avatar.open", 8, 0, null]],
+        "the inner container serves the click; the outer one stands down");
+});
+
+test("a tappable container stops the click reaching an enclosing List row's selection", () => {
+    // List rows guard with their own selector of native control tags, which a container
+    // (a plain div) never matches - so without stopPropagation one click both fired the
+    // cell action and selected the row, running two handlers for one gesture.
+    const row = makeElement();
+    const seen = [];
+    row.addEventListener("click", () => seen.push("row.select"));
+
+    const cell = makeElement();
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (id) => seen.push(id) } };
+    applyViewModifiers(cell, { id: 7 }, { actionID: "cell.open" }, ctx);
+    row.appendChild(cell);
+
+    cell.fire("click");
+    assert.deepEqual(seen, ["cell.open"], "the row's own click handler must not also run");
+});
+
+test("a blank actionID wires no tap target at all", () => {
+    // Apple and Android refuse a blank action rather than dispatch an unroutable empty id;
+    // web used to accept it and dispatch "". All three now agree.
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(node, { id: 7 }, { actionID: "   " }, ctx);
+    assert.equal(node.listenerCount("click"), 0, "no listener is wired for a blank actionID");
+    node.fire("click");
+    assert.deepEqual(dispatched, [], "and nothing dispatches");
+});
+
+test("an element with NO actionID is left completely alone", () => {
+    // The property that keeps this from changing hit-testing for every existing document:
+    // no listener, nothing marking the node as an action handler (which would make a
+    // genuinely tappable ancestor stand down for no reason), and no button semantics
+    // announced to a screen reader for a plain layout box.
+    const node = makeElement();
+    const ctx = { logger: makeLogger(), model: { dispatchAction: () => {} } };
+    applyViewModifiers(node, { id: 7 }, { padding: 8 }, ctx);
+    assert.equal(node.listenerCount("click"), 0, "no click listener");
+    assert.equal(node.dataset.auiHandlesAction, undefined, "not marked as handling an action");
+    assert.equal(node.role, undefined, "no button role");
+    assert.equal(node.tabIndex, undefined, "not in the tab order");
+});
+
+test("a tappable container is reachable by keyboard and announced as a button", () => {
+    // A bare div with a click listener is invisible to a screen reader and unreachable by
+    // keyboard. Without this the whole-cell pattern would be better for a mouse and worse
+    // for everyone else, which is the opposite of why it is recommended over a small
+    // leading-glyph Button.
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(node, { id: 7 }, { actionID: "cell.open" }, ctx);
+
+    assert.equal(node.role, "button", "announced as a button");
+    assert.equal(node.tabIndex, 0, "reachable by Tab");
+
+    node.fire("keydown", { key: "Enter" });
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]], "Enter activates it");
+
+    node.fire("keydown", { key: " " });
+    assert.equal(dispatched.length, 2, "Space activates it too");
+
+    node.fire("keydown", { key: "a" });
+    assert.equal(dispatched.length, 2, "other keys do not");
+});
+
+test("a disabled tappable container is inert to the KEYBOARD, not only to the mouse", () => {
+    // The mouse is covered by CSS - `.aui-disabled { pointer-events: none }` - and that is
+    // the whole defense a <div role="button"> gets, because `disabled` is not a real
+    // attribute on a div. pointer-events does nothing to focus or keydown, so a disabled
+    // cell stayed keyboard-activatable while looking inert: "disabled is honored on all
+    // three hosts" was true for a pointer and false for Enter/Space.
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(node, { id: 7 }, { actionID: "cell.open", disabled: true }, ctx);
+
+    assert.equal(node.tabIndex, -1, "kept out of the tab order");
+    node.fire("keydown", { key: "Enter" });
+    node.fire("keydown", { key: " " });
+    node.fire("click");
+    assert.deepEqual(dispatched, [], "neither key nor click dispatches");
+});
+
+test("a container disabled by an ANCESTOR is inert too", () => {
+    // The other half: Apple needs two separate routes for this (resolve() for the
+    // container's own `disabled`, \.isEnabled for an inherited one), so the web must not
+    // answer only the first. The class is on the ancestor, never on this node.
+    const outer = makeElement();
+    outer.classList.add("aui-disabled");
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(node, { id: 7 }, { actionID: "cell.open" }, ctx);
+    outer.appendChild(node);
+
+    node.fire("keydown", { key: "Enter" });
+    node.fire("click");
+    assert.deepEqual(dispatched, [], "an inherited disable suppresses the cell action");
+});
+
+test("re-enabling through setElementProperty restores the cell action", () => {
+    // The guard is asked at EVENT time rather than wire time precisely so a host can flip
+    // `disabled` later; a wire-time-only check would leave the cell permanently dead.
+    const node = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(node, { id: 7 }, { actionID: "cell.open", disabled: true }, ctx);
+    node.fire("click");
+    assert.deepEqual(dispatched, [], "inert while disabled");
+
+    applyElementProperty(node, "disabled", false, makeLogger());
+    node.fire("click");
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]], "live again once re-enabled");
+});
+
+test("a marked ancestor ABOVE the container does not suppress the container's action", () => {
+    const outer = makeElement();
+    markHandlesAction(outer); // e.g. a List row that handles its own selection
+    const container = makeElement();
+    const dispatched = [];
+    const ctx = { logger: makeLogger(), model: { dispatchAction: (...a) => dispatched.push(a) } };
+    applyViewModifiers(container, { id: 7 }, { actionID: "cell.open" }, ctx);
+    outer.appendChild(container);
+
+    container.fire("click");
+    assert.deepEqual(dispatched, [["cell.open", 7, 0, null]],
+        "the walk stops at the container - what is above it answers for itself");
 });
 
 test("onAppearActionID fires once after mount, with id + null context, guarded per node", async () => {
