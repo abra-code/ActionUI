@@ -10,7 +10,7 @@
       "content": {
         "type": "Button",
         "id": 11,
-        "properties": { "title": "ALIAS", "actionID": "toolbartest.stackbar" }
+        "properties": { "title": "Info", "actionID": "toolbartest.stackbar" }
       }
     }
   ],
@@ -22,36 +22,36 @@
       "content": {
         "type": "Button",
         "id": 61,
-        "properties": { "title": "PERS", "actionID": "toolbartest.persistbar" }
+        "properties": { "title": "Sync", "actionID": "toolbartest.persistbar" }
       }
     }
   ],
   "content": {
     "type": "VStack",
     "id": 2,
-    "properties": { "navigationTitle": "TBRoot" },
+    "properties": { "navigationTitle": "Library" },
     "children": [
-      { "type": "Text", "id": 3, "properties": { "text": "root body" } },
+      { "type": "Text", "id": 3, "properties": { "text": "The root screen." } },
       {
         "type": "NavigationLink",
         "id": 30,
-        "properties": { "title": "PUSH_WITH_BAR", "destinationViewId": 500 }
+        "properties": { "title": "Push a screen with its own bar", "destinationViewId": 500 }
       },
       {
         "type": "NavigationLink",
         "id": 31,
-        "properties": { "title": "PUSH_NO_BAR", "destinationViewId": 600 }
+        "properties": { "title": "Push a screen with no bar of its own", "destinationViewId": 600 }
       },
       {
         "type": "NavigationLink",
         "id": 32,
-        "properties": { "title": "PUSH_INLINE" },
+        "properties": { "title": "Push an inline destination" },
         "destination": {
           "type": "VStack",
           "id": 700,
-          "properties": { "navigationTitle": "TBInline" },
+          "properties": { "navigationTitle": "Note" },
           "children": [
-            { "type": "Text", "id": 701, "properties": { "text": "inline dest body" } }
+            { "type": "Text", "id": 701, "properties": { "text": "An inline destination." } }
           ]
         }
       }
@@ -64,7 +64,7 @@
         "content": {
           "type": "Button",
           "id": 21,
-          "properties": { "title": "ROOT", "actionID": "toolbartest.rootbar" }
+          "properties": { "title": "Sort", "actionID": "toolbartest.rootbar" }
         }
       }
     ]
@@ -73,9 +73,9 @@
     {
       "type": "VStack",
       "id": 500,
-      "properties": { "navigationTitle": "TBDestA" },
+      "properties": { "navigationTitle": "Album" },
       "children": [
-        { "type": "Text", "id": 501, "properties": { "text": "dest with bar" } }
+        { "type": "Text", "id": 501, "properties": { "text": "This screen brings its own toolbar." } }
       ],
       "toolbar": [
         {
@@ -85,7 +85,7 @@
           "content": {
             "type": "Button",
             "id": 41,
-            "properties": { "title": "DSTA", "actionID": "toolbartest.destbara" }
+            "properties": { "title": "Edit", "actionID": "toolbartest.destbara" }
           }
         },
         {
@@ -95,7 +95,7 @@
           "content": {
             "type": "Button",
             "id": 51,
-            "properties": { "title": "DSTB", "actionID": "toolbartest.destbarb" }
+            "properties": { "title": "Share", "actionID": "toolbartest.destbarb" }
           }
         }
       ]
@@ -103,9 +103,9 @@
     {
       "type": "VStack",
       "id": 600,
-      "properties": { "navigationTitle": "TBDestB" },
+      "properties": { "navigationTitle": "Artists" },
       "children": [
-        { "type": "Text", "id": 601, "properties": { "text": "dest without bar" } }
+        { "type": "Text", "id": 601, "properties": { "text": "This screen declares no toolbar." } }
       ]
     }
   ]

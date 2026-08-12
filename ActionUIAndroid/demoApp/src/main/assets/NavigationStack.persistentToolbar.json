@@ -10,20 +10,20 @@
       "content": {
         "type": "Button",
         "id": 61,
-        "properties": { "title": "PERS", "systemImage": "arrow.clockwise", "actionID": "toolbar.persist" }
+        "properties": { "title": "Sync", "systemImage": "arrow.clockwise", "actionID": "toolbar.persist" }
       }
     }
   ],
   "content": {
     "type": "VStack",
     "id": 2,
-    "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "navigationTitle": "TBRoot" },
+    "properties": { "spacing": 8, "padding": 16, "alignment": "leading", "navigationTitle": "Library" },
     "toolbar": [
       {
         "type": "ToolbarItem",
         "id": 20,
         "properties": { "placement": "topBarLeading" },
-        "content": { "type": "Button", "id": 21, "properties": { "title": "ROOT", "actionID": "toolbar.root" } }
+        "content": { "type": "Button", "id": 21, "properties": { "title": "Sort", "actionID": "toolbar.root" } }
       }
     ],
     "children": [
@@ -31,21 +31,21 @@
         "type": "Text",
         "id": 3,
         "properties": {
-          "text": "PERS is declared on the NavigationStack, not on any screen. It stays in the top bar on all three screens below; ROOT / DSTA / DSTB come and go with the screen that declares them. The second destination declares no toolbar at all and still gets a bar, which is the point."
+          "text": "Sync is declared on the NavigationStack, not on any screen. It stays in the top bar on all three screens below; Sort, Edit and Share come and go with the screen that declares them. The second destination declares no toolbar at all and still gets a bar, which is the point."
         }
       },
-      { "type": "NavigationLink", "id": 30, "properties": { "title": "Push a screen WITH its own bar", "destinationViewId": 500 } },
-      { "type": "NavigationLink", "id": 31, "properties": { "title": "Push a screen with NO bar of its own", "destinationViewId": 600 } },
+      { "type": "NavigationLink", "id": 30, "properties": { "title": "Push a screen with its own bar", "destinationViewId": 500 } },
+      { "type": "NavigationLink", "id": 31, "properties": { "title": "Push a screen with no bar of its own", "destinationViewId": 600 } },
       {
         "type": "NavigationLink",
         "id": 32,
-        "properties": { "title": "Push an INLINE destination" },
+        "properties": { "title": "Push an inline destination" },
         "destination": {
           "type": "VStack",
           "id": 700,
-          "properties": { "spacing": 8, "padding": 16, "navigationTitle": "TBInline" },
+          "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Note" },
           "children": [
-            { "type": "Text", "id": 701, "properties": { "text": "An inline destination, built by a different route from the destinations array. PERS is here too." } }
+            { "type": "Text", "id": 701, "properties": { "text": "An inline destination, built by a different route from the destinations array. Sync is here too." } }
           ]
         }
       }
@@ -55,23 +55,23 @@
     {
       "type": "VStack",
       "id": 500,
-      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "TBDestA" },
+      "properties": { "spacing": 8, "padding": 16, "navigationTitle": "Album" },
       "toolbar": [
         {
           "type": "ToolbarItem",
           "id": 40,
           "properties": { "placement": "topBarTrailing" },
-          "content": { "type": "Button", "id": 41, "properties": { "title": "DSTA", "actionID": "toolbar.desta" } }
+          "content": { "type": "Button", "id": 41, "properties": { "title": "Edit", "actionID": "toolbar.desta" } }
         },
         {
           "type": "ToolbarItem",
           "id": 50,
           "properties": { "placement": "secondaryAction" },
-          "content": { "type": "Button", "id": 51, "properties": { "title": "DSTB", "actionID": "toolbar.destb" } }
+          "content": { "type": "Button", "id": 51, "properties": { "title": "Share", "actionID": "toolbar.destb" } }
         }
       ],
       "children": [
-        { "type": "Text", "id": 501, "properties": { "text": "This screen declares DSTA (trailing) and DSTB (overflow). PERS sits beside DSTA, after it, so the persistent item keeps the outer edge as screens change." } }
+        { "type": "Text", "id": 501, "properties": { "text": "This screen declares Edit (trailing) and Share (overflow). Sync sits beside Edit, after it, so the persistent item keeps the outer edge as screens change." } }
       ]
     },
     {
@@ -79,7 +79,7 @@
       "id": 600,
       "properties": { "spacing": 8, "padding": 16 },
       "children": [
-        { "type": "Text", "id": 601, "properties": { "text": "This screen declares no toolbar, no items and deliberately no navigationTitle either - nothing that would give it chrome of its own. Before persistentToolbar it had no top bar at all on Android; the bar above carries PERS and exists only because the container declared it." } }
+        { "type": "Text", "id": 601, "properties": { "text": "This screen declares no toolbar, no items and deliberately no navigationTitle either - nothing that would give it chrome of its own. Before persistentToolbar it had no top bar at all on Android; the bar above carries Sync and exists only because the container declared it." } }
       ]
     }
   ]

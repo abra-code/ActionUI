@@ -12,12 +12,12 @@
 // PersistentToolbarTests covers the standard branch. This file exists so that branch is not the
 // only one measured. Fixture: Resources/NavigationStack.persistentToolbarList.json.
 //
-//   PERS   in the stack's `persistentToolbar`
-//   ROOT   on the content List           -> the root screen only
-//   DSTA   on destination 500            -> that destination only
+//   Sync   in the stack's `persistentToolbar`
+//   Sort   on the content List           -> the root screen only
+//   Edit   on destination 500            -> that destination only
 //
-//   root     present=[PERS ROOT]  absent=[DSTA]
-//   pushed   present=[PERS DSTA]  absent=[ROOT]
+//   root     present=[Sync Sort]  absent=[Edit]
+//   pushed   present=[Sync Edit]  absent=[Sort]
 //
 // Deliberately smaller than its sibling: this is a second measurement of the same claim through
 // a different code path, not a second exploration. The interesting extra is that on this branch
@@ -29,7 +29,7 @@ import XCTest
 
 final class ListPersistentToolbarTests: XCTestCase {
     private let fixtureResource = "NavigationStack.persistentToolbarList"
-    private let rootTitle = "TBListRoot"
+    private let rootTitle = "Playlists"
 
     private var app: XCUIApplication!
     private var documentWindowID = ""
@@ -133,21 +133,21 @@ final class ListPersistentToolbarTests: XCTestCase {
     func testPersistentToolbarSurvivesASelectionDrivenPush() {
         // Wait FIRST, then choose. Picking the query before waiting means a still-loading app
         // silently commits to the staticTexts branch and the wait then fails against it.
-        XCTAssertTrue(screen.staticTexts["PUSH_ROW"].waitForExistence(timeout: 20)
-                      || screen.buttons["PUSH_ROW"].exists,
+        XCTAssertTrue(screen.staticTexts["Road Trip"].waitForExistence(timeout: 20)
+                      || screen.buttons["Road Trip"].exists,
                       "list fixture never loaded. Tree: \(app.debugDescription)")
-        let row = screen.buttons["PUSH_ROW"].exists ? screen.buttons["PUSH_ROW"] : screen.staticTexts["PUSH_ROW"]
+        let row = screen.buttons["Road Trip"].exists ? screen.buttons["Road Trip"] : screen.staticTexts["Road Trip"]
         settle(on: rootTitle)
 
-        assertBars("root", screenTitle: rootTitle, present: ["PERS", "ROOT"], absent: ["DSTA"])
+        assertBars("root", screenTitle: rootTitle, present: ["Sync", "Sort"], absent: ["Edit"])
 
         press(row)
-        XCTAssertTrue(screen.staticTexts["list dest body"].waitForExistence(timeout: 10),
+        XCTAssertTrue(screen.staticTexts["The pushed screen."].waitForExistence(timeout: 10),
                       "selecting the row did not push destination 500")
-        XCTAssertTrue(settle(on: "TBListDest"), "destination 500 never became the top screen")
+        XCTAssertTrue(settle(on: "Songs"), "destination 500 never became the top screen")
 
         // The claim: the selectable-List branch merges the container's items too. Delete either
         // of that branch's two onScreen calls in NavigationStack.swift and this is what goes red.
-        assertBars("pushed", screenTitle: "TBListDest", present: ["PERS", "DSTA"], absent: ["ROOT"])
+        assertBars("pushed", screenTitle: "Songs", present: ["Sync", "Edit"], absent: ["Sort"])
     }
 }

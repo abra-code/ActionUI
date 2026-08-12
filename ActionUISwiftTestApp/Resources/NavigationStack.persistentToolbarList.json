@@ -10,7 +10,7 @@
       "content": {
         "type": "Button",
         "id": 61,
-        "properties": { "title": "PERS", "actionID": "toolbarlisttest.persistbar" }
+        "properties": { "title": "Sync", "actionID": "toolbarlisttest.persistbar" }
       }
     }
   ],
@@ -18,14 +18,14 @@
     "type": "List",
     "id": 2,
     "properties": {
-      "navigationTitle": "TBListRoot",
+      "navigationTitle": "Playlists",
       "actionID": "toolbarlisttest.selection"
     },
     "children": [
       {
         "type": "Label",
         "id": 100,
-        "properties": { "title": "PUSH_ROW", "systemImage": "1.circle", "destinationViewId": 500 }
+        "properties": { "title": "Road Trip", "systemImage": "star", "destinationViewId": 500 }
       }
     ],
     "toolbar": [
@@ -36,7 +36,7 @@
         "content": {
           "type": "Button",
           "id": 21,
-          "properties": { "title": "ROOT", "actionID": "toolbarlisttest.rootbar" }
+          "properties": { "title": "Sort", "actionID": "toolbarlisttest.rootbar" }
         }
       }
     ]
@@ -45,9 +45,9 @@
     {
       "type": "VStack",
       "id": 500,
-      "properties": { "navigationTitle": "TBListDest" },
+      "properties": { "navigationTitle": "Songs" },
       "children": [
-        { "type": "Text", "id": 501, "properties": { "text": "list dest body" } }
+        { "type": "Text", "id": 501, "properties": { "text": "The pushed screen." } }
       ],
       "toolbar": [
         {
@@ -57,7 +57,7 @@
           "content": {
             "type": "Button",
             "id": 41,
-            "properties": { "title": "DSTA", "actionID": "toolbarlisttest.destbara" }
+            "properties": { "title": "Edit", "actionID": "toolbarlisttest.destbara" }
           }
         }
       ]

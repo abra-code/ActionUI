@@ -13,11 +13,11 @@
 // Fixture: Resources/NavigationSplitView.persistentToolbar.json, the same one the macOS wide-shell
 // test drives. Collapsed, the launch screen is the sidebar:
 //
-//   SPERS   in the split view's `persistentToolbar`  -> must be here
-//   SALIAS  in the split view's `toolbar`            -> the deprecated alias, must be here too
-//   SIDE    on the sidebar List itself               -> its own toolbar, must be here
-//   DROOT   on the detail stack's root               -> must NOT be, the detail is not on screen
-//   DINNER  on a destination of the detail stack     -> must NOT be
+//   Sync    in the split view's `persistentToolbar`  -> must be here
+//   Info    in the split view's `toolbar`            -> the deprecated alias, must be here too
+//   New     on the sidebar List itself               -> its own toolbar, must be here
+//   Edit    on the detail stack's root               -> must NOT be, the detail is not on screen
+//   Share   on a destination of the detail stack     -> must NOT be
 //
 // TWO GAPS, stated so they are not mistaken for coverage.
 //
@@ -27,7 +27,7 @@
 // Measuring it needs a full-screen iPad scene, and the multi-window harness opens the fixture as a
 // 320pt side-by-side scene - compact again, i.e. this test. `Missing_Features` #36 says the same.
 //
-// The two absent-checks below have no positive control HERE: misspell DROOT in the fixture and
+// The two absent-checks below have no positive control HERE: misspell Edit in the fixture and
 // they pass for the wrong reason. Their control is SplitPersistentToolbarTests, which drives the
 // same fixture on macOS and asserts both labels PRESENT. Run both, or these two mean nothing.
 //
@@ -37,7 +37,7 @@ import XCTest
 
 final class CompactSplitPersistentToolbarTests: XCTestCase {
     private let fixtureResource = "NavigationSplitView.persistentToolbar"
-    private let sidebarTitle = "TBSide"
+    private let sidebarTitle = "Folders"
 
     private var app: XCUIApplication!
 
@@ -80,13 +80,13 @@ final class CompactSplitPersistentToolbarTests: XCTestCase {
             .filter { !$0.hasPrefix("_XCUI:") }
         let context = "sidebar bar: \(barLabels.description)"
 
-        for title in ["SPERS", "SALIAS", "SIDE"] {
+        for title in ["Sync", "Info", "New"] {
             XCTAssertTrue(sidebarBar.buttons[title].exists,
                           "expected \(title) in the collapsed stack's bar. \(context)")
             XCTAssertLessThanOrEqual(barLabels.filter { $0 == title }.count, 1,
                                      "\(title) appears more than once. \(context)")
         }
-        for title in ["DROOT", "DINNER"] {
+        for title in ["Edit", "Share"] {
             XCTAssertFalse(app.buttons[title].exists,
                            "expected \(title) NOT on screen - the detail column is not shown when collapsed. \(context)")
         }

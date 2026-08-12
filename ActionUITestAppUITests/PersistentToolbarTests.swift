@@ -8,10 +8,10 @@
 // Fixture: Resources/NavigationStack.persistentToolbar.json, declaring toolbars in the
 // positions that matter:
 //
-//   PERS         in the stack's `persistentToolbar`  -> the feature
-//   ALIAS        in the stack's `toolbar`            -> the DEPRECATED ALIAS for it
-//   ROOT         on the stack's `content`            -> one screen only (the root)
-//   DSTA, DSTB   on destination 500                  -> two items, so accumulation is observable
+//   Sync           in the stack's `persistentToolbar`  -> the feature
+//   Info           in the stack's `toolbar`            -> the DEPRECATED ALIAS for it
+//   Sort           on the stack's `content`            -> one screen only (the root)
+//   Edit, Share    on destination 500                  -> two items, so accumulation is observable
 //   destination 600 declares no toolbar at all
 //   an INLINE NavigationLink destination (Form 1), which the renderer builds by a different
 //   route than the destinations array - the one push shape the others cannot speak for
@@ -19,40 +19,46 @@
 // The labels are deliberately SHORT. They started out as PERSISTBAR / STACKBAR / DESTBARA,
 // and on iOS 26 the pushed destination then carried five items - back button, two of its
 // own, and two persistent - which no longer fit an iPhone bar: iOS moved DESTBARA and
-// DESTBARB into a "More" overflow menu and the test failed for width, not for logic. Worth
-// knowing beyond this file, in two directions. Persistent items are not free - they spend
-// bar space on every screen inside the container, so a container should carry one or two,
-// not a row. And in that overflow iOS kept the PERSISTENT items visible and overflowed the
-// screen's own, which is the good outcome for a status indicator but is an observation, not
-// a guarantee - nothing documents which end of an accumulated bar overflows first.
+// DESTBARB into a "More" overflow menu and the test failed for width, not for logic. That
+// is why the readable names chosen later were kept to one short word each. What matters is
+// RENDERED width, not character count: Sync/Info/Edit/Share is the same 17 characters as the
+// PERS/ALIAS/DSTA/DSTB set it replaced but draws narrower, because it is mixed case rather
+// than all caps - and the iOS back button, which grew from "TBRoot" to "Library", spends
+// from the same budget. Rename these to longer or all-caps words and the width failure
+// above comes back. Worth knowing beyond
+// this file, in two directions. Persistent items are not free - they spend bar space on
+// every screen inside the container, so a container should carry one or two, not a row. And
+// in that overflow iOS kept the PERSISTENT items visible and overflowed the screen's own,
+// which is the good outcome for a status indicator but is an observation, not a guarantee -
+// nothing documents which end of an accumulated bar overflows first.
 //
 // Expected on EVERY Apple platform - which is the point, because the hosts used to disagree:
 //
-//   root             present=[PERS ALIAS ROOT]       absent=[DSTA DSTB]
-//   pushed-with-bar  present=[PERS ALIAS DSTA DSTB]  absent=[ROOT]
-//   pushed-no-bar    present=[PERS ALIAS]            absent=[ROOT DSTA DSTB]
-//   pushed-inline    present=[PERS ALIAS]            absent=[ROOT DSTA DSTB]
+//   root             present=[Sync Info Sort]        absent=[Edit Share]
+//   pushed-with-bar  present=[Sync Info Edit Share]  absent=[Sort]
+//   pushed-no-bar    present=[Sync Info]             absent=[Sort Edit Share]
+//   pushed-inline    present=[Sync Info]             absent=[Sort Edit Share]
 //
 // What each column is doing:
 //
-//  1. PERS present in all three states IS the feature. It survives a push onto a
+//  1. Sync present in all three states IS the feature. It survives a push onto a
 //     destination with its own toolbar and onto one with no toolbar at all, and it does so
 //     by two different routes: on macOS the items are applied once OUTSIDE the stack and
 //     land in the shared window toolbar, while on iOS - which has no window toolbar - they
 //     are merged into every screen's own bar. Same JSON, same result.
 //
-//  2. ALIAS tracks the alias. A `toolbar` on the container was never a screen toolbar on
+//  2. Info tracks the alias. A `toolbar` on the container was never a screen toolbar on
 //     any host: macOS put it in the window toolbar (so it already behaved persistently),
 //     iOS rendered it NOWHERE, and Web and Android dropped it by explicit guard. It now
 //     means `persistentToolbar` everywhere, plus a load-time deprecation warning.
 //
-//  3. Toolbar items ACCUMULATE - DSTA and DSTB are separately authored and both render,
+//  3. Toolbar items ACCUMULATE - Edit and Share are separately authored and both render,
 //     alongside the persistent ones. That is the mechanism the iOS merge relies on, and why
 //     persistent items compose with a screen's own bar instead of replacing it. Each present
 //     item is also asserted to appear at most ONCE, which is what would catch the outer
 //     application and the per-screen merge both firing on macOS.
 //
-//  4. ROOT absent from both destinations: a screen's own toolbar is still its own, and a
+//  4. Sort absent from both destinations: a screen's own toolbar is still its own, and a
 //     destination declaring no toolbar still inherits nothing. `persistentToolbar` is the
 //     only thing that crosses a push.
 //
@@ -66,12 +72,12 @@ import XCTest
 
 final class PersistentToolbarTests: XCTestCase {
     private let fixtureResource = "NavigationStack.persistentToolbar"
-    private let rootTitle = "TBRoot"
+    private let rootTitle = "Library"
 
     /// The container-level items: the real key and its deprecated alias. Both are expected
     /// on every screen, on every platform - they are the same array by the time it reaches
     /// the renderer (ToolbarHelper.persistentToolbarItems).
-    private let containerBars = ["PERS", "ALIAS"]
+    private let containerBars = ["Sync", "Info"]
 
     private var app: XCUIApplication!
     private var documentWindowID = ""
@@ -140,7 +146,7 @@ final class PersistentToolbarTests: XCTestCase {
     /// Wait until the screen named by `navigationTitle` is the one actually on show.
     ///
     /// A fixed sleep was not enough: macOS reported a pushed destination's buttons while
-    /// the window was still titled "TBRoot", i.e. mid-transition. On macOS the window
+    /// the window was still titled "Library", i.e. mid-transition. On macOS the window
     /// title tracks the top of the stack, so it is a real settle condition, not a guess.
     /// On iOS it waits for the navigation bar carrying that title, which is a real condition.
     /// An earlier version just slept and returned true, which made every
@@ -222,45 +228,45 @@ final class PersistentToolbarTests: XCTestCase {
     }
 
     func testToolbarPersistenceAcrossAPush() {
-        let pushWithBar = screen.buttons["PUSH_WITH_BAR"]
+        let pushWithBar = screen.buttons["Push a screen with its own bar"]
         XCTAssertTrue(pushWithBar.waitForExistence(timeout: 20),
                       "fixture never loaded. Tree: \(app.debugDescription)")
-        settle(on: "TBRoot")
+        settle(on: "Library")
 
         assertBars("root", screenTitle: rootTitle,
-                   present: containerBars + ["ROOT"],
-                   absent: ["DSTA", "DSTB"])
+                   present: containerBars + ["Sort"],
+                   absent: ["Edit", "Share"])
 
         // ---- push onto a destination that declares its own toolbar --------------
         press(pushWithBar)
-        XCTAssertTrue(screen.staticTexts["dest with bar"].waitForExistence(timeout: 10),
+        XCTAssertTrue(screen.staticTexts["This screen brings its own toolbar."].waitForExistence(timeout: 10),
                       "push to destination 500 did not happen")
-        XCTAssertTrue(settle(on: "TBDestA"), "destination 500 never became the top screen")
+        XCTAssertTrue(settle(on: "Album"), "destination 500 never became the top screen")
 
         // Three things at once: the container's items cross the push, the destination's own
         // two items BOTH render beside them (accumulation), and the root's bar is gone -
         // persistence is a property of `persistentToolbar`, not of the whole bar.
-        assertBars("pushed-with-bar", screenTitle: "TBDestA",
-                   present: containerBars + ["DSTA", "DSTB"],
-                   absent: ["ROOT"])
+        assertBars("pushed-with-bar", screenTitle: "Album",
+                   present: containerBars + ["Edit", "Share"],
+                   absent: ["Sort"])
 
         goBack()
-        settle(on: "TBRoot")
+        settle(on: "Library")
 
         // ---- push onto a destination that declares NO toolbar -------------------
-        let pushNoBar = screen.buttons["PUSH_NO_BAR"]
+        let pushNoBar = screen.buttons["Push a screen with no bar of its own"]
         XCTAssertTrue(pushNoBar.waitForExistence(timeout: 10),
                       "did not return to root. Tree: \(app.debugDescription)")
         press(pushNoBar)
-        XCTAssertTrue(screen.staticTexts["dest without bar"].waitForExistence(timeout: 10),
+        XCTAssertTrue(screen.staticTexts["This screen declares no toolbar."].waitForExistence(timeout: 10),
                       "push to destination 600 did not happen")
-        XCTAssertTrue(settle(on: "TBDestB"), "destination 600 never became the top screen")
+        XCTAssertTrue(settle(on: "Artists"), "destination 600 never became the top screen")
 
         // The hardest case for the iOS merge: a destination with no toolbar of its own still
         // shows the container's items, and still inherits nothing else.
-        assertBars("pushed-no-bar", screenTitle: "TBDestB",
+        assertBars("pushed-no-bar", screenTitle: "Artists",
                    present: containerBars,
-                   absent: ["ROOT", "DSTA", "DSTB"])
+                   absent: ["Sort", "Edit", "Share"])
 
         goBack()
         settle(on: rootTitle)
@@ -270,17 +276,17 @@ final class PersistentToolbarTests: XCTestCase {
         // instead of going through the stack's navigationDestination, so neither case above can
         // speak for it - and it was missed the first time, staying green while that one push
         // shape silently lost the items on iOS.
-        let pushInline = screen.buttons["PUSH_INLINE"]
+        let pushInline = screen.buttons["Push an inline destination"]
         XCTAssertTrue(pushInline.waitForExistence(timeout: 10),
                       "did not return to root. Tree: \(app.debugDescription)")
         press(pushInline)
-        XCTAssertTrue(screen.staticTexts["inline dest body"].waitForExistence(timeout: 10),
+        XCTAssertTrue(screen.staticTexts["An inline destination."].waitForExistence(timeout: 10),
                       "the inline push did not happen")
-        XCTAssertTrue(settle(on: "TBInline"), "the inline destination never became the top screen")
+        XCTAssertTrue(settle(on: "Note"), "the inline destination never became the top screen")
 
-        assertBars("pushed-inline", screenTitle: "TBInline",
+        assertBars("pushed-inline", screenTitle: "Note",
                    present: containerBars,
-                   absent: ["ROOT", "DSTA", "DSTB"])
+                   absent: ["Sort", "Edit", "Share"])
     }
 
     private func goBack() {
@@ -297,13 +303,13 @@ final class PersistentToolbarTests: XCTestCase {
         // Fall back to the first button in the bar that is NOT one of the fixture's own probes.
         // Taking index 0 unconditionally used to be safe only because the bar held one other
         // item; now that the container contributes items to every screen, index 0 can easily be
-        // PERS - and pressing that would navigate nowhere and fail the next step instead of here.
+        // Sync - and pressing that would navigate nowhere and fail the next step instead of here.
         #if os(macOS)
         let barButtons = screen.toolbars.buttons
         #else
         let barButtons = screen.navigationBars.buttons
         #endif
-        let probes = Set(containerBars + ["ROOT", "DSTA", "DSTB"])
+        let probes = Set(containerBars + ["Sort", "Edit", "Share"])
         if let back = barButtons.allElementsBoundByIndex.first(where: { !probes.contains($0.label) }) {
             press(back)
             Thread.sleep(forTimeInterval: 2)

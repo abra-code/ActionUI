@@ -9,11 +9,11 @@
 // NavigationSplitView whose sidebar is a List carrying the toolbar, and whose detail is an
 // INNER NavigationStack with its own root content and pushed destinations.
 //
-//   SPERS    in the NavigationSplitView's `persistentToolbar`  -> the feature
-//   SALIAS   in the NavigationSplitView's `toolbar`            -> the DEPRECATED ALIAS
-//   SIDE     on the sidebar List          <- where SharedCare's real sync indicator lives
-//   DROOT    on the detail stack's root
-//   DINNER   on a destination of the inner stack
+//   Sync    in the NavigationSplitView's `persistentToolbar`  -> the feature
+//   Info    in the NavigationSplitView's `toolbar`            -> the DEPRECATED ALIAS
+//   New     on the sidebar List          <- the slot where SharedCare authors its sync indicator
+//   Edit    on the detail stack's root
+//   Share   on a destination of the inner stack
 //
 // Labels are short so the same fixture fits an iPhone bar for the compact-width sibling,
 // CompactSplitPersistentToolbarTests - see the note on bar space in PersistentToolbarTests.
@@ -21,15 +21,15 @@
 // The question it answers: when the INNER stack pushes, which toolbar items survive? That is the
 // wide-shell equivalent of what PersistentToolbarTests covers for the narrow shell.
 //
-//   detail-root   present=[SPERS SALIAS SIDE DROOT]   absent=[DINNER]
-//   pushed-inner  present=[SPERS SALIAS SIDE DINNER]  absent=[DROOT]
+//   detail-root   present=[Sync Info New Edit]    absent=[Share]
+//   pushed-inner  present=[Sync Info New Share]   absent=[Edit]
 //
-// SALIAS and SIDE were both MEASURED surviving the inner push on macOS 26 on
+// Info and New were both MEASURED surviving the inner push on macOS 26 on
 // 2026-08-08, before `persistentToolbar` existed: they live in the one window toolbar the
 // split view's columns share, and the sidebar never unmounts. Two consequences worth
 // keeping straight. SharedCare's wide shell authors the sync indicator on the sidebar List,
 // so on macOS that indicator was ALREADY persistent and #36 never affected the wide shell.
-// And on this platform the new key changes nothing observable - SPERS is asserted
+// And on this platform the new key changes nothing observable - Sync is asserted
 // here so that the key is proven wired on macOS too, not because macOS was broken.
 //
 // iPad is NOT covered. The multi-scene harness opens the fixture as a 320pt side-by-side
@@ -46,9 +46,9 @@ import XCTest
 
 final class SplitPersistentToolbarTests: XCTestCase {
     private let fixtureResource = "NavigationSplitView.persistentToolbar"
-    private let rootTitle = "TBDetail"
+    private let rootTitle = "Messages"
     /// The split view's container-level items: the real key and its deprecated alias.
-    private let containerBars = ["SPERS", "SALIAS"]
+    private let containerBars = ["Sync", "Info"]
 
     private var app: XCUIApplication!
     private var documentWindowID = ""
@@ -154,25 +154,25 @@ final class SplitPersistentToolbarTests: XCTestCase {
     }
 
     func testToolbarPersistenceAcrossAnInnerPush() {
-        let pushInner = screen.buttons["PUSH_INNER"]
+        let pushInner = screen.buttons["Open a message"]
         XCTAssertTrue(pushInner.waitForExistence(timeout: 20),
                       "split fixture never loaded. Tree: \(app.debugDescription)")
-        XCTAssertTrue(settle(on: "TBDetail"), "detail root never became the top screen")
+        XCTAssertTrue(settle(on: "Messages"), "detail root never became the top screen")
 
         assertBars("detail-root",
-                   present: containerBars + ["SIDE", "DROOT"],
-                   absent: ["DINNER"])
+                   present: containerBars + ["New", "Edit"],
+                   absent: ["Share"])
 
         press(pushInner)
-        XCTAssertTrue(screen.staticTexts["inner dest body"].waitForExistence(timeout: 10),
+        XCTAssertTrue(screen.staticTexts["A pushed detail screen."].waitForExistence(timeout: 10),
                       "inner push to destination 500 did not happen")
-        XCTAssertTrue(settle(on: "TBInner"), "destination 500 never became the top screen")
+        XCTAssertTrue(settle(on: "Message"), "destination 500 never became the top screen")
 
         // The result this file exists for: the split view's container-level items AND the
         // sidebar's both survive the inner push, because the columns share one window toolbar
         // and the sidebar never unmounts. Only the detail stack's own root bar is replaced.
         assertBars("pushed-inner",
-                   present: containerBars + ["SIDE", "DINNER"],
-                   absent: ["DROOT"])
+                   present: containerBars + ["New", "Share"],
+                   absent: ["Edit"])
     }
 }

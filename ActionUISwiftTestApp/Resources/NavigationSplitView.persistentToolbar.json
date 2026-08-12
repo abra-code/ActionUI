@@ -12,7 +12,7 @@
       "content": {
         "type": "Button",
         "id": 11,
-        "properties": { "title": "SALIAS", "actionID": "toolbartest.splitbar" }
+        "properties": { "title": "Info", "actionID": "toolbartest.splitbar" }
       }
     }
   ],
@@ -24,7 +24,7 @@
       "content": {
         "type": "Button",
         "id": 61,
-        "properties": { "title": "SPERS", "actionID": "toolbartest.splitpersist" }
+        "properties": { "title": "Sync", "actionID": "toolbartest.splitpersist" }
       }
     }
   ],
@@ -32,11 +32,11 @@
     "type": "List",
     "id": 2,
     "properties": {
-      "navigationTitle": "TBSide",
+      "navigationTitle": "Folders",
       "navigationSplitViewColumnWidth": { "min": 200, "ideal": 260, "max": 320 }
     },
     "children": [
-      { "type": "Text", "id": 3, "properties": { "text": "sidebar body" } }
+      { "type": "Text", "id": 3, "properties": { "text": "The sidebar." } }
     ],
     "toolbar": [
       {
@@ -46,7 +46,7 @@
         "content": {
           "type": "Button",
           "id": 21,
-          "properties": { "title": "SIDE", "actionID": "toolbartest.sidebarbar" }
+          "properties": { "title": "New", "actionID": "toolbartest.sidebarbar" }
         }
       }
     ]
@@ -57,13 +57,13 @@
     "content": {
       "type": "VStack",
       "id": 5,
-      "properties": { "navigationTitle": "TBDetail" },
+      "properties": { "navigationTitle": "Messages" },
       "children": [
-        { "type": "Text", "id": 6, "properties": { "text": "detail root body" } },
+        { "type": "Text", "id": 6, "properties": { "text": "The detail root screen." } },
         {
           "type": "NavigationLink",
           "id": 30,
-          "properties": { "title": "PUSH_INNER", "destinationViewId": 500 }
+          "properties": { "title": "Open a message", "destinationViewId": 500 }
         }
       ],
       "toolbar": [
@@ -74,7 +74,7 @@
           "content": {
             "type": "Button",
             "id": 41,
-            "properties": { "title": "DROOT", "actionID": "toolbartest.detailrootbar" }
+            "properties": { "title": "Edit", "actionID": "toolbartest.detailrootbar" }
           }
         }
       ]
@@ -83,9 +83,9 @@
       {
         "type": "VStack",
         "id": 500,
-        "properties": { "navigationTitle": "TBInner" },
+        "properties": { "navigationTitle": "Message" },
         "children": [
-          { "type": "Text", "id": 501, "properties": { "text": "inner dest body" } }
+          { "type": "Text", "id": 501, "properties": { "text": "A pushed detail screen." } }
         ],
         "toolbar": [
           {
@@ -95,7 +95,7 @@
             "content": {
               "type": "Button",
               "id": 51,
-              "properties": { "title": "DINNER", "actionID": "toolbartest.innerdestbar" }
+              "properties": { "title": "Share", "actionID": "toolbartest.innerdestbar" }
             }
           }
         ]
