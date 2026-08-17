@@ -75,8 +75,10 @@ ActionUISwift.setElementState(windowUUID: windowUUID, viewID: 80, key: "config",
 - `states["config"]`: the WHOLE injected object (not split across keys) - `protocol` selects the
   transport, `transport` is its protocol-specific settings. `local` (default) streams a scripted reply
   (`transport.reply`: `echo`, `markdown`, or `agentic`); `acp` launches the ACP agent named by
-  `transport.command` (macOS); `openai-sse` streams an OpenAI-compatible endpoint named by
-  `transport.baseURL`. A protocol whose module the host did not register degrades to `local` with a
+  `transport.command` (macOS); `acp-remote` reaches an ACP agent on another machine over a WebSocket to
+  the `chatview-acp-bridge` named by `transport.url` (every platform, and the only protocol that
+  produces `resumeCheckpointActionID` cursors); `openai-sse` streams an OpenAI-compatible endpoint named
+  by `transport.baseURL`. A protocol whose module the host did not register degrades to `local` with a
   logged reason.
 - The transport is built once a viable config arrives in `states["config"]`, then FROZEN for that
   element's lifetime - a later `states["config"]` update does not rebuild it; use a fresh `Chat` element

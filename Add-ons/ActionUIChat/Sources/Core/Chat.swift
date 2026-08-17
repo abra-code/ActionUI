@@ -119,8 +119,11 @@
  Client Protocol agent as a subprocess (newline-delimited JSON-RPC over stdio), negotiates capabilities
  (advertising no fs / terminal services), opens a session, and demuxes the session/update stream onto
  those same surfaces, with session/request_permission wired to the approval card and Stop wired to
- session/cancel. And the first M5 session-status surfaces: the agent's evolving plan pinned above the
- transcript (routed by surfaces.plan; ACP `plan`), plus a status line under the composer showing the
+ session/cancel. The same module also registers "acp-remote", which speaks that protocol to an agent
+ on ANOTHER machine over a WebSocket to a chatview-acp-bridge, on every platform - it owns no
+ subprocess, and it is the only transport that emits resume checkpoints. And the first M5
+ session-status surfaces: the agent's evolving plan pinned above the transcript (routed by
+ surfaces.plan; ACP `plan`), plus a status line under the composer showing the
  session's model / mode and token / cost usage (ACP `usage_update`) - the local transport's "agentic"
  reply style demos all of it with no agent installed. The model / mode entries are MENUS when the
  agent offers choices: selecting sends session/set_config_option (with the spec's session/set_mode /
@@ -133,8 +136,9 @@
  markers; routed by surfaces.diffs, "hidden" drops them). Transports are separate, statically linked
  modules behind a registry: "local" (a scripted echo / agentic demo) and "local-p2p" (a scripted
  person-to-person / group demo) are built in, and a host adds another protocol by linking its
- module (ActionUIChatOpenAI for "openai-sse", ActionUIChatACP for "acp") and calling its register() - or
- by linking the umbrella ActionUIChat product, whose register() wires every bundled transport at once; a
+ module (ActionUIChatOpenAI for "openai-sse", ActionUIChatACP for both "acp" and "acp-remote")
+ and calling its register() - or by linking the umbrella ActionUIChat product, whose register()
+ wires every bundled transport at once; a
  protocol whose module was not registered degrades to "local". The "openai-sse" transport streams an
  OpenAI-compatible /v1/chat/completions endpoint (llama-server, mlx_lm.server, or any compatible server):
  plain streaming chat with reasoning folded into thoughts, tool calls rendered as (unexecuted) cards, and

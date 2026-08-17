@@ -11,7 +11,8 @@
 # The chat implementation lives in the standalone ChatView package (a sibling repo of
 # ActionUI); this add-on is the thin element wrapper plus per-transport register shims.
 # Static-library targets mirror the SPM products: ActionUIChatCore (the Chat element glue,
-# re-exporting the ChatView component), ActionUIChatACP (the ACP register shim, macOS),
+# re-exporting the ChatView component), ActionUIChatACP (the ACP register shim: "acp" on
+# macOS, where the agent is a subprocess, and "acp-remote" everywhere),
 # ActionUIChatOpenAI (the OpenAI SSE register shim), and the ActionUIChat umbrella (depends
 # on all; its register() wires them). The inter-target dependencies are also link: false -
 # each is a static lib the host links; the target dependency exists for build order and

@@ -152,7 +152,8 @@ final class ChatConfigValidateTests: XCTestCase {
         let alone = CapturingValidateLogger()
         _ = ChatConfig.validate(["resumeCheckpointActionID": "chat.checkpoint"], alone)
         XCTAssertEqual(alone.warnings.count, 1)
-        XCTAssertTrue(alone.warnings.first?.contains("resumeCheckpointActionID") ?? false)
+        // The message, not just the property name: the type warning names the property too.
+        XCTAssertTrue(alone.warnings.first?.contains("has no effect without entryActionID") ?? false)
 
         let paired = CapturingValidateLogger()
         _ = ChatConfig.validate(["resumeCheckpointActionID": "chat.checkpoint", "entryActionID": "chat.entry"], paired)
