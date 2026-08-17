@@ -30,6 +30,11 @@ struct ChatConfig {
     let errorActionID: String?
     let approveToolActionID: String?  // fired when an agent requests tool permission
     let entryActionID: String?        // fired per finalized transcript entry (incremental persistence, P0-2)
+    let resumeCheckpointActionID: String?  // fired at turn boundaries with the resume cursor that pairs with
+                                      // entryActionID. The component only OFFERS a checkpoint when
+                                      // emitsEntryEvents is true, and that derives from entryActionID below -
+                                      // so configuring this alone yields nothing, by the component's contract
+                                      // ("a host that is not storing entries is not offered one").
     let attachActionID: String?       // fired by the composer's attach (paperclip) button; the host mediates
                                       // the file picker and hands the file to its transport out of band. The
                                       // button appears only when this is configured. The ONLY new v2 host action ID -
@@ -42,6 +47,7 @@ struct ChatConfig {
         errorActionID = properties["errorActionID"] as? String
         approveToolActionID = properties["approveToolActionID"] as? String
         entryActionID = properties["entryActionID"] as? String
+        resumeCheckpointActionID = properties["resumeCheckpointActionID"] as? String
         attachActionID = properties["attachActionID"] as? String
 
         var configuration = ChatConfiguration(dictionary: properties, logger: logger)
@@ -98,11 +104,21 @@ struct ChatConfig {
             validated["surfaces"] = surfacesRaw
         }
 
-        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID", "entryActionID", "attachActionID"] {
+        for key in ["sendActionID", "stopActionID", "messageActionID", "errorActionID", "approveToolActionID", "entryActionID", "resumeCheckpointActionID", "attachActionID"] {
             if let value = validated[key], !(value is String) {
                 logger.log("Chat \(key) must be a String; ignoring", .warning)
                 validated[key] = nil
             }
+        }
+
+        // A checkpoint action ID without an entry action ID is inert, and silently so: the component
+        // only OFFERS a resume cursor while emitsEntryEvents is true, and that derives from
+        // entryActionID. Say it here, at document validation, where the author is actually looking -
+        // otherwise the only signal is a verbose log line at runtime and the symptom is "my handler
+        // never fires", which reads as a bug in the element.
+        if !((validated["resumeCheckpointActionID"] as? String) ?? "").isEmpty,
+           ((validated["entryActionID"] as? String) ?? "").isEmpty {
+            logger.log("Chat resumeCheckpointActionID has no effect without entryActionID: a host that is not storing entries is not offered a resume cursor", .warning)
         }
 
         if let value = validated["readOnly"], !(value is Bool) {

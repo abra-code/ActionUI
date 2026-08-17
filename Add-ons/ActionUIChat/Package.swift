@@ -15,7 +15,9 @@
 // exposure through ChatContentSource) plus per-transport register shims that preserve the
 // established module split:
 //   - ActionUIChatCore  - the `Chat` element glue; re-exports ChatView (the component).
-//   - ActionUIChatACP   - registers the component's ACP transport (macOS): `"protocol": "acp"`.
+//   - ActionUIChatACP   - registers the component's ACP transports: `"protocol": "acp"` (macOS, the
+//                         agent is a subprocess) and `"protocol": "acp-remote"` (every platform, the
+//                         agent lives on another machine behind a chatview-acp-bridge).
 //   - ActionUIChatOpenAI - registers the OpenAI SSE transport: `"protocol": "openai-sse"`.
 //   - ActionUIChat      - the umbrella: depends on Core + every bundled transport shim; its
 //                         register() wires them all, preserving the single-import experience.
@@ -38,7 +40,7 @@ let package = Package(
         // Core only: the element + the component (with its built-in `local` / `local-p2p`
         // transports and the registry). A host links this plus the transport modules it wants.
         .library(name: "ActionUIChatCore", targets: ["ActionUIChatCore"]),
-        // The ACP transport shim (add on top of Core for `"protocol": "acp"`).
+        // The ACP transport shim (add on top of Core for `"protocol": "acp"` / `"acp-remote"`).
         .library(name: "ActionUIChatACP", targets: ["ActionUIChatACP"]),
         // The OpenAI SSE transport shim (add on top of Core for `"protocol": "openai-sse"`).
         .library(name: "ActionUIChatOpenAI", targets: ["ActionUIChatOpenAI"]),
@@ -50,8 +52,9 @@ let package = Package(
         .package(path: "../.."),                // the ActionUI package at the repo root
         // The standalone chat component in its own repo (github.com/abra-code), which itself
         // depends on RichText, AsyncImageCache, and DiffView. Consumed as a versioned release.
-        // 0.2.6 is the floor, and it is a hard one: it is the actual fix for the AppKit layout-loop
-        // crash that kills the host app mid-answer. The cause is a scroller-width loop - a legacy
+        // 0.2.6 WAS the floor (see 0.4.0 below, which supersedes it), and it was a hard one: it was
+        // the actual fix for the AppKit layout-loop crash that kills the host app mid-answer, after
+        // three releases that were not. The cause is a scroller-width loop - a legacy
         // (non-overlay) vertical scroller takes 17pt from the content, so when the transcript's
         // height lands within a line of the viewport's, showing the scroller rewraps the rows enough
         // to make it unnecessary and hiding it makes it necessary again, forever. 0.2.6 reserves the
@@ -60,7 +63,26 @@ let package = Package(
         // issues the scroll, and the loop runs with no scroll in flight at all.
         // Also carries 0.2.4 (the transcript no longer scrolls the reader back) and 0.2.2 (the
         // composer grows with its content under both submit policies).
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.2.6"),
+        //
+        // 0.4.5 is now the floor, and 0.4.0 is where the reason for it starts. 0.4.0 is hard for the
+        // same reason 0.2.6 was - it undoes a
+        // regression 0.2.6 itself introduced. That release replaced the transcript's scroll-to-bottom
+        // maximum with `constrainBoundsRect(y: .greatestFiniteMagnitude)`, which does not clamp: it
+        // returns the proposed size with the origin zeroed, so the maximum came back 0.0 on every
+        // sample and the follow became a no-op that still reported success - suppressing the
+        // ScrollViewProxy fallback. Every build from 0.2.6 through 0.3.0 leaves the transcript frozen
+        // at the top of a streaming answer. Do not lower this floor to pick up an older fix.
+        //
+        // 0.4.5 adds the Kotlin/Android side of `acp-remote` plus two Swift fixes in the component's
+        // ACP sources, both internal (so the bump is API-compatible with 0.4.0) and both worth having
+        // in any host that registers `acp-remote`: the remote socket now installs a delegate that
+        // refuses redirects on the WebSocket upgrade - the bridge token rides in the `initialize`
+        // params, where no header-stripping rule protects it, so a followed 3xx hands a
+        // code-execution credential to the redirect target, in cleartext if it says `ws://` - and the
+        // reconnect loop now checks and clears its latch under one lock acquisition, closing a gap
+        // where a socket dropping between the two saw the task still latched, declined to schedule a
+        // new loop, and left the transport reconnecting forever with nothing running to reconnect it.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.4.5"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.
@@ -72,7 +94,8 @@ let package = Package(
             ],
             path: "Sources/Core"
         ),
-        // The ACP register shim: forwards to the component's ChatViewACP.register() (macOS).
+        // The ACP register shim: forwards to the component's ChatViewACP.register(), which registers
+        // `acp` (macOS only, the agent is a subprocess) and `acp-remote` (every platform).
         .target(
             name: "ActionUIChatACP",
             dependencies: [

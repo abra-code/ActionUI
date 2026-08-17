@@ -88,8 +88,8 @@ ActionUISwift.setElementState(windowUUID: windowUUID, viewID: 80, key: "config",
 - `surfaces`: routing for the agentic items - `toolCalls`, `thoughts`, `plan`, and `diffs` (see the
   schema doc for the accepted values of each).
 - Action IDs (`sendActionID`, `stopActionID`, `messageActionID`, `errorActionID`, `approveToolActionID`,
-  `entryActionID`) dispatch host-facing events through `ActionUIModel.actionHandler`, exactly like
-  `Button`.
+  `attachActionID`, `entryActionID`, `resumeCheckpointActionID`) dispatch host-facing events through
+  `ActionUIModel.actionHandler`, exactly like `Button`.
 - `readOnly`: read-only viewer mode - hides the composer and menus and starts no transport (`protocol`
   may be omitted). Pair with a runtime `setElementState("content", ...)` to show a saved session.
 
@@ -163,7 +163,10 @@ what it needs:
   This is the default; existing hosts use it unchanged.
 - `ActionUIChatCore` - the element + the component (with its built-in `local` / `local-p2p` transports
   and the registry). Link this plus the transport modules you actually want.
-- `ActionUIChatACP` - the ACP transport shim (macOS). Add on top of Core for `"protocol": "acp"`.
+- `ActionUIChatACP` - the ACP transport shim. Add on top of Core for `"protocol": "acp"` (macOS - the
+  agent is a subprocess) and `"protocol": "acp-remote"` (all platforms - the agent runs on another
+  machine behind a `chatview-acp-bridge`, so no subprocess is spawned). `acp-remote` is also the only
+  transport that emits resume checkpoints.
 - `ActionUIChatOpenAI` - the OpenAI SSE transport shim (all platforms). Add on top of Core for `"protocol": "openai-sse"`.
 
 The batteries-included path (everything the add-on ships) links the umbrella:

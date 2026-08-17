@@ -6,7 +6,8 @@
    "id": 1,                  // Required: Non-zero positive integer for runtime programmatic interaction
    // protocol + transport are NOT declared in the document - a host injects them at runtime into
    // states["config"] AFTER the element is built (see the "Host-injected transport" note below the
-   // sample). Shape: { "protocol": "local" | "openai-sse" | "acp", "transport": { ...protocol-specific } }
+   // sample). Shape: { "protocol": "local" | "openai-sse" | "acp" | "acp-remote",
+   //                   "transport": { ...protocol-specific } }
    //   local:      "echo" (default true: stream a demo reply), "reply" ("echo"|"markdown"|"agentic"),
    //               "chunkMs" (demo streaming pace, default 45).
    //   openai-sse: requires "baseURL" (e.g. "http://127.0.0.1:8080/v1"); honors "model" (default "auto":
@@ -15,6 +16,13 @@
    //   acp (macOS, subprocess): requires "command" (the agent argv, e.g. ["claude-code-acp"]); honors
    //               "cwd" ("~" expands, default: host cwd) and "mcpServers". A protocol whose module the
    //               host did not link/register degrades to "local".
+   //   acp-remote: an ACP agent on ANOTHER machine, reached over a WebSocket to a chatview-acp-bridge.
+   //               Owns no subprocess, so unlike "acp" it is NOT macOS-only. Honors "session"
+   //               ("new" by default, or a bridge session id to rejoin) and "resumeAfterSeq" (the
+   //               afterSeq from the last checkpoint - ignored unless "session" names a session).
+   //               THE ONLY protocol that produces resumeCheckpointActionID cursors; the other three
+   //               have no resumable server side, so a host wiring that action ID against them will
+   //               store entries forever and never see a checkpoint.
    "properties": {
      "appearance": {                      // Optional: transcript appearance
        "alignment": "single",             //   "single" (default): leading / full-width, parties by tint + label.
@@ -78,6 +86,17 @@
                                           //           usage) with a JSON envelope { sequence, type, id, data } as
                                           //           the action context, for crash-safe incremental persistence.
                                           //           Never fired on streaming deltas.
+     "resumeCheckpointActionID": "chat.checkpoint",
+                                          // Optional: the resume cursor that pairs with entryActionID, as
+                                          //           { afterSeq, sessionId } JSON in the action context. Fired only
+                                          //           while the transcript is QUIESCENT (a turn boundary, or catching
+                                          //           up after an attach), never mid-stream, and only when
+                                          //           entryActionID is ALSO set - a host that is not storing entries
+                                          //           is not offered a cursor. Persist it atomically with the
+                                          //           entries: a newer cursor loses what is in between, an older one
+                                          //           duplicates it, and storing neither half is always safe. Feed it
+                                          //           back as the transport's "resumeAfterSeq" (with "session").
+                                          //           Only the "acp-remote" protocol produces one.
      "readOnly": false                    // Optional (default false): read-only viewer mode - hides the composer and
                                           //           menus and starts NO transport ("protocol" may be omitted). Pair
                                           //           with a runtime setElementState("content", ...) to show a saved session.
@@ -231,6 +250,13 @@ struct Chat: ActionUIViewConstruction {
                 actionID = config.approveToolActionID
             case .entry(let json):
                 actionID = config.entryActionID
+                context = json
+            case .resumeCheckpoint(let json):
+                // The cursor that pairs with .entry - `{"afterSeq":<int>,"sessionId":"<id>"}`, emitted only
+                // at turn boundaries. A host must persist it ATOMICALLY with the entries it has stored:
+                // a cursor newer than its transcript silently loses everything in between, an older one
+                // duplicates it. Storing neither half is safe (the transport replays the whole session).
+                actionID = config.resumeCheckpointActionID
                 context = json
             }
             guard let actionID, !actionID.isEmpty else {
