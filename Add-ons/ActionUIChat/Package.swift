@@ -82,7 +82,7 @@ let package = Package(
         // reconnect loop now checks and clears its latch under one lock acquisition, closing a gap
         // where a socket dropping between the two saw the task still latched, declined to schedule a
         // new loop, and left the transport reconnecting forever with nothing running to reconnect it.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.1"),
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.2"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.

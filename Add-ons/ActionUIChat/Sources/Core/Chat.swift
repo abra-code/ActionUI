@@ -172,6 +172,16 @@
  turn). Session identity (ids, titles) stays app-side; the component only passes the optional title through
  untouched. `properties.content` pre-populates a transcript for previews / basic internal testing only - it
  is NOT the production restore path.
+ Appending ONE item: states["append"] takes a single serialized ChatItem and adds it to the END of the
+ conversation already on screen. states["content"] cannot serve this - it REPLACES the transcript and
+ re-primes the agent - so a host with one line to add (a session marker naming the model about to answer)
+ otherwise had to choose between re-priming the whole conversation and not showing it until the next load.
+ Setting this state appends and nothing else: no transport traffic, no re-prime. Like states["content"] it
+ does NOT come back through entryActionID - the host is telling the element about an item it already has,
+ and a host that also persists would write it twice. Appending a MESSAGE (rather than a marker) puts a line
+ on screen the agent was never given, so the element reports its context as pending and the next send
+ re-primes. Example: setElementState(window, chatID, "append",
+ {"type":"sessionEvent","sessionEvent":{"id":"se-1","kind":"resumed","model":"Qwen3 4B"}}).
  Host-injected transport (NOT document-declared): the non-visual settings (protocol, transport) are
  injected at runtime into states["config"] via setElementState / setElementStateFromString (e.g. OMC's
  omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The element
