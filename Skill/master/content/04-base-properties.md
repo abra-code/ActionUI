@@ -15,7 +15,7 @@ All elements inherit these `properties` keys. None are required.
 | `padding` | number \| `"default"` \| `{top?,leading?,bottom?,trailing?}` | |
 | `frame` | `{width?,height?,alignment?}` OR `{minWidth?,idealWidth?,maxWidth?,minHeight?,idealHeight?,maxHeight?,alignment?}` | Two mutually exclusive forms. Use `"infinity"` for `.infinity`. |
 | `offset` | `{x?,y?}` | Relative position in points |
-| `hidden` | boolean | |
+| `hidden` | boolean | Invisible, non-interactive, but STILL LAID OUT - the space is reserved on every platform. No collapse semantic; see the ZStack panel switcher. In a toolbar it removes the item instead. |
 | `zIndex` | number | Z-order within container |
 
 ### Appearance

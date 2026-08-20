@@ -92,13 +92,37 @@ test("padding: number, default keyword, and per-edge object", () => {
 
 test("opacity / hidden / cornerRadius / colors / help", () => {
     assert.equal(applied({ opacity: 0.5 }).node.style.opacity, "0.5");
-    assert.equal(applied({ hidden: true }).node.style.display, "none");
+    const hid = applied({ hidden: true }).node;
+    assert.equal(hid.style.visibility, "hidden", "hidden is visibility:hidden, not display:none");
+    assert.ok(!hid.style.display, "hidden never collapses the box - the space is reserved (Apple parity)");
     const cr = applied({ cornerRadius: 6 }).node;
     assert.equal(cr.style.borderRadius, "6px");
     assert.equal(cr.style.overflow, "hidden");
     assert.match(applied({ foregroundStyle: "blue" }).node.style.color, /var\(--aui-color-blue\)/);
     assert.match(applied({ background: "green" }).node.style.backgroundColor, /var\(--aui-color-green\)/);
     assert.equal(applied({ help: "tip" }).node.title, "tip");
+});
+
+// The `hidden` contract, pinned in one place because it is a cross-platform one and
+// the web was the host that broke it: SwiftUI `.hidden()` (and Android's
+// Modifier.hiddenSubtree()) keep the element LAID OUT while making it invisible,
+// non-interactive and inaudible to assistive tech. `visibility: hidden` is all four;
+// `display: none`, which this used to be, collapses the box and so laid identical JSON
+// out differently here than on the other two hosts. Private/Missing_Features.md #30.
+test("hidden reserves its layout space (SwiftUI .hidden() parity)", () => {
+    const on = applied({ hidden: true }).node;
+    assert.equal(on.style.visibility, "hidden");
+    assert.ok(!on.style.display, "the box is never collapsed");
+
+    // A sized hidden element keeps its frame, which is the space it reserves.
+    const sized = applied({ hidden: true, frame: { width: 48, height: 32 } }).node;
+    assert.equal(sized.style.visibility, "hidden");
+    assert.equal(sized.style.width, "48px");
+    assert.equal(sized.style.height, "32px");
+
+    // Authoring hidden:false (or omitting it) touches nothing.
+    assert.ok(!applied({ hidden: false }).node.style.visibility);
+    assert.ok(!applied({}).node.style.visibility);
 });
 
 test("font: a text style adds a class; a custom name sets fontFamily", () => {

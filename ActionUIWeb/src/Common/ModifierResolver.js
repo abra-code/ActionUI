@@ -3,7 +3,10 @@
 //
 // Supported subset (property names follow Documentation/Schemas/View.md):
 //   padding          Number, "default", or {top, bottom, leading, trailing}
-//   hidden           Boolean
+//   hidden           Boolean - SwiftUI `.hidden()`: invisible and non-interactive, but
+//                    STILL LAID OUT (its space is reserved). CSS `visibility: hidden`,
+//                    not `display: none`. It also drops the element from the accessibility
+//                    tree, which Apple's `.hidden()` does NOT - see applyViewModifiers.
 //   disabled         Boolean
 //   opacity          Number 0..1
 //   foregroundStyle  SwiftUI color name or hex string
@@ -232,8 +235,8 @@ function applyFrameAlignment(node, alignment, logger) {
     // A container manages its own children's layout; converting it to a grid box
     // would collapse it, so frame.alignment is leaf-oriented (documented divergence).
     if (nodeManagesOwnLayout(node)) return;
-    // .aui-frame-align is display:grid via a class, so an inline display:none from
-    // `hidden` (set earlier in applyViewModifiers) still wins by specificity.
+    // .aui-frame-align is display:grid via a class, not an inline style, so a view's own
+    // inline `display` toggle (TabView panels, NavigationStack panes) still wins.
     node.classList.add("aui-frame-align");
     const place = FRAME_ALIGN[alignment];
     node.style.placeContent = place;
@@ -292,7 +295,28 @@ function containerActionDisabled(node) {
 // bridge's job. Each applier resets to the CSS default when the value is absent.
 const PROPERTY_APPLIERS = {
     opacity: (node, value) => { node.style.opacity = typeof value === "number" ? String(value) : ""; },
-    hidden: (node, value) => { node.style.display = value === true ? "none" : ""; },
+    hidden: (node, value) => {
+        const on = value === true;
+        node.style.visibility = on ? "hidden" : "";
+        // Toolbar chrome COLLAPSES rather than reserving its slot (Helpers/ToolbarHelper.js).
+        // Chrome nodes are built even when authored hidden, precisely so this path works:
+        // a host can reveal a hidden bar item at runtime the way Android's recomposing
+        // chromeHidden does. `.aui-chrome-item` is the marker; `.aui-chrome-hidden` is
+        // display:none in theme.css.
+        //
+        // Gated on `data-aui-chrome`, THEN closest(): renderChromeItem puts the collapse
+        // class on the node buildElementView returns (the outermost wrapper) and the flag
+        // on the node carrying `data-aui-id`, which is the inner element node once a
+        // wrapper is in play - so the walk up is what finds the class from the node the
+        // bridge resolved. The flag is what keeps the walk honest: a chrome item's
+        // DESCENDANTS are addressable too (a toolbar Menu stamps `data-aui-id` on every
+        // row), and without it hiding one row would vanish the whole Menu, while revealing
+        // a sibling row would resurrect it - one shared boolean class, N writers, no
+        // ownership. A nested id has no flag, so it just hides itself.
+        if (node.dataset?.auiChrome) {
+            node.closest?.(".aui-chrome-item")?.classList.toggle("aui-chrome-hidden", on);
+        }
+    },
     cornerRadius: (node, value) => {
         if (typeof value === "number") {
             node.style.borderRadius = `${value}px`;
@@ -347,7 +371,36 @@ export function applyViewModifiers(node, element, properties, ctx) {
     const { logger } = ctx;
 
     if (properties.padding !== undefined) applyPadding(node, properties.padding, logger);
-    if (properties.hidden === true) node.style.display = "none";
+    // `hidden` is SwiftUI's `.hidden()`, not `display: none`: the element stays LAID OUT -
+    // its space is reserved - while being invisible and untouchable. CSS
+    // `visibility: hidden` is that primitive: the box is still generated and sized, it is
+    // not painted, it is not hit-tested, and it drops out of both the tab order and the
+    // accessibility tree, so no extra `pointer-events` or `aria-hidden` is needed.
+    // `display: none` - what this was until 2026-08-20 - COLLAPSED the box instead, so
+    // identical JSON laid out differently here than on Apple (`.hidden()`) and Android
+    // (`Modifier.hiddenSubtree()` plus the environment narrowing around it - however
+    // Android suppresses input at any given time, all of it is layout-inert and the space
+    // stays reserved). Private/Missing_Features.md #30.
+    //
+    // Two places where matching Apple is NOT the goal, both deliberate:
+    //  - Accessibility. Apple's `.hidden()` leaves the element IN the accessibility tree,
+    //    which is why a host hiding chrome on Apple must also author `accessibilityHidden`
+    //    and blank the label. Web and Android both drop it. That is better, not parity.
+    //  - The element's own painted decoration. `View.swift` applies `.hidden()` (1265)
+    //    BEFORE `background` (1328), `cornerRadius` (1348), `border` (1419) and the
+    //    view-valued `background`/`overlay` (1339/1427), so on Apple all of those still
+    //    paint around an invisible view. Here `visibility: hidden` suppresses the element's
+    //    own paint (background color, corner radius) - the Android outcome, and the one an
+    //    author asking for "hidden" expects. What it does NOT reach is what a later WRAPPER
+    //    adds outside this node in buildElementView (a view-valued overlay/background
+    //    subview, swipeActions panels, a safeAreaInset bar, a searchable field, toolbar
+    //    chrome); those still paint, which is the Apple outcome. Web therefore sits between
+    //    the two hosts on this one combination. See Missing_Features #30.
+    //
+    // There is no collapse semantic on any host; the ZStack panel-switcher idiom (all
+    // bodies overlaid, one visible) is what authors use instead. Toolbars are the single
+    // exception - see the chrome note in Helpers/ToolbarHelper.js.
+    if (properties.hidden === true) node.style.visibility = "hidden";
     if (typeof properties.opacity === "number") node.style.opacity = String(properties.opacity);
     if (typeof properties.cornerRadius === "number") {
         node.style.borderRadius = `${properties.cornerRadius}px`;

@@ -69,7 +69,7 @@ All elements inherit these `properties` keys. None are required.
 | `padding` | number \| `"default"` \| `{top?,leading?,bottom?,trailing?}` | |
 | `frame` | `{width?,height?,alignment?}` OR `{minWidth?,idealWidth?,maxWidth?,minHeight?,idealHeight?,maxHeight?,alignment?}` | Two mutually exclusive forms. Use `"infinity"` for `.infinity`. |
 | `offset` | `{x?,y?}` | Relative position in points |
-| `hidden` | boolean | |
+| `hidden` | boolean | Invisible, non-interactive, but STILL LAID OUT - the space is reserved on every platform. No collapse semantic; see the ZStack panel switcher. In a toolbar it removes the item instead. |
 | `zIndex` | number | Z-order within container |
 
 ### Appearance
@@ -372,6 +372,8 @@ Set sidebar width on the sidebar's **root view** via `navigationSplitViewColumnW
 ### ZStack panel switcher
 
 Overlay multiple panels, all hidden initially. The app reveals the correct one by ID based on selection. This is the pattern for inspectors and context-sensitive detail panes.
+
+This is the idiom *because* `hidden` reserves layout space on every platform (SwiftUI `.hidden()` semantics) - there is no collapse semantic, so hiding a panel in a VStack would leave its gap behind. Overlaying them in a ZStack means the panels share one slot and only the visible one shows. Give the ZStack the size you want the slot to have.
 
 ```json
 { "type": "ZStack", "children": [

@@ -10,7 +10,7 @@
       "id": 1200,
       "properties": { "text": "I am the target element (id 1200).", "padding": 16, "background": "#e5e7eb", "cornerRadius": 6, "frame": { "maxWidth": "infinity" } }
     },
-    { "type": "Text", "properties": { "text": "Opacity / visibility:", "foregroundStyle": "secondary", "font": "callout" } },
+    { "type": "Text", "properties": { "text": "Opacity / visibility (Hide is SwiftUI's .hidden(): the target goes invisible but KEEPS its space - the gap below stays):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",
       "properties": { "spacing": 8 },

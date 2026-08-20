@@ -54,7 +54,14 @@ tier, not run by default):
 - anchored positioning that reads `getBoundingClientRect` (`PopoverPlacement`);
 - the 2D canvas pass (`CanvasRenderer`), `window.history` navigation
   (`NavigationHistory`), and the native `<dialog>` / top-layer scenes
-  (`DialogHost` / `ModalHost` / `ToastHost`).
+  (`DialogHost` / `ModalHost` / `ToastHost`);
+- **which CSS rule wins.** No CSSOM means no `getComputedStyle`, so a rule that loses on
+  specificity or source order looks identical here to one that applies. This has already
+  bitten once: `.aui-chrome-hidden` (the class that collapses a hidden toolbar item) tied
+  with `.aui-toolbar-button`'s own `display` and lost to source order, so `hidden` on a
+  toolbar Button was a silent no-op while every test passed. It is now written
+  `.aui-chrome-item.aui-chrome-hidden`. Any single-class rule meant to override a
+  component's own `display` deserves the same suspicion.
 
 If hand-stubbing the DOM ever gets tedious as coverage grows, **jsdom** drops in as a
 single `devDependency` (a real DOM in Node) with no test rewrites.

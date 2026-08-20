@@ -22,7 +22,12 @@
 //     transitions, no real spring physics.
 //   * `value` (watch a specific key) is parsed/validated but does not scope on web:
 //     a CSS transition animates by property, not by trigger key. Documented divergence.
-//   * `display` is not animatable in CSS, so `hidden` toggles still snap.
+//   * `hidden` toggles snap, and must keep snapping. `hidden` is `visibility` (and
+//     `display` on toolbar chrome); `display` is not animatable at all, and `visibility`
+//     IS transitionable but interpolates asymmetrically - visible -> hidden flips only at
+//     the END of the transition. Under a 0.5s "smooth" that would leave a hidden element
+//     visible and hit-testable for half a second. ANIMATED_PROPERTIES below is an explicit
+//     allowlist and deliberately omits both; do not widen it to `all`.
 //   * Respects `prefers-reduced-motion: reduce` (arms nothing, so mutations are
 //     instant).
 
@@ -51,7 +56,9 @@ const CURVES = {
 
 // The animatable CSS properties our visual modifiers / setElementProperty set
 // (incl. the independent `scale` / `rotate` transform properties for
-// scaleEffect / rotationEffect).
+// scaleEffect / rotationEffect). An explicit allowlist, NOT `all`: `visibility`
+// (what `hidden` sets) is transitionable but flips only at the end of the
+// transition, which would keep a hidden element live for the duration.
 const ANIMATED_PROPERTIES =
     "opacity, color, background-color, border-color, border-radius, scale, rotate, transform, box-shadow, filter";
 

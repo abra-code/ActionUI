@@ -134,8 +134,8 @@
 
 /* frame(alignment:) — position content within a larger frame box. The node
    becomes a grid box; place-content/place-items (set inline from the JSON) place
-   the content. A class (not inline display) so an inline display:none from
-   `hidden` still wins. Leaf-oriented: stacks/grids keep their own layout (the
+   the content. A class (not inline display) so a view's own inline `display`
+   toggle still wins. Leaf-oriented: stacks/grids keep their own layout (the
    resolver skips them). See Private/ActionUI-Web-Layout-Engine.md (Stage 2b). */
 .aui-frame-align { display: grid; }
 
@@ -1273,6 +1273,21 @@
     padding: 6px 10px;
 }
 .aui-toolbar-overflow-items .aui-toolbar-overflow-item:hover { background: var(--aui-color-accent); color: #ffffff; }
+/* Chrome is the one surface where `hidden` COLLAPSES instead of reserving space: a bar
+   is a list of actions, not a layout, so a hidden action is absent (Android's role-gating
+   contract). The item is still built and marked .aui-chrome-item, so its id stays
+   addressable and a host can reveal it at runtime - the `hidden` applier in
+   Common/ModifierResolver.js toggles this class. See Helpers/ToolbarHelper.js.
+
+   Both classes in the selector, deliberately: a chrome item's ROOT class sets its own
+   display (.aui-toolbar-button inline-flex, .aui-image inline-flex, .aui-toggle,
+   .aui-picker-*, ...) and most of those rules sit LATER in this file. A single-class
+   .aui-chrome-hidden ties on specificity and loses to source order, which made this a
+   silent no-op for the toolbar Button - the primary case. 0-2-0 wins outright and does
+   not depend on where in the file this block ends up. No headless test can catch a
+   regression here: the DOM stub has no CSSOM (see test/README.md). */
+.aui-chrome-item.aui-chrome-hidden { display: none; }
+
 /* App-bar action: borderless, accent-colored (the toolbar idiom; the registered
    Button is a styled pill, wrong inside a bar). */
 .aui-toolbar-button {

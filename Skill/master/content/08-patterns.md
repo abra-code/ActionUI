@@ -114,6 +114,8 @@ Set sidebar width on the sidebar's **root view** via `navigationSplitViewColumnW
 
 Overlay multiple panels, all hidden initially. The app reveals the correct one by ID based on selection. This is the pattern for inspectors and context-sensitive detail panes.
 
+This is the idiom *because* `hidden` reserves layout space on every platform (SwiftUI `.hidden()` semantics) - there is no collapse semantic, so hiding a panel in a VStack would leave its gap behind. Overlaying them in a ZStack means the panels share one slot and only the visible one shows. Give the ZStack the size you want the slot to have.
+
 ```json
 { "type": "ZStack", "children": [
   { "type": "VStack", "id": 500, "properties": { "hidden": true }, "children": [...] },

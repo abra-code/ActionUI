@@ -84,6 +84,38 @@ export function screenToolbarItems(element) {
     return isNavigationContainer(element.type) ? [] : element.toolbar();
 }
 
+// `hidden: true` on a piece of chrome removes it from the bar ENTIRELY rather than
+// reserving a blank slot - the same role-gating contract Android's
+// ToolbarHelper.RenderChrome applies (a control a host hides is ABSENT, not a gap the
+// user can still tab into). Read off the CONTENT element, not the ToolbarItem carrier,
+// because that is where all three hosts honor it (Apple honors `hidden` on an item's
+// content and ignores it on the item itself).
+//
+// This is the ONE surface where `hidden` does not mean "reserve the space". A bar is a
+// list of actions, not a layout, and Apple's behavior here (the slot stays, blank, and
+// stays in the accessibility tree, so a host must ALSO author `accessibilityHidden` and
+// blank the label) is a wart hosts work around rather than a contract worth spreading.
+// See Private/Missing_Features.md #30 / #41. Until 2026-08-20 the web honored `hidden`
+// on chrome built through the registry but IGNORED it on a toolbar Button, whose node
+// renderChromeItem builds directly, bypassing applyViewModifiers - so an admin-only
+// button a host hid stayed visible and clickable on the web alone.
+//
+// The item is still BUILT and then collapsed with `.aui-chrome-hidden` (display:none),
+// not filtered out of the buckets. That costs one wasted node and buys the thing
+// filtering would have taken away: the id stays registered, so a host can reveal a
+// hidden bar item at runtime with `setElementProperty(id, "hidden", false)` the way
+// Android's recomposing `chromeHidden` does, and value/state addressing keeps working.
+// The `hidden` applier in Common/ModifierResolver.js toggles that class for any node
+// carrying `.aui-chrome-item`, which is how the runtime path stays symmetric.
+//
+// A toolbar Button remains unaddressable at runtime either way: renderChromeItem builds
+// its node directly and sets no `data-aui-id` (deliberately - a persistent item is
+// mounted in several panes at once, so one id would match several nodes). Author a
+// Button's chrome visibility in the JSON.
+function chromeHidden(element) {
+    return element.properties?.hidden === true;
+}
+
 // Flattens a list of ToolbarItem / ToolbarItemGroup carriers into chrome buckets by slot.
 // Pure (logging aside).
 function bucketItems(items, logger) {
@@ -134,6 +166,46 @@ function titleDisplayMode(properties, logger) {
 // (e.g. a Menu) is built through the registry, where it renders itself the same
 // everywhere. Like Apple/Android, a toolbar item ignores layout modifiers.
 function renderChromeItem(element, ctx) {
+    const node = buildChromeNode(element, ctx);
+    // Two marks, and they land on different nodes on purpose.
+    //
+    // `.aui-chrome-item` goes on the node buildElementView RETURNS - the outermost
+    // wrapper - because that is what must collapse out of the bar.
+    //
+    // `data-aui-chrome` goes on the node carrying this element's `data-aui-id`, which is
+    // the INNER element node whenever a wrapper is in play. The property bridge resolves
+    // an id to that inner node, and the flag is how the `hidden` applier tells "this id IS
+    // the chrome item" (collapse the item) from "this id is something NESTED inside it"
+    // (an addressable Menu row - hide just the row). Without it every descendant would
+    // toggle one shared class with no ownership, so hiding a menu row would vanish the
+    // whole Menu and revealing a sibling would resurrect it.
+    node.classList.add("aui-chrome-item");
+    flagChromeTarget(node, element.id);
+    if (chromeHidden(element)) node.classList.add("aui-chrome-hidden");
+    return node;
+}
+
+// Marks the node holding `id`'s `data-aui-id` (this node, or a descendant once a wrapper
+// wraps it) as the chrome item's own addressable node. A toolbar Button has no id node -
+// buildChromeNode builds it directly and sets no `data-aui-id`, deliberately, since a
+// persistent item is mounted in several panes at once - so there is nothing to flag and
+// nothing the property bridge could find either way.
+function flagChromeTarget(node, id) {
+    if (!(id > 0)) return;
+    const wanted = String(id);
+    const walk = (n) => {
+        if (n?.dataset?.auiId === wanted) return n;
+        for (const child of n?.children ?? []) {
+            const hit = walk(child);
+            if (hit) return hit;
+        }
+        return null;
+    };
+    const target = walk(node);
+    if (target) target.dataset.auiChrome = "1";
+}
+
+function buildChromeNode(element, ctx) {
     if (element.type === "Button") {
         const props = element.properties ?? {};
         const node = document.createElement("button");
@@ -229,6 +301,20 @@ export function wrapWithToolbar(bodyNode, element, properties, ctx) {
     host.dataset.auiTitleMode = mode;
     const largeTitle = mode === "large" || mode === "inlineLarge";
     const inlineTitle = largeTitle ? null : title; // title shown inside the action bar
+    // Unfiltered, like every other bucket. Gating the "..." trigger on having a VISIBLE
+    // item read better and was wrong twice over: the panel is only built when the trigger
+    // is, so an all-hidden overflow built nothing and its ids were never registered (the
+    // same reveal-path regression that filtering in bucketItems would have caused), and
+    // the bar itself then failed to render - Android counts overflow items UNFILTERED for
+    // exactly that decision (`hasTopBar`, ToolbarHelper.kt:262) and shows a blank bar.
+    //
+    // Android DOES drop the trigger for an all-hidden overflow (`visibleOverflow`,
+    // ToolbarHelper.kt:286). It can afford to: `chromeHidden` re-reads the live override
+    // every recomposition, so a filtered item comes back the moment the host reveals it.
+    // Here filtering is permanent - an unbuilt item has no registered id and nothing can
+    // ever reveal it - so the web keeps the ellipsis. A dead "..." over an all-hidden menu
+    // is the accepted cost of keeping the reveal path; it is NOT parity with Android, and
+    // it goes away if the bar ever rebuilds on a chrome property write (#41).
     const hasOverflow = buckets.overflow.length > 0;
 
     // Top action bar: rendered when there are top items (incl. an overflow menu) or
@@ -239,9 +325,24 @@ export function wrapWithToolbar(bodyNode, element, properties, ctx) {
 
         const principal = document.createElement("div");
         principal.className = "aui-toolbar-principal";
-        if (buckets.principal.length) {
-            buckets.principal.forEach((el) => principal.appendChild(renderChromeItem(el, ctx)));
-        } else if (inlineTitle !== null) {
+        // Principal items are built either way (a hidden one collapses but stays
+        // addressable); the TITLE fills the slot when nothing VISIBLE is claiming it, so
+        // an AUTHORED-hidden principal item falls through to the navigationTitle, as it
+        // does on Android for the single-item case. Android only ever consults
+        // `buckets.principal.firstOrNull()` (ToolbarHelper.kt:273), so for
+        // `principal: [hidden, visible]` it shows the TITLE while the web shows both items
+        // - the web has always rendered every principal item, which is the older
+        // divergence of the two.
+        //
+        // Build-time only, and that is a real limitation rather than parity: Android's
+        // chromeHidden re-reads the live override on every recomposition, so the title
+        // appears and disappears as the host toggles the item. Here the decision is frozen
+        // at build - hiding a visible principal item at runtime leaves the slot blank (no
+        // title span was ever created), and revealing an authored-hidden one shows the
+        // item AND the title. Rebuilding the bar on a chrome property write is the real
+        // fix; see Private/Missing_Features.md #41.
+        buckets.principal.forEach((el) => principal.appendChild(renderChromeItem(el, ctx)));
+        if (!buckets.principal.some((el) => !chromeHidden(el)) && inlineTitle !== null) {
             const t = document.createElement("span");
             t.className = "aui-toolbar-title";
             t.textContent = inlineTitle;

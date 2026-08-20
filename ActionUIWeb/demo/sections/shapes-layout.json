@@ -72,6 +72,17 @@
       ]
     },
     { "type": "Divider" },
+    { "type": "Text", "properties": { "text": "hidden (SwiftUI .hidden(): invisible, untouchable and silent to screen readers - but STILL LAID OUT. The middle square below is hidden, and the gap it leaves behind is the point: hidden reserves its space on all three hosts. There is no collapse semantic; to swap views, overlay them in a ZStack and hide all but one):", "foregroundStyle": "secondary", "font": "callout" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 12 },
+      "children": [
+        { "type": "Rectangle", "properties": { "fill": "#EF9A9A", "frame": { "width": 48, "height": 32 } } },
+        { "type": "Rectangle", "properties": { "fill": "#EF9A9A", "frame": { "width": 48, "height": 32 }, "hidden": true } },
+        { "type": "Rectangle", "properties": { "fill": "#EF9A9A", "frame": { "width": 48, "height": 32 } } }
+      ]
+    },
+    { "type": "Divider" },
     { "type": "Text", "properties": { "text": "Overlay / background (view-valued decorations):", "foregroundStyle": "secondary", "font": "callout" } },
     {
       "type": "HStack",

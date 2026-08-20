@@ -20,9 +20,10 @@ test("opacity / hidden / cornerRadius / help set the right styles, hidden bidire
     assert.equal(n.style.opacity, "0.3");
 
     applyElementProperty(n, "hidden", true, logger);
-    assert.equal(n.style.display, "none");
+    assert.equal(n.style.visibility, "hidden");
+    assert.ok(!n.style.display, "hidden reserves its layout space - it never touches display");
     applyElementProperty(n, "hidden", false, logger);
-    assert.equal(n.style.display, "", "hidden:false restores display (bidirectional)");
+    assert.equal(n.style.visibility, "", "hidden:false restores visibility (bidirectional)");
 
     applyElementProperty(n, "cornerRadius", 8, logger);
     assert.equal(n.style.borderRadius, "8px");
@@ -30,6 +31,63 @@ test("opacity / hidden / cornerRadius / help set the right styles, hidden bidire
 
     applyElementProperty(n, "help", "hi", logger);
     assert.equal(n.title, "hi");
+    assert.equal(logger.warningCount(), 0);
+});
+
+// Chrome is the one surface where `hidden` collapses instead of reserving space, so the
+// applier has a second branch for it (Helpers/ToolbarHelper.js marks every chrome node
+// .aui-chrome-item and flags its addressable node data-aui-chrome). This is the reason
+// hidden chrome is BUILT and collapsed rather than filtered out of the toolbar buckets:
+// filtering would unregister the id, and a host could never reveal the item the way
+// Android's recomposing chromeHidden does.
+test("hidden collapses a chrome node and reveals it again", () => {
+    const logger = makeLogger();
+    const chrome = makeElement();
+    chrome.classList.add("aui-chrome-item");
+    chrome.dataset.auiChrome = "1";
+
+    applyElementProperty(chrome, "hidden", true, logger);
+    assert.ok(chrome.classList.contains("aui-chrome-hidden"), "chrome collapses out of the bar");
+    applyElementProperty(chrome, "hidden", false, logger);
+    assert.equal(chrome.classList.contains("aui-chrome-hidden"), false, "and comes back");
+    assert.equal(chrome.style.visibility, "", "the visibility half is cleared too");
+
+    // An ordinary view never gets the class - it reserves its space.
+    const body = makeElement();
+    applyElementProperty(body, "hidden", true, logger);
+    assert.equal(body.classList.contains("aui-chrome-hidden"), false);
+    assert.equal(body.style.visibility, "hidden");
+    assert.equal(logger.warningCount(), 0);
+});
+
+// The collapse class sits on the node buildElementView RETURNS (the outermost wrapper),
+// while the property bridge resolves an id to the INNER node carrying data-aui-id. Those
+// differ the moment a chrome item declares a decoration, so the applier walks up - and the
+// data-aui-chrome flag is what stops that walk from firing for anything ELSE addressable
+// inside the item.
+test("a chrome item collapses from its inner node, but not from a nested one", () => {
+    const logger = makeLogger();
+    const wrapper = makeElement();
+    wrapper.classList.add("aui-chrome-item");
+    const inner = makeElement();          // the element node: carries the id AND the flag
+    inner.dataset.auiChrome = "1";
+    const nested = makeElement();         // e.g. a Menu row: addressable, but not the item
+    wrapper.appendChild(inner);
+    inner.appendChild(nested);
+
+    applyElementProperty(inner, "hidden", true, logger);
+    assert.ok(wrapper.classList.contains("aui-chrome-hidden"), "the whole item collapses");
+    applyElementProperty(inner, "hidden", false, logger);
+    assert.equal(wrapper.classList.contains("aui-chrome-hidden"), false, "and reveals again");
+
+    applyElementProperty(nested, "hidden", true, logger);
+    assert.equal(wrapper.classList.contains("aui-chrome-hidden"), false,
+        "hiding a row inside a chrome Menu must not vanish the Menu");
+    assert.equal(nested.style.visibility, "hidden", "it just hides itself");
+    // ...and revealing a nested sibling must not resurrect a genuinely hidden item.
+    applyElementProperty(inner, "hidden", true, logger);
+    applyElementProperty(nested, "hidden", false, logger);
+    assert.ok(wrapper.classList.contains("aui-chrome-hidden"), "the item stays hidden");
     assert.equal(logger.warningCount(), 0);
 });
 
