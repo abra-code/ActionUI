@@ -25,6 +25,6 @@
     },
     { "type": "Divider" },
     { "type": "Text", "properties": { "text": "TextEditor (multi-line, scrolls internally):", "foregroundStyle": "secondary", "font": "callout" } },
-    { "type": "TextEditor", "id": 95, "properties": { "placeholder": "Meeting notes…", "valueChangeActionID": "notesChanged", "frame": { "maxWidth": "infinity", "height": 90 } } }
+    { "type": "TextEditor", "id": 95, "properties": { "placeholder": "Meeting notes…", "valueChangeActionID": "notesChanged", "frame": { "maxWidth": "infinity", "minHeight": 90, "maxHeight": 90 } } }
   ]
 }

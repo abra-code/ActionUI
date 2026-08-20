@@ -71,6 +71,15 @@
  // screens, since a toolbar applied around a stack does not reach the bars inside it.
  // Implemented on Apple platforms only so far: Android and web currently ignore the key.
 
+ // Browser back/forward (WEB ONLY, opt-in): "browserHistory:web" (Boolean, default false).
+ // When true a user sidebar SELECTION adds a browser-history entry, so the browser's Back
+ // button returns to the previously selected destination; a popstate restores
+ // states["selectedDestination"] without re-firing the selection actionID. Off by default,
+ // so Back keeps its page behavior unless the author opts in. Programmatic selection
+ // (writing states["selectedDestination"]) syncs the current entry instead of adding a
+ // Back target. Apple and Android ignore the key.
+ //   "properties": { "browserHistory:web": true }
+
  // Note: These properties are specific to NavigationSplitView. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
 
 // Observable state (via getElementState / setElementState):

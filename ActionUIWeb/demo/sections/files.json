@@ -11,7 +11,7 @@
         "alignment": "center",
         "spacing": 8,
         "padding": "default",
-        "frame": { "maxWidth": "infinity", "height": 150 },
+        "frame": { "maxWidth": "infinity", "minHeight": 150, "maxHeight": 150 },
         "onDropActionID": "filesDropped",
         "onDropTypes": ["public.file-url", "public.image", "public.utf8-plain-text"],
         "onDropTargetedActionID": "dropTargeted",

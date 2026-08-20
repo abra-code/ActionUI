@@ -58,7 +58,7 @@
       "properties": { "scrollTo": 146, "anchor": "center" },
       "content": {
         "type": "ScrollView",
-        "properties": { "axis": "vertical", "frame": { "height": 150, "maxWidth": "infinity" } },
+        "properties": { "axis": "vertical", "frame": { "minHeight": 150, "maxHeight": 150, "maxWidth": "infinity" } },
         "content": {
           "type": "VStack",
           "properties": { "alignment": "leading", "spacing": 6 },

@@ -11,7 +11,9 @@ import SwiftUI
    "type": "CommandMenu",
    "id": Int, // Unique identifier
    "properties": {
-     "name": String // Required: Non-empty string for the menu title
+     "name": String, // Required: Non-empty string for the menu title
+     "role:web": String, // Optional, WEB ONLY: "account" renders this menu as the shell's account button (top-right) instead of a menu-bar entry. "account" is the only recognized value; only the FIRST account menu is used, later ones warn and are ignored. Apple and Android ignore the key.
+     "systemImage:web": String // Optional, WEB ONLY: SF Symbol name for the account button's glyph, resolved through the SF-to-Material map. Read only when "role:web" is "account"; defaults to a person glyph.
    },
    "children": [
      // Array of child elements (e.g., Button, Divider)

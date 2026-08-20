@@ -62,6 +62,15 @@
  // content without reclaiming the slot, so it still counts against the bar's space.
  // Implemented on Apple platforms only so far: Android and web currently ignore the key.
 
+ // Browser back/forward (WEB ONLY, opt-in): "browserHistory:web" (Boolean, default false).
+ // When true a user push adds a browser-history entry, the in-app Back routes through
+ // history.back(), and the path is restored on popstate - so the browser's Back/Forward
+ // buttons and the OS back gesture navigate the stack. Off by default, so Back keeps its
+ // page behavior unless the author opts in. Programmatic navigation (writing
+ // states["navigationPath"]) syncs the current entry instead of adding a Back target.
+ // Apple and Android ignore the key.
+ //   "properties": { "browserHistory:web": true }
+
  // Observable state (via getElementState / setElementState):
  //   states["navigationPath"]  [Int]   Current navigation path as array of destination IDs.
  //                                     Empty when at root. Write to push/pop programmatically:

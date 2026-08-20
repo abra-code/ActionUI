@@ -28,7 +28,7 @@
   },
   {
     "type": "CommandMenu",
-    "properties": { "name": "Account", "role:web": "account", "systemImage": "person.crop.circle" },
+    "properties": { "name": "Account", "role:web": "account", "systemImage:web": "person.crop.circle" },
     "children": [
       { "type": "Button", "properties": { "title": "Profile", "actionID": "account.profile", "systemImage": "person" } },
       { "type": "Button", "properties": { "title": "Settings", "actionID": "account.settings", "systemImage": "gearshape" } },
