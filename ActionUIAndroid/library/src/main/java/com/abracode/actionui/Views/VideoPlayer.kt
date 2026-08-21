@@ -31,6 +31,8 @@ import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.SystemSymbolIcon
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
+import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -133,6 +135,15 @@ object VideoPlayer : ActionUIViewConstruction {
         var playing by remember(urlString) { mutableStateOf(config.autoplay == true) }
         val viewRef = remember { mutableStateOf<VideoView?>(null) }
 
+        // A hidden player must not stay an input surface: the platform VideoView and its
+        // MediaController handle their OWN touch inside the interop node, so no Compose
+        // modifier can gate them - an invisible player would keep taking taps meant for
+        // whatever is behind it, and go on playing. Render the reserved box only, the
+        // same stance ListView / ScrollView / the Lazy containers take when hidden.
+        if (!LocalActionUIInputEnabled.current) {
+            Box(modifier = modifier.fillMaxSize())
+            return
+        }
         Box(modifier = modifier.fillMaxSize()) {
             AndroidView(
                 // A video player is greedy (AVKit's fills its proposal): fillMaxSize,
@@ -183,7 +194,7 @@ object VideoPlayer : ActionUIViewConstruction {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable {
+                        .clickable(enabled = LocalActionUIEnabled.current) {
                             viewRef.value?.let { v ->
                                 if (playing) { v.pause(); playing = false } else { v.start(); playing = true }
                             }

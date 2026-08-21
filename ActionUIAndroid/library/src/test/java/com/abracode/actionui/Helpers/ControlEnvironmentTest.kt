@@ -167,6 +167,46 @@ class ControlEnvironmentTest {
         assertEquals(false, disabledLocalOverride(effective))
     }
 
+    // ---- hidden also disables: the CONTROL half of "a hidden element is inert" ----
+    //
+    // `hidden` narrows BOTH locals. The input one (below) stands the scroll containers down;
+    // this one stands every CONTROL down, over the road `disabled` already travels to each
+    // clickable in the library. It replaced blocking input in `hiddenSubtree` by consuming
+    // pointer events, which also consumed them for whatever was BEHIND the hidden element -
+    // the very bug that was written to fix. See ModifierResolver.hiddenSubtree.
+
+    @Test
+    fun `hidden narrows the enabled local, so a hidden control cannot fire`() {
+        assertEquals(false, disabledLocalOverride(buildJsonObject { put("hidden", true) }))
+        // With a title and no `disabled` of its own - the shape of SharedCare's hidden
+        // "Clear filters" Button, which sat over the live feed and used to eat its taps.
+        assertEquals(
+            false,
+            disabledLocalOverride(buildJsonObject { put("title", "Clear filters"); put("hidden", true) }),
+        )
+    }
+
+    @Test
+    fun `hidden false does not re-enable a disabled element`() {
+        // Both flags are narrowing, so neither can undo the other: still disabled.
+        assertEquals(
+            false,
+            disabledLocalOverride(buildJsonObject { put("disabled", true); put("hidden", false) }),
+        )
+        // And a visible element with neither flag still inherits.
+        assertNull(disabledLocalOverride(buildJsonObject { put("hidden", false) }))
+    }
+
+    @Test
+    fun `a runtime unhide re-enables the control it hid`() {
+        val authored = buildJsonObject { put("title", "Show earlier"); put("hidden", true) }
+        assertEquals(false, disabledLocalOverride(authored))
+        // setElementProperty(hidden,false) is how the host reveals it; the control has to
+        // come back with it, or revealing a button would leave a dead one on screen.
+        val shown = mergeProperties(authored, mapOf("hidden" to JsonPrimitive(false)))
+        assertNull(disabledLocalOverride(shown))
+    }
+
     // ---- inputEnabledLocalOverride: a hidden subtree is non-interactive (#34) ----
 
     @Test

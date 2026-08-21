@@ -31,8 +31,6 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
@@ -229,19 +227,27 @@ fun Modifier.applyOuterProperties(
  * ZStack. Both intercepted taps meant for what was underneath. The out-of-scope
  * note on Missing_Features #34 had predicted exactly this.
  *
- * Input is blocked by consuming on the INITIAL pass, which is what keeps the event
- * from reaching descendants; a `clickable` on a child runs on the main pass and so
- * never sees it.
+ * Input is suppressed CO-OPERATIVELY, through the environment: `hidden` narrows
+ * both [com.abracode.actionui.Helpers.LocalActionUIEnabled] and
+ * [com.abracode.actionui.Helpers.LocalActionUIInputEnabled] to `false` for the
+ * subtree (see `ProvideReactiveEnvironment`), so every control inside is disabled
+ * and every scroll container renders a bare Box - the same route `disabled`
+ * already takes to every clickable in the library.
+ *
+ * It is NOT suppressed by consuming pointer events, which is what this did first
+ * and which was wrong in a way the original fix's own test could not see. Consuming
+ * on the INITIAL pass does stop the hidden element's own action from firing - but
+ * consuming IS swallowing, so the press never reaches what is BEHIND the hidden
+ * element either. That is the very bug the fix was written for: a hidden view
+ * stacked over live content (an `overlay` subview, or a sibling in a `ZStack`)
+ * still ate its taps, only now silently rather than by firing. Measured on a Pixel
+ * 7a: SharedCare's Home carries an always-present hidden states overlay, and with
+ * the consuming version NOTHING on that screen could be tapped - on Apple and web,
+ * where `.hidden()` and `display: none` both leave hit testing entirely, the same
+ * JSON worked.
  */
 private fun Modifier.hiddenSubtree(): Modifier = this
     .alpha(0f)
-    .pointerInput(Unit) {
-        awaitPointerEventScope {
-            while (true) {
-                awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
-            }
-        }
-    }
     .semantics { hideFromAccessibility() }
 
 /**

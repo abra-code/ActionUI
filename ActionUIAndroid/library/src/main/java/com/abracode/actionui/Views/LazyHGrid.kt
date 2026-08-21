@@ -26,6 +26,7 @@ import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
 import com.abracode.actionui.Helpers.boundHeightIfUnbounded
+import com.abracode.actionui.Helpers.boundWidthIfUnbounded
 import com.abracode.actionui.Helpers.gridNaturalCrossExtent
 import com.abracode.actionui.Helpers.resolveGridTracks
 import com.abracode.actionui.Helpers.templateRows
@@ -84,8 +85,12 @@ object LazyHGrid : ActionUIViewConstruction {
         // A LazyHorizontalGrid is its own scroll viewport and needs a bounded
         // width. An inherited frame.width (already on `modifier`) wins;
         // otherwise apply a default so an unbounded parent cannot crash it.
+        // The default extent applies ONLY to an unbounded parent (see LazyVGrid): a
+        // bounded one passes its constraint through, so the grid fills the width it
+        // is given rather than being letterboxed at 320dp.
         val hasExplicitWidth = (props?.get("frame") as? JsonObject)?.get("width") != null
-        val sized = if (hasExplicitWidth) modifier else modifier.width(DEFAULT_MAIN_EXTENT)
+        val sized = if (hasExplicitWidth) modifier
+            else modifier.boundWidthIfUnbounded(DEFAULT_MAIN_EXTENT)
         // It ALSO needs a bounded HEIGHT (cross axis). Under a vertically-scrollable
         // (or both-axis) ScrollView the proposed height is infinite, which Compose
         // crashes on; bound it to the grid's natural row-track height. A no-op under

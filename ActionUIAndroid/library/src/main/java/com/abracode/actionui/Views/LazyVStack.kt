@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
+import com.abracode.actionui.Helpers.boundHeightIfUnbounded
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -93,8 +94,12 @@ object LazyVStack : ActionUIViewConstruction {
         // A LazyColumn is its own scroll viewport and needs a bounded height. An
         // inherited frame.height (already on `modifier`) wins; otherwise apply a
         // default so an unbounded parent (e.g. a verticalScroll) cannot crash it.
+        // The default extent applies ONLY to an unbounded parent (see LazyVGrid): a
+        // bounded one passes its constraint through, so the stack fills the space it
+        // is given rather than being letterboxed at 320dp.
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
-        val listModifier = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
+        val listModifier = if (hasExplicitHeight) modifier
+            else modifier.boundHeightIfUnbounded(DEFAULT_MAIN_EXTENT)
 
         // Template (data-driven) mode wins over children, as on Apple. The rows
         // are read here (composable scope) so the lazy DSL below stays plain.

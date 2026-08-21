@@ -97,6 +97,69 @@ class ScrollViewTest {
         )
     }
 
+    // ---- lazy-content deferral (selfScrollingAxis + resolveAppliedScroll) ----
+
+    @Test
+    fun `only the Lazy containers self-scroll, and on their own axis`() {
+        assertEquals(ScrollAxis.Vertical, selfScrollingAxis("LazyVGrid"))
+        assertEquals(ScrollAxis.Vertical, selfScrollingAxis("LazyVStack"))
+        assertEquals(ScrollAxis.Horizontal, selfScrollingAxis("LazyHGrid"))
+        assertEquals(ScrollAxis.Horizontal, selfScrollingAxis("LazyHStack"))
+        // A List is its own resolved case (Missing_Features #34) and an ordinary
+        // VStack simply grows - neither takes the scroll off the ScrollView.
+        assertEquals(null, selfScrollingAxis("List"))
+        assertEquals(null, selfScrollingAxis("VStack"))
+        assertEquals(null, selfScrollingAxis(null))
+    }
+
+    @Test
+    fun `a vertical ScrollView defers to a vertically self-scrolling child`() {
+        // The authored idiom: ScrollView > LazyVGrid, which Apple and web REQUIRE.
+        // Here the child scrolls itself, so the wrapper stands down - otherwise the
+        // child measures unbounded and letterboxes at its default extent.
+        assertEquals(
+            ScrollAxesApplied(vertical = false, horizontal = false),
+            resolveAppliedScroll(
+                ScrollAxis.Vertical, boundedHeight = true, boundedWidth = true,
+                contentSelfScrolls = ScrollAxis.Vertical,
+            ),
+        )
+    }
+
+    @Test
+    fun `deferral is per-axis, not wholesale`() {
+        // A both-axis ScrollView around a LazyVGrid keeps the HORIZONTAL scroll: the
+        // grid only scrolls vertically, so nothing else would handle the overflow.
+        assertEquals(
+            ScrollAxesApplied(vertical = false, horizontal = true),
+            resolveAppliedScroll(
+                ScrollAxis.Both, boundedHeight = true, boundedWidth = true,
+                contentSelfScrolls = ScrollAxis.Vertical,
+            ),
+        )
+        // And a CROSS-axis lazy child takes nothing: a vertical ScrollView around a
+        // LazyHStack still scrolls vertically.
+        assertEquals(
+            ScrollAxesApplied(vertical = true, horizontal = false),
+            resolveAppliedScroll(
+                ScrollAxis.Vertical, boundedHeight = true, boundedWidth = true,
+                contentSelfScrolls = ScrollAxis.Horizontal,
+            ),
+        )
+    }
+
+    @Test
+    fun `no content type behaves exactly as before`() {
+        // The default argument keeps every existing call site's meaning.
+        assertEquals(
+            resolveAppliedScroll(ScrollAxis.Both, boundedHeight = true, boundedWidth = true),
+            resolveAppliedScroll(
+                ScrollAxis.Both, boundedHeight = true, boundedWidth = true,
+                contentSelfScrolls = null,
+            ),
+        )
+    }
+
     @Test
     fun `the cross axis is never scrolled regardless of bounds`() {
         // A vertical ScrollView never scrolls horizontally even with bounded width.

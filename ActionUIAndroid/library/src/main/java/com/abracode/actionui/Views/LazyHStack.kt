@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIRegistry
+import com.abracode.actionui.Helpers.boundWidthIfUnbounded
 import com.abracode.actionui.Common.ActionUIViewConstruction
 import com.abracode.actionui.Common.ContainerShape
 import com.abracode.actionui.Common.LocalActionUILogger
@@ -82,8 +83,12 @@ object LazyHStack : ActionUIViewConstruction {
         // A LazyRow is its own scroll viewport and needs a bounded width. An
         // inherited frame.width (already on `modifier`) wins; otherwise apply a
         // default so an unbounded-width parent cannot crash it.
+        // The default extent applies ONLY to an unbounded parent (see LazyVGrid): a
+        // bounded one passes its constraint through, so the stack fills the width it
+        // is given rather than being letterboxed at 320dp.
         val hasExplicitWidth = (props?.get("frame") as? JsonObject)?.get("width") != null
-        val listModifier = if (hasExplicitWidth) modifier else modifier.width(DEFAULT_MAIN_EXTENT)
+        val listModifier = if (hasExplicitWidth) modifier
+            else modifier.boundWidthIfUnbounded(DEFAULT_MAIN_EXTENT)
 
         // Template (data-driven) mode wins over children, as on Apple. The rows
         // are read here (composable scope) so the lazy DSL below stays plain.

@@ -85,10 +85,12 @@ internal fun containerActionDispatch(
  * the author asked for breathing room. `clickable` first means the target is the container's
  * final laid-out box.
  *
- * Putting it outside does not weaken `hidden`: `hiddenSubtree()` consumes on
- * [androidx.compose.ui.input.pointer.PointerEventPass.Initial], which is dispatched outer to
- * inner, while `clickable` waits for an unconsumed down on the Main pass (inner to outer). A
- * hidden subtree therefore still swallows the press before this ever sees it.
+ * Putting it outside does not weaken `hidden`, because `hidden` does not travel by hit testing:
+ * it narrows [LocalActionUIEnabled] (`ControlEnvironment.kt`), which the `enabled` below reads,
+ * so a container inside a hidden subtree is inert while the press still passes THROUGH to
+ * whatever is behind it. That is deliberate - `hiddenSubtree()` used to consume the event on
+ * the Initial pass instead, which made a hidden element eat the taps of the content underneath
+ * it (Missing_Features #45).
  *
  * `enabled` is read from [LocalActionUIEnabled], as every other clickable in the library does
  * (`Views/Button.kt`, `Views/NavigationLink.kt`, `Views/DisclosureGroup.kt`). That local

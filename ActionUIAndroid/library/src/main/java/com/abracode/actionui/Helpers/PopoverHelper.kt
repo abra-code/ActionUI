@@ -101,7 +101,7 @@ internal fun ActionUIViewConstruction.BuildViewWithPopover(
     // Non-Button carriers toggle on tap; pointerInput (not clickable) so there
     // is no ripple, matching SwiftUI's onTapGesture. A Button consumes its own
     // taps anyway and toggles in onClick.
-    val tapModifier = if (element.type != "Button") {
+    val tapModifier = if (element.type != "Button" && LocalActionUIEnabled.current) {
         Modifier.pointerInput(element.id) { detectTapGestures { toggle() } }
     } else {
         Modifier

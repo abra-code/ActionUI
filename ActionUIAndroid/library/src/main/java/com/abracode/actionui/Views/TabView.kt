@@ -31,6 +31,7 @@ import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.selectLabelIcon
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -108,6 +109,7 @@ object TabView : ActionUIViewConstruction {
                     NavigationBarItem(
                         selected = index == selected,
                         onClick = { onSelect(index) },
+                        enabled = LocalActionUIEnabled.current,
                         icon = {
                             LabelIcon(
                                 source = tabIcon,

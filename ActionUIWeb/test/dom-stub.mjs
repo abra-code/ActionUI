@@ -4,7 +4,7 @@
 // suit and add zero third-party dependencies (the only "dependency" is the Node.js
 // runtime itself - see test/README.md). This stub covers the slice of the DOM the
 // renderer actually touches: element `style`, `classList`, `dataset`, `append` /
-// `appendChild` / `insertBefore`, `addEventListener`, `setAttribute`, `focus` /
+// `appendChild` / `insertBefore`, `addEventListener`, `set/get/removeAttribute`, `focus` /
 // `blur` (tracked via `document.activeElement`), and a no-op `querySelector`,
 // plus a `document` (createElement + visibilitychange events), a `window`
 // (matchMedia + pagehide events), and a `ResizeObserver` that never auto-fires (a
@@ -28,6 +28,17 @@
 let focusedElement = null;
 
 // Removes a node from whatever parent currently holds it, so an insert can re-add it.
+// The node's STRUCTURE, stored as properties here but never an attribute in a real
+// DOM - see getAttribute below. Deliberately NOT `value` / `checked`: those really are
+// attributes, and `<progress>` expresses indeterminate by REMOVING `value`
+// (`Views/ProgressView.js`), so guarding them would make removeAttribute a silent
+// no-op for the one element that most needs it - a test asserting indeterminate would
+// then pass in every state.
+const NODE_OWN_KEYS = new Set([
+    "style", "children", "classList", "className", "parentNode", "dataset",
+    "textContent", "tagName", "__events",
+]);
+
 function detachNode(node) {
     const parent = node.parentNode;
     if (!parent) return;
@@ -86,7 +97,23 @@ export function makeElement(tag = "div") {
             }
             return null;
         },
+        // Attributes are plain properties on the node, which is enough for the
+        // renderer (it only ever sets and clears them) and lets a test read one back
+        // as either `node.id` or `node.getAttribute("id")`.
         setAttribute(key, val) { el[key] = val; },
+        // ATTRIBUTES only. The stub keeps them as plain properties, so a naive lookup
+        // would also answer for the node's own machinery - `getAttribute("style")`
+        // returning the style OBJECT, `getAttribute("children")` an array - which is
+        // not what any caller means and would quietly pass a wrong assertion.
+        getAttribute(key) {
+            if (NODE_OWN_KEYS.has(key)) return null;
+            const v = el[key];
+            return v === undefined || typeof v === "function" ? null : v;
+        },
+        // Needed by any element that clears an attribute to express a state - a
+        // ProgressView drops `value` to become indeterminate - so without it the
+        // stub threw on rendering one at all.
+        removeAttribute(key) { if (!NODE_OWN_KEYS.has(key)) delete el[key]; },
         // Inserting a node that already has a parent MOVES it: the real DOM detaches it
         // from the old parent first, and code that reparents a node (NavigationStack moves
         // one persistent-toolbar node between panes) relies on that to keep exactly one

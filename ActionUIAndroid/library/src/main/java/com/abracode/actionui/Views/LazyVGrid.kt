@@ -25,6 +25,7 @@ import com.abracode.actionui.Helpers.BuildViewWithModifiers
 import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
 import com.abracode.actionui.Helpers.ProvideTextStyleEnvironment
 import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.boundHeightIfUnbounded
 import com.abracode.actionui.Helpers.boundWidthIfUnbounded
 import com.abracode.actionui.Helpers.gridNaturalCrossExtent
 import com.abracode.actionui.Helpers.resolveGridTracks
@@ -50,8 +51,10 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * As with [LazyVStack], a `LazyVerticalGrid` *is* both the lazy builder and the
  * scroll viewport, so it needs a **bounded height**: a JSON `frame.height`
- * (already on [modifier]) wins, otherwise [DEFAULT_MAIN_EXTENT] is applied so an
- * unbounded parent cannot trip Compose's infinite-constraint error.
+ * (already on [modifier]) wins, otherwise the incoming height is used when the
+ * parent bounds it - so a full-screen grid FILLS, as it does on Apple and web -
+ * and only an UNBOUNDED parent falls back to [DEFAULT_MAIN_EXTENT], which is what
+ * keeps Compose's infinite-constraint error off the table.
  *
  * **Supported properties.**
  *   * `columns`   - track list as above (default one flexible column).
@@ -96,9 +99,16 @@ object LazyVGrid : ActionUIViewConstruction {
 
         // A LazyVerticalGrid is its own scroll viewport and needs a bounded
         // height. An inherited frame.height (already on `modifier`) wins;
-        // otherwise apply a default so an unbounded parent cannot crash it.
+        // otherwise the default extent applies ONLY where it was meant to - to an
+        // UNBOUNDED parent, which would otherwise trip Compose's infinite-constraint
+        // error. Under a bounded parent the incoming constraint passes through and the
+        // grid fills the space it is given, matching the Apple and web elements (both
+        // grow to their parent and let an enclosing ScrollView handle the overflow).
+        // This used to be an unconditional `.height(DEFAULT_MAIN_EXTENT)`, which
+        // letterboxed every full-screen grid at 320dp with dead space beneath it.
         val hasExplicitHeight = (props?.get("frame") as? JsonObject)?.get("height") != null
-        val sized = if (hasExplicitHeight) modifier else modifier.height(DEFAULT_MAIN_EXTENT)
+        val sized = if (hasExplicitHeight) modifier
+            else modifier.boundHeightIfUnbounded(DEFAULT_MAIN_EXTENT)
         // It ALSO needs a bounded WIDTH. Under a horizontally-scrollable (or
         // both-axis) ScrollView the proposed width is infinite, which Compose
         // crashes on ("...width should be bound by parent"). Bound it to the grid's
@@ -147,7 +157,8 @@ object LazyVGrid : ActionUIViewConstruction {
         }
     }
 
-    /** Default scroll-viewport height when JSON supplies no `frame.height`. */
+    /** Fallback scroll-viewport height when the parent bounds nothing and JSON
+     *  supplies no `frame.height`. */
     private val DEFAULT_MAIN_EXTENT = 320.dp
 
     /** Per-flexible-column width used only to give the grid a finite cross extent

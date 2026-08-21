@@ -32,6 +32,8 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import com.abracode.actionui.Helpers.LocalActionUIInputEnabled
+import androidx.compose.foundation.layout.Box
 
 /**
  * Embedded web content. Mirror of the Apple `WebView` element
@@ -121,6 +123,17 @@ object WebView : ActionUIViewConstruction {
         // lastTrackedURL). Starts as the seeded value: the initial load is done
         // by the factory, not the command bridge.
         val lastTrackedURL = remember { mutableStateOf((viewModel?.value as? String).orEmpty()) }
+
+        // A hidden web view must not stay an input surface, for the same reason the
+        // VideoPlayer does not: the platform WebView handles its OWN touch inside the
+        // interop node, where no Compose modifier reaches it, so an invisible page would
+        // go on scrolling under the finger and following links - eating gestures meant
+        // for whatever is behind it. Render the reserved box only, the stance ListView /
+        // ScrollView / the Lazy containers already take when hidden.
+        if (!LocalActionUIInputEnabled.current) {
+            Box(modifier = modifier)
+            return
+        }
 
         AndroidView(
             modifier = modifier,

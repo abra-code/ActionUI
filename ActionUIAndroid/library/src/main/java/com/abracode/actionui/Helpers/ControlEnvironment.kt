@@ -183,13 +183,23 @@ internal fun resolveDisabled(properties: JsonObject, logger: ActionUILogger? = n
  * an element re-enabling its OWN authored `disabled` (now `false` on the effective element -> `null`)
  * inherits the ancestor's enabled value. Pure, so the reactive-disabled decision is unit-testable.
  */
-internal fun disabledLocalOverride(properties: JsonObject?, logger: ActionUILogger? = null): Boolean? =
-    if (properties?.let { resolveDisabled(it, logger) } == true) false else null
+internal fun disabledLocalOverride(properties: JsonObject?, logger: ActionUILogger? = null): Boolean? {
+    if (properties == null) return null
+    // `hidden` disables too. A hidden element is invisible and must be inert, and the
+    // ONLY route to "inert" that reaches every control is this local - `disabled`
+    // already travels it (Views/Button.kt, NavigationLink.kt, DisclosureGroup.kt, the
+    // container tap). The alternative, swallowing pointer events in `hiddenSubtree`,
+    // also swallows them for whatever is BEHIND the hidden element, which is the bug
+    // it was written to fix (see ModifierResolver.hiddenSubtree).
+    if (properties.booleanProperty("hidden") == true) return false
+    return if (resolveDisabled(properties, logger) == true) false else null
+}
 
 /**
  * The value [ProvideReactiveEnvironment] provides for [LocalActionUIInputEnabled], or `null` to
  * inherit. Only ever `false` (narrowing): a `hidden` element removes input (scroll) from its
  * subtree so it stops stealing touch from a visible sibling (see [LocalActionUIInputEnabled]).
+ * Its twin [disabledLocalOverride] takes `hidden` down the CONTROL half of the same road.
  */
 internal fun inputEnabledLocalOverride(properties: JsonObject?): Boolean? =
     if (properties?.booleanProperty("hidden") == true) false else null

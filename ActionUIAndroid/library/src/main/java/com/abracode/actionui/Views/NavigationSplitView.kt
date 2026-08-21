@@ -47,6 +47,7 @@ import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.isNavigationContainer
 import com.abracode.actionui.Helpers.persistentToolbarItems
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import kotlinx.coroutines.launch
 
 /**
@@ -374,6 +375,16 @@ private fun SidebarPane(
     }
     // Selection-driven sidebar: the List element *is* the pane, so its own
     // `toolbar` / `navigationTitle` wraps the row column, and each child is a row.
+    // A disabled split view must not still select: `LocalActionUIEnabled` folds in
+    // `disabled` from the SPLIT element or any ancestor, and `hidden` narrows it too
+    // (Helpers/ControlEnvironment.kt). Read once, outside the row loop.
+    //
+    // Note what it does NOT see: in this selection-driven branch the sidebar List
+    // element never passes through `BuildViewWithModifiers`, so its own `hidden` /
+    // `disabled` are not applied at all - by this gate or by anything else. That is a
+    // pre-existing limit of the branch rather than something this read introduces; the
+    // static-sidebar path above (`RenderPane`) runs the full pipeline and is unaffected.
+    val rowsEnabled = LocalActionUIEnabled.current
     PaneChrome(sidebar, logger) { paneModifier ->
         Column(paneModifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             rows.forEach { row ->
@@ -381,7 +392,7 @@ private fun SidebarPane(
                 val isSelected = isSidebarRowSelected(destId, selected)
                 var rowModifier = Modifier.fillMaxWidth()
                 if (destId != null) {
-                    rowModifier = rowModifier.clickable { onSelect(destId) }
+                    rowModifier = rowModifier.clickable(enabled = rowsEnabled) { onSelect(destId) }
                 }
                 if (isSelected) {
                     rowModifier = rowModifier.background(MaterialTheme.colorScheme.secondaryContainer)

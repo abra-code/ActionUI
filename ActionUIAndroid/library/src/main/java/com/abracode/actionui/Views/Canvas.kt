@@ -24,6 +24,7 @@ import com.abracode.actionui.Helpers.drawCanvasOperations
 import com.abracode.actionui.Helpers.parseCanvasOperations
 import com.abracode.actionui.Helpers.parseColor
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -91,7 +92,11 @@ object Canvas : ActionUIViewConstruction {
         val warnedSources = remember(props) { mutableSetOf<String>() }
 
         val actionID = config.actionID
-        val tapModifier = if (actionID != null) {
+        // Gated like every other tap in the library: `LocalActionUIEnabled` folds in
+        // this element's own `disabled` AND any ancestor's, and `hidden` narrows it too
+        // (Helpers/ControlEnvironment.kt), so an invisible canvas cannot fire.
+        val tapEnabled = LocalActionUIEnabled.current
+        val tapModifier = if (actionID != null && tapEnabled) {
             modifier.pointerInput(actionID, element.id) {
                 detectTapGestures {
                     ActionUIModel.actionHandler(actionID, viewID = element.id)

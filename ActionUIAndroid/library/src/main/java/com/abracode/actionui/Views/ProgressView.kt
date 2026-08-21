@@ -15,6 +15,7 @@ import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
 import com.abracode.actionui.Helpers.stringProperty
+import com.abracode.actionui.Helpers.LocalActionUIEnabled
 
 /**
  * Renders a determinate progress bar or an indeterminate spinner.
@@ -82,7 +83,7 @@ object ProgressView : ActionUIViewConstruction {
         val fraction = if (determinate) (value!! / total!!).toFloat() else 0f
 
         val rootModifier = if (actionID != null) {
-            modifier.clickable {
+            modifier.clickable(enabled = LocalActionUIEnabled.current) {
                 ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0)
             }
         } else {

@@ -123,6 +123,7 @@ internal fun ActionUIViewConstruction.BuildViewWithSwipeActions(
         // A comfortable minimum height gives the revealed action buttons room for their icon
         // over the title (a one-line Label alone is too short - the glyph would clip); the
         // content is centered in it so the row text still sits on the vertical midline.
+        val rowEnabled = LocalActionUIEnabled.current
         Box(
             Modifier
                 .fillMaxWidth()
@@ -130,6 +131,11 @@ internal fun ActionUIViewConstruction.BuildViewWithSwipeActions(
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
                 .background(MaterialTheme.colorScheme.surface)
                 .draggable(
+                    // A hidden or disabled row must not claim the horizontal drag - it
+                    // would swipe invisibly AND swallow the gesture meant for whatever
+                    // is behind it (Helpers/ControlEnvironment.kt narrows this local for
+                    // both `disabled` and `hidden`).
+                    enabled = rowEnabled,
                     orientation = Orientation.Horizontal,
                     state = rememberDraggableState { delta ->
                         val min = if (trailing.isEmpty()) 0f else -rowWidthPx
@@ -192,7 +198,7 @@ private fun SwipeActionButton(
             .width(ACTION_WIDTH)
             .fillMaxHeight()
             .background(background)
-            .clickable {
+            .clickable(enabled = LocalActionUIEnabled.current) {
                 props?.stringProperty("actionID")?.let {
                     ActionUIModel.actionHandler(it, viewID = button.id, viewPartID = 0)
                 }

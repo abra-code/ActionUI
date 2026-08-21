@@ -55,6 +55,9 @@ internal fun ActionUIViewConstruction.BuildViewWithContextMenu(
         modifier
             .applyOuterProperties(element.properties, logger, animator)
             .combinedClickable(
+                // Gated so a disabled - or hidden - element neither opens its menu nor
+                // eats the plain tap meant for whatever is behind it.
+                enabled = LocalActionUIEnabled.current,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null, // no ripple on the whole element; the menu is the feedback
                 onLongClick = { expanded = true },

@@ -31,6 +31,13 @@ import com.abracode.actionui.Helpers.stringProperty
  * Rendered as a [Box] carrying a `verticalScroll` / `horizontalScroll` modifier
  * (or both).
  *
+ * **Lazy content.** A `Lazy*` container is its own scroll viewport on Android
+ * (no Apple/web counterpart), so a `ScrollView` wrapping one of the same axis -
+ * the ordinary authored idiom, since Apple and web REQUIRE the wrapper - would
+ * nest two scrollers and starve the child of a bounded viewport. This element
+ * stands its own scroll down on that axis and lets the child have it
+ * ([selfScrollingAxis]).
+ *
  * **Unbounded-axis guard.** A Compose scroll modifier requires a *bounded* main
  * axis - it throws `IllegalStateException` ("scrollable component was measured
  * with an infinity maximum ... constraints") if measured unbounded. The usual
@@ -86,10 +93,17 @@ object ScrollView : ActionUIViewConstruction {
         // Read the incoming constraints so an unbounded scroll axis can be dropped
         // (see the class note) instead of crashing the scroll modifier.
         BoxWithConstraints(modifier = modifier) {
-            val applied = resolveAppliedScroll(axis, constraints.hasBoundedHeight, constraints.hasBoundedWidth)
+            // A content child that is its own viewport on this axis (a Lazy* container)
+            // takes the scroll instead - see resolveAppliedScroll.
+            val deferred = selfScrollingAxis(content.type)
+            val applied = resolveAppliedScroll(
+                axis, constraints.hasBoundedHeight, constraints.hasBoundedWidth, deferred,
+            )
 
-            val droppedVertical = axis != ScrollAxis.Horizontal && !applied.vertical
-            val droppedHorizontal = axis != ScrollAxis.Vertical && !applied.horizontal
+            val droppedVertical = axis != ScrollAxis.Horizontal && !applied.vertical &&
+                deferred != ScrollAxis.Vertical
+            val droppedHorizontal = axis != ScrollAxis.Vertical && !applied.horizontal &&
+                deferred != ScrollAxis.Horizontal
             LaunchedEffect(droppedVertical, droppedHorizontal) {
                 if (droppedVertical || droppedHorizontal) {
                     logger.log(
@@ -136,20 +150,51 @@ internal enum class ScrollAxis { Vertical, Horizontal, Both }
 internal data class ScrollAxesApplied(val vertical: Boolean, val horizontal: Boolean)
 
 /**
- * Decides which scroll axes [ScrollView] applies, given the requested [axis] and
+ * The axis a given element type scrolls BY ITSELF, or `null` for the ordinary
+ * case of an element that simply grows and lets an ancestor scroll it.
+ *
+ * The `Lazy*` containers are both the lazy builder and the scroll viewport on
+ * their main axis - a Compose trait with no Apple or web counterpart, where a
+ * `LazyVGrid` is inert layout inside a `ScrollView`. That difference is why
+ * [ScrollView] has to know about them (see [resolveAppliedScroll]); `List` is
+ * deliberately NOT here, because a template List inside a non-scrolling parent
+ * is its own resolved case (Missing_Features #34).
+ */
+internal fun selfScrollingAxis(type: String?): ScrollAxis? = when (type) {
+    "LazyVGrid", "LazyVStack" -> ScrollAxis.Vertical
+    "LazyHGrid", "LazyHStack" -> ScrollAxis.Horizontal
+    else -> null
+}
+
+/**
+ * Decides which scroll axes [ScrollView] applies, given the requested [axis],
  * whether the incoming constraints bound each axis ([boundedHeight] /
- * [boundedWidth]). A requested scroll axis whose main-axis constraint is
- * unbounded is **dropped**: applying `verticalScroll` / `horizontalScroll` to an
- * infinite constraint throws in Compose, so the enclosing scroll handles that
- * overflow instead. Pure, so it is unit-testable without a Compose host.
+ * [boundedWidth]), and which axis the single `content` child scrolls by itself
+ * ([contentSelfScrolls], from [selfScrollingAxis]).
+ *
+ * Two reasons to drop a requested axis:
+ *
+ *  * **Unbounded.** Applying `verticalScroll` / `horizontalScroll` to an infinite
+ *    constraint throws in Compose, so the enclosing scroll handles that overflow
+ *    instead.
+ *  * **Deferred to the content.** A `ScrollView` wrapping a `Lazy*` container of
+ *    the same axis is the authored idiom on Apple and web, where the wrapper is
+ *    what scrolls. On Android the child scrolls itself, so nesting both means two
+ *    scrollers on one axis - and, worse, the child measures against an infinite
+ *    height and falls back to its fixed default extent, letterboxing a
+ *    full-screen grid. Standing down here hands the child a bounded viewport,
+ *    which is the arrangement the JSON describes.
+ *
+ * Pure, so it is unit-testable without a Compose host.
  */
 internal fun resolveAppliedScroll(
     axis: ScrollAxis,
     boundedHeight: Boolean,
     boundedWidth: Boolean,
+    contentSelfScrolls: ScrollAxis? = null,
 ): ScrollAxesApplied {
-    val wantsVertical = axis != ScrollAxis.Horizontal
-    val wantsHorizontal = axis != ScrollAxis.Vertical
+    val wantsVertical = axis != ScrollAxis.Horizontal && contentSelfScrolls != ScrollAxis.Vertical
+    val wantsHorizontal = axis != ScrollAxis.Vertical && contentSelfScrolls != ScrollAxis.Horizontal
     return ScrollAxesApplied(
         vertical = wantsVertical && boundedHeight,
         horizontal = wantsHorizontal && boundedWidth,

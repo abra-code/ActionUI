@@ -101,9 +101,14 @@ private fun SearchField(config: SearchableConfig, elementID: Int) {
     // suppressed - the persistent search-field look, without the SearchBar's
     // expand-to-overlay behavior (see the KDoc for why that does not fit here).
     val container = MaterialTheme.colorScheme.surfaceContainerHigh
+    // A hidden or disabled searchable element must not keep a live, focusable field
+    // sitting over whatever is behind it (Helpers/ControlEnvironment.kt narrows this
+    // local for both `disabled` and `hidden`).
+    val fieldEnabled = LocalActionUIEnabled.current
     TextField(
         value = query,
         onValueChange = update,
+        enabled = fieldEnabled,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -112,7 +117,7 @@ private fun SearchField(config: SearchableConfig, elementID: Int) {
         leadingIcon = { ChromeSymbolIcon("search", contentDescription = null) },
         trailingIcon = if (query.isNotEmpty()) {
             {
-                IconButton(onClick = { update("") }) {
+                IconButton(onClick = { update("") }, enabled = fieldEnabled) {
                     ChromeSymbolIcon("close", contentDescription = "Clear search")
                 }
             }
