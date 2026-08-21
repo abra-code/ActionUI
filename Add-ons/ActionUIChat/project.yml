@@ -33,7 +33,9 @@ packages:
     # The standalone chat component repo, referenced by github URL to match Package.swift.
     # Resolved from github (network on first resolve, then cached).
     url: https://github.com/abra-code/ChatView
-    from: "0.4.5"
+    # Keep in step with Package.swift's floor: regenerating this project with a lower one silently
+    # un-does the reason the floor was raised (0.5.5 - see the rationale beside the SPM dependency).
+    from: "0.5.5"
 
 targets:
   ActionUIChatCore:

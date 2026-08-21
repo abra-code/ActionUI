@@ -37,4 +37,18 @@ extension ViewModel: ChatContentSource {
     public func observeChatAppend(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
         $states.sink { handler($0["append"]) }
     }
+    /// states["lead"]: ChatItems - one JSON per line - held until the user sends, then placed in
+    /// front of that message.
+    ///
+    /// The sibling of states["append"], for the line that INTRODUCES a message rather than
+    /// following one. A host learns a message exists when its entry finalizes, long after it went
+    /// on screen, so appending a session marker then puts it underneath the message it names the
+    /// model for. And a marker appended EARLY, when the conversation was displayed, claims a
+    /// handover that never happened in every conversation the user only reads.
+    ///
+    /// The value is the whole waiting list; an empty value withdraws it. Like states["content"]
+    /// and states["append"], it does NOT come back as a finalized entry.
+    public func observeChatLead(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        $states.sink { handler($0["lead"]) }
+    }
 }

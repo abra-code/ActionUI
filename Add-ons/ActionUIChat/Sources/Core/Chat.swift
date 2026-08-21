@@ -85,6 +85,8 @@
                                           //           completed/failed tool call, image, system, error, plan,
                                           //           usage) with a JSON envelope { sequence, type, id, data } as
                                           //           the action context, for crash-safe incremental persistence.
+                                          //           A message that states["lead"] lines were placed in front of
+                                          //           also carries them, as placed, under "lead".
                                           //           Never fired on streaming deltas.
      "resumeCheckpointActionID": "chat.checkpoint",
                                           // Optional: the resume cursor that pairs with entryActionID, as
@@ -182,6 +184,22 @@
  on screen the agent was never given, so the element reports its context as pending and the next send
  re-primes. Example: setElementState(window, chatID, "append",
  {"type":"sessionEvent","sessionEvent":{"id":"se-1","kind":"resumed","model":"Qwen3 4B"}}).
+ Leading the NEXT message: states["lead"] takes serialized ChatItems - one per line - and HOLDS them until
+ the user sends, then places them in front of that message. states["append"] cannot serve this: a host
+ learns a message exists only when its entry finalizes, by which time the message has been on screen since
+ the user pressed Return, so appending puts the line meant to introduce it underneath it. The waiting is
+ half the point - a conversation the user opened and read is not a conversation resumed, so a marker shown
+ when the transcript was merely displayed announces a handover that never happened. The value is the WHOLE
+ waiting list, so set it again (with every line) to add one, and set it to "" to take the lines back when
+ the conversation they belong to is replaced (an empty array, or text with no lines in it, withdraws the
+ same way; a value NONE of whose lines decode is not obeyed as a withdrawal and leaves the list as it was);
+ a line already placed is never placed again, whatever the channel goes on resting on. The lines fire no entry of their own, but the MESSAGE they lead reports them:
+ its entryActionID envelope carries them under "lead", as placed - and a line handed over without a
+ timestamp is stamped with the moment it is placed, because the host hands it over when it learns the line
+ will be needed, which can be an hour before the user types, while the line says what happened when the
+ message was sent. A host that stamps its lines keeps its stamps; a host that does not records the line from
+ the message's entry. Example: setElementState(window, chatID, "lead",
+ "{\"type\":\"sessionEvent\",\"sessionEvent\":{\"id\":\"se-1\",\"kind\":\"resumed\",\"model\":\"Qwen3 4B\"}}").
  Host-injected transport (NOT document-declared): the non-visual settings (protocol, transport) are
  injected at runtime into states["config"] via setElementState / setElementStateFromString (e.g. OMC's
  omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The element

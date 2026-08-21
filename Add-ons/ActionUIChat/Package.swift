@@ -93,7 +93,16 @@ let package = Package(
         // nils the snapshot at that turn's end, so the next send re-primed the whole conversation
         // for nothing. Any host that uses states["append"] at all wants this - a host that appends
         // only between turns is unaffected either way.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.4"),
+        //
+        // 0.5.5 raises the floor again, for states["lead"] - a channel that HOLDS items until the
+        // user sends and then places them in front of that message. A host cannot arrange that with
+        // states["append"]: it learns a message exists when the entry finalizes, by which time the
+        // message has been on screen since the user pressed Return, so a marker naming the model it
+        // was sent INTO lands underneath it. Appending EARLY, when the conversation was displayed,
+        // is the other half of the trap - it announces a resume in every conversation the user only
+        // reads. A host that never sets states["lead"] is unaffected; one that does needs 0.5.5,
+        // where an older component would simply ignore the key and show nothing at all.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.5"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.
