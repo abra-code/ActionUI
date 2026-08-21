@@ -102,7 +102,9 @@ let package = Package(
         // is the other half of the trap - it announces a resume in every conversation the user only
         // reads. A host that never sets states["lead"] is unaffected; one that does needs 0.5.5,
         // where an older component would simply ignore the key and show nothing at all.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.5"),
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.6"),
+        // DO NOT COMMIT: local path dependency so an unreleased ChatView can be built
+        // .package(path: "../../../ChatView"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.

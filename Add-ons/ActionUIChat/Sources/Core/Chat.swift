@@ -204,14 +204,24 @@
  injected at runtime into states["config"] via setElementState / setElementStateFromString (e.g. OMC's
  omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The element
  stays inert (no transport, composer disabled) until states["config"] first resolves to a VIABLE
- transport; then the transport is built ONCE and FROZEN, so a later states["config"] change has no
- effect on that element (create a new Chat element to switch transport). Keeping the wire protocol and
+ transport, which builds it. After that, re-injecting an IDENTICAL config is a no-op (the channel
+ re-delivers its current value on every states change), while re-injecting a DIFFERENT viable config
+ RE-CONFIGURES the element in place: a turn in flight is closed first - its partial answer kept, its
+ entries fired - the old transport is stopped (an ACP agent gets SIGTERM, then SIGKILL after a grace),
+ and the new one is attached and primed from the transcript on screen under the last "prime" directive.
+ So a host changes the model or the agent behind a LIVE conversation by injecting the new
+ {protocol, transport}, and the conversation carries over; it does not need a new element. Two things
+ follow. A config that differs only in a key the transport ignores still counts as different, which is
+ the idiom for forcing a fresh process from otherwise identical settings (add e.g. "sessionEpoch"). And
+ a host that re-injects on every states change wants its config to be byte-identical when nothing
+ changed, or it will respawn the agent for no reason. Keeping the wire protocol and
  the subprocess-spawning transport command out of the document is the security boundary - a document is
  data and must not name what the host executes or connects to. Example injection:
  setElementState(window, chatID, "config", {"protocol":"openai-sse","transport":{"baseURL":"http://127.0.0.1:8080/v1"}}).
- Inject the COMPLETE {protocol, transport} exactly once: the first VIABLE config freezes the element,
- and a config dict with no "protocol" key defaults to "local" (which is always viable), so a partial
- config injected before the real one would lock the element to "local". Deferral (waiting for a
+ Inject the COMPLETE {protocol, transport} every time: a config dict with no "protocol" key defaults
+ to "local" (which is always viable), so a partial config injected before the real one locks the
+ element to "local" - and being re-configurable does not rescue it, because the element is then
+ already answering with the echo transport. Deferral (waiting for a
  completer config) applies only to a registered protocol whose transport init fails on incomplete
  settings - e.g. openai-sse before its baseURL, or acp before its command.
 
