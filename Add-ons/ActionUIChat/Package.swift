@@ -82,7 +82,18 @@ let package = Package(
         // reconnect loop now checks and clears its latch under one lock acquisition, closing a gap
         // where a socket dropping between the two saw the task still latched, declined to schedule a
         // new loop, and left the transport reconnecting forever with nothing running to reconnect it.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.3"),
+        //
+        // 0.5.4 is now the floor, for the context indicator rather than for a crash. The append
+        // channel decided whether the agent's context had gone stale by comparing the WHOLE
+        // transcript against a snapshot that only advances at a prime, a restore and the END of a
+        // turn - so mid-turn that snapshot is stale by construction (it does not hold the optimistic
+        // message send() just appended) and ANY item appended while a turn was in flight read as a
+        // divergence. A host appending a session marker as the first answer streamed therefore lit
+        // "Context on next message" in a brand-new chat, and the state stuck: trackContextAfterTurn
+        // nils the snapshot at that turn's end, so the next send re-primed the whole conversation
+        // for nothing. Any host that uses states["append"] at all wants this - a host that appends
+        // only between turns is unaffected either way.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.4"),
     ],
     targets: [
         // Core: the `Chat` element glue over the ChatView component.
