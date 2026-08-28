@@ -6,11 +6,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.abracode.actionui.Common.ActionUIElement
 import com.abracode.actionui.Common.ActionUIModel
 import com.abracode.actionui.Common.ActionUIValueType
 import com.abracode.actionui.Common.ActionUIViewConstruction
+import com.abracode.actionui.Common.ActionUILogger
+import com.abracode.actionui.Common.LocalActionUILogger
+import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Common.LocalWindowModel
 import com.abracode.actionui.Helpers.LocalActionUITint
 import com.abracode.actionui.Helpers.numberProperty
@@ -29,11 +33,19 @@ import com.abracode.actionui.Helpers.LocalActionUIEnabled
  *   * indeterminate -> Material3 [CircularProgressIndicator] (a spinner),
  *     matching SwiftUI's `ProgressView()` / iOS `.progressViewStyle(.circular)`.
  *
+ * `progressViewStyle` overrides that pairing in either direction, mirroring the
+ * Apple property of the same name: `"linear"` gives a bar even when the progress
+ * is indeterminate - Material's indeterminate [LinearProgressIndicator], the
+ * counterpart of SwiftUI's `.progressViewStyle(.linear)` - and `"circular"`
+ * gives a ring even when it is determinate.
+ *
  * **Supported properties.**
  *   * `value` - current progress, `0.0...total`. Omit (or supply an invalid /
  *     out-of-range value) for an indeterminate spinner.
  *   * `total` - maximum; defaults to `1.0` when `value` is present. Must be `> 0`.
  *   * `title` - optional label rendered above the indicator (in a [Column]).
+ *   * `progressViewStyle` - `"automatic"` (the pairing above), `"linear"` or
+ *     `"circular"`. An unrecognized value warns and falls back to automatic.
  *   * `actionID` - dispatched through [ActionUIModel] on tap, like `Button`.
  *   * plus the universal modifiers resolved by `applyCommonProperties`, applied
  *     to the enclosing [Column] via [modifier].
@@ -51,6 +63,7 @@ import com.abracode.actionui.Helpers.LocalActionUIEnabled
  * ```
  * { "type": "ProgressView", "properties": { "value": 0.5, "total": 1.0, "title": "Loading" } }
  * { "type": "ProgressView" }   // indeterminate spinner
+ * { "type": "ProgressView", "properties": { "progressViewStyle": "linear" } }  // indeterminate BAR
  * ```
  */
 object ProgressView : ActionUIViewConstruction {
@@ -67,8 +80,16 @@ object ProgressView : ActionUIViewConstruction {
     @Composable
     override fun BuildView(element: ActionUIElement, modifier: Modifier) {
         val props = element.properties
+        val logger = LocalActionUILogger.current
         val title = props?.stringProperty("title")
         val actionID = props?.stringProperty("actionID")
+        // remember()ed on the properties: this composable recomposes on every
+        // progress tick (that is what the value bridge and states["progress"]
+        // are for), and resolving on each pass would log the invalid-style
+        // warning hundreds of times for one bad string.
+        val style = remember(props) {
+            resolveProgressViewStyle(props?.stringProperty("progressViewStyle"), logger)
+        }
 
         // Effective progress (Apple precedence): states["progress"] override >
         // the value bridge (a host write) > the static `value` property. Null at
@@ -94,14 +115,50 @@ object ProgressView : ActionUIViewConstruction {
         // to the bar's / spinner's color.
         val tint = LocalActionUITint.current
 
+        // Which SHAPE to draw is now a separate question from whether the
+        // progress is known. "automatic" keeps the historical pairing.
+        val linear = when (style) {
+            ProgressViewStyle.Linear -> true
+            ProgressViewStyle.Circular -> false
+            ProgressViewStyle.Automatic -> determinate
+        }
+
         Column(modifier = rootModifier) {
             if (title != null) M3Text(text = title)
             when {
-                determinate && tint != null -> LinearProgressIndicator(progress = { fraction }, color = tint)
-                determinate -> LinearProgressIndicator(progress = { fraction })
+                linear && determinate && tint != null ->
+                    LinearProgressIndicator(progress = { fraction }, color = tint)
+                linear && determinate -> LinearProgressIndicator(progress = { fraction })
+                linear && tint != null -> LinearProgressIndicator(color = tint)
+                linear -> LinearProgressIndicator()
+                determinate && tint != null ->
+                    CircularProgressIndicator(progress = { fraction }, color = tint)
+                determinate -> CircularProgressIndicator(progress = { fraction })
                 tint != null -> CircularProgressIndicator(color = tint)
                 else -> CircularProgressIndicator()
             }
         }
+    }
+}
+
+/** The ProgressView shapes the Android renderer supports. */
+internal enum class ProgressViewStyle { Automatic, Linear, Circular }
+
+/**
+ * Maps the JSON `progressViewStyle` to a [ProgressViewStyle]. `null`/`"automatic"`
+ * keeps the determinate-bar / indeterminate-spinner pairing; `"linear"` and
+ * `"circular"` force the shape. Any other value warns and falls back to
+ * automatic, parity with the Apple `validateProperties` default.
+ */
+internal fun resolveProgressViewStyle(raw: String?, logger: ActionUILogger): ProgressViewStyle = when (raw) {
+    null, "automatic" -> ProgressViewStyle.Automatic
+    "linear" -> ProgressViewStyle.Linear
+    "circular" -> ProgressViewStyle.Circular
+    else -> {
+        logger.log(
+            "ProgressView progressViewStyle '$raw' is not recognized; using automatic",
+            LoggerLevel.warning
+        )
+        ProgressViewStyle.Automatic
     }
 }

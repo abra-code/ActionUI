@@ -76,6 +76,16 @@ test("ProgressView: value non-negative, total positive", () => {
     assert.equal(validate("ProgressView", { title: 5 }).title, undefined);
 });
 
+test("ProgressView: progressViewStyle limited to the three names", () => {
+    for (const style of ["automatic", "linear", "circular"]) {
+        assert.equal(validate("ProgressView", { progressViewStyle: style }).progressViewStyle, style);
+    }
+    assert.equal(validate("ProgressView", { progressViewStyle: "bar" }).progressViewStyle, undefined,
+        "an unknown style is dropped");
+    assert.equal(validate("ProgressView", { progressViewStyle: 3 }).progressViewStyle, undefined,
+        "a non-string style is dropped");
+});
+
 test("Image: invalid contentMode dropped; string image keys enforced", () => {
     assert.equal(validate("Image", { contentMode: "diagonal" }).contentMode, undefined);
     assert.equal(validate("Image", { systemName: 5 }).systemName, undefined, "non-string image name dropped");

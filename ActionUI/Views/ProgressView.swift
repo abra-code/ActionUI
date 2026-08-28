@@ -7,9 +7,10 @@
      "value": 0.5,       // Optional: Double for current progress (0.0 to total), defaults to nil for indeterminate
      "total": 1.0,       // Optional: Double for maximum progress, defaults to 1.0 if value is set
      "title": "Loading", // Optional: String for title, defaults to nil
+     "progressViewStyle": "linear", // Optional: String ("automatic", "linear", "circular"), defaults to "automatic"
      "actionID": "progress.tap" // Optional: String for action triggered on tap
    }
-   // Note: The ProgressView shows an indeterminate spinner if "value" or "total" is missing/invalid, or a determinate bar if both are valid. Platform-specific styling (e.g., .progressViewStyle(.circular) on iOS for indeterminate) is applied in applyModifiers. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
+   // Note: The ProgressView shows an indeterminate spinner if "value" or "total" is missing/invalid, or a determinate bar if both are valid. "progressViewStyle" overrides that: "linear" gives a bar in either state - which is the only way to ask for an indeterminate LINEAR bar - and "circular" gives a spinner or a circular gauge. Platform-specific styling (e.g., .progressViewStyle(.circular) on iOS for indeterminate) is applied in applyModifiers. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 
  Observable state (via getElementState / setElementState):
@@ -51,7 +52,22 @@ struct ProgressView: ActionUIViewConstruction {
             logger.log("ProgressView title must be a String; defaulting to nil", .warning)
             validatedProperties["title"] = nil
         }
-        
+
+        // Validate progressViewStyle. Both SwiftUI styles exist on every platform
+        // this builds for, so unlike Picker's there is no platform-conditional set.
+        if validatedProperties["progressViewStyle"] != nil {
+            let validStyles = ["automatic", "linear", "circular"]
+            if let style = validatedProperties["progressViewStyle"] as? String {
+                if !validStyles.contains(style) {
+                    logger.log("ProgressView progressViewStyle '\(style)' must be one of \(validStyles); defaulting to nil", .warning)
+                    validatedProperties["progressViewStyle"] = nil
+                }
+            } else {
+                logger.log("ProgressView progressViewStyle must be a String; defaulting to nil", .warning)
+                validatedProperties["progressViewStyle"] = nil
+            }
+        }
+
         return validatedProperties
     }
     
@@ -90,14 +106,30 @@ struct ProgressView: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-#if canImport(UIKit)
-        // Indeterminate (the circular spinner on iOS) when no value is supplied;
-        // a missing total no longer implies indeterminate — it defaults to 1.0 in
-        // buildView when a value is present.
-        if properties["value"] == nil {
+        switch properties["progressViewStyle"] as? String {
+        case "linear":
+            // The only way to ask for an indeterminate LINEAR bar. SwiftUI has
+            // one - an indeterminate ProgressView styled .linear animates as a
+            // bar - but with no style applied macOS resolves an indeterminate
+            // ProgressView to the circular spinner, so a caller that wants a bar
+            // of a known width for a phase it cannot measure had no way to say
+            // so.
+            modifiedView = modifiedView.progressViewStyle(.linear)
+        case "circular":
             modifiedView = modifiedView.progressViewStyle(.circular)
-        }
+        default:
+            // "automatic", or nothing asked for: the platform default, which is
+            // what this element has always done.
+#if canImport(UIKit)
+            // Indeterminate (the circular spinner on iOS) when no value is supplied;
+            // a missing total no longer implies indeterminate — it defaults to 1.0 in
+            // buildView when a value is present.
+            if properties["value"] == nil {
+                modifiedView = modifiedView.progressViewStyle(.circular)
+            }
 #endif
+            break
+        }
         return modifiedView
     }
     

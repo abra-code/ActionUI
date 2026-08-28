@@ -209,7 +209,7 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 | `Label` | `title`, `systemImage` | SF Symbol label |
 | `Divider` | — | |
 | `Spacer` | `minLength` | |
-| `ProgressView` | `style` (circular/linear), `value`, `total`, `title` | |
+| `ProgressView` | `progressViewStyle` (automatic/linear/circular), `value`, `total`, `title` | |
 | `Gauge` | `value`, `min`, `max`, `title`, `label`, `currentValueLabel` | |
 | `Canvas` | `operations` (array), `backgroundColor`, `coordinateMode` | Drawing surface |
 

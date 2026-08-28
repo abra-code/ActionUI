@@ -83,17 +83,17 @@ res="$repo/ActionUISwiftTestApp/Resources"
 
 # Resolve the binary path (this does not build), then build only if it is missing.
 if [[ "$config" == "release" ]]; then
-    bindir="$(cd "$repo" && swift build --product ActionUIViewer -c release --show-bin-path)"
+    bindir="$(cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer -c release --show-bin-path)"
 else
-    bindir="$(cd "$repo" && swift build --product ActionUIViewer --show-bin-path)"
+    bindir="$(cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer --show-bin-path)"
 fi
 bin="$bindir/ActionUIViewer"
 if [[ ! -x "$bin" ]]; then
     echo ">> Building ActionUIViewer ($config) ..."
     if [[ "$config" == "release" ]]; then
-        (cd "$repo" && swift build --product ActionUIViewer -c release)
+        (cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer -c release)
     else
-        (cd "$repo" && swift build --product ActionUIViewer)
+        (cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer)
     fi
 fi
 echo ">> Binary: $bin"

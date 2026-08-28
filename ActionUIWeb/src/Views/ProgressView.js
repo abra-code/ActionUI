@@ -13,6 +13,13 @@
 //            out-of-range value) for an indeterminate indicator.
 //   total    maximum (positive Double); defaults to 1.0 when value is present.
 //   title    optional label shown above the indicator.
+//   progressViewStyle  "automatic" | "linear" | "circular". The web has only one
+//            native indicator, <progress>, and it is LINEAR in both the
+//            determinate and the indeterminate state - so this port already
+//            renders what "linear" asks for and the property is accepted here
+//            for portability. "circular" has no native analog and is not ported:
+//            it warns and stays linear, the same warn-and-fall-back the Picker
+//            and Toggle ports use for a style a platform cannot honor.
 //   actionID dispatched on tap/click (like Button), with no context.
 
 import { register } from "../Common/ActionUIRegistry.js";
@@ -43,6 +50,18 @@ register("ProgressView", {
             delete validated.title;
         }
 
+        // progressViewStyle: one of the three names, else dropped.
+        if (validated.progressViewStyle !== undefined) {
+            const validStyles = ["automatic", "linear", "circular"];
+            if (typeof validated.progressViewStyle !== "string") {
+                logger.log("ProgressView progressViewStyle must be a String; defaulting to nil", "warning");
+                delete validated.progressViewStyle;
+            } else if (!validStyles.includes(validated.progressViewStyle)) {
+                logger.log(`ProgressView progressViewStyle '${validated.progressViewStyle}' must be one of ${validStyles}; defaulting to nil`, "warning");
+                delete validated.progressViewStyle;
+            }
+        }
+
         return validated;
     },
 
@@ -59,8 +78,21 @@ register("ProgressView", {
 
         const isDeterminate = (value) => value !== null && Number.isFinite(value) && value >= 0 && value <= total;
 
+        // <progress> is linear in both states, so "linear" and "automatic" are
+        // already what this builds. "circular" has no native analog on the web;
+        // warn and stay linear rather than silently rendering something the JSON
+        // did not ask for. The style is recorded on the element either way, as
+        // Picker does with data-aui-picker-style, so a stylesheet can hook it.
+        const style = properties.progressViewStyle;
+        if (style === "circular") {
+            ctx.logger.log("ProgressView progressViewStyle 'circular' is not ported on the web; using the linear indicator", "warning");
+        }
+
         const bar = document.createElement("progress");
         bar.className = "aui-progress-bar";
+        if (typeof style === "string") {
+            bar.dataset.auiProgressViewStyle = style;
+        }
         bar.max = total;
         // A <progress> with no value attribute renders as indeterminate; setting
         // .value makes it determinate.

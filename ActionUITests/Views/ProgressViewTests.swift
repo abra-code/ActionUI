@@ -74,6 +74,72 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
     }
     
+    func testProgressViewValidateProgressViewStyle() {
+        for style in ["automatic", "linear", "circular"] {
+            let validated = ProgressView.validateProperties(["progressViewStyle": style], logger)
+            XCTAssertEqual(validated["progressViewStyle"] as? String, style,
+                           "\(style) should survive validation")
+        }
+    }
+
+    func testProgressViewValidateProgressViewStyleInvalid() {
+        // A misspelling and a non-String. Both are dropped rather than passed
+        // through, so applyModifiers' switch only ever sees a value it knows.
+        let misspelled = ProgressView.validateProperties(["progressViewStyle": "bar"], logger)
+        XCTAssertNil(misspelled["progressViewStyle"], "An unknown style should be nil")
+
+        let wrongType = ProgressView.validateProperties(["progressViewStyle": 3], logger)
+        XCTAssertNil(wrongType["progressViewStyle"], "A non-String style should be nil")
+    }
+
+    func testProgressViewConstructionLinearIndeterminate() throws {
+        // The case the property exists for: no value, so the progress is
+        // indeterminate, and "linear" asks for the animated bar rather than the
+        // spinner macOS would otherwise resolve to. The rendering itself is not
+        // observable from here - what is pinned is that the style survives
+        // validation and the view builds with it applied.
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "ProgressView",
+            "properties": [
+                "progressViewStyle": "linear"
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
+        XCTAssertEqual(validatedProperties["progressViewStyle"] as? String, "linear",
+                       "style should survive validation")
+        XCTAssertNil(validatedProperties["value"], "no value: the progress is indeterminate")
+
+        let viewModel = ViewModel()
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+    }
+
+    func testProgressViewConstructionCircularDeterminate() throws {
+        // The mirror image: a value IS supplied, and "circular" asks for the
+        // circular gauge rather than the bar the platform would default to.
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "ProgressView",
+            "properties": [
+                "value": 0.25,
+                "total": 1.0,
+                "progressViewStyle": "circular"
+            ]
+        ]
+
+        let element = try ActionUIElement(from: elementDict, logger: logger)
+        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
+        XCTAssertEqual(validatedProperties["progressViewStyle"] as? String, "circular",
+                       "style should survive validation")
+
+        let viewModel = ViewModel()
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, validatedProperties: validatedProperties)
+        XCTAssertEqual(ProgressView.initialValue(viewModel) as? Double, 0.25,
+                       "a style must not disturb the value")
+    }
+
     func testProgressViewConstruction() throws {
         let elementDict: [String: Any] = [
             "id": 1,

@@ -1,0 +1,273 @@
+{
+  "type": "VStack",
+  "properties": {
+    "spacing": 12,
+    "alignment": "leading",
+    "padding": "default",
+    "frame": {
+      "width": 460
+    }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "ProgressView progressViewStyle"
+      }
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "(none), determinate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "value": 0.42,
+            "total": 1.0
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "(none), indeterminate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            }
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "automatic, determinate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "value": 0.42,
+            "total": 1.0,
+            "progressViewStyle": "automatic"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "automatic, indeterminate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "progressViewStyle": "automatic"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "linear, determinate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "value": 0.42,
+            "total": 1.0,
+            "progressViewStyle": "linear"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "linear, indeterminate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "progressViewStyle": "linear"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "circular, determinate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "value": 0.42,
+            "total": 1.0,
+            "progressViewStyle": "circular"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    },
+    {
+      "type": "HStack",
+      "properties": {
+        "spacing": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "properties": {
+            "text": "circular, indeterminate",
+            "font": "footnote",
+            "frame": {
+              "width": 230,
+              "alignment": "leading"
+            }
+          }
+        },
+        {
+          "type": "ProgressView",
+          "properties": {
+            "frame": {
+              "width": 160
+            },
+            "progressViewStyle": "circular"
+          }
+        },
+        {
+          "type": "Spacer"
+        }
+      ]
+    }
+  ]
+}
