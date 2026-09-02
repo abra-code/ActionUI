@@ -103,6 +103,8 @@ final class ChatConfigActionIDTests: XCTestCase {
         let parsed = config(["appearance": ["alignment": "dual"], "readOnly": true])
         XCTAssertEqual(parsed.configuration.alignment, .dual)
         XCTAssertTrue(parsed.configuration.readOnly)
+        XCTAssertFalse(config(["showFindBar": false]).configuration.showFindBar)
+        XCTAssertTrue(config([:]).configuration.showFindBar)
     }
 }
 
@@ -169,6 +171,12 @@ final class ChatConfigValidateTests: XCTestCase {
     func testReadOnlyMustBeBool() {
         XCTAssertNil(validate(["readOnly": "yes"])["readOnly"])
         XCTAssertEqual(validate(["readOnly": true])["readOnly"] as? Bool, true)
+    }
+
+    func testShowFindBarMustBeBoolAndFalseSurvives() {
+        XCTAssertNil(validate(["showFindBar": "yes"])["showFindBar"])
+        XCTAssertEqual(validate(["showFindBar": false])["showFindBar"] as? Bool, false)
+        XCTAssertEqual(validate(["showFindBar": true])["showFindBar"] as? Bool, true)
     }
 }
 

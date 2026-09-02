@@ -35,7 +35,7 @@ packages:
     url: https://github.com/abra-code/ChatView
     # Keep in step with Package.swift's floor: regenerating this project with a lower one silently
     # un-does the reason the floor was raised (0.5.5 - see the rationale beside the SPM dependency).
-    from: "0.5.5"
+    from: "0.6.1"
 
 targets:
   ActionUIChatCore:

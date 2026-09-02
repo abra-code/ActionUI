@@ -102,7 +102,12 @@ let package = Package(
         // is the other half of the trap - it announces a resume in every conversation the user only
         // reads. A host that never sets states["lead"] is unaffected; one that does needs 0.5.5,
         // where an older component would simply ignore the key and show nothing at all.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.5.6"),
+        //
+        // 0.6 adds find in conversation: the "showFindBar" property (the transcript bar), states["search"]
+        // (a host's term, lit in the conversation), and ChatSearch for a host that searches saved
+        // transcripts it never renders. A host below it has none of the three, and the element ignores
+        // the "showFindBar" key and the "search" state without complaint.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.6.1"),
         // DO NOT COMMIT: local path dependency so an unreleased ChatView can be built
         // .package(path: "../../../ChatView"),
     ],

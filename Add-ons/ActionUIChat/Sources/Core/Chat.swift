@@ -99,6 +99,14 @@
                                           //           duplicates it, and storing neither half is always safe. Feed it
                                           //           back as the transport's "resumeAfterSeq" (with "session").
                                           //           Only the "acp-remote" protocol produces one.
+     "showFindBar": true,                 // Optional (default true, so every existing document gains it): the find
+                                          //           bar over the conversation - Cmd-F opens it, and while it is shown
+                                          //           Cmd-G / Shift-Cmd-G walk the hits across messages (opening a
+                                          //           folded thought or tool card the hit is in) and Escape closes; its
+                                          //           menu widens the scope to thoughts and tool calls and toggles
+                                          //           case / whole-word / diacritic matching. false removes the bar
+                                          //           and the Cmd-F (which one element per window should own); a
+                                          //           states["search"] query still highlights.
      "readOnly": false                    // Optional (default false): read-only viewer mode - hides the composer and
                                           //           menus and starts NO transport ("protocol" may be omitted). Pair
                                           //           with a runtime setElementState("content", ...) to show a saved session.
@@ -200,6 +208,19 @@
  message was sent. A host that stamps its lines keeps its stamps; a host that does not records the line from
  the message's entry. Example: setElementState(window, chatID, "lead",
  "{\"type\":\"sessionEvent\",\"sessionEvent\":{\"id\":\"se-1\",\"kind\":\"resumed\",\"model\":\"Qwen3 4B\"}}").
+ Searching the conversation: states["search"] takes a query String. A non-empty value runs the transcript
+ find - the same engine as the Cmd-F bar: Markdown bodies matched as RENDERED text, so a bold "fox" is
+ found by "fox"; thoughts and tool calls only when the bar's scope includes them - highlights every hit,
+ scrolls to the first, and presents the bar with the term when "showFindBar" is on; "" dismisses. This is how a
+ host's OWN search field (a chat list filtered by a term) opens a conversation with the reason it matched
+ already lit, without taking the keyboard focus from the host's field. Always a String, never an object
+ (the element seeds the key as one, so any text is accepted), and nil - the key never set - is no
+ opinion. The channel re-delivers its current value
+ on every states change, so a value equal to the last one applied is ignored: the reader can close the
+ bar without it springing back; to re-open with the same term, set "" and then the term again. Example:
+ setElementState(window, chatID, "search", "deployment"). The search needs no element at all for a host
+ that filters a chat list: ChatSearch (re-exported from ChatView) runs the same rules over a decoded
+ ChatTranscript, and ChatItem.searchableText gives an indexer the plain text a reader sees.
  Host-injected transport (NOT document-declared): the non-visual settings (protocol, transport) are
  injected at runtime into states["config"] via setElementState / setElementStateFromString (e.g. OMC's
  omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The element
@@ -313,7 +334,16 @@ struct Chat: ActionUIViewConstruction {
 
     // Void-value element: no initial value to seed (mirrors VStack and other containers).
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
-    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    // The "search" state is seeded as an empty String: a state key's FIRST write fixes its type (a
+    // host writing "42" through the string setter would pin it to Int and every later term would be
+    // refused), and the terms on this channel are typed by people. An empty value dismisses nothing.
+    static var initialStates: (ViewModel) -> [String: Any] = { model in
+        var states = model.states
+        if states["search"] == nil {
+            states["search"] = ""
+        }
+        return states
+    }
 
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
     static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil

@@ -37,7 +37,10 @@ let package = Package(
         .package(path: "../.."),   // the ActionUI package at the repo root
         // RichText is consumed as a versioned release. (RichText itself pulls AsyncImageCache;
         // SPM resolves it transitively.)
-        .package(url: "https://github.com/abra-code/RichText", from: "0.1.0"),
+        // 0.2 adds the find engine, highlights and bar behind the "showFindBar" property and the "search" state.
+        .package(url: "https://github.com/abra-code/RichText", from: "0.2.0"),
+        // DO NOT COMMIT: local path dependency so an unreleased RichText can be built
+        // .package(path: "../../../RichText"),   // 0.2: the find engine, highlights and bar
     ],
     targets: [
         .target(

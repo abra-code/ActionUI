@@ -126,6 +126,11 @@ struct ChatConfig {
             validated["readOnly"] = nil
         }
 
+        if let value = validated["showFindBar"], !(value is Bool) {
+            logger.log("Chat showFindBar must be a Bool; ignoring", .warning)
+            validated["showFindBar"] = nil
+        }
+
         return validated
     }
 }

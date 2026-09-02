@@ -51,4 +51,11 @@ extension ViewModel: ChatContentSource {
     public func observeChatLead(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
         $states.sink { handler($0["lead"]) }
     }
+    /// states["search"]: a query String for the transcript find. A non-empty value runs the search,
+    /// highlights the hits and presents the bar with the term (when the "showFindBar" property is on); ""
+    /// dismisses. The component ignores a value equal to the last one it applied, because this sink
+    /// fires on EVERY states change and a reader who closed the bar must not see it spring back.
+    public func observeChatSearch(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
+        $states.sink { handler($0["search"]) }
+    }
 }

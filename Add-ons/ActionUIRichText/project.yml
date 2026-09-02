@@ -27,7 +27,7 @@ packages:
     path: ../..        # the ActionUI Swift package at the repo root (Package.swift)
   RichText:
     url: https://github.com/abra-code/RichText
-    from: "0.1.0"
+    from: "0.2.0"
 
 targets:
   ActionUIRichText:

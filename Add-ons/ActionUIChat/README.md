@@ -94,6 +94,10 @@ ActionUISwift.setElementState(windowUUID: windowUUID, viewID: 80, key: "config",
   `ActionUIModel.actionHandler`, exactly like `Button`.
 - `readOnly`: read-only viewer mode - hides the composer and menus and starts no transport (`protocol`
   may be omitted). Pair with a runtime `setElementState("content", ...)` to show a saved session.
+- `showFindBar` (default true): the find bar over the conversation - Cmd-F opens it, Cmd-G / Shift-Cmd-G
+  walk the hits, Escape closes. `false` removes the bar and the shortcut; a runtime
+  `setElementState("search", "<term>")` still highlights every hit and scrolls to the first without
+  taking the keyboard focus, and `""` dismisses.
 
 The element manages its own transcript model internally (a `ChatStore`), so it exposes no single scalar
 `value`; host interaction is via the action IDs. The session transcript is DATA (a serializable
