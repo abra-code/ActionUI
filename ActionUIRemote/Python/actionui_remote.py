@@ -53,6 +53,7 @@ WINDOW_ENV = "ACTIONUI_WINDOW_UUID"
 
 DEFAULT_TIMEOUT = 15.0      # seconds; covers the host's 10 s main-thread wait
 MAX_LINE_LENGTH = 64 * 1024 * 1024
+SUN_PATH_LIMIT = 103        # macOS sun_path, PROTOCOL.md section 1
 
 
 # --- Errors ---------------------------------------------------------------------------------
@@ -203,14 +204,19 @@ class Connection:
     # -- lifecycle
 
     def _connect(self):
+        # Measured here rather than left to connect(): CPython refuses an over-long AF_UNIX path
+        # itself, with an OSError that carries no errno, so the caller would get a message that
+        # neither names the limit nor says which path was too long. In bytes, because sun_path
+        # holds bytes and a path short in characters can encode long.
+        if len(os.fsencode(self.endpoint)) > SUN_PATH_LIMIT:
+            raise EndpointError("socket path is too long for sun_path (limit %d bytes): %s"
+                                % (SUN_PATH_LIMIT, self.endpoint))
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
         try:
             sock.connect(self.endpoint)
         except OSError as error:
             sock.close()
-            if error.errno == errno.ENAMETOOLONG:
-                raise EndpointError("socket path is too long for sun_path (limit 103 bytes): %s" % self.endpoint) from None
             if error.errno in (errno.ENOENT, errno.ECONNREFUSED):
                 raise EndpointError("no ActionUI host is listening at %s (%s)" % (self.endpoint, error.strerror)) from None
             raise EndpointError("cannot connect to %s: %s" % (self.endpoint, error)) from None
