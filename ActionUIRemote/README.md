@@ -43,6 +43,36 @@ server.stop()
 Every request runs on the main actor against `ActionUIModel.shared`. A main thread that does
 not respond within `mainThreadTimeout` (10 s) answers `1005` instead of hanging the client.
 
+## Command line
+
+The Python client is also a tool, which is what gives a shell handler a read path: it is handed
+its window's values as environment variables when it is spawned and has otherwise no way to ask
+for them again.
+
+```sh
+export ACTIONUI_REMOTE_ENDPOINT=/path/to/host.sock    # the host sets these for its children
+export ACTIONUI_WINDOW_UUID=...
+
+python3 -m actionui_remote hello                      # what this host is and what it offers
+python3 -m actionui_remote get-value 2                # JSON
+python3 -m actionui_remote get-string 2               # the text itself, for $(...)
+python3 -m actionui_remote get-rows 5                 # [["a","b"],["c","d"]]
+python3 -m actionui_remote set-string 4 "Working..."
+python3 -m actionui_remote call omc.terminate '{"ok":true}'
+```
+
+`--endpoint`, `--window` and `--timeout` come before the command and override the environment;
+`call` reaches any method the host has, including its own namespace. `get-string` prints the
+text itself, so an empty line means a null value or an empty string alike.
+
+Exit codes are 0 for success, 1 when the host answered an error (the message carries the
+protocol code), 2 for a bad command line, and 3 when there is no host to talk to, so a script
+can tell "no ActionUI here" from "no such element" without reading messages. An output pipe
+closed early (`| head`) is not an error.
+
+Until a host puts the module on `PYTHONPATH` (OMC 5.3 vendors it into its framework), run these
+from `ActionUIRemote/Python`, or name that directory in `PYTHONPATH`.
+
 ## Security model
 
 - The socket file is created 0600; put it in a directory only the user can enter (the engine's
@@ -58,5 +88,6 @@ not respond within `mainThreadTimeout` (10 s) answers `1005` instead of hanging 
 - `UnixSocketServer.swift`: socket, framing, per-connection queues.
 - `ActionUIRemoteServer.swift`: public API, method registry, main-thread hop.
 - `ActionUIRemoteMethods.swift`: the `actionui.*` table over the engine.
-- `Python/`: the stdlib-only Python client and a fake server for host test suites.
+- `Python/`: the stdlib-only Python client (importable, and runnable with `-m`) and a fake
+  server for host test suites.
 - Tests in `ActionUIRemoteTests/`.

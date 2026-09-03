@@ -27,6 +27,16 @@ Example:
 
 Errors from the host arrive as RemoteError (with the protocol's error code); socket-level
 failures as ConnectionError subclasses (EndpointError, ProtocolError).
+
+There is also a command line, so a shell handler gets a read path instead of only the
+environment snapshot taken when it was spawned:
+
+    python3 -m actionui_remote hello
+    python3 -m actionui_remote --window UUID get-value 5
+    python3 -m actionui_remote get-rows 5           # window from $ACTIONUI_WINDOW_UUID
+    python3 -m actionui_remote call actionui.getRows '{"window":"UUID","viewID":5}'
+
+--endpoint, --window and --timeout come before the command, as argparse requires.
 """
 
 import atexit
@@ -44,7 +54,8 @@ __all__ = [
     "PROTOCOL_VERSION", "ENDPOINT_ENV", "WINDOW_ENV",
     "RemoteError", "EndpointError", "ProtocolError",
     "InsertPosition", "DialogButton", "ButtonRole", "ModalStyle",
-    "Connection", "Window", "Batch", "hello", "connect",
+    "Connection", "Window", "Batch", "hello", "connect", "main",
+    "EXIT_OK", "EXIT_REMOTE_ERROR", "EXIT_USAGE", "EXIT_NO_HOST",
 ]
 
 PROTOCOL_VERSION = 1
@@ -751,3 +762,211 @@ class _Recorder(Window):
     @property
     def endpoint(self):
         return None
+
+
+# --- Command line ---------------------------------------------------------------------------
+#
+# `python3 -m actionui_remote <command>`. The point is the read path: a shell handler is given
+# its window's values as environment variables at spawn time and has had no way to ask for them
+# again. Setters are here too, but writes already had omc_dialog_control.
+#
+# Output: JSON on one line for the value commands, the text itself for the string commands (as
+# many lines as it holds), one UUID per line for `windows`, and nothing at all for a setter that
+# succeeded. `get-string` prints an empty line both for a null value and for an empty string.
+
+EXIT_OK = 0
+EXIT_REMOTE_ERROR = 1       # the host answered an error; the message carries the protocol code
+EXIT_USAGE = 2              # argparse's own code for a bad command line
+EXIT_NO_HOST = 3            # nothing to talk to: no endpoint set, nothing listening, a dead socket
+
+# The commands that do not name an element, so they do not need a window.
+_NO_WINDOW_COMMANDS = ("hello", "windows", "call")
+
+
+def _json_line(value):
+    return json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n"
+
+
+def _run_command(args, connection):
+    """Run one parsed command and return what to print, or None to print nothing."""
+    if args.command == "hello":
+        return _json_line(connection.call("actionui.hello"))
+    if args.command == "windows":
+        return "".join(uuid + "\n" for uuid in connection.call("actionui.listWindows"))
+    if args.command == "call":
+        params = args.params if args.params is not None else {}
+        if args.window:
+            # Window.call fills in "window", and an explicit one in params still wins.
+            return _json_line(Window(args.window, connection=connection).call(args.method, params))
+        return _json_line(connection.call(args.method, params))
+
+    window = Window(args.window, connection=connection)
+    if args.command == "elements":
+        return _json_line(window.get_element_info())
+    if args.command == "get-value":
+        return _json_line(window.get_value(args.view_id, args.part))
+    if args.command == "set-value":
+        window.set_value(args.view_id, args.part, args.value)
+        return None
+    if args.command == "get-string":
+        text = window.get_string(args.view_id, args.part, args.content_type)
+        return ("" if text is None else text) + "\n"
+    if args.command == "set-string":
+        window.set_string(args.view_id, args.text, args.part, args.content_type)
+        return None
+    if args.command == "get-rows":
+        return _json_line(window.get_rows(args.view_id))
+    if args.command == "set-rows":
+        window.set_rows(args.view_id, args.rows)
+        return None
+    if args.command == "get-property":
+        return _json_line(window.get_property(args.view_id, args.name))
+    if args.command == "set-property":
+        window.set_property(args.view_id, args.name, args.value)
+        return None
+    if args.command == "get-state":
+        return _json_line(window.get_state(args.view_id, args.key))
+    if args.command == "set-state":
+        window.set_state(args.view_id, args.key, args.value)
+        return None
+    # Unreachable: argparse only yields the commands built below. An AssertionError rather than
+    # a ValueError, because main reports a ValueError as a usage error and this is a bug.
+    raise AssertionError("unhandled command %r" % (args.command,))
+
+
+def _build_parser(argparse):
+    def json_argument(text):
+        try:
+            return json.loads(text)
+        except ValueError as error:
+            raise argparse.ArgumentTypeError("expected JSON, got %r (%s)" % (text, error))
+
+    def timeout_argument(text):
+        try:
+            seconds = float(text)
+        except ValueError:
+            raise argparse.ArgumentTypeError("expected a number of seconds, got %r" % text)
+        if seconds <= 0:
+            raise argparse.ArgumentTypeError("must be greater than zero, got %s" % text)
+        return seconds
+
+    parser = argparse.ArgumentParser(
+        prog="python3 -m actionui_remote",
+        description="Read and drive an ActionUI window from the shell.",
+        epilog="--endpoint, --window and --timeout come before the command. "
+               "Exit codes: 0 ok, 1 the host answered an error, 2 bad usage, 3 no host to talk to; "
+               "an output pipe closed early (| head) is not an error. "
+               "An argument starting with a dash that is not a number needs -- before it, "
+               "as in `set-string 2 -- -hello`.")
+    parser.add_argument("--endpoint", default=os.environ.get(ENDPOINT_ENV),
+                        help="socket path (default: $%s)" % ENDPOINT_ENV)
+    parser.add_argument("--window", default=os.environ.get(WINDOW_ENV),
+                        help="window UUID (default: $%s)" % WINDOW_ENV)
+    parser.add_argument("--timeout", type=timeout_argument, default=DEFAULT_TIMEOUT,
+                        help="seconds to wait for a reply (default: %g)" % DEFAULT_TIMEOUT)
+    commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
+
+    def element_command(name, help_text):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("view_id", type=int, metavar="VIEWID")
+        return command
+
+    def with_part(command):
+        command.add_argument("--part", type=int, default=0, metavar="N",
+                             help="sub-part, notably a 1-based Table column")
+        return command
+
+    commands.add_parser("hello", help="print the host's actionui.hello")
+    commands.add_parser("windows", help="print every window UUID, one per line")
+    commands.add_parser("elements", help="print the window's element ids and types as JSON")
+
+    with_part(element_command("get-value", "print an element's value as JSON"))
+    set_value = with_part(element_command("set-value", "set an element's value from JSON"))
+    set_value.add_argument("value", type=json_argument, metavar="JSON")
+
+    get_string = with_part(element_command("get-string", "print an element's value as text"))
+    get_string.add_argument("--content-type", dest="content_type", metavar="TYPE",
+                            help="ask the host for this representation, e.g. plain or markdown")
+    set_string = with_part(element_command("set-string", "set an element's value from text"))
+    set_string.add_argument("text", metavar="TEXT")
+    set_string.add_argument("--content-type", dest="content_type", metavar="TYPE",
+                            help="how to read TEXT, e.g. plain or markdown")
+
+    element_command("get-rows", "print a Table's rows as JSON")
+    set_rows = element_command("set-rows", "set a Table's rows from a JSON array of arrays")
+    set_rows.add_argument("rows", type=json_argument, metavar="JSON")
+
+    get_property = element_command("get-property", "print a property as JSON")
+    get_property.add_argument("name", metavar="NAME")
+    set_property = element_command("set-property", "set a property from JSON")
+    set_property.add_argument("name", metavar="NAME")
+    set_property.add_argument("value", type=json_argument, metavar="JSON")
+
+    get_state = element_command("get-state", "print a state key as JSON")
+    get_state.add_argument("key", metavar="KEY")
+    set_state = element_command("set-state", "set a state key from JSON")
+    set_state.add_argument("key", metavar="KEY")
+    set_state.add_argument("value", type=json_argument, metavar="JSON")
+
+    call = commands.add_parser("call", help="call any method, host methods included")
+    call.add_argument("method", metavar="METHOD")
+    call.add_argument("params", nargs="?", type=json_argument, default=None, metavar="JSON")
+    return parser
+
+
+def main(argv=None):
+    """The `python3 -m actionui_remote` entry point. Returns the process exit code.
+
+    Except for argparse's own errors, which raise SystemExit(EXIT_USAGE) as argparse does
+    everywhere.
+    """
+    import argparse       # imported here: every OMC handler imports this module, few run it
+
+    parser = _build_parser(argparse)
+    args = parser.parse_args(argv)
+    if args.command == "call" and args.params is not None and not isinstance(args.params, dict):
+        parser.error("params must be a JSON object with named keys")
+
+    try:
+        # Before the window check, so a handler running outside an ActionUI window is told there
+        # is no host (3) whatever the command, rather than that its command line is wrong.
+        connection = connect(args.endpoint, timeout=args.timeout)
+    except EndpointError as error:
+        sys.stderr.write("%s\n" % error)
+        return EXIT_NO_HOST
+
+    if args.command not in _NO_WINDOW_COMMANDS and not args.window:
+        parser.error("no window: pass --window or set %s" % WINDOW_ENV)
+
+    try:
+        output = _run_command(args, connection)
+    except RemoteError as error:
+        sys.stderr.write("%s\n" % error)
+        return EXIT_REMOTE_ERROR
+    except (EndpointError, ProtocolError) as error:
+        sys.stderr.write("%s\n" % error)
+        return EXIT_NO_HOST
+    except TypeError as error:
+        # A JSON argument that parsed but is the wrong shape: a string where rows belong.
+        sys.stderr.write("%s\n" % error)
+        return EXIT_USAGE
+    except KeyboardInterrupt:
+        return 130      # the shell's convention for a command interrupted by SIGINT
+
+    try:
+        if output:
+            sys.stdout.write(output)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # The reader went away, as `| head` does. The command itself succeeded, so this is not
+        # an error; point stdout at /dev/null so the interpreter's shutdown flush stays quiet
+        # too, which is the only way to avoid a second message on the way out.
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except OSError:
+            pass
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())

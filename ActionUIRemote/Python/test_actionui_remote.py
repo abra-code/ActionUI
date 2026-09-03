@@ -18,6 +18,7 @@ touches it says so.
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -1069,6 +1070,232 @@ class EnvironmentTests(FakeHostTestCase):
         self.assertIs(first, second)
         self.assertEqual(first.timeout, 6.0)
         self.assertEqual(first._sock.gettimeout(), 6.0)
+
+
+# --- the client as a command line tool --------------------------------------------------------
+
+class ClientCLITests(FakeHostTestCase):
+    """`python3 -m actionui_remote`, run as a child process against the fake host.
+
+    Driven through subprocess rather than by calling main() so that argparse's own exits, the
+    module's __main__ guard and what actually reaches stdout are all covered.
+    """
+
+    def _environment(self, **overrides):
+        env = dict(os.environ)
+        env.pop(aui.ENDPOINT_ENV, None)
+        env.pop(aui.WINDOW_ENV, None)
+        env.update(overrides)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        return env
+
+    def cli(self, *arguments, **environment):
+        return subprocess.run([sys.executable, "-m", "actionui_remote"] + list(arguments),
+                              cwd=HERE, capture_output=True, timeout=60,
+                              env=self._environment(**environment))
+
+    def ok(self, *arguments, **environment):
+        """Run a command that must succeed and return its stdout as text."""
+        run = self.cli(*arguments, **environment)
+        self.assertEqual(run.returncode, 0, run.stderr.decode("utf-8", "replace"))
+        return run.stdout.decode("utf-8")
+
+    def at(self, *arguments):
+        """The same command with the endpoint and window given as flags."""
+        return ("--endpoint", self.socket_path, "--window", WINDOW) + arguments
+
+    # -- reads
+
+    def test_hello(self):
+        info = json.loads(self.ok(*self.at("hello")))
+        self.assertEqual(info["protocolVersion"], aui.PROTOCOL_VERSION)
+        self.assertEqual(info["windows"], [WINDOW])
+
+    def test_windows_prints_one_uuid_per_line(self):
+        self.fake.add_window("W-2")
+        self.assertEqual(self.ok("--endpoint", self.socket_path, "windows").split(),
+                         [WINDOW, "W-2"])
+
+    def test_elements(self):
+        self.assertEqual(json.loads(self.ok(*self.at("elements"))),
+                         {str(view_id): name for view_id, name in FIXTURE.items()})
+
+    def test_value_round_trip(self):
+        self.assertEqual(self.ok(*self.at("set-value", "2", '"Ada"')), "",
+                         "a setter that succeeded prints nothing")
+        self.assertEqual(json.loads(self.ok(*self.at("get-value", "2"))), "Ada")
+
+    def test_get_string_prints_the_text_itself_not_json(self):
+        self.ok(*self.at("set-string", "2", "plain text"))
+        self.assertEqual(self.ok(*self.at("get-string", "2")), "plain text\n")
+
+    def test_get_string_of_an_unset_element_prints_an_empty_line(self):
+        self.assertEqual(self.ok(*self.at("get-string", "2")), "\n")
+
+    def test_a_content_type_and_a_view_part_reach_the_wire(self):
+        self.ok(*self.at("set-string", "2", "# Hi", "--content-type", "markdown"))
+        self.assertEqual(self.last_params()["contentType"], "markdown")
+        self.ok(*self.at("get-value", "5", "--part", "2"))
+        self.assertEqual(self.last_params()["viewPartID"], 2)
+        self.ok(*self.at("get-string", "2", "--content-type", "plain", "--part", "3"))
+        self.assertEqual(self.last_params()["contentType"], "plain")
+        self.assertEqual(self.last_params()["viewPartID"], 3)
+
+    def test_rows_round_trip(self):
+        self.ok(*self.at("set-rows", "5", '[["a","b"],["c","d"]]'))
+        self.assertEqual(json.loads(self.ok(*self.at("get-rows", "5"))), [["a", "b"], ["c", "d"]])
+
+    def test_property_and_state_round_trip(self):
+        self.ok(*self.at("set-property", "2", "disabled", "true"))
+        self.assertIs(json.loads(self.ok(*self.at("get-property", "2", "disabled"))), True)
+        self.ok(*self.at("set-state", "2", "count", "7"))
+        self.assertEqual(json.loads(self.ok(*self.at("get-state", "2", "count"))), 7)
+
+    def test_call_fills_in_the_window_when_one_is_given(self):
+        self.assertEqual(json.loads(self.ok(*self.at("call", "actionui.getElementInfo"))),
+                         {str(view_id): name for view_id, name in FIXTURE.items()})
+        self.assertEqual(self.last_params()["window"], WINDOW)
+
+    def test_call_without_a_window_takes_it_from_the_params(self):
+        output = self.ok("--endpoint", self.socket_path, "call", "actionui.getValue",
+                         json.dumps({"window": WINDOW, "viewID": 2}))
+        self.assertEqual(json.loads(output), None)
+        self.assertEqual(self.last_params()["window"], WINDOW)
+
+    def test_an_explicit_window_in_the_params_wins_over_the_flag(self):
+        output = self.ok("--endpoint", self.socket_path, "--window", "not-this-one",
+                         "call", "actionui.getElementInfo", json.dumps({"window": WINDOW}))
+        self.assertEqual(json.loads(output),
+                         {str(view_id): name for view_id, name in FIXTURE.items()})
+        self.assertEqual(self.last_params()["window"], WINDOW)
+
+    def test_a_negative_element_id_needs_no_separator(self):
+        # argparse's negative-number matcher lets -5 through as a value, so a negative id (the
+        # engine assigns them) works either way.
+        for arguments in (("get-value", "-5"), ("get-value", "--", "-5")):
+            with self.subTest(arguments=arguments):
+                run = self.cli(*self.at(*arguments))
+                self.assertEqual(run.returncode, 1, run.stderr.decode("utf-8"))
+                self.assertIn("-5", run.stderr.decode("utf-8"))
+
+    def test_a_dash_argument_that_is_not_a_number_needs_the_separator(self):
+        self.ok(*self.at("set-string", "2", "--", "-hello"))
+        self.assertEqual(self.win.get_string(2), "-hello")
+
+    # -- the environment contract
+
+    def test_the_endpoint_and_window_come_from_the_environment(self):
+        info = json.loads(self.ok("hello", **{aui.ENDPOINT_ENV: self.socket_path}))
+        self.assertEqual(info["windows"], [WINDOW])
+        environment = {aui.ENDPOINT_ENV: self.socket_path, aui.WINDOW_ENV: WINDOW}
+        self.assertEqual(json.loads(self.ok("get-rows", "5", **environment)), None)
+
+    # -- failures
+
+    def test_a_host_error_exits_one_and_names_the_code(self):
+        run = self.cli(*self.at("get-value", "99"))
+        self.assertEqual(run.returncode, 1, "a host error is exit 1, the documented code")
+        self.assertEqual(run.returncode, aui.EXIT_REMOTE_ERROR)
+        self.assertIn("[%d]" % aui.RemoteError.UNKNOWN_VIEW, run.stderr.decode("utf-8"))
+        self.assertEqual(run.stdout, b"")
+
+    def test_no_endpoint_exits_three_and_names_the_variable(self):
+        run = self.cli("hello")
+        self.assertEqual(run.returncode, 3, "no host is exit 3, the documented code")
+        self.assertEqual(run.returncode, aui.EXIT_NO_HOST)
+        self.assertIn(aui.ENDPOINT_ENV, run.stderr.decode("utf-8"))
+
+    def test_no_endpoint_is_no_host_even_for_a_command_that_needs_a_window(self):
+        # The point of code 3: a handler running outside an ActionUI window can tell "no host"
+        # from "no such element" without reading messages, whatever it asked for.
+        run = self.cli("get-string", "2")
+        self.assertEqual(run.returncode, aui.EXIT_NO_HOST)
+        self.assertIn(aui.ENDPOINT_ENV, run.stderr.decode("utf-8"))
+
+    def test_nothing_listening_exits_three(self):
+        run = self.cli("--endpoint", os.path.join(self.dir, "absent"), "hello")
+        self.assertEqual(run.returncode, aui.EXIT_NO_HOST)
+        self.assertIn("no ActionUI host is listening", run.stderr.decode("utf-8"))
+
+    def test_elements_needs_a_window(self):
+        run = self.cli("--endpoint", self.socket_path, "elements")
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+        self.assertIn(aui.WINDOW_ENV, run.stderr.decode("utf-8"))
+
+    def test_a_timeout_names_the_seconds_it_waited(self):
+        silent = _ScriptedHost(os.path.join(self.dir, "silent"), hold=True)
+        self.addCleanup(silent.stop)
+        run = self.cli("--endpoint", silent.path, "--timeout", "0.5", "hello")
+        self.assertEqual(run.returncode, aui.EXIT_NO_HOST)
+        self.assertIn("within 0.5 s", run.stderr.decode("utf-8"))
+
+    def test_a_timeout_of_zero_or_less_is_refused(self):
+        for value in ("0", "-1", "soon"):
+            with self.subTest(timeout=value):
+                run = self.cli("--endpoint", self.socket_path, "--timeout", value, "hello")
+                self.assertEqual(run.returncode, aui.EXIT_USAGE)
+                self.assertIn("timeout", run.stderr.decode("utf-8"))
+
+    def test_a_missing_window_exits_two_and_says_how_to_give_one(self):
+        run = self.cli("--endpoint", self.socket_path, "get-value", "2")
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+        self.assertIn(aui.WINDOW_ENV, run.stderr.decode("utf-8"))
+
+    def test_a_json_argument_that_is_not_json_exits_two(self):
+        run = self.cli(*self.at("set-value", "2", "not json"))
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+        self.assertIn("expected JSON", run.stderr.decode("utf-8"))
+
+    def test_a_json_argument_of_the_wrong_shape_exits_two(self):
+        # Valid JSON, but rows are arrays of arrays; the client refuses a string row.
+        run = self.cli(*self.at("set-rows", "5", '["ab","cd"]'))
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+        self.assertIn("not a string", run.stderr.decode("utf-8"))
+
+    def test_call_with_positional_params_exits_two(self):
+        run = self.cli(*self.at("call", "actionui.hello", "[1,2]"))
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+        self.assertIn("named keys", run.stderr.decode("utf-8"))
+
+    def test_a_closed_output_pipe_is_not_an_error(self):
+        # `python3 -m actionui_remote get-rows 5 | head -1` is the idiom this tool exists for.
+        # The rows are large enough that the write is still going when the reader disappears.
+        self.win.set_rows(5, [["a" * 40, "b" * 40] for _ in range(4000)])
+        read_fd, write_fd = os.pipe()
+        process = subprocess.Popen(
+            [sys.executable, "-m", "actionui_remote"] + list(self.at("get-rows", "5")),
+            cwd=HERE, stdout=write_fd, stderr=subprocess.PIPE, env=self._environment())
+        self.addCleanup(_reap, process)
+        os.close(write_fd)
+        os.close(read_fd)
+        _, stderr = process.communicate(timeout=60)
+        self.assertEqual(process.returncode, 0, stderr.decode("utf-8", "replace"))
+        self.assertNotIn(b"Traceback", stderr)
+        self.assertNotIn(b"BrokenPipeError", stderr)
+
+    def test_an_interrupt_exits_quietly(self):
+        silent = _ScriptedHost(os.path.join(self.dir, "quiet"), hold=True)
+        self.addCleanup(silent.stop)
+        process = subprocess.Popen(
+            [sys.executable, "-m", "actionui_remote",
+             "--endpoint", silent.path, "--timeout", "60", "hello"],
+            cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self._environment())
+        self.addCleanup(_reap, process)
+        # Interrupt it only once it is blocked waiting for the reply.
+        self.assertTrue(_wait_for(lambda: bool(silent.received)), "the tool never sent a request")
+        process.send_signal(signal.SIGINT)
+        _, stderr = process.communicate(timeout=30)
+        self.assertEqual(process.returncode, 130, stderr.decode("utf-8", "replace"))
+        self.assertNotIn(b"Traceback", stderr)
+
+    def test_a_non_integer_element_id_exits_two(self):
+        run = self.cli(*self.at("get-value", "two"))
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+
+    def test_no_command_exits_two(self):
+        run = self.cli(*self.at())
+        self.assertEqual(run.returncode, aui.EXIT_USAGE)
+        self.assertIn("COMMAND", run.stderr.decode("utf-8"))
 
 
 # --- the fake host as a command line tool -----------------------------------------------------
