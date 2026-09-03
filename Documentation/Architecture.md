@@ -103,6 +103,11 @@ ActionUI's core is a Swift framework. Language adapters provide bindings for dif
 - **ActionUIJavaScriptCoreAdapter** — JavaScriptCore integration
 - **ActionUIWebKitJSAdapter** — WebKit JavaScript bridge
 - **ActionUI Python Module** — Full Python package with pip install (see [Python Bridge](#python-bridge))
+- **ActionUIRemote** — Out-of-process binding (see [Remote Binding](#remote-binding))
+
+## Remote Binding
+
+Every adapter above runs inside the process that owns the UI. `ActionUIRemote` (macOS) serves the same verb set to other processes: a host embedding ActionUI starts `ActionUIRemoteServer` on a Unix domain socket, and any process of the same user speaks newline-delimited JSON-RPC 2.0 to it, with the same value encoding as the C adapter and the same `(windowUUID, viewID, viewPartID)` addressing. Requests run on the main actor against `ActionUIModel`; hosts add their own namespaced methods. The wire contract is `ActionUIRemote/PROTOCOL.md`; a stdlib-only Python client ships in `ActionUIRemote/Python/`. This is the path OMC applets use from their out-of-process script handlers.
 
 ## Python Bridge
 

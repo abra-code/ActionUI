@@ -12,6 +12,7 @@
 //   • ActionUIObjCAdapter            – Objective-C adapter
 //   • ActionUIJavaScriptCoreAdapter  – JavaScriptCore adapter
 //   • ActionUIWebKitJSAdapter        – WebKit / WKWebView JS bridge adapter
+//   • ActionUIRemote                 – Out-of-process binding: Unix socket + JSON-RPC 2.0 server (macOS)
 //   • ActionUIDocumentation          – Resource-only bundle (schemas, templates, index)
 //
 // The ActionUIViewer preview tool moved to its own aggregator package at Apps/ActionUIViewer so it
@@ -255,6 +256,10 @@ let package = Package(
             name: "ActionUIRemote",
             dependencies: ["ActionUI"],
             path: "ActionUIRemote",
+            exclude: [
+                "PROTOCOL.md",
+                "README.md",
+            ],
         ),
 
         // MARK: - Unit tests for ActionUIRemote
