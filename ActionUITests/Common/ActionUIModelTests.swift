@@ -933,4 +933,50 @@ final class ActionUIModelTests: XCTestCase {
         model.setElementStateFromString(windowUUID: windowUUID, viewID: 1, key: "score", value: asString!)
         XCTAssertEqual(model.getElementState(windowUUID: windowUUID, viewID: 1, key: "score") as? Int, 99)
     }
+
+    // MARK: - Window enumeration
+
+    func testWindowUUIDsEmptyWhenNothingLoaded() {
+        let model = ActionUIModel.shared
+        XCTAssertEqual(model.windowUUIDs, [])
+        XCTAssertFalse(model.hasWindow(windowUUID))
+    }
+
+    func testWindowUUIDsAndHasWindowForOneLoadedWindow() throws {
+        try loadToggleElement()
+        let model = ActionUIModel.shared
+        XCTAssertEqual(model.windowUUIDs, [windowUUID])
+        XCTAssertTrue(model.hasWindow(windowUUID))
+        XCTAssertFalse(model.hasWindow("no-such-window"))
+    }
+
+    func testWindowUUIDsSortedForTwoWindows() throws {
+        let elementDict: [String: Any] = [
+            "id": 1,
+            "type": "Toggle",
+            "properties": ["title": "Enable"]
+        ]
+        let model = ActionUIModel.shared
+        // Load in reverse alphabetical order to prove the result is sorted, not insertion ordered.
+        _ = try model.loadDescription(from: elementDict, windowUUID: "window-b")
+        _ = try model.loadDescription(from: elementDict, windowUUID: "window-a")
+        XCTAssertEqual(model.windowUUIDs, ["window-a", "window-b"])
+        XCTAssertTrue(model.hasWindow("window-a"))
+        XCTAssertTrue(model.hasWindow("window-b"))
+    }
+
+    func testHasWindowDistinguishesUnknownWindowFromWindowWithoutPositiveIDs() throws {
+        // An element with no id gets an auto-assigned negative id, so getElementInfo is empty
+        // for this window just as it is for an unknown one; hasWindow must still say true.
+        let elementDict: [String: Any] = [
+            "type": "Text",
+            "properties": ["text": "unlabeled"]
+        ]
+        let model = ActionUIModel.shared
+        _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
+        XCTAssertTrue(model.getElementInfo(windowUUID: windowUUID).isEmpty)
+        XCTAssertTrue(model.getElementInfo(windowUUID: "no-such-window").isEmpty)
+        XCTAssertTrue(model.hasWindow(windowUUID))
+        XCTAssertFalse(model.hasWindow("no-such-window"))
+    }
 }

@@ -259,53 +259,17 @@ public func actionUIClearError() {
 
 // MARK: - JSON Conversion Helpers
 
-/// Convert any value to a JSON string safely, without risking ObjC exceptions.
-/// `JSONSerialization.data(withJSONObject:)` throws an ObjC `NSException`
-/// (not a Swift `Error`) when the top-level object is not a valid JSON
-/// container (e.g. a bare String or Number).  ObjC exceptions bypass
-/// Swift's `do/catch`, crashing the process.
-///
-/// This helper checks `isValidJSONObject` first and falls back to manual
-/// serialization for scalar types that are valid JSON values but cannot be
-/// a top-level `withJSONObject` argument.
-private func safeJSONString(from value: Any) -> String? {
-    // Arrays and dictionaries — the common path.
-    if JSONSerialization.isValidJSONObject(value) {
-        do {
-            let data = try JSONSerialization.data(withJSONObject: value, options: [])
-            return String(data: data, encoding: .utf8)
-        } catch {
-            // Should not happen after isValidJSONObject, but handle gracefully.
-            setError("Failed to convert value to JSON: \(error)")
-            return nil
-        }
-    }
+// The conversion itself lives in ActionUI core (ActionUIJSON) so that every adapter encodes and
+// decodes identically. These wrappers keep the C adapter's contract: nil on failure, with the
+// failure text available through actionUIGetLastError().
 
-    // Scalar types that are valid JSON but not valid top-level NSJSONSerialization objects.
-    switch value {
-    case let s as String:
-        // Wrap in an array, serialize, then strip the surrounding brackets.
-        if let data = try? JSONSerialization.data(withJSONObject: [s], options: []),
-           let arr = String(data: data, encoding: .utf8) {
-            // "[\"hello\"]" -> "\"hello\""
-            let inner = arr.dropFirst(1).dropLast(1)
-            return String(inner)
-        }
-        return nil
-    case let n as NSNumber:
-        // CFBoolean is bridged to NSNumber; detect bools by CFBooleanGetTypeID.
-        if CFGetTypeID(n) == CFBooleanGetTypeID() {
-            return n.boolValue ? "true" : "false"
-        }
-        return "\(n)"
-    case let b as Bool:
-        return b ? "true" : "false"
-    case let i as Int:
-        return "\(i)"
-    case let d as Double:
-        return "\(d)"
-    default:
-        setError("Cannot convert value of type \(type(of: value)) to JSON")
+/// Convert any value to a JSON string safely (see ActionUIJSON.string(from:)).
+/// Returns nil and records the error when the value has no JSON representation.
+private func safeJSONString(from value: Any) -> String? {
+    do {
+        return try ActionUIJSON.string(from: value)
+    } catch {
+        setError(jsonErrorMessage(error))
         return nil
     }
 }
@@ -314,18 +278,22 @@ private func valueToJSON(_ value: Any) -> String? {
     return safeJSONString(from: value)
 }
 
+/// Parse a JSON string, fragments allowed (see ActionUIJSON.value(from:)).
+/// Returns nil and records the error when the string is not UTF-8 or not JSON.
 private func jsonToValue(_ json: String) -> Any? {
-    guard let data = json.data(using: .utf8) else {
-        setError("Invalid UTF-8 in JSON string")
-        return nil
-    }
-    
     do {
-        return try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
+        return try ActionUIJSON.value(from: json)
     } catch {
-        setError("Failed to parse JSON: \(error)")
+        setError(jsonErrorMessage(error))
         return nil
     }
+}
+
+private func jsonErrorMessage(_ error: Error) -> String {
+    if let jsonError = error as? ActionUIJSONError {
+        return jsonError.message
+    }
+    return "\(error)"
 }
 
 // MARK: - Element Value Management (JSON)
@@ -1305,24 +1273,11 @@ public func actionUIRemoveElement(
 
 /// Parse a JSON array of button descriptors into [DialogButton].
 /// Expected JSON format: [{"title":"Delete","role":"destructive","actionID":"delete.confirmed"},...]
-/// "role" values: omit or "default" → nil, "cancel" → .cancel, "destructive" → .destructive
+/// "role" values: omit or "default" -> nil, "cancel" -> .cancel, "destructive" -> .destructive
 /// "actionID" is optional; omit or null for dismiss-only buttons.
+/// Shared with the other adapters through ActionUIJSON.dialogButtons(from:).
 private func parseDialogButtons(_ buttonsJSON: String?) -> [ActionUI.DialogButton]? {
-    guard let json = buttonsJSON,
-          let data = json.data(using: .utf8),
-          let array = (try? JSONSerialization.jsonObject(with: data, options: [.allowFragments])) as? [[String: Any]],
-          !array.isEmpty else { return nil }
-
-    return array.compactMap { dict -> ActionUI.DialogButton? in
-        guard let title = dict["title"] as? String else { return nil }
-        let role: SwiftUI.ButtonRole? = switch dict["role"] as? String {
-            case "cancel": .cancel
-            case "destructive": .destructive
-            default: nil
-        }
-        let actionID = dict["actionID"] as? String
-        return ActionUI.DialogButton(title: title, role: role, actionID: actionID)
-    }
+    return ActionUIJSON.dialogButtons(from: buttonsJSON)
 }
 
 /// Presents a window-level modal sheet or full-screen cover loaded from a JSON/plist string.

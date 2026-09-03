@@ -228,6 +228,17 @@ public struct ActionUISwift {
         return model.getElementInfo(windowUUID: windowUUID)
     }
 
+    /// Returns the UUIDs of every window that currently has a loaded model, sorted.
+    public static func windowUUIDs() -> [String] {
+        return model.windowUUIDs
+    }
+
+    /// Returns true when a window model exists for the given UUID.
+    /// - Parameter windowUUID: Unique identifier for the window.
+    public static func hasWindow(windowUUID: String) -> Bool {
+        return model.hasWindow(windowUUID)
+    }
+
     /// Registers an action handler for a specific actionID.
     /// - Parameters:
     ///   - actionID: Identifier for the action (e.g., "button.click").

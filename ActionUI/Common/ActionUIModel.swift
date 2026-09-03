@@ -32,7 +32,24 @@ public class ActionUIModel: ObservableObject {
         // Initialize with default ConsoleLogger
         self.logger = ConsoleLogger(maxLevel: .verbose)
     }
-        
+
+    // MARK: - Window enumeration
+
+    /// UUIDs of every window that currently has a model, sorted for stable output.
+    /// A window gets a model when a description is loaded for it and loses it when
+    /// the window is unregistered; the list is the only way for a client that did
+    /// not create the windows itself (a remote binding, a test harness) to discover them.
+    public var windowUUIDs: [String] {
+        return windowModels.keys.sorted()
+    }
+
+    /// True when a window model exists for windowUUID. Unlike getElementInfo, which returns
+    /// an empty dictionary both for an unknown window and for a window without positive
+    /// IDs, this distinguishes the two.
+    public func hasWindow(_ windowUUID: String) -> Bool {
+        return windowModels[windowUUID] != nil
+    }
+
     // Register a handler for a specific actionID
     // Parameters:
     // - actionID: The identifier for the action (e.g., "button.click", "table.double.click")
