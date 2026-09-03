@@ -50,6 +50,13 @@ public class ActionUIModel: ObservableObject {
         return windowModels[windowUUID] != nil
     }
 
+    /// True when the window exists and has a view model for viewID. Every element with an id
+    /// (positive or auto-assigned negative) gets one when its description is loaded, so this is
+    /// the check a client should make before addressing an element it did not create.
+    public func hasElement(windowUUID: String, viewID: Int) -> Bool {
+        return windowModels[windowUUID]?.viewModels[viewID] != nil
+    }
+
     // Register a handler for a specific actionID
     // Parameters:
     // - actionID: The identifier for the action (e.g., "button.click", "table.double.click")

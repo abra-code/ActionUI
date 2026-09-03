@@ -239,6 +239,11 @@ public struct ActionUISwift {
         return model.hasWindow(windowUUID)
     }
 
+    /// Returns true when the window exists and has an element with the given view ID.
+    public static func hasElement(windowUUID: String, viewID: Int) -> Bool {
+        return model.hasElement(windowUUID: windowUUID, viewID: viewID)
+    }
+
     /// Registers an action handler for a specific actionID.
     /// - Parameters:
     ///   - actionID: Identifier for the action (e.g., "button.click").

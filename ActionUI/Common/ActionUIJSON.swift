@@ -97,6 +97,18 @@ public enum ActionUIJSON {
         }
     }
 
+    // MARK: - Normalization
+
+    /// Bridge a scalar decoded by JSONSerialization to the Swift-native type Swift code would
+    /// have stored: NSNumber bool -> Bool, whole NSNumber -> Int, fractional -> Double,
+    /// NSString -> String. Containers, NSNull and everything else come back unchanged. Use it
+    /// where the engine compares types exactly (element state); element values and properties
+    /// bridge NSNumber themselves and must not be pre-converted (an Int does not bridge to a
+    /// Double the way an NSNumber does).
+    public static func normalized(_ value: Any) -> Any {
+        return JSONHelper.normalizedJSONValue(value)
+    }
+
     // MARK: - Dialog buttons
 
     /// Parse dialog button descriptors into `[DialogButton]`.

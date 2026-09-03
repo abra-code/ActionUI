@@ -965,6 +965,22 @@ final class ActionUIModelTests: XCTestCase {
         XCTAssertTrue(model.hasWindow("window-b"))
     }
 
+    func testHasElementForLoadedContainerChildAndUnknownIDs() throws {
+        let elementDict: [String: Any] = [
+            "id": 10,
+            "type": "VStack",
+            "children": [
+                ["id": 2, "type": "TextField", "properties": ["title": "Name"]],
+            ]
+        ]
+        let model = ActionUIModel.shared
+        _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
+        XCTAssertTrue(model.hasElement(windowUUID: windowUUID, viewID: 10), "containers have view models too")
+        XCTAssertTrue(model.hasElement(windowUUID: windowUUID, viewID: 2))
+        XCTAssertFalse(model.hasElement(windowUUID: windowUUID, viewID: 99))
+        XCTAssertFalse(model.hasElement(windowUUID: "no-such-window", viewID: 2))
+    }
+
     func testHasWindowDistinguishesUnknownWindowFromWindowWithoutPositiveIDs() throws {
         // An element with no id gets an auto-assigned negative id, so getElementInfo is empty
         // for this window just as it is for an unknown one; hasWindow must still say true.
