@@ -18,6 +18,7 @@
             "-framework ActionUI",
             "-framework ActionUICAdapter",
             "-framework ActionUIAppKitApplication",
+            "-framework ActionUIRemote",
             "-framework Foundation",
             "-framework SwiftUI",
             "-framework AppKit",

@@ -189,6 +189,48 @@
                ReferencedContainer = "container:ActionUI.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1DC8A1C72FDE9036002C6900"
+               BuildableName = "ActionUIMenuBar.framework"
+               BlueprintName = "ActionUIMenuBar"
+               ReferencedContainer = "container:ActionUI.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1DC66218304962320054D2F1"
+               BuildableName = "ActionUIRemote.framework"
+               BlueprintName = "ActionUIRemote"
+               ReferencedContainer = "container:ActionUI.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1DC66220304962330054D2F1"
+               BuildableName = "ActionUIRemoteTests.xctest"
+               BlueprintName = "ActionUIRemoteTests"
+               ReferencedContainer = "container:ActionUI.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

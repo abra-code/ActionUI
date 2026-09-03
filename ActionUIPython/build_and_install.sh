@@ -49,8 +49,8 @@ fi
 # xcodebuild places output under SYMROOT/Release/
 BUILT_DIR="$FRAMEWORKS_DIR/Release"
 
-# Verify all three frameworks exist
-for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication; do
+# Verify all four frameworks exist
+for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication ActionUIRemote; do
     if [ ! -d "$BUILT_DIR/${fw}.framework" ]; then
         echo "Error: ${fw}.framework not found in $BUILT_DIR" >&2
         exit 1

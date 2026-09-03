@@ -1522,6 +1522,46 @@ static napi_value node_app_terminate(napi_env env, napi_callback_info info) {
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
+static napi_value node_app_start_remote_server(napi_env env, napi_callback_info info) {
+    size_t argc = 1; napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+    const char* path_ptr = NULL;   // NULL asks the framework for its per-process default
+    char path[1024]; size_t len;
+    if (argc >= 1) {
+        napi_valuetype vtype; napi_typeof(env, argv[0], &vtype);
+        if (vtype == napi_string) {
+            napi_get_value_string_utf8(env, argv[0], path, sizeof(path), &len);
+            path_ptr = path;
+        }
+    }
+    if (actionUIAppStartRemoteServer(path_ptr) == false) {
+        napi_throw_error(env, NULL, "could not start the ActionUI remote server (already "
+                                    "running, or the socket could not be created); see the log");
+        return NULL;
+    }
+    const char* endpoint = actionUIAppRemoteServerEndpoint();
+    if (endpoint == NULL) {
+        napi_throw_error(env, NULL, "the ActionUI remote server reported no endpoint");
+        return NULL;
+    }
+    napi_value ret;
+    napi_create_string_utf8(env, endpoint, NAPI_AUTO_LENGTH, &ret);
+    return ret;
+}
+
+static napi_value node_app_stop_remote_server(napi_env env, napi_callback_info info) {
+    actionUIAppStopRemoteServer();
+    napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
+}
+
+static napi_value node_app_remote_server_endpoint(napi_env env, napi_callback_info info) {
+    const char* endpoint = actionUIAppRemoteServerEndpoint();
+    if (endpoint == NULL) { napi_value n; napi_get_null(env, &n); return n; }
+    napi_value ret;
+    napi_create_string_utf8(env, endpoint, NAPI_AUTO_LENGTH, &ret);
+    return ret;
+}
+
 static napi_value node_app_load_and_present_window(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -1797,6 +1837,9 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "appSetIcon",               node_app_set_icon);
     EXPORT_FN(exports, "appRun",                   node_app_run);
     EXPORT_FN(exports, "appTerminate",             node_app_terminate);
+    EXPORT_FN(exports, "appStartRemoteServer",     node_app_start_remote_server);
+    EXPORT_FN(exports, "appStopRemoteServer",      node_app_stop_remote_server);
+    EXPORT_FN(exports, "appRemoteServerEndpoint",  node_app_remote_server_endpoint);
     EXPORT_FN(exports, "appLoadAndPresentWindow",  node_app_load_and_present_window);
     EXPORT_FN(exports, "appCloseWindow",           node_app_close_window);
     EXPORT_FN(exports, "appLoadMenuBar",           node_app_load_menu_bar);

@@ -35,6 +35,8 @@ function testNativeAPISurface() {
         'getVersion', 'getLastError', 'clearError',
         // Logging
         'setLogger', 'log',
+        // Remote bridge
+        'appStartRemoteServer', 'appStopRemoteServer', 'appRemoteServerEndpoint',
         // Action handlers
         'registerActionHandler', 'unregisterActionHandler', 'setDefaultActionHandler',
         // Type-specific setters
@@ -270,6 +272,48 @@ function testWindowRegistry(app) {
 // ---------------------------------------------------------------------------
 // Singleton enforcement
 // ---------------------------------------------------------------------------
+function testRemoteBridge(app) {
+    // The whole chain (JS wrapper, N-API binding, Swift entry point, ActionUIRemoteServer)
+    // without a run loop, which is fine because only request handling needs the main queue
+    // to be serviced. Answering requests is covered by ActionUIRemoteTests.
+    console.log('\n=== Remote bridge ===');
+    const fs = require('fs');
+
+    check('endpoint is null before starting', app.remoteServerEndpoint === null);
+
+    const endpoint = app.startRemoteServer();
+    check('startRemoteServer returns a path', typeof endpoint === 'string' && endpoint.length > 0);
+    check('the socket file exists', fs.existsSync(endpoint));
+    check('the path fits in sun_path', Buffer.byteLength(endpoint, 'utf8') <= 103);
+    check('remoteServerEndpoint reports it', app.remoteServerEndpoint === endpoint);
+    check('the endpoint is exported to child processes',
+          process.env.ACTIONUI_REMOTE_ENDPOINT === endpoint);
+
+    let threw = false;
+    try { app.startRemoteServer(); } catch (e) { threw = true; }
+    check('starting twice throws', threw);
+
+    app.stopRemoteServer();
+    check('the socket file is removed', !fs.existsSync(endpoint));
+    check('endpoint is null after stopping', app.remoteServerEndpoint === null);
+    check('the environment variable is unset',
+          process.env.ACTIONUI_REMOTE_ENDPOINT === undefined);
+
+    let stoppedTwice = true;
+    try { app.stopRemoteServer(); } catch (e) { stoppedTwice = false; }
+    check('stopping twice does not throw', stoppedTwice);
+
+    const directory = fs.mkdtempSync(require('path').join(require('os').tmpdir(), 'aui'));
+    try {
+        const chosen = require('path').join(directory, 's');
+        check('a chosen path is honored', app.startRemoteServer(chosen) === chosen);
+        check('the chosen socket exists', fs.existsSync(chosen));
+        app.stopRemoteServer();
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+}
+
 function testSingletonEnforcement() {
     console.log('\n=== Application singleton enforcement ===');
     let threw = false;
@@ -368,6 +412,7 @@ testURLConversion();
 testConstants();
 testActionContext();
 testLoggerAPI();
+testRemoteBridge(app);
 testSingletonEnforcement();  // must be last — checks second Application() throws
 
 console.log('\n' + '='.repeat(55));

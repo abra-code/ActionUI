@@ -309,6 +309,42 @@ static PyObject* py_app_terminate(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_app_start_remote_server(PyObject* self, PyObject* args) {
+    const char* socketPath = NULL;   // NULL asks the framework for its per-process default
+    if (PyArg_ParseTuple(args, "|z", &socketPath) == 0) return NULL;
+    // The GIL must be released across this call: starting logs, and the log reaches Python
+    // through the logger bridge, which takes the GIL back. `args` keeps socketPath alive.
+    bool started;
+    Py_BEGIN_ALLOW_THREADS
+    started = actionUIAppStartRemoteServer(socketPath);
+    Py_END_ALLOW_THREADS
+    if (started == false) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "could not start the ActionUI remote server (already running, or the "
+                        "socket could not be created); see the log for the reason");
+        return NULL;
+    }
+    const char* endpoint = actionUIAppRemoteServerEndpoint();
+    if (endpoint == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "the ActionUI remote server reported no endpoint");
+        return NULL;
+    }
+    return PyUnicode_FromString(endpoint);
+}
+
+static PyObject* py_app_stop_remote_server(PyObject* self, PyObject* args) {
+    Py_BEGIN_ALLOW_THREADS      // stopping logs too; see py_app_start_remote_server
+    actionUIAppStopRemoteServer();
+    Py_END_ALLOW_THREADS
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_app_remote_server_endpoint(PyObject* self, PyObject* args) {
+    const char* endpoint = actionUIAppRemoteServerEndpoint();
+    if (endpoint == NULL) Py_RETURN_NONE;
+    return PyUnicode_FromString(endpoint);
+}
+
 static PyObject* py_app_load_and_present_window(PyObject* self, PyObject* args) {
     const char* urlString;
     const char* windowUUID;
@@ -1205,6 +1241,12 @@ static PyMethodDef ActionUIMethods[] = {
      "app_run() — start NSApplication run loop; blocks until the app terminates."},
     {"app_terminate",                 py_app_terminate,                 METH_NOARGS,
      "app_terminate() — request graceful termination (equivalent to Cmd-Q)."},
+    {"app_start_remote_server",       py_app_start_remote_server,       METH_VARARGS,
+     "app_start_remote_server(path|None) -> str - start the remote bridge; returns the socket path."},
+    {"app_stop_remote_server",        py_app_stop_remote_server,        METH_NOARGS,
+     "app_stop_remote_server() - stop the remote bridge and remove its socket."},
+    {"app_remote_server_endpoint",    py_app_remote_server_endpoint,    METH_NOARGS,
+     "app_remote_server_endpoint() -> str|None - the running server's socket path."},
     {"app_load_and_present_window",   py_app_load_and_present_window,   METH_VARARGS,
      "app_load_and_present_window(url, windowUUID[, title]) — load JSON and open a window."},
     {"app_close_window",              py_app_close_window,              METH_VARARGS,

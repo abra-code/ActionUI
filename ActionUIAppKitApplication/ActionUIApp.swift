@@ -19,6 +19,7 @@
 import AppKit
 import Foundation
 import ActionUI
+import ActionUIRemote
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -165,6 +166,11 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
 
     func applicationWillTerminate(_ notification: Notification) {
         willTerminateHandler?()
+        // After the host's handler, so it can still use the bridge. This is the only hook that
+        // runs on the path a user actually takes: NSApplication.terminate ends in libc exit(),
+        // which runs neither Python's atexit nor Node's exit event, so the bindings' own
+        // cleanup never fires on Cmd-Q and the socket file would outlive the app.
+        ActionUIRemoteServer.stopShared()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

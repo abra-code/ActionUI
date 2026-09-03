@@ -307,6 +307,7 @@ class Application {
         this._actionHandlers = new Map();
         this._defaultHandler = null;
         this._windows        = new Map();   // uuid → Window
+        this._remoteServerExitHooked = false;
 
         if (name != null) {
         	_actionui.appSetName(name);
@@ -389,6 +390,52 @@ class Application {
     // App control
     run() { _actionui.appRun(); }
     terminate() { _actionui.appTerminate(); }
+
+    // Remote bridge: out-of-process access to this app's windows.
+    //
+    // A child process reaches the windows with the actionui_remote Python module or with
+    // `python3 -m actionui_remote`; the wire contract is ActionUIRemote/PROTOCOL.md. Every
+    // request runs on the main thread against the same model the UI uses.
+    //
+    // Which window a child should drive is this app's to communicate: put ACTIONUI_WINDOW_UUID
+    // in its environment, or pass the UUID on its command line.
+    //
+    //   const endpoint = app.startRemoteServer();
+    //   spawn('python3', ['worker.py'],
+    //         { env: { ...process.env, ACTIONUI_WINDOW_UUID: window.uuid } });
+    //
+    // Returns the socket path, which is also exported as ACTIONUI_REMOTE_ENDPOINT so processes
+    // spawned afterwards inherit it. Throws if a server is already running or the socket could
+    // not be created. Anything already at the path is unlinked before binding, so pass a path
+    // of your own making.
+    //
+    // Stopped and removed when the application terminates, and on process exit for a script
+    // that never started the run loop. (app.run() never returns: AppKit ends the process in
+    // exit(), which emits no 'exit' event.)
+    startRemoteServer(path) {
+        const endpoint = _actionui.appStartRemoteServer(path ?? null);
+        // The framework called setenv, which process.env does not see; keep the two in step.
+        process.env.ACTIONUI_REMOTE_ENDPOINT = endpoint;
+        if (!this._remoteServerExitHooked) {
+            process.on('exit', () => this.stopRemoteServer());
+            this._remoteServerExitHooked = true;
+        }
+        return endpoint;
+    }
+
+    /** Stop the remote bridge and remove its socket. Does nothing if it is not running. */
+    stopRemoteServer() {
+        const wasRunning = _actionui.appRemoteServerEndpoint() !== null;
+        _actionui.appStopRemoteServer();
+        if (wasRunning) {
+            // Only when it was ours: an app that is itself a remote child inherited this
+            // variable from its parent and must keep it.
+            delete process.env.ACTIONUI_REMOTE_ENDPOINT;
+        }
+    }
+
+    /** The running server's socket path, or null when it is not running. */
+    get remoteServerEndpoint() { return _actionui.appRemoteServerEndpoint(); }
 
     loadAndPresentWindow(url, uuid, title) {
         if (uuid == null) uuid = randomUUID();

@@ -15,6 +15,12 @@ from enum import IntEnum, Enum
 from dataclasses import dataclass, field
 
 
+# The remote bridge's environment contract (ActionUIRemote/PROTOCOL.md section 9). A child
+# process reads these two to find the host and the window it was started for.
+REMOTE_ENDPOINT_ENV = "ACTIONUI_REMOTE_ENDPOINT"
+REMOTE_WINDOW_ENV = "ACTIONUI_WINDOW_UUID"
+
+
 class LogLevel(IntEnum):
     """Log levels for ActionUI.  Values match ActionUILogLevel in ActionUIC.h."""
     ERROR   = _actionui.LOG_ERROR
@@ -146,6 +152,7 @@ class Application:
         self._window_present_handler: Optional[Callable[['Window'], None]] = None
         # UUID → Window for all windows opened via load_and_present_window().
         self._windows: Dict[str, 'Window'] = {}
+        self._remote_server_atexit_registered = False
 
         if name is not None:
             _actionui.app_set_name(name)
@@ -373,6 +380,71 @@ class Application:
     def terminate(self):
         """Request graceful termination (equivalent to Cmd-Q)."""
         _actionui.app_terminate()
+
+    # ------------------------------------------------------------------
+    # Remote bridge (out-of-process access to this app's windows)
+    # ------------------------------------------------------------------
+
+    def start_remote_server(self, path: Optional[str] = None) -> str:
+        """Start the remote bridge, so child processes can read and drive this app's windows.
+
+        A child reaches the windows with the ``actionui_remote`` module or with
+        ``python3 -m actionui_remote``, both shipped in ``ActionUIRemote/Python``.  The wire
+        contract is ``ActionUIRemote/PROTOCOL.md``.  Every request runs on the main thread
+        against the same model the UI uses, so a worker sees exactly what is on screen.
+
+        Which window a child should drive is this app's to communicate: export
+        ``ACTIONUI_WINDOW_UUID`` for it, or pass the UUID on its command line.
+
+        Args:
+            path: Socket path.  Defaults to one per process in the user's temporary
+                  directory.  A Unix socket path is capped at 103 bytes.  Anything already
+                  at *path* is unlinked before binding, so pass a path of your own making,
+                  not a file that matters.
+
+        Returns:
+            The socket path the server bound.  It is also exported as
+            ``ACTIONUI_REMOTE_ENDPOINT``, so processes spawned afterwards inherit it and
+            need no configuration.
+
+        Raises:
+            RuntimeError: a server is already running, or the socket could not be created.
+                          The reason is logged.
+
+        The server is stopped and its socket removed when the application terminates, and
+        at interpreter exit for a script that never started the run loop.  (``app.run()``
+        never returns: AppKit ends the process in ``exit()``, which does not run ``atexit``.)
+
+        Example::
+
+            endpoint = app.start_remote_server()
+            subprocess.run(["python3", "worker.py"],
+                           env={**os.environ, "ACTIONUI_WINDOW_UUID": window.uuid})
+        """
+        import atexit
+        import os
+        endpoint = _actionui.app_start_remote_server(path)
+        # The framework called setenv, which os.environ does not see; keep the two in step.
+        os.environ[REMOTE_ENDPOINT_ENV] = endpoint
+        if not self._remote_server_atexit_registered:
+            atexit.register(self.stop_remote_server)
+            self._remote_server_atexit_registered = True
+        return endpoint
+
+    def stop_remote_server(self):
+        """Stop the remote bridge and remove its socket.  Does nothing if it is not running."""
+        import os
+        was_running = _actionui.app_remote_server_endpoint() is not None
+        _actionui.app_stop_remote_server()
+        if was_running:
+            # Only when it was ours: an app that is itself a remote child inherited this
+            # variable from its parent and must keep it.
+            os.environ.pop(REMOTE_ENDPOINT_ENV, None)
+
+    @property
+    def remote_server_endpoint(self) -> Optional[str]:
+        """The running server's socket path, or ``None`` when it is not running."""
+        return _actionui.app_remote_server_endpoint()
 
     def load_and_present_window(self,
                                 url: str,

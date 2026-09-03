@@ -101,7 +101,8 @@ def find_frameworks_dir():
         has_actionui  = os.path.isdir(os.path.join(d, 'ActionUI.framework'))
         has_adapter   = os.path.isdir(os.path.join(d, 'ActionUICAdapter.framework'))
         has_appkit    = os.path.isdir(os.path.join(d, 'ActionUIAppKitApplication.framework'))
-        if has_actionui and has_adapter and has_appkit:
+        has_remote    = os.path.isdir(os.path.join(d, 'ActionUIRemote.framework'))
+        if has_actionui and has_adapter and has_appkit and has_remote:
             return d
 
     return None
@@ -113,7 +114,7 @@ if fw_dir is None:
     print(
         "Error: could not locate all required static frameworks.\n"
         "\n"
-        "Provide the path to the directory that contains all three static .framework\n"
+        "Provide the path to the directory that contains all four static .framework\n"
         "bundles using the ACTIONUI_FRAMEWORKS_DIR environment variable:\n"
         "\n"
         "  ACTIONUI_FRAMEWORKS_DIR=/path/to/frameworks pip install .\n"
@@ -130,6 +131,7 @@ print(f"Static frameworks directory            : {fw_dir}")
 print(f"  ActionUI.framework                   OK")
 print(f"  ActionUICAdapter.framework           OK")
 print(f"  ActionUIAppKitApplication.framework  OK")
+print(f"  ActionUIRemote.framework             OK")
 
 # ---------------------------------------------------------------------------
 # Extension definition
@@ -168,6 +170,7 @@ actionui_extension = Extension(
         '-framework', 'ActionUI',
         '-framework', 'ActionUICAdapter',
         '-framework', 'ActionUIAppKitApplication',
+        '-framework', 'ActionUIRemote',
         # ObjC runtime (required when linking any .m translation unit).
         # '-lobjc',
         # System frameworks used by ActionUI's Swift code.

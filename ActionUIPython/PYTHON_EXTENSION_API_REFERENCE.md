@@ -238,6 +238,30 @@ void actionUIAppTerminate(void);
 // Dispatches asynchronously to the main thread; safe to call from any thread.
 ```
 
+### Remote bridge
+
+```c
+bool actionUIAppStartRemoteServer(const char* socketPath);
+// Start the out-of-process bridge, so child processes can read and drive this
+// app's windows.  Pass NULL for a per-process default path in the user's
+// temporary directory.  On success the path is exported as
+// ACTIONUI_REMOTE_ENDPOINT, so processes spawned afterwards inherit it.
+// Returns false if a server is already running or the socket could not be
+// created; the reason is logged.  Safe to call from any thread.
+
+void actionUIAppStopRemoteServer(void);
+// Stop the server, remove its socket, and unset ACTIONUI_REMOTE_ENDPOINT.
+// Does nothing when no server is running.  Safe to call from any thread.
+
+const char* actionUIAppRemoteServerEndpoint(void);
+// The running server's socket path, or NULL.  Owned by the framework and valid
+// until the next start or stop; copy it if you keep it.
+```
+
+The wire contract is `ActionUIRemote/PROTOCOL.md`; the client a child process
+uses is `ActionUIRemote/Python/actionui_remote.py`, importable or runnable with
+`python3 -m actionui_remote`.
+
 ### Window operations
 
 ```c
@@ -485,6 +509,36 @@ print(window.uuid)
 
 app.close_window(window.uuid)  # close by UUID
 ```
+
+#### Remote bridge
+
+Lets child processes read and drive this app's windows over a Unix socket,
+which is what an app whose logic runs in short-lived workers needs.  Every
+request runs on the main thread against the same model the UI uses, so a worker
+sees exactly what is on screen.  Requests are answered only while the run loop
+is running.
+
+```python
+endpoint = app.start_remote_server()      # or app.start_remote_server("/tmp/my.sock")
+# The path is exported as ACTIONUI_REMOTE_ENDPOINT for processes spawned after
+# this call.  Which window a child drives is yours to communicate.
+subprocess.run(["python3", "worker.py"],
+               env={**os.environ, "ACTIONUI_WINDOW_UUID": window.uuid})
+
+app.remote_server_endpoint    # the socket path, or None
+app.stop_remote_server()      # also runs at interpreter exit
+```
+
+Starting twice raises `RuntimeError`.  In the worker:
+
+```python
+import actionui_remote as aui           # ActionUIRemote/Python
+win = aui.Window.from_environment()
+rows = win.get_rows(5)
+win.set_string(4, "Working...")
+```
+
+See `ActionUIRemote/README.md` and `ActionUIRemote/PROTOCOL.md`.
 
 ### Logger
 

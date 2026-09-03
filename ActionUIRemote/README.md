@@ -19,29 +19,89 @@ subprocesses of an in-process Python app.
 
 ## Host integration
 
+One server per process is what the environment contract assumes, so that is the API:
+
 ```swift
 import ActionUIRemote
 
-let server = ActionUIRemoteServer(host: .init(name: "MyApp", version: "1.0"))
-server.logger = ActionUIModel.shared.logger          // optional
-try server.start(socketPath: socketPath)            // a 0600 file in a user-private directory
-setenv("ACTIONUI_REMOTE_ENDPOINT", socketPath, 1)   // children inherit it
+// Binds the socket, exports ACTIONUI_REMOTE_ENDPOINT so children inherit it, and returns the
+// path. Omit socketPath for a per-process default in the user's temporary directory.
+let endpoint = try ActionUIRemoteServer.startShared(
+    host: .init(name: "MyApp", version: "1.0"),
+    logger: ActionUIModel.shared.logger)            // optional
 
 // Host-specific verbs, namespaced. Handlers run on the main actor.
-server.register(method: "myapp.quit") { _ in
+ActionUIRemoteServer.shared?.register(method: "myapp.quit") { _ in
     NSApp.terminate(nil)
     return true
 }
 
 // Optional: resolve `presentModal` resource names to files.
-server.setModalResourceResolver { name in Bundle.main.url(forResource: name, withExtension: "json") }
+ActionUIRemoteServer.shared?.setModalResourceResolver { name in
+    Bundle.main.url(forResource: name, withExtension: "json")
+}
 
-// On the way out:
-server.stop()
+// From the host's termination hook. The socket file outlives a process that just exits, so
+// this matters: an `atexit` handler unlinks it as a backstop, but only this closes connections.
+ActionUIRemoteServer.stopShared()
 ```
+
+`startShared` throws `UnixSocketServerError.alreadyStarted` if one is already running, and
+`ActionUIRemoteServer.sharedEndpoint` reports the path of the running one. Anything already at
+the socket path is unlinked before binding, so pass a path of your own making.
+
+A host that needs something else - two servers, a path it manages itself, no environment export -
+constructs `ActionUIRemoteServer(host:)` directly and calls `start(socketPath:)` and `stop()` on
+it. Nothing above is required.
+
+### From a C or Objective-C host
+
+`ActionUIRemoteServer` is a plain Swift class, so none of it reaches Objective-C through a
+generated header. The same lifecycle is available as C entry points, declared in
+`ActionUIRemote-Swift.h`:
+
+```objc
+@import ActionUIRemote;      // or #import <ActionUIRemote/ActionUIRemote-Swift.h>
+
+if (actionUIRemoteStartServer(socketPath, "MyHost", "1.0")) {   // any argument may be NULL
+    const char *endpoint = actionUIRemoteServerEndpoint();      // owned by the framework
+    ...
+}
+actionUIRemoteStopServer();
+```
+
+`actionUIRemoteServerIsRunning()` answers whether one is up. NULL arguments mean the per-process
+default path and the running process's name and version. This is what OMC calls.
+
+Registering host methods is still Swift-only: a handler is a Swift closure, so a C host that
+needs its own `omc.*` verbs supplies them through a small Swift file of its own.
 
 Every request runs on the main actor against `ActionUIModel.shared`. A main thread that does
 not respond within `mainThreadTimeout` (10 s) answers `1005` instead of hanging the client.
+
+### From an ActionUIPython or ActionUINodeJS app
+
+Those two hosts do not need any of the above: `ActionUIAppKitApplication` starts and stops one
+server for the process, and the binding exposes it.
+
+```python
+endpoint = app.start_remote_server()     # returns the socket path, exports ACTIONUI_REMOTE_ENDPOINT
+subprocess.run(["python3", "worker.py"],
+               env={**os.environ, "ACTIONUI_WINDOW_UUID": window.uuid})
+```
+
+```js
+const endpoint = app.startRemoteServer();
+spawn('python3', ['worker.py'],
+      { env: { ...process.env, ACTIONUI_WINDOW_UUID: window.uuid } });
+```
+
+Requests are answered only while the run loop is running, since every one of them hops to the
+main thread. A worker started before `app.run()` should wait for its first reply rather than
+assume the host is dead.
+
+A PillowUI worker-process example belongs here and can be added later; PillowUI itself is
+unchanged by this target.
 
 ## Command line
 
@@ -87,6 +147,8 @@ from `ActionUIRemote/Python`, or name that directory in `PYTHONPATH`.
 - `JSONRPC.swift`: envelope codec and `ActionUIRemoteError`.
 - `UnixSocketServer.swift`: socket, framing, per-connection queues.
 - `ActionUIRemoteServer.swift`: public API, method registry, main-thread hop.
+- `ActionUIRemoteSharedServer.swift`: the process-wide server, its default path, and the
+  environment export - what a host calls instead of writing its own singleton.
 - `ActionUIRemoteMethods.swift`: the `actionui.*` table over the engine.
 - `Python/`: the stdlib-only Python client (importable, and runnable with `-m`) and a fake
   server for host test suites.

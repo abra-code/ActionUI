@@ -180,6 +180,28 @@ All parameters are optional.  `allowedTypes` accepts file extensions (`'json'`) 
 UTI strings (`'public.image'`).  All three methods block inside `runModal()` and return
 synchronously — call them from action handlers or lifecycle callbacks.
 
+#### Remote bridge
+
+Lets child processes read and drive this app's windows over a Unix socket, which is what
+an app whose logic runs in short-lived workers needs.  Every request runs on the main
+thread against the same model the UI uses, so a worker sees exactly what is on screen.
+Requests are answered only while the run loop is running.
+
+```js
+const endpoint = app.startRemoteServer();          // or app.startRemoteServer('/tmp/my.sock')
+// The path is exported as ACTIONUI_REMOTE_ENDPOINT for processes spawned after this
+// call.  Which window a child drives is yours to communicate.
+spawn('python3', ['worker.py'],
+      { env: { ...process.env, ACTIONUI_WINDOW_UUID: window.uuid } });
+
+app.remoteServerEndpoint;    // the socket path, or null
+app.stopRemoteServer();      // also runs on process exit
+```
+
+Starting twice throws.  The client a worker uses is `ActionUIRemote/Python/actionui_remote.py`,
+importable or runnable with `python3 -m actionui_remote`; the wire contract is
+`ActionUIRemote/PROTOCOL.md`.
+
 #### Action handlers
 
 ```js
@@ -357,6 +379,11 @@ native.log(message, native.LOG_INFO)
 native.registerActionHandler(actionId, callback)
 native.unregisterActionHandler(actionId)
 native.setDefaultActionHandler(callback)
+
+// Remote bridge
+native.appStartRemoteServer(path)      // path or null for a per-process default; returns the path
+native.appStopRemoteServer()
+native.appRemoteServerEndpoint()       // the socket path, or null
 
 // Type-specific setters (windowUuid, viewId, partId, value)
 native.setIntValue(uuid, viewId, partId, value)

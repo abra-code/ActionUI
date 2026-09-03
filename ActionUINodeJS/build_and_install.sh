@@ -56,7 +56,7 @@ xcodebuild \
     BUILT_PRODUCTS_DIR="$FRAMEWORKS_DIR/$CONFIG" \
     build 2>&1 | tail -3
 
-for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication; do
+for fw in ActionUI ActionUICAdapter ActionUIAppKitApplication ActionUIRemote; do
     if [ ! -d "$FRAMEWORKS_DIR/$CONFIG/${fw}.framework" ]; then
         echo "Error: ${fw}.framework not found in $FRAMEWORKS_DIR/$CONFIG" >&2
         exit 1

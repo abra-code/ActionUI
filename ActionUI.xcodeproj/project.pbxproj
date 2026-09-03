@@ -12,6 +12,7 @@
 		1D25A6552E9F98C0003D20F4 /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
 		1D25A6562E9F98C8003D20F4 /* ActionUIWebKitJSAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D7ED28C2E93AAC2003BA8A7 /* ActionUIWebKitJSAdapter.framework */; };
 		1D6DF6A42E6DB5F5002563AE /* ActionUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D03F8E62E49EEC3004A42BB /* ActionUI.framework */; };
+		1DC66222304962330054D2F1 /* ActionUIRemote.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DC66219304962320054D2F1 /* ActionUIRemote.framework */; };
 		1DC8A1D32FDE9077002C6900 /* ActionUIMenuBar.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DC8A1C82FDE9036002C6900 /* ActionUIMenuBar.framework */; platformFilters = (macos, ); };
 		1DD4E4302E8F3228001E0C83 /* ActionUISwiftAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */; };
 		1DD4E4602E8FAB45001E0C83 /* ActionUIObjCAdapter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */; };
@@ -90,6 +91,27 @@
 			remoteGlobalIDString = 1D03F8E52E49EEC3004A42BB;
 			remoteInfo = ActionUI;
 		};
+		1DC66223304962330054D2F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1DC66218304962320054D2F1;
+			remoteInfo = ActionUIRemote;
+		};
+		1DC6625C304963020054D2F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1D03F8E52E49EEC3004A42BB;
+			remoteInfo = ActionUI;
+		};
+		1DC6625F3049639D0054D2F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1DC66218304962320054D2F1;
+			remoteInfo = ActionUIRemote;
+		};
 		1DC8A1D12FDE9056002C6900 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1D03F8DD2E49EEC3004A42BB /* Project object */;
@@ -166,6 +188,8 @@
 		1DB255ED2E6BADCE00544C2F /* ActionUISwiftTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionUISwiftTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DB256032E6BADD000544C2F /* ActionUITestAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ActionUITestAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DC076C62F41B8830036DA50 /* ActionUICAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUICAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DC66219304962320054D2F1 /* ActionUIRemote.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIRemote.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1DC66221304962330054D2F1 /* ActionUIRemoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ActionUIRemoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DC8A1C82FDE9036002C6900 /* ActionUIMenuBar.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIMenuBar.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E4282E8F3228001E0C83 /* ActionUISwiftAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUISwiftAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DD4E43C2E8F9DF2001E0C83 /* ActionUIObjCAdapter.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ActionUIObjCAdapter.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -228,6 +252,21 @@
 				include/ActionUICAdapter.h,
 			);
 			target = 1DC076BC2F41B8830036DA50 /* ActionUICAdapter */;
+		};
+		1DC6625E304963630054D2F1 /* Exceptions for "ActionUIRemote" folder in "ActionUIRemote" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				PROTOCOL.md,
+				"Python/__pycache__/actionui_remote_testing.cpython-314.pyc",
+				"Python/__pycache__/actionui_remote.cpython-314.pyc",
+				"Python/__pycache__/test_actionui_remote.cpython-314.pyc",
+				Python/actionui_remote_testing.py,
+				Python/actionui_remote.py,
+				Python/test_actionui_remote.py,
+				Python/test_live_client.py,
+				README.md,
+			);
+			target = 1DC66218304962320054D2F1 /* ActionUIRemote */;
 		};
 		1DDC4C462F3F11B700604C66 /* Exceptions for "ActionUISwiftTestApp" folder in "ActionUIObjCTestApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -302,6 +341,19 @@
 				1DC076CD2F41B8EB0036DA50 /* Exceptions for "ActionUICAdapter" folder in "ActionUICAdapter" target */,
 			);
 			path = ActionUICAdapter;
+			sourceTree = "<group>";
+		};
+		1DC6621A304962320054D2F1 /* ActionUIRemote */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1DC6625E304963630054D2F1 /* Exceptions for "ActionUIRemote" folder in "ActionUIRemote" target */,
+			);
+			path = ActionUIRemote;
+			sourceTree = "<group>";
+		};
+		1DC66225304962330054D2F1 /* ActionUIRemoteTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ActionUIRemoteTests;
 			sourceTree = "<group>";
 		};
 		1DC8A1C92FDE9036002C6900 /* ActionUIMenuBar */ = {
@@ -413,6 +465,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1DC66216304962320054D2F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC6621E304962330054D2F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1DC66222304962330054D2F1 /* ActionUIRemote.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1DC8A1C52FDE9036002C6900 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -464,6 +531,8 @@
 				1D25A6452E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
 				1D895B882F51FBF50046573E /* ActionUIAppKitApplication */,
 				1DC8A1C92FDE9036002C6900 /* ActionUIMenuBar */,
+				1DC6621A304962320054D2F1 /* ActionUIRemote */,
+				1DC66225304962330054D2F1 /* ActionUIRemoteTests */,
 				1D03F97A2E49F68F004A42BB /* Frameworks */,
 				1D03F8E72E49EEC3004A42BB /* Products */,
 			);
@@ -486,6 +555,8 @@
 				1DC076C62F41B8830036DA50 /* ActionUICAdapter.framework */,
 				1D895B802F51FB8C0046573E /* ActionUIAppKitApplication.framework */,
 				1DC8A1C82FDE9036002C6900 /* ActionUIMenuBar.framework */,
+				1DC66219304962320054D2F1 /* ActionUIRemote.framework */,
+				1DC66221304962330054D2F1 /* ActionUIRemoteTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -539,6 +610,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1DC076BF2F41B8830036DA50 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC66214304962320054D2F1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -722,6 +800,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				1DC662603049639D0054D2F1 /* PBXTargetDependency */,
 				1DC8A1D22FDE9056002C6900 /* PBXTargetDependency */,
 				1D895BD72F539F160046573E /* PBXTargetDependency */,
 				1D895B772F51FB8C0046573E /* PBXTargetDependency */,
@@ -809,6 +888,53 @@
 			productName = ActionUICppAdapter;
 			productReference = 1DC076C62F41B8830036DA50 /* ActionUICAdapter.framework */;
 			productType = "com.apple.product-type.framework";
+		};
+		1DC66218304962320054D2F1 /* ActionUIRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DC6622C304962330054D2F1 /* Build configuration list for PBXNativeTarget "ActionUIRemote" */;
+			buildPhases = (
+				1DC66214304962320054D2F1 /* Headers */,
+				1DC66215304962320054D2F1 /* Sources */,
+				1DC66216304962320054D2F1 /* Frameworks */,
+				1DC66217304962320054D2F1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1DC6625D304963020054D2F1 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1DC6621A304962320054D2F1 /* ActionUIRemote */,
+			);
+			name = ActionUIRemote;
+			packageProductDependencies = (
+			);
+			productName = ActionUIRemote;
+			productReference = 1DC66219304962320054D2F1 /* ActionUIRemote.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		1DC66220304962330054D2F1 /* ActionUIRemoteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DC6622D304962330054D2F1 /* Build configuration list for PBXNativeTarget "ActionUIRemoteTests" */;
+			buildPhases = (
+				1DC6621D304962330054D2F1 /* Sources */,
+				1DC6621E304962330054D2F1 /* Frameworks */,
+				1DC6621F304962330054D2F1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1DC66224304962330054D2F1 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1DC66225304962330054D2F1 /* ActionUIRemoteTests */,
+			);
+			name = ActionUIRemoteTests;
+			packageProductDependencies = (
+			);
+			productName = ActionUIRemoteTests;
+			productReference = 1DC66221304962330054D2F1 /* ActionUIRemoteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		1DC8A1C72FDE9036002C6900 /* ActionUIMenuBar */ = {
 			isa = PBXNativeTarget;
@@ -912,7 +1038,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2650;
+				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					1D03F8E52E49EEC3004A42BB = {
@@ -942,6 +1068,12 @@
 					};
 					1DC076BC2F41B8830036DA50 = {
 						LastSwiftMigration = 2620;
+					};
+					1DC66218304962320054D2F1 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					1DC66220304962330054D2F1 = {
+						CreatedOnToolsVersion = 26.6;
 					};
 					1DC8A1C72FDE9036002C6900 = {
 						CreatedOnToolsVersion = 26.5;
@@ -985,6 +1117,8 @@
 				1D25A6432E9F9667003D20F4 /* ActionUIWebKitJSTestApp */,
 				1DC8A1C72FDE9036002C6900 /* ActionUIMenuBar */,
 				1D895B762F51FB8C0046573E /* ActionUIAppKitApplication */,
+				1DC66218304962320054D2F1 /* ActionUIRemote */,
+				1DC66220304962330054D2F1 /* ActionUIRemoteTests */,
 			);
 		};
 /* End PBXProject section */
@@ -1054,6 +1188,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1DC076C22F41B8830036DA50 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC66217304962320054D2F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC6621F304962330054D2F1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1184,6 +1332,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1DC66215304962320054D2F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1DC6621D304962330054D2F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1DC8A1C42FDE9036002C6900 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1264,6 +1426,21 @@
 			isa = PBXTargetDependency;
 			target = 1D03F8E52E49EEC3004A42BB /* ActionUI */;
 			targetProxy = 1DC076BE2F41B8830036DA50 /* PBXContainerItemProxy */;
+		};
+		1DC66224304962330054D2F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DC66218304962320054D2F1 /* ActionUIRemote */;
+			targetProxy = 1DC66223304962330054D2F1 /* PBXContainerItemProxy */;
+		};
+		1DC6625D304963020054D2F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1D03F8E52E49EEC3004A42BB /* ActionUI */;
+			targetProxy = 1DC6625C304963020054D2F1 /* PBXContainerItemProxy */;
+		};
+		1DC662603049639D0054D2F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1DC66218304962320054D2F1 /* ActionUIRemote */;
+			targetProxy = 1DC6625F3049639D0054D2F1 /* PBXContainerItemProxy */;
 		};
 		1DC8A1D22FDE9056002C6900 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2109,6 +2286,132 @@
 			};
 			name = Release;
 		};
+		1DC66228304962330054D2F1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEFINES_MODULE = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"*.md",
+					"*.py",
+					"*.pyc",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIRemote;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		1DC66229304962330054D2F1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEFINES_MODULE = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					"*.md",
+					"*.py",
+					"*.pyc",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIRemote;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_INSTALL_OBJC_HEADER = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		1DC6622A304962330054D2F1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIRemoteTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		1DC6622B304962330054D2F1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.abracode.ActionUIRemoteTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 		1DC8A1CD2FDE9036002C6900 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2130,7 +2433,6 @@
 					"@loader_path/Frameworks",
 				);
 				MACH_O_TYPE = staticlib;
-				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -2169,7 +2471,6 @@
 					"@loader_path/Frameworks",
 				);
 				MACH_O_TYPE = staticlib;
-				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -2523,6 +2824,24 @@
 			buildConfigurations = (
 				1DC076C42F41B8830036DA50 /* Debug */,
 				1DC076C52F41B8830036DA50 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DC6622C304962330054D2F1 /* Build configuration list for PBXNativeTarget "ActionUIRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DC66228304962330054D2F1 /* Debug */,
+				1DC66229304962330054D2F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DC6622D304962330054D2F1 /* Build configuration list for PBXNativeTarget "ActionUIRemoteTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DC6622A304962330054D2F1 /* Debug */,
+				1DC6622B304962330054D2F1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

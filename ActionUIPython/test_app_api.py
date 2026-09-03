@@ -45,6 +45,9 @@ def test_module_api_surface():
         "app_set_should_terminate",
         "app_set_window_will_close",
         "app_set_window_will_present",
+        "app_start_remote_server",
+        "app_stop_remote_server",
+        "app_remote_server_endpoint",
         "app_set_name",
         "app_set_icon",
         "app_run",
@@ -327,6 +330,78 @@ def test_windows_dict(app: actionui.Application):
 # Main
 # -------------------------------------------------------------------------
 
+def test_remote_server(app: actionui.Application):
+    """Start and stop the remote bridge for real: the socket is created, exported and removed.
+
+    This runs the whole chain (Python wrapper, C binding, Swift entry point,
+    ActionUIRemoteServer) without a run loop, which is fine because only request handling
+    needs the main queue to be serviced. Answering requests is covered by ActionUIRemoteTests.
+    """
+    print("\n=== Remote bridge ===")
+
+    check("endpoint is None before starting", app.remote_server_endpoint is None)
+
+    endpoint = app.start_remote_server()
+    check("start_remote_server returns a path", isinstance(endpoint, str) and endpoint != "")
+    check("the socket file exists", os.path.exists(endpoint))
+    check("the path fits in sun_path", len(endpoint.encode("utf-8")) <= 103)
+    check("remote_server_endpoint reports it", app.remote_server_endpoint == endpoint)
+    check("the endpoint is exported to child processes",
+          os.environ.get(actionui.REMOTE_ENDPOINT_ENV) == endpoint)
+
+    try:
+        app.start_remote_server()
+        check("starting twice raises RuntimeError", False)
+    except RuntimeError:
+        check("starting twice raises RuntimeError", True)
+
+    app.stop_remote_server()
+    check("the socket file is removed", not os.path.exists(endpoint))
+    check("endpoint is None after stopping", app.remote_server_endpoint is None)
+    check("the environment variable is unset",
+          actionui.REMOTE_ENDPOINT_ENV not in os.environ)
+
+    try:
+        app.stop_remote_server()
+        check("stopping twice does not raise", True)
+    except Exception as e:
+        check(f"stopping twice raised {type(e).__name__}: {e}", False)
+
+    # Starting from a worker thread, which is the shape the feature is for: the UI thread is
+    # inside app.run() and the app's own logic is elsewhere. Two ways this used to hang - the
+    # binding holding the GIL while the server logged back through it, and the shim waiting on
+    # the main queue while nothing serviced it - so the check is a join with a timeout rather
+    # than a plain call, or a regression would hang the whole suite.
+    import threading
+    worker_result = {}
+
+    def start_and_stop_from_a_thread():
+        worker_result["endpoint"] = app.start_remote_server()
+        app.stop_remote_server()
+        worker_result["done"] = True
+
+    worker = threading.Thread(target=start_and_stop_from_a_thread, daemon=True)
+    worker.start()
+    worker.join(timeout=20)
+    check("start from a worker thread returns", worker_result.get("done") is True)
+    check("it bound a socket", isinstance(worker_result.get("endpoint"), str))
+
+    # A path of the caller's choosing.
+    import shutil
+    import tempfile
+    directory = tempfile.mkdtemp(prefix="aui")
+    try:
+        chosen = os.path.join(directory, "s")
+        check("a chosen path is honored", app.start_remote_server(chosen) == chosen)
+        check("the chosen socket exists", os.path.exists(chosen))
+        app.stop_remote_server()
+    finally:
+        shutil.rmtree(directory, ignore_errors=True)
+
+
+# -------------------------------------------------------------------------
+
+
 def main():
     print("ActionUI App API Smoke Tests")
     print("=" * 50)
@@ -344,6 +419,7 @@ def main():
     test_file_panel_api(app)
     test_singleton_enforcement()   # expects RuntimeError from a second instance
     test_windows_dict(app)
+    test_remote_server(app)
 
     print()
     print("=" * 50)
