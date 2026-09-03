@@ -258,6 +258,7 @@ let package = Package(
             path: "ActionUIRemote",
             exclude: [
                 "PROTOCOL.md",
+                "Python",
                 "README.md",
             ],
         ),
