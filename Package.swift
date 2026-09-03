@@ -85,6 +85,16 @@ let package = Package(
             targets: ["ActionUIWebKitJSAdapter"]
         ),
 
+        // MARK: - Remote binding
+        // Out-of-process access to ActionUI windows: a Unix domain socket server speaking
+        // newline-delimited JSON-RPC 2.0, mirroring the C adapter's verb set. Hosts that
+        // embed ActionUI start it so that child processes (Python scripts, tools, tests)
+        // can read and mutate window state. macOS only. See ActionUIRemote/PROTOCOL.md.
+        .library(
+            name: "ActionUIRemote",
+            targets: ["ActionUIRemote"]
+        ),
+
         // MARK: - Documentation bundle
         // Resource-only bundle containing element schemas (.md), JSON templates,
         // and the element index. No code dependencies — consumers access the
@@ -233,6 +243,25 @@ let package = Package(
             name: "ActionUITests",
             dependencies: ["ActionUI"],
             path: "ActionUITests"
+        ),
+
+        // MARK: - ActionUIRemote
+        // Remote binding: JSON-RPC 2.0 codec, Unix domain socket server, and the method table
+        // over ActionUIModel. Pure Swift over Foundation and Darwin; the socket parts are
+        // guarded with #if os(macOS) in source rather than through platform conditions here.
+        // Non-Swift files under ActionUIRemote/ (Python client, protocol docs) are listed in
+        // `exclude` as they are added, so SPM does not warn about unhandled files.
+        .target(
+            name: "ActionUIRemote",
+            dependencies: ["ActionUI"],
+            path: "ActionUIRemote",
+        ),
+
+        // MARK: - Unit tests for ActionUIRemote
+        .testTarget(
+            name: "ActionUIRemoteTests",
+            dependencies: ["ActionUIRemote", "ActionUI"],
+            path: "ActionUIRemoteTests"
         ),
     ]
 )
