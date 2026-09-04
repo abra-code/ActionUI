@@ -98,7 +98,8 @@ public extension ActionUIRemoteServer {
     @discardableResult
     static func startShared(socketPath: String? = nil,
                             host: HostInfo = currentProcessHost(),
-                            logger: (any ActionUILogger)? = nil) throws -> String {
+                            logger: (any ActionUILogger)? = nil,
+                            requireToken: Bool = true) throws -> String {
         let path = socketPath ?? defaultSocketPath()
 
         // Claim the start under the lock, then build and bind outside it: `start` logs, and a
@@ -117,6 +118,13 @@ public extension ActionUIRemoteServer {
 
         let server = ActionUIRemoteServer(host: host)
         server.logger = logger
+        // Minted before the bind, so the token is in the environment before anything can be
+        // spawned that would need it.
+        let token = requireToken ? ActionUIRemoteServer.makeToken() : nil
+        if let token {
+            server.addToken(token, label: "host")
+            server.requiresToken = true
+        }
         do {
             try server.start(socketPath: path)
         } catch {
@@ -138,6 +146,13 @@ public extension ActionUIRemoteServer {
         sharedStorage.lock.unlock()
 
         setenv(ActionUIRemoteEnvironment.endpoint, path, 1)
+        if let token {
+            setenv(ActionUIRemoteEnvironment.token, token, 1)
+        } else {
+            // A host that does not require one must not leave a stale token from a previous run,
+            // or from a parent, sitting where a child would pick it up and send it.
+            unsetenv(ActionUIRemoteEnvironment.token)
+        }
         return path
     }
 
@@ -155,6 +170,7 @@ public extension ActionUIRemoteServer {
         guard let server else { return }        // nothing of ours is running: leave the environment alone
         server.stop()                           // outside the lock: stop logs
         unsetenv(ActionUIRemoteEnvironment.endpoint)
+        unsetenv(ActionUIRemoteEnvironment.token)
     }
 }
 
@@ -165,6 +181,11 @@ public enum ActionUIRemoteEnvironment {
     /// The window a child process was started for, when there is one. Set by the host, not here:
     /// only the host knows which window a given child is about.
     public static let windowUUID = "ACTIONUI_WINDOW_UUID"
+
+    /// The token a host that requires one hands to the processes it spawns. A child inherits it
+    /// with the rest of the environment and the client sends it without being asked; nothing
+    /// else can read it, because macOS does not expose one process's environment to another.
+    public static let token = "ACTIONUI_REMOTE_TOKEN"
 }
 
 #endif

@@ -24,6 +24,7 @@
 #if os(macOS)
 
 import Foundation
+import Security   // SecRandomCopyBytes, for makeToken()
 import ActionUI
 
 public final class ActionUIRemoteServer: @unchecked Sendable {
@@ -60,9 +61,82 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
     private var _logger: (any ActionUILogger)?
     private var socketServer: UnixSocketServer?
     private var starting = false
+    /// token -> label. Many are live at once: a host mints one per unit of work it spawns, so a
+    /// grant can be withdrawn when that work ends without disturbing anything else.
+    private var _tokens: [String: String] = [:]
+    private var _requiresToken = false
+    /// Connections that have already presented a valid token. A client may send it once and then
+    /// stop, or send it on every request; both work.
+    private var _authenticated: Set<UnixSocketServer.ConnectionID> = []
 
     /// Main-actor state: the method table and the modal resolver.
     let registry = MethodRegistry()
+
+    // MARK: - Access control
+
+    /// Whether a connection must present a valid token before it may call anything.
+    ///
+    /// Off by default, which is the historical behavior: the socket's own permissions and the
+    /// peer-uid check are the boundary. A host turns it on so that a process it did not spawn,
+    /// which therefore never received the token, cannot drive the UI merely by finding the
+    /// socket - which it otherwise can, the path being no secret.
+    ///
+    /// This raises the cost of casual access; it does not stop a determined same-uid attacker.
+    /// `ps eww` exposes the environment of a python3 or node process to any process of the same
+    /// user - the kernel withholds it only for processes carrying the CS_RESTRICT code-signing
+    /// flag (Apple platform/SIP binaries, setuid), which the interpreters the clients run under do
+    /// not have - so a live handler's token is readable. See PROTOCOL.md section 10, which records
+    /// the measurement. Same-uid has never been a boundary on macOS.
+    public var requiresToken: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _requiresToken }
+        set { lock.lock(); _requiresToken = newValue; lock.unlock() }
+    }
+
+    /// Mint nothing, register what the caller minted. The host owns token generation because it
+    /// owns the lifetime: it knows when the work a token was issued for has finished.
+    ///
+    /// `label` is free-form and is what `revokeTokens(label:)` matches on - a command id, say, so
+    /// a host can withdraw one command's grant without touching another's.
+    public func addToken(_ token: String, label: String) {
+        guard !token.isEmpty else { return }
+        lock.lock()
+        _tokens[token] = label
+        lock.unlock()
+    }
+
+    /// Withdraw one token. Connections already authenticated with it keep working: revocation
+    /// stops new connections, it does not tear down live ones. A host that needs the stronger
+    /// property should stop the server.
+    public func revokeToken(_ token: String) {
+        lock.lock()
+        _tokens.removeValue(forKey: token)
+        lock.unlock()
+    }
+
+    /// Withdraw every token issued under a label.
+    public func revokeTokens(label: String) {
+        lock.lock()
+        for (token, existing) in _tokens where existing == label {
+            _tokens.removeValue(forKey: token)
+        }
+        lock.unlock()
+    }
+
+    /// The labels of every live token, for diagnostics. Never the tokens themselves.
+    public var tokenLabels: [String] {
+        lock.lock(); defer { lock.unlock() }
+        return _tokens.values.sorted()
+    }
+
+    /// A token good enough to hand a child: 32 bytes of `SecRandomCopyBytes`, hex encoded.
+    /// Falls back to `arc4random_buf`, which is also a CSPRNG, if the Security call ever fails.
+    public static func makeToken() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
+            arc4random_buf(&bytes, bytes.count)
+        }
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
 
     /// How long a request waits for the main thread before answering `mainThreadUnavailable`
     /// (1005). Set before `start()`.
@@ -130,7 +204,14 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             onLine: { [weak self] connectionID, line in
                 self?.handle(line: line, connectionID: connectionID)
             },
-            onClose: { _ in },
+            onClose: { [weak self] connectionID in
+                // Connection ids are handed out sequentially and could in principle be reused;
+                // a new connection must never inherit an old one's authentication.
+                guard let self else { return }
+                self.lock.lock()
+                self._authenticated.remove(connectionID)
+                self.lock.unlock()
+            },
             log: { [weak self] message in
                 self?.log(message, .debug)
             }
@@ -139,6 +220,11 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         lock.lock()
         let previous = socketServer   // released below, outside the lock: its deinit logs
         socketServer = server
+        // Connection ids are per socket server and restart at 1, and a stopped server's
+        // connections may never deliver onClose - it holds its server weakly, so once the
+        // server deallocates the callback is dropped. Without this, the first connection to a
+        // restarted server inherits the authentication of the previous run's first connection.
+        _authenticated.removeAll()
         lock.unlock()
         previous?.stop()
         log("serving \(host.name) \(host.version) at \(socketPath)", .info)
@@ -149,6 +235,9 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
         lock.lock()
         let server = socketServer
         socketServer = nil
+        // Here as well as in start(): a caller may stop and never restart, and leaving the set
+        // populated would keep ids alive for a server that no longer exists.
+        _authenticated.removeAll()
         lock.unlock()
         server?.stop()
     }
@@ -198,7 +287,7 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             return
         }
 
-        let entries: [Result<JSONRPCRequest, JSONRPCRejection>]
+        var entries: [Result<JSONRPCRequest, JSONRPCRejection>]
         let isBatch: Bool
         switch incoming {
         case .single(let entry):
@@ -208,6 +297,9 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             entries = batchEntries
             isBatch = true
         }
+
+        // Before anything else: an unauthenticated request never reaches the main thread.
+        entries = authenticate(entries, connectionID: connectionID)
 
         let box = RequestBox(entries: entries)
         let needsMainThread = entries.contains { if case .success = $0 { return true } else { return false } }
@@ -263,6 +355,70 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
             }
         } else if let data = replies.first {
             server.send(connectionID: connectionID, data: data)
+        }
+    }
+
+    /// Replace every request this connection may not make with a 1006 rejection.
+    ///
+    /// Runs on the connection queue, before anything reaches the main thread: an unauthenticated
+    /// request must not cost a main-thread hop, or refusing it would itself be a way to stall
+    /// the UI.
+    ///
+    /// A token may arrive two ways, and both are supported deliberately. A long-lived connection
+    /// sends it once and is remembered, costing nothing per request afterwards. A client that
+    /// opens one connection per request - which PROTOCOL.md section 1 explicitly allows - puts it
+    /// on every request instead, so that pattern needs no extra round trip to stay usable.
+    ///
+    /// The token is stripped before dispatch, so no method handler ever sees it. Host extensions
+    /// are third-party code by definition and have no business reading a credential that was not
+    /// addressed to them.
+    private func authenticate(_ entries: [Result<JSONRPCRequest, JSONRPCRejection>],
+                              connectionID: UnixSocketServer.ConnectionID)
+        -> [Result<JSONRPCRequest, JSONRPCRejection>] {
+        lock.lock()
+        let required = _requiresToken
+        var authenticated = _authenticated.contains(connectionID)
+        lock.unlock()
+
+        func withoutToken(_ request: JSONRPCRequest) -> JSONRPCRequest {
+            guard request.params["token"] != nil else { return request }
+            var params = request.params
+            params.removeValue(forKey: "token")
+            return JSONRPCRequest(id: request.id, method: request.method, params: params)
+        }
+
+        guard required else {
+            // Even with no token required, one must never reach a handler.
+            return entries.map { entry in
+                guard case .success(let request) = entry else { return entry }
+                return .success(withoutToken(request))
+            }
+        }
+
+        return entries.map { entry in
+            guard case .success(let request) = entry else { return entry }
+
+            if !authenticated, let presented = request.params["token"] as? String {
+                lock.lock()
+                let known = _tokens[presented] != nil
+                if known { _authenticated.insert(connectionID) }
+                lock.unlock()
+                if known {
+                    authenticated = true
+                    log("connection \(connectionID) authenticated", .debug)
+                }
+            }
+
+            guard authenticated else {
+                let error = ActionUIRemoteError(
+                    code: ActionUIRemoteError.unauthenticated,
+                    message: "This host requires a token. Pass it as the \"token\" parameter; "
+                           + "processes the host spawned receive it in ACTIONUI_REMOTE_TOKEN.")
+                return .failure(JSONRPCRejection(id: request.id,
+                                                 isNotification: request.isNotification,
+                                                 error: error))
+            }
+            return .success(withoutToken(request))
         }
     }
 

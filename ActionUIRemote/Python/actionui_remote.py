@@ -51,7 +51,7 @@ if sys.version_info < (3, 9):
     raise ImportError("actionui_remote requires Python 3.9 or newer; this is %s" % sys.version.split()[0])
 
 __all__ = [
-    "PROTOCOL_VERSION", "ENDPOINT_ENV", "WINDOW_ENV",
+    "PROTOCOL_VERSION", "ENDPOINT_ENV", "WINDOW_ENV", "TOKEN_ENV",
     "RemoteError", "EndpointError", "ProtocolError",
     "InsertPosition", "DialogButton", "ButtonRole", "ModalStyle",
     "Connection", "Window", "Batch", "hello", "connect", "main",
@@ -61,6 +61,9 @@ __all__ = [
 PROTOCOL_VERSION = 1
 ENDPOINT_ENV = "ACTIONUI_REMOTE_ENDPOINT"
 WINDOW_ENV = "ACTIONUI_WINDOW_UUID"
+# A host may require a token; the ones it spawned inherit it here. Read automatically, so a
+# script that never heard of it keeps working against a host that turns the requirement on.
+TOKEN_ENV = "ACTIONUI_REMOTE_TOKEN"
 
 DEFAULT_TIMEOUT = 15.0      # seconds; covers the host's 10 s main-thread wait
 MAX_LINE_LENGTH = 64 * 1024 * 1024
@@ -202,15 +205,27 @@ class Connection:
     interpreter exit. Not thread-safe: a thread that needs its own should construct one directly
     rather than use the process-wide one from connect()."""
 
-    def __init__(self, endpoint, timeout=DEFAULT_TIMEOUT):
+    def __init__(self, endpoint, timeout=DEFAULT_TIMEOUT, token=None):
         if not endpoint:
             raise EndpointError("no ActionUI remote endpoint given")
         self.endpoint = endpoint
         self.timeout = timeout
+        # An explicit token wins; otherwise the environment is consulted per request, not
+        # captured here. connect() caches one Connection per endpoint, so capturing would pin
+        # whatever the environment held the first time anything connected - and a host that
+        # starts serving later, or a test that sets the variable afterwards, would never be seen.
+        self._explicit_token = token
         self._sock = None
         self._buffer = b""
         self._next_id = 1
         _live_connections.add(self)
+
+    @property
+    def token(self):
+        """The token this connection sends: the explicit one, else $ACTIONUI_REMOTE_TOKEN now."""
+        if self._explicit_token is not None:
+            return self._explicit_token
+        return os.environ.get(TOKEN_ENV, "")
 
     # -- lifecycle
 
@@ -303,6 +318,13 @@ class Connection:
         if not notification:
             envelope["id"] = self._next_id
             self._next_id += 1
+        if self.token:
+            # On every request, not once per connection. The host remembers a connection that
+            # has authenticated, so this costs nothing after the first; sending it every time is
+            # what lets the one-connection-per-request pattern (PROTOCOL.md section 1) keep
+            # working without an extra round trip, and what makes a reconnect transparent.
+            params = dict(params or {})
+            params["token"] = self.token
         if params:
             envelope["params"] = params
         return envelope
@@ -390,7 +412,7 @@ class Connection:
 _connections = {}
 
 
-def connect(endpoint=None, timeout=DEFAULT_TIMEOUT):
+def connect(endpoint=None, timeout=DEFAULT_TIMEOUT, token=None):
     """The process-wide Connection for an endpoint (default: $ACTIONUI_REMOTE_ENDPOINT).
 
     One connection per endpoint is shared by every Window in the process; it is not
@@ -400,7 +422,7 @@ def connect(endpoint=None, timeout=DEFAULT_TIMEOUT):
         raise EndpointError("%s is not set; this host did not start the ActionUI remote server" % ENDPOINT_ENV)
     connection = _connections.get(endpoint)
     if connection is None:
-        connection = Connection(endpoint, timeout=timeout)
+        connection = Connection(endpoint, timeout=timeout, token=token)
         _connections[endpoint] = connection
     elif connection.timeout != timeout:
         connection.timeout = timeout
@@ -862,6 +884,10 @@ def _build_parser(argparse):
                         help="socket path (default: $%s)" % ENDPOINT_ENV)
     parser.add_argument("--window", default=os.environ.get(WINDOW_ENV),
                         help="window UUID (default: $%s)" % WINDOW_ENV)
+    # Normally inherited, so this is for driving a host by hand from a shell that is not its
+    # child - which necessarily means getting the token out of the host deliberately.
+    parser.add_argument("--token", default=None,
+                        help="token, if the host requires one (default: $%s)" % TOKEN_ENV)
     parser.add_argument("--timeout", type=timeout_argument, default=DEFAULT_TIMEOUT,
                         help="seconds to wait for a reply (default: %g)" % DEFAULT_TIMEOUT)
     commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
@@ -930,7 +956,7 @@ def main(argv=None):
     try:
         # Before the window check, so a handler running outside an ActionUI window is told there
         # is no host (3) whatever the command, rather than that its command line is wrong.
-        connection = connect(args.endpoint, timeout=args.timeout)
+        connection = connect(args.endpoint, timeout=args.timeout, token=args.token)
     except EndpointError as error:
         sys.stderr.write("%s\n" % error)
         return EXIT_NO_HOST

@@ -41,6 +41,13 @@ public func actionUIAppStopRemoteServer() {
     actionUIRemoteStopServer()
 }
 
+/// The token the running server requires, or NULL when it requires none.
+/// Equivalent to `actionUIRemoteServerToken()`, including its lifetime.
+@_cdecl("actionUIAppRemoteServerToken")
+public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
+    return actionUIRemoteServerToken()
+}
+
 /// The socket path of the running server, or NULL when none is running.
 /// Equivalent to `actionUIRemoteServerEndpoint()`, including its lifetime: the string is owned
 /// by the framework and stays valid until the next start or stop.

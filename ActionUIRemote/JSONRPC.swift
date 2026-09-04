@@ -45,6 +45,9 @@ public struct ActionUIRemoteError: Error, @unchecked Sendable, CustomStringConve
     public static let engineFailure         = 1003
     public static let hostRefused           = 1004
     public static let mainThreadUnavailable = 1005
+    /// The connection presented no valid token to a host that requires one. See PROTOCOL.md
+    /// section 10: a host may restrict the bridge to the processes it spawned itself.
+    public static let unauthenticated       = 1006
 
     public static func invalidParams(_ message: String) -> ActionUIRemoteError {
         ActionUIRemoteError(code: invalidParams, message: message)

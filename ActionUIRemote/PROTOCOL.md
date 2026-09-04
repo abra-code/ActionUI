@@ -86,6 +86,7 @@ Rules:
 | 1003 | Engine failure: the engine refused the operation (insert into a non-container, state type mismatch, unreadable modal resource). The message is the engine's. |
 | 1004 | Host refused: a host-registered method threw an error that is not an `ActionUIRemoteError`. The message is the error's description. |
 | 1005 | Main thread unavailable: the host's main thread did not respond within its timeout (10 s by default). The request was not applied unless it was already running. |
+| 1006 | Unauthenticated: the host requires a token and this connection has not presented a valid one. See section 10. |
 
 Positive application codes are deliberate: they read better in logs than the customary
 `-32000...-32099` range and cannot collide with anything reserved.
@@ -185,12 +186,74 @@ A host that spawns child processes expected to use the bridge sets:
 
 - `ACTIONUI_REMOTE_ENDPOINT`: the absolute socket path.
 - `ACTIONUI_WINDOW_UUID`: the window the child is about, when there is one.
+- `ACTIONUI_REMOTE_TOKEN`: the token, when the host requires one. See section 10.
 
 Hosts may export additional aliases under their own names (OMC also exports
 `OMC_ACTIONUI_REMOTE_ENDPOINT` and `OMC_ACTIONUI_WINDOW_UUID`). Clients read the two generic
 names by default.
 
-## 10. Versioning
+## 10. Authentication
+
+Optional, and off unless the host turns it on. When it is on, every request must carry a valid
+token or is refused with `1006`.
+
+- The token is a string in the request's `params` under the key `token`. That key is
+  reserved on every method: the host removes it before dispatch even when it requires none, so a
+  host extension must not define a parameter of its own by that name. It is stripped before
+  the method runs, so no handler - including a host extension - ever sees it.
+- A connection that presents a valid token once is remembered, so a long-lived client pays
+  nothing per request afterwards.
+- A client may instead send it on **every** request. That is not redundant: section 1 allows one
+  connection per request, and that pattern would otherwise need an extra round trip to
+  authenticate each one. The reference client always sends it, which makes reconnects
+  transparent too.
+- A host may have many tokens live at once and withdraw them independently - one per unit of
+  work it spawns, revoked when that work ends. Revoking stops new connections; it does not tear
+  down authenticated ones.
+
+Clients should read `ACTIONUI_REMOTE_TOKEN` from the environment and send it without being asked,
+so that a host turning the requirement on breaks nothing.
+
+**What this is for, and what it is not.** A host that spawns children hands them the token in
+the environment, so a process the host did not spawn does not have it and cannot obtain it merely
+by listing the socket directory - which it otherwise could, the path being no secret.
+
+**How much that is worth, measured rather than assumed.** Whether one process can read another's
+environment on macOS depends on the target's code-signing flags, not on whether it is an Apple
+binary. The kernel withholds the environment from a same-uid, non-root caller only when the target
+carries `CS_RESTRICT` (Apple platform/SIP binaries, or setuid processes); the interpreters this
+bridge's clients run under do not carry it. `/usr/bin/python3` is itself an Apple platform binary
+and still exposes its environment, because it lacks the flag:
+
+| target process | code-signing | `ps eww` reveals its environment |
+|---|---|---|
+| `/bin/sleep`, `/bin/sh` | platform + `CS_RESTRICT` | no |
+| `/usr/bin/python3` | platform, no `CS_RESTRICT` | **yes** |
+| python.org python3, `node` | hardened runtime, no `CS_RESTRICT` | **yes** |
+
+So while a handler holding the token is alive, any same-uid process can read the token out of it
+with one `ps` invocation. The host's own environment is not exposed this way - a `setenv` after
+exec does not appear in the process-arguments block - so the token is only readable through the
+children, and only while one is running.
+
+**Therefore: this raises the cost of casual and accidental access, and does not stop a deliberate
+same-uid attacker.** It is worth having because it is nearly free and because it stops a stray
+script that simply connects to a socket it found; it is not a boundary, and nothing should be
+designed as though it were. Same-uid has never been a security boundary on macOS, and a host with
+something genuinely sensitive on screen should not rely on this.
+
+Two consequences worth stating: a handler that logs its own environment gives the token away, and
+`python3 -m actionui_remote --token` puts it in argv, which every process can read. Hosts and test
+harnesses must not record it; the reference fake host redacts it from its request log.
+
+A host that needs the token kept off `ps` entirely cannot get there by hardening the interpreter -
+`CS_RESTRICT` is reserved to Apple platform/SIP and setuid binaries and cannot be conferred on a
+third-party `python3` or `node`. The only route is to keep the secret out of the process's
+environment: deliver it by an inherited file descriptor, or write it to a 0600 file and export only
+the path. Clearing the variable in-process does not help, because `ps` reads a snapshot frozen at
+exec time.
+
+## 11. Versioning
 
 `protocolVersion` is an integer reported by `actionui.hello`. Adding methods, adding optional
 params, or adding fields to a result object does not bump it. Changing an existing result's

@@ -139,8 +139,31 @@ from `ActionUIRemote/Python`, or name that directory in `PYTHONPATH`.
   per-user temp directory in OMC's case).
 - Every connection's peer uid is checked against the server's uid.
 - Descriptors are close-on-exec, so children spawned by the host never inherit the listener.
-- Nothing else authenticates. This is the same boundary a same-user CFMessagePort has: any
-  process of the same user can drive the UI, as it already could through the in-process tools.
+- Optionally, a token. `startShared` mints one, requires it, and exports it as
+  `ACTIONUI_REMOTE_TOKEN`; the client reads it from the environment and sends it without being
+  asked, so a caller writes no code for it. `startShared(requireToken: false)` opts out, and the
+  instance API requires none unless asked. See PROTOCOL.md section 10.
+
+Without a token the boundary is the socket's permissions and the peer-uid check - the same one a
+same-user CFMessagePort has, where any process of the same user can drive the UI as it already
+could through the in-process tools.
+
+With one, a process the host did not spawn does not have the token and cannot get it by listing
+the socket directory. That is worth having because **this bridge can read**, where the older tools
+could only write: a window may be showing something a stray script has no business seeing.
+
+**It does not stop a determined same-uid attacker, and the reason is measured rather than
+assumed.** `ps eww` reveals the environment of a `python3` or `node` process to any process of the
+same user. The kernel hides it only for processes carrying the `CS_RESTRICT` code-signing flag
+(Apple platform/SIP binaries, or setuid), which those interpreters do not; `/usr/bin/python3` is
+an Apple platform binary and still exposes its environment because it lacks the flag. So while a
+handler holding the token is alive, the token is readable. The host's own environment is not
+exposed that way, so the exposure is through the children and only while one runs.
+
+Treat it as raising the cost of casual and accidental access, not as a boundary. Same-uid has
+never been one on macOS. A handler that logs its environment gives the token away, and the CLI's
+`--token` puts it in argv where anything can read it. Anything that records requests must redact
+it - the bundled fake host does.
 
 ## Layout
 

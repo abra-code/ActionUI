@@ -148,6 +148,116 @@ class FakeHostTestCase(unittest.TestCase):
 
 # --- discovery ------------------------------------------------------------------------------
 
+class TokenTests(FakeHostTestCase):
+    """A host may require a token. The point of the design is that a caller never mentions it."""
+
+    def setUp(self):
+        super().setUp()
+        self._saved = os.environ.get(aui.TOKEN_ENV)
+        self.addCleanup(self._restore_token)
+
+    def _restore_token(self):
+        if self._saved is None:
+            os.environ.pop(aui.TOKEN_ENV, None)
+        else:
+            os.environ[aui.TOKEN_ENV] = self._saved
+
+    def start_guarded(self, *tokens):
+        """A second fake on its own socket that requires one of `tokens`."""
+        path = os.path.join(self.dir, "guarded")
+        fake = FakeServer(path, host_name="Guarded", host_version="1", tokens=tokens)
+        fake.add_window(WINDOW, FIXTURE)
+        fake.serve_in_thread()
+        self.addCleanup(fake.stop)
+        return path
+
+    def test_the_environment_token_is_sent_without_the_caller_asking(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"
+        # Exactly what a spawned handler writes: nothing about tokens at all.
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        win.set_value(2, 0, "written")
+        self.assertEqual(win.get_value(2), "written")
+
+    def test_no_token_is_refused_with_1006(self):
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.RemoteError) as caught:
+            win.get_value(2)
+        self.assertEqual(caught.exception.code, 1006)
+
+    def test_a_wrong_token_is_refused(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "wrong"
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.RemoteError) as caught:
+            win.get_value(2)
+        self.assertEqual(caught.exception.code, 1006)
+
+    def test_an_explicit_token_beats_the_environment(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "wrong"
+        connection = aui.Connection(path, timeout=5.0, token="good")
+        self.addCleanup(connection.close)
+        win = aui.Window(WINDOW, connection=connection)
+        win.set_value(2, 0, "allowed")
+        self.assertEqual(win.get_value(2), "allowed")
+
+    def test_an_empty_explicit_token_sends_none_deliberately(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"
+        connection = aui.Connection(path, timeout=5.0, token="")
+        self.addCleanup(connection.close)
+        with self.assertRaises(aui.RemoteError) as caught:
+            aui.Window(WINDOW, connection=connection).get_value(2)
+        self.assertEqual(caught.exception.code, 1006)
+
+    def test_the_token_is_read_per_request_not_captured_at_connect(self):
+        # connect() caches one Connection per endpoint, so capturing the token when the object
+        # is built would pin whatever the environment held the first time anything connected.
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        connection = aui.Connection(path, timeout=5.0)
+        self.addCleanup(connection.close)
+        win = aui.Window(WINDOW, connection=connection)
+        with self.assertRaises(aui.RemoteError):
+            win.get_value(2)
+        os.environ[aui.TOKEN_ENV] = "good"          # the value appears in the environment later
+        win.set_value(2, 0, "now allowed")
+        self.assertEqual(win.get_value(2), "now allowed")
+
+    def test_a_host_requiring_nothing_ignores_a_token(self):
+        os.environ[aui.TOKEN_ENV] = "irrelevant"
+        self.win.set_value(2, 0, "fine")
+        self.assertEqual(self.win.get_value(2), "fine")
+
+    def test_the_token_is_redacted_from_the_hosts_request_log(self):
+        log_path = os.path.join(self.dir, "requests.jsonl")
+        path = os.path.join(self.dir, "logged")
+        fake = FakeServer(path, log_path=log_path, host_name="Logged", host_version="1",
+                          tokens=("secret-value",))
+        fake.add_window(WINDOW, FIXTURE)
+        fake.serve_in_thread()
+        self.addCleanup(fake.stop)
+
+        os.environ[aui.TOKEN_ENV] = "secret-value"
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        win.get_value(2)
+        fake.stop()
+
+        with open(log_path) as handle:
+            body = handle.read()
+        self.assertNotIn("secret-value", body, "a credential must not land in a test log")
+        self.assertIn("<redacted>", body)
+        # And in memory, which is what bridge_called reads through.
+        self.assertNotIn("secret-value", json.dumps(fake.requests))
+
+
 class DiscoveryTests(FakeHostTestCase):
 
     def test_hello_reports_the_protocol_the_host_and_the_windows(self):

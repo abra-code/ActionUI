@@ -19,6 +19,24 @@ from dataclasses import dataclass, field
 # process reads these two to find the host and the window it was started for.
 REMOTE_ENDPOINT_ENV = "ACTIONUI_REMOTE_ENDPOINT"
 REMOTE_WINDOW_ENV = "ACTIONUI_WINDOW_UUID"
+# Set by the framework when it requires one; a child sends it back and is let in.
+REMOTE_TOKEN_ENV = "ACTIONUI_REMOTE_TOKEN"
+
+
+def _real_environ(name):
+    """Read a variable from the process's ACTUAL environment.
+
+    os.environ is a snapshot taken at interpreter start, so a setenv from native code after that
+    is invisible to it - and to anything built from it, which includes the common
+    `subprocess.run(..., env={**os.environ})`. getenv reads the real thing.
+    """
+    import ctypes
+    import ctypes.util
+    libc = ctypes.CDLL(ctypes.util.find_library("c"))
+    libc.getenv.restype = ctypes.c_char_p
+    libc.getenv.argtypes = [ctypes.c_char_p]
+    raw = libc.getenv(name.encode("utf-8"))
+    return raw.decode("utf-8") if raw is not None else None
 
 
 class LogLevel(IntEnum):
@@ -426,6 +444,14 @@ class Application:
         endpoint = _actionui.app_start_remote_server(path)
         # The framework called setenv, which os.environ does not see; keep the two in step.
         os.environ[REMOTE_ENDPOINT_ENV] = endpoint
+        # Same for the token, when the framework minted one. Without this a child launched with
+        # the documented env={**os.environ, ...} pattern would be refused, because the value it
+        # needs would be in the real environment and not in the copy.
+        token = _real_environ(REMOTE_TOKEN_ENV)
+        if token is None:
+            os.environ.pop(REMOTE_TOKEN_ENV, None)
+        else:
+            os.environ[REMOTE_TOKEN_ENV] = token
         if not self._remote_server_atexit_registered:
             atexit.register(self.stop_remote_server)
             self._remote_server_atexit_registered = True
@@ -440,6 +466,7 @@ class Application:
             # Only when it was ours: an app that is itself a remote child inherited this
             # variable from its parent and must keep it.
             os.environ.pop(REMOTE_ENDPOINT_ENV, None)
+            os.environ.pop(REMOTE_TOKEN_ENV, None)
 
     @property
     def remote_server_endpoint(self) -> Optional[str]:

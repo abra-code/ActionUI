@@ -23,6 +23,16 @@ import ActionUI
 private nonisolated(unsafe) var endpointCString: UnsafeMutablePointer<CChar>?
 private let endpointLock = NSLock()
 
+private nonisolated(unsafe) var tokenCString: UnsafeMutablePointer<CChar>?
+private let tokenLock = NSLock()
+
+private func setTokenCString(_ token: String?) {
+    tokenLock.lock()
+    defer { tokenLock.unlock() }
+    free(tokenCString)
+    tokenCString = token.map { strdup($0) } ?? nil
+}
+
 private func setEndpointCString(_ path: String?) {
     endpointLock.lock()
     defer { endpointLock.unlock() }
@@ -94,6 +104,7 @@ public func actionUIRemoteStartServer(_ socketPath: UnsafePointer<CChar>?,
     do {
         let bound = try ActionUIRemoteServer.startShared(socketPath: path, host: host, logger: logger)
         setEndpointCString(bound)
+        setTokenCString(getenv(ActionUIRemoteEnvironment.token).map { String(cString: $0) })
         if logger == nil {
             attachEngineLoggerAsync()
         }
@@ -113,6 +124,7 @@ public func actionUIRemoteStartServer(_ socketPath: UnsafePointer<CChar>?,
 public func actionUIRemoteStopServer() {
     ActionUIRemoteServer.stopShared()
     setEndpointCString(nil)
+    setTokenCString(nil)
 }
 
 /// The socket path of the running server, or NULL when none is running.
@@ -124,6 +136,22 @@ public func actionUIRemoteServerEndpoint() -> UnsafePointer<CChar>? {
     endpointLock.lock()
     defer { endpointLock.unlock() }
     return endpointCString.map { UnsafePointer($0) }
+}
+
+/// The token the running server requires, or NULL when it requires none.
+///
+/// The value is also in the process environment, but a binding cannot always read it there: a
+/// language runtime that snapshots the environment at startup - CPython does - never sees a
+/// setenv made afterwards, and anything it builds from that snapshot would hand a child an
+/// environment with no token in it. Reading it here is exact.
+///
+/// Same lifetime rule as `actionUIRemoteServerEndpoint`: owned by this target, valid until the
+/// next start or stop, copy it if you keep it.
+@_cdecl("actionUIRemoteServerToken")
+public func actionUIRemoteServerToken() -> UnsafePointer<CChar>? {
+    tokenLock.lock()
+    defer { tokenLock.unlock() }
+    return tokenCString.map { UnsafePointer($0) }
 }
 
 /// True while the process-wide server is serving. Convenience for a host that only wants to
