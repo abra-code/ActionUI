@@ -65,7 +65,8 @@ Prefer the `.zsh` when the handler is zsh anyway. Use the `.sh` when it has to b
 programs beside itself when it is sourced, and a copy that took only the `.sh` says which files
 are missing and refuses to load, rather than working until the first control character or the
 first reply. The directory is resolved once, when the file is sourced, so a handler that `cd`s
-afterwards is fine.
+afterwards is fine, and a symlink to the `.sh` is followed to where the file really is, so
+`/usr/local/bin/actionui_remote.sh` pointing into a checkout works.
 
 ## Use
 

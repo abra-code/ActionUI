@@ -142,6 +142,9 @@ rather than convenience: a `python3` or `node` process shows its environment, an
 to any same-user `ps`, and a shell does not. `Shell/README.md` has the measurements and the three
 rules that keep that true.
 
+The `.sh` does not travel alone: it runs `actionui_remote_escape.awk` and `actionui_remote_walk.awk`
+from its own directory and refuses to load without them, so copy the set.
+
 ```sh
 . /path/to/actionui_remote.sh                       # library
 actionui_hold_token                                 # take the token out of the environment
@@ -204,6 +207,8 @@ it - the bundled fake host does.
   environment export - what a host calls instead of writing its own singleton.
 - `ActionUIRemoteMethods.swift`: the `actionui.*` table over the engine.
 - `Python/`: the stdlib-only Python client (importable, and runnable with `-m`) and a fake
-- `Shell/` - `actionui_remote.sh` and `actionui_remote.zsh`, the shell clients, their tests and README.
   server for host test suites.
+- `Shell/`: `actionui_remote.sh` and `actionui_remote.zsh`, the shell clients, the two awk
+  programs the `.sh` runs, their tests and README.
+- `Node/`: the Node client, its tests and README.
 - Tests in `ActionUIRemoteTests/`.

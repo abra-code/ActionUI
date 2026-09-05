@@ -20,7 +20,7 @@
 # while a python3 child spawned without actionui_hold_token does. Those checks need the host to
 # hold a connection open without replying, which a bare `nc -l` provides.
 
-_t_here=$(cd "$(/usr/bin/dirname "$0")" && pwd)
+_t_here=$(CDPATH= cd "$(/usr/bin/dirname "$0")" && pwd)
 _t_python_dir="$_t_here/../Python"
 
 # --- the matrix ---------------------------------------------------------------------------------
@@ -765,9 +765,22 @@ _t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" 2>&1)
 _t_rc=$?
 t_eq "the .sh without its programs refuses to load" 2 "$_t_rc"
 t_contains "and names both of them" "actionui_remote_escape.awk and actionui_remote_walk.awk" "$_t_out"
-t_contains "and says where it looked" "$_t_awkcopy/actionui_remote.sh" "$_t_out"
+# The physical directory: zsh resolves /var to /private/var on its way to the message, bash does
+# not, so the client reports the directory it actually looked in and both cells agree. Checked,
+# because an empty needle is one t_contains would find in anything.
+_t_awkcopy_real=$(cd "$_t_awkcopy" && pwd -P)
+if [ -n "$_t_awkcopy_real" ]; then
+    t_contains "and says where it looked" "$_t_awkcopy_real" "$_t_out"
+else
+    t_not_ok "and says where it looked" "could not resolve $_t_awkcopy"
+fi
 _t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh" >/dev/null 2>&1; command -v actionui_get_value' _ "$_t_awkcopy" 2>/dev/null)
 t_eq "and leaves no half-loaded API behind" "" "$_t_out"
+_t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh" >/dev/null 2>&1; printf "%s" "${ACTIONUI_EXIT_USAGE:-}${ACTIONUI_PROTOCOL_VERSION:-}"' _ "$_t_awkcopy" 2>/dev/null)
+t_eq "and not even the constants: it refuses before it defines anything" "" "$_t_out"
+"$_t_shell" "$_t_awkcopy/actionui_remote.sh" hello >/dev/null 2>&1
+_t_rc=$?
+t_eq "and run as a command rather than sourced, it exits 2 the same way" 2 "$_t_rc"
 
 /bin/cp "$_t_here/actionui_remote_escape.awk" "$_t_awkcopy/"
 "$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" >/dev/null 2>&1
@@ -800,7 +813,82 @@ if [ -n "${ZSH_VERSION:-}" ]; then
     t_eq "the .zsh passes the refusal on rather than loading half an API" 2 "$_t_rc"
     _t_out=$(/bin/zsh -c '. "$1/actionui_remote.zsh" >/dev/null 2>&1; whence -w actionui_get_value' _ "$_t_zcopy" 2>/dev/null)
     t_lacks "and defines no element functions" "function" "$_t_out"
+    # Its own transport is defined before it sources the .sh, so it has to unwind that by hand.
+    _t_out=$(/bin/zsh -c '. "$1/actionui_remote.zsh" >/dev/null 2>&1; whence -w actionui_disconnect _aui_send_receive _aui_zsh_connect' _ "$_t_zcopy" 2>/dev/null)
+    t_lacks "and not the transport it defined before sourcing either" "function" "$_t_out"
+
+    # What it asks after sourcing is whether the API is a function, not whether the name resolves
+    # to something: a stray executable of that name on PATH must not read as a loaded client.
+    _t_straydir="$_t_tmp/stray"
+    /bin/mkdir -p "$_t_straydir"
+    printf '#!/bin/sh\nexit 0\n' > "$_t_straydir/actionui_main"
+    /bin/chmod 755 "$_t_straydir/actionui_main"
+    _t_out=$(PATH="$_t_straydir:$PATH" /bin/zsh -c '. "$1/actionui_remote.zsh" >/dev/null 2>&1; whence -w actionui_disconnect' _ "$_t_zcopy" 2>/dev/null)
+    t_lacks "and a stray executable of that name does not read as loaded" "function" "$_t_out"
+
+    # The caller's option set is not ours to choose. Under KSH_ARRAYS an unbraced $+functions[x]
+    # does not subscript at all - it expands to the literal 1[x], the arithmetic errors on that,
+    # and the guard reads false. Braced it is correct, which is how the .zsh writes it.
+    _t_out=$(/bin/zsh -c 'setopt ksharrays; . "$1/actionui_remote.zsh" >/dev/null 2>&1
+printf "rc=%s " $?; whence -w actionui_disconnect' _ "$_t_zcopy" 2>/dev/null)
+    t_contains "the refusal holds under ksharrays too" "rc=2" "$_t_out"
+    t_lacks "and leaves no transport behind there either" "function" "$_t_out"
+
+    # $0 is the shell rather than the sourced file under sh emulation, and a failed . is fatal
+    # there, so a .zsh that found its .sh through $0 would take the caller's shell down with it -
+    # with a complete, correct file set. %x is what the .sh uses and does not depend on this.
+    # From another directory, because $0 under `zsh -c` is the name the caller passed, and its
+    # :h is the current directory - which would be this one, and would find the .sh by accident.
+    _t_out=$(cd / && /bin/zsh -c 'emulate sh
+. "$1/actionui_remote.zsh" || exit 9
+printf "alive %s" "$ACTIONUI_PROTOCOL_VERSION"' _ "$_t_here" 2>/dev/null)
+    t_eq "and the .zsh loads under sh emulation without taking the caller with it" \
+        "alive $ACTIONUI_PROTOCOL_VERSION" "$_t_out"
 fi
+
+# A client reached through a symlink finds its programs where the file really is, not where the
+# link is. zsh resolves that with :A; the .sh follows the link by hand for bash.
+_t_linkdir="$_t_tmp/link"
+/bin/mkdir -p "$_t_linkdir"
+/bin/ln -s "$_t_here/actionui_remote.sh" "$_t_linkdir/actionui_remote.sh"
+_t_out=$(ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '. "$1/actionui_remote.sh" || exit 9
+actionui_get_value 2 >/dev/null || exit 9
+printf loaded' _ "$_t_linkdir" 2>/dev/null)
+t_eq "a client reached through a symlink still finds its programs" "loaded" "$_t_out"
+/bin/ln -s "$_t_linkdir/actionui_remote.sh" "$_t_linkdir/second.sh"
+_t_out=$("$_t_shell" -c '. "$1/second.sh" >/dev/null 2>&1 || exit 9
+printf loaded' _ "$_t_linkdir" 2>/dev/null)
+t_eq "and through a symlink to a symlink" "loaded" "$_t_out"
+
+# A relative link target whose last hop lands on the real file, reached through a directory that
+# is itself a symlink. The link has to be resolved against the physical directory it lives in:
+# pasting the two paths together leaves a ".." in the result, and the shell's own cd resolves
+# that textually against the symlinked directory, which is somewhere else entirely. The last hop
+# has to end on a real file, or the next readlink hides the mistake by replacing the path.
+/bin/mkdir -p "$_t_linkdir/real" "$_t_linkdir/deep"
+/bin/ln -s "$_t_here" "$_t_linkdir/full"
+/bin/ln -s "../full/actionui_remote.sh" "$_t_linkdir/real/relative.sh"
+/bin/ln -s "$_t_linkdir/real" "$_t_linkdir/deep/mount"
+_t_out=$("$_t_shell" -c '. "$1/deep/mount/relative.sh" >/dev/null 2>&1 || exit 9
+printf loaded' _ "$_t_linkdir" 2>/dev/null)
+t_eq "and through a relative link under a symlinked directory" "loaded" "$_t_out"
+
+# A shell that is neither bash nor zsh has to be turned away by the message that says so, not by
+# the one about missing programs - and a dot-script is read ahead of what it runs, so the file
+# must not contain syntax another shell's parser chokes on before it reaches the check.
+for _t_othersh in /bin/dash /bin/ksh; do
+    if [ ! -x "$_t_othersh" ]; then
+        continue
+    fi
+    _t_out=$(cd / && "$_t_othersh" -c '. "$1/actionui_remote.sh"' _ "$_t_here" 2>&1)
+    _t_rc=$?
+    t_eq "$_t_othersh sourcing this file is turned away with 2" 2 "$_t_rc"
+    t_contains "and told which shells it needs" "needs bash (macOS /bin/sh) or zsh" "$_t_out"
+    # "yntax error" rather than "syntax error": dash capitalizes it, ksh does not, and t_lacks
+    # matches with a case glob. Case matters here - dash also exits 2 on a parse error, so this
+    # and the status check would both pass through the very failure the eval wrapper prevents.
+    t_lacks "and got there without a parse error" "yntax error" "$_t_out"
+done
 
 # --- summary ------------------------------------------------------------------------------------
 
