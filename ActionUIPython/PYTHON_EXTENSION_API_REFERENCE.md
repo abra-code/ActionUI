@@ -526,8 +526,32 @@ subprocess.run(["python3", "worker.py"],
                env={**os.environ, "ACTIONUI_WINDOW_UUID": window.uuid})
 
 app.remote_server_endpoint    # the socket path, or None
+app.remote_server_token       # the token it requires, or None
 app.stop_remote_server()      # also runs at interpreter exit
 ```
+
+**Authentication.**  A server started this way always requires a token - the
+extension exposes no way to turn that off - so that a process this app did not
+spawn cannot drive its windows merely by finding the socket.
+`start_remote_server` exports it as `ACTIONUI_REMOTE_TOKEN` and mirrors it into
+`os.environ`, and `actionui_remote` sends it without being asked - so the
+`env={**os.environ, ...}` spawn above needs nothing added, and a worker writes
+nothing about tokens at all.  `app.remote_server_token` is for a host that wants
+to deliver it some other way.
+
+Mirroring is not optional bookkeeping.  The framework publishes both variables
+with `setenv`, and `os.environ` is a snapshot taken at interpreter start that a
+later `setenv` never reaches, so a child built from `os.environ` would otherwise
+get neither and be refused with `1006`.
+
+What the token is worth is measured in `PROTOCOL.md` section 10, and it is worth
+reading before relying on it: a child's environment is readable by any process of
+the same user, because `python3` and `node` do not carry the `CS_RESTRICT`
+code-signing flag and cannot be made to.  The token raises the cost of casual
+access; it is not a security boundary.  A host that needs the token off `ps`
+entirely must hand each child its own on an inherited descriptor named by
+`ACTIONUI_REMOTE_TOKEN_FD` - the form `actionui_remote` and the shell clients
+already read.
 
 Starting twice raises `RuntimeError`.  In the worker:
 

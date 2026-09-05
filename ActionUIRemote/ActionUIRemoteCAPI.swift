@@ -158,6 +158,34 @@ public func actionUIRemoteServerToken() -> UnsafePointer<CChar>? {
     return tokenCString.map { UnsafePointer($0) }
 }
 
+/// The same token, copied into the caller's buffer under the lock.
+///
+/// Prefer this to `actionUIRemoteServerToken` from any host that can stop the server on one
+/// thread while another asks for the token. That accessor hands back the pointer it owns and
+/// releases the lock before the caller can read through it, so a concurrent
+/// `actionUIRemoteStopServer` - which frees that buffer - leaves the reader holding freed
+/// memory. The window is small and the shape is the same as `actionUIRemoteServerEndpoint`'s,
+/// but the language bindings run exactly that way: `ActionUIPython` documents starting and
+/// stopping the server from a worker thread and releases the GIL across the stop.
+///
+/// - Parameters:
+///   - outToken: where to write the NUL-terminated token. Nothing is written on failure.
+///   - outTokenSize: the buffer's size in bytes. 128 is always enough; the token is 65 bytes
+///     today, and a buffer smaller than the token is a failure, never a truncation.
+/// - Returns: false when no token is held, or the buffer is missing or too small.
+@_cdecl("actionUIRemoteCopyServerToken")
+public func actionUIRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?,
+                                          _ outTokenSize: Int) -> CBool {
+    guard let outToken, outTokenSize > 0 else { return false }
+    tokenLock.lock()
+    defer { tokenLock.unlock() }
+    guard let token = tokenCString else { return false }
+    let length = strlen(token)
+    guard length + 1 <= outTokenSize else { return false }
+    memcpy(outToken, token, length + 1)
+    return true
+}
+
 // MARK: - Per-unit-of-work tokens
 
 /// The buffer `actionUIRemoteMintToken` needs: 64 hex characters and a terminator, rounded up so

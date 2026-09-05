@@ -37,6 +37,7 @@ function testNativeAPISurface() {
         'setLogger', 'log',
         // Remote bridge
         'appStartRemoteServer', 'appStopRemoteServer', 'appRemoteServerEndpoint',
+        'appRemoteServerToken',
         // Action handlers
         'registerActionHandler', 'unregisterActionHandler', 'setDefaultActionHandler',
         // Type-specific setters
@@ -269,6 +270,47 @@ function testWindowRegistry(app) {
     } catch { check('closeWindow(unknown UUID) does not throw', false); }
 }
 
+// One request over the bridge from a separate process, with `env` as its whole environment.
+// Returns the error code as a string, 'result', 'closed' when the host hung up without
+// answering, or 'no-reply' when nothing came back in time.
+//
+// A child rather than an in-process socket, because the environment a child is given is the
+// thing under test. Synchronous, so it drops into the smoke tests as an ordinary check.
+const REMOTE_PROBE = [
+    "const net = require('net');",
+    "const s = net.connect(process.env.ACTIONUI_REMOTE_ENDPOINT);",
+    "let out = 'no-reply', buf = '', done = false;",
+    "function finish() { if (done) return; done = true; try { s.destroy(); } catch (e) {}",
+    "                    console.log(out); process.exit(0); }",
+    "s.on('connect', () => {",
+    "  const params = {};",
+    "  if (process.env.ACTIONUI_REMOTE_TOKEN) params.token = process.env.ACTIONUI_REMOTE_TOKEN;",
+    "  s.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'actionui.hello', params }) + '\\n');",
+    // The clock starts once the request is on its way, not when this script does, so a slow
+    // start cannot be mistaken for the host declining to answer.
+    "  setTimeout(finish, 700);",
+    "});",
+    "s.on('data', (d) => {",
+    "  buf += d.toString();",
+    "  if (buf.indexOf('\\n') < 0) return;",
+    "  const reply = JSON.parse(buf.split('\\n')[0]);",
+    "  out = reply.error ? String(reply.error.code) : 'result';",
+    "  finish();",
+    "});",
+    // A host that hangs up without answering is a different failure from one that accepted the
+    // request and left it on a main thread nobody is servicing. Reporting both as 'no-reply'
+    // would let the first pass the acceptance check below.
+    "s.on('end', () => { if (out === 'no-reply') out = 'closed'; finish(); });",
+    "s.on('error', () => { out = 'connect-failed'; finish(); });",
+].join('\n');
+
+function remoteProbe(env) {
+    return require('child_process')
+        .execFileSync(process.execPath, ['-e', REMOTE_PROBE],
+                      { env, encoding: 'utf8', timeout: 15000 })
+        .trim();
+}
+
 // ---------------------------------------------------------------------------
 // Singleton enforcement
 // ---------------------------------------------------------------------------
@@ -276,6 +318,11 @@ function testRemoteBridge(app) {
     // The whole chain (JS wrapper, N-API binding, Swift entry point, ActionUIRemoteServer)
     // without a run loop, which is fine because only request handling needs the main queue
     // to be serviced. Answering requests is covered by ActionUIRemoteTests.
+    //
+    // Authentication is the exception and is exercised here: the server refuses an
+    // unauthenticated request on the connection queue, deliberately, so that refusing one
+    // cannot itself be a way to stall the UI. That is what makes the token checks below
+    // possible with no run loop running.
     console.log('\n=== Remote bridge ===');
     const fs = require('fs');
 
@@ -289,6 +336,30 @@ function testRemoteBridge(app) {
     check('the endpoint is exported to child processes',
           process.env.ACTIONUI_REMOTE_ENDPOINT === endpoint);
 
+    const token = app.remoteServerToken;
+    check('remoteServerToken reports a token', typeof token === 'string' && token.length > 0);
+    check('the token is exported to child processes',
+          process.env.ACTIONUI_REMOTE_TOKEN === token);
+
+    // A real child, spawned the documented way, because that is the thing that was broken and
+    // nothing above would have noticed: the framework publishes the token with setenv, which
+    // process.env never sees, so a host that does not mirror it hands its children an
+    // environment with no token in it and every one of them is refused.
+    //
+    // `env` must be passed explicitly. Inheriting it implicitly would give the child the real
+    // environment, token and all, and the test would pass over exactly the bug it is here for.
+    //
+    // A request that passes the gate hops to the main thread, which nothing is servicing here,
+    // so "no reply" is what acceptance looks like. That reads as an assertion about silence, so
+    // the refusals are checked first: they prove replies do come back, and promptly.
+    const withoutToken = { ...process.env };
+    delete withoutToken.ACTIONUI_REMOTE_TOKEN;
+    check('a child with no token is refused with 1006', remoteProbe(withoutToken) === '1006');
+    check('a child with the wrong token is refused with 1006',
+          remoteProbe({ ...process.env, ACTIONUI_REMOTE_TOKEN: 'not-the-token' }) === '1006');
+    check('a child that inherits the environment passes the token gate',
+          remoteProbe({ ...process.env }) === 'no-reply');
+
     let threw = false;
     try { app.startRemoteServer(); } catch (e) { threw = true; }
     check('starting twice throws', threw);
@@ -298,6 +369,8 @@ function testRemoteBridge(app) {
     check('endpoint is null after stopping', app.remoteServerEndpoint === null);
     check('the environment variable is unset',
           process.env.ACTIONUI_REMOTE_ENDPOINT === undefined);
+    check('remoteServerToken is null after stopping', app.remoteServerToken === null);
+    check('the token variable is unset', process.env.ACTIONUI_REMOTE_TOKEN === undefined);
 
     let stoppedTwice = true;
     try { app.stopRemoteServer(); } catch (e) { stoppedTwice = false; }

@@ -177,7 +177,28 @@ class TokenTests(FakeHostTestCase):
         fake.add_window(WINDOW, FIXTURE)
         fake.serve_in_thread()
         self.addCleanup(fake.stop)
+        self.guarded = fake
         return path
+
+    def raw_connect(self, path):
+        """A bare socket, so that a test can choose which requests carry a token."""
+        raw = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        raw.settimeout(5.0)
+        raw.connect(path)
+        self.addCleanup(raw.close)
+        return raw
+
+    def raw_call(self, raw, request_id, token=None):
+        """One actionui.listWindows over `raw`, with a token only when given."""
+        params = {} if token is None else {"token": token}
+        raw.sendall(json.dumps({"jsonrpc": "2.0", "id": request_id,
+                                "method": "actionui.listWindows", "params": params}).encode("utf-8") + b"\n")
+        buffer = b""
+        while b"\n" not in buffer:
+            chunk = raw.recv(65536)
+            self.assertTrue(chunk, "the host closed the connection without replying")
+            buffer += chunk
+        return json.loads(buffer.split(b"\n")[0].decode("utf-8"))
 
     def test_the_environment_token_is_sent_without_the_caller_asking(self):
         path = self.start_guarded("good")
@@ -559,6 +580,48 @@ class TokenTests(FakeHostTestCase):
         self.assertIn("<redacted>", body)
         # And in memory, which is what bridge_called reads through.
         self.assertNotIn("secret-value", json.dumps(fake.requests))
+
+    # -- the fake must refuse and accept exactly what the real server does, or a suite that
+    # -- passes against it says nothing about the host it stands in for.
+
+    def test_a_connection_that_presents_the_token_once_is_remembered(self):
+        path = self.start_guarded("good")
+        raw = self.raw_connect(path)
+        first = self.raw_call(raw, 1, token="good")
+        self.assertNotIn("error", first, "the request that carried the token must be accepted")
+        second = self.raw_call(raw, 2)
+        self.assertNotIn("error", second,
+                         "the real server remembers an authenticated connection; so must this")
+
+    def test_a_second_connection_does_not_inherit_the_first_authentication(self):
+        path = self.start_guarded("good")
+        self.raw_call(self.raw_connect(path), 1, token="good")
+        fresh = self.raw_call(self.raw_connect(path), 1)
+        self.assertEqual(fresh["error"]["code"], 1006)
+
+    def test_the_token_never_reaches_a_handler(self):
+        path = self.start_guarded("good")
+        seen = []
+        self.guarded.register("omc.probe", lambda params: seen.append(dict(params)) or True)
+        connection = aui.Connection(path, timeout=5.0, token="good")
+        self.addCleanup(connection.close)
+        connection.call("omc.probe", {"a": 1})
+        self.assertEqual(seen, [{"a": 1}], "the token must be stripped before dispatch")
+        # The log keeps it, redacted, which is what a harness asserts a token was sent with.
+        self.assertEqual(self.fake_last_token(self.guarded), "<redacted>")
+
+    def test_a_stray_token_is_stripped_even_when_none_is_required(self):
+        # The not-required path strips too: a token addressed to some other host must never
+        # reach a handler merely because this one was not asked to check it.
+        seen = []
+        self.fake.register("omc.probe", lambda params: seen.append(dict(params)) or True)
+        connection = aui.Connection(self.socket_path, timeout=5.0, token="stray")
+        self.addCleanup(connection.close)
+        connection.call("omc.probe", {"a": 1})
+        self.assertEqual(seen, [{"a": 1}])
+
+    def fake_last_token(self, fake):
+        return fake.requests[-1]["params"].get("token")
 
 
 class DiscoveryTests(FakeHostTestCase):

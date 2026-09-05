@@ -48,6 +48,15 @@ public func actionUIAppRemoteServerToken() -> UnsafePointer<CChar>? {
     return actionUIRemoteServerToken()
 }
 
+/// The same token, copied into the caller's buffer under the framework's lock.
+/// Equivalent to `actionUIRemoteCopyServerToken`, and what a host with more than one thread
+/// should use: see that function for why the pointer form is not safe against a concurrent stop.
+@_cdecl("actionUIAppRemoteCopyServerToken")
+public func actionUIAppRemoteCopyServerToken(_ outToken: UnsafeMutablePointer<CChar>?,
+                                             _ outTokenSize: Int) -> CBool {
+    return actionUIRemoteCopyServerToken(outToken, outTokenSize)
+}
+
 /// The socket path of the running server, or NULL when none is running.
 /// Equivalent to `actionUIRemoteServerEndpoint()`, including its lifetime: the string is owned
 /// by the framework and stays valid until the next start or stop.

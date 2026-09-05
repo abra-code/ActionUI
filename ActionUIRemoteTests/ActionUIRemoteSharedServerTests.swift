@@ -443,6 +443,32 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         XCTAssertNil(actionUIRemoteServerToken(), "stopping clears it")
     }
 
+    func testTheCopyingAccessorAgreesWithThePointerOne() throws {
+        // What the language bindings call. The pointer accessor hands back the buffer this
+        // target owns and releases the lock before the caller reads it, so a stop on another
+        // thread can free it underneath - and ActionUIPython documents stopping from a worker
+        // thread. This one copies while it still holds the lock.
+        var buffer = [CChar](repeating: 0, count: 128)
+        XCTAssertFalse(actionUIRemoteCopyServerToken(&buffer, buffer.count),
+                       "nothing running, nothing to copy")
+
+        let path = temporarySocketPath()
+        XCTAssertTrue(path.withCString { actionUIRemoteStartServer($0, nil, nil) })
+        XCTAssertTrue(actionUIRemoteCopyServerToken(&buffer, buffer.count))
+        let terminator = buffer.firstIndex(of: 0) ?? buffer.count
+        let copied = String(decoding: buffer[..<terminator].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        XCTAssertEqual(copied, actionUIRemoteServerToken().map { String(cString: $0) })
+        XCTAssertEqual(copied, Self.environmentToken())
+
+        // A buffer smaller than the token is a failure, never a truncation, and writes nothing.
+        var tooSmall = [CChar](repeating: 0x7f, count: 8)
+        XCTAssertFalse(actionUIRemoteCopyServerToken(&tooSmall, tooSmall.count))
+        XCTAssertTrue(tooSmall.allSatisfy { $0 == 0x7f }, "nothing may be written on failure")
+
+        actionUIRemoteStopServer()
+        XCTAssertFalse(actionUIRemoteCopyServerToken(&buffer, buffer.count), "stopping clears it")
+    }
+
     // MARK: - The C face for per-unit-of-work tokens
 
     /// The buffer OMC passes. 128 is what the entry point's documentation promises is enough.

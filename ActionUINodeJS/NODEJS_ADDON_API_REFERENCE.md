@@ -195,12 +195,32 @@ spawn('python3', ['worker.py'],
       { env: { ...process.env, ACTIONUI_WINDOW_UUID: window.uuid } });
 
 app.remoteServerEndpoint;    // the socket path, or null
+app.remoteServerToken;       // the token it requires, or null
 app.stopRemoteServer();      // also runs on process exit
 ```
 
 Starting twice throws.  The client a worker uses is `ActionUIRemote/Python/actionui_remote.py`,
 importable or runnable with `python3 -m actionui_remote`; the wire contract is
 `ActionUIRemote/PROTOCOL.md`.
+
+**Authentication.**  A server started this way always requires a token - the addon exposes no way
+to turn that off - so that a process this app did not spawn cannot drive its windows merely by
+finding the socket.  `startRemoteServer` exports it as
+`ACTIONUI_REMOTE_TOKEN` and mirrors it into `process.env`, and the reference clients send it
+without being asked - so the `{ ...process.env }` spawn above needs nothing added, and a worker
+writes nothing about tokens at all.  `app.remoteServerToken` is for a host that wants to deliver
+it some other way.
+
+Mirroring is not optional bookkeeping.  The framework publishes both variables with `setenv`, and
+`process.env` is a snapshot taken at startup that a later `setenv` never reaches, so a child built
+from `process.env` would otherwise get neither and be refused with `1006`.
+
+What the token is worth is measured in `PROTOCOL.md` section 10, and it is worth reading before
+relying on it: a child's environment is readable by any process of the same user, because `node`
+and `python3` do not carry the `CS_RESTRICT` code-signing flag and cannot be made to.  The token
+raises the cost of casual access; it is not a security boundary.  A host that needs the token off
+`ps` entirely must hand each child its own on an inherited descriptor named by
+`ACTIONUI_REMOTE_TOKEN_FD` - the form the shell and Python clients already read.
 
 #### Action handlers
 
@@ -384,6 +404,7 @@ native.setDefaultActionHandler(callback)
 native.appStartRemoteServer(path)      // path or null for a per-process default; returns the path
 native.appStopRemoteServer()
 native.appRemoteServerEndpoint()       // the socket path, or null
+native.appRemoteServerToken()          // the token the server requires, or null
 
 // Type-specific setters (windowUuid, viewId, partId, value)
 native.setIntValue(uuid, viewId, partId, value)

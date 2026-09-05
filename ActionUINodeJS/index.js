@@ -409,6 +409,18 @@ class Application {
     // not be created. Anything already at the path is unlinked before binding, so pass a path
     // of your own making.
     //
+    // A server started this way always requires a token - there is no way through this addon to
+    // turn that off - and it is exported the same way, as ACTIONUI_REMOTE_TOKEN.
+    // Both variables must be mirrored into process.env by hand: the
+    // framework publishes them with setenv, and process.env is a snapshot taken at startup that
+    // a later setenv never reaches - so the documented { ...process.env } spawn above would
+    // otherwise hand a child neither, and the child would be refused with 1006.
+    //
+    // A child's environment is not private: `ps` shows it to any process of the same user,
+    // because node and python3 do not carry CS_RESTRICT and cannot be made to. See PROTOCOL.md
+    // section 10 for what the token is and is not worth, and for the descriptor form a host that
+    // needs the token off `ps` must use instead.
+    //
     // Stopped and removed when the application terminates, and on process exit for a script
     // that never started the run loop. (app.run() never returns: AppKit ends the process in
     // exit(), which emits no 'exit' event.)
@@ -416,6 +428,16 @@ class Application {
         const endpoint = _actionui.appStartRemoteServer(path ?? null);
         // The framework called setenv, which process.env does not see; keep the two in step.
         process.env.ACTIONUI_REMOTE_ENDPOINT = endpoint;
+        // Same for the token, when the framework minted one. Deleting it otherwise is not
+        // housekeeping: an app that is itself a remote child inherited its parent's token, the
+        // framework has already replaced or cleared the real variable, and leaving the stale one
+        // in process.env would hand every child a credential for a host it is not talking to.
+        const token = _actionui.appRemoteServerToken();
+        if (token === null) {
+            delete process.env.ACTIONUI_REMOTE_TOKEN;
+        } else {
+            process.env.ACTIONUI_REMOTE_TOKEN = token;
+        }
         if (!this._remoteServerExitHooked) {
             process.on('exit', () => this.stopRemoteServer());
             this._remoteServerExitHooked = true;
@@ -431,11 +453,23 @@ class Application {
             // Only when it was ours: an app that is itself a remote child inherited this
             // variable from its parent and must keep it.
             delete process.env.ACTIONUI_REMOTE_ENDPOINT;
+            // The framework unsets the real one on stop, so this only keeps the snapshot honest.
+            delete process.env.ACTIONUI_REMOTE_TOKEN;
         }
     }
 
     /** The running server's socket path, or null when it is not running. */
     get remoteServerEndpoint() { return _actionui.appRemoteServerEndpoint(); }
+
+    /**
+     * The token the running server requires, or null when it requires none or is not running.
+     *
+     * Children spawned after startRemoteServer() inherit it in ACTIONUI_REMOTE_TOKEN and their
+     * clients send it unasked, so a host normally never needs this. It is here for a host that
+     * hands the token to a child some other way - on an inherited descriptor, which keeps it out
+     * of `ps`; see PROTOCOL.md section 10.
+     */
+    get remoteServerToken() { return _actionui.appRemoteServerToken(); }
 
     loadAndPresentWindow(url, uuid, title) {
         if (uuid == null) uuid = randomUUID();

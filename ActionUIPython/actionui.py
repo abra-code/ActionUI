@@ -23,22 +23,6 @@ REMOTE_WINDOW_ENV = "ACTIONUI_WINDOW_UUID"
 REMOTE_TOKEN_ENV = "ACTIONUI_REMOTE_TOKEN"
 
 
-def _real_environ(name):
-    """Read a variable from the process's ACTUAL environment.
-
-    os.environ is a snapshot taken at interpreter start, so a setenv from native code after that
-    is invisible to it - and to anything built from it, which includes the common
-    `subprocess.run(..., env={**os.environ})`. getenv reads the real thing.
-    """
-    import ctypes
-    import ctypes.util
-    libc = ctypes.CDLL(ctypes.util.find_library("c"))
-    libc.getenv.restype = ctypes.c_char_p
-    libc.getenv.argtypes = [ctypes.c_char_p]
-    raw = libc.getenv(name.encode("utf-8"))
-    return raw.decode("utf-8") if raw is not None else None
-
-
 class LogLevel(IntEnum):
     """Log levels for ActionUI.  Values match ActionUILogLevel in ActionUIC.h."""
     ERROR   = _actionui.LOG_ERROR
@@ -446,8 +430,11 @@ class Application:
         os.environ[REMOTE_ENDPOINT_ENV] = endpoint
         # Same for the token, when the framework minted one. Without this a child launched with
         # the documented env={**os.environ, ...} pattern would be refused, because the value it
-        # needs would be in the real environment and not in the copy.
-        token = _real_environ(REMOTE_TOKEN_ENV)
+        # needs would be in the real environment and not in the copy. Asked of the framework
+        # rather than read back out of the environment with getenv: the accessor returns the
+        # value captured when the server started, so it stays right for a host that unexports
+        # the variable to keep the token off `ps`.
+        token = _actionui.app_remote_server_token()
         if token is None:
             os.environ.pop(REMOTE_TOKEN_ENV, None)
         else:
@@ -472,6 +459,17 @@ class Application:
     def remote_server_endpoint(self) -> Optional[str]:
         """The running server's socket path, or ``None`` when it is not running."""
         return _actionui.app_remote_server_endpoint()
+
+    @property
+    def remote_server_token(self) -> Optional[str]:
+        """The token the running server requires, or ``None`` when it requires none.
+
+        Children spawned after :meth:`start_remote_server` inherit it in
+        ``ACTIONUI_REMOTE_TOKEN`` and ``actionui_remote`` sends it unasked, so a host normally
+        never needs this.  It is here for a host that hands the token to a child some other way -
+        on an inherited descriptor, which keeps it out of ``ps``; see ``PROTOCOL.md`` section 10.
+        """
+        return _actionui.app_remote_server_token()
 
     def load_and_present_window(self,
                                 url: str,

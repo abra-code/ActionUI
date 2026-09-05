@@ -345,6 +345,24 @@ static PyObject* py_app_remote_server_endpoint(PyObject* self, PyObject* args) {
     return PyUnicode_FromString(endpoint);
 }
 
+// The token the running server requires, or None when it requires none.
+//
+// The framework publishes it with setenv, and os.environ is a snapshot taken at interpreter
+// start that a later setenv never reaches - so this, and not the environment, is how Python
+// learns the token. Reading it back with getenv would work today but would break the moment a
+// host unexports the variable (which is what a host keeping the token off `ps` does); this
+// accessor returns the value captured when the server started, so it survives that.
+//
+// The copying accessor rather than the pointer one: this module documents starting and stopping
+// the server from a worker thread (and releases the GIL across the stop), so the pointer form
+// could be freed by a concurrent actionUIAppStopRemoteServer between the call returning and
+// PyUnicode_FromString reading through it. The copy is made under the framework's own lock.
+static PyObject* py_app_remote_server_token(PyObject* self, PyObject* args) {
+    char token[128];        // the token is 65 bytes; 128 is what the framework documents as enough
+    if (actionUIAppRemoteCopyServerToken(token, sizeof(token)) == false) Py_RETURN_NONE;
+    return PyUnicode_FromString(token);
+}
+
 static PyObject* py_app_load_and_present_window(PyObject* self, PyObject* args) {
     const char* urlString;
     const char* windowUUID;
@@ -1247,6 +1265,8 @@ static PyMethodDef ActionUIMethods[] = {
      "app_stop_remote_server() - stop the remote bridge and remove its socket."},
     {"app_remote_server_endpoint",    py_app_remote_server_endpoint,    METH_NOARGS,
      "app_remote_server_endpoint() -> str|None - the running server's socket path."},
+    {"app_remote_server_token",       py_app_remote_server_token,       METH_NOARGS,
+     "app_remote_server_token() -> str|None - the token the running server requires."},
     {"app_load_and_present_window",   py_app_load_and_present_window,   METH_VARARGS,
      "app_load_and_present_window(url, windowUUID[, title]) — load JSON and open a window."},
     {"app_close_window",              py_app_close_window,              METH_VARARGS,

@@ -1562,6 +1562,27 @@ static napi_value node_app_remote_server_endpoint(napi_env env, napi_callback_in
     return ret;
 }
 
+// The token the running server requires, or null when it requires none.
+//
+// This exists because a Node host cannot find the token any other way: the framework publishes
+// it with setenv, and process.env is a snapshot taken at startup that a later setenv never
+// reaches. Without this binding, a host that starts the server gets one that demands a token it
+// cannot name, and every child it spawns is refused with 1006.
+//
+// The copying accessor rather than the pointer one. Node calls this only from its own thread, so
+// the race the copy closes is not reachable here today - but the pointer form is only safe while
+// that stays true, and one binding using the safe call and the other not would be the harder
+// thing to keep right. The copy is made under the framework's own lock.
+static napi_value node_app_remote_server_token(napi_env env, napi_callback_info info) {
+    char token[128];    // the token is 65 bytes; 128 is what the framework documents as enough
+    if (actionUIAppRemoteCopyServerToken(token, sizeof(token)) == false) {
+        napi_value n; napi_get_null(env, &n); return n;
+    }
+    napi_value ret;
+    napi_create_string_utf8(env, token, NAPI_AUTO_LENGTH, &ret);
+    return ret;
+}
+
 static napi_value node_app_load_and_present_window(napi_env env, napi_callback_info info) {
     size_t argc = 3; napi_value argv[3];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
@@ -1840,6 +1861,7 @@ static napi_value Init(napi_env env, napi_value exports) {
     EXPORT_FN(exports, "appStartRemoteServer",     node_app_start_remote_server);
     EXPORT_FN(exports, "appStopRemoteServer",      node_app_stop_remote_server);
     EXPORT_FN(exports, "appRemoteServerEndpoint",  node_app_remote_server_endpoint);
+    EXPORT_FN(exports, "appRemoteServerToken",     node_app_remote_server_token);
     EXPORT_FN(exports, "appLoadAndPresentWindow",  node_app_load_and_present_window);
     EXPORT_FN(exports, "appCloseWindow",           node_app_close_window);
     EXPORT_FN(exports, "appLoadMenuBar",           node_app_load_menu_bar);

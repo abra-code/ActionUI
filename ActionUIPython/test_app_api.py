@@ -48,6 +48,7 @@ def test_module_api_surface():
         "app_start_remote_server",
         "app_stop_remote_server",
         "app_remote_server_endpoint",
+        "app_remote_server_token",
         "app_set_name",
         "app_set_icon",
         "app_run",
@@ -330,12 +331,70 @@ def test_windows_dict(app: actionui.Application):
 # Main
 # -------------------------------------------------------------------------
 
+_REMOTE_PROBE = r"""
+import json, os, socket, sys
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.settimeout(0.7)
+try:
+    s.connect(os.environ["ACTIONUI_REMOTE_ENDPOINT"])
+except OSError:
+    print("connect-failed"); sys.exit(0)
+params = {}
+token = os.environ.get("ACTIONUI_REMOTE_TOKEN")
+if token:
+    params["token"] = token
+s.sendall(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "actionui.hello",
+                      "params": params}).encode("utf-8") + b"\n")
+buffer = b""
+closed = False
+try:
+    while b"\n" not in buffer:
+        chunk = s.recv(65536)
+        if not chunk:
+            closed = True
+            break
+        buffer += chunk
+except socket.timeout:
+    pass
+except OSError:
+    # A reset is the host hanging up, not silence. socket.timeout is caught first because it is
+    # a subclass of OSError on this Python and would otherwise be misreported as a hang-up.
+    closed = True
+if b"\n" not in buffer:
+    # "closed" and "no-reply" are different failures and must not collapse into one: a host that
+    # hung up on an authenticated request without answering would otherwise be indistinguishable
+    # from one that accepted it and left it on a main thread nobody is servicing.
+    print("closed" if closed else "no-reply"); sys.exit(0)
+reply = json.loads(buffer.split(b"\n")[0].decode("utf-8"))
+print(str(reply["error"]["code"]) if "error" in reply else "result")
+"""
+
+
+def _remote_probe(env):
+    """One request over the bridge from a separate process, with *env* as its whole environment.
+
+    Returns the error code as a string, "result", "closed" when the host hung up without
+    answering, or "no-reply" when nothing came back in time.
+    A child rather than an in-process socket, because the environment a child is given is the
+    thing under test.
+    """
+    import subprocess
+    import sys
+    completed = subprocess.run([sys.executable, "-c", _REMOTE_PROBE], env=env,
+                               capture_output=True, text=True, timeout=30)
+    return completed.stdout.strip()
+
+
 def test_remote_server(app: actionui.Application):
     """Start and stop the remote bridge for real: the socket is created, exported and removed.
 
     This runs the whole chain (Python wrapper, C binding, Swift entry point,
     ActionUIRemoteServer) without a run loop, which is fine because only request handling
     needs the main queue to be serviced. Answering requests is covered by ActionUIRemoteTests.
+
+    Authentication is the exception and is exercised here: the server refuses an unauthenticated
+    request on the connection queue, deliberately, so that refusing one cannot itself be a way to
+    stall the UI. That is what makes the token checks below possible with no run loop running.
     """
     print("\n=== Remote bridge ===")
 
@@ -349,6 +408,26 @@ def test_remote_server(app: actionui.Application):
     check("the endpoint is exported to child processes",
           os.environ.get(actionui.REMOTE_ENDPOINT_ENV) == endpoint)
 
+    token = app.remote_server_token
+    check("remote_server_token reports a token", isinstance(token, str) and token != "")
+    check("the token is exported to child processes",
+          os.environ.get(actionui.REMOTE_TOKEN_ENV) == token)
+    # The framework's setenv is invisible to os.environ, so the mirror above is what makes the
+    # documented env={**os.environ} spawn work at all. Prove it end to end with a real child,
+    # passing env explicitly: inheriting it would give the child the real environment, token and
+    # all, and the check would pass over exactly the bug it is here for.
+    #
+    # A request that passes the gate hops to the main thread, which nothing is servicing here,
+    # so "no reply" is what acceptance looks like. The refusals are checked first: they prove
+    # replies do come back, and promptly, which is what makes the silence mean something.
+    without_token = dict(os.environ)
+    without_token.pop(actionui.REMOTE_TOKEN_ENV, None)
+    check("a child with no token is refused with 1006", _remote_probe(without_token) == "1006")
+    check("a child with the wrong token is refused with 1006",
+          _remote_probe({**os.environ, actionui.REMOTE_TOKEN_ENV: "not-the-token"}) == "1006")
+    check("a child that inherits the environment passes the token gate",
+          _remote_probe(dict(os.environ)) == "no-reply")
+
     try:
         app.start_remote_server()
         check("starting twice raises RuntimeError", False)
@@ -360,6 +439,8 @@ def test_remote_server(app: actionui.Application):
     check("endpoint is None after stopping", app.remote_server_endpoint is None)
     check("the environment variable is unset",
           actionui.REMOTE_ENDPOINT_ENV not in os.environ)
+    check("remote_server_token is None after stopping", app.remote_server_token is None)
+    check("the token variable is unset", actionui.REMOTE_TOKEN_ENV not in os.environ)
 
     try:
         app.stop_remote_server()

@@ -263,9 +263,14 @@ harnesses must not record it; the reference fake host redacts it from its reques
 A host that needs the token kept off `ps` entirely cannot get there by hardening the interpreter -
 `CS_RESTRICT` is reserved to Apple platform/SIP and setuid binaries and cannot be conferred on a
 third-party `python3` or `node`. The only route is to keep the secret out of the process's
-environment: deliver it by an inherited file descriptor, or write it to a 0600 file and export only
-the path. Clearing the variable in-process does not help, because `ps` reads a snapshot frozen at
+environment: deliver it by an inherited file descriptor, which is the `ACTIONUI_REMOTE_TOKEN_FD`
+form above. Clearing the variable in-process does not help, because `ps` reads a snapshot frozen at
 exec time.
+
+A 0600 file holding the token, with only its path exported, looks like the same trick and is not:
+any same-uid process can read that file, which is the attacker the token exists for, so it buys
+nothing over the environment and adds a file somebody must delete. That form was built and removed
+deliberately. There is no `ACTIONUI_REMOTE_TOKEN_FILE`, and a client must not invent one.
 
 ## 11. Versioning
 
