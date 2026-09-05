@@ -256,6 +256,9 @@
 		1DC6625E304963630054D2F1 /* Exceptions for "ActionUIRemote" folder in "ActionUIRemote" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Node/actionui_remote.js,
+				Node/README.md,
+				Node/test_actionui_remote.js,
 				PROTOCOL.md,
 				"Python/__pycache__/actionui_remote_testing.cpython-314.pyc",
 				"Python/__pycache__/actionui_remote.cpython-314.pyc",
@@ -265,6 +268,8 @@
 				Python/test_actionui_remote.py,
 				Python/test_live_client.py,
 				README.md,
+				Shell/actionui_remote_escape.awk,
+				Shell/actionui_remote_walk.awk,
 				Shell/actionui_remote.sh,
 				Shell/actionui_remote.zsh,
 				Shell/README.md,
@@ -2309,6 +2314,8 @@
 					"*.pyc",
 					"*.sh",
 					"*.zsh",
+					"*.js",
+					"*.awk",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -2355,6 +2362,8 @@
 					"*.pyc",
 					"*.sh",
 					"*.zsh",
+					"*.js",
+					"*.awk",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";

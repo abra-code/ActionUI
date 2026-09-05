@@ -54,8 +54,18 @@ remove is the easiest route, the one a Python or Node handler leaves open.
   (`zsh/net/socket`, shipped with `/bin/zsh`). No helper process at all, and one connection kept
   open for the whole script, the way the Python client does. Faster, and simpler underneath.
   It sources the `.sh`, so the two never drift.
+- **`actionui_remote_escape.awk`** and **`actionui_remote_walk.awk`** are the two awk programs the
+  `.sh` runs: the control-character pass of its JSON escaping, and the walker that reads the top
+  level of a reply. Files of their own rather than long strings inside a shell script, which is
+  the only form in which either of them is readable.
 
 Prefer the `.zsh` when the handler is zsh anyway. Use the `.sh` when it has to be `/bin/sh`.
+
+**The files go together.** Whatever you copy, copy the set: the `.sh` finds the two `.awk`
+programs beside itself when it is sourced, and a copy that took only the `.sh` says which files
+are missing and refuses to load, rather than working until the first control character or the
+first reply. The directory is resolved once, when the file is sourced, so a handler that `cd`s
+afterwards is fine.
 
 ## Use
 
@@ -214,13 +224,13 @@ waiting for the reply is reported, not retried, since the request may already ha
 that a host that went away is a failed send rather than a dead script; the disposition is then
 reset to the default, which drops a PIPE trap of the script's own if it had one.
 
-Both parse replies with `awk` (a top-level JSON walker: result, error, id, batch members) and
-`plutil` (string unescaping, including `\uXXXX` and surrogate pairs), both restricted Apple
-binaries. What they receive on stdin is replies, which never carry the token, plus in
-`actionui_call` the caller's own params before the token is added. Request text is escaped in the
-shell itself; text with control characters takes one `awk` pass, on stdin - the token included,
-should a host ever mint one containing such a character, which is still stdin of a restricted
-binary and never argv.
+Both parse replies with `awk` (`actionui_remote_walk.awk`, a top-level JSON walker: result,
+error, id, batch members) and `plutil` (string unescaping, including `\uXXXX` and surrogate
+pairs), both restricted Apple binaries. What they receive on stdin is replies, which never carry
+the token, plus in `actionui_call` the caller's own params before the token is added. Request
+text is escaped in the shell itself; text with control characters takes one `awk` pass
+(`actionui_remote_escape.awk`), on stdin - the token included, should a host ever mint one
+containing such a character, which is still stdin of a restricted binary and never argv.
 
 A reply the host could not parse at all comes back with a null id; these clients report it as the
 `-32700` it is, where the Python client waits for a matching id and reports a timeout. A

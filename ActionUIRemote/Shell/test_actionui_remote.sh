@@ -521,6 +521,12 @@ actionui_hold_token 2>"$_t_err"
 t_eq "hold_token with an unreadable descriptor returns 3" 3 "$?"
 t_eq "and still removes the token from the environment" "" "${ACTIONUI_REMOTE_TOKEN:-}${ACTIONUI_REMOTE_TOKEN_FD:-}"
 t_eq "and prints only its own message" "nothing could be read from descriptor 6 (ACTIONUI_REMOTE_TOKEN_FD)" "$(/bin/cat "$_t_err")"
+if [ "$_t_transport" = "zsocket" ]; then
+    # One connection is kept across calls there, and a connection that has authenticated stays
+    # authenticated (PROTOCOL.md section 10), so the refusal below needs a fresh one. Under nc
+    # every request is its own connection and there is nothing to drop.
+    actionui_disconnect
+fi
 t_run actionui_get_value 2
 t_eq "and a request without a token is then refused" 1 "$_t_rc"
 # Restore: take the real token again.
@@ -745,6 +751,56 @@ else
 fi
 t_lacks "a python3 child through actionui_handoff does not show the token to ps" "$_t_token" "$_t_probe_ps"
 wait "$_t_ho" 2>/dev/null
+
+# --- the awk programs are files, and the three go together ----------------------------------------
+
+# The escaper and the walker are files beside the client rather than strings inside it, so the
+# client has to find them, and a copy that took only the .sh has to say so at load time rather
+# than failing on the first control character or the first reply.
+_t_awkcopy="$_t_tmp/awkcopy"
+/bin/mkdir -p "$_t_awkcopy"
+/bin/cp "$_t_here/actionui_remote.sh" "$_t_awkcopy/"
+
+_t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" 2>&1)
+_t_rc=$?
+t_eq "the .sh without its programs refuses to load" 2 "$_t_rc"
+t_contains "and names both of them" "actionui_remote_escape.awk and actionui_remote_walk.awk" "$_t_out"
+t_contains "and says where it looked" "$_t_awkcopy/actionui_remote.sh" "$_t_out"
+_t_out=$("$_t_shell" -c '. "$1/actionui_remote.sh" >/dev/null 2>&1; command -v actionui_get_value' _ "$_t_awkcopy" 2>/dev/null)
+t_eq "and leaves no half-loaded API behind" "" "$_t_out"
+
+/bin/cp "$_t_here/actionui_remote_escape.awk" "$_t_awkcopy/"
+"$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" >/dev/null 2>&1
+_t_rc=$?
+t_eq "one of the two programs is not enough either" 2 "$_t_rc"
+
+/bin/chmod 000 "$_t_awkcopy/actionui_remote_escape.awk"
+/bin/cp "$_t_here/actionui_remote_walk.awk" "$_t_awkcopy/"
+"$_t_shell" -c '. "$1/actionui_remote.sh"' _ "$_t_awkcopy" >/dev/null 2>&1
+_t_rc=$?
+t_eq "a program that is there but unreadable is caught at load too" 2 "$_t_rc"
+/bin/chmod 644 "$_t_awkcopy/actionui_remote_escape.awk"
+
+# The complete set, somewhere else entirely, sourced through a relative path and then cd'd away
+# from: the directory is resolved once when the file is sourced, so a handler is free to move.
+# A tab in the text is the escaper's file, and the reply it comes back in is the walker's.
+_t_tabtext="a${_AUI_TAB}b"
+_t_out=$(cd "$_t_awkcopy" && ACTIONUI_REMOTE_TOKEN="$_t_token" "$_t_shell" -c '. ./actionui_remote.sh || exit 9
+cd / || exit 9
+actionui_set_string 2 "$1" >/dev/null || exit 9
+actionui_get_string 2' _ "$_t_tabtext" 2>/dev/null)
+t_eq "the three files copied together work from anywhere, cd included" "$_t_tabtext" "$_t_out"
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+    _t_zcopy="$_t_tmp/zcopy"
+    /bin/mkdir -p "$_t_zcopy"
+    /bin/cp "$_t_here/actionui_remote.sh" "$_t_here/actionui_remote.zsh" "$_t_zcopy/"
+    /bin/zsh -c '. "$1/actionui_remote.zsh"' _ "$_t_zcopy" >/dev/null 2>&1
+    _t_rc=$?
+    t_eq "the .zsh passes the refusal on rather than loading half an API" 2 "$_t_rc"
+    _t_out=$(/bin/zsh -c '. "$1/actionui_remote.zsh" >/dev/null 2>&1; whence -w actionui_get_value' _ "$_t_zcopy" 2>/dev/null)
+    t_lacks "and defines no element functions" "function" "$_t_out"
+fi
 
 # --- summary ------------------------------------------------------------------------------------
 
