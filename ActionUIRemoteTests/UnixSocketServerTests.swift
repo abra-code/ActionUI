@@ -146,6 +146,59 @@ final class UnixSocketServerTests: XCTestCase {
         XCTAssertEqual(echo.connectionCount, 0)
     }
 
+    // MARK: - A peer that half-closes
+
+    // PROTOCOL.md section 1: a client may shut its write side down as soon as it has sent, which
+    // is what macOS `nc` does when its stdin ends and what it gives no way to avoid. EOF from the
+    // peer therefore ends the requests, not the connection.
+
+    func testAHalfClosedPeerStillGetsItsReply() throws {
+        let closed = expectation(description: "connection closed")
+        _ = try startEchoServer(onClose: { _ in closed.fulfill() })
+        let client = try RawClient(path: socketPath)
+        client.write("ping\n")
+        client.halfClose()
+        XCTAssertEqual(client.readLine(), "ping")
+        // And it is not held open afterwards: a reply that fitted the socket buffer left nothing
+        // to wait for, so the close is immediate rather than at the end of the linger window.
+        XCTAssertTrue(client.waitForEOF(), "the server must close once the last reply is out")
+        wait(for: [closed], timeout: 5)
+    }
+
+    func testAHalfClosedPeerGetsAReplyTooLargeForTheSocketBuffer() throws {
+        _ = try startEchoServer()
+        let client = try RawClient(path: socketPath)
+
+        // Far larger than any socket buffer this connection will get, so the echo cannot be
+        // handed over in one write: `flushOutbox` is guaranteed to stop on EAGAIN with the tail
+        // still queued. That leftover is the only thing closing on the zero read destroyed, and
+        // it is why the bug was invisible - a short reply arrived and a long one did not.
+        let payload = String(repeating: "x", count: 256 * 1024)
+        client.write(payload + "\n")
+        client.halfClose()
+
+        let reply = client.readLine()
+        XCTAssertEqual(reply?.count, payload.count, "the reply was truncated at the close")
+        XCTAssertEqual(reply, payload)
+        XCTAssertTrue(client.waitForEOF(), "the server must close once the last reply is out")
+    }
+
+    func testAHalfClosedPeerThatNeverReadsIsNotWaitedOnForever() throws {
+        // The other half of the contract: deferring the close must not become a way to pin a
+        // descriptor. A peer that half-closes and then reads nothing is let go after the linger
+        // window, whatever it left unread.
+        let closed = expectation(description: "connection closed")
+        let echo = try startEchoServer(onClose: { _ in closed.fulfill() })
+        let client = try RawClient(path: socketPath, timeoutSeconds: 30)
+        client.write(String(repeating: "y", count: 256 * 1024) + "\n")
+        client.halfClose()
+
+        wait(for: [closed], timeout: UnixSocketServer.lingerAfterPeerClose + 10)
+        let deadline = Date().addingTimeInterval(2)
+        while echo.connectionCount > 0 && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(echo.connectionCount, 0, "the connection must not outlive the linger window")
+    }
+
     func testStaleSocketFileIsReplaced() throws {
         // A leftover regular file at the path (a crashed server would leave a socket; a regular
         // file is the harder case) must not prevent starting.

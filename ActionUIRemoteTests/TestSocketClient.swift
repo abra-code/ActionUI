@@ -58,6 +58,11 @@ final class TestSocketClient: @unchecked Sendable {
         }
     }
 
+    /// Shut the write side down, as `nc` does when its stdin ends. The read side stays open.
+    func halfClose() {
+        shutdown(fd, SHUT_WR)
+    }
+
     /// Read until a newline (returned without it) or EOF (returns nil).
     func readLine() -> String? {
         var bytes: [UInt8] = []

@@ -50,6 +50,12 @@ final class UnixSocketServer: @unchecked Sendable {
     private let onClose: @Sendable (ConnectionID) -> Void
     private let log: @Sendable (String) -> Void
 
+    /// How long a connection whose peer has half-closed may stay open waiting for its outbox to
+    /// drain. A peer that has stopped reading cannot be waited on forever - the descriptor is
+    /// the scarce thing - and five seconds is far longer than a local socket needs to take a
+    /// reply it is waiting for.
+    static let lingerAfterPeerClose: TimeInterval = 5
+
     private let acceptQueue = DispatchQueue(label: "com.abracode.actionui.remote.accept")
     private let lock = NSLock()
     // Guarded by `lock`.
@@ -367,9 +373,12 @@ final class UnixSocketServer: @unchecked Sendable {
         private var readSource: DispatchSourceRead?
         private var writeSource: DispatchSourceWrite?
         private var writeSourceArmed = false
+        private var readSourceSuspended = false
         private var inbox = Data()
         private var outbox = Data()
         private var closed = false
+        /// The peer has half-closed and this connection is only waiting to finish writing.
+        private var peerClosed = false
 
         init(id: ConnectionID, fd: Int32, server: UnixSocketServer) {
             self.id = id
@@ -433,7 +442,7 @@ final class UnixSocketServer: @unchecked Sendable {
                     continue
                 }
                 if n == 0 {
-                    closeOnQueue(reason: "peer closed")
+                    peerClosedOnQueue()
                     return
                 }
                 if errno == EAGAIN || errno == EWOULDBLOCK {
@@ -444,6 +453,42 @@ final class UnixSocketServer: @unchecked Sendable {
                 }
                 closeOnQueue(reason: "read failed: \(String(cString: strerror(errno)))")
                 return
+            }
+        }
+
+        /// The peer will not write again. Close, unless a reply it is still waiting for has not
+        /// made it out of the outbox yet.
+        ///
+        /// A half-close is a normal end of a request here, not an abandonment: PROTOCOL.md
+        /// section 1 allows a client to open one connection per request, and macOS `nc`
+        /// half-closes on stdin EOF by default with no way to ask it not to. Closing on the
+        /// zero read would discard whatever `flushOutbox` had left behind after `EAGAIN` - so a
+        /// reply small enough for the socket buffer arrived and a large one (`getRows` over a
+        /// wide table) silently did not, which is the worst shape a bug like this can take.
+        ///
+        /// Every line read before this point has already produced its reply: requests are
+        /// dispatched synchronously on this queue, so there is nothing else in flight to wait
+        /// for and only the bytes already queued matter.
+        private func peerClosedOnQueue() {
+            peerClosed = true
+            if outbox.isEmpty {
+                closeOnQueue(reason: "peer closed")
+                return
+            }
+
+            // The read source is level-triggered and would spin on EOF forever, so it has to be
+            // suspended rather than merely ignored.
+            if !readSourceSuspended, let source = readSource {
+                readSourceSuspended = true
+                source.suspend()
+            }
+            // And a peer that half-closed and then stopped reading must not hold the descriptor
+            // for the life of the process. `flushOutbox` closes as soon as it drains; this is
+            // only the backstop for the peer that never lets it.
+            let linger = UnixSocketServer.lingerAfterPeerClose
+            queue.asyncAfter(deadline: .now() + linger) { [weak self] in
+                guard let self, !self.closed else { return }
+                self.closeOnQueue(reason: "peer closed and did not read the reply within \(linger) s")
             }
         }
 
@@ -510,6 +555,11 @@ final class UnixSocketServer: @unchecked Sendable {
                 writeSourceArmed = false
                 source.suspend()
             }
+            // The outbox is empty. If the peer half-closed while a reply was still queued, this
+            // is the moment it has been handed over and the connection has no further use.
+            if peerClosed {
+                closeOnQueue(reason: "peer closed; reply flushed")
+            }
         }
 
         func closeOnQueue(reason: String) {
@@ -528,6 +578,11 @@ final class UnixSocketServer: @unchecked Sendable {
                 writeSource = nil
             }
             if let read = readSource {
+                // Same rule as the write source: a suspended source cannot be released.
+                if readSourceSuspended {
+                    read.resume()
+                }
+                readSourceSuspended = false
                 read.cancel()
                 readSource = nil
             } else {

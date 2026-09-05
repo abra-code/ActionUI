@@ -17,10 +17,12 @@ change is a protocol change.
 - The socket path is limited by `sun_path` to 103 bytes on macOS.
 - The server holds no per-client state. A client may open one connection per process and keep
   it, or open one per request; both are equally correct. Every request names its window.
-- A client must keep its write side open until it has read the reply. The host closes a
-  connection when it reads EOF, even with a reply still pending on its main thread, so a client
-  that half-closes as soon as it has sent - as `nc` does the moment its stdin ends - can lose its
-  own answer.
+- A client may half-close its write side as soon as it has finished sending, which is what `nc`
+  does the moment its stdin ends. The host treats EOF from the peer as the end of the requests,
+  not as abandonment: it answers everything it has already read, and closes once the last reply
+  has gone out. A client that half-closes must still read its replies promptly - the host waits
+  a few seconds for a half-closed peer to take them and then closes regardless, because a peer
+  that has stopped reading must not hold a descriptor open indefinitely.
 
 ## 2. Framing
 
@@ -217,16 +219,19 @@ token or is refused with `1006`.
 
 Clients should read `ACTIONUI_REMOTE_TOKEN` from the environment and send it without being asked,
 so that a host turning the requirement on breaks nothing. A client may also accept the token from
-an inherited descriptor named by `ACTIONUI_REMOTE_TOKEN_FD`; the shell clients do. That is how a
-host or a parent process delivers a token that is never in the child's environment at all (see
-the end of this section). The lifecycle has two owners: the process that creates the pipe writes
-the token and closes its write end; the client reads it once, closes the descriptor and removes
-the variable, so that nothing it spawns inherits either, and as early as it can - the Python
-client does it when the module is imported, rather than on the first request, because until then
-everything the process spawns inherits both. The Python and shell clients both implement this;
+an inherited descriptor named by `ACTIONUI_REMOTE_TOKEN_FD`. That is how a host or a parent
+process delivers a token that is never in the child's environment at all (see the end of this
+section). The lifecycle has two owners: the process that creates the pipe writes the token and
+closes its write end; the client reads it once, closes the descriptor and removes the variable,
+so that nothing it spawns inherits either, and as early as it can - the Python and Node clients
+do it when the module is loaded, rather than on the first request, because until then everything
+the process spawns inherits both. The Python, Node and shell clients all implement this;
 precedence in all of them is an explicitly given token, then the descriptor, then the
 environment. A descriptor that is configured but cannot be read is a failure, never a fallback to
-the environment: falling back would silently undo the point of the descriptor.
+the environment: falling back would silently undo the point of the descriptor. So is one that
+delivers nothing: a client must bound that wait rather than block on it, because a stale
+`ACTIONUI_REMOTE_TOKEN_FD` inherited from a grandparent names whatever the process happens to
+have at that number.
 
 **What this is for, and what it is not.** A host that spawns children hands them the token in
 the environment, so a process the host did not spawn does not have it and cannot obtain it merely
