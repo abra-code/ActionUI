@@ -17,6 +17,10 @@ change is a protocol change.
 - The socket path is limited by `sun_path` to 103 bytes on macOS.
 - The server holds no per-client state. A client may open one connection per process and keep
   it, or open one per request; both are equally correct. Every request names its window.
+- A client must keep its write side open until it has read the reply. The host closes a
+  connection when it reads EOF, even with a reply still pending on its main thread, so a client
+  that half-closes as soon as it has sent - as `nc` does the moment its stdin ends - can lose its
+  own answer.
 
 ## 2. Framing
 
@@ -212,7 +216,13 @@ token or is refused with `1006`.
   down authenticated ones.
 
 Clients should read `ACTIONUI_REMOTE_TOKEN` from the environment and send it without being asked,
-so that a host turning the requirement on breaks nothing.
+so that a host turning the requirement on breaks nothing. A client may also accept the token from
+an inherited descriptor named by `ACTIONUI_REMOTE_TOKEN_FD`; the shell clients do. That is how a
+host or a parent process delivers a token that is never in the child's environment at all (see
+the end of this section). The lifecycle has two owners: the process that creates the pipe writes
+the token and closes its write end; the client reads it once, closes the descriptor and removes
+the variable, so that nothing it spawns inherits either. The Python client currently reads the
+environment only.
 
 **What this is for, and what it is not.** A host that spawns children hands them the token in
 the environment, so a process the host did not spawn does not have it and cannot obtain it merely

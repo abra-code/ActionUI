@@ -133,6 +133,22 @@ closed early (`| head`) is not an error.
 Until a host puts the module on `PYTHONPATH` (OMC 5.3 vendors it into its framework), run these
 from `ActionUIRemote/Python`, or name that directory in `PYTHONPATH`.
 
+### From the shell, without Python
+
+`Shell/actionui_remote.sh` is the same command line, and a library of the same surface, for a
+handler written in `/bin/sh` or zsh, with no Python involved; `Shell/actionui_remote.zsh` is the
+zsh variant with a persistent connection and no helper process. They exist for a security reason
+rather than convenience: a `python3` or `node` process shows its environment, and so the token,
+to any same-user `ps`, and a shell does not. `Shell/README.md` has the measurements and the three
+rules that keep that true.
+
+```sh
+. /path/to/actionui_remote.sh                       # library
+actionui_hold_token                                 # take the token out of the environment
+name=$(actionui_get_string 2)
+/path/to/actionui_remote.sh get-rows 5              # command: same commands and exit codes
+```
+
 ## Security model
 
 - The socket file is created 0600; put it in a directory only the user can enter (the engine's
@@ -160,6 +176,12 @@ an Apple platform binary and still exposes its environment because it lacks the 
 handler holding the token is alive, the token is readable. The host's own environment is not
 exposed that way, so the exposure is through the children and only while one runs.
 
+A handler that must not show the token to `ps` can be written against the shell clients in
+`Shell/` instead: every Apple shell and every Apple tool they run carries `CS_RESTRICT`, so the
+token stays inside processes that hide it, and `actionui_handoff` passes it to a Python or Node
+child on a pipe rather than in its environment. `Shell/README.md` says exactly what that does and
+does not guarantee.
+
 Treat it as raising the cost of casual and accidental access, not as a boundary. Same-uid has
 never been one on macOS. A handler that logs its environment gives the token away, and the CLI's
 `--token` puts it in argv where anything can read it. Anything that records requests must redact
@@ -174,5 +196,6 @@ it - the bundled fake host does.
   environment export - what a host calls instead of writing its own singleton.
 - `ActionUIRemoteMethods.swift`: the `actionui.*` table over the engine.
 - `Python/`: the stdlib-only Python client (importable, and runnable with `-m`) and a fake
+- `Shell/` - `actionui_remote.sh` and `actionui_remote.zsh`, the shell clients, their tests and README.
   server for host test suites.
 - Tests in `ActionUIRemoteTests/`.
