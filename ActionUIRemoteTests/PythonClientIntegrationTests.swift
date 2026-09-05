@@ -228,6 +228,124 @@ final class PythonClientIntegrationTests: XCTestCase {
         XCTAssertNotEqual(run.status, 0, "the script must fail against a window that is not loaded")
         XCTAssertTrue(run.output.contains("FAIL:"), run.output)
     }
+
+    // MARK: - The token on a descriptor, against the real server
+
+    /// Run one line of Python with the token delivered on a pipe, the way a host spawning a
+    /// handler does. The pipe is handed over as the child's **stdin**, because Foundation's
+    /// `Process` inherits no other descriptor; the number is no part of the contract, only the
+    /// variable that names it is (PROTOCOL.md section 10). `ACTIONUI_REMOTE_TOKEN` is removed
+    /// from the child's environment, which is the whole point: its exec-time snapshot, which is
+    /// what `ps` reads, never contains the token.
+    private func runPythonHoldingTokenOnStdin(_ source: String, token: String?) throws -> (status: Int32, output: String) {
+        guard let python = Self.pythonExecutable() else {
+            throw XCTSkip("python3 is not available on this machine")
+        }
+        let pythonDirectory = URL(fileURLWithPath: Self.scriptPath).deletingLastPathComponent()
+
+        let tokenPipe = Pipe()
+        if let token {
+            try tokenPipe.fileHandleForWriting.write(contentsOf: Data((token + "\n").utf8))
+        }
+        try tokenPipe.fileHandleForWriting.close()      // at once, so the reader sees EOF
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: python)
+        process.arguments = ["-c", source]
+        process.currentDirectoryURL = pythonDirectory   // python -c puts the cwd on sys.path
+        var environment = ProcessInfo.processInfo.environment
+        environment["ACTIONUI_REMOTE_ENDPOINT"] = socketPath
+        environment["ACTIONUI_WINDOW_UUID"] = windowUUID
+        environment["ACTIONUI_REMOTE_TOKEN_FD"] = "0"
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        environment.removeValue(forKey: "ACTIONUI_REMOTE_TOKEN")
+        process.environment = environment
+        process.standardInput = tokenPipe
+
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = outputPipe
+
+        let output = OutputBox()
+        let drained = expectation(description: "the child's output reached EOF")
+        outputPipe.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                handle.readabilityHandler = nil
+                drained.fulfill()
+            } else {
+                output.append(chunk)
+            }
+        }
+        let exited = expectation(description: "the child exited")
+        process.terminationHandler = { _ in exited.fulfill() }
+
+        try process.run()
+        let outcome = XCTWaiter().wait(for: [exited, drained], timeout: 60)
+        guard outcome == .completed else {
+            process.terminate()
+            outputPipe.fileHandleForReading.readabilityHandler = nil
+            throw ScriptRunFailure.timedOut(60, output.text)
+        }
+        return (process.terminationStatus, output.text)
+    }
+
+    func testThePythonClientTakesTheTokenFromADescriptorWithNoCodeFromTheCaller() throws {
+        let token = ActionUIRemoteServer.makeToken()
+        server.addToken(token, label: "live")
+        server.requiresToken = true
+
+        // Exactly what an OMC Python handler writes: nothing about tokens at all.
+        let source = """
+        import os, actionui_remote as aui
+        win = aui.Window(os.environ["ACTIONUI_WINDOW_UUID"])
+        win.set_string(2, "from the descriptor")
+        assert "ACTIONUI_REMOTE_TOKEN" not in os.environ, "the host must not export it"
+        assert "ACTIONUI_REMOTE_TOKEN_FD" not in os.environ, "the client must remove it"
+        print("ok")
+        """
+        let run = try runPythonHoldingTokenOnStdin(source, token: token)
+        XCTAssertEqual(run.status, 0, "the handler failed:\n\(run.output)")
+        XCTAssertTrue(run.output.contains("ok"), run.output)
+        XCTAssertEqual(ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 2) as? String,
+                       "from the descriptor", "the request reached the engine")
+    }
+
+    func testAHandlerHandedTheWrongTokenOnTheDescriptorIsRefused() throws {
+        // The negative half, so the test above cannot pass because the server forgot to ask.
+        server.addToken(ActionUIRemoteServer.makeToken(), label: "live")
+        server.requiresToken = true
+
+        let source = """
+        import os, actionui_remote as aui
+        try:
+            aui.Window(os.environ["ACTIONUI_WINDOW_UUID"]).set_string(2, "should not land")
+        except aui.RemoteError as error:
+            print("refused", error.code)
+        """
+        let run = try runPythonHoldingTokenOnStdin(source, token: "not-the-token")
+        XCTAssertEqual(run.status, 0, run.output)
+        XCTAssertTrue(run.output.contains("refused 1006"), run.output)
+        XCTAssertNotEqual(ActionUIModel.shared.getElementValue(windowUUID: windowUUID, viewID: 2) as? String,
+                          "should not land")
+    }
+
+    func testAnEmptyDescriptorIsAFailureRatherThanAFallback() throws {
+        server.addToken(ActionUIRemoteServer.makeToken(), label: "live")
+        server.requiresToken = true
+
+        let source = """
+        import os, actionui_remote as aui
+        try:
+            aui.Window(os.environ["ACTIONUI_WINDOW_UUID"]).set_string(2, "should not land")
+        except aui.EndpointError as error:
+            print("endpoint error:", error)
+        """
+        let run = try runPythonHoldingTokenOnStdin(source, token: nil)
+        XCTAssertEqual(run.status, 0, run.output)
+        XCTAssertTrue(run.output.contains("endpoint error:"), run.output)
+        XCTAssertTrue(run.output.contains("nothing could be read from descriptor 0"), run.output)
+    }
 }
 
 #endif

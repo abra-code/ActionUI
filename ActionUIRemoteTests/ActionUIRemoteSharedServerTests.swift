@@ -443,6 +443,125 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         XCTAssertNil(actionUIRemoteServerToken(), "stopping clears it")
     }
 
+    // MARK: - The C face for per-unit-of-work tokens
+
+    /// The buffer OMC passes. 128 is what the entry point's documentation promises is enough.
+    private func mintToken(label: String) -> String? {
+        var buffer = [CChar](repeating: 0, count: 128)
+        let minted = label.withCString { labelC in
+            actionUIRemoteMintToken(labelC, &buffer, buffer.count)
+        }
+        guard minted else { return nil }
+        let terminator = buffer.firstIndex(of: 0) ?? buffer.count
+        return String(decoding: buffer[..<terminator].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
+    func testMintingThroughTheCFaceProducesATokenTheServerAccepts() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let minted = try XCTUnwrap(mintToken(label: "command-A"), "a server is running")
+        XCTAssertEqual(minted.count, 64, "32 bytes, hex encoded")
+        XCTAssertNotEqual(minted, Self.environmentToken(), "a fresh grant, not the host's")
+
+        // The point of the whole exercise: a token OMC minted for one command authenticates.
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let accepted = try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(minted)"}}"#))
+        XCTAssertNotNil(accepted["result"], "the minted token was accepted")
+        XCTAssertNil(accepted["error"])
+    }
+
+    func testMintedTokensAreDistinctAndRevokeByLabel() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let first = try XCTUnwrap(mintToken(label: "command-A"))
+        let second = try XCTUnwrap(mintToken(label: "command-B"))
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(ActionUIRemoteServer.shared?.tokenLabels, ["command-A", "command-B", "host"])
+
+        "command-A".withCString { actionUIRemoteRevokeTokensWithLabel($0) }
+        XCTAssertEqual(ActionUIRemoteServer.shared?.tokenLabels, ["command-B", "host"])
+
+        // Assert the positive first, so a broken connection cannot make the refusal vacuous.
+        let live = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(live,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(second)"}}"#))["result"],
+                        "command-B's grant still works")
+
+        let revoked = try TestSocketClient(path: path, timeoutSeconds: 10)
+        let refused = try XCTUnwrap(exchangeJSON(revoked,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(first)"}}"#))
+        XCTAssertEqual((refused["error"] as? [String: Any])?["code"] as? Int, 1006,
+                       "command-A's grant was withdrawn")
+    }
+
+    func testTheCFaceRefusesWhatItCannotHonor() throws {
+        // Nothing running: every entry point reports failure rather than pretending.
+        XCTAssertNil(mintToken(label: "command-A"))
+        XCTAssertFalse("t".withCString { token in "l".withCString { actionUIRemoteAddToken(token, $0) } })
+        XCTAssertFalse(actionUIRemoteSetRequiresToken(true))
+        "command-A".withCString { actionUIRemoteRevokeTokensWithLabel($0) }   // must not crash
+
+        try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                             logger: QuietLogger(maxLevel: .warning))
+        XCTAssertNil(mintToken(label: ""), "a grant nothing can name is a grant nothing can withdraw")
+        XCTAssertFalse("".withCString { token in "l".withCString { actionUIRemoteAddToken(token, $0) } })
+        XCTAssertFalse("t".withCString { token in "".withCString { actionUIRemoteAddToken(token, $0) } })
+        XCTAssertEqual(ActionUIRemoteServer.shared?.tokenLabels, ["host"], "nothing was registered")
+
+        // A buffer smaller than the token is a failure, never a truncation.
+        var tooSmall = [CChar](repeating: 0x7f, count: 64)
+        XCTAssertFalse("command-A".withCString { actionUIRemoteMintToken($0, &tooSmall, tooSmall.count) })
+        XCTAssertTrue(tooSmall.allSatisfy { $0 == 0x7f }, "nothing was written")
+        XCTAssertEqual(ActionUIRemoteServer.shared?.tokenLabels, ["host"], "and nothing was registered")
+    }
+
+    func testAddTokenRegistersWhatTheCallerMinted() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        let mine = "a-token-of-my-own"
+        XCTAssertTrue(mine.withCString { token in
+            "command-A".withCString { actionUIRemoteAddToken(token, $0) }
+        })
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(mine)"}}"#))["result"])
+    }
+
+    func testSetRequiresTokenTurnsTheRequirementOff() throws {
+        let path = try ActionUIRemoteServer.startShared(socketPath: temporarySocketPath(),
+                                                        logger: QuietLogger(maxLevel: .warning))
+        // Prove the requirement is on before turning it off, or the second half proves nothing.
+        let refused = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertEqual((try XCTUnwrap(exchangeJSON(refused,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{}}"#))["error"]
+                        as? [String: Any])?["code"] as? Int, 1006)
+
+        XCTAssertTrue(actionUIRemoteSetRequiresToken(false))
+        let allowed = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(allowed,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{}}"#))["result"])
+    }
+
+    func testUnexportTokenLeavesTheGrantButEmptiesTheEnvironment() throws {
+        // Through the C entry point, because that is the pair OMC uses and only that path
+        // captures the minted token where actionUIRemoteServerToken() can still find it.
+        let path = temporarySocketPath()
+        XCTAssertTrue(path.withCString { actionUIRemoteStartServer($0, nil, nil) })
+        let exported = try XCTUnwrap(Self.environmentToken(), "starting exports one")
+
+        XCTAssertTrue(actionUIRemoteUnexportToken(), "there was a variable to remove")
+        XCTAssertNil(Self.environmentToken(), "nothing spawned afterwards inherits it")
+        XCTAssertFalse(actionUIRemoteUnexportToken(), "and there is nothing left to remove")
+
+        // The grant survives, and the C accessor is the only way left to read it - which is
+        // exactly why OMC may unexport without losing its own handle on the host token.
+        XCTAssertEqual(actionUIRemoteServerToken().map { String(cString: $0) }, exported)
+        let client = try TestSocketClient(path: path, timeoutSeconds: 10)
+        XCTAssertNotNil(try XCTUnwrap(exchangeJSON(client,
+            #"{"jsonrpc":"2.0","id":1,"method":"actionui.hello","params":{"token":"\#(exported)"}}"#))["result"])
+    }
+
     func testMakeTokenIsRandomAndLongEnough() {
         let tokens = (0..<64).map { _ in ActionUIRemoteServer.makeToken() }
         XCTAssertEqual(Set(tokens).count, tokens.count, "64 tokens, 64 distinct values")

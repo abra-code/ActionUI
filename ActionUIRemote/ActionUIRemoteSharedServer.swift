@@ -183,9 +183,20 @@ public enum ActionUIRemoteEnvironment {
     public static let windowUUID = "ACTIONUI_WINDOW_UUID"
 
     /// The token a host that requires one hands to the processes it spawns. A child inherits it
-    /// with the rest of the environment and the client sends it without being asked; nothing
-    /// else can read it, because macOS does not expose one process's environment to another.
+    /// with the rest of the environment and the client sends it without being asked.
+    ///
+    /// A child's environment is not private: `ps` shows it to any same-uid process unless the
+    /// child carries `CS_RESTRICT`, which `python3` and `node` do not (PROTOCOL.md section 10).
+    /// A host that needs the token off `ps` hands each child its own on a descriptor named by
+    /// `tokenDescriptor` and calls `actionUIRemoteUnexportToken()` so this variable is never in
+    /// a child's `envp` at all.
     public static let token = "ACTIONUI_REMOTE_TOKEN"
+
+    /// The number of an inherited descriptor a child reads its token from, instead of receiving
+    /// it in `token`. The number is no secret; the pipe it names is drained by its first reader.
+    /// The creator writes the token and a newline and closes its write end at once; the reader
+    /// reads once, closes the descriptor and removes this variable. PROTOCOL.md section 10.
+    public static let tokenDescriptor = "ACTIONUI_REMOTE_TOKEN_FD"
 }
 
 #endif

@@ -15,9 +15,11 @@ method answers true, rows and column counts tracked with no notion of table-ness
 touches it says so.
 """
 
+import importlib.util
 import json
 import os
 import shutil
+import stat
 import signal
 import socket
 import subprocess
@@ -155,6 +157,12 @@ class TokenTests(FakeHostTestCase):
         super().setUp()
         self._saved = os.environ.get(aui.TOKEN_ENV)
         self.addCleanup(self._restore_token)
+        # The descriptor is read once per process by design, so the cache must not carry a
+        # token from one test into the next - nor into the tests that assert a failure.
+        aui._token_from_descriptor = None
+        aui._token_descriptor_error = None
+        self.addCleanup(setattr, aui, "_token_from_descriptor", None)
+        self.addCleanup(setattr, aui, "_token_descriptor_error", None)
 
     def _restore_token(self):
         if self._saved is None:
@@ -234,6 +242,301 @@ class TokenTests(FakeHostTestCase):
         os.environ[aui.TOKEN_ENV] = "irrelevant"
         self.win.set_value(2, 0, "fine")
         self.assertEqual(self.win.get_value(2), "fine")
+
+    # -- the token on a descriptor
+
+    def hand_over_on_a_pipe(self, payload):
+        """Play the creating side of PROTOCOL.md section 10: write, close the write end at once,
+        and name the read end. Returns the descriptor number, which the test also owns until the
+        client closes it."""
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(self._close_if_still_the_pipe, read_fd)
+        if payload is not None:
+            os.write(write_fd, payload)
+        os.close(write_fd)                          # so the reader sees EOF
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+        return read_fd
+
+    @staticmethod
+    def _close_if_still_the_pipe(fd):
+        """Close the read end only when the client did not. Not a bare close: the client closes
+        it on the success path and the next socket this process opens is handed the same number
+        straight back, so a bare close here would close that socket instead."""
+        try:
+            mode = os.fstat(fd).st_mode
+        except OSError:
+            return                                  # already closed, which is the point
+        if stat.S_ISFIFO(mode):
+            os.close(fd)
+
+    def test_the_descriptor_token_is_sent_and_the_descriptor_is_closed_out(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "wrong"          # must not be consulted
+        read_fd = self.hand_over_on_a_pipe(b"good\n")
+
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+
+        # Both halves of the reader's side of the contract, so that nothing this script spawns
+        # inherits an open descriptor to a drained pipe or a variable naming one. Asserted before
+        # any request, because the socket the first request opens is handed the freed number back
+        # and an fstat afterwards would find that socket and prove nothing.
+        self.assertEqual(win.connection.token, "good")
+        with self.assertRaises(OSError):
+            os.fstat(read_fd)
+        self.assertNotIn(aui.TOKEN_FD_ENV, os.environ)
+
+        win.set_value(2, 0, "written")
+        self.assertEqual(win.get_value(2), "written",
+                         "the descriptor's token was sent, not the environment's")
+
+    def test_a_token_with_no_trailing_newline_still_reads(self):
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        self.hand_over_on_a_pipe(b"good")
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        win.set_value(2, 0, "no newline")
+        self.assertEqual(win.get_value(2), "no newline")
+
+    def test_only_the_first_line_is_the_token(self):
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        self.hand_over_on_a_pipe(b"good\nleftovers\n")
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        win.set_value(2, 0, "first line only")
+        self.assertEqual(win.get_value(2), "first line only")
+
+    def test_an_empty_pipe_is_a_failure_not_a_fallback(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"           # would succeed if the client fell back
+        read_fd = self.hand_over_on_a_pipe(b"")
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError) as caught:
+            win.get_value(2)
+        self.assertIn(str(read_fd), str(caught.exception))
+        # Left configured on purpose, so the next attempt reports the same thing.
+        self.assertEqual(os.environ.get(aui.TOKEN_FD_ENV), str(read_fd))
+        with self.assertRaises(aui.EndpointError):
+            win.get_value(2)
+
+    def test_a_descriptor_that_is_not_a_number_is_a_failure(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"           # would succeed if the client fell back
+        os.environ[aui.TOKEN_FD_ENV] = "three"
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError) as caught:
+            win.get_value(2)
+        self.assertIn("three", str(caught.exception))
+
+    def test_a_closed_descriptor_is_a_failure(self):
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"           # would succeed if the client fell back
+        read_fd, write_fd = os.pipe()
+        os.close(write_fd)
+        os.close(read_fd)
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError):
+            win.get_value(2)
+
+    def test_an_explicit_token_beats_the_descriptor(self):
+        path = self.start_guarded("good")
+        self.hand_over_on_a_pipe(b"wrong\n")
+        connection = aui.Connection(path, timeout=5.0, token="good")
+        self.addCleanup(connection.close)
+        win = aui.Window(WINDOW, connection=connection)
+        win.set_value(2, 0, "explicit wins")
+        self.assertEqual(win.get_value(2), "explicit wins")
+
+    def test_a_descriptor_configured_at_import_is_drained_at_import(self):
+        # The descriptor must not still be open and named when a handler runs its first
+        # subprocess: the child would inherit both, and could read the token out from under it.
+        # Re-imports the module with the variable set, which is the situation a spawned handler
+        # is actually in.
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(self._close_if_still_the_pipe, read_fd)
+        os.write(write_fd, b"imported\n")
+        os.close(write_fd)
+
+        source = importlib.util.find_spec("actionui_remote").origin
+        spec = importlib.util.spec_from_file_location("actionui_remote_reimport", source)
+        module = importlib.util.module_from_spec(spec)
+        saved = os.environ.get(aui.TOKEN_FD_ENV)
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            if saved is None:
+                os.environ.pop(aui.TOKEN_FD_ENV, None)
+            else:
+                os.environ[aui.TOKEN_FD_ENV] = saved
+
+        self.assertEqual(module._token_from_descriptor, "imported",
+                         "importing the module reads the descriptor")
+        self.assertNotIn(aui.TOKEN_FD_ENV, os.environ, "and removes the variable")
+        with self.assertRaises(OSError):
+            os.fstat(read_fd)                   # and closes the descriptor
+
+    def test_an_unreadable_descriptor_at_import_does_not_break_the_import(self):
+        # An import that raised would take down a handler that never wanted a token at all.
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(self._close_if_still_the_pipe, read_fd)
+        os.close(write_fd)                      # nothing to read
+
+        source = importlib.util.find_spec("actionui_remote").origin
+        spec = importlib.util.spec_from_file_location("actionui_remote_reimport_bad", source)
+        module = importlib.util.module_from_spec(spec)
+        saved = os.environ.get(aui.TOKEN_FD_ENV)
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        try:
+            spec.loader.exec_module(module)     # must not raise
+        finally:
+            if saved is None:
+                os.environ.pop(aui.TOKEN_FD_ENV, None)
+            else:
+                os.environ[aui.TOKEN_FD_ENV] = saved
+
+        self.assertIsNone(module._token_from_descriptor)
+        self.assertIn("nothing could be read", module._token_descriptor_error)
+        # And the caller still sees it, at the point it asks for a token.
+        with self.assertRaises(module.EndpointError):
+            module.Connection("/nonexistent", timeout=1.0).token
+
+    def test_a_descriptor_above_fd_setsize_still_works(self):
+        # select() raises ValueError - not OSError, so nothing would catch it and the import
+        # would die - for any descriptor at or above FD_SETSIZE, 1024 on Darwin. The C side
+        # accepts any number above stderr, so this is reachable.
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        read_fd, write_fd = os.pipe()
+        try:
+            high_fd = os.dup2(read_fd, 1100)
+        except OSError:                         # a hard RLIMIT_NOFILE below 1100
+            os.close(read_fd)
+            os.close(write_fd)
+            self.skipTest("no descriptor available above FD_SETSIZE")
+        os.close(read_fd)
+        self.addCleanup(self._close_if_still_the_pipe, high_fd)
+        os.write(write_fd, b"high\n")
+        os.close(write_fd)
+
+        os.environ[aui.TOKEN_FD_ENV] = str(high_fd)
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        self.assertEqual(win.connection.token, "high")
+
+    def test_a_failure_closes_the_descriptor_it_could_not_use(self):
+        # The reader's half of the contract is to leave nothing for its children to inherit, and
+        # that is no less true of a descriptor that turned out to be unusable.
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"           # would succeed if the client fell back
+        read_fd = self.hand_over_on_a_pipe(b"")      # empty: EOF with nothing in it
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError):
+            win.connection.token
+        with self.assertRaises(OSError):
+            os.fstat(read_fd)
+        # The variable stays: it is the last trace of how this process was configured, and the
+        # recorded message, not a re-read, is what the next attempt reports.
+        self.assertEqual(os.environ.get(aui.TOKEN_FD_ENV), str(read_fd))
+        with self.assertRaises(aui.EndpointError) as again:
+            win.connection.token
+        self.assertIn("nothing could be read", str(again.exception))
+
+    def test_a_recorded_failure_is_not_re_wrapped_as_an_io_error(self):
+        # EndpointError subclasses the builtin ConnectionError and so is an OSError, so the
+        # loop's own failures would otherwise be caught by its `except OSError` and reported
+        # nested inside a "could not be read" message.
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(self._close_if_still_the_pipe, read_fd)
+        self.addCleanup(os.close, write_fd)
+        os.write(write_fd, b"x" * (aui.MAX_TOKEN_LENGTH + 64))
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError) as caught:
+            win.connection.token
+        self.assertNotIn("could not be read", str(caught.exception),
+                         "the size-cap failure must not be re-wrapped as an I/O failure")
+        self.assertIn("no newline", str(caught.exception))
+
+    def test_a_descriptor_number_too_large_for_a_descriptor_is_a_failure(self):
+        # int() takes it, os.read raises OverflowError rather than OSError, and that is not the
+        # failure shape this contract promises.
+        path = self.start_guarded("good")
+        os.environ[aui.TOKEN_ENV] = "good"           # would succeed if the client fell back
+        os.environ[aui.TOKEN_FD_ENV] = "99999999999999999999"
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError):
+            win.get_value(2)
+
+    def test_a_descriptor_that_never_arrives_is_a_failure_not_a_hang(self):
+        # A write end someone holds open and never writes: nothing to read, nothing to count, so
+        # the size cap cannot catch it. Unbounded would mean hanging at import.
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(self._close_if_still_the_pipe, read_fd)
+        self.addCleanup(os.close, write_fd)     # deliberately held open, and never written
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+
+        saved_timeout = aui.TOKEN_DESCRIPTOR_TIMEOUT
+        aui.TOKEN_DESCRIPTOR_TIMEOUT = 0.25     # the real value would make this test take 10 s
+        self.addCleanup(setattr, aui, "TOKEN_DESCRIPTOR_TIMEOUT", saved_timeout)
+
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        started = time.time()
+        with self.assertRaises(aui.EndpointError) as caught:
+            win.get_value(2)
+        self.assertLess(time.time() - started, 5.0, "it must give up, not wait for the socket timeout")
+        self.assertIn("produced nothing", str(caught.exception))
+
+    def test_a_descriptor_that_never_ends_is_a_failure_not_a_hang(self):
+        # A descriptor that is not the token pipe - a tty, or a socket nobody closed - must fail
+        # rather than be read until it blocks forever or exhausts memory.
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(self._close_if_still_the_pipe, read_fd)
+        self.addCleanup(os.close, write_fd)
+        os.write(write_fd, b"x" * (aui.MAX_TOKEN_LENGTH + 64))   # no newline, and still open
+        os.environ[aui.TOKEN_FD_ENV] = str(read_fd)
+        self.addCleanup(os.environ.pop, aui.TOKEN_FD_ENV, None)
+
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        with self.assertRaises(aui.EndpointError) as caught:
+            win.get_value(2)
+        self.assertIn("no newline", str(caught.exception))
+
+    def test_the_descriptor_is_read_once_and_held(self):
+        # A pipe has nothing to give a second reader; the client must not re-read per request.
+        path = self.start_guarded("good")
+        os.environ.pop(aui.TOKEN_ENV, None)
+        self.hand_over_on_a_pipe(b"good\n")
+        win = aui.Window(WINDOW, endpoint=path, timeout=5.0)
+        self.addCleanup(win.connection.close)
+        for _ in range(3):
+            win.set_value(2, 0, "again")
+            self.assertEqual(win.get_value(2), "again")
 
     def test_the_token_is_redacted_from_the_hosts_request_log(self):
         log_path = os.path.join(self.dir, "requests.jsonl")

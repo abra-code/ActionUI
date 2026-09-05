@@ -221,8 +221,12 @@ an inherited descriptor named by `ACTIONUI_REMOTE_TOKEN_FD`; the shell clients d
 host or a parent process delivers a token that is never in the child's environment at all (see
 the end of this section). The lifecycle has two owners: the process that creates the pipe writes
 the token and closes its write end; the client reads it once, closes the descriptor and removes
-the variable, so that nothing it spawns inherits either. The Python client currently reads the
-environment only.
+the variable, so that nothing it spawns inherits either, and as early as it can - the Python
+client does it when the module is imported, rather than on the first request, because until then
+everything the process spawns inherits both. The Python and shell clients both implement this;
+precedence in all of them is an explicitly given token, then the descriptor, then the
+environment. A descriptor that is configured but cannot be read is a failure, never a fallback to
+the environment: falling back would silently undo the point of the descriptor.
 
 **What this is for, and what it is not.** A host that spawns children hands them the token in
 the environment, so a process the host did not spawn does not have it and cannot obtain it merely

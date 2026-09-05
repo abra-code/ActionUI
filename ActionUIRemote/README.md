@@ -159,6 +159,11 @@ name=$(actionui_get_string 2)
   `ACTIONUI_REMOTE_TOKEN`; the client reads it from the environment and sends it without being
   asked, so a caller writes no code for it. `startShared(requireToken: false)` opts out, and the
   instance API requires none unless asked. See PROTOCOL.md section 10.
+- A host that spawns children can keep the token out of their environment entirely: hand each
+  child its own on an inherited pipe and name the descriptor with `ACTIONUI_REMOTE_TOKEN_FD`,
+  then call `actionUIRemoteUnexportToken()` so nothing inherits `ACTIONUI_REMOTE_TOKEN` at all.
+  Both the Python and the shell clients read the descriptor with no code from the caller. This is
+  the only thing that removes the `ps` exposure described below; OMC does it for every handler.
 
 Without a token the boundary is the socket's permissions and the peer-uid check - the same one a
 same-user CFMessagePort has, where any process of the same user can drive the UI as it already
@@ -176,11 +181,14 @@ an Apple platform binary and still exposes its environment because it lacks the 
 handler holding the token is alive, the token is readable. The host's own environment is not
 exposed that way, so the exposure is through the children and only while one runs.
 
-A handler that must not show the token to `ps` can be written against the shell clients in
-`Shell/` instead: every Apple shell and every Apple tool they run carries `CS_RESTRICT`, so the
-token stays inside processes that hide it, and `actionui_handoff` passes it to a Python or Node
-child on a pipe rather than in its environment. `Shell/README.md` says exactly what that does and
-does not guarantee.
+A handler that must not show the token to `ps` gets it on a descriptor rather than in its
+environment, so that its exec-time snapshot never contains it - which is the only thing that
+helps, `ps` reading a snapshot frozen at exec. A host does that with `ACTIONUI_REMOTE_TOKEN_FD`
+plus `actionUIRemoteUnexportToken()`, and a shell handler does it for its own children with
+`actionui_handoff`. Failing that, a handler can be written against the shell clients in `Shell/`
+instead: every Apple shell and every Apple tool they run carries `CS_RESTRICT`, so the token
+stays inside processes that hide it. `Shell/README.md` says exactly what that does and does not
+guarantee.
 
 Treat it as raising the cost of casual and accidental access, not as a boundary. Same-uid has
 never been one on macOS. A handler that logs its environment gives the token away, and the CLI's

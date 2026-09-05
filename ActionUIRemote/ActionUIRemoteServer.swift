@@ -413,7 +413,8 @@ public final class ActionUIRemoteServer: @unchecked Sendable {
                 let error = ActionUIRemoteError(
                     code: ActionUIRemoteError.unauthenticated,
                     message: "This host requires a token. Pass it as the \"token\" parameter; "
-                           + "processes the host spawned receive it in ACTIONUI_REMOTE_TOKEN.")
+                           + "processes the host spawned receive it in ACTIONUI_REMOTE_TOKEN, or "
+                           + "on the descriptor named by ACTIONUI_REMOTE_TOKEN_FD.")
                 return .failure(JSONRPCRejection(id: request.id,
                                                  isNotification: request.isNotification,
                                                  error: error))

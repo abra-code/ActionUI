@@ -210,8 +210,8 @@ actionui_hold_token() {
 # The child is told which descriptor with ACTIONUI_REMOTE_TOKEN_FD=3 (the number is no secret).
 # The pipe's write end closes as soon as the token is written and the read end lives only in the
 # child's process; nothing of it remains in this shell afterwards.
-# A python3 child that uses actionui_remote.py reads it back with
-#     token = os.read(3, 4096).decode().strip(); aui.connect(token=token)
+# A python3 child that uses actionui_remote.py needs no code for it at all: that module reads the
+# descriptor when it is imported, then closes it and removes the variable.
 # The command's own stdin is preserved. Returns the command's exit status.
 actionui_handoff() {
     if [ "$#" -eq 0 ]; then

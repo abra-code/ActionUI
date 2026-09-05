@@ -125,16 +125,13 @@ and its exit status is returned.
 host spawning a handler, or `actionui_handoff` - writes the token and closes the write end at
 once. The reader reads once, closes the descriptor, and removes `ACTIONUI_REMOTE_TOKEN_FD`, so
 nothing it spawns inherits an open descriptor to a drained pipe or a variable naming one. This
-library does that on first use; a Python or Node client should do the same. A child that needs
-the token is therefore given its own pipe, with `actionui_handoff`. A Python child that uses
-`actionui_remote.py` reads it back with:
+library does that on first use, and so does `actionui_remote.py`; a Node client should do the
+same. A child that needs the token is therefore given its own pipe, with `actionui_handoff`. A
+Python child that uses `actionui_remote.py` writes nothing about tokens at all:
 
 ```python
 import os, actionui_remote as aui
-fd = int(os.environ.pop("ACTIONUI_REMOTE_TOKEN_FD"))
-token = os.read(fd, 4096).decode().strip()
-os.close(fd)
-win = aui.Window(os.environ["ACTIONUI_WINDOW_UUID"], connection=aui.connect(token=token))
+win = aui.Window(os.environ["ACTIONUI_WINDOW_UUID"])   # reads the descriptor, closes it, unsets it
 ```
 
 This is the secure handoff from a shell handler to a Python one: the token is never in Python's

@@ -260,6 +260,7 @@ let package = Package(
                 "PROTOCOL.md",
                 "Python",
                 "README.md",
+                "Shell",
             ],
         ),
 

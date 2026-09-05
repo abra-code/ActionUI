@@ -138,12 +138,16 @@ public func actionUIRemoteServerEndpoint() -> UnsafePointer<CChar>? {
     return endpointCString.map { UnsafePointer($0) }
 }
 
-/// The token the running server requires, or NULL when it requires none.
+/// The token `actionUIRemoteStartServer` minted, or NULL when it required none.
 ///
-/// The value is also in the process environment, but a binding cannot always read it there: a
+/// Captured at start, so it survives `actionUIRemoteUnexportToken()` and is the only way to read
+/// the start-up token afterwards. It is also the only exact way to read it at any time: a
 /// language runtime that snapshots the environment at startup - CPython does - never sees a
 /// setenv made afterwards, and anything it builds from that snapshot would hand a child an
-/// environment with no token in it. Reading it here is exact.
+/// environment with no token in it.
+///
+/// This does not report the tokens `actionUIRemoteMintToken` and `actionUIRemoteAddToken`
+/// register; a host that mints per unit of work already holds those.
 ///
 /// Same lifetime rule as `actionUIRemoteServerEndpoint`: owned by this target, valid until the
 /// next start or stop, copy it if you keep it.
@@ -152,6 +156,116 @@ public func actionUIRemoteServerToken() -> UnsafePointer<CChar>? {
     tokenLock.lock()
     defer { tokenLock.unlock() }
     return tokenCString.map { UnsafePointer($0) }
+}
+
+// MARK: - Per-unit-of-work tokens
+
+/// The buffer `actionUIRemoteMintToken` needs: 64 hex characters and a terminator, rounded up so
+/// that a caller sizing a fixed array does not have to track the encoding.
+private let mintedTokenBufferSize = 128
+
+/// Mint a token, register it under `label`, and copy it into the caller's buffer.
+///
+/// This is the entry point a host that spawns work wants: one grant per unit of work, withdrawn
+/// with `actionUIRemoteRevokeTokensWithLabel` when that work ends. The token is minted here
+/// rather than by the caller so that one CSPRNG and one encoding serve every host - see
+/// `ActionUIRemoteServer.makeToken()`, which is what this calls.
+///
+/// - Parameters:
+///   - label: what `actionUIRemoteRevokeTokensWithLabel` matches on - a command id, say. NULL or
+///     empty is rejected, because a grant nothing can name is a grant nothing can withdraw.
+///   - outToken: where to write the NUL-terminated token. Nothing is written on failure.
+///   - outTokenSize: the buffer's size in bytes. 128 is always enough; the token is 65 bytes
+///     today and a smaller buffer than the token needs is a failure, never a truncation.
+/// - Returns: false when no server is running, when the label is empty, or when the buffer is
+///   too small.
+///
+/// The token is deliberately not returned as a pointer this target owns: many are live at once,
+/// so a process-wide cached string would be the wrong shape.
+@_cdecl("actionUIRemoteMintToken")
+public func actionUIRemoteMintToken(_ label: UnsafePointer<CChar>?,
+                                    _ outToken: UnsafeMutablePointer<CChar>?,
+                                    _ outTokenSize: Int) -> CBool {
+    guard let outToken, outTokenSize > 0 else { return false }
+    guard let label, strlen(label) > 0 else { return false }
+    guard let server = ActionUIRemoteServer.shared else { return false }
+
+    let token = ActionUIRemoteServer.makeToken()
+    let bytes = Array(token.utf8)
+    guard bytes.count + 1 <= outTokenSize else { return false }
+
+    server.addToken(token, label: String(cString: label))
+    bytes.withUnsafeBufferPointer { source in
+        outToken.withMemoryRebound(to: UInt8.self, capacity: bytes.count + 1) { destination in
+            destination.update(from: source.baseAddress!, count: bytes.count)
+            destination[bytes.count] = 0
+        }
+    }
+    return true
+}
+
+/// Register a token the caller minted, under `label`.
+///
+/// Prefer `actionUIRemoteMintToken`, which mints and registers in one step; this exists for a
+/// host that must generate the value itself. Empty tokens and empty labels are rejected.
+///
+/// - Returns: false when no server is running, or either argument is missing or empty.
+@_cdecl("actionUIRemoteAddToken")
+public func actionUIRemoteAddToken(_ token: UnsafePointer<CChar>?,
+                                   _ label: UnsafePointer<CChar>?) -> CBool {
+    guard let token, strlen(token) > 0 else { return false }
+    guard let label, strlen(label) > 0 else { return false }
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    server.addToken(String(cString: token), label: String(cString: label))
+    return true
+}
+
+/// Withdraw every token registered under `label`. Does nothing when no server is running, or
+/// when no token carries that label.
+///
+/// Revocation stops new connections; it does not tear down authenticated ones (PROTOCOL.md
+/// section 10). A host that needs the stronger property stops the server.
+@_cdecl("actionUIRemoteRevokeTokensWithLabel")
+public func actionUIRemoteRevokeTokensWithLabel(_ label: UnsafePointer<CChar>?) {
+    guard let label, strlen(label) > 0 else { return }
+    ActionUIRemoteServer.shared?.revokeTokens(label: String(cString: label))
+}
+
+/// Turn the token requirement on or off on the running server.
+///
+/// `actionUIRemoteStartServer` turns it on and mints one token, so a host that mints per unit of
+/// work does not need this. It is here for a host that wants the requirement off - a test
+/// harness, say - or that wants to turn it on after registering its own tokens.
+///
+/// - Returns: false when no server is running, in which case nothing was changed.
+@_cdecl("actionUIRemoteSetRequiresToken")
+public func actionUIRemoteSetRequiresToken(_ required: CBool) -> CBool {
+    guard let server = ActionUIRemoteServer.shared else { return false }
+    server.requiresToken = required
+    return true
+}
+
+/// Remove `ACTIONUI_REMOTE_TOKEN` from this process's environment, so that nothing spawned
+/// afterwards inherits it.
+///
+/// A host that hands each child its own token on a descriptor calls this immediately after
+/// `actionUIRemoteStartServer` succeeds. The reason it must: a child's environment is built from
+/// the host's, and a `python3` or `node` child's exec-time environment is readable by any
+/// same-uid process through `ps` (PROTOCOL.md section 10). Keeping the token out of `envp`
+/// entirely is the only thing that helps; clearing it inside the child does not, because `ps`
+/// reads a snapshot frozen at exec.
+///
+/// The start-up token itself stays valid and stays readable through
+/// `actionUIRemoteServerToken()` - this is about the environment, not about the grant. A host
+/// that wants it withdrawn as well calls `actionUIRemoteRevokeTokensWithLabel("host")`.
+///
+/// - Returns: true when the variable was set and has been removed, false when there was nothing
+///   to remove.
+@_cdecl("actionUIRemoteUnexportToken")
+public func actionUIRemoteUnexportToken() -> CBool {
+    guard getenv(ActionUIRemoteEnvironment.token) != nil else { return false }
+    unsetenv(ActionUIRemoteEnvironment.token)
+    return true
 }
 
 /// True while the process-wide server is serving. Convenience for a host that only wants to

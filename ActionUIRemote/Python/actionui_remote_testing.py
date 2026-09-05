@@ -280,7 +280,8 @@ class FakeServer:
                 return _error_object(request_id, UNAUTHENTICATED,
                                      "This host requires a token. Pass it as the \"token\" "
                                      "parameter; processes the host spawned receive it in "
-                                     "ACTIONUI_REMOTE_TOKEN.")
+                                     "ACTIONUI_REMOTE_TOKEN, or on the descriptor named by "
+                                     "ACTIONUI_REMOTE_TOKEN_FD.")
             try:
                 result = self._dispatch(method, params)
             except Failure as failure:

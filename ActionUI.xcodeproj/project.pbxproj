@@ -265,6 +265,10 @@
 				Python/test_actionui_remote.py,
 				Python/test_live_client.py,
 				README.md,
+				Shell/actionui_remote.sh,
+				Shell/actionui_remote.zsh,
+				Shell/README.md,
+				Shell/test_actionui_remote.sh,
 			);
 			target = 1DC66218304962320054D2F1 /* ActionUIRemote */;
 		};
@@ -2303,6 +2307,8 @@
 					"*.md",
 					"*.py",
 					"*.pyc",
+					"*.sh",
+					"*.zsh",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -2347,6 +2353,8 @@
 					"*.md",
 					"*.py",
 					"*.pyc",
+					"*.sh",
+					"*.zsh",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
