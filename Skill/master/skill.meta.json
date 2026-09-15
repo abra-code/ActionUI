@@ -76,6 +76,13 @@
       "description": "How to run the validator and what to do with errors"
     },
     {
+      "id": "visual-verification",
+      "file": "content/10-visual-verification.md",
+      "level": 1,
+      "flavors": ["claude"],
+      "description": "Render the JSON with ActionUIViewer --hide-window and read the PNG; what the offscreen capture can and cannot show"
+    },
+    {
       "id": "element-quick-ref",
       "file": "content/06-element-quick-ref.md",
       "level": 2,

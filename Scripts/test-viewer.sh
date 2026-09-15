@@ -3,18 +3,23 @@
 # test-viewer.sh - build (if needed) and exercise ActionUIViewer with and without
 # --screenshot, using sample JSONs from ActionUISwiftTestApp/Resources.
 #
-# The --screenshot path supports two capture methods (ActionUIViewer --method):
+# The --screenshot path supports three capture methods (ActionUIViewer --method):
 #   legacy (default) - CGWindowListCreateImage; no Screen Recording permission required, so it
 #                      works out of the box (handy for automated / AI-agent screenshots).
 #   sck              - ScreenCaptureKit (SCScreenshotManager); the supported, non-deprecated API,
 #                      but it requires Screen Recording permission (System Settings > Privacy &
 #                      Security > Screen Recording) even for the app's own window.
-# Both capture the window-server composite, so WebView / VideoPlayer content is included either way.
+#   offscreen        - NSView.cacheDisplay; draws the window in-process instead of reading the
+#                      window server, so it works with the screen locked and with -H (hidden
+#                      window). Same layout as the other two, minus the window shadow.
+# legacy and sck capture the window-server composite; both fall back to offscreen automatically
+# when the screen is locked or the window server returns no image.
 #
 # Usage:
 #   Scripts/test-viewer.sh                 Screenshot the default sample set into a temp dir.
 #   Scripts/test-viewer.sh Text Slider     Screenshot just these (name with or without .json).
 #   Scripts/test-viewer.sh -m sck Slider   Screenshot using ScreenCaptureKit (needs permission).
+#   Scripts/test-viewer.sh -H Slider       Screenshot without showing a window on the desktop.
 #   Scripts/test-viewer.sh -d 5 WebView    Wait 5s before capture (for WebView / VideoPlayer).
 #   Scripts/test-viewer.sh -p              Preview the default set (open live windows, no screenshot).
 #   Scripts/test-viewer.sh -p Map List     Preview specific JSONs (close each window to proceed).
@@ -42,8 +47,10 @@ Usage:
 Options:
   -p, --preview     Open live windows instead of screenshotting (close each to proceed).
   -o, --out DIR     Screenshot output directory (default: a temp dir).
-  -m, --method M    Capture method: 'legacy' (default, no permission needed) or 'sck'
-                    (ScreenCaptureKit; requires Screen Recording permission).
+  -m, --method M    Capture method: 'legacy' (default, no permission needed), 'sck'
+                    (ScreenCaptureKit; requires Screen Recording permission) or 'offscreen'
+                    (in-process drawing; works with the screen locked, no window shadow).
+  -H, --hidden      Keep the viewer window off every screen (implies -m offscreen).
   -d, --delay SECS  Seconds to wait before capture (for WebView / VideoPlayer).
   -r, --release     Use the release binary instead of debug.
   -h, --help        Show this help.
@@ -58,6 +65,7 @@ config="debug"
 preview=0
 outdir=""
 method=""
+hidden=0
 delay=""
 args=()
 
@@ -67,6 +75,7 @@ while [[ $# -gt 0 ]]; do
         -r|--release) config="release"; shift ;;
         -o|--out)     outdir="$2"; shift 2 ;;
         -m|--method)  method="$2"; shift 2 ;;
+        -H|--hidden)  hidden=1; shift ;;
         -d|--delay)   delay="$2"; shift 2 ;;
         -h|--help)    usage; exit 0 ;;
         -*)           echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -132,8 +141,14 @@ if [[ -n "$method" ]]; then
     case "$(echo "$method" | tr '[:upper:]' '[:lower:]')" in
         legacy|cg)               method_args=(--method legacy) ;;
         sck|screencapturekit)    method_args=(--method sck) ;;
-        *) echo "Unknown -m method: $method (use 'legacy' or 'sck')" >&2; exit 2 ;;
+        offscreen|cachedisplay)  method_args=(--method offscreen) ;;
+        *) echo "Unknown -m method: $method (use 'legacy', 'sck' or 'offscreen')" >&2; exit 2 ;;
     esac
+fi
+hidden_label=""
+if [[ "$hidden" -eq 1 ]]; then
+    method_args+=(--hide-window)
+    hidden_label=", hidden window -> offscreen"
 fi
 
 delay_args=()
@@ -141,7 +156,7 @@ delay_args=()
 
 [[ -n "$outdir" ]] || outdir="$(mktemp -d "${TMPDIR:-/tmp}/actionui-viewer-shots.XXXXXX")"
 mkdir -p "$outdir"
-echo ">> Screenshot mode (method: ${method:-legacy}, delay: ${delay:-1.5}s) -> $outdir"
+echo ">> Screenshot mode (method: ${method:-legacy}${hidden_label}, delay: ${delay:-1.5}s) -> $outdir"
 [[ "$method" == "sck" || "$method" == "screencapturekit" ]] && \
     echo ">> (ScreenCaptureKit: first run may require Screen Recording permission)"
 

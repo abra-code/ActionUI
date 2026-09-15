@@ -187,6 +187,6 @@ The Web renderer targets any modern browser and reproduces this architecture in 
 
 ## Tools
 
-- **ActionUIViewer** — Preview JSON files, take screenshots for sharing or AI feedback
+- **ActionUIViewer** — Preview JSON files, take screenshots for sharing or AI feedback (`--screenshot out.png`; add `--hide-window` to render in-process without showing a window, which also works with the screen locked)
 - **ActionUIVerifier** — Validate JSON files before deployment
 - **ActionUISwiftTestApp** — Test app with examples of all supported view types

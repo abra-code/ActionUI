@@ -19,7 +19,8 @@ Skill/
 │       ├── 06-element-quick-ref.md one-liner per element (level 2)
 │       ├── 07-examples.md        few-shot examples (lite only)
 │       ├── 08-patterns.md        real-world layout patterns (level 2)
-│       └── 09-reference-docs.md  pointer to docs/ for full element specs
+│       ├── 09-reference-docs.md  pointer to docs/ for full element specs
+│       └── 10-visual-verification.md screenshot check with ActionUIViewer --hide-window (claude only)
 │
 ├── SKILL.md                      generated; claude flavor; committed
 ├── dist/                         generated build output; gitignored
