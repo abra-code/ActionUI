@@ -112,6 +112,16 @@ let package = Package(
         .target(
             name: "ActionUI",
             path: "ActionUI",
+            // VideoPlayer.swift imports AVKit, but the code only references the SwiftUI overlay
+            // (_AVKit_SwiftUI), so the linker records no dependency on AVKit.framework itself and
+            // the overlay's VideoPlayerView then fails at runtime: "failed to demangle superclass of
+            // VideoPlayerView from mangled name 'So12AVPlayerViewC'" (AVPlayerView is not loaded).
+            // The Xcode project links AVKit.framework explicitly for the same reason (de12140);
+            // this is the SwiftPM equivalent, so the viewer and any other package client get it.
+            // Unconditional: AVKit exists on every platform this package declares.
+            linkerSettings: [
+                .linkedFramework("AVKit"),
+            ],
         ),
 
         // MARK: - ActionUIMenuBar
