@@ -119,7 +119,7 @@ struct CanvasRenderer {
                 }
                 
             case "shadow":
-                let color = ColorHelper.resolveColor(op["color"] as? String) ?? .black
+                let color = ColorHelper.resolveColor(op["color"] as? String) ?? ColorHelper.defaultShadowColor
                 let radius = op.cgFloat(forKey: "radius") ?? 0.005
                 let offsetX = op.cgFloat(forKey: "x") ?? 0.002
                 let offsetY = op.cgFloat(forKey: "y") ?? 0.004

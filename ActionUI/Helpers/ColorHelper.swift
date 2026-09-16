@@ -7,6 +7,11 @@
 import SwiftUI
 
 class ColorHelper {
+    // The color SwiftUI itself gives a shadow when none is named, for both View.shadow(color:radius:x:y:)
+    // and GraphicsContext.Filter.shadow: black at a third opacity. Opaque black reads as a heavy,
+    // dark smudge.
+    static let defaultShadowColor = SwiftUI.Color(.sRGBLinear, white: 0, opacity: 0.33)
+
     // Resolves a string to a SwiftUI Color
     // Supports named colors (e.g., "red", "orange", "clear", "accentColor") and hex formats (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
     // Returns nil if the string is invalid

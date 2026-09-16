@@ -131,4 +131,14 @@ final class ColorHelperTests: XCTestCase {
         XCTAssertNil(ColorHelper.resolveShapeStyle("#GGGGGG"))
         XCTAssertNil(ColorHelper.resolveShapeStyle(""))
     }
+
+    func testDefaultShadowColorIsSwiftUIs() {
+        // A shadow with no color gets what SwiftUI gives it: black at a third opacity, not opaque
+        // black, which draws a heavy dark smudge.
+        let resolved = ColorHelper.defaultShadowColor.resolve(in: EnvironmentValues())
+        XCTAssertEqual(resolved.red, 0, accuracy: 0.001)
+        XCTAssertEqual(resolved.green, 0, accuracy: 0.001)
+        XCTAssertEqual(resolved.blue, 0, accuracy: 0.001)
+        XCTAssertEqual(resolved.opacity, 0.33, accuracy: 0.001)
+    }
 }

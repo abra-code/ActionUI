@@ -267,7 +267,8 @@ private fun parseOperation(op: JsonObject, logger: ActionUILogger?): CanvasOp? {
         "rotate" -> op.floatProperty("angle")?.let { CanvasOp.Rotate(it) }
         // Defaults match the Swift renderer's (raw points; near-invisible, but parity).
         "shadow" -> CanvasOp.Shadow(
-            color = op.stringProperty("color")?.let { parseColor(it) } ?: Color.Black,
+            // SwiftUI's own shadow color when none is named: black at a third opacity.
+            color = op.stringProperty("color")?.let { parseColor(it) } ?: Color.Black.copy(alpha = 0.33f),
             radius = op.floatProperty("radius") ?: 0.005f,
             x = op.floatProperty("x") ?: 0.002f,
             y = op.floatProperty("y") ?: 0.004f,

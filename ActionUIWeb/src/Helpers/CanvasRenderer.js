@@ -115,7 +115,8 @@ function parseOp(op, logger) {
         }
         case "shadow": return {
             type: "shadow",
-            color: resolveCanvasColor(op.color) ?? "#000000",
+            // SwiftUI's own shadow color when none is named: black at a third opacity.
+            color: resolveCanvasColor(op.color) ?? "rgba(0,0,0,0.33)",
             radius: numberOr(op.radius, 0.005),
             x: numberOr(op.x, 0.002),
             y: numberOr(op.y, 0.004),

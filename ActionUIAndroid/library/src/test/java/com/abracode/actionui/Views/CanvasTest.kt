@@ -332,7 +332,7 @@ class CanvasTest {
     @Test
     fun `shadow defaults match the Swift renderer's raw-point defaults`() {
         val shadow = parseOps("""[ { "type": "shadow" } ]""").single() as CanvasOp.Shadow
-        assertEquals(Color.Black, shadow.color)
+        assertEquals(Color.Black.copy(alpha = 0.33f), shadow.color)
         assertEquals(0.005f, shadow.radius, 1e-6f)
         assertEquals(0.002f, shadow.x, 1e-6f)
         assertEquals(0.004f, shadow.y, 1e-6f)
