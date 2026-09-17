@@ -83,17 +83,28 @@ struct VideoPlayer: ActionUIViewConstruction {
 // from the nonisolated buildView closure under Swift 6 ("default argument cannot be both main actor-isolated
 // and nonisolated"). A View struct's body is @MainActor-isolated, so the AVKit view can be built here. The
 // AVPlayer is held in @State so it is created once and survives re-renders rather than being rebuilt.
+//
+// Because @State keeps its first value, a new URL written to the element's value would otherwise rebuild
+// this struct around the old player and keep playing the first file. The URL is watched instead: a new one
+// pauses the player and replaces its item, so the source changes while the player itself, and the volume,
+// rate and AirPlay route chosen on it, stay.
 private struct VideoPlayerContent: SwiftUI.View {
+    let url: URL
     let autoplay: Bool?
     @State private var player: AVPlayer
 
     init(url: URL, autoplay: Bool?) {
+        self.url = url
         self.autoplay = autoplay
         _player = State(initialValue: AVPlayer(url: url))
     }
 
     var body: some SwiftUI.View {
         AVKit.VideoPlayer(player: player)
+            .onChange(of: url) { _, newURL in
+                player.pause()
+                player.replaceCurrentItem(with: AVPlayerItem(url: newURL))
+            }
             .onAppear {
                 guard let autoplay else { return }
                 // Delay to allow the view to settle, matching the original timing.
