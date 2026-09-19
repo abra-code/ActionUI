@@ -90,19 +90,52 @@ while [[ "$repo" != "/" && ! -f "$repo/Package.swift" ]]; do repo="$(dirname "$r
 [[ -f "$repo/Package.swift" ]] || { echo "Could not find Package.swift above $script_dir" >&2; exit 1; }
 res="$repo/ActionUISwiftTestApp/Resources"
 
-# Resolve the binary path (this does not build), then build only if it is missing.
+# Resolve the binary path (this does not build); whether to build is decided below.
 if [[ "$config" == "release" ]]; then
     bindir="$(cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer -c release --show-bin-path)"
 else
     bindir="$(cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer --show-bin-path)"
 fi
 bin="$bindir/ActionUIViewer"
+
+# SDK stamp. Under Xcode 27 the default SwiftPM engine (Swift Build) links without SDKROOT in its
+# environment, and a binary then records the DEPLOYMENT TARGET as its SDK version ("sdk 14.6"),
+# although it is compiled against the current SDK. AppKit picks its design from that stamp, so such
+# a viewer runs in the pre-Liquid Glass compatibility layout and its screenshots do not match a
+# real app. Apps/ActionUIViewer/Package.swift states both versions to the linker, so a build is
+# stamped correctly by itself; all this script does is notice a binary from before that. The probes
+# must not end the script (set -e), hence "|| true".
+sdk_version="$(/usr/bin/xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)"
+
+# Build when the binary is missing, and relink when it carries the wrong SDK stamp.
+needs_build=0
 if [[ ! -x "$bin" ]]; then
+    needs_build=1
+elif [[ -n "$sdk_version" ]]; then
+    stamped_sdk="$(/usr/bin/xcrun vtool -show-build "$bin" 2>/dev/null | /usr/bin/awk '$1 == "sdk" { print $2; exit }' || true)"
+    if [[ "$stamped_sdk" != "$sdk_version" ]]; then
+        echo ">> Existing binary is stamped with SDK '$stamped_sdk', expected '$sdk_version'; relinking."
+        # Remove it: SwiftPM relinks only when an input or the command line changed, and neither
+        # may have. A missing product always links.
+        /bin/rm -f "$bin"
+        needs_build=1
+    fi
+fi
+if [[ "$needs_build" -eq 1 ]]; then
     echo ">> Building ActionUIViewer ($config) ..."
     if [[ "$config" == "release" ]]; then
         (cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer -c release)
     else
         (cd "$repo/Apps/ActionUIViewer" && swift build --product ActionUIViewer)
+    fi
+    # Say so once if the fresh binary is still stamped wrong, instead of relinking silently forever.
+    if [[ -n "$sdk_version" ]]; then
+        stamped_sdk="$(/usr/bin/xcrun vtool -show-build "$bin" 2>/dev/null | /usr/bin/awk '$1 == "sdk" { print $2; exit }' || true)"
+        if [[ "$stamped_sdk" != "$sdk_version" ]]; then
+            echo ">> Warning: the new binary is stamped with SDK '$stamped_sdk', expected '$sdk_version'; it may run" >&2
+            echo ">>          without the current system look. The stamp comes from Apps/ActionUIViewer/Package.swift;" >&2
+            echo ">>          an exported SDKROOT that names another SDK also causes this." >&2
+        fi
     fi
 fi
 echo ">> Binary: $bin"
