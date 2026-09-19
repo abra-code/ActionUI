@@ -1,0 +1,244 @@
+{
+  "type": "NavigationSplitView",
+  "id": 1,
+  "properties": {
+    "columnVisibility": "all",
+    "style": "balanced",
+    "frame": {
+      "minWidth": 800,
+      "minHeight": 540
+    },
+    "padding": {
+      "top": 4
+    }
+  },
+  "sidebar": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 8,
+      "navigationSplitViewColumnWidth": {
+        "min": 220,
+        "ideal": 320,
+        "max": 360
+      }
+    },
+    "children": [
+      {
+        "type": "Table",
+        "id": 10,
+        "properties": {
+          "columns": [
+            "Document"
+          ],
+          "widths": [
+            280
+          ],
+          "minWidths": [
+            120
+          ],
+          "scrollContentBackground": "hidden",
+          "actionID": "listdetail.selection.changed"
+        }
+      },
+      {
+        "type": "HStack",
+        "properties": {
+          "spacing": 0
+        },
+        "children": [
+          {
+            "type": "Button",
+            "id": 11,
+            "properties": {
+              "systemImage": "plus.circle",
+              "imageScale": "large",
+              "buttonStyle": "plain",
+              "actionID": "listdetail.add",
+              "frame": {
+                "width": 32,
+                "height": 32
+              }
+            }
+          },
+          {
+            "type": "Button",
+            "id": 12,
+            "properties": {
+              "systemImage": "minus.circle",
+              "imageScale": "large",
+              "buttonStyle": "plain",
+              "actionID": "listdetail.remove",
+              "frame": {
+                "width": 32,
+                "height": 32
+              }
+            }
+          },
+          {
+            "type": "Spacer"
+          },
+          {
+            "type": "Button",
+            "id": 13,
+            "properties": {
+              "systemImage": "trash.circle",
+              "imageScale": "large",
+              "buttonStyle": "plain",
+              "actionID": "listdetail.clear",
+              "frame": {
+                "width": 32,
+                "height": 32
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "detail": {
+    "type": "VStack",
+    "properties": {
+      "frame": {
+        "minWidth": 420,
+        "idealWidth": 460
+      },
+      "spacing": 16,
+      "padding": "default"
+    },
+    "children": [
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "Info",
+          "frame": {
+            "minWidth": 400
+          }
+        },
+        "children": [
+          {
+            "type": "ScrollView",
+            "properties": {
+              "frame": {
+                "minWidth": 390,
+                "minHeight": 200
+              }
+            },
+            "content": {
+              "type": "Text",
+              "id": 14,
+              "properties": {
+                "text": "FIRST LINE OF THE DETAIL COLUMN - this line must be fully readable.\n\nIt is flush with the top of the detail column, which is where the regression shows: on macOS 27 a NavigationSplitView owns the titlebar strip above its columns, and if the split view does not reach the top of the window that strip lands on top of this text instead.\n\nThe root has a top padding of 4 on purpose. That padding is what keeps SwiftUI from extending the split view under the titlebar by itself, so this document fails without ActionUI's window-root safe-area handling and not only without a full-size content view in the host window.",
+                "frame": {
+                  "minWidth": 380
+                },
+                "foregroundStyle": "secondary"
+              }
+            }
+          },
+          {
+            "type": "Divider",
+            "properties": {
+              "opacity": 0,
+              "frame": {
+                "height": 0
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "GroupBox",
+        "properties": {
+          "title": "Options",
+          "frame": {
+            "minWidth": 400
+          }
+        },
+        "children": [
+          {
+            "type": "VStack",
+            "properties": {
+              "spacing": 14,
+              "alignment": "leading",
+              "padding": "default",
+              "frame": {
+                "minWidth": 390,
+                "idealWidth": 390
+              }
+            },
+            "children": [
+              {
+                "type": "Picker",
+                "id": 15,
+                "properties": {
+                  "title": "Output Format",
+                  "options": [
+                    {
+                      "title": "Plain Text - txt",
+                      "tag": "txt"
+                    },
+                    {
+                      "title": "Rich Text Format - rtf",
+                      "tag": "rtf"
+                    },
+                    {
+                      "title": "Web Page - html",
+                      "tag": "html"
+                    }
+                  ],
+                  "actionID": "listdetail.format.changed"
+                }
+              },
+              {
+                "type": "Toggle",
+                "id": 16,
+                "properties": {
+                  "title": "Don't copy metadata"
+                }
+              },
+              {
+                "type": "Divider",
+                "properties": {
+                  "opacity": 0,
+                  "frame": {
+                    "height": 0
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Spacer"
+      },
+      {
+        "type": "HStack",
+        "properties": {
+          "spacing": 16
+        },
+        "children": [
+          {
+            "type": "Toggle",
+            "id": 17,
+            "properties": {
+              "title": "Overwrite existing files"
+            }
+          },
+          {
+            "type": "Spacer"
+          },
+          {
+            "type": "Button",
+            "id": 18,
+            "properties": {
+              "title": "Convert",
+              "buttonStyle": "borderedProminent",
+              "actionID": "listdetail.start"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

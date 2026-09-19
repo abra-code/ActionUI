@@ -66,8 +66,10 @@ public struct FileLoadableView: SwiftUI.View {
                   let viewModel = windowModel.viewModels[element.id] {
             let coreView = ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)
             if isContentView {
-                // Window root: attach window-level sheet/fullScreenCover/alert/confirmationDialog
-                WindowModalView(windowModel: windowModel, content: AnyView(coreView), windowUUID: windowUUID)
+                // Window root: attach window-level sheet/fullScreenCover/alert/confirmationDialog.
+                // windowRootSafeArea goes on the root CONTENT, not around WindowModalView: the
+                // toast overlay in there must stay inside the safe area, below the titlebar.
+                WindowModalView(windowModel: windowModel, content: AnyView(coreView.windowRootSafeArea(rootElementType: element.type)), windowUUID: windowUUID)
             } else {
                 // Sub-view instance (tab pane, detail view, etc.) — no window-level modifiers
                 coreView
