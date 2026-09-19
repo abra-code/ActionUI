@@ -28,16 +28,28 @@ typedef void (^ActionUIObjCActionHandlerBlock)(NSString *_Nonnull actionID, NSSt
     NSURL *url = [[NSBundle mainBundle] URLForResource:@"DefaultWindowContentView" withExtension:@"json"];
     NSString *windowUUID = [[NSUUID UUID] UUIDString];
     NSViewController *controller = [ActionUIObjC loadHostingControllerWithURL:url windowUUID:windowUUID isContentView:YES];
+
+    // Resizable window with a full-size content view. NSWindowStyleMaskFullSizeContentView is
+    // required, not cosmetic: on macOS 27 a root NavigationSplitView has to reach the top of the
+    // window, or AppKit paints its per-column titlebar bands over the detail column. Set it
+    // BEFORE the content goes in and the window is sized, so the fitting size below is measured
+    // in a content view that already spans the titlebar.
+    self.window.styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView;
     self.window.contentViewController = controller;
-    
-    // Set window size based on the SwiftUI view's fitting size, with a minimum threshold and fallback
+
+    // Set window size based on the SwiftUI view's fitting size, with a minimum threshold and fallback.
+    // In a window the hosting view's fitting size includes the safe area (the titlebar), which is
+    // what a full-size content view needs. The layout pass first, so that a SwiftUI toolbar, which
+    // makes the titlebar taller, is in place. Lay out in a window taller than any titlebar: the safe area
+    // is clamped to the window's height and assigning the controller shrinks the window, so a short
+    // window would contribute only part of the titlebar to the fitting size.
+    [self.window setContentSize:NSMakeSize(480, 200)];
+    [self.window layoutIfNeeded];
     NSSize fittingSize = controller.view.fittingSize;
     NSLog(@"Fitting size: %f x %f", fittingSize.width, fittingSize.height);
     NSSize windowSize = (fittingSize.width >= 10 && fittingSize.height >= 10) ? fittingSize : NSMakeSize(480, 320);
     [self.window setContentSize:windowSize];
     
-    // Ensure window is resizable and set min size
-    self.window.styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
 //    [self.window setContentMinSize:NSMakeSize(400, 300)]; // Prevent window from being too small
     
     [self.window center]; // Center the window on screen

@@ -422,9 +422,13 @@ public func actionUIAppLoadAndPresentWindow(
             ? fittingSize
             : NSSize(width: 480, height: 320)
 
+        // .fullSizeContentView is required, not cosmetic. On macOS 27 a root NavigationSplitView
+        // has to reach the top of the window, or AppKit paints its per-column titlebar bands over
+        // the detail column's first ~52 points (see View.windowRootSafeArea in ActionUI). Any
+        // other root is still inset below the titlebar by SwiftUI, so its layout does not change.
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: windowSize),
-            styleMask:   [.titled, .closable, .miniaturizable, .resizable],
+            styleMask:   [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing:     .buffered,
             defer:       false
         )
@@ -435,7 +439,18 @@ public func actionUIAppLoadAndPresentWindow(
         window.isReleasedWhenClosed  = false
         window.title                 = swiftTitle ?? url.deletingPathExtension().lastPathComponent
         window.contentViewController = controller
-        window.setContentSize(windowSize)
+        // windowSize is the LAYOUT size, and the content view now spans the titlebar, so the
+        // titlebar's height has to be added. It can only be measured at this point: assigning the
+        // controller shrinks the window to 1x1 until the setContentSize below, and the layout pass
+        // makes sure a SwiftUI toolbar, which makes the titlebar taller, is in place first.
+        // Measure in a window taller than any titlebar: contentLayoutRect's height stops at 0, so
+        // a window shorter than its own titlebar reports only part of it. windowSize can be that
+        // short - the fitting size is accepted from 10 points up - and the window would then come
+        // out smaller than the layout it has to hold.
+        window.setContentSize(NSSize(width: windowSize.width, height: max(windowSize.height, 200)))
+        window.layoutIfNeeded()
+        let titlebarHeight = max(0, window.frame.height - window.contentLayoutRect.height)
+        window.setContentSize(NSSize(width: windowSize.width, height: windowSize.height + titlebarHeight))
         window.center()
         window.delegate = ActionUIApplicationDelegate.shared
 

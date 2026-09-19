@@ -292,15 +292,26 @@ class ActionUIViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         })
         
         let windowClass: NSWindow.Type = hideWindow ? OffscreenCaptureWindow.self : NSWindow.self
-        window = windowClass.init(contentRect: NSRect(x: 100, y: 100, width: 800, height: 600),
-                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+        // .fullSizeContentView is required, not cosmetic. On macOS 27 a root NavigationSplitView
+        // has to reach the top of the window, or AppKit paints its per-column titlebar bands over
+        // the detail column's first ~52 points (see View.windowRootSafeArea in ActionUI). Any
+        // other root is still inset below the titlebar by SwiftUI, so its layout does not change.
+        let layoutSize = NSSize(width: 800, height: 600)
+        window = windowClass.init(contentRect: NSRect(origin: NSPoint(x: 100, y: 100), size: layoutSize),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                                   backing: .buffered, defer: false)
         window.title = "ActionUI Viewer - \(displayTitle)"
-        window.center()
         window.delegate = self
         
         let hostingController = ActionUISwift.loadHostingController(from: url, windowUUID: windowUUID, isContentView: true)
         window.contentView = hostingController.view
+        // layoutSize is the area the document lays out in. The content view spans the titlebar,
+        // so add the titlebar's height; the layout pass first, so that a SwiftUI toolbar, which
+        // makes the titlebar taller, is in place before measuring.
+        window.layoutIfNeeded()
+        let titlebarHeight = max(0, window.frame.height - window.contentLayoutRect.height)
+        window.setContentSize(NSSize(width: layoutSize.width, height: layoutSize.height + titlebarHeight))
+        window.center()
         if hideWindow {
             // Order the window front far outside every screen (see OffscreenCaptureWindow): it
             // becomes a real key window, so controls draw in the active appearance, yet nothing
