@@ -17,10 +17,12 @@ import time
 
 
 class Session:
-    def __init__(self, binary, press=None):
+    def __init__(self, binary, press=None, action=None):
         env = dict(os.environ)
         if press:
             env["ACTIONUI_MCP_TEST_PRESS"] = press
+        if action:
+            env["ACTIONUI_MCP_TEST_ACTION"] = action
         self.proc = subprocess.Popen([binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=sys.stderr, text=True, bufsize=1, env=env)
         self.inbox = queue.Queue()
@@ -74,6 +76,10 @@ def check(label, condition, detail=""):
 
 def structured(message):
     return (message or {}).get("result", {}).get("structuredContent")
+
+
+def is_error(message):
+    return (message or {}).get("result", {}).get("isError") is True
 
 
 binary = sys.argv[1]
@@ -153,6 +159,83 @@ s.call(17, "ask_user", {"title": "Long", "timeout_s": 3,
                         + [{"key": "s", "kind": "slider", "min": 0, "max": 1, "step": 0.25, "default": 0.5}]})
 check("long dialog opens and times out", structured(s.response(17)) == {"action": "timeout", "button": None})
 
+# validate_document: structure, safety rules, and ActionUI's own load errors.
+FORM = {"type": "VStack", "properties": {"padding": 16, "spacing": 8}, "children": [
+    {"type": "Text", "id": 1, "properties": {"text": "Status: idle"}},
+    {"type": "TextField", "id": 2, "properties": {"title": "Name", "text": "Ada"}},
+    {"type": "Toggle", "id": 3, "properties": {"title": "Loud", "isOn": True}},
+    {"type": "Button", "id": 4, "properties": {"title": "Go", "actionID": "go"}},
+    {"type": "Table", "id": 5, "properties": {"columns": ["A", "B"], "frame": {"height": 80}}}]}
+s.call(30, "validate_document", {"document": FORM})
+result = structured(s.response(30))
+check("validate good document", (result or {}).get("ok") is True and result.get("errors") == [], result)
+bad = {"type": "VStack", "properties": {"children": []}, "children": [
+    {"type": "Text", "id": 1}, {"type": "Text", "id": 1}, {"type": "SecureField", "id": -2}, {"properties": {}}]}
+s.call(31, "validate_document", {"document": bad})
+result = structured(s.response(31)) or {}
+check("validate finds structural errors (%d)" % len(result.get("errors", [])),
+      result.get("ok") is False and len(result.get("errors", [])) == 5, result)
+s.call(32, "validate_document", {"document": {"type": "NoSuchElement"}})
+result = structured(s.response(32)) or {}
+check("validate reports ActionUI load errors", result.get("ok") is False and result.get("errors"), result)
+s.call(33, "validate_document", {"document": json.dumps(FORM)})
+result = structured(s.response(33)) or {}
+check("validate rejects a document passed as a string", result.get("ok") is False, result)
+s.call(34, "show_document", {"title": "T", "document": {"type": "NoSuchElement"}})
+check("show_document refuses a document ActionUI cannot load", is_error(s.response(34)))
+
+# A live window: values in, values out, rows, wait with a timeout, close event.
+s.call(35, "show_document", {"title": "Live", "document": FORM})
+result = structured(s.response(35)) or {}
+live = result.get("window", "")
+check("show_document window mode", bool(live), result)
+s.call(36, "update_window", {"window": live, "values": {"1": "Status: busy", "2": "Grace", "3": False, "99": "x"},
+                             "rows": {"5": [["a", 1], ["b", 2]]}, "append_rows": {"5": [["c", 3]]}})
+result = structured(s.response(36)) or {}
+check("update_window", result.get("updated") == 5 and result.get("problems") == ["no element with id 99"], result)
+s.call(37, "get_values", {"window": live, "ids": [1, 2, 3]})
+result = structured(s.response(37)) or {}
+check("get_values reads what update_window wrote",
+      result.get("values") == {"1": "Status: busy", "2": "Grace", "3": False}, result)
+s.call(38, "wait", {"window": live, "timeout_s": 1})
+result = structured(s.response(38)) or {}
+check("wait times out with no events", result.get("events") == [] and result.get("timed_out") is True, result)
+s.call(39, "close_window", {"window": live})
+s.response(39)
+s.call(40, "wait", {"window": live, "timeout_s": 5})
+result = structured(s.response(40)) or {}
+check("wait reports window.closed", [e.get("action") for e in result.get("events", [])] == ["window.closed"], result)
+s.call(41, "wait", {"window": live, "timeout_s": 1})
+check("wait on a closed, drained window is an error", is_error(s.response(41)))
+
+# A wait for one window ends when an older wait for any window takes that window's close event.
+s.call(44, "show_document", {"title": "Live", "document": FORM})
+live = (structured(s.response(44)) or {}).get("window", "")
+s.call(45, "wait", {"timeout_s": 20})
+time.sleep(0.3)
+s.call(46, "wait", {"window": live, "timeout_s": 20})
+time.sleep(0.3)
+s.call(47, "close_window", {"window": live})
+result = structured(s.response(45, timeout=5)) or {}
+check("any-window wait gets window.closed", [e.get("action") for e in result.get("events", [])] == ["window.closed"], result)
+result = structured(s.response(46, timeout=5)) or {}
+check("wait for the closed window ends at once", result.get("events") == [] and not result.get("timed_out"), result)
+s.call(48, "get_values", {"window": live, "ids": [1e300]})
+check("get_values survives an out-of-range id", is_error(s.response(48)))
+hidden = {"type": "VStack", "children": [
+    {"type": "NavigationLink", "properties": {"title": "x"}, "destination": {"type": "SecureField", "id": 7}},
+    {"type": "Grid", "rows": [[{"type": "SecureField", "id": 8}]]}]}
+s.call(49, "validate_document", {"document": hidden})
+result = structured(s.response(49)) or {}
+check("validate finds elements nested in destination and Grid rows",
+      result.get("ok") is False and len(result.get("errors", [])) == 2, result)
+
+# pick_path: a bad folder is an error; an unanswered panel times out.
+s.call(42, "pick_path", {"directory": "/no/such/folder"})
+check("pick_path rejects a missing folder", is_error(s.response(42)))
+s.call(43, "pick_path", {"kind": "save", "default_name": "x.txt", "timeout_s": 2})
+check("pick_path times out", structured(s.response(43)) == {"action": "timeout", "paths": []})
+
 # Cancellation closes the dialog and suppresses the response; the server keeps answering.
 s.call(4, "ask_user", {"title": "Continue?"})
 time.sleep(1)
@@ -160,6 +243,32 @@ s.send({"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"reque
 s.send({"jsonrpc": "2.0", "id": 5, "method": "ping"})
 check("ping after cancel", s.response(5) is not None)
 check("no response for the cancelled call", s.response(4, timeout=1) is None)
+
+# An action in a live window reaches a waiting agent, with the element's value.
+s.close()
+s = Session(binary, action="go@2")
+s.call(1, "show_document", {"title": "Live", "document": FORM})
+live = (structured(s.response(1)) or {}).get("window", "")
+s.call(2, "wait", {"timeout_s": 10})
+result = structured(s.response(2)) or {}
+events = result.get("events", [])
+check("wait receives the action", len(events) == 1 and events[0].get("action") == "go"
+      and events[0].get("window") == live and events[0].get("id") == 2 and events[0].get("value") == "Ada", result)
+s.close()
+
+# Agent document as a dialog: chrome buttons and declared close actions both return every value.
+s = Session(binary, press="Save")
+s.call(1, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": ["Cancel", "Save"]})
+result = structured(s.response(1)) or {}
+check("document dialog accept", result.get("action") == "accept" and result.get("button") == "Save"
+      and result.get("values", {}).get("2") == "Ada" and result.get("values", {}).get("3") is True, result)
+s.close()
+s = Session(binary, action="go@4")
+s.call(1, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": [], "close_actions": ["go"]})
+result = structured(s.response(1)) or {}
+check("document dialog close action", result.get("action") == "accept" and result.get("close_action") == "go", result)
+s.call(2, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": []})
+check("document dialog needs a way out", is_error(s.response(2)))
 
 # Shutdown with a dialog pending must fit the client's 2 s grace period.
 s.call(6, "ask_user", {"title": "Pending at shutdown"})

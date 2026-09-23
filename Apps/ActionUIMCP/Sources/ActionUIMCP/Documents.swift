@@ -134,19 +134,24 @@ struct DialogSpec {
         }
         self.fields = fields
 
-        var titles = (arguments["buttons"]?.array ?? []).compactMap(\.string).filter { !$0.isEmpty }
-        if titles.isEmpty { titles = ["Cancel", "OK"] }
+        self.buttons = try Self.parseButtons(arguments["buttons"], allowEmpty: false)
+    }
+
+    /// Button titles, left to right; ["Cancel", "OK"] when none are given (or, with `allowEmpty`,
+    /// only when the key is absent). The last button is the default (Return). A button titled
+    /// Cancel is the Escape button and reports action "cancel"; so does closing the window.
+    static func parseButtons(_ raw: JSONValue?, allowEmpty: Bool) throws -> [DialogButton] {
+        var titles = (raw?.array ?? []).compactMap(\.string).filter { !$0.isEmpty }
+        if titles.isEmpty && !(allowEmpty && raw?.array != nil) { titles = ["Cancel", "OK"] }
         // Case-insensitive, like the Cancel match below: "Cancel" and "cancel" would be two Escape buttons.
         guard Set(titles.map { $0.lowercased() }).count == titles.count else {
             throw MCPToolError("button titles must be unique")
         }
-        // The last button is the default (Return). A button titled Cancel is the Escape button and
-        // reports action "cancel"; so does closing the window.
         let defaultIndex = titles.count - 1
-        self.buttons = titles.enumerated().map { index, title in
+        return titles.enumerated().map { index, title in
             let isCancel = title.caseInsensitiveCompare("Cancel") == .orderedSame
             return DialogButton(title: title, isDefault: index == defaultIndex && !isCancel, isCancel: isCancel,
-                                actionID: Self.buttonActionPrefix + String(index))
+                                actionID: buttonActionPrefix + String(index))
         }
     }
 
@@ -168,8 +173,7 @@ struct DialogSpec {
         }
         children.append(["type": "Text", "properties": ["text": footer, "font": "caption", "foregroundStyle": "secondary",
                                                        "frame": ["maxWidth": "infinity", "alignment": "leading"]]])
-        children.append(["type": "HStack", "properties": ["spacing": 8],
-                         "children": [["type": "Spacer"]] + buttons.map(buttonElement)])
+        children.append(Self.buttonRow(buttons))
         return ["type": "VStack",
                 "properties": ["alignment": "leading", "spacing": 14, "padding": 20, "frame": ["width": width]],
                 "children": children]
@@ -223,7 +227,11 @@ struct DialogSpec {
         return ["type": "LabeledContent", "properties": ["title": label], "children": [control]]
     }
 
-    private func buttonElement(_ button: DialogButton) -> [String: Any] {
+    static func buttonRow(_ buttons: [DialogButton]) -> [String: Any] {
+        ["type": "HStack", "properties": ["spacing": 8], "children": [["type": "Spacer"]] + buttons.map(buttonElement)]
+    }
+
+    private static func buttonElement(_ button: DialogButton) -> [String: Any] {
         var properties: [String: Any] = ["title": button.title, "actionID": button.actionID,
                                          "buttonStyle": button.isDefault ? "borderedProminent" : "bordered"]
         if button.isDefault {

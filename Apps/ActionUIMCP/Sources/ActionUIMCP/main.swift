@@ -25,18 +25,6 @@ import ActionUIRichText
 
 let serverVersion = "0.1.0"
 
-/// ActionUI's log, on stderr: stdout belongs to the protocol.
-final class StandardErrorLogger: ActionUILogger {
-    let maxLevel: LoggerLevel
-
-    init(maxLevel: LoggerLevel) { self.maxLevel = maxLevel }
-
-    func log(_ message: String, _ level: LoggerLevel) {
-        guard level.rawValue <= maxLevel.rawValue else { return }
-        FileHandle.standardError.write(Data("[actionui-mcp][\(level)] \(message)\n".utf8))
-    }
-}
-
 /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
 /// window. No Quit item: quitting would end the client's server; closing windows is enough.
 @MainActor
@@ -75,7 +63,7 @@ let arguments = CommandLine.arguments.dropFirst()
 if arguments.contains("-h") || arguments.contains("--help") {
     FileHandle.standardError.write(Data("""
         actionui-mcp \(serverVersion) - MCP server (stdio) that shows native ActionUI dialogs and windows.
-        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, show, close_window.
+        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, show_document, validate_document, wait, update_window, get_values, close_window.
         Environment: ACTIONUI_MCP_LABEL, ACTIONUI_MCP_LOG_LEVEL (error|warning|info|debug).
 
         """.utf8))
@@ -96,7 +84,11 @@ case "info": .info
 case "debug": .debug
 default: .warning
 }
-ActionUISwift.setLogger(StandardErrorLogger(maxLevel: logLevel))
+let logger = HostLogger(maxLevel: logLevel)
+ActionUISwift.setLogger(logger)
+// The registry keeps its own logger (unknown element types are reported there), and
+// ActionUISwift.setLogger does not reach it.
+ActionUIRegistry.shared.setLogger(logger)
 ActionUIQuickLook.register()
 ActionUIDiff.register()
 ActionUICachedImage.register()
@@ -106,7 +98,7 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 app.mainMenu = makeMainMenu()
 
-let host = WindowHost()
+let host = WindowHost(logger: logger)
 host.install()
 
 let server = MCPServer(
@@ -114,8 +106,12 @@ let server = MCPServer(
     version: serverVersion,
     instructions: """
         Shows native macOS windows on the user's screen. ask_user asks a question with optional \
-        fields and waits for the answer; show presents a document, image, PDF, video, or web page \
-        without waiting. Prefer ask_user over asking in chat when you need structured input or an \
+        fields and waits for the answer; pick_path shows the system file panels; show presents a \
+        report, image, PDF, video, web page, diff, or table without waiting. For anything the canned \
+        tools cannot express, write an ActionUI document (see the actionui skill if available), check \
+        it with validate_document, and open it with show_document: as a dialog that returns every \
+        value, or as a live window whose actions you collect with wait and whose values you change \
+        with update_window. Prefer ask_user over asking in chat when you need structured input or an \
         explicit approval.
         """,
     tools: makeTools(host: host, label: environment["ACTIONUI_MCP_LABEL"]),

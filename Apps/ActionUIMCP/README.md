@@ -6,7 +6,12 @@ Tools:
 
 - `ask_user` - a dialog with a message, optional typed fields (text, multiline, number, integer, toggle, choice, slider, date), and buttons. Blocks until the user answers and returns `{action, button, values}`, where `action` is `accept`, `cancel`, or `timeout`. Up to 30 fields; when they would not fit, they scroll. Sliders show their current value.
 - `show` - a non-blocking viewer window for markdown, plain text, an image, a PDF or any Quick Look file, a video, a web page, a diff of two texts or files, or a table (up to 50000 rows). Returns `{window}` at once and does not take keyboard focus.
-- `close_window` - closes a window opened by `show`.
+- `pick_path` - the system open or save panel. Blocks and returns `{action, paths}`.
+- `show_document` - opens an ActionUI document the agent wrote, passed as a nested object or an absolute `.json` path. In `dialog` mode it adds a footer and a button row, waits, and returns every element's value by id. In `window` mode it returns `{window}` at once and queues the window's actions for `wait`. A document ActionUI cannot load is not shown; the load errors come back instead. SecureField is refused and WebView user scripts are removed.
+- `validate_document` - checks a document without showing it: element shape, unique positive ids, container keys placed inside `properties`, refused elements, and ActionUI's own load errors and warnings. Unknown property names are not detected yet.
+- `wait` - returns the queued actions of live windows (`show_document` window mode), waiting for at least one or a timeout. Repeated actions on one element are merged; closing a window adds a `window.closed` event.
+- `update_window` / `get_values` - write values and table rows into an open window, and read values back.
+- `close_window` - closes a window.
 
 Every window shows "Requested by <client>" in its title bar.
 
@@ -39,12 +44,13 @@ Environment variables:
 - `ACTIONUI_MCP_LABEL` - text shown after the client name in every title bar.
 - `ACTIONUI_MCP_LOG_LEVEL` - `error`, `warning` (default), `info`, or `debug`; the log goes to stderr.
 - `ACTIONUI_MCP_KEEP_DOCUMENTS=1` - keep each generated window document in the temporary folder (the path is logged), so it can be inspected or rendered with ActionUIViewer.
-- `ACTIONUI_MCP_TEST_PRESS=<button title>` - debug builds only: presses that dialog button 1.5 seconds after the dialog opens. For the live test.
+- `ACTIONUI_MCP_ALLOW_SECURE_FIELDS=1` - lets `show_document` use SecureField. Off by default, because everything the user enters is sent to the agent.
+- `ACTIONUI_MCP_TEST_PRESS=<button title>` and `ACTIONUI_MCP_TEST_ACTION=<actionID>@<viewID>` - debug builds only: 1.5 seconds after a window opens, press that dialog button or fire that action. For the live test.
 
 ## Layout
 
 - `Sources/MCPStdio/MCPStdio.swift` - the protocol layer in one file: newline-delimited JSON-RPC, `initialize` negotiation (2025-11-25, 2025-06-18, 2024-11-05), tools, concurrent calls, cancellation, progress heartbeats, and a stdout guard that points descriptor 1 at stderr so stray prints cannot corrupt the protocol. Foundation only, no ActionUI code.
-- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `WindowHost.swift` (windows, dialog sessions, value snapshots), `Documents.swift` (the ActionUI documents the tools generate), `Tools.swift` (tool definitions and handlers).
+- `Sources/ActionUIMCP/` - the executable: `main.swift` (setup), `HostLogger.swift` (stderr log with load capture), `WindowHost.swift` (windows, action routing, event queue, values), `WindowHost+Dialogs.swift` (dialog sessions), `WindowHost+Panels.swift` (open and save panels), `Documents.swift` (documents the canned tools generate), `AgentDocuments.swift` (checks and dialog chrome for agent documents), `Tools.swift` and `ToolsDocuments.swift` (tool definitions and handlers).
 
 ## Tests
 

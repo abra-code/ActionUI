@@ -12,21 +12,23 @@ import Foundation
 import MCPStdio
 
 /// Seconds a dialog waits by default before answering "timeout", and the most a call may ask for.
-private let defaultDialogTimeout = 3600.0
-private let maxDialogTimeout = 86400.0
+let defaultDialogTimeout = 3600.0
+let maxDialogTimeout = 86400.0
 
 func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
-    [askUserTool(host: host, label: label), showTool(host: host, label: label), closeWindowTool(host: host)]
+    [askUserTool(host: host, label: label), pickPathTool(host: host),
+     showTool(host: host, label: label), showDocumentTool(host: host, label: label), validateDocumentTool(host: host),
+     waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), closeWindowTool(host: host)]
 }
 
 /// "Requested by <client> - <label>": shown in every window's title bar, not settable by a tool.
-private func provenance(clientName: String?, label: String?) -> String {
+func provenance(clientName: String?, label: String?) -> String {
     var text = "Requested by " + (clientName ?? "an AI agent")
     if let label, !label.isEmpty { text += " - " + label }
     return text
 }
 
-private func requireGraphicalSession(_ host: WindowHost) async throws {
+func requireGraphicalSession(_ host: WindowHost) async throws {
     guard await host.hasGraphicalSession else {
         throw MCPToolError("no graphical session: windows cannot be shown on this machine right now (remote or SSH session?)")
     }
