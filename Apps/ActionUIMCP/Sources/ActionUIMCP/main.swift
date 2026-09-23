@@ -85,10 +85,8 @@ case "debug": .debug
 default: .warning
 }
 let logger = HostLogger(maxLevel: logLevel)
+// Also reaches ActionUIRegistry's logger, where unknown element types are reported.
 ActionUISwift.setLogger(logger)
-// The registry keeps its own logger (unknown element types are reported there), and
-// ActionUISwift.setLogger does not reach it.
-ActionUIRegistry.shared.setLogger(logger)
 ActionUIQuickLook.register()
 ActionUIDiff.register()
 ActionUICachedImage.register()
