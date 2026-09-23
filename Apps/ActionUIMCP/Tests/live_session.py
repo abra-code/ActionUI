@@ -124,6 +124,35 @@ check("close_window", structured(s.response(2)) == {"closed": True})
 s.call(3, "close_window", {"window": window})
 check("close_window again", structured(s.response(3)) == {"closed": False})
 
+# Diff and table viewers open; bad arguments come back as tool errors.
+s.call(10, "show", {"title": "Diff", "kind": "diff", "old_text": "a\nb\n", "new_text": "a\nc\n"})
+check("show diff (texts)", bool(structured(s.response(10, timeout=5))))
+s.call(11, "show", {"title": "Diff", "kind": "diff", "old_path": os.path.abspath(__file__), "new_text": "x"})
+check("show diff (file and text)", bool(structured(s.response(11, timeout=5))))
+s.call(12, "show", {"title": "Table", "kind": "table", "columns": ["Name", "Size"],
+                    "rows": [["a", 1], ["b"], ["c", 2.5]]})
+check("show table", bool(structured(s.response(12, timeout=5))))
+for request_id, arguments in [(13, {"title": "T", "kind": "table", "columns": ["A"], "rows": [["1", "2"]]}),
+                              (14, {"title": "T", "kind": "diff", "old_text": "a"}),
+                              (15, {"title": "T", "kind": "diff", "old_path": "relative", "new_text": "b"}),
+                              (18, {"title": "T", "kind": "table", "columns": ["A", 1]}),
+                              (19, {"title": "T", "kind": "table", "columns": ["A"], "rows": "x"})]:
+    s.call(request_id, "show", arguments)
+    message = s.response(request_id)
+    check("show rejects %s" % json.dumps(arguments)[:60], (message or {}).get("result", {}).get("isError") is True, message)
+
+# Field limit, and a long dialog (its fields scroll) still opens and answers.
+s.call(16, "ask_user", {"title": "T", "fields": [{"key": "f%d" % i} for i in range(31)]})
+check("more than 30 fields rejected", (s.response(16) or {}).get("result", {}).get("isError") is True)
+for request_id, field in [(20, {"key": "s", "kind": "slider", "step": 0.5}),
+                          (21, {"key": "s", "kind": "slider", "default": 5})]:
+    s.call(request_id, "ask_user", {"title": "T", "fields": [field]})
+    check("slider rejects %s" % json.dumps(field), (s.response(request_id) or {}).get("result", {}).get("isError") is True)
+s.call(17, "ask_user", {"title": "Long", "timeout_s": 3,
+                        "fields": [{"key": "m%d" % i, "kind": "multiline"} for i in range(8)]
+                        + [{"key": "s", "kind": "slider", "min": 0, "max": 1, "step": 0.25, "default": 0.5}]})
+check("long dialog opens and times out", structured(s.response(17)) == {"action": "timeout", "button": None})
+
 # Cancellation closes the dialog and suppresses the response; the server keeps answering.
 s.call(4, "ask_user", {"title": "Continue?"})
 time.sleep(1)

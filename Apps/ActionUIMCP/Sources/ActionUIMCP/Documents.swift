@@ -48,8 +48,14 @@ struct DialogSpec {
     let width: Double
 
     static let buttonActionPrefix = "mcp.dialog.button."
-    /// View ids 1... belong to fields; nothing else in a dialog carries an id.
+    /// A slider reports its moves under this prefix plus its view id, so the host can update its readout.
+    static let sliderActionPrefix = "mcp.dialog.slider."
+    /// View ids 1... belong to fields; a slider's readout Text is its field's id plus this offset.
     static let firstFieldViewID = 1
+    static let readoutViewIDOffset = 10000
+    static let maxFields = 30
+    /// Above this estimated height the fields scroll, so a long dialog still fits on the screen.
+    private static let maxFormHeight = 480.0
 
     /// Parses and checks ask_user arguments. Every problem is a message for the agent.
     init(arguments: [String: JSONValue]) throws {
@@ -62,7 +68,11 @@ struct DialogSpec {
 
         var fields: [DialogField] = []
         var seenKeys: Set<String> = []
-        for (index, raw) in (arguments["fields"]?.array ?? []).enumerated() {
+        let rawFields = arguments["fields"]?.array ?? []
+        guard rawFields.count <= Self.maxFields else {
+            throw MCPToolError("at most \(Self.maxFields) fields per dialog; split the question")
+        }
+        for (index, raw) in rawFields.enumerated() {
             guard let object = raw.object else { throw MCPToolError("fields[\(index)] must be an object") }
             guard let key = object["key"]?.string, !key.isEmpty else {
                 throw MCPToolError("fields[\(index)].key is required")
@@ -102,12 +112,18 @@ struct DialogSpec {
             }
             // ActionUI draws a slider with a bad range as 0...1 and one with an out-of-range value
             // clamped, while the snapshot would report the numbers given here; reject the mismatch.
-            if kind == .slider, let minimum, let maximum {
-                guard minimum <= maximum else {
+            if kind == .slider {
+                // Without min and max, ActionUI's Slider runs 0...1 and ignores a step.
+                if object["step"]?.double != nil && minimum == nil {
+                    throw MCPToolError("fields[\(index)] is a slider: 'step' needs 'min' and 'max'")
+                }
+                let low = minimum ?? 0
+                let high = maximum ?? 1
+                guard low <= high else {
                     throw MCPToolError("fields[\(index)] is a slider: 'min' must not exceed 'max'")
                 }
-                if let initial = object["default"]?.double, initial < minimum || initial > maximum {
-                    throw MCPToolError("fields[\(index)].default \(initial) is outside min...max (\(minimum)...\(maximum))")
+                if let initial = object["default"]?.double, initial < low || initial > high {
+                    throw MCPToolError("fields[\(index)].default \(initial) is outside the slider range \(low)...\(high)")
                 }
             }
             fields.append(DialogField(key: key, label: object["label"]?.string ?? key, kind: kind,
@@ -142,7 +158,13 @@ struct DialogSpec {
                                                            "frame": ["maxWidth": "infinity", "alignment": "leading"]]])
         }
         if !fields.isEmpty {
-            children.append(["type": "Form", "children": fields.map(fieldElement)])
+            let form: [String: Any] = ["type": "Form", "children": fields.map(fieldElement)]
+            let estimatedHeight = fields.reduce(0) { $0 + Self.estimatedHeight(of: $1) }
+            if estimatedHeight > Self.maxFormHeight {
+                children.append(["type": "ScrollView", "properties": ["frame": ["height": Self.maxFormHeight]], "content": form])
+            } else {
+                children.append(form)
+            }
         }
         children.append(["type": "Text", "properties": ["text": footer, "font": "caption", "foregroundStyle": "secondary",
                                                        "frame": ["maxWidth": "infinity", "alignment": "leading"]]])
@@ -181,7 +203,15 @@ struct DialogSpec {
             properties["value"] = field.defaultValue?.double ?? field.min ?? 0
             if let min = field.min, let max = field.max { properties["range"] = ["min": min, "max": max] }
             if let step = field.step, field.min != nil { properties["step"] = step }
-            control = ["type": "Slider", "id": field.viewID, "properties": properties]
+            properties["valueChangeActionID"] = Self.sliderActionPrefix + String(field.viewID)
+            properties["frame"] = ["maxWidth": "infinity"]
+            let initial = properties["value"] as? Double ?? 0
+            let readout: [String: Any] = ["type": "Text", "id": field.viewID + Self.readoutViewIDOffset,
+                                          "properties": ["text": Self.readout(initial, for: field),
+                                                         "font": ["size": 12, "design": "monospaced"],
+                                                         "frame": ["minWidth": 64, "alignment": "trailing"]]]
+            control = ["type": "HStack", "properties": ["spacing": 8],
+                       "children": [["type": "Slider", "id": field.viewID, "properties": properties], readout]]
         case .date:
             properties["title"] = label
             properties["displayedComponents"] = "date"
@@ -205,6 +235,33 @@ struct DialogSpec {
         return ["type": "Button", "properties": properties]
     }
 
+    /// A slider value as its readout shows it: as many decimals as the step has (none for whole
+    /// steps); without a step, whole numbers for wide ranges and two decimals for narrow ones.
+    static func readout(_ value: Double, for field: DialogField) -> String {
+        let decimals: Int
+        if let step = field.step, step > 0 {
+            var places = 0
+            var scaled = step
+            while places < 3 && abs(scaled - scaled.rounded()) > 1e-9 {
+                scaled *= 10
+                places += 1
+            }
+            decimals = places
+        } else {
+            decimals = (field.max ?? 1) - (field.min ?? 0) >= 10 ? 0 : 2
+        }
+        return String(format: "%.\(decimals)f", value)
+    }
+
+    /// Rough row heights of the macOS Form, used only to decide when the fields must scroll.
+    private static func estimatedHeight(of field: DialogField) -> Double {
+        switch field.kind {
+        case .multiline: return 130
+        case .choice where field.options.count <= 4: return Double(field.options.count) * 22 + 8
+        default: return 30
+        }
+    }
+
     /// A default value as the text a text field shows.
     static func text(of value: JSONValue) -> String {
         switch value {
@@ -220,7 +277,7 @@ struct DialogSpec {
 // MARK: - show
 
 enum ContentKind: String, CaseIterable {
-    case markdown, text, image, pdf, file, video, web
+    case markdown, text, image, pdf, file, video, web, diff, table
 }
 
 struct ViewerSpec {
@@ -229,6 +286,12 @@ struct ViewerSpec {
     let root: [String: Any]
     let width: Double
     let height: Double
+    /// For `table`: the rows, set through the value API once the window exists (Table takes its
+    /// rows as state, not as a property).
+    let tableRows: [[String]]?
+
+    static let tableViewID = 1
+    static let maxTableRows = 50000
 
     init(arguments: [String: JSONValue]) throws {
         guard let title = arguments["title"]?.string, !title.isEmpty else {
@@ -253,6 +316,7 @@ struct ViewerSpec {
         }
         let fill: [String: Any] = ["maxWidth": "infinity", "maxHeight": "infinity"]
 
+        var parsedRows: [[String]]?
         switch kind {
         case .markdown:
             guard let text else { throw MCPToolError("kind 'markdown' needs 'text'") }
@@ -292,12 +356,53 @@ struct ViewerSpec {
             } else {
                 throw MCPToolError("kind 'web' needs 'url', or 'text' holding HTML")
             }
+        case .diff:
+            // Each side is inline text or a file; the Diff element reads files itself.
+            var properties: [String: Any] = ["padding": 12]
+            for (side, textKey, pathKey) in [("old", "old_text", "old_path"), ("new", "new_text", "new_path")] {
+                if let sideText = arguments[textKey]?.string {
+                    properties[side + "Text"] = sideText
+                } else if let sidePath = arguments[pathKey]?.string {
+                    properties[side + "File"] = try Self.existingFile(sidePath, key: pathKey)
+                } else {
+                    throw MCPToolError("kind 'diff' needs '\(textKey)' or '\(pathKey)'")
+                }
+            }
+            root = ["type": "ScrollView", "properties": ["frame": fill],
+                    "content": ["type": "Diff", "properties": properties]]
+        case .table:
+            let rawColumns = arguments["columns"]?.array ?? []
+            let columns = rawColumns.compactMap(\.string)
+            guard !columns.isEmpty, columns.count == rawColumns.count else {
+                throw MCPToolError("kind 'table' needs 'columns', a non-empty array of strings")
+            }
+            var rawRows: [JSONValue] = []
+            if let given = arguments["rows"], given != .null {
+                guard let list = given.array else { throw MCPToolError("'rows' must be an array of rows") }
+                rawRows = list
+            }
+            guard rawRows.count <= Self.maxTableRows else {
+                throw MCPToolError("at most \(Self.maxTableRows) table rows")
+            }
+            var rows: [[String]] = []
+            rows.reserveCapacity(rawRows.count)
+            for (index, rawRow) in rawRows.enumerated() {
+                guard let cells = rawRow.array, cells.count <= columns.count else {
+                    throw MCPToolError("rows[\(index)] must be an array of at most \(columns.count) cells")
+                }
+                // Short rows are padded, so every row has one cell per column.
+                let texts = cells.map(DialogSpec.text(of:))
+                rows.append(texts + Array(repeating: "", count: columns.count - texts.count))
+            }
+            parsedRows = rows
+            root = ["type": "Table", "id": Self.tableViewID, "properties": ["columns": columns, "frame": fill]]
         }
+        tableRows = parsedRows
     }
 
     /// Paths must be absolute: the server does not share the client's working directory.
-    private static func existingFile(_ path: String) throws -> String {
-        guard path.hasPrefix("/") else { throw MCPToolError("'path' must be absolute: \(path)") }
+    private static func existingFile(_ path: String, key: String = "path") throws -> String {
+        guard path.hasPrefix("/") else { throw MCPToolError("'\(key)' must be absolute: \(path)") }
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else {
             throw MCPToolError("no such file: \(path)")

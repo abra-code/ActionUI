@@ -224,6 +224,10 @@ final class WindowHost: NSObject, NSWindowDelegate {
     }
 
     private func handleAction(actionID: String, windowUUID: String) {
+        if actionID.hasPrefix(DialogSpec.sliderActionPrefix) {
+            updateSliderReadout(actionID: actionID, windowUUID: windowUUID)
+            return
+        }
         guard let session = dialogs[windowUUID], session.result == nil,
               actionID.hasPrefix(DialogSpec.buttonActionPrefix),
               let index = Int(actionID.dropFirst(DialogSpec.buttonActionPrefix.count)),
@@ -242,6 +246,28 @@ final class WindowHost: NSObject, NSWindowDelegate {
             return
         }
         settle(windowUUID, result: ["action": "accept", "button": .string(button.title), "values": .object(snapshot.values)])
+    }
+
+    /// ActionUI's Slider has no value label; the dialog puts a Text beside it and keeps it current.
+    private func updateSliderReadout(actionID: String, windowUUID: String) {
+        guard let session = dialogs[windowUUID],
+              let viewID = Int(actionID.dropFirst(DialogSpec.sliderActionPrefix.count)),
+              let field = session.spec.fields.first(where: { $0.viewID == viewID && $0.kind == .slider }),
+              let value = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: viewID) as? Double else { return }
+        ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: viewID + DialogSpec.readoutViewIDOffset,
+                                      value: DialogSpec.readout(value, for: field))
+    }
+
+    // MARK: Viewers
+
+    /// Opens a `show` window; a table gets its rows once the window exists.
+    func openViewer(spec: ViewerSpec, subtitle: String) throws -> String {
+        let windowID = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
+                                      size: NSSize(width: spec.width, height: spec.height), activate: false)
+        if let rows = spec.tableRows, !rows.isEmpty {
+            ActionUISwift.setElementRows(windowUUID: windowID, viewID: ViewerSpec.tableViewID, rows: rows)
+        }
+        return windowID
     }
 
     // MARK: Value snapshot

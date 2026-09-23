@@ -4,8 +4,8 @@ A local MCP (Model Context Protocol) server that lets an AI agent open native ma
 
 Tools:
 
-- `ask_user` - a dialog with a message, optional typed fields (text, multiline, number, integer, toggle, choice, slider, date), and buttons. Blocks until the user answers and returns `{action, button, values}`, where `action` is `accept`, `cancel`, or `timeout`.
-- `show` - a non-blocking viewer window for markdown, plain text, an image, a PDF or any Quick Look file, a video, or a web page. Returns `{window}` at once and does not take keyboard focus.
+- `ask_user` - a dialog with a message, optional typed fields (text, multiline, number, integer, toggle, choice, slider, date), and buttons. Blocks until the user answers and returns `{action, button, values}`, where `action` is `accept`, `cancel`, or `timeout`. Up to 30 fields; when they would not fit, they scroll. Sliders show their current value.
+- `show` - a non-blocking viewer window for markdown, plain text, an image, a PDF or any Quick Look file, a video, a web page, a diff of two texts or files, or a table (up to 50000 rows). Returns `{window}` at once and does not take keyboard focus.
 - `close_window` - closes a window opened by `show`.
 
 Every window shows "Requested by <client>" in its title bar.

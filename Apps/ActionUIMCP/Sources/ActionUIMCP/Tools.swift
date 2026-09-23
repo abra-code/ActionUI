@@ -63,7 +63,7 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
         "properties": [
             "title": ["type": "string", "description": "Window title: what is being asked, in a few words."],
             "message": ["type": "string", "description": "Question or explanation shown above the fields. Markdown allowed."],
-            "fields": ["type": "array", "items": field, "description": "Input fields, top to bottom. Omit for a plain confirmation."],
+            "fields": ["type": "array", "items": field, "description": "Input fields, top to bottom, at most 30. Omit for a plain confirmation."],
             "buttons": ["type": "array", "items": ["type": "string"],
                         "description": "Button titles, left to right. The last one is the default (Return). A button titled \"Cancel\" is bound to Escape and answers action \"cancel\". Default [\"Cancel\", \"OK\"]."],
             "width": ["type": "number", "description": "Dialog width in points, 320 to 1000. Default 460."],
@@ -117,10 +117,17 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "properties": [
             "title": ["type": "string", "description": "Window title."],
             "kind": ["type": "string", "enum": kinds,
-                     "description": "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text)."],
+                     "description": "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows)."],
             "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
             "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
             "url": ["type": "string", "description": "http(s) URL for image, video, web."],
+            "old_text": ["type": "string", "description": "For diff: the old (left) text."],
+            "new_text": ["type": "string", "description": "For diff: the new (right) text."],
+            "old_path": ["type": "string", "description": "For diff: absolute path of the old file, instead of old_text."],
+            "new_path": ["type": "string", "description": "For diff: absolute path of the new file, instead of new_text."],
+            "columns": ["type": "array", "items": ["type": "string"], "description": "For table: column headers."],
+            "rows": ["type": "array", "description": "For table: rows, each an array of cells (strings or numbers), at most one per column.",
+                     "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
             "width": ["type": "number", "description": "Content width in points. Default 800."],
             "height": ["type": "number", "description": "Content height in points. Default 600."],
         ],
@@ -137,7 +144,8 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         title: "Show content in a window",
         description: """
             Open a native macOS window that presents content to the user: a markdown report, plain \
-            text, an image, a PDF or any file Quick Look can preview, a video, or a web page. Returns \
+            text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two \
+            texts or files, or a table. Returns \
             {window} at once without waiting; the window stays open until the user closes it, you call \
             close_window, or this session ends. It does not take keyboard focus.
             """,
@@ -148,8 +156,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         let spec = try ViewerSpec(arguments: arguments)
         try await requireGraphicalSession(host)
         let subtitle = provenance(clientName: context.clientName, label: label)
-        let windowID = try await host.openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
-                                                 size: NSSize(width: spec.width, height: spec.height), activate: false)
+        let windowID = try await host.openViewer(spec: spec, subtitle: subtitle)
         return .structured(["window": .string(windowID)])
     }
 }
