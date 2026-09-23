@@ -65,7 +65,6 @@ final class PythonClientIntegrationTests: XCTestCase {
         try await super.setUp()
         ActionUIModel.resetForRemoteTests()
         let logger = QuietLogger(maxLevel: .warning)
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
 
         windowUUID = UUID().uuidString

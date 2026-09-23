@@ -34,7 +34,6 @@ final class TemplateHelperTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         capturingLogger = CapturingLogger()
-        ActionUIRegistry.shared.setLogger(capturingLogger)
         ActionUIModel.shared.logger = capturingLogger
     }
 

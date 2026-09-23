@@ -26,7 +26,6 @@ final class WebViewTests: XCTestCase {
         try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
@@ -83,7 +82,6 @@ final class WebViewTests: XCTestCase {
     // MARK: - validateProperties – invalid types
 
     func testWebViewValidatePropertiesInvalid_Types() {
-        ActionUIRegistry.shared.setLogger(consoleLogger)
         ActionUIModel.shared.logger = consoleLogger
 
         let properties: [String: Any] = [
@@ -108,7 +106,6 @@ final class WebViewTests: XCTestCase {
         XCTAssertNil(validated["linkPreviews"], "Non-Bool linkPreviews should be nil")
         XCTAssertNil(validated["navigationActionID"], "Non-String navigationActionID should be nil")
 
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
     }
 
@@ -230,7 +227,6 @@ final class WebViewTests: XCTestCase {
 
     func testWebViewConstruction_NoContent() throws {
         // WebView with no url or html should still construct without crashing
-        ActionUIRegistry.shared.setLogger(consoleLogger)
         ActionUIModel.shared.logger = consoleLogger
 
         let elementDict: [String: Any] = [
@@ -247,7 +243,6 @@ final class WebViewTests: XCTestCase {
         XCTAssertNil(validatedProperties["url"], "url should be nil when absent")
         XCTAssertNil(validatedProperties["html"], "html should be nil when absent")
 
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
     }
 

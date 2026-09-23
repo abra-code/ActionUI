@@ -21,7 +21,6 @@ final class WindowGroupTests: XCTestCase {
         try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
@@ -277,7 +276,6 @@ final class WindowGroupTests: XCTestCase {
     
     func testWindowGroupInvalidCommandType() throws {
         // Use ConsoleLogger to avoid test failure from expected error
-        ActionUIRegistry.shared.setLogger(consoleLogger)
         ActionUIModel.shared.logger = consoleLogger
 
         // Arrange: Create JSON description with invalid command type
@@ -381,7 +379,6 @@ final class WindowGroupTests: XCTestCase {
         // Log state for debugging
         consoleLogger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)
 
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
     }
     
@@ -461,7 +458,6 @@ final class WindowGroupTests: XCTestCase {
     
     func testWindowGroupInvalidCommandProperties() throws {
         // Use ConsoleLogger to avoid test failure from expected error
-        ActionUIRegistry.shared.setLogger(consoleLogger)
         ActionUIModel.shared.logger = consoleLogger
 
         // Arrange: Create JSON with invalid command properties (empty name, invalid placement)
@@ -575,7 +571,6 @@ final class WindowGroupTests: XCTestCase {
         // Log state for debugging
         consoleLogger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)
 
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
     }
     

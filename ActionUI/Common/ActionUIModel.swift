@@ -25,9 +25,13 @@ public class ActionUIModel: ObservableObject {
     private var defaultActionHandler: ((String, String, Int, Int, Any?) -> Void)?
     
     // Design decision: Public logger for client access, defaults to ConsoleLogger for consistency
-    // Logger for debugging and error reporting
-    public var logger: any ActionUILogger
-    
+    // Logger for debugging and error reporting. Setting it also sets ActionUIRegistry's logger, so
+    // a client that installs one logger (every adapter's setLogger sets this property) also gets
+    // the registry's messages, such as unknown element types.
+    public var logger: any ActionUILogger {
+        didSet { ActionUIRegistry.shared.setLogger(logger) }
+    }
+
     private init() {
         // Initialize with default ConsoleLogger
         self.logger = ConsoleLogger(maxLevel: .verbose)
