@@ -110,6 +110,22 @@ final class ActionUIRegistryTests: XCTestCase {
         ActionUIModel.shared.logger = logger
     }
     
+    // Setting the model's logger (what every adapter's setLogger does) must also reach the
+    // registry, which reports unknown element types.
+    func testModelLoggerAlsoReachesRegistry() throws {
+        let recorder = RecordingLogger()
+        ActionUIModel.shared.logger = recorder
+        defer {
+            ActionUIRegistry.shared.setLogger(logger)
+            ActionUIModel.shared.logger = logger
+        }
+
+        let element = try ActionUIElement(from: ["id": 1, "type": "UnknownView"], logger: consoleLogger)
+        _ = ActionUIRegistry.shared.getValidatedProperties(element: element, model: ViewModel())
+        XCTAssertTrue(recorder.messages.contains { $0.contains("No registration found for type UnknownView") },
+                      "the registry should log through the logger set on ActionUIModel")
+    }
+
     // Test @MainActor compliance for registration and view building
     func testMainActorCompliance() async throws {
         let elementDict: [String: Any] = [
@@ -129,4 +145,16 @@ final class ActionUIRegistryTests: XCTestCase {
             XCTAssertTrue(PropertyComparison.arePropertiesEqual(validatedProperties, element.properties), "validateProperties should return input properties for valid empty input")
         }
     }    
+}
+
+/// Records every message, whatever its level.
+private final class RecordingLogger: ActionUILogger, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [String] = []
+
+    var messages: [String] { lock.withLock { recorded } }
+
+    func log(_ message: String, _ level: LoggerLevel) {
+        lock.withLock { recorded.append(message) }
+    }
 }
