@@ -28,7 +28,6 @@ final class ActionUIRemoteSharedServerTests: XCTestCase {
         try await super.setUp()
         ActionUIModel.resetForRemoteTests()
         let logger = QuietLogger(maxLevel: .warning)
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
         savedEndpoint = Self.environmentEndpoint()
         savedToken = Self.environmentToken()

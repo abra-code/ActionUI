@@ -13,7 +13,6 @@ final class ActionUIRegistryTests: XCTestCase {
         try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
         consoleLogger = ConsoleLogger(maxLevel: .verbose)
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
@@ -32,7 +31,6 @@ final class ActionUIRegistryTests: XCTestCase {
     // Test that all supported views are registered during initialization
     func testViewRegistration() throws {
         // Use ConsoleLogger to avoid test failure from expected error
-        ActionUIRegistry.shared.setLogger(consoleLogger)
         ActionUIModel.shared.logger = consoleLogger
 
         let expectedViewTypes = [
@@ -82,14 +80,12 @@ final class ActionUIRegistryTests: XCTestCase {
             }
         }
 
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
     }
         
     // Test handling of unregistered view types
     func testUnregisteredViewType() throws {
         // Use ConsoleLogger to avoid test failure from expected error
-        ActionUIRegistry.shared.setLogger(consoleLogger)
         ActionUIModel.shared.logger = consoleLogger
 
         let elementDict: [String: Any] = [
@@ -106,7 +102,6 @@ final class ActionUIRegistryTests: XCTestCase {
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView for unregistered type should return EmptyView")
         XCTAssertTrue(PropertyComparison.arePropertiesEqual(validatedProperties, element.properties), "Unregistered view type should return original properties")
 
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
     }
     
@@ -116,7 +111,6 @@ final class ActionUIRegistryTests: XCTestCase {
         let recorder = RecordingLogger()
         ActionUIModel.shared.logger = recorder
         defer {
-            ActionUIRegistry.shared.setLogger(logger)
             ActionUIModel.shared.logger = logger
         }
 

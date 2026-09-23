@@ -21,7 +21,6 @@ final class ToastTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         logger = XCTestLogger(maxLevel: .verbose)
-        ActionUIRegistry.shared.setLogger(logger)
         ActionUIModel.shared.logger = logger
         ActionUIRegistry.shared.resetForTesting()
         ActionUIModel.resetForTesting()
