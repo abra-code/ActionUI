@@ -18,7 +18,8 @@ let maxDialogTimeout = 86400.0
 func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
     [askUserTool(host: host, label: label), pickPathTool(host: host),
      showTool(host: host, label: label), showDocumentTool(host: host, label: label), validateDocumentTool(host: host),
-     waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), closeWindowTool(host: host)]
+     waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), screenshotTool(host: host),
+     closeWindowTool(host: host)]
 }
 
 /// "Requested by <client> - <label>": shown in every window's title bar, not settable by a tool.

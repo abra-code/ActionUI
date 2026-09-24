@@ -8,9 +8,9 @@
 // deployed to macOS, with the built-in schemas from the library's resource bundle and add-on
 // schemas found the way the library's own tool finds them.
 //
-// The bundle (ActionUI_ActionUIVerifier.bundle, built next to the executable) is found by name
-// rather than through the library's SchemaSet.bundled / Bundle.module, which stops the process
-// when the bundle is missing. ACTIONUI_MCP_SCHEMA_DIR names another schemas directory instead.
+// The bundle (ActionUI_ActionUIVerifier.bundle, built next to the executable) is found by name in
+// the executable's resolved folder, so a launch through a symlink on PATH still finds it.
+// ACTIONUI_MCP_SCHEMA_DIR names another schemas directory instead.
 // Without schemas the server still runs; only these checks are skipped.
 
 import Foundation

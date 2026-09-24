@@ -109,7 +109,8 @@ let server = MCPServer(
         tools cannot express, write an ActionUI document (see the actionui skill if available), check \
         it with validate_document, and open it with show_document: as a dialog that returns every \
         value, or as a live window whose actions you collect with wait and whose values you change \
-        with update_window. Element reference, for writing documents: resources \
+        with update_window. screenshot renders a document (or captures a window) so you can check \
+        the layout before the user sees it. Element reference, for writing documents: resources \
         actionui://docs/guide, actionui://docs/elements, and actionui://docs/elements/<Type>. Prefer \
         ask_user over asking in chat when you need structured input or an explicit approval.
         """,

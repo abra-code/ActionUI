@@ -246,6 +246,27 @@ result = structured(s.response(49)) or {}
 check("validate finds elements nested in destination and Grid rows",
       result.get("ok") is False and len(result.get("errors", [])) == 2, result)
 
+# screenshot: a document rendered off screen, and an open window; the PNG comes back and is saved.
+import base64
+s.call(54, "screenshot", {"document": FORM, "width": 400, "height": 260})
+message = s.response(54) or {}
+content = message.get("result", {}).get("content", [{}])
+info = structured(message) or {}
+png = base64.b64decode(content[0].get("data", "")) if content and content[0].get("type") == "image" else b""
+check("screenshot renders a document", png[:8] == b"\x89PNG\r\n\x1a\n" and info.get("width", 0) > 0
+      and os.path.exists(info.get("path", "")), info)
+s.call(55, "show", {"title": "Shot", "kind": "text", "text": "hello", "width": 300, "height": 200})
+shot_window = (structured(s.response(55)) or {}).get("window", "")
+s.call(56, "screenshot", {"window": shot_window})
+info = structured(s.response(56)) or {}
+check("screenshot captures an open window", info.get("width", 0) > 0 and os.path.exists(info.get("path", "")), info)
+s.call(57, "close_window", {"window": shot_window})
+s.response(57)
+s.call(58, "screenshot", {"window": "no-such-window"})
+check("screenshot of an unknown window is an error", is_error(s.response(58)))
+s.call(59, "screenshot", {"document": {"type": "VStack", "properties": {"spacing": "16"}}})
+check("screenshot refuses a document with errors", is_error(s.response(59)))
+
 # pick_path: a bad folder is an error; an unanswered panel times out.
 s.call(42, "pick_path", {"directory": "/no/such/folder"})
 check("pick_path rejects a missing folder", is_error(s.response(42)))

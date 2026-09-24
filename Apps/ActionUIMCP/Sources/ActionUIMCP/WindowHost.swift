@@ -121,9 +121,11 @@ final class WindowHost: NSObject, NSWindowDelegate {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
                               styleMask: style, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        window.contentView = controller.view
+        // After the content view: installing the SwiftUI hosting view resets the window's title
+        // and subtitle, and the subtitle carries the provenance line.
         window.title = title
         window.subtitle = subtitle
-        window.contentView = controller.view
         switch sizing {
         case .fixed(let size):
             window.setContentSize(size)
@@ -160,7 +162,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
 
     /// Stages the document through a private temporary file (the public loading API takes a URL),
     /// builds its view, and measures it once so that view construction runs inside the log capture.
-    private func load(document: [String: Any], windowID: String) throws
+    func load(document: [String: Any], windowID: String) throws
         -> (controller: NSViewController, fitting: NSSize, entries: [HostLogger.Entry]) {
         let fileURL = documentDirectory.appendingPathComponent(windowID + ".json")
         do {
@@ -187,7 +189,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
         return (captured.result.0, captured.result.1, captured.entries)
     }
 
-    private static func clampedToScreen(_ size: NSSize) -> NSSize {
+    static func clampedToScreen(_ size: NSSize) -> NSSize {
         let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
         let width = size.width > 0 ? size.width : 480
         let height = size.height > 0 ? size.height : 320

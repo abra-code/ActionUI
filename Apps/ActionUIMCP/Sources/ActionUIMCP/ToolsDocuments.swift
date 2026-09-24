@@ -285,3 +285,69 @@ private extension JSONValue {
         return .object(object)
     }
 }
+
+// MARK: - screenshot
+
+func screenshotTool(host: WindowHost) -> MCPTool {
+    let input: JSONValue = [
+        "type": "object",
+        "properties": [
+            "window": ["type": "string", "description": "Id of an open window (from show or show_document) to capture."],
+            "document": documentProperty,
+            "path": pathProperty,
+            "width": ["type": "number", "description": "For document or path: content width in points. Default: the document's own size."],
+            "height": ["type": "number", "description": "For document or path: content height in points, with width."],
+            "delay_s": ["type": "number", "description": "Seconds to wait before capturing, for images, video or web content to load. Default 0.5, at most 10."],
+        ],
+        "additionalProperties": false,
+    ]
+    let output: JSONValue = [
+        "type": "object",
+        "properties": [
+            "path": ["type": "string", "description": "The PNG saved on disk."],
+            "width": ["type": "integer"], "height": ["type": "integer"],
+            "warnings": ["type": "array", "items": ["type": "string"]],
+        ],
+        "required": ["path", "width", "height"],
+    ]
+    return MCPTool(
+        name: "screenshot",
+        title: "Screenshot a window or a document",
+        description: """
+            Capture a PNG of an open window (window), or render an ActionUI document you wrote \
+            (document or path) in a window the user never sees and capture that - to check a layout \
+            before showing it. Returns the image and {path, width, height}; the PNG is also saved at \
+            path. A rendered document gets the checks of validate_document first, and its controls \
+            draw in their inactive (gray) style; the layout is exact. With window, document and path \
+            are ignored, and width and height apply only to a rendered document.
+            """,
+        inputSchema: input,
+        outputSchema: output,
+        annotations: ["readOnlyHint": true, "openWorldHint": false]
+    ) { arguments, _ in
+        let delay = min(max(arguments["delay_s"]?.double ?? 0.5, 0), 10)
+        try await requireGraphicalSession(host)
+        let shot: Screenshot
+        var warnings: [String] = []
+        if let windowID = arguments["window"]?.string {
+            shot = try await host.captureWindow(windowID, delay: delay)
+        } else {
+            guard arguments["document"] != nil || arguments["path"] != nil else {
+                throw MCPToolError("give 'window' (an open window's id), 'document' (an ActionUI element object), or 'path' (an absolute .json path)")
+            }
+            let document = try AgentDocument(arguments: arguments)
+            var size: NSSize?
+            if let width = arguments["width"]?.double, let height = arguments["height"]?.double {
+                size = NSSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
+            }
+            let rendered = try await host.renderDocument(document.root, size: size, delay: delay)
+            shot = rendered.0
+            warnings = document.warnings + rendered.1
+        }
+        var info: [String: JSONValue] = ["path": .string(shot.path), "width": .int(shot.pixelWidth), "height": .int(shot.pixelHeight)]
+        if !warnings.isEmpty { info["warnings"] = .array(warnings.map(JSONValue.string)) }
+        let image: JSONValue = ["type": "image", "mimeType": "image/png", "data": .string(shot.png.base64EncodedString())]
+        return MCPToolResult(content: [image, ["type": "text", "text": .string(JSONValue.object(info).serialized())]],
+                             structuredContent: .object(info))
+    }
+}
