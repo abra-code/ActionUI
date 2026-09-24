@@ -52,9 +52,30 @@ public struct SchemaSet: Sendable {
         return try SchemaSet(primary: directory, extra: extra)
     }
 
-    /// The `Schemas` directory in this library's resource bundle.
+    /// The `Schemas` directory in this library's resource bundle, or nil when the bundle is not
+    /// where this binary can find it (a copy of a tool shipped without its bundle, say).
     public static var bundledSchemasDirectory: URL? {
-        Bundle.module.url(forResource: "Schemas", withExtension: nil)
+        guard resourceBundleIsPresent else {
+            return nil
+        }
+        return Bundle.module.url(forResource: "Schemas", withExtension: nil)
+    }
+
+    /// True when the resource bundle is in one of the places SwiftPM's generated `Bundle.module`
+    /// accessor looks, which calls fatalError instead of returning nil when it finds nothing. The
+    /// list is the accessor's own (the app's Resources, the framework linking this library, the
+    /// tool's folder, the debug override), so when this is true the accessor cannot fail.
+    private static var resourceBundleIsPresent: Bool {
+        var candidates = [Bundle.main.resourceURL, Bundle(for: BundleFinder.self).resourceURL, Bundle.main.bundleURL]
+        #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        if let override = environment["PACKAGE_RESOURCE_BUNDLE_PATH"] ?? environment["PACKAGE_RESOURCE_BUNDLE_URL"] {
+            candidates.insert(URL(fileURLWithPath: override), at: 0)
+        }
+        #endif
+        return candidates.contains { candidate in
+            candidate.flatMap { Bundle(url: $0.appendingPathComponent("ActionUI_ActionUIVerifier.bundle")) } != nil
+        }
     }
 
     /// Add-on schema directories found without being named, as the Python verifier's
@@ -62,13 +83,17 @@ public struct SchemaSet: Sendable {
     ///   1. `<schemasDirectory>/add-ons/<AddOn>/`, then `add-ons/` itself - where a packaging step
     ///      copies each add-on's schemas (the Skill build and OMC's AppletBuilder do);
     ///   2. `<repo>/Add-ons/<AddOn>/Schemas/` in the ActionUI checkout this library was built
-    ///      from, when that checkout still exists.
-    public static func discoverAddOnDirectories(schemasDirectory: URL) -> [URL] {
+    ///      from, when that checkout still exists and `includeCheckout` is true. A packaged copy
+    ///      passes false, so the schemas it ships are the only ones it reads.
+    public static func discoverAddOnDirectories(schemasDirectory: URL, includeCheckout: Bool = true) -> [URL] {
         var directories: [URL] = []
         let reserved = schemasDirectory.appendingPathComponent("add-ons")
         if isDirectory(reserved) {
             directories += subdirectories(reserved)
             directories.append(reserved)
+        }
+        guard includeCheckout else {
+            return directories
         }
         // This file is <repo>/ActionUIVerifier/SchemaSet.swift.
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -91,3 +116,6 @@ public struct SchemaSet: Sendable {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 }
+
+/// Anchors Bundle(for:) to the binary this library is linked into.
+private final class BundleFinder {}
