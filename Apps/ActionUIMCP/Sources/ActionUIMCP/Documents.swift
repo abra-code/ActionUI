@@ -14,7 +14,7 @@ import MCPStdio
 // MARK: - ask_user
 
 enum FieldKind: String, CaseIterable {
-    case text, multiline, number, integer, toggle, choice, slider, date
+    case text, multiline, number, integer, toggle, choice, multichoice, slider, date
 }
 
 struct DialogField {
@@ -53,6 +53,9 @@ struct DialogSpec {
     /// View ids 1... belong to fields; a slider's readout Text is its field's id plus this offset.
     static let firstFieldViewID = 1
     static let readoutViewIDOffset = 10000
+    /// A multichoice option's checkbox has view id optionViewIDBase + field id * 1000 + option index.
+    static let optionViewIDBase = 100_000
+    static let maxMultichoiceOptions = 50
     static let maxFields = 30
     /// Above this estimated height the fields scroll, so a long dialog still fits on the screen.
     private static let maxFormHeight = 480.0
@@ -93,8 +96,22 @@ struct DialogSpec {
                     throw MCPToolError("fields[\(index)].options entries must be strings or {value, label}")
                 }
             }
-            if kind == .choice && options.isEmpty {
-                throw MCPToolError("fields[\(index)] is a choice and needs 'options'")
+            if (kind == .choice || kind == .multichoice) && options.isEmpty {
+                throw MCPToolError("fields[\(index)] is a \(kind.rawValue) and needs 'options'")
+            }
+            if kind == .multichoice {
+                guard options.count <= Self.maxMultichoiceOptions else {
+                    throw MCPToolError("fields[\(index)] has more than \(Self.maxMultichoiceOptions) options")
+                }
+                // Each value is one answer; two checkboxes for one value could disagree.
+                guard Set(options.map(\.tag)).count == options.count else {
+                    throw MCPToolError("fields[\(index)].options values must be unique")
+                }
+                if let initial = object["default"], initial != .null {
+                    guard let list = initial.array, list.allSatisfy({ item in options.contains { $0.tag == item.string } }) else {
+                        throw MCPToolError("fields[\(index)].default must be an array of option values")
+                    }
+                }
             }
             // Otherwise the Picker would draw the first option while the agent believes its default is set.
             if kind == .choice, let initial = object["default"], initial != .null,
@@ -203,6 +220,14 @@ struct DialogSpec {
             properties["options"] = field.options.map { ["title": $0.title, "tag": $0.tag] }
             properties["pickerStyle"] = field.options.count <= 4 ? "radioGroup" : "menu"
             return ["type": "Picker", "id": field.viewID, "properties": properties]
+        case .multichoice:
+            let checked = Set((field.defaultValue?.array ?? []).compactMap(\.string))
+            let boxes: [[String: Any]] = field.options.enumerated().map { index, option in
+                ["type": "Toggle", "id": Self.optionViewID(field, index),
+                 "properties": ["title": option.title, "isOn": checked.contains(option.tag), "style": "checkbox"]]
+            }
+            // The field's id on the stack: fieldValues reads every field id, and a missing one logs a warning.
+            control = ["type": "VStack", "id": field.viewID, "properties": ["alignment": "leading", "spacing": 4], "children": boxes]
         case .slider:
             properties["value"] = field.defaultValue?.double ?? field.min ?? 0
             if let min = field.min, let max = field.max { properties["range"] = ["min": min, "max": max] }
@@ -225,6 +250,11 @@ struct DialogSpec {
         // Controls without a title of their own get their label from LabeledContent, which lines it
         // up with the other rows of the Form.
         return ["type": "LabeledContent", "properties": ["title": label], "children": [control]]
+    }
+
+    /// View id of a multichoice option's checkbox.
+    static func optionViewID(_ field: DialogField, _ index: Int) -> Int {
+        optionViewIDBase + field.viewID * 1000 + index
     }
 
     static func buttonRow(_ buttons: [DialogButton]) -> [String: Any] {
@@ -266,6 +296,7 @@ struct DialogSpec {
         switch field.kind {
         case .multiline: return 130
         case .choice where field.options.count <= 4: return Double(field.options.count) * 22 + 8
+        case .multichoice: return Double(field.options.count) * 22 + 8
         default: return 30
         }
     }

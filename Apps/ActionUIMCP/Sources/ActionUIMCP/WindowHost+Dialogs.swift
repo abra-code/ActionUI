@@ -208,6 +208,15 @@ extension WindowHost {
                 let tag = raw as? String ?? field.defaultValue?.string
                 let known = tag.flatMap { tag in field.options.contains(where: { $0.tag == tag }) ? tag : nil }
                 value = .string(known ?? field.options[0].tag)
+            case .multichoice:
+                // The checked options' values, in option order.
+                let initial = Set((field.defaultValue?.array ?? []).compactMap(\.string))
+                let checked = field.options.enumerated().filter { index, option in
+                    let raw = ActionUISwift.getElementValue(windowUUID: windowID, viewID: DialogSpec.optionViewID(field, index))
+                    return raw as? Bool ?? initial.contains(option.tag)
+                }.map { JSONValue.string($0.element.tag) }
+                value = .array(checked)
+                if field.required && checked.isEmpty { missing.append(field.label) }
             case .slider:
                 value = .double(raw as? Double ?? field.defaultValue?.double ?? field.min ?? 0)
             case .date:

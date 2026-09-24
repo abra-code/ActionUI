@@ -70,7 +70,7 @@ extension WindowHost {
 
     /// Draws the window's frame view (title bar included) into a bitmap, scales it down to
     /// `maxScreenshotPixels`, and saves it as a PNG in the server's temporary folder.
-    private func screenshot(of window: NSWindow, name: String) throws -> Screenshot {
+    func screenshot(of window: NSWindow, name: String) throws -> Screenshot {
         guard let view = window.contentView?.superview ?? window.contentView else {
             throw MCPToolError("the window has no content to capture")
         }

@@ -336,6 +336,42 @@ time.sleep(1)
 elapsed = s.close()
 check("exit on end of input (%.2f s)" % elapsed, elapsed < 2 and s.proc.returncode == 0, s.proc.returncode)
 
+# multichoice: checked options come back as an array in option order; required blocks an empty answer.
+MULTI = {"key": "platforms", "kind": "multichoice", "options": ["macOS", "iOS", {"value": "vision", "label": "visionOS"}],
+         "default": ["vision", "macOS"]}
+s = Session(binary, press="OK")
+s.call(1, "ask_user", {"title": "T", "fields": [MULTI, dict(MULTI, key="none", default=None)]})
+result = structured(s.response(1))
+check("multichoice returns the checked values in option order",
+      result == {"action": "accept", "button": "OK", "values": {"platforms": ["macOS", "vision"], "none": []}}, result)
+s.call(2, "ask_user", {"title": "T", "timeout_s": 4, "fields": [dict(MULTI, default=[], required=True)]})
+check("required multichoice blocks an empty answer", structured(s.response(2)) == {"action": "timeout", "button": None})
+for request_id, field in [(3, {"key": "m", "kind": "multichoice"}),
+                          (4, dict(MULTI, default="macOS")),
+                          (5, dict(MULTI, default=["Windows"])),
+                          (6, dict(MULTI, options=["a", "a"])),
+                          (7, dict(MULTI, options=["o%d" % i for i in range(51)], default=None))]:
+    s.call(request_id, "ask_user", {"title": "T", "fields": [field]})
+    check("multichoice rejects %s" % json.dumps(field)[:70], is_error(s.response(request_id)))
+s.close()
+
+# notify: returns at once; more notices than fit replace the oldest; bad arguments are errors.
+s = Session(binary)
+start = time.time()
+for request_id in range(1, 7):
+    s.call(request_id, "notify", {"title": "Notice %d" % request_id, "message": "Job **%d** finished." % request_id,
+                                  "duration_s": 2})
+answers = [structured(s.response(request_id)) for request_id in range(1, 7)]
+check("notify returns at once, six in a row (%.2f s)" % (time.time() - start),
+      answers == [{"shown": True}] * 6 and time.time() - start < 3, answers)
+for request_id, arguments in [(10, {}), (11, {"message": "  "}), (12, {"message": "x" * 1001}),
+                              (13, {"message": "x", "title": 5}), (15, {"message": "x", "title": "t" * 1001})]:
+    s.call(request_id, "notify", arguments)
+    check("notify rejects %s" % json.dumps(arguments)[:50], is_error(s.response(request_id)))
+s.call(14, "wait", {"timeout_s": 1})
+check("a notice is not a window with events", is_error(s.response(14)))
+s.close()
+
 # Kept windows: at the end of input the server hands them to a keeper process, which shows them
 # with the same frame and values, then (test hook) closes them a second later and exits.
 import glob

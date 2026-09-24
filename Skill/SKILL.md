@@ -584,8 +584,10 @@ When the `actionui` MCP server is connected, you can put native windows on the u
 | Need | Tool |
 |------|------|
 | A question, choice, or approval with a few typed fields | `ask_user` - no ActionUI syntax; returns `{action, button, values}` |
+| Several options at once | `ask_user` with a `multichoice` field (checkboxes; the answer is an array) |
 | A file, folder, or save location | `pick_path` |
 | Show a report, text, image, PDF, video, web page, diff, or table and move on | `show` - returns at once |
+| Tell the user something short, such as a finished job, without interrupting | `notify` - disappears by itself |
 | Any other layout | `show_document` with a document you write |
 
 **Documents.** Pass the document as a JSON object in the `document` argument (or an absolute `.json` path in `path`), never as a string. Give every element whose value you need a unique positive `id`. Run `validate_document` first: fix every error, and read the warnings, which usually name a misspelled property. `show_document` refuses a document with errors, and returns any warnings with its result. To see the layout before the user does, `screenshot` renders the document off screen and returns a PNG.

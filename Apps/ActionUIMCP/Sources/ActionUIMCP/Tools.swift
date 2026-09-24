@@ -17,7 +17,7 @@ let maxDialogTimeout = 86400.0
 
 func makeTools(host: WindowHost, label: String?) -> [MCPTool] {
     [askUserTool(host: host, label: label), pickPathTool(host: host),
-     showTool(host: host, label: label), showDocumentTool(host: host, label: label), validateDocumentTool(host: host),
+     showTool(host: host, label: label), notifyTool(host: host, label: label), showDocumentTool(host: host, label: label), validateDocumentTool(host: host),
      waitTool(host: host), updateWindowTool(host: host), getValuesTool(host: host), screenshotTool(host: host),
      closeWindowTool(host: host)]
 }
@@ -52,11 +52,11 @@ private func askUserTool(host: WindowHost, label: String?) -> MCPTool {
             "key": ["type": "string", "description": "Name of this answer in the returned values."],
             "label": ["type": "string", "description": "Label shown to the user; defaults to key."],
             "kind": ["type": "string", "enum": kinds,
-                     "description": "text (one line), multiline, number, integer, toggle (true/false), choice (one of options), slider (number in min...max), date (YYYY-MM-DD). Default text."],
-            "default": ["description": "Initial value: string, number, or boolean matching kind."],
-            "required": ["type": "boolean", "description": "The user cannot accept while this is empty."],
+                     "description": "text (one line), multiline, number, integer, toggle (true/false), choice (one of options), multichoice (any number of options, as checkboxes; returns an array of option values), slider (number in min...max), date (YYYY-MM-DD). Default text."],
+            "default": ["description": "Initial value: string, number, or boolean matching kind; for multichoice an array of option values."],
+            "required": ["type": "boolean", "description": "The user cannot accept while this is empty (for multichoice: while nothing is checked)."],
             "placeholder": ["type": "string", "description": "Hint text for text, multiline, number, integer."],
-            "options": ["type": "array", "description": "For choice: strings, or {value, label} objects.",
+            "options": ["type": "array", "description": "For choice and multichoice: strings, or {value, label} objects. multichoice: at most 50, values unique.",
                         "items": ["anyOf": [["type": "string"],
                                             ["type": "object",
                                              "properties": ["value": ["type": "string"], "label": ["type": "string"]],
@@ -171,6 +171,61 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         let subtitle = provenance(clientName: context.clientName, label: label)
         let windowID = try await host.openViewer(spec: spec, subtitle: subtitle, keep: keep)
         return .structured(["window": .string(windowID)])
+    }
+}
+
+// MARK: - notify
+
+/// Seconds a notice stays by default, and the range a call may ask for.
+let defaultNoticeDuration = 6.0
+let noticeDurationRange = 2.0...60.0
+
+private func notifyTool(host: WindowHost, label: String?) -> MCPTool {
+    let input: JSONValue = [
+        "type": "object",
+        "properties": [
+            "message": ["type": "string", "description": "The notice, one or two sentences. Markdown allowed. At most 1000 characters."],
+            "title": ["type": "string", "description": "Optional bold first line. At most 1000 characters."],
+            "duration_s": ["type": "number", "description": "Seconds on screen, 2 to 60. Default 6."],
+        ],
+        "required": ["message"],
+        "additionalProperties": false,
+    ]
+    return MCPTool(
+        name: "notify",
+        title: "Show a short notice",
+        description: """
+            Show a short notice in the top right corner of the user's screen, for example that a long \
+            job finished. Returns {shown} at once. The notice does not take focus and disappears after \
+            duration_s or when clicked; nothing comes back from it. For anything the user must read \
+            carefully use show; for anything that needs an answer use ask_user.
+            """,
+        inputSchema: input,
+        outputSchema: ["type": "object", "properties": ["shown": ["type": "boolean"]], "required": ["shown"]],
+        annotations: ["readOnlyHint": true, "openWorldHint": false]
+    ) { arguments, context in
+        guard let message = arguments["message"]?.string,
+              !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw MCPToolError("'message' is required and must be a non-empty string")
+        }
+        guard message.count <= WindowHost.maxNoticeLength else {
+            throw MCPToolError("'message' is longer than \(WindowHost.maxNoticeLength) characters; use show for long content")
+        }
+        if let title = arguments["title"], title != .null, title.string == nil {
+            throw MCPToolError("'title' must be a string")
+        }
+        // The title wraps in the notice too; unbounded, it would push the notice off the screen.
+        guard (arguments["title"]?.string?.count ?? 0) <= WindowHost.maxNoticeLength else {
+            throw MCPToolError("'title' is longer than \(WindowHost.maxNoticeLength) characters")
+        }
+        let duration = min(max(arguments["duration_s"]?.double ?? defaultNoticeDuration, noticeDurationRange.lowerBound),
+                           noticeDurationRange.upperBound)
+        try await requireGraphicalSession(host)
+        let subtitle = provenance(clientName: context.clientName, label: label)
+        try await MainActor.run {
+            try host.showNotice(title: arguments["title"]?.string, message: message, subtitle: subtitle, duration: duration)
+        }
+        return .structured(["shown": true])
     }
 }
 

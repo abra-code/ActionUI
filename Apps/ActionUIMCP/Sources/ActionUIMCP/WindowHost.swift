@@ -65,6 +65,9 @@ final class WindowHost: NSObject, NSWindowDelegate {
     /// Staged document files of windows opened with `keep`, handed to a keeper process at shutdown
     /// (KeptWindows.swift).
     var keptDocuments: [String: URL] = [:]
+    /// Notices on screen, oldest first (WindowHost+Notices.swift). Not windows: they do not count
+    /// toward the window cap or the activation policy.
+    var notices: [Notice] = []
     private let documentDirectory: URL
 
     /// Queued events per event window. A closed window's queue stays until it has been drained.

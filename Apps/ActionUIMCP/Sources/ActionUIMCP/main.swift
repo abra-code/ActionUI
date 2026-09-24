@@ -69,7 +69,7 @@ let arguments = CommandLine.arguments.dropFirst()
 if arguments.contains("-h") || arguments.contains("--help") {
     FileHandle.standardError.write(Data("""
         actionui-mcp \(serverVersion) - MCP server (stdio) that shows native ActionUI dialogs and windows.
-        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, show_document, validate_document, wait, update_window, get_values, close_window.
+        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_document, validate_document, wait, update_window, get_values, close_window.
         Environment: ACTIONUI_MCP_LABEL, ACTIONUI_MCP_LOG_LEVEL (error|warning|info|debug).
 
         """.utf8))
@@ -135,7 +135,8 @@ let server = MCPServer(
     instructions: """
         Shows native macOS windows on the user's screen. ask_user asks a question with optional \
         fields and waits for the answer; pick_path shows the system file panels; show presents a \
-        report, image, PDF, video, web page, diff, or table without waiting. For anything the canned \
+        report, image, PDF, video, web page, diff, or table without waiting; notify shows a short notice \
+        that goes away by itself. For anything the canned \
         tools cannot express, write an ActionUI document (see the actionui skill if available), check \
         it with validate_document, and open it with show_document: as a dialog that returns every \
         value, or as a live window whose actions you collect with wait and whose values you change \
