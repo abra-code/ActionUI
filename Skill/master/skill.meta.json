@@ -104,6 +104,13 @@
       "description": "Real-world layout and interaction patterns extracted from production ActionUI apps"
     },
     {
+      "id": "mcp-tools",
+      "file": "content/11-mcp-tools.md",
+      "level": 1,
+      "flavors": ["claude", "capable"],
+      "description": "The actionui MCP server's tools: which to pick, the document workflow, dialog vs live window, waiting, privacy"
+    },
+    {
       "id": "reference-docs",
       "file": "content/09-reference-docs.md",
       "level": 1,

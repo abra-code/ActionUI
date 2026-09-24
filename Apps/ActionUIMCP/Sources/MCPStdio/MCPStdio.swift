@@ -18,9 +18,15 @@
 // - a tool may ask for a heartbeat: while it runs, notifications/progress goes out at an interval
 //   when the request carried a progress token, which keeps clients with an idle timeout waiting.
 //
-// Handshake: the legacy `initialize` flow (2025-11-25 and older), which every stdio client speaks
-// today. Negotiation is tolerant like pdfutil's: an unknown or missing version gets the newest one
-// we speak. structuredContent and outputSchema are sent only when the negotiated revision has them.
+// Both protocol eras, as a "dual-era" server:
+// - legacy (2025-11-25 and older): an `initialize` handshake fixes the revision for the process.
+//   Negotiation is tolerant like pdfutil's: an unknown or missing version gets the newest legacy one.
+// - modern (2026-07-28): no handshake. Each request names its revision, client capabilities and
+//   client identity in `_meta`; `server/discover` advertises the supported revisions; results carry
+//   `resultType` and the server's identity; list results carry cache hints. A request naming a
+//   revision we do not speak gets UnsupportedProtocolVersionError (-32022) with the list.
+// A request without `_meta` is served under the revision `initialize` negotiated. structuredContent
+// and outputSchema are sent only to revisions that have them.
 
 import Foundation
 
@@ -212,12 +218,26 @@ public struct MCPToolError: Error, Sendable {
 // MARK: - Server
 
 public final class MCPServer: @unchecked Sendable {
-    /// Revisions spoken, newest first; element 0 answers an unknown or missing request.
-    /// 2025-03-26 is absent on purpose: it is the one revision that requires receiving JSON-RPC
-    /// batches, and this server reads one object per line (same reasoning as pdfutil).
-    public static let supportedProtocolVersions = ["2025-11-25", "2025-06-18", "2024-11-05"]
+    /// Handshake-based revisions, newest first; element 0 answers an initialize asking for an
+    /// unknown or missing version. 2025-03-26 is absent on purpose: it is the one revision that
+    /// requires receiving JSON-RPC batches, and this server reads one object per line (same
+    /// reasoning as pdfutil).
+    public static let legacyProtocolVersions = ["2025-11-25", "2025-06-18", "2024-11-05"]
+    /// Per-request revisions (no handshake), newest first.
+    public static let modernProtocolVersions = ["2026-07-28"]
+    public static let supportedProtocolVersions = modernProtocolVersions + legacyProtocolVersions
     /// First revision with structuredContent and outputSchema.
     private static let structuredContentVersion = "2025-06-18"
+    /// Tools never change while the process runs; clients may cache the list this long.
+    private static let listCacheMilliseconds = 3_600_000
+
+    /// How one request is served: under which revision, and for which client.
+    private struct Era {
+        let version: String
+        let clientName: String?
+        var isModern: Bool { version >= MCPServer.modernProtocolVersions.last! }
+        var hasStructuredContent: Bool { version >= MCPServer.structuredContentVersion }
+    }
 
     private let name: String
     private let version: String
@@ -229,7 +249,7 @@ public final class MCPServer: @unchecked Sendable {
 
     // Guarded by `lock`.
     private let lock = NSLock()
-    private var negotiatedVersion = MCPServer.supportedProtocolVersions[0]
+    private var negotiatedVersion = MCPServer.legacyProtocolVersions[0]
     private var clientName: String?
     private var running: [String: Task<Void, Never>] = [:]
     private var cancelled: Set<String> = []
@@ -346,26 +366,85 @@ public final class MCPServer: @unchecked Sendable {
             return  // notifications/initialized and anything else: nothing to do.
         }
 
-        switch method {
-        case "initialize":
+        if method == "initialize" {
             send(resultResponse(id: id, result: initialize(params: params)))
-        case "ping":
-            send(resultResponse(id: id, result: [:]))
+            return
+        }
+        guard let era = era(of: params, id: id) else { return }
+        switch method {
+        case "server/discover":
+            // A modern-only method: always the modern result shape, even for a request that named
+            // no revision.
+            let shape = era.isModern ? era : Era(version: Self.modernProtocolVersions[0], clientName: nil)
+            send(resultResponse(id: id, result: complete(discover(), era: shape, cacheable: true)))
+        case "ping":  // legacy only; harmless to answer in either era
+            send(resultResponse(id: id, result: complete([:], era: era)))
         case "tools/list":
-            send(resultResponse(id: id, result: ["tools": .array(toolDefinitions())]))
+            send(resultResponse(id: id, result: complete(["tools": .array(toolDefinitions(era: era))], era: era, cacheable: true)))
         case "tools/call":
-            call(id: id, params: params)
+            call(id: id, params: params, era: era)
         default:
             send(errorResponse(id: id, code: -32601, message: "method not found: \(method)"))
         }
     }
 
+    /// The revision and client a request is served for: its own `_meta` when it names a revision
+    /// (modern requests), else what `initialize` negotiated. Sends UnsupportedProtocolVersionError
+    /// and returns nil for a revision we do not speak.
+    private func era(of params: [String: JSONValue], id: JSONValue) -> Era? {
+        let meta = params["_meta"]?.object ?? [:]
+        lock.lock()
+        let negotiated = negotiatedVersion
+        let handshakeClient = clientName
+        lock.unlock()
+        let requestClient = meta["io.modelcontextprotocol/clientInfo"]?["name"]?.string
+        guard let requested = meta["io.modelcontextprotocol/protocolVersion"] else {
+            return Era(version: negotiated, clientName: requestClient ?? handshakeClient)
+        }
+        guard let version = requested.string else {
+            send(errorResponse(id: id, code: -32602, message: "io.modelcontextprotocol/protocolVersion must be a string"))
+            return nil
+        }
+        guard Self.supportedProtocolVersions.contains(version) else {
+            send(["jsonrpc": "2.0", "id": id, "error": [
+                "code": -32022, "message": "Unsupported protocol version",
+                "data": ["supported": .array(Self.supportedProtocolVersions.map(JSONValue.string)), "requested": requested],
+            ]])
+            return nil
+        }
+        let era = Era(version: version, clientName: requestClient ?? handshakeClient)
+        guard era.isModern else { return era }
+        // A modern request missing a required field is malformed (-32602), and it must not borrow
+        // anything, such as the client's identity, from an earlier initialize.
+        guard meta["io.modelcontextprotocol/clientCapabilities"]?.object != nil else {
+            send(errorResponse(id: id, code: -32602, message: "missing io.modelcontextprotocol/clientCapabilities in _meta"))
+            return nil
+        }
+        return Era(version: version, clientName: requestClient)
+    }
+
+    /// Adds what a modern result carries: resultType, the server's identity, and for cacheable
+    /// results the cache hints. Legacy results are returned unchanged.
+    private func complete(_ result: JSONValue, era: Era, cacheable: Bool = false) -> JSONValue {
+        guard era.isModern, case .object(var object) = result else { return result }
+        object["resultType"] = "complete"
+        var meta = object["_meta"]?.object ?? [:]
+        meta["io.modelcontextprotocol/serverInfo"] = ["name": .string(name), "version": .string(version)]
+        object["_meta"] = .object(meta)
+        if cacheable {
+            object["ttlMs"] = .int(Self.listCacheMilliseconds)
+            object["cacheScope"] = "public"
+        }
+        return .object(object)
+    }
+
     // MARK: Methods
 
     private func initialize(params: [String: JSONValue]) -> JSONValue {
+        // Only handshake revisions are negotiated here; a modern client does not send initialize.
         let requested = params["protocolVersion"]?.string
-        let version = requested.flatMap { Self.supportedProtocolVersions.contains($0) ? $0 : nil }
-            ?? Self.supportedProtocolVersions[0]
+        let version = requested.flatMap { Self.legacyProtocolVersions.contains($0) ? $0 : nil }
+            ?? Self.legacyProtocolVersions[0]
         lock.lock()
         negotiatedVersion = version
         clientName = params["clientInfo"]?["name"]?.string
@@ -379,15 +458,18 @@ public final class MCPServer: @unchecked Sendable {
         return .object(result)
     }
 
-    private var sendsStructuredContent: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        // Revisions are ISO dates, so string order is date order.
-        return negotiatedVersion >= Self.structuredContentVersion
+    private func discover() -> JSONValue {
+        var result: [String: JSONValue] = [
+            "supportedVersions": .array(Self.supportedProtocolVersions.map(JSONValue.string)),
+            "capabilities": ["tools": [:]],
+        ]
+        if let instructions { result["instructions"] = .string(instructions) }
+        return .object(result)
     }
 
-    private func toolDefinitions() -> [JSONValue] {
-        let structured = sendsStructuredContent
+    // Revisions are ISO dates, so string order is date order.
+    private func toolDefinitions(era: Era) -> [JSONValue] {
+        let structured = era.hasStructuredContent
         return tools.map { tool in
             var definition: [String: JSONValue] = [
                 "name": .string(tool.name),
@@ -403,7 +485,7 @@ public final class MCPServer: @unchecked Sendable {
         }
     }
 
-    private func call(id: JSONValue, params: [String: JSONValue]) {
+    private func call(id: JSONValue, params: [String: JSONValue], era: Era) {
         guard let toolName = params["name"]?.string else {
             send(errorResponse(id: id, code: -32602, message: "missing tool name"))
             return
@@ -416,7 +498,7 @@ public final class MCPServer: @unchecked Sendable {
         let key = Self.key(for: id)
 
         lock.lock()
-        let context = MCPToolContext(clientName: clientName,
+        let context = MCPToolContext(clientName: era.clientName,
                                      progressSink: progressSink(token: params["_meta"]?["progressToken"]))
         if running[key] != nil {
             lock.unlock()
@@ -443,12 +525,12 @@ public final class MCPServer: @unchecked Sendable {
                 heartbeat.cancel()
                 await heartbeat.value
             }
-            finish(id: id, key: key, result: result)
+            finish(id: id, key: key, result: result, era: era)
         }
         lock.unlock()
     }
 
-    private func finish(id: JSONValue, key: String, result: MCPToolResult) {
+    private func finish(id: JSONValue, key: String, result: MCPToolResult, era: Era) {
         lock.lock()
         running[key] = nil
         let wasCancelled = cancelled.remove(key) != nil
@@ -456,11 +538,11 @@ public final class MCPServer: @unchecked Sendable {
         // The specification asks receivers of notifications/cancelled not to answer the request.
         guard !wasCancelled else { return }
         var body: [String: JSONValue] = ["content": .array(result.content)]
-        if let structured = result.structuredContent, sendsStructuredContent {
+        if let structured = result.structuredContent, era.hasStructuredContent {
             body["structuredContent"] = structured
         }
         if result.isError { body["isError"] = true }
-        send(resultResponse(id: id, result: .object(body)))
+        send(resultResponse(id: id, result: complete(.object(body), era: era)))
     }
 
     private func cancel(requestID: JSONValue) {

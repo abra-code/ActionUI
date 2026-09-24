@@ -1,0 +1,24 @@
+---
+id: mcp-tools
+level: 1
+flavors: [claude, capable]
+---
+
+## ActionUI MCP Server Tools
+
+When the `actionui` MCP server is connected, you can put native windows on the user's Mac directly. Pick the lightest tool that fits:
+
+| Need | Tool |
+|------|------|
+| A question, choice, or approval with a few typed fields | `ask_user` - no ActionUI syntax; returns `{action, button, values}` |
+| A file, folder, or save location | `pick_path` |
+| Show a report, text, image, PDF, video, web page, diff, or table and move on | `show` - returns at once |
+| Any other layout | `show_document` with a document you write |
+
+**Documents.** Pass the document as a JSON object in the `document` argument (or an absolute `.json` path in `path`), never as a string. Give every element whose value you need a unique positive `id`. Run `validate_document` first and fix every error: `show_document` refuses a document with errors, and returns any warnings with its result.
+
+**Dialog or window.** `mode: "dialog"` adds a footer and buttons (the last is the default; "Cancel" is bound to Escape), waits, and returns every value keyed by id. Draw your own buttons instead with `buttons: []` and list their actionIDs in `close_actions`. `mode: "window"` returns `{window}` at once: collect the user's actions with `wait`, update the window with `update_window` (values, table rows), read it with `get_values`, and end with `close_window`. Each `wait` is a round trip, so handle the whole batch it returns before waiting again.
+
+**Waiting.** Blocking calls (`ask_user`, `pick_path`, dialogs, `wait`) last until the user acts or `timeout_s` passes. Some clients move a long call to the background and deliver the result later; do not assume an answer you have not received.
+
+**Privacy.** Everything the user enters is sent to you. Never ask for passwords or other secrets; SecureField is refused.

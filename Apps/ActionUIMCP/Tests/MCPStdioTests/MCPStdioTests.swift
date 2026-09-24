@@ -62,8 +62,8 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
     server.handle(line: line(["jsonrpc": "2.0", "id": 3, "method": "initialize", "params": ["protocolVersion": 7]]))
     server.flush()
     #expect(sink.response(id: 1)?["result"]?["protocolVersion"] == "2025-06-18")
-    #expect(sink.response(id: 2)?["result"]?["protocolVersion"] == .string(MCPServer.supportedProtocolVersions[0]))
-    #expect(sink.response(id: 3)?["result"]?["protocolVersion"] == .string(MCPServer.supportedProtocolVersions[0]))
+    #expect(sink.response(id: 2)?["result"]?["protocolVersion"] == .string(MCPServer.legacyProtocolVersions[0]))
+    #expect(sink.response(id: 3)?["result"]?["protocolVersion"] == .string(MCPServer.legacyProtocolVersions[0]))
 }
 
 @Test func errorsFollowJSONRPC() {
@@ -168,4 +168,85 @@ private func line(_ value: JSONValue) -> String { value.serialized() }
     #expect(value["b"] == .bool(true))
     #expect(value["n"] == .null)
     #expect(value["a"] == [1, false])
+}
+
+// MARK: - Modern era (2026-07-28)
+
+private func modernMeta(client: String = "modern-client", version: String = "2026-07-28") -> JSONValue {
+    ["io.modelcontextprotocol/protocolVersion": .string(version),
+     "io.modelcontextprotocol/clientInfo": ["name": .string(client), "version": "1"],
+     "io.modelcontextprotocol/clientCapabilities": [:]]
+}
+
+@Test func discoverAdvertisesVersionsCapabilitiesAndIdentity() {
+    let (server, sink) = makeServer(tools: [echoTool])
+    server.handle(line: line(["jsonrpc": "2.0", "id": "d", "method": "server/discover", "params": ["_meta": modernMeta()]]))
+    server.flush()
+    let result = sink.response(id: "d")?["result"]
+    #expect(result?["resultType"] == "complete")
+    #expect(result?["supportedVersions"] == .array(MCPServer.supportedProtocolVersions.map(JSONValue.string)))
+    #expect(result?["capabilities"]?["tools"] == [:])
+    #expect(result?["_meta"]?["io.modelcontextprotocol/serverInfo"]?["name"] == "test")
+    #expect(result?["ttlMs"]?.double != nil && result?["cacheScope"] == "public")
+}
+
+@Test func modernRequestsNeedNoHandshake() async {
+    let (server, sink) = makeServer(tools: [echoTool])
+    server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": ["_meta": modernMeta()]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                              "params": ["name": "echo", "arguments": ["a": 1], "_meta": modernMeta(client: "per-request")]]))
+    await server.waitUntilIdle()
+    server.flush()
+    let list = sink.response(id: 1)?["result"]
+    #expect(list?["resultType"] == "complete" && list?["cacheScope"] == "public")
+    #expect(list?["tools"]?.array?.first?["outputSchema"] != nil)
+    let call = sink.response(id: 2)?["result"]
+    #expect(call?["resultType"] == "complete")
+    #expect(call?["ttlMs"] == nil)  // tool results are not cacheable
+    // The client named in the request's _meta reaches the tool.
+    #expect(call?["structuredContent"]?["client"] == "per-request")
+}
+
+@Test func unsupportedVersionIsRejectedWithTheSupportedList() {
+    let (server, sink) = makeServer(tools: [echoTool])
+    server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": ["_meta": modernMeta(version: "1900-01-01")]]))
+    server.flush()
+    let error = sink.response(id: 1)?["error"]
+    #expect(error?["code"] == -32022)
+    #expect(error?["data"]?["requested"] == "1900-01-01")
+    #expect(error?["data"]?["supported"] == .array(MCPServer.supportedProtocolVersions.map(JSONValue.string)))
+}
+
+@Test func malformedModernRequestsAreInvalidParams() async {
+    let (server, sink) = makeServer(tools: [echoTool])
+    server.handle(line: line(["jsonrpc": "2.0", "id": 0, "method": "initialize",
+                              "params": ["protocolVersion": "2025-11-25", "clientInfo": ["name": "handshake-client"]]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "tools/list",
+                              "params": ["_meta": ["io.modelcontextprotocol/protocolVersion": "2026-07-28"]]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 2, "method": "tools/list",
+                              "params": ["_meta": ["io.modelcontextprotocol/protocolVersion": 20260728,
+                                                   "io.modelcontextprotocol/clientCapabilities": [:]]]]))
+    // A modern request without clientInfo does not inherit the handshake's client.
+    server.handle(line: line(["jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                              "params": ["name": "echo", "arguments": [:],
+                                         "_meta": ["io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                                                   "io.modelcontextprotocol/clientCapabilities": [:]]]]))
+    await server.waitUntilIdle()
+    server.flush()
+    #expect(sink.response(id: 1)?["error"]?["code"] == -32602)
+    #expect(sink.response(id: 2)?["error"]?["code"] == -32602)
+    #expect(sink.response(id: 3)?["result"]?["structuredContent"]?["client"] == .null)
+}
+
+@Test func legacyResultsStayUnchanged() async {
+    let (server, sink) = makeServer(tools: [echoTool])
+    server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": ["protocolVersion": "2025-11-25"]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 2, "method": "tools/list"]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 3, "method": "initialize", "params": ["protocolVersion": "2026-07-28"]]))
+    await server.waitUntilIdle()
+    server.flush()
+    let list = sink.response(id: 2)?["result"]
+    #expect(list?["resultType"] == nil && list?["ttlMs"] == nil && list?["_meta"] == nil)
+    // initialize only negotiates handshake revisions.
+    #expect(sink.response(id: 3)?["result"]?["protocolVersion"] == .string(MCPServer.legacyProtocolVersions[0]))
 }

@@ -17,7 +17,7 @@ import time
 
 
 class Session:
-    def __init__(self, binary, press=None, action=None):
+    def __init__(self, binary, press=None, action=None, modern=False):
         env = dict(os.environ)
         if press:
             env["ACTIONUI_MCP_TEST_PRESS"] = press
@@ -28,9 +28,14 @@ class Session:
         self.inbox = queue.Queue()
         self.seen = []
         threading.Thread(target=self._read, daemon=True).start()
-        self.send({"jsonrpc": "2.0", "id": 0, "method": "initialize",
-                   "params": {"protocolVersion": "2025-11-25", "clientInfo": {"name": "live-test"}, "capabilities": {}}})
-        self.response(0)
+        # A modern (2026-07-28) session has no handshake: every request carries its _meta.
+        self.meta = {"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                     "io.modelcontextprotocol/clientInfo": {"name": "live-test-modern", "version": "1"},
+                     "io.modelcontextprotocol/clientCapabilities": {}} if modern else None
+        if not modern:
+            self.send({"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                       "params": {"protocolVersion": "2025-11-25", "clientInfo": {"name": "live-test"}, "capabilities": {}}})
+            self.response(0)
 
     def _read(self):
         for line in self.proc.stdout:
@@ -42,8 +47,8 @@ class Session:
 
     def call(self, request_id, name, arguments, meta=None):
         params = {"name": name, "arguments": arguments}
-        if meta:
-            params["_meta"] = meta
+        if meta or self.meta:
+            params["_meta"] = dict(self.meta or {}, **(meta or {}))
         self.send({"jsonrpc": "2.0", "id": request_id, "method": "tools/call", "params": params})
 
     def response(self, request_id, timeout=15):
@@ -269,6 +274,18 @@ result = structured(s.response(1)) or {}
 check("document dialog close action", result.get("action") == "accept" and result.get("close_action") == "go", result)
 s.call(2, "show_document", {"title": "Edit", "mode": "dialog", "document": FORM, "buttons": []})
 check("document dialog needs a way out", is_error(s.response(2)))
+
+# A modern client: server/discover, then a real dialog, with no initialize.
+s.close()
+s = Session(binary, press="OK", modern=True)
+s.send({"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {"_meta": s.meta}})
+result = (s.response(1) or {}).get("result", {})
+check("modern server/discover", "2026-07-28" in result.get("supportedVersions", [])
+      and result.get("resultType") == "complete", result)
+s.call(2, "ask_user", {"title": "Modern", "fields": [{"key": "n", "default": "x"}]})
+message = s.response(2) or {}
+check("modern ask_user", message.get("result", {}).get("resultType") == "complete"
+      and structured(message) == {"action": "accept", "button": "OK", "values": {"n": "x"}}, message)
 
 # Shutdown with a dialog pending must fit the client's 2 s grace period.
 s.call(6, "ask_user", {"title": "Pending at shutdown"})
