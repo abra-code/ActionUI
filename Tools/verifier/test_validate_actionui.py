@@ -160,6 +160,65 @@ class CrossPlatformModeTests(unittest.TestCase):
         }
         self.assertTrue(any("duplicate" in str(i) for i in _errors(_validate(doc))))
 
+    def test_same_id_in_platform_variants_of_children_is_clean(self):
+        # Only one of children / children:ios survives at runtime.
+        for doc in (
+            {"type": "VStack", "children": [{"type": "Text", "id": 6}],
+             "children:ios": [{"type": "Text", "id": 6}]},
+            {"type": "VStack", "children:ios": [{"type": "Text", "id": 6}],
+             "children": [{"type": "Text", "id": 6}]},
+        ):
+            self.assertEqual(_errors(_validate(doc)), [], _msg(_validate(doc)))
+
+    def test_id_in_children_variant_duplicating_rest_of_tree_is_error(self):
+        doc = {
+            "type": "VStack",
+            "overlay": {"type": "Text", "id": 6},
+            "children": [{"type": "Text", "id": 7}],
+            "children:ios": [{"type": "Text", "id": 6}],
+        }
+        errs = _errors(_validate(doc))
+        self.assertEqual(len(errs), 1, _msg(errs))
+        # Subview keys are visited in sorted order: children before overlay.
+        self.assertIn("test: overlay: duplicate", str(errs[0]))
+
+    def test_duplicate_id_inside_one_children_variant_is_error(self):
+        doc = {
+            "type": "VStack",
+            "children": [{"type": "Text", "id": 6}],
+            "children:ios": [{"type": "Text", "id": 6}, {"type": "Text", "id": 6}],
+        }
+        errs = _errors(_validate(doc))
+        self.assertEqual(len(errs), 1, _msg(errs))
+        self.assertIn("children:ios[1]", str(errs[0]))
+
+    def test_variant_types_without_plain_type_ignore_key_order(self):
+        # Plain properties apply under both variants; 'title' is known to Button.
+        a = {"type:macos": "Button", "type:ios": "Text", "properties": {"title": "Go"}}
+        b = {"type:ios": "Text", "type:macos": "Button", "properties": {"title": "Go"}}
+        self.assertEqual(_validate(a), [], _msg(_validate(a)))
+        self.assertEqual(_validate(b), [], _msg(_validate(b)))
+
+    def test_variant_types_without_plain_type_warn_on_key_no_variant_knows(self):
+        doc = {"type:ios": "Text", "type:macos": "Button", "properties": {"titel": "Go"}}
+        warns = _warnings(_validate(doc))
+        self.assertEqual(len(warns), 1, _msg(warns))
+        self.assertIn("for Button or Text or View base", str(warns[0]))
+
+    def test_discriminator_list_is_unknown_type_not_crash(self):
+        doc = {"type": "Canvas", "properties": {"operations": [{"type": ["fill"]}]}}
+        issues = _validate(doc)
+        warns = _warnings(issues)
+        self.assertEqual(len(warns), 1, _msg(issues))
+        self.assertEqual(warns[0].path, "test: properties.operations[0].type")
+        self.assertIn("is not a known type", str(warns[0]))
+
+    def test_discriminator_object_is_unknown_type_not_crash(self):
+        doc = {"type": "Canvas", "properties": {"operations": [{"type": {"a": 1}}]}}
+        warns = _warnings(_validate(doc))
+        self.assertEqual(len(warns), 1, _msg(warns))
+        self.assertIn("is not a known type", str(warns[0]))
+
 
 class DeploymentModeTests(unittest.TestCase):
     """--platform <p>: validate as if shipped to one platform."""
@@ -193,6 +252,45 @@ class DeploymentModeTests(unittest.TestCase):
         # weight:android applies to androidtv via the android umbrella.
         doc = {"type": "Text", "properties": {"text": "x", "weight:android": 1}}
         self.assertEqual(_validate(doc, platform="androidtv"), [])
+
+    def test_target_type_variant_is_used_whatever_key_order(self):
+        a = {"type:macos": "Button", "type:ios": "Text", "properties": {"title": "Go"}}
+        b = {"type:ios": "Text", "type:macos": "Button", "properties": {"title": "Go"}}
+        self.assertEqual(_validate(a, platform="macos"), [], _msg(_validate(a, platform="macos")))
+        self.assertEqual(_validate(b, platform="macos"), [], _msg(_validate(b, platform="macos")))
+        # On iOS the element is a Text, which has no 'title'.
+        for doc in (a, b):
+            warns = _warnings(_validate(doc, platform="ios"))
+            self.assertEqual(len(warns), 1, _msg(warns))
+            self.assertIn("'title' is not a known property for Text", str(warns[0]))
+
+    def test_exact_suffix_beats_umbrella_beats_plain(self):
+        doc = {"type": "Text", "type:apple": "Image", "type:macos": "Button",
+               "properties": {"title": "Go"}}
+        self.assertEqual(_validate(doc, platform="macos"), [], _msg(_validate(doc, platform="macos")))
+        warns = _warnings(_validate(doc, platform="ios"))
+        self.assertEqual(len(warns), 1, _msg(warns))
+        self.assertIn("for Image", str(warns[0]))
+        warns = _warnings(_validate(doc, platform="android"))
+        self.assertEqual(len(warns), 1, _msg(warns))
+        self.assertIn("for Text", str(warns[0]))
+
+    def test_winning_properties_variant_pairs_with_winning_type(self):
+        doc = {"type": "Text", "type:macos": "Button",
+               "properties": {"text": "x"}, "properties:macos": {"title": "Go"}}
+        self.assertEqual(_validate(doc, platform="macos"), [], _msg(_validate(doc, platform="macos")))
+        self.assertEqual(_validate(doc, platform="ios"), [], _msg(_validate(doc, platform="ios")))
+
+    def test_no_type_for_target_is_error(self):
+        errs = _errors(_validate({"type:ios": "Text"}, platform="macos"))
+        self.assertEqual(len(errs), 1, _msg(errs))
+        self.assertIn("no 'type' variant applies to target platform 'macos'", str(errs[0]))
+
+    def test_other_platform_children_variant_is_skipped(self):
+        doc = {"type": "VStack", "children": [{"type": "Text", "id": 6}],
+               "children:ios": [{"type": "Nope", "id": 6}]}
+        self.assertEqual(_validate(doc, platform="macos"), [], _msg(_validate(doc, platform="macos")))
+        self.assertTrue(_errors(_validate(doc, platform="ios")))
 
 
 class CliTests(unittest.TestCase):
