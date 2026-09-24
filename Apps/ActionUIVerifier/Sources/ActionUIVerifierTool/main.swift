@@ -21,6 +21,7 @@ Usage:
     actionui-verify --strict <path>        treat warnings as errors
     actionui-verify --platform <p> <path>  validate as deployed to platform <p>
     actionui-verify --schema-dir <dir> ... add an add-on schema directory (repeatable)
+    actionui-verify --schemas <dir> ...    use this core schemas directory
 
 Without --platform, files are validated as cross-platform authoring documents:
 platform-specific keys must carry a `:<platform>` suffix. With --platform, the
@@ -37,6 +38,11 @@ Add-on schemas are also found without --schema-dir in:
     packaging step), and
   - Add-ons/<AddOn>/Schemas/ of the ActionUI checkout this tool was built from.
 Explicit --schema-dir directories take precedence over those.
+
+--schemas replaces the bundled core schemas with a directory of the same layout,
+for a packaged copy that ships its schemas elsewhere (AppletBuilder.app points it
+at the Python verifier's schemas/). Add-on schemas are then found only in its
+add-ons/ and through --schema-dir, never in a checkout.
 
 JSON is parsed as ActionUI's loader parses it: trailing commas are accepted,
 comments are not.
@@ -169,6 +175,7 @@ var strict = false
 var recursive = false
 var targetPlatform: String?
 var explicitSchemaDirectories: [String] = []
+var coreSchemasDirectory: String?
 var paths: [String] = []
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -182,7 +189,7 @@ while index < arguments.count {
     } else if argument == "-h" || argument == "--help" {
         printOutput(usage)
         exit(0)
-    } else if argument == "--platform" || argument == "--schema-dir" {
+    } else if argument == "--platform" || argument == "--schema-dir" || argument == "--schemas" {
         index += 1
         guard index < arguments.count else {
             printError("[ERROR] \(argument) requires a value")
@@ -190,11 +197,15 @@ while index < arguments.count {
         }
         if argument == "--platform" {
             targetPlatform = arguments[index]
+        } else if argument == "--schemas" {
+            coreSchemasDirectory = arguments[index]
         } else {
             explicitSchemaDirectories.append(arguments[index])
         }
     } else if argument.hasPrefix("--platform=") {
         targetPlatform = String(argument.dropFirst("--platform=".count))
+    } else if argument.hasPrefix("--schemas=") {
+        coreSchemasDirectory = String(argument.dropFirst("--schemas=".count))
     } else if argument.hasPrefix("--schema-dir=") {
         explicitSchemaDirectories.append(String(argument.dropFirst("--schema-dir=".count)))
     } else if argument.hasPrefix("-") && argument != "-" {
@@ -219,8 +230,19 @@ if let targetPlatform, !DocumentValidator.knownPlatforms.contains(targetPlatform
 
 // MARK: - Schemas
 
-guard let schemasDirectory = SchemaSet.bundledSchemasDirectory else {
-    printError("[ERROR] Schemas directory not found in the verifier's resource bundle.\nEnsure ActionUI_ActionUIVerifier.bundle is next to this tool.")
+// With --schemas the resource bundle is never touched, so a copy of this tool that ships its
+// schemas elsewhere does not need the bundle beside it.
+let schemasDirectory: URL
+if let coreSchemasDirectory {
+    guard isDirectory(coreSchemasDirectory) else {
+        printError("[ERROR] --schemas not found or not a directory: \(coreSchemasDirectory)")
+        exit(2)
+    }
+    schemasDirectory = URL(fileURLWithPath: coreSchemasDirectory)
+} else if let bundled = SchemaSet.bundledSchemasDirectory {
+    schemasDirectory = bundled
+} else {
+    printError("[ERROR] Schemas directory not found in the verifier's resource bundle.\nEnsure ActionUI_ActionUIVerifier.bundle is next to this tool, or pass --schemas <dir>.")
     exit(1)
 }
 
@@ -234,7 +256,7 @@ for directory in explicitSchemaDirectories {
 }
 // Found directories go after the explicit ones; each directory is listed once.
 var seenDirectories = Set(extraDirectories.map { $0.resolvingSymlinksInPath().path })
-for directory in SchemaSet.discoverAddOnDirectories(schemasDirectory: schemasDirectory)
+for directory in SchemaSet.discoverAddOnDirectories(schemasDirectory: schemasDirectory, includeCheckout: coreSchemasDirectory == nil)
 where !seenDirectories.contains(directory.resolvingSymlinksInPath().path) {
     extraDirectories.append(directory)
     seenDirectories.insert(directory.resolvingSymlinksInPath().path)
