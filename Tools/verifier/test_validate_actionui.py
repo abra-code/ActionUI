@@ -30,7 +30,9 @@ from verifier.platform_filter import (  # noqa: E402
     platforms_include,
 )
 
-_SCHEMAS = _HERE / "schemas"
+from validate_actionui import find_schemas_dir  # noqa: E402
+
+_SCHEMAS = find_schemas_dir(_HERE)
 _VALIDATOR = _HERE / "validate_actionui.py"
 
 
@@ -506,6 +508,8 @@ class AddOnAutoDiscoveryTests(unittest.TestCase):
             reserved_foo = script_dir / "schemas" / "add-ons" / "Foo"
             reserved_foo.mkdir(parents=True)
             (reserved_foo / "Foo.json").write_text("{}")
+            # A packaged schemas/ folder is recognized by its View.json.
+            (script_dir / "schemas" / "View.json").write_text("{}")
             # 2. in-repo sources: <repo>/Add-ons/Bar/Schemas/
             repo_bar = root / "Add-ons" / "Bar" / "Schemas"
             repo_bar.mkdir(parents=True)
@@ -513,6 +517,15 @@ class AddOnAutoDiscoveryTests(unittest.TestCase):
             found = {p.resolve() for p in discover_addon_schema_dirs(script_dir)}
             self.assertIn(reserved_foo.resolve(), found)
             self.assertIn(repo_bar.resolve(), found)
+
+    def test_leftover_schemas_folder_without_view_json_is_not_a_packaged_copy(self):
+        from validate_actionui import find_schemas_dir
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            script_dir = root / "Tools" / "verifier"
+            (script_dir / "schemas").mkdir(parents=True)
+            (script_dir / "schemas" / ".DS_Store").write_text("")
+            self.assertEqual(find_schemas_dir(script_dir), root / "ActionUIVerifier" / "Schemas")
 
     def test_no_addon_dirs_returns_empty(self):
         from validate_actionui import discover_addon_schema_dirs

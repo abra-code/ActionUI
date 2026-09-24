@@ -1,0 +1,9 @@
+[
+  {"type": ["it's", "say \"hi\"", "both ' and \"", "back\\slash"]},
+  {"type": ["line\nbreak", "tab\there", "cr\rhere", "bell\u0007", "del\u007f"]},
+  {"type": ["café", "nbsp ", "soft­hyphen", "zero​width", "line sep", "😀"]},
+  {"type": [1.5, 2.0, -0.0, 1e16, 1e-05, true, null, {"key's": "v"}]},
+  {"type": "CommandMenu", "properties": {"name": "Tools"}, "children": [
+    {"type": "Canvas", "properties": {"operations": [{"type": ["it's\n"]}, {"type": ["éé"]}]}}
+  ]}
+]

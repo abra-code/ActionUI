@@ -1,0 +1,9 @@
+[
+  {"type": "CommandMenu", "properties": {}},
+  {"type": "CommandGroup", "properties": {"placement": "sideways"}},
+  {"type": "VStack"},
+  {"properties": {}},
+  "string",
+  {"type": 5},
+  {"type": null}
+]

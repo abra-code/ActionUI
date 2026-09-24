@@ -14,6 +14,7 @@
 //   • ActionUIWebKitJSAdapter        – WebKit / WKWebView JS bridge adapter
 //   • ActionUIRemote                 – Out-of-process binding: Unix socket + JSON-RPC 2.0 server (macOS)
 //   • ActionUIDocumentation          – Resource-only bundle (schemas, templates, index)
+//   • ActionUIVerifier               – Document verifier against the element schemas, Foundation only
 //
 // The ActionUIViewer preview tool moved to its own aggregator package at Apps/ActionUIViewer so it
 // can link the optional add-ons and register their element types (a core target cannot depend on the
@@ -103,6 +104,17 @@ let package = Package(
         .library(
             name: "ActionUIDocumentation",
             targets: ["ActionUIDocumentation"]
+        ),
+
+        // MARK: - Document verifier
+        // Checks ActionUI JSON documents against the element schemas: unknown property names,
+        // wrong value types, unknown enum values, missing required properties, platform issues.
+        // Swift twin of the Python verifier in Tools/verifier (both read ActionUIVerifier/Schemas),
+        // Foundation only; it does not depend on ActionUI. The command-line tool is in
+        // Apps/ActionUIVerifier.
+        .library(
+            name: "ActionUIVerifier",
+            targets: ["ActionUIVerifier"]
         ),
     ],
     targets: [
@@ -272,6 +284,30 @@ let package = Package(
                 "README.md",
                 "Shell",
             ],
+        ),
+
+        // MARK: - ActionUIVerifier
+        // Swift sources in ActionUIVerifier/, and ActionUIVerifier/Schemas - the element schemas,
+        // shared with the Python verifier in Tools/verifier - bundled as a resource (reached
+        // through Bundle.module).
+        .target(
+            name: "ActionUIVerifier",
+            path: "ActionUIVerifier",
+            resources: [
+                .copy("Schemas"),
+            ]
+        ),
+
+        // MARK: - Unit tests for ActionUIVerifier
+        // Parity/ holds the script that compares this verifier with the Python one; it is run
+        // with python3, not by `swift test`.
+        .testTarget(
+            name: "ActionUIVerifierTests",
+            dependencies: ["ActionUIVerifier"],
+            path: "ActionUIVerifierTests",
+            exclude: [
+                "Parity",
+            ]
         ),
 
         // MARK: - Unit tests for ActionUIRemote
