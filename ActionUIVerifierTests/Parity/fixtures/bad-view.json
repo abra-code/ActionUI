@@ -1,0 +1,45 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "comment": "annotation key at the top level is reported as unexpected",
+  "properties": {
+    "spacing": "16",
+    "padding": 12,
+    "foregroundColor": "red",
+    "note": "annotation inside properties is info only",
+    "font": {"size": 13, "weight": "heavyish", "design": "mono", "style": "x"},
+    "frame": {"width": 100, "maxWidth": "infinity", "minHeight": "tall"},
+    "keyboardShortcut": {"key": "k", "modifiers": ["command", "hyper", 3]},
+    "onDropTypes": ["public.image", 7],
+    "tint:androidd": "blue",
+    "weight": 2,
+    "stackedCards": true
+  },
+  "children": [
+    {"type": "Text", "id": 1, "properties": {"text": 5, "markdown": "ok"}},
+    {"type": "Text", "id": 0},
+    {"type": "Text", "id": -3},
+    {"type": "Text", "id": "seven"},
+    {"type": "Text", "id": 2.5},
+    {"type": "Blorp", "id": 20},
+    {"id": 21},
+    {"type": ""},
+    "just a string",
+    {"type": "Gauge", "id": 22, "properties": {"value": 0.5, "range": {"min": 0}}},
+    {"type": "DatePicker", "id": 23, "properties": {"range": {"start": "2024-01-01"}, "displayedComponents": "fortnight"}},
+    {"type": "Canvas", "id": 24, "properties": {"operations": [
+      {"type": "fill", "path": {"type": "circle"}},
+      {"type": "sparkle"},
+      {"path": {}},
+      {"type": null},
+      {"type": 3},
+      {"type": 1.0},
+      "not an object"
+    ]}},
+    {"type": "Grid", "id": 25, "rows": [[{"type": "Text", "id": 26}, "cell"], "row"]},
+    {"type": "Table", "id": 27, "properties": {"columns": ["A", 2], "widths": [10, "wide"]}},
+    {"type": "Button", "id": 28, "properties": {"title": "Go", "role": "maybe"}, "extraKey": true},
+    {"type": "Picker", "id": 29, "properties": "not an object"},
+    {"type": "Text", "properties": {"text": "hi", "animation": {"curve": "wobbly", "duration": "slow"}}}
+  ]
+}

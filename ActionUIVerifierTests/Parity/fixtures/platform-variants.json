@@ -1,0 +1,13 @@
+{
+  "type": "VStack",
+  "type:ios": "HStack",
+  "type:web": "Nonexistent",
+  "id": 5,
+  "id:ios": 5,
+  "id:android": 5,
+  "properties": {"spacing": 4, "spacing:ios": 8, "spacing:android": "x", "padding:macos": "lots"},
+  "properties:ios": {"alignment": "center"},
+  "properties:wat": {"spacing": 1},
+  "children:ios": [{"type": "Text", "id": 7}],
+  "children": [{"type": "Text", "id": 6, "properties": {"text": "a", "text:macos": 3, "text:tvos": 4}}]
+}

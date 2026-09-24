@@ -79,4 +79,4 @@ The installer auto-runs the build if the requested flavor isn't in `dist/` yet.
 
 - Edit only files under `master/`. Generated `SKILL.md` and `dist/` will be overwritten on the next build.
 - Each content piece has YAML frontmatter declaring its `id`, `level`, and `flavors`. The manifest entry in `skill.meta.json` is authoritative for build-time filtering.
-- The Python validator and `Documentation/Schemas/<Type>.md` are the source of truth for element shape. When updating quick-reference tables in `06-element-quick-ref.md`, cross-check property names against `Tools/verifier/schemas/<Type>.json`.
+- The verifier schemas and `Documentation/Schemas/<Type>.md` are the source of truth for element shape. When updating quick-reference tables in `06-element-quick-ref.md`, cross-check property names against `ActionUIVerifier/Schemas/<Type>.json`.

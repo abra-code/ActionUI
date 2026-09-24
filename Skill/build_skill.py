@@ -29,6 +29,9 @@ MASTER_DIR = REPO_ROOT / "Skill" / "master"
 CONTENT_DIR = MASTER_DIR / "content"
 META_FILE = MASTER_DIR / "skill.meta.json"
 VERIFIER_SRC = REPO_ROOT / "Tools" / "verifier"
+# The core element schemas, shared with the Swift verifier; packaged as scripts/schemas/, where the
+# Python verifier looks first.
+VERIFIER_SCHEMAS = REPO_ROOT / "ActionUIVerifier" / "Schemas"
 SKILL_MAIN = REPO_ROOT / "Skill" / "SKILL.md"
 
 
@@ -250,6 +253,10 @@ def package_flavor(meta: dict, skill_md: str, flavor: str) -> None:
         else:
             shutil.copy2(src, dst)
 
+    schemas_out = scripts_out / "schemas"
+    if schemas_out.exists():
+        shutil.rmtree(schemas_out)
+    shutil.copytree(VERIFIER_SCHEMAS, schemas_out)
     _copy_addon_schemas(scripts_out)
     _copy_docs(meta, docs_out)
 

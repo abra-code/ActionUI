@@ -1,0 +1,13 @@
+{
+  "type": "VStack",
+  "children": [
+    {"type:ios": "Text", "type:macos": "Button", "id": 1, "properties": {"title": "Go", "titel": "typo"}},
+    {"type:ios": "Text", "type:apple": "Image", "type": "Button", "id": 2, "properties": {"title": "Go"}},
+    {"type:android": "Text", "id": 3},
+    {"type": "Canvas", "id": 4, "properties": {"operations": [{"type": ["fill"]}, {"type": {"a": 1}}, {"type": null}, {"type": 5}]}},
+    {"type": "HStack", "id": 5,
+     "children": [{"type": "Text", "id": 10}, {"type": "Text", "id": 1}],
+     "children:ios": [{"type": "Text", "id": 10}, {"type": "Text", "id": 11}, {"type": "Text", "id": 11}],
+     "children:apple": [{"type": "Text", "id": 10}]}
+  ]
+}

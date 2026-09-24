@@ -74,7 +74,7 @@ python3 Tools/verifier/validate_actionui.py \
 1. Create `Add-ons/<Name>/` with a `Package.swift` that depends on the ActionUI package
    (`.package(path: "../..")`) and a `Sources/` target implementing `ActionUIViewConstruction` for the
    element plus a public `register()` entry point.
-2. Ship `Schemas/<Element>.json` (same format as `Tools/verifier/schemas/`) so documents validate via
+2. Ship `Schemas/<Element>.json` (same format as `ActionUIVerifier/Schemas/`) so documents validate via
    `--schema-dir`.
 3. Add the package + product to `ActionUIAddOnTestApp` and call its `register()` in the app's `init`
    to exercise it on macOS and iOS.
