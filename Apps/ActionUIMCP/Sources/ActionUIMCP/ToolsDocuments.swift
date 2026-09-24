@@ -46,12 +46,12 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
         name: "show_document",
         title: "Show an ActionUI document",
         description: """
-            Open a native window from an ActionUI document you wrote. Load errors come back as a tool \
-            error and nothing is shown; call validate_document first. mode "dialog" waits for the user \
+            Open a native window from an ActionUI document you wrote. The document gets the checks of \
+            validate_document: errors come back as a tool error and nothing is shown, warnings come \
+            back with the result. mode "dialog" waits for the user \
             and returns {action, button, close_action?, values}, where values maps each element id to \
             its current value. mode "window" returns {window} at once; collect the user's actions with \
-            wait, change values with update_window. Results include ActionUI's warnings, if any. \
-            SecureField is not allowed: everything the user enters is sent to you.
+            wait, change values with update_window. SecureField is not allowed: everything the user enters is sent to you.
             """,
         inputSchema: input,
         annotations: ["readOnlyHint": true, "openWorldHint": false],
@@ -114,9 +114,11 @@ func validateDocumentTool(host: WindowHost) -> MCPTool {
         title: "Check an ActionUI document",
         description: """
             Check an ActionUI document without showing it: structure (element shape, unique positive \
-            ids, container keys such as children placed next to properties), disallowed elements, and \
-            ActionUI's own load errors and warnings. Returns {ok, errors, warnings}. Unknown property \
-            names are not detected yet; the actionui skill's verifier catches those.
+            ids, container keys such as children placed next to properties) and disallowed elements; \
+            when those pass, the rules of the ActionUI verifier (element types, property names, value \
+            types, enum values, required properties, platform suffixes); then ActionUI's own load \
+            errors. Returns {ok, errors, warnings}; fix every error, and read the warnings, which \
+            usually name a typo.
             """,
         inputSchema: input,
         outputSchema: ["type": "object",

@@ -186,6 +186,17 @@ check("validate reports ActionUI load errors", result.get("ok") is False and res
 s.call(33, "validate_document", {"document": json.dumps(FORM)})
 result = structured(s.response(33)) or {}
 check("validate rejects a document passed as a string", result.get("ok") is False, result)
+s.call(51, "validate_document", {"document": {"type": "Text", "properties": {"txt": "hi"}}})
+result = structured(s.response(51)) or {}
+check("validate warns about a property typo", result.get("ok") is True
+      and any("possible typo" in w for w in result.get("warnings", [])), result)
+s.call(52, "show_document", {"title": "T", "document": {"type": "VStack", "properties": {"spacing": "16"}}})
+message = s.response(52)
+check("show_document refuses a wrong value type", is_error(message)
+      and "expected number, got string" in message["result"]["content"][0]["text"], message)
+s.call(53, "validate_document", {"document": {"type": "QuickLook", "properties": {"filePath": "/tmp/x.pdf"}}})
+result = structured(s.response(53)) or {}
+check("validate knows add-on elements", result.get("ok") is True and result.get("warnings") == [], result)
 s.call(34, "show_document", {"title": "T", "document": {"type": "NoSuchElement"}})
 check("show_document refuses a document ActionUI cannot load", is_error(s.response(34)))
 

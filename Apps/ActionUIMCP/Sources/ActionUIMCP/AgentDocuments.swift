@@ -56,6 +56,22 @@ struct AgentDocument {
         var warnings: [String] = []
         var ids: Set<Int> = []
         let checked = Self.check(value, at: "root", errors: &errors, warnings: &warnings, ids: &ids)
+        // Then the ActionUIVerifier checks: element types, property names, value types, enums,
+        // required properties, platform rules. Its errors refuse the document; its warnings go
+        // back with the result.
+        if errors.isEmpty {
+            if let validator = Verifier.validator {
+                for issue in validator.validate(jsonObject: checked.any, rootPath: "root") {
+                    switch issue.severity {
+                    case .error: errors.append("\(issue.path): \(issue.message)")
+                    case .warning: warnings.append("\(issue.path): \(issue.message)")
+                    default: break
+                    }
+                }
+            } else {
+                warnings.append(Verifier.unavailableWarning)
+            }
+        }
         if !errors.isEmpty {
             let shown = errors.prefix(20).joined(separator: "\n")
             let more = errors.count > 20 ? "\n... and \(errors.count - 20) more" : ""

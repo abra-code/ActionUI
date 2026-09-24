@@ -588,7 +588,7 @@ When the `actionui` MCP server is connected, you can put native windows on the u
 | Show a report, text, image, PDF, video, web page, diff, or table and move on | `show` - returns at once |
 | Any other layout | `show_document` with a document you write |
 
-**Documents.** Pass the document as a JSON object in the `document` argument (or an absolute `.json` path in `path`), never as a string. Give every element whose value you need a unique positive `id`. Run `validate_document` first and fix every error: `show_document` refuses a document with errors, and returns any warnings with its result.
+**Documents.** Pass the document as a JSON object in the `document` argument (or an absolute `.json` path in `path`), never as a string. Give every element whose value you need a unique positive `id`. Run `validate_document` first: fix every error, and read the warnings, which usually name a misspelled property. `show_document` refuses a document with errors, and returns any warnings with its result.
 
 **Dialog or window.** `mode: "dialog"` adds a footer and buttons (the last is the default; "Cancel" is bound to Escape), waits, and returns every value keyed by id. Draw your own buttons instead with `buttons: []` and list their actionIDs in `close_actions`. `mode: "window"` returns `{window}` at once: collect the user's actions with `wait`, update the window with `update_window` (values, table rows), read it with `get_values`, and end with `close_window`. Each `wait` is a round trip, so handle the whole batch it returns before waiting again.
 

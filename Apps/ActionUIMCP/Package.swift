@@ -84,6 +84,7 @@ let package = Package(
                 "MCPStdio",
                 .product(name: "ActionUI", package: "ActionUI"),
                 .product(name: "ActionUISwiftAdapter", package: "ActionUI"),
+                .product(name: "ActionUIVerifier", package: "ActionUI"),
                 .product(name: "ActionUIQuickLook", package: "ActionUIQuickLook"),
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
