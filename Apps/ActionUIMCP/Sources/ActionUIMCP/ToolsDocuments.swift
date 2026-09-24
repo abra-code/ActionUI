@@ -38,6 +38,7 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
             "width": ["type": "number", "description": "Content width in points. Default: the document's own size."],
             "height": ["type": "number", "description": "Content height in points. With width, fixes the window size."],
             "timeout_s": ["type": "number", "description": "dialog mode: seconds before action \"timeout\". Default 3600."],
+            "keep": ["type": "boolean", "description": "window mode: keep the window open after this session ends (default false), for a window that only presents content. The kept window is a copy with the values it had: its actions no longer reach you."],
         ],
         "required": ["title"],
         "additionalProperties": false,
@@ -63,6 +64,8 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
         }
         let mode = arguments["mode"]?.string ?? "window"
         guard mode == "window" || mode == "dialog" else { throw MCPToolError("'mode' must be window or dialog") }
+        let keep = try keepArgument(arguments)
+        if keep && mode == "dialog" { throw MCPToolError("'keep' applies to window mode only; a dialog ends with its answer") }
         var size: NSSize?
         if let width = arguments["width"]?.double, let height = arguments["height"]?.double {
             size = NSSize(width: min(max(width, 160), 3000), height: min(max(height, 80), 3000))
@@ -80,7 +83,7 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
             let sizing: WindowHost.Sizing = size.map { .fixed($0) } ?? .fitting(resizable: true)
             let opened = try await MainActor.run { [root] in
                 try host.openWindow(document: root.any as? [String: Any] ?? [:], title: title, subtitle: subtitle,
-                                    sizing: sizing, activate: false, queuesEvents: true, rejectLoadErrors: true)
+                                    sizing: sizing, activate: false, queuesEvents: true, rejectLoadErrors: true, keep: keep)
             }
             var result: [String: JSONValue] = ["window": .string(opened.id)]
             let warnings = document.warnings + opened.warnings

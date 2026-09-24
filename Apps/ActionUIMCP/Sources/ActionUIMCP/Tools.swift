@@ -29,6 +29,13 @@ func provenance(clientName: String?, label: String?) -> String {
     return text
 }
 
+/// The optional `keep` argument of show and show_document.
+func keepArgument(_ arguments: [String: JSONValue]) throws -> Bool {
+    guard let value = arguments["keep"], value != .null else { return false }
+    guard let keep = value.bool else { throw MCPToolError("'keep' must be a boolean") }
+    return keep
+}
+
 func requireGraphicalSession(_ host: WindowHost) async throws {
     guard await host.hasGraphicalSession else {
         throw MCPToolError("no graphical session: windows cannot be shown on this machine right now (remote or SSH session?)")
@@ -133,6 +140,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
                      "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
             "width": ["type": "number", "description": "Content width in points. Default 800."],
             "height": ["type": "number", "description": "Content height in points. Default 600."],
+            "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
         ],
         "required": ["title", "kind"],
         "additionalProperties": false,
@@ -150,16 +158,18 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
             text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two \
             texts or files, or a table. Returns \
             {window} at once without waiting; the window stays open until the user closes it, you call \
-            close_window, or this session ends. It does not take keyboard focus.
+            close_window, or this session ends (with keep: true, until the user closes it). It does not \
+            take keyboard focus.
             """,
         inputSchema: input,
         outputSchema: output,
         annotations: ["readOnlyHint": true, "openWorldHint": false]
     ) { arguments, context in
         let spec = try ViewerSpec(arguments: arguments)
+        let keep = try keepArgument(arguments)
         try await requireGraphicalSession(host)
         let subtitle = provenance(clientName: context.clientName, label: label)
-        let windowID = try await host.openViewer(spec: spec, subtitle: subtitle)
+        let windowID = try await host.openViewer(spec: spec, subtitle: subtitle, keep: keep)
         return .structured(["window": .string(windowID)])
     }
 }

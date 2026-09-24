@@ -164,10 +164,10 @@ extension WindowHost {
 
     /// Opens a `show` window; a table gets its rows once the window exists. Viewers have no actions
     /// worth reporting, so they queue no events: a closed viewer leaves nothing behind for `wait`.
-    func openViewer(spec: ViewerSpec, subtitle: String) throws -> String {
+    func openViewer(spec: ViewerSpec, subtitle: String, keep: Bool) throws -> String {
         let windowID = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
                                       sizing: .fixed(NSSize(width: spec.width, height: spec.height)),
-                                      activate: false, queuesEvents: false).id
+                                      activate: false, queuesEvents: false, keep: keep).id
         if let rows = spec.tableRows, !rows.isEmpty {
             ActionUISwift.setElementRows(windowUUID: windowID, viewID: ViewerSpec.tableViewID, rows: rows)
         }

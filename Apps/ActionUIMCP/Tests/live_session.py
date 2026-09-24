@@ -17,8 +17,8 @@ import time
 
 
 class Session:
-    def __init__(self, binary, press=None, action=None, modern=False):
-        env = dict(os.environ)
+    def __init__(self, binary, press=None, action=None, modern=False, extra_env=None):
+        env = dict(os.environ, **(extra_env or {}))
         if press:
             env["ACTIONUI_MCP_TEST_PRESS"] = press
         if action:
@@ -335,6 +335,96 @@ s.call(6, "ask_user", {"title": "Pending at shutdown"})
 time.sleep(1)
 elapsed = s.close()
 check("exit on end of input (%.2f s)" % elapsed, elapsed < 2 and s.proc.returncode == 0, s.proc.returncode)
+
+# Kept windows: at the end of input the server hands them to a keeper process, which shows them
+# with the same frame and values, then (test hook) closes them a second later and exits.
+import glob
+import signal
+import tempfile
+
+
+def wait_for_file(path, timeout):
+    end = time.time() + timeout
+    while time.time() < end:
+        if os.path.exists(path):
+            time.sleep(0.2)  # written atomically; give the rename a moment on slow machines
+            with open(path) as handle:
+                return json.load(handle)
+        time.sleep(0.1)
+    return None
+
+
+def process_gone(pid, timeout):
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def spool_dirs():
+    return set(glob.glob(os.path.join(tempfile.gettempdir(), "actionui-mcp-rehost-*")))
+
+
+report_dir = tempfile.mkdtemp(prefix="actionui-mcp-live-")
+spools_before = spool_dirs()
+report = os.path.join(report_dir, "rehost-eof.json")
+s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_REHOST_REPORT": report})
+s.call(1, "show", {"title": "Kept table", "kind": "table", "columns": ["A", "B"], "rows": [["a", 1], ["b", 2], ["c", 3]],
+                   "keep": True})
+check("show with keep", bool(structured(s.response(1, timeout=5))))
+s.call(2, "show_document", {"title": "Kept live", "document": FORM, "keep": True})
+kept_live = (structured(s.response(2)) or {}).get("window", "")
+s.call(3, "update_window", {"window": kept_live, "values": {"1": "Status: kept", "2": "Grace"},
+                            "rows": {"5": [["x", 1], ["y", 2]]}})
+s.response(3)
+s.call(4, "show", {"title": "Not kept", "kind": "text", "text": "gone"})
+s.response(4)
+s.call(5, "show_document", {"title": "T", "mode": "dialog", "document": FORM, "keep": True})
+check("keep is refused in dialog mode", is_error(s.response(5)))
+s.call(6, "show", {"title": "T", "kind": "text", "text": "x", "keep": "yes"})
+check("keep must be a boolean", is_error(s.response(6)))
+elapsed = s.close()
+check("hand-off fits the grace period (%.2f s)" % elapsed, elapsed < 2 and s.proc.returncode == 0, s.proc.returncode)
+result = wait_for_file(report, 5) or {}
+shown = {w.get("title"): w for w in result.get("windows", [])}
+check("keeper shows the kept windows only", sorted(shown) == ["Kept live", "Kept table"], result)
+table = shown.get("Kept table", {})
+live_copy = shown.get("Kept live", {})
+check("keeper marks the session as ended", all(w.get("subtitle", "").startswith("Requested by live-test")
+      and w.get("subtitle", "").endswith(" (session ended)") for w in shown.values()), result)
+check("keeper keeps the frames", all(w.get("frame") == w.get("manifest_frame") for w in shown.values()), result)
+check("keeper restores table rows set after loading", 3 in table.get("row_counts", {}).values(), table)
+check("keeper restores values and rows from update_window", live_copy.get("values", {}).get("1") == "Status: kept"
+      and live_copy.get("values", {}).get("2") == "Grace" and live_copy.get("row_counts", {}).get("5") == 2, live_copy)
+check("keeper exits when its last window closes", process_gone(result.get("pid", -1), 5), result.get("pid"))
+check("keeper removes its spool directory", spool_dirs() == spools_before, spool_dirs() - spools_before)
+
+# No kept window: no keeper.
+report = os.path.join(report_dir, "rehost-none.json")
+s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_REHOST_REPORT": report})
+s.call(1, "show", {"title": "Not kept", "kind": "text", "text": "gone"})
+s.response(1)
+s.close()
+check("no keeper without kept windows", wait_for_file(report, 3) is None)
+
+# SIGTERM with no end of input hands off as well. A kept window closed during the session is not handed off.
+report = os.path.join(report_dir, "rehost-sigterm.json")
+s = Session(binary, extra_env={"ACTIONUI_MCP_TEST_REHOST_REPORT": report})
+s.call(1, "show", {"title": "Kept A", "kind": "text", "text": "a", "keep": True})
+s.response(1)
+s.call(2, "show", {"title": "Kept then closed", "kind": "text", "text": "b", "keep": True})
+closed = (structured(s.response(2)) or {}).get("window", "")
+s.call(3, "close_window", {"window": closed})
+s.response(3)
+s.proc.send_signal(signal.SIGTERM)
+s.proc.wait(timeout=5)
+result = wait_for_file(report, 5) or {}
+check("SIGTERM hands off kept windows", [w.get("title") for w in result.get("windows", [])] == ["Kept A"], result)
+check("keeper after SIGTERM exits", process_gone(result.get("pid", -1), 5), result.get("pid"))
 
 print("%d failure(s)" % len(failures))
 sys.exit(1 if failures else 0)

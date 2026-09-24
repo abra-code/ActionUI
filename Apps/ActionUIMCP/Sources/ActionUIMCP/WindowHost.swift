@@ -62,6 +62,9 @@ final class WindowHost: NSObject, NSWindowDelegate {
     var dialogs: [String: DialogSession] = [:]
     /// Open panels count toward the activation policy.
     var openPanels = 0
+    /// Staged document files of windows opened with `keep`, handed to a keeper process at shutdown
+    /// (KeptWindows.swift).
+    var keptDocuments: [String: URL] = [:]
     private let documentDirectory: URL
 
     /// Queued events per event window. A closed window's queue stays until it has been drained.
@@ -98,16 +101,18 @@ final class WindowHost: NSObject, NSWindowDelegate {
     /// Opens a window showing `document` and returns its id with the warnings ActionUI logged while
     /// loading it. With `rejectLoadErrors`, a document ActionUI logs errors for is not shown and the
     /// errors are thrown. `activate` brings the app to the front (dialogs need an answer); otherwise
-    /// the window is only ordered front, so it does not take keyboard focus from the user.
+    /// the window is only ordered front, so it does not take keyboard focus from the user. A `keep`
+    /// window stays open after the session ends, in a keeper process (KeptWindows.swift).
     func openWindow(document: [String: Any], title: String, subtitle: String, sizing: Sizing, activate: Bool,
-                    queuesEvents: Bool, rejectLoadErrors: Bool = false) throws -> (id: String, warnings: [String]) {
+                    queuesEvents: Bool, rejectLoadErrors: Bool = false, keep: Bool = false) throws -> (id: String, warnings: [String]) {
         guard windows.count < Self.maxWindows else {
             throw MCPToolError("too many open windows (\(Self.maxWindows)); close one with close_window first")
         }
         let windowID = UUID().uuidString
-        let loaded = try load(document: document, windowID: windowID)
+        let loaded = try load(document: document, windowID: windowID, retainFile: keep)
         let errors = loaded.entries.filter { $0.level == .error }.map(\.message)
         if rejectLoadErrors && !errors.isEmpty {
+            if let file = loaded.file { try? FileManager.default.removeItem(at: file) }
             throw MCPToolError("ActionUI could not load the document:\n" + errors.prefix(20).joined(separator: "\n"))
         }
         let controller = loaded.controller
@@ -137,6 +142,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
 
         windows[windowID] = window
         controllers[windowID] = controller
+        keptDocuments[windowID] = loaded.file
         if queuesEvents { eventQueues[windowID] = [] }
         updateActivationPolicy()
         if activate {
@@ -162,8 +168,9 @@ final class WindowHost: NSObject, NSWindowDelegate {
 
     /// Stages the document through a private temporary file (the public loading API takes a URL),
     /// builds its view, and measures it once so that view construction runs inside the log capture.
-    func load(document: [String: Any], windowID: String) throws
-        -> (controller: NSViewController, fitting: NSSize, entries: [HostLogger.Entry]) {
+    /// With `retainFile` the staged file is left in place and returned, for a kept window.
+    func load(document: [String: Any], windowID: String, retainFile: Bool = false) throws
+        -> (controller: NSViewController, fitting: NSSize, entries: [HostLogger.Entry], file: URL?) {
         let fileURL = documentDirectory.appendingPathComponent(windowID + ".json")
         do {
             try FileManager.default.createDirectory(at: documentDirectory, withIntermediateDirectories: true)
@@ -174,10 +181,11 @@ final class WindowHost: NSObject, NSWindowDelegate {
         }
         defer {
             // ACTIONUI_MCP_KEEP_DOCUMENTS=1 leaves the staged files in place, to inspect or render
-            // them with ActionUIViewer.
+            // them with ActionUIViewer. A kept window's file stays for the keeper process and is
+            // removed when the window closes.
             if ProcessInfo.processInfo.environment["ACTIONUI_MCP_KEEP_DOCUMENTS"] == "1" {
                 FileHandle.standardError.write(Data("[actionui-mcp] kept document \(fileURL.path)\n".utf8))
-            } else {
+            } else if !retainFile {
                 try? FileManager.default.removeItem(at: fileURL)
             }
         }
@@ -186,7 +194,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
             let controller = ActionUISwift.loadHostingController(from: fileURL, windowUUID: windowID, isContentView: true)
             return (controller, controller.view.fittingSize)
         }
-        return (captured.result.0, captured.result.1, captured.entries)
+        return (captured.result.0, captured.result.1, captured.entries, retainFile ? fileURL : nil)
     }
 
     static func clampedToScreen(_ size: NSSize) -> NSSize {
@@ -210,6 +218,9 @@ final class WindowHost: NSObject, NSWindowDelegate {
               let windowID = windows.first(where: { $0.value === window })?.key else { return }
         windows[windowID] = nil
         controllers[windowID] = nil
+        if let file = keptDocuments.removeValue(forKey: windowID) {
+            try? FileManager.default.removeItem(at: file)
+        }
         // The red close button or Cmd-W on a waiting dialog.
         if let session = dialogs[windowID], session.result == nil {
             settle(windowID, result: ["action": "cancel", "button": .null])

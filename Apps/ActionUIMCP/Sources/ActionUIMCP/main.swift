@@ -8,7 +8,11 @@
 //
 // Threads: the main thread runs the AppKit run loop and every window; a background thread reads
 // MCP requests from stdin; each tool call runs as a task. The process lives as long as its client
-// session: when stdin closes, running calls are cancelled and the app terminates.
+// session: when stdin closes (or SIGTERM, SIGHUP or SIGINT arrives), running calls are cancelled, windows
+// opened with `keep` are handed to a keeper process, and the app terminates.
+//
+// Modes: no arguments runs the MCP server; `--rehost <dir> [--ready-fd <n>]` is the keeper that
+// shows kept windows after the session (KeptWindows.swift), started by the server itself.
 //
 // Environment:
 //   ACTIONUI_MCP_LABEL      shown after the client name in every window's title bar
@@ -26,9 +30,10 @@ import ActionUIRichText
 let serverVersion = "0.1.0"
 
 /// Edit and Window menus, so text fields get copy, paste, undo and select all, and Cmd-W closes a
-/// window. No Quit item: quitting would end the client's server; closing windows is enough.
+/// window. No Quit item in the server: quitting would end the client's server; closing windows is
+/// enough. The keeper serves no one and gets one.
 @MainActor
-func makeMainMenu() -> NSMenu {
+func makeMainMenu(quitItem: Bool) -> NSMenu {
     let mainMenu = NSMenu()
     func submenu(_ title: String, _ items: [NSMenuItem]) {
         let menu = NSMenu(title: title)
@@ -42,7 +47,8 @@ func makeMainMenu() -> NSMenu {
         menuItem.keyEquivalentModifierMask = modifiers
         return menuItem
     }
-    submenu("ActionUI", [item("Hide", #selector(NSApplication.hide(_:)), "h")])
+    submenu("ActionUI", [item("Hide", #selector(NSApplication.hide(_:)), "h")]
+                        + (quitItem ? [.separator(), item("Quit", #selector(NSApplication.terminate(_:)), "q")] : []))
     submenu("Edit", [
         item("Undo", Selector(("undo:")), "z"),
         item("Redo", Selector(("redo:")), "z", [.command, .shift]),
@@ -74,8 +80,24 @@ if arguments.contains("--version") {
     exit(0)
 }
 
-// First, before anything can print: take stdout for the protocol.
-let writeMessage = MCPServer.reserveStandardOutput()
+/// The value after `flag`, or nil.
+func argument(after flag: String) -> String? {
+    guard let index = arguments.firstIndex(of: flag), arguments.index(after: index) < arguments.endIndex else { return nil }
+    return arguments[arguments.index(after: index)]
+}
+let rehostDirectory = argument(after: "--rehost")
+if arguments.contains("--rehost") && rehostDirectory == nil {
+    FileHandle.standardError.write(Data("actionui-mcp: --rehost needs a directory\n".utf8))
+    exit(2)
+}
+
+// First, before anything can print: take stdout for the protocol. The keeper has no protocol.
+let writeMessage: @Sendable (Data) -> Void
+if rehostDirectory == nil {
+    writeMessage = MCPServer.reserveStandardOutput()
+} else {
+    writeMessage = { _ in }
+}
 
 let environment = ProcessInfo.processInfo.environment
 let logLevel: LoggerLevel = switch environment["ACTIONUI_MCP_LOG_LEVEL"]?.lowercased() {
@@ -94,7 +116,15 @@ ActionUIRichText.register()
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-app.mainMenu = makeMainMenu()
+app.mainMenu = makeMainMenu(quitItem: rehostDirectory != nil)
+
+if let rehostDirectory {
+    let readyFD = argument(after: "--ready-fd").flatMap(Int32.init)
+    let keeper = KeptWindowKeeper()
+    guard keeper.start(spool: URL(fileURLWithPath: rehostDirectory, isDirectory: true), readyFD: readyFD) else { exit(1) }
+    withExtendedLifetime(keeper) { app.run() }  // window delegates are weak
+    exit(0)
+}
 
 let host = WindowHost(logger: logger)
 host.install()
@@ -118,10 +148,39 @@ let server = MCPServer(
     resources: DocsResources.make(),
     output: writeMessage)
 
+/// Ends the session once: answers every running call with a cancellation, hands kept windows to a
+/// keeper process, and terminates. Runs on the main thread.
+var shuttingDown = false
+@MainActor
+func shutDown(reason: String) {
+    guard !shuttingDown else { return }
+    shuttingDown = true
+    logger.log("session ended (\(reason))", .info)
+    server.cancelAll()
+    host.handOffKeptWindows()
+    NSApp.terminate(nil)
+}
+
+// A client normally closes stdin first; SIGTERM follows 2 s later. SIGHUP comes when the terminal
+// the client runs in closes, SIGINT from Ctrl-C in a terminal that is not in raw mode. Each would
+// otherwise end the process at once, with no handoff.
+let signalNames = [SIGTERM: "SIGTERM", SIGHUP: "SIGHUP", SIGINT: "SIGINT"]
+var signalSources: [DispatchSourceSignal] = []
+for (signalNumber, name) in signalNames {
+    signal(signalNumber, SIG_IGN)
+    let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+    source.setEventHandler {
+        MainActor.assumeIsolated { shutDown(reason: name) }
+    }
+    source.resume()
+    signalSources.append(source)
+}
+
 server.startReading {
     // stdin closed: the client ended the session. Nobody is left to answer.
-    server.cancelAll()
-    DispatchQueue.main.async { NSApp.terminate(nil) }
+    DispatchQueue.main.async {
+        MainActor.assumeIsolated { shutDown(reason: "stdin closed") }
+    }
 }
 
 app.run()

@@ -19,6 +19,8 @@ When the `actionui` MCP server is connected, you can put native windows on the u
 
 **Dialog or window.** `mode: "dialog"` adds a footer and buttons (the last is the default; "Cancel" is bound to Escape), waits, and returns every value keyed by id. Draw your own buttons instead with `buttons: []` and list their actionIDs in `close_actions`. `mode: "window"` returns `{window}` at once: collect the user's actions with `wait`, update the window with `update_window` (values, table rows), read it with `get_values`, and end with `close_window`. Each `wait` is a round trip, so handle the whole batch it returns before waiting again.
 
+**Keeping a window.** Windows close when your session ends. Pass `keep: true` to `show`, or to `show_document` in window mode, for content the user will want after you are done, such as a report or a diff. The window that stays is a copy with the values it had: its actions no longer reach you.
+
 **Waiting.** Blocking calls (`ask_user`, `pick_path`, dialogs, `wait`) last until the user acts or `timeout_s` passes. Some clients move a long call to the background and deliver the result later; do not assume an answer you have not received.
 
 **Privacy.** Everything the user enters is sent to you. Never ask for passwords or other secrets; SecureField is refused.
