@@ -215,6 +215,69 @@ public struct MCPToolError: Error, Sendable {
     public init(_ message: String) { self.message = message }
 }
 
+// MARK: - Resources
+
+/// A resource the server lists; its text is read on demand through `MCPResources.read`.
+public struct MCPResource: Sendable {
+    public let uri: String
+    public let name: String
+    public let title: String?
+    public let description: String?
+    public let mimeType: String?
+
+    public init(uri: String, name: String, title: String? = nil, description: String? = nil, mimeType: String? = nil) {
+        self.uri = uri
+        self.name = name
+        self.title = title
+        self.description = description
+        self.mimeType = mimeType
+    }
+
+    fileprivate var definition: JSONValue {
+        var object: [String: JSONValue] = ["uri": .string(uri), "name": .string(name)]
+        if let title { object["title"] = .string(title) }
+        if let description { object["description"] = .string(description) }
+        if let mimeType { object["mimeType"] = .string(mimeType) }
+        return .object(object)
+    }
+}
+
+/// A family of resources addressed by an RFC 6570 URI template, such as actionui://docs/elements/{type}.
+public struct MCPResourceTemplate: Sendable {
+    public let uriTemplate: String
+    public let name: String
+    public let description: String?
+    public let mimeType: String?
+
+    public init(uriTemplate: String, name: String, description: String? = nil, mimeType: String? = nil) {
+        self.uriTemplate = uriTemplate
+        self.name = name
+        self.description = description
+        self.mimeType = mimeType
+    }
+
+    fileprivate var definition: JSONValue {
+        var object: [String: JSONValue] = ["uriTemplate": .string(uriTemplate), "name": .string(name)]
+        if let description { object["description"] = .string(description) }
+        if let mimeType { object["mimeType"] = .string(mimeType) }
+        return .object(object)
+    }
+}
+
+/// Read-only text resources. `read` returns nil for a URI it does not know.
+public struct MCPResources: Sendable {
+    public let resources: [MCPResource]
+    public let templates: [MCPResourceTemplate]
+    public let read: @Sendable (_ uri: String) -> (mimeType: String, text: String)?
+
+    public init(resources: [MCPResource], templates: [MCPResourceTemplate] = [],
+                read: @escaping @Sendable (_ uri: String) -> (mimeType: String, text: String)?) {
+        self.resources = resources
+        self.templates = templates
+        self.read = read
+    }
+}
+
 // MARK: - Server
 
 public final class MCPServer: @unchecked Sendable {
@@ -244,6 +307,7 @@ public final class MCPServer: @unchecked Sendable {
     private let instructions: String?
     private let tools: [MCPTool]
     private let toolsByName: [String: MCPTool]
+    private let resources: MCPResources?
     private let output: @Sendable (Data) -> Void
     private let writeQueue = DispatchQueue(label: "MCPServer.output")
 
@@ -257,11 +321,12 @@ public final class MCPServer: @unchecked Sendable {
     /// - Parameter output: receives each complete message (JSON plus newline), always on one serial
     ///   queue. Use `reserveStandardOutput()` for the real stdout.
     public init(name: String, version: String, instructions: String? = nil, tools: [MCPTool],
-                output: @escaping @Sendable (Data) -> Void) {
+                resources: MCPResources? = nil, output: @escaping @Sendable (Data) -> Void) {
         self.name = name
         self.version = version
         self.instructions = instructions
         self.tools = tools
+        self.resources = resources
         self.toolsByName = Dictionary(tools.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
         self.output = output
     }
@@ -383,6 +448,14 @@ public final class MCPServer: @unchecked Sendable {
             send(resultResponse(id: id, result: complete(["tools": .array(toolDefinitions(era: era))], era: era, cacheable: true)))
         case "tools/call":
             call(id: id, params: params, era: era)
+        case "resources/list" where resources != nil:
+            let list = resources!.resources.map(\.definition)
+            send(resultResponse(id: id, result: complete(["resources": .array(list)], era: era, cacheable: true)))
+        case "resources/templates/list" where resources != nil:
+            let list = resources!.templates.map(\.definition)
+            send(resultResponse(id: id, result: complete(["resourceTemplates": .array(list)], era: era, cacheable: true)))
+        case "resources/read" where resources != nil:
+            readResource(id: id, params: params, era: era)
         default:
             send(errorResponse(id: id, code: -32601, message: "method not found: \(method)"))
         }
@@ -451,17 +524,38 @@ public final class MCPServer: @unchecked Sendable {
         lock.unlock()
         var result: [String: JSONValue] = [
             "protocolVersion": .string(version),
-            "capabilities": ["tools": [:]],
+            "capabilities": capabilities,
             "serverInfo": ["name": .string(name), "version": .string(self.version)],
         ]
         if let instructions { result["instructions"] = .string(instructions) }
         return .object(result)
     }
 
+    /// Tools always; resources when the server was given some.
+    private var capabilities: JSONValue {
+        resources == nil ? ["tools": [:]] : ["tools": [:], "resources": [:]]
+    }
+
+    private func readResource(id: JSONValue, params: [String: JSONValue], era: Era) {
+        guard let uri = params["uri"]?.string else {
+            send(errorResponse(id: id, code: -32602, message: "missing uri"))
+            return
+        }
+        guard let found = resources?.read(uri) else {
+            // 2026-07-28 moved "resource not found" from -32002 to -32602 (invalid params).
+            send(["jsonrpc": "2.0", "id": id, "error": [
+                "code": .int(era.isModern ? -32602 : -32002), "message": "Resource not found", "data": ["uri": .string(uri)],
+            ]])
+            return
+        }
+        let contents: JSONValue = ["uri": .string(uri), "mimeType": .string(found.mimeType), "text": .string(found.text)]
+        send(resultResponse(id: id, result: complete(["contents": [contents]], era: era, cacheable: true)))
+    }
+
     private func discover() -> JSONValue {
         var result: [String: JSONValue] = [
             "supportedVersions": .array(Self.supportedProtocolVersions.map(JSONValue.string)),
-            "capabilities": ["tools": [:]],
+            "capabilities": capabilities,
         ]
         if let instructions { result["instructions"] = .string(instructions) }
         return .object(result)

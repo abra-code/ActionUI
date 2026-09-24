@@ -287,6 +287,17 @@ message = s.response(2) or {}
 check("modern ask_user", message.get("result", {}).get("resultType") == "complete"
       and structured(message) == {"action": "accept", "button": "OK", "values": {"n": "x"}}, message)
 
+# Element reference as resources, from the documentation bundles next to the binary.
+s.send({"jsonrpc": "2.0", "id": 3, "method": "resources/list", "params": {"_meta": s.meta}})
+listed = [r["uri"] for r in (s.response(3) or {}).get("result", {}).get("resources", [])]
+check("resources/list has the guide and core and add-on elements (%d)" % len(listed),
+      {"actionui://docs/guide", "actionui://docs/elements/Button", "actionui://docs/elements/QuickLook"} <= set(listed))
+s.send({"jsonrpc": "2.0", "id": 4, "method": "resources/read",
+        "params": {"uri": "actionui://docs/templates/TextField", "_meta": s.meta}})
+contents = ((s.response(4) or {}).get("result", {}).get("contents") or [{}])[0]
+check("resources/read returns a template", contents.get("mimeType") == "application/json"
+      and '"TextField"' in contents.get("text", ""), contents)
+
 # Shutdown with a dialog pending must fit the client's 2 s grace period.
 s.call(6, "ask_user", {"title": "Pending at shutdown"})
 time.sleep(1)

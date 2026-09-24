@@ -88,6 +88,13 @@ let package = Package(
                 .product(name: "ActionUIDiff", package: "ActionUIDiff"),
                 .product(name: "ActionUICachedImage", package: "ActionUICachedImage"),
                 .product(name: "ActionUIRichText", package: "ActionUIRichText"),
+                // Resource-only documentation bundles, served as MCP resources (DocsResources.swift).
+                // Linked only so they are built next to the executable; never imported.
+                .product(name: "ActionUIDocumentation", package: "ActionUI"),
+                .product(name: "ActionUIQuickLookDocumentation", package: "ActionUIQuickLook"),
+                .product(name: "ActionUIDiffDocumentation", package: "ActionUIDiff"),
+                .product(name: "ActionUICachedImageDocumentation", package: "ActionUICachedImage"),
+                .product(name: "ActionUIRichTextDocumentation", package: "ActionUIRichText"),
             ],
             path: "Sources/ActionUIMCP",
             linkerSettings: sdkStampLinkerSettings

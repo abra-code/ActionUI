@@ -250,3 +250,43 @@ private func modernMeta(client: String = "modern-client", version: String = "202
     // initialize only negotiates handshake revisions.
     #expect(sink.response(id: 3)?["result"]?["protocolVersion"] == .string(MCPServer.legacyProtocolVersions[0]))
 }
+
+// MARK: - Resources
+
+private let docs = MCPResources(
+    resources: [MCPResource(uri: "test://a", name: "a", mimeType: "text/plain")],
+    templates: [MCPResourceTemplate(uriTemplate: "test://{x}", name: "x")]
+) { uri in uri == "test://a" ? ("text/plain", "hello") : nil }
+
+@Test func resourcesAreListedAndRead() {
+    let sink = Sink()
+    let server = MCPServer(name: "test", version: "1", tools: [], resources: docs, output: { sink.append($0) })
+    server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": ["protocolVersion": "2025-11-25"]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 2, "method": "resources/list"]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 3, "method": "resources/templates/list"]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 4, "method": "resources/read", "params": ["uri": "test://a"]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 5, "method": "resources/read", "params": ["uri": "test://b"]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 6, "method": "resources/read",
+                              "params": ["uri": "test://b", "_meta": modernMeta()]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 7, "method": "resources/read",
+                              "params": ["uri": "test://a", "_meta": modernMeta()]]))
+    server.flush()
+    #expect(sink.response(id: 1)?["result"]?["capabilities"]?["resources"] == [:])
+    #expect(sink.response(id: 2)?["result"]?["resources"]?.array?.first?["uri"] == "test://a")
+    #expect(sink.response(id: 3)?["result"]?["resourceTemplates"]?.array?.first?["uriTemplate"] == "test://{x}")
+    #expect(sink.response(id: 4)?["result"]?["contents"] == [["uri": "test://a", "mimeType": "text/plain", "text": "hello"]])
+    // Not found: -32002 in the legacy revisions, -32602 from 2026-07-28 on.
+    #expect(sink.response(id: 5)?["error"]?["code"] == -32002)
+    #expect(sink.response(id: 6)?["error"]?["code"] == -32602)
+    // A modern read is cacheable.
+    #expect(sink.response(id: 7)?["result"]?["cacheScope"] == "public")
+}
+
+@Test func noResourcesMeansNoCapabilityAndNoMethods() {
+    let (server, sink) = makeServer(tools: [])
+    server.handle(line: line(["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": [:]]))
+    server.handle(line: line(["jsonrpc": "2.0", "id": 2, "method": "resources/list"]))
+    server.flush()
+    #expect(sink.response(id: 1)?["result"]?["capabilities"]?["resources"] == nil)
+    #expect(sink.response(id: 2)?["error"]?["code"] == -32601)
+}

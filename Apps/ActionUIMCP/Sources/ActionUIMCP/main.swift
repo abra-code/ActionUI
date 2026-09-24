@@ -109,10 +109,12 @@ let server = MCPServer(
         tools cannot express, write an ActionUI document (see the actionui skill if available), check \
         it with validate_document, and open it with show_document: as a dialog that returns every \
         value, or as a live window whose actions you collect with wait and whose values you change \
-        with update_window. Prefer ask_user over asking in chat when you need structured input or an \
-        explicit approval.
+        with update_window. Element reference, for writing documents: resources \
+        actionui://docs/guide, actionui://docs/elements, and actionui://docs/elements/<Type>. Prefer \
+        ask_user over asking in chat when you need structured input or an explicit approval.
         """,
     tools: makeTools(host: host, label: environment["ACTIONUI_MCP_LABEL"]),
+    resources: DocsResources.make(),
     output: writeMessage)
 
 server.startReading {
