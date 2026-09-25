@@ -67,16 +67,16 @@ func makeMainMenu(quitItem: Bool) -> NSMenu {
 
 let arguments = CommandLine.arguments.dropFirst()
 if arguments.contains("-h") || arguments.contains("--help") {
-    FileHandle.standardError.write(Data("""
+    FileHandle.standardOutput.write(Data("""
         actionui-mcp \(serverVersion) - MCP server (stdio) that shows native ActionUI dialogs and windows.
-        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_document, validate_document, wait, update_window, get_values, close_window.
+        Started by an MCP client; speaks JSON-RPC on stdin/stdout. Tools: ask_user, pick_path, show, notify, show_document, validate_document, wait, update_window, get_values, screenshot, close_window.
         Environment: ACTIONUI_MCP_LABEL, ACTIONUI_MCP_LOG_LEVEL (error|warning|info|debug).
 
         """.utf8))
     exit(0)
 }
 if arguments.contains("--version") {
-    FileHandle.standardError.write(Data("actionui-mcp \(serverVersion)\n".utf8))
+    FileHandle.standardOutput.write(Data("actionui-mcp \(serverVersion)\n".utf8))
     exit(0)
 }
 

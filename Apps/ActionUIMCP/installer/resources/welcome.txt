@@ -1,0 +1,13 @@
+ActionUI MCP server
+
+This installs actionui-mcp, a local MCP (Model Context Protocol) server that lets an AI agent such as Claude Code open native macOS windows: dialogs that ask you a question, file panels, notices, and viewers for reports, images, PDFs, diffs and tables.
+
+Files installed:
+- /usr/local/libexec/actionui-mcp/actionui-mcp - the server
+- /usr/local/libexec/actionui-mcp/*.bundle - the element schemas and documentation it reads
+
+After installing, add the server to your MCP client. For Claude Code:
+
+    claude mcp add actionui -- /usr/local/libexec/actionui-mcp/actionui-mcp
+
+The server runs only while a client session uses it. It asks for no permissions: no Screen Recording, no Accessibility.

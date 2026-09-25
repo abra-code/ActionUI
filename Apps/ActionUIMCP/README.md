@@ -34,6 +34,8 @@ swift build -c release
 
 Run builds and tests with the sandbox off, as for ActionUIViewer.
 
+The installer package (a notarizable `.pkg` that puts the server and its resource bundles in `/usr/local/libexec/actionui-mcp/`) is built with PackageBuilder.app from `installer/`; see `installer/README.md`.
+
 ## Configure a client
 
 ```json

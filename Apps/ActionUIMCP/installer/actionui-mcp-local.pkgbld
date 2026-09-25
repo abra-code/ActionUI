@@ -1,0 +1,161 @@
+{
+  "COMPONENTS" : [
+    {
+      "TITLE" : "",
+      "OVERWRITE_PERMISSIONS" : false,
+      "PAYLOAD" : [
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+              "x86_64",
+              "arm64"
+            ],
+            "VERSION_FLAG" : "--version",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/actionui-mcp",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/actionui-mcp",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUI_ActionUIVerifier.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUI_ActionUIVerifier.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUI_ActionUIDocumentation.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUI_ActionUIDocumentation.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIQuickLook_ActionUIQuickLookDocumentation.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIDiff_ActionUIDiffDocumentation.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIDiff_ActionUIDiffDocumentation.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUICachedImage_ActionUICachedImageDocumentation.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUICachedImage_ActionUICachedImageDocumentation.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        },
+        {
+          "VERIFY" : {
+            "ARCHITECTURES" : [
+
+            ],
+            "VERSION_FLAG" : "",
+            "HARDENED_RUNTIME" : false,
+            "SECURE_TIMESTAMP" : false,
+            "SIGNED_BY" : ""
+          },
+          "DESTINATION" : "\/usr\/local\/libexec\/actionui-mcp\/ActionUIRichText_ActionUIRichTextDocumentation.bundle",
+          "MODE" : "0755",
+          "SOURCE" : "${ARTIFACTS_DIR}\/ActionUIRichText_ActionUIRichTextDocumentation.bundle",
+          "GROUP" : "wheel",
+          "OWNER" : "root"
+        }
+      ],
+      "PREINSTALL" : "",
+      "DESCRIPTION" : "",
+      "IDENTIFIER" : "com.abracode.pkg.actionui-mcp",
+      "INSTALL_LOCATION" : "\/",
+      "POSTINSTALL" : "",
+      "SELECTED" : true,
+      "VERSION" : "",
+      "RELOCATABLE" : false,
+      "AUTH" : "Root"
+    }
+  ],
+  "DISTRIBUTION" : {
+    "TITLE" : "ActionUI MCP server",
+    "REQUIRE_SCRIPTS" : false,
+    "CUSTOMIZE" : "never",
+    "HOST_ARCHITECTURES" : [
+      "arm64",
+      "x86_64"
+    ],
+    "RESOURCES" : {
+      "README" : "",
+      "CONCLUSION" : "",
+      "LICENSE" : "${PROJECT_DIR}\/..\/..\/..\/LICENSE.txt",
+      "WELCOME" : "${PROJECT_DIR}\/resources\/welcome.txt",
+      "BACKGROUND" : ""
+    }
+  },
+  "FORMAT_VERSION" : 1,
+  "PROJECT" : {
+    "NAME" : "actionui-mcp",
+    "OUTPUT_DIR" : "dist",
+    "PACKAGE_NAME" : "${NAME}_${VERSION}-localtest.pkg",
+    "VERSION" : "0.1.0",
+    "ARTIFACTS_DIR" : "artifacts",
+    "MIN_OS_VERSION" : "14.6"
+  },
+  "SIGNING" : {
+    "ENABLED" : false,
+    "INSTALLER_IDENTITY" : ""
+  }
+}
