@@ -21,6 +21,7 @@ struct RichTextElementView: View {
     let markdown: String
     let theme: RichTextTheme
     let behavior: RichTextWidthBehavior
+    let remoteImages: RichTextRemoteImages
     let showsFindBar: Bool
     let logger: any ActionUILogger
 
@@ -35,7 +36,8 @@ struct RichTextElementView: View {
     @State private var lastRejectedSearch: String?
 
     var body: some View {
-        let document = cache.view(markdown: markdown, theme: theme).widthBehavior(behavior).find(find)
+        let document = cache.view(markdown: markdown, theme: theme).widthBehavior(behavior)
+            .remoteImages(remoteImages).find(find)
         Group {
             if showsFindBar {
                 document.richTextFindBar(find)

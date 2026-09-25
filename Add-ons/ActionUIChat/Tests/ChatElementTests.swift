@@ -105,6 +105,8 @@ final class ChatConfigActionIDTests: XCTestCase {
         XCTAssertTrue(parsed.configuration.readOnly)
         XCTAssertFalse(config(["showFindBar": false]).configuration.showFindBar)
         XCTAssertTrue(config([:]).configuration.showFindBar)
+        XCTAssertEqual(config(["remoteImages": "on-click"]).configuration.remoteImages, .onClick)
+        XCTAssertEqual(config([:]).configuration.remoteImages, .automatic)
     }
 }
 
@@ -177,6 +179,16 @@ final class ChatConfigValidateTests: XCTestCase {
         XCTAssertNil(validate(["showFindBar": "yes"])["showFindBar"])
         XCTAssertEqual(validate(["showFindBar": false])["showFindBar"] as? Bool, false)
         XCTAssertEqual(validate(["showFindBar": true])["showFindBar"] as? Bool, true)
+    }
+
+    func testRemoteImagesMustBeAKnownPolicy() {
+        XCTAssertEqual(validate(["remoteImages": "on-click"])["remoteImages"] as? String, "on-click")
+        XCTAssertEqual(validate(["remoteImages": "never"])["remoteImages"] as? String, "never")
+        XCTAssertEqual(validate(["remoteImages": "automatic"])["remoteImages"] as? String, "automatic")
+        // A typo fails closed rather than dropping the key, which would mean automatic.
+        XCTAssertEqual(validate(["remoteImages": "onClick"])["remoteImages"] as? String, "on-click")
+        XCTAssertEqual(validate(["remoteImages": true])["remoteImages"] as? String, "on-click")
+        XCTAssertNil(validate([:])["remoteImages"], "absent stays absent (automatic)")
     }
 }
 

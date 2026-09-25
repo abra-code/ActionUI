@@ -107,7 +107,10 @@ let package = Package(
         // (a host's term, lit in the conversation), and ChatSearch for a host that searches saved
         // transcripts it never renders. A host below it has none of the three, and the element ignores
         // the "showFindBar" key and the "search" state without complaint.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.6.2"),
+        //
+        // 0.6.3 adds the "remoteImages" property (when images in message Markdown are fetched). Below it
+        // the key would be ignored and every image fetched, so the floor is a security floor.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.6.3"),
         // DO NOT COMMIT: local path dependency so an unreleased ChatView can be built
         // .package(path: "../../../ChatView"),
     ],

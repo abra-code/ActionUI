@@ -107,6 +107,12 @@
                                           //           case / whole-word / diacritic matching. false removes the bar
                                           //           and the Cmd-F (which one element per window should own); a
                                           //           states["search"] query still highlights.
+     "remoteImages": "on-click",          // Optional (default "automatic"): when images in message Markdown are
+                                          //           fetched (http / https). "automatic": as soon as a message renders.
+                                          //           "on-click": a placeholder shows the alt text and the image's host
+                                          //           until the reader clicks it. "never": not fetched. data: images
+                                          //           always show. Use "on-click" or "never" for a model or an agent -
+                                          //           an image URL can carry data, and the fetch delivers it.
      "readOnly": false                    // Optional (default false): read-only viewer mode - hides the composer and
                                           //           menus and starts NO transport ("protocol" may be omitted). Pair
                                           //           with a runtime setElementState("content", ...) to show a saved session.

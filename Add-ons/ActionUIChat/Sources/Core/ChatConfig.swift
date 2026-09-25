@@ -131,6 +131,14 @@ struct ChatConfig {
             validated["showFindBar"] = nil
         }
 
+        // Fails closed: a present but unrecognized value becomes "on-click" rather than being dropped, which
+        // would mean "automatic" - whoever set the key meant to restrict fetching.
+        if let value = validated["remoteImages"],
+           (value as? String).flatMap(ChatConfiguration.RemoteImages.init(rawValue:)) == nil {
+            logger.log("Chat remoteImages must be one of automatic / on-click / never; using on-click", .warning)
+            validated["remoteImages"] = ChatConfiguration.RemoteImages.onClick.rawValue
+        }
+
         return validated
     }
 }
