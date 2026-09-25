@@ -42,7 +42,9 @@ ActionUI package's many products, only ActionUI + ActionUISwiftAdapter (and the 
 
 1. Add the add-on's package + product to `project.yml` dependencies, and an `import` + `register()`
    line in `ActionUIAddOnTestApp.swift`.
-2. Drop a demo `Resources/<Name>.json` (it appears in the picker automatically), and ship the
+2. Drop a demo `Resources/<Name>.json` and run `xcodegen generate` here (the project lists each
+   resource by name; a file it does not list is not copied into the app, and the picker lists only
+   what the app contains), and ship the
    add-on's `Schemas/<Element>.json` (the verify phase picks it up via `--schema-dir`).
 3. If the demo needs runtime data, add a `case "<Name>":` to `DemoSetup`.
 

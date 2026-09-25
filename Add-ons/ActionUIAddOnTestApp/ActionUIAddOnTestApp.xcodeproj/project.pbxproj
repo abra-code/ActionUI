@@ -23,10 +23,12 @@
 		9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */ = {isa = PBXBuildFile; fileRef = 5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */; };
 		B4D671CD8BB050943270DEFF /* ActionUIDiff in Frameworks */ = {isa = PBXBuildFile; productRef = 4C9B8E82DC322DADB493567B /* ActionUIDiff */; };
 		C243B510E2EACF91A4836826 /* ActionUICachedImage in Frameworks */ = {isa = PBXBuildFile; productRef = 8547149835E3A4CB8FE6B319 /* ActionUICachedImage */; };
+		C79A52BABF56555B91C7E12C /* Chat.remoteImages.json in Resources */ = {isa = PBXBuildFile; fileRef = B2ADF88B6899BECE19EC0532 /* Chat.remoteImages.json */; };
 		CB890761543619F8B086622D /* CachedImage.json in Resources */ = {isa = PBXBuildFile; fileRef = 107BDAEA93918D1CF512FBE5 /* CachedImage.json */; };
 		CE2ACAF1AC12B27551EF4254 /* ActionUISwiftAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = D8B3E1190CB450E4B9CED0B7 /* ActionUISwiftAdapter */; };
 		D4828D7844C2AC0434113C1F /* ActionUIChat in Frameworks */ = {isa = PBXBuildFile; productRef = FAD0DCDC1A4C02C7A925C85E /* ActionUIChat */; };
 		EB39E2EBB3ED5C4BA0BC4C54 /* Sample.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 1BF48B38F26ADAC280C871E5 /* Sample.pdf */; };
+		F20935A9D9B61680F9F9D8A8 /* RichText.remoteImages.json in Resources */ = {isa = PBXBuildFile; fileRef = AD08C15AE806040A14627830 /* RichText.remoteImages.json */; };
 		F8FEB15EA16ACF004C1DB7B7 /* ActionUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2B9635CB1742700A0529909B /* ActionUI */; };
 /* End PBXBuildFile section */
 
@@ -47,7 +49,9 @@
 		93AC9B7410A4141FDB47B0F4 /* ActionUICachedImage */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUICachedImage; path = ../ActionUICachedImage; sourceTree = SOURCE_ROOT; };
 		9FC54A4FE510BDD635E8EC2D /* Chat.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.json; sourceTree = "<group>"; };
 		A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.modifierReturn.json; sourceTree = "<group>"; };
+		AD08C15AE806040A14627830 /* RichText.remoteImages.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = RichText.remoteImages.json; sourceTree = "<group>"; };
 		AD958B75F9EB537BD75A1095 /* ActionUIChat */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIChat; path = ../ActionUIChat; sourceTree = SOURCE_ROOT; };
+		B2ADF88B6899BECE19EC0532 /* Chat.remoteImages.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Chat.remoteImages.json; sourceTree = "<group>"; };
 		CD335CBB1919D8DE68DEFD07 /* ActionUIAddOnTestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ActionUIAddOnTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CF7ABC737BFB52F77899E3A0 /* QuickLook.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuickLook.json; sourceTree = "<group>"; };
 		DA0FBEB4C890493D3B817FB3 /* ActionUIDiff */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActionUIDiff; path = ../ActionUIDiff; sourceTree = SOURCE_ROOT; };
@@ -88,6 +92,7 @@
 				9FC54A4FE510BDD635E8EC2D /* Chat.json */,
 				5C6DFF3218BA9FCC7AA07B12 /* Chat.markdown.json */,
 				A41917B00EFFD131F2A59F2E /* Chat.modifierReturn.json */,
+				B2ADF88B6899BECE19EC0532 /* Chat.remoteImages.json */,
 				0082DE6A4D8F7DE178372147 /* Diff.json */,
 				0F0988F3ACDA6FD77C57D512 /* DiffSampleNew.txt */,
 				6E3A7F5032206F645C7C5B3E /* DiffSampleOld.txt */,
@@ -95,6 +100,7 @@
 				CF7ABC737BFB52F77899E3A0 /* QuickLook.json */,
 				223E54E78FAC92B933EC8448 /* QuickLook.showsChrome.json */,
 				8C4E595F1F40E2EF85F9F588 /* RichText.json */,
+				AD08C15AE806040A14627830 /* RichText.remoteImages.json */,
 				1BF48B38F26ADAC280C871E5 /* Sample.pdf */,
 			);
 			path = Resources;
@@ -209,6 +215,7 @@
 				2292F532EC5AC9BA9DC835E7 /* Chat.json in Resources */,
 				9D2F65791AA5671EC0BCB702 /* Chat.markdown.json in Resources */,
 				6FAD8BC583363B512D7B2A5F /* Chat.modifierReturn.json in Resources */,
+				C79A52BABF56555B91C7E12C /* Chat.remoteImages.json in Resources */,
 				10A529AC4F89C7EADC7BF12A /* Diff.json in Resources */,
 				34158BDB51FC0365D2F4186D /* DiffSampleNew.txt in Resources */,
 				73890C5557037BFA40BC861E /* DiffSampleOld.txt in Resources */,
@@ -216,6 +223,7 @@
 				2958C8147CD88342247317CF /* QuickLook.json in Resources */,
 				30EB5A5E9B5EF9A2EDB048CC /* QuickLook.showsChrome.json in Resources */,
 				62CDD50ACCD8CC25B6EF9912 /* RichText.json in Resources */,
+				F20935A9D9B61680F9F9D8A8 /* RichText.remoteImages.json in Resources */,
 				EB39E2EBB3ED5C4BA0BC4C54 /* Sample.pdf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

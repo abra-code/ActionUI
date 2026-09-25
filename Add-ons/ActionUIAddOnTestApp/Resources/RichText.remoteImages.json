@@ -1,0 +1,79 @@
+{
+  "type": "ScrollView",
+  "properties": {
+    "padding": 12
+  },
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 10,
+      "alignment": "leading"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": {
+          "text": "RichText - remote images. Fetching an image tells its host the document was shown, and the URL can carry data, so Markdown from a model or an agent should not fetch on its own. Each example uses its own image, since an image already in the shared cache shows in every mode.",
+          "font": "headline"
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "remoteImages \"automatic\" (the default): the image is fetched as soon as the document renders.",
+          "font": "subheadline",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "RichText",
+        "id": 91,
+        "properties": {
+          "markdown": "A remote image, fetched from picsum.photos:\n\n![A random landscape (seed actionui-remote-automatic)](https://picsum.photos/seed/actionui-remote-automatic/480/320)\n\nAn inline data: image, always shown: ![gradient](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAEBUlEQVR42g3MIc9HQADA4ffj/KMomSCYdMkEwaRLJgi/SZdMEEy6ZIJg0iUTBJMuiqKP8no+wPP3wzpYF+tjQ6zAJtgMK7ElFqzCttgeq7ETdsEa7I49sRZ7Yx/si/37cTlcLpfPFXIJroQr45JcJRdciqvl6rk018S1cBmunevkslw318P1cn3R4XC4HD5HyCE4Eo6MQ3KUHHAojpaj59AcE8fCYTh2jpPDctwcD8fL8UWbw+ay+Wwhm2BL2DI2yVaywabYWraeTbNNbAubYdvZTjbLdrM9bC/bFxkH42J8TIgRmASTYSSmxIBRmBbTYzRmwiwYg9kxJ8ZibsyDeTFftDqsLqvPGrIK1oQ1Y5WsJSusirVl7Vk168S6sBrWnfVktaw368P6sn7R7DC7zD5zyCyYE+aMWTKXzDAr5pa5Z9bME/PCbJh35pPZMt/MD/PL/EWjw+gy+owho2BMGDNGyVgywqgYW8aeUTNOjAujYdwZT0bLeDM+jC/jF2kH7aJ9dIgW6ASdoSW6RINW6BbdozV6Qi9og97RJ9qib/SDftFfNDgMLoPPEDIIhoQhY5AMJQMMiqFl6Bk0w8SwMBiGneFksAw3w8PwMnxR59C5dD5dSCfoErqMTtKVdNApupaup9N0E91CZ+h2upPO0t10D91L90WNQ+PS+DQhjaBJaDIaSVPSQKNoWpqeRtNMNAuNodlpThpLc9M8NC/NFykH5aJ8VIgSqASVoSSqRIFSqBbVozRqQi0og9pRJ8qibtSDelFfVDvULrVPHVIL6oQ6o5bUJTXUirql7qk19US9UBvqnfqkttQ39UP9Un9R5VC5VD5VSCWoEqqMSlKVVFApqpaqp9JUE9VCZah2qpPKUt1UD9VL9UWFQ+FS+BQhhaBIKDIKSVFSQKEoWoqeQlNMFAuFodgpTgpLcVM8FC/FF0kH6SJ9ZIgUyASZISWyRIJUyBbZIzVyQi5Ig9yRJ9Iib+SDfJFflDvkLrlPHpIL8oQ8I5fkJTnkirwl78k1+US+kBvynfwkt+Q3+UP+kn9R6pC6pD5pSCpIE9KMVJKWpJAq0pa0J9WkE+lCakh30pPUkt6kD+lL+kWxQ+wS+8QhsSBOiDNiSVwSQ6yIW+KeWBNPxAuxId6JT2JLfBM/xC/xFwkH4SJ8RIgQiASRISSiRIBQiBbRIzRiQiwIg9gRJ8IibsSDeBFfFDlELpFPFBIJooQoI5JEJRFEiqgl6ok00US0EBminegkskQ30UP0En1R4BC4BD5BSCAIEoKMQBKUBBAogpagJ9AEE8FCYAh2gpPAEtwED8FL8EWeg+fi+XghnsBL8DI8iVfigafwWrweT+NNeAuewdvxTjyLd+M9eC/eP+d1Xe4OhmAzAAAAAElFTkSuQmCC)",
+          "remoteImages": "automatic",
+          "frame": {
+            "maxWidth": "infinity"
+          }
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "remoteImages \"on-click\": a placeholder names the image's host; click it to fetch that one image.",
+          "font": "subheadline",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "RichText",
+        "id": 92,
+        "properties": {
+          "markdown": "A remote image from picsum.photos:\n\n![A random landscape (seed actionui-remote-onclick)](https://picsum.photos/seed/actionui-remote-onclick/480/320)\n\nAn inline data: image, always shown: ![gradient](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAEBUlEQVR42g3MIc9HQADA4ffj/KMomSCYdMkEwaRLJgi/SZdMEEy6ZIJg0iUTBJMuiqKP8no+wPP3wzpYF+tjQ6zAJtgMK7ElFqzCttgeq7ETdsEa7I49sRZ7Yx/si/37cTlcLpfPFXIJroQr45JcJRdciqvl6rk018S1cBmunevkslw318P1cn3R4XC4HD5HyCE4Eo6MQ3KUHHAojpaj59AcE8fCYTh2jpPDctwcD8fL8UWbw+ay+Wwhm2BL2DI2yVaywabYWraeTbNNbAubYdvZTjbLdrM9bC/bFxkH42J8TIgRmASTYSSmxIBRmBbTYzRmwiwYg9kxJ8ZibsyDeTFftDqsLqvPGrIK1oQ1Y5WsJSusirVl7Vk168S6sBrWnfVktaw368P6sn7R7DC7zD5zyCyYE+aMWTKXzDAr5pa5Z9bME/PCbJh35pPZMt/MD/PL/EWjw+gy+owho2BMGDNGyVgywqgYW8aeUTNOjAujYdwZT0bLeDM+jC/jF2kH7aJ9dIgW6ASdoSW6RINW6BbdozV6Qi9og97RJ9qib/SDftFfNDgMLoPPEDIIhoQhY5AMJQMMiqFl6Bk0w8SwMBiGneFksAw3w8PwMnxR59C5dD5dSCfoErqMTtKVdNApupaup9N0E91CZ+h2upPO0t10D91L90WNQ+PS+DQhjaBJaDIaSVPSQKNoWpqeRtNMNAuNodlpThpLc9M8NC/NFykH5aJ8VIgSqASVoSSqRIFSqBbVozRqQi0og9pRJ8qibtSDelFfVDvULrVPHVIL6oQ6o5bUJTXUirql7qk19US9UBvqnfqkttQ39UP9Un9R5VC5VD5VSCWoEqqMSlKVVFApqpaqp9JUE9VCZah2qpPKUt1UD9VL9UWFQ+FS+BQhhaBIKDIKSVFSQKEoWoqeQlNMFAuFodgpTgpLcVM8FC/FF0kH6SJ9ZIgUyASZISWyRIJUyBbZIzVyQi5Ig9yRJ9Iib+SDfJFflDvkLrlPHpIL8oQ8I5fkJTnkirwl78k1+US+kBvynfwkt+Q3+UP+kn9R6pC6pD5pSCpIE9KMVJKWpJAq0pa0J9WkE+lCakh30pPUkt6kD+lL+kWxQ+wS+8QhsSBOiDNiSVwSQ6yIW+KeWBNPxAuxId6JT2JLfBM/xC/xFwkH4SJ8RIgQiASRISSiRIBQiBbRIzRiQiwIg9gRJ8IibsSDeBFfFDlELpFPFBIJooQoI5JEJRFEiqgl6ok00US0EBminegkskQ30UP0En1R4BC4BD5BSCAIEoKMQBKUBBAogpagJ9AEE8FCYAh2gpPAEtwED8FL8EWeg+fi+XghnsBL8DI8iVfigafwWrweT+NNeAuewdvxTjyLd+M9eC/eP+d1Xe4OhmAzAAAAAElFTkSuQmCC)",
+          "remoteImages": "on-click",
+          "frame": {
+            "maxWidth": "infinity"
+          }
+        }
+      },
+      {
+        "type": "Text",
+        "properties": {
+          "text": "remoteImages \"never\": the image is not fetched; the placeholder says remote images are off.",
+          "font": "subheadline",
+          "foregroundStyle": "secondary"
+        }
+      },
+      {
+        "type": "RichText",
+        "id": 93,
+        "properties": {
+          "markdown": "A remote image from picsum.photos:\n\n![A random landscape (seed actionui-remote-never)](https://picsum.photos/seed/actionui-remote-never/480/320)\n\nAn inline data: image, always shown: ![gradient](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAEBUlEQVR42g3MIc9HQADA4ffj/KMomSCYdMkEwaRLJgi/SZdMEEy6ZIJg0iUTBJMuiqKP8no+wPP3wzpYF+tjQ6zAJtgMK7ElFqzCttgeq7ETdsEa7I49sRZ7Yx/si/37cTlcLpfPFXIJroQr45JcJRdciqvl6rk018S1cBmunevkslw318P1cn3R4XC4HD5HyCE4Eo6MQ3KUHHAojpaj59AcE8fCYTh2jpPDctwcD8fL8UWbw+ay+Wwhm2BL2DI2yVaywabYWraeTbNNbAubYdvZTjbLdrM9bC/bFxkH42J8TIgRmASTYSSmxIBRmBbTYzRmwiwYg9kxJ8ZibsyDeTFftDqsLqvPGrIK1oQ1Y5WsJSusirVl7Vk168S6sBrWnfVktaw368P6sn7R7DC7zD5zyCyYE+aMWTKXzDAr5pa5Z9bME/PCbJh35pPZMt/MD/PL/EWjw+gy+owho2BMGDNGyVgywqgYW8aeUTNOjAujYdwZT0bLeDM+jC/jF2kH7aJ9dIgW6ASdoSW6RINW6BbdozV6Qi9og97RJ9qib/SDftFfNDgMLoPPEDIIhoQhY5AMJQMMiqFl6Bk0w8SwMBiGneFksAw3w8PwMnxR59C5dD5dSCfoErqMTtKVdNApupaup9N0E91CZ+h2upPO0t10D91L90WNQ+PS+DQhjaBJaDIaSVPSQKNoWpqeRtNMNAuNodlpThpLc9M8NC/NFykH5aJ8VIgSqASVoSSqRIFSqBbVozRqQi0og9pRJ8qibtSDelFfVDvULrVPHVIL6oQ6o5bUJTXUirql7qk19US9UBvqnfqkttQ39UP9Un9R5VC5VD5VSCWoEqqMSlKVVFApqpaqp9JUE9VCZah2qpPKUt1UD9VL9UWFQ+FS+BQhhaBIKDIKSVFSQKEoWoqeQlNMFAuFodgpTgpLcVM8FC/FF0kH6SJ9ZIgUyASZISWyRIJUyBbZIzVyQi5Ig9yRJ9Iib+SDfJFflDvkLrlPHpIL8oQ8I5fkJTnkirwl78k1+US+kBvynfwkt+Q3+UP+kn9R6pC6pD5pSCpIE9KMVJKWpJAq0pa0J9WkE+lCakh30pPUkt6kD+lL+kWxQ+wS+8QhsSBOiDNiSVwSQ6yIW+KeWBNPxAuxId6JT2JLfBM/xC/xFwkH4SJ8RIgQiASRISSiRIBQiBbRIzRiQiwIg9gRJ8IibsSDeBFfFDlELpFPFBIJooQoI5JEJRFEiqgl6ok00US0EBminegkskQ30UP0En1R4BC4BD5BSCAIEoKMQBKUBBAogpagJ9AEE8FCYAh2gpPAEtwED8FL8EWeg+fi+XghnsBL8DI8iVfigafwWrweT+NNeAuewdvxTjyLd+M9eC/eP+d1Xe4OhmAzAAAAAElFTkSuQmCC)",
+          "remoteImages": "never",
+          "frame": {
+            "maxWidth": "infinity"
+          }
+        }
+      }
+    ]
+  }
+}
