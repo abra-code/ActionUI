@@ -747,7 +747,7 @@ object ActionUIModel {
      * an unrepresentable value type.
      *
      * The Swift setter re-validates the mutated dictionary; Android has no
-     * central validation stage (see the porting notes), so an invalid value is
+     * central validation stage, so an invalid value is
      * caught where authored values are - warn-and-skip at read time.
      */
     fun setElementProperty(windowUUID: String = "", viewID: Int, propertyName: String, value: Any) {

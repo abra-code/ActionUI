@@ -98,7 +98,7 @@ struct ChatConfig {
                     continue
                 }
                 if mode == ChatConfiguration.SurfaceMode.panel.rawValue {
-                    logger.log("Chat surfaces.\(surface) 'panel' is not yet honored (M5); rendering inline", .verbose)
+                    logger.log("Chat surfaces.\(surface) 'panel' is not yet honored; rendering inline", .verbose)
                 }
             }
             validated["surfaces"] = surfacesRaw

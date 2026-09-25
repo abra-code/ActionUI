@@ -5,7 +5,7 @@
 // children flow into them row by row. Rendered as CSS `display:grid` with
 // `grid-template-columns` — the natural DOM analog of SwiftUI's LazyVGrid; the
 // browser's auto-placement is the row-by-row flow. Renders eagerly (no
-// virtualization — Phase 4), like the lazy stacks.
+// virtualization yet), like the lazy stacks.
 //
 // Column tracks (mirroring GridItem): `{ minimum: N }` → a fixed `Npx` track
 // (Swift maps `minimum` to `GridItem(.fixed)`), `{ flexible: true }` → `1fr`;

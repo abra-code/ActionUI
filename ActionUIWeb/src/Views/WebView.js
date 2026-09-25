@@ -14,7 +14,7 @@
 // Observable state (getElementState): isLoading, title, canGoBack, canGoForward,
 // estimatedProgress - seeded like Apple/Android.
 //
-// Divergences from WKWebView (Web_Porting_Notes.md), all consequences of the
+// Divergences from WKWebView, all consequences of the
 // iframe being a sandboxed, cross-origin-restricted frame rather than an in-app
 // browser engine:
 //   * WK-only knobs have no iframe equivalent and are accepted-and-ignored

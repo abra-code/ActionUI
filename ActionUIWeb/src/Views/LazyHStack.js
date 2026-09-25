@@ -2,7 +2,7 @@
 // Web analog of ActionUI/Views/LazyHStack.swift (and ActionUIAndroid Views/LazyHStack.kt).
 //
 // Same flexbox-row layout as HStack; on web it renders eagerly — the "lazy"
-// virtualization is a Phase 4 concern (not done yet), so LazyHStack and HStack
+// virtualization is not done yet, so LazyHStack and HStack
 // look identical. It reuses the `.aui-hstack` class (Divider orientation +
 // flex-direction) plus an `.aui-lazyhstack` marker. Like LazyVStack the default
 // spacing is 0 (Swift `spacing ?? 0.0`), and its alignment vocabulary is the

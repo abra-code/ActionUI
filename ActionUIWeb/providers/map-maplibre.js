@@ -37,7 +37,7 @@ import {
 const DEFAULT_LIBRARY_JS = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
 const DEFAULT_LIBRARY_CSS = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css";
 // MapLibre's key-free demo style. Documented as demo-only; a real deployment sets
-// styleURL:web to its own keyed/self-hosted style (see ActionUIWeb_Map_Options.md).
+// styleURL:web to its own keyed/self-hosted style.
 const DEFAULT_STYLE_URL = "https://demotiles.maplibre.org/style.json";
 
 let libraryPromise = null;

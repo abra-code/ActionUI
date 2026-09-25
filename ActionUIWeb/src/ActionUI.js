@@ -393,7 +393,7 @@ export class Application {
     // action registry; the dispatched ActionContext.windowUUID disambiguates which
     // surface fired. (That is the web's honest "multi-window": separate OS windows via
     // window.open run in a different realm and cannot be driven by reference - out of
-    // scope, see Web_Porting_Notes.md.) `options.appShell` (default true) wraps the
+    // scope.) `options.appShell` (default true) wraps the
     // window in the menu-bar app shell when one is set; auxiliary surfaces pass
     // `{ appShell: false }` so the shell stays on the primary window only.
     presentWindow(win, container, { appShell = true } = {}) {
@@ -486,9 +486,9 @@ export class Application {
     // savePanel is deferred on web: a download needs the content up front and the
     // File System Access save picker is Chromium-only, so there is no clean
     // universal "return a path to write to". Honest no-op so a shared host that
-    // calls it degrades gracefully rather than throwing. See Web_Porting_Notes.md.
+    // calls it degrades gracefully rather than throwing.
     savePanel(_config = {}) {
-        this.logger.log("savePanel is not supported on web (deferred); see Web_Porting_Notes.md (File panels)", "warning");
+        this.logger.log("savePanel is not supported on web (deferred)", "warning");
         return null;
     }
 }

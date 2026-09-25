@@ -1,8 +1,8 @@
 // ModalHost.js — window-level modal (sheet / fullScreenCover).
 // Web analog of the *modal* half of ActionUI/Common/WindowModal.swift, driven by
 // ActionUIModel.presentModal / dismissModal, and ActionUIAndroid's
-// Helpers/WindowModalHost.kt (Android_Porting_Notes). The second member of the
-// Phase 3 presentation layer (Scenes/), after DialogHost.
+// Helpers/WindowModalHost.kt. The second member of the
+// presentation layer (Scenes/), after DialogHost.
 //
 // Unlike a window dialog (pure title/message/buttons, Scenes/DialogHost.js), a
 // modal loads a JSON sub-document, builds it through the registry - which registers

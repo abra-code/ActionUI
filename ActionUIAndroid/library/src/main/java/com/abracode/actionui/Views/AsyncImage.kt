@@ -35,10 +35,10 @@ import kotlinx.serialization.json.JsonPrimitive
  * Asynchronously loaded remote (or local-file) image. Mirror of the Apple
  * `AsyncImage` element (`ActionUI/Views/AsyncImage.swift`, SwiftUI
  * `AsyncImage`), implemented dependency-free: the fetch is the same
- * [HttpURLConnection] pattern as `Helpers/LoadableLoader.kt` (entry 39) on
+ * [HttpURLConnection] pattern as `Helpers/LoadableLoader.kt` on
  * [Dispatchers.IO], the decode is the platform [BitmapFactory] - deliberately
- * no Coil or other image library (see the porting notes for what that would
- * add and when to revisit).
+ * no Coil or other image library, which would add a large dependency for one
+ * element.
  *
  * Sample JSON:
  * ```
@@ -85,8 +85,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * scope, the reason Coil exists for app-scale image lists): no disk tier, no
  * in-flight request de-duplication (two elements racing the same URL both
  * fetch; the second store wins harmlessly), and no downsampling - the full
- * bitmap is decoded. Remote URLs ride the existing `INTERNET` permission
- * (entry 39).
+ * bitmap is decoded. Remote URLs ride the existing `INTERNET` permission.
  */
 object AsyncImage : ActionUIViewConstruction {
     override val valueType = ActionUIValueType.STRING
@@ -137,7 +136,7 @@ object AsyncImage : ActionUIViewConstruction {
             is AsyncImagePhase.Success -> FoundationImage(
                 bitmap = current.bitmap,
                 // accessibilityLabel arrives as semantics on [modifier] via the
-                // shared pipeline (entry 47's one-owner rule).
+                // shared pipeline, its one owner.
                 contentDescription = null,
                 modifier = modifier,
                 contentScale = when {

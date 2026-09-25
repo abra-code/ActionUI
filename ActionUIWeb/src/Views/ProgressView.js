@@ -72,7 +72,7 @@ register("ProgressView", {
         // total defaults to 1.0 when a value is present — the documented behavior,
         // matching the Android port. (Apple's buildView has a latent quirk, noted
         // by its own TODO, where an absent total falls through to indeterminate;
-        // we follow the documented/Android semantics. See Web_Porting_Notes.md.)
+        // we follow the documented/Android semantics.)
         const total = properties.total ?? 1.0;
         let current = (typeof properties.value === "number") ? properties.value : null;
 

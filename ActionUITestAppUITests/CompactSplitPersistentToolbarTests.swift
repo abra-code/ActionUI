@@ -25,7 +25,7 @@
 // a leading column in REGULAR width, which is the entire reason `sceneIsCompact` exists as a
 // separate environment value. Hard-wiring it true would leave every test in this feature green.
 // Measuring it needs a full-screen iPad scene, and the multi-window harness opens the fixture as a
-// 320pt side-by-side scene - compact again, i.e. this test. `Missing_Features` #36 says the same.
+// 320pt side-by-side scene - compact again, i.e. this test.
 //
 // The two absent-checks below have no positive control HERE: misspell Edit in the fixture and
 // they pass for the wrong reason. Their control is SplitPersistentToolbarTests, which drives the

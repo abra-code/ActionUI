@@ -16,8 +16,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for [Toggle] - the first Boolean-valued control on the state bridge
- * (entry 17). Exercises the `BOOLEAN` [ActionUIValueType] path end-to-end through
+ * Unit tests for [Toggle] - the first Boolean-valued control on the state bridge.
+ * Exercises the `BOOLEAN` [ActionUIValueType] path end-to-end through
  * the real element (not a fake builder): initial value from `isOn`, and a host
  * `setElementValueFromString("true")` round-tripping through the `ViewModel`.
  * Style resolution is covered as a pure helper.

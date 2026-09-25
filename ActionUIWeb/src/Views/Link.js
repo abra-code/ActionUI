@@ -9,7 +9,7 @@
 //
 // Properties (Link.swift): title (String, defaults to "Link"), url (String).
 //
-// Divergences (Web_Porting_Notes.md):
+// Divergences:
 //   * The link opens in a new tab (target="_blank", rel="noopener noreferrer") -
 //     the web analog of Apple/Android "open externally", so a tap does not
 //     navigate the whole ActionUI host page away.

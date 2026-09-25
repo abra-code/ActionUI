@@ -1,7 +1,7 @@
 // SymbolIcon.js — shared symbol-glyph rendering for ActionUIWeb.
 // Web analog of ActionUI/.../Helpers/SymbolIcon.kt (Android).
 //
-// The convergence point the porting notes called for: `Image` and the
+// The one convergence point: `Image` and the
 // image-label controls (`Button`, and later `Label` / `NavigationLink` / `Tab`)
 // draw an SF Symbol (`systemName` / `systemImage`) or an explicit Material glyph
 // (`materialName`) through ONE path instead of each re-deriving icon handling

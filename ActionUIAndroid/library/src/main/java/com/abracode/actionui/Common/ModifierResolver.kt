@@ -223,8 +223,8 @@ fun Modifier.applyOuterProperties(
  * interactive elements over visible content - a "Clear filters" Button centred in
  * the feed's own space, and a full-width "Show earlier" Button pinned across the
  * bottom of the section body, which overlaps the SCHEDULE body in the same
- * ZStack. Both intercepted taps meant for what was underneath. The out-of-scope
- * note on Missing_Features #34 had predicted exactly this.
+ * ZStack. Both intercepted taps meant for what was underneath. This was an
+ * anticipated risk that materialized.
  *
  * Input is suppressed CO-OPERATIVELY, through the environment: `hidden` narrows
  * both [com.abracode.actionui.Helpers.LocalActionUIEnabled] and

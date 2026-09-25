@@ -22,8 +22,8 @@
 // the coordinate value bridge) lives in src/Helpers/MapContract.js.
 //
 // Key + terms. The Google Maps JavaScript API requires the host's own API key and a
-// billing account, and its ToS govern caching/attribution (see ActionUIWeb_Map_Options.md
-// 4c) — which is exactly why it is an opt-in module, never a default. Supply the key
+// billing account, and its ToS govern caching/attribution — which is exactly why it
+// is an opt-in module, never a default. Supply the key
 // with apiKey:web on the Map element, or set a page-wide fallback once via
 // window.AUI_GOOGLE_MAPS_API_KEY (handy for the demo). The library is lazy-loaded
 // from Google's loader on first build (libraryURL:web overrides the loader endpoint,
@@ -182,8 +182,8 @@ register("Map", {
 });
 
 // Maps the contract's interactionModes onto Google's map options. Google's gesture
-// model is coarser than Apple's per-mode set, so this is best-effort (documented in
-// Web_Porting_Notes): pan -> draggable + gestureHandling; zoom -> scrollwheel /
+// model is coarser than Apple's per-mode set, so this is best-effort: pan -> draggable
+// + gestureHandling; zoom -> scrollwheel /
 // double-click / zoom control; rotate -> rotateControl (real rotation/tilt needs a
 // vector map, i.e. a mapId:web). gestureHandling is "none" only when neither pan nor
 // zoom is wanted, so touch gestures are fully locked out in that case.
@@ -225,8 +225,7 @@ function annotationInfoWindow(gmaps, annotation) {
 
 // Best-effort showsUserLocation. The Google Maps JS API has no built-in "blue dot"
 // (unlike MapLibre's GeolocateControl or the native SDKs), so we drop a one-shot
-// marker at the browser geolocation fix. No live tracking or heading. Documented as
-// best-effort in Web_Porting_Notes.
+// marker at the browser geolocation fix. No live tracking or heading.
 function addUserLocationMarker(gmaps, map, markers) {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition((pos) => {

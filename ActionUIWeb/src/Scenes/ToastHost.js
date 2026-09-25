@@ -1,7 +1,7 @@
 // ToastHost.js — window-level toast / snackbar.
 // Web analog of ActionUI/Common/ToastOverlayView.swift plus the toast half of
 // ActionUIModel.swift (presentToast / dismissToast), and ActionUIAndroid's Material
-// snackbar. The third member of the Phase 3 presentation layer (Scenes/), after
+// snackbar. The third member of the presentation layer (Scenes/), after
 // DialogHost and ModalHost.
 //
 // A WindowToast is pure data (message, an auto-dismiss duration, an optional inline
@@ -18,7 +18,7 @@
 // The toast auto-dismisses after `duration` seconds; the optional inline action fires
 // its actionID (viewID 0, no context) and then dismisses (ToastOverlayView parity).
 //
-// Divergences (see Web_Porting_Notes.md, Scenes > Toast):
+// Divergences:
 //   * Placement is a CSS concern, not baked into JS: .aui-toast is top-pinned by
 //     default (Apple's transient-banner idiom; the web is a desktop target, like
 //     macOS), and a .aui-toast-bottom modifier flips it to the bottom Material

@@ -1,5 +1,5 @@
-// Tests for `persistentToolbar` on the web renderer (Missing_Features #36, design
-// section 7): the items a NavigationStack / NavigationSplitView keeps in the bar on every
+// Tests for `persistentToolbar` on the web renderer: the
+// items a NavigationStack / NavigationSplitView keeps in the bar on every
 // screen inside it.
 //
 // The web is the host where this is structurally hard, and the tests are shaped around

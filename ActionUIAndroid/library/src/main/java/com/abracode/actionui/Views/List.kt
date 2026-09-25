@@ -145,10 +145,10 @@ object ListView : ActionUIViewConstruction {
         // AND still hit-testable). In the section-switcher idiom (overlapping bodies in a ZStack,
         // all but one hidden) an invisible List on top in z-order would otherwise steal the vertical
         // drag: its LazyColumn is hit first and Compose stops hit-testing there, so the visible List
-        // behind never scrolls (Missing_Features #34). A disabled `userScrollEnabled` is not enough -
+        // behind never scrolls. A disabled `userScrollEnabled` is not enough -
         // the LazyColumn is still a hit target and still blocks the sibling. So when hidden we render
-        // a bare Box that reserves the same bounded viewport size (the reserve-space semantics stay,
-        // Missing_Features #30) but carries no scrollable/pointer node, so hit-testing falls through
+        // a bare Box that reserves the same bounded viewport size (the reserve-space semantics stay)
+        // but carries no scrollable/pointer node, so hit-testing falls through
         // to the visible sibling behind. LocalActionUIInputEnabled is provided false for a hidden
         // subtree by ProvideReactiveEnvironment (see ReactiveEnvironment.kt).
         if (!LocalActionUIInputEnabled.current) {

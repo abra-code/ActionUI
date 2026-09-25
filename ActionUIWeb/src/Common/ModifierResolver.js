@@ -30,9 +30,9 @@
 //                    having only a path string). Requires non-empty onDropTypes.
 //   onDropTypes      [String] of UTType identifiers accepted as a drop target.
 //   onDropTargetedActionID  String -> fires when a drag enters/exits, context
-//                    {isTargeted}. See Helpers/DropHelper.swift (Apple canonical)
-//                    and HoverDrop_Design.md; web type-filtering is coarse (the DnD
-//                    spec hides item contents during dragover).
+//                    {isTargeted}. See Helpers/DropHelper.swift (Apple canonical);
+//                    web type-filtering is coarse (the DnD spec hides item
+//                    contents during dragover).
 
 import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
 import { applyIgnoresSafeArea } from "../Helpers/SafeAreaModifier.js";
@@ -393,7 +393,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
     //    adds outside this node in buildElementView (a view-valued overlay/background
     //    subview, swipeActions panels, a safeAreaInset bar, a searchable field, toolbar
     //    chrome); those still paint, which is the Apple outcome. Web therefore sits between
-    //    the two hosts on this one combination. See Missing_Features #30.
+    //    the two hosts on this one combination.
     //
     // There is no collapse semantic on any host; the ZStack panel-switcher idiom (all
     // bodies overlaid, one visible) is what authors use instead. Toolbars are the single

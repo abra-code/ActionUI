@@ -6,7 +6,7 @@
 // a list-section label (small, secondary), matching the Android titleSmall/
 // onSurfaceVariant rendering; SwiftUI's footer is not modeled by this element
 // on any platform. The template/setElementRows data-driven mode is deferred
-// with the insertion API (see Web_Porting_Notes.md) — only `children` renders.
+// with the insertion API — only `children` renders.
 //
 // Properties: header (String → the section label; absent/non-string omits it).
 

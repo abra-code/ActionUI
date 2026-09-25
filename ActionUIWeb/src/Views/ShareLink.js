@@ -11,7 +11,7 @@
 // Properties (ShareLink.swift): item (String url), subject (String), message
 // (String). subject -> the share title, message -> the share text, item -> url.
 //
-// Divergences (Web_Porting_Notes.md):
+// Divergences:
 //   * navigator.share requires a user gesture (the click satisfies it) and a
 //     secure context (https / localhost). When it is unavailable (older browser
 //     or insecure origin) the button falls back to copying the item to the

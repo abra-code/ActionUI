@@ -118,7 +118,7 @@ object TemplateHelper {
             // runtime-reactive environment normally provided there is provided here too, off the
             // substituted row properties: foregroundStyle/tint and disabled/hidden, all via the
             // single ProvideReactiveEnvironment (ReactiveEnvironment.kt). Column refs cannot vary
-            // these per row (Missing_Features #29), so they are uniform across a template's rows.
+            // these per row, so they are uniform across a template's rows.
             ProvideTextStyleEnvironment(substituted.properties, logger) {
                 ProvideReactiveEnvironment(substituted.properties, logger) {
                     builder.BuildView(substituted, baseModifier.then(Modifier.applyCommonProperties(substituted.properties, logger, MaterialTheme.colorScheme)))

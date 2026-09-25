@@ -9,7 +9,6 @@
 // the soft-keyboard inputmode through the shared TextContentType map).
 // Not yet implemented on web (validation deferred, not ported): axis/lineLimit
 // (multi-line), numeric format modes (format/fractionLength/currencyCode/value).
-// See Web_Porting_Notes.md.
 // Observable value: the field string.
 
 import { register } from "../Common/ActionUIRegistry.js";

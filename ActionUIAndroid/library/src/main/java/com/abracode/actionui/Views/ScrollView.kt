@@ -78,7 +78,7 @@ object ScrollView : ActionUIViewConstruction {
         val axis = resolveScrollAxis(element.properties?.stringProperty("axis"), logger)
 
         // A hidden scroll container must not consume touch (Apple/web make `hidden`
-        // non-interactive) - see ListView and Missing_Features #34. When hidden, render a bare
+        // non-interactive) - see ListView. When hidden, render a bare
         // Box that reserves the viewport size but carries no scroll/pointer node, so hit-testing
         // falls through to a visible sibling behind it in an overlapping ZStack.
         if (!LocalActionUIInputEnabled.current) {
@@ -157,7 +157,7 @@ internal data class ScrollAxesApplied(val vertical: Boolean, val horizontal: Boo
  * `LazyVGrid` is inert layout inside a `ScrollView`. That difference is why
  * [ScrollView] has to know about them (see [resolveAppliedScroll]); `List` is
  * deliberately NOT here, because a template List inside a non-scrolling parent
- * is its own resolved case (Missing_Features #34).
+ * is its own resolved case.
  */
 internal fun selfScrollingAxis(type: String?): ScrollAxis? = when (type) {
     "LazyVGrid", "LazyVStack" -> ScrollAxis.Vertical

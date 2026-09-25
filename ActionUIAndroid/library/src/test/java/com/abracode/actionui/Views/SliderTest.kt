@@ -18,8 +18,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for [Slider] - the first Double-valued control on the state bridge
- * (entry 17). Exercises the `DOUBLE` [ActionUIValueType] path end-to-end through
+ * Unit tests for [Slider] - the first Double-valued control on the state bridge.
+ * Exercises the `DOUBLE` [ActionUIValueType] path end-to-end through
  * the real element, plus the pure `range`/`step` resolution
  * ([resolveSliderConfig]) and the step-size -> Compose-`steps` conversion
  * ([sliderStepCount]).

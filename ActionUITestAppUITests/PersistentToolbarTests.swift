@@ -1,6 +1,6 @@
 // PersistentToolbarTests.swift
 //
-// The narrow-shell test for `persistentToolbar` (Missing_Features #36): toolbar items that
+// The narrow-shell test for `persistentToolbar`: toolbar items that
 // stay in the bar on every screen inside a NavigationStack, not only on the screen that
 // declares them. It also pins the two SwiftUI behaviors the implementation rests on, both
 // measured here on 2026-08-08 before any of it was written.

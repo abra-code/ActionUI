@@ -44,7 +44,7 @@ import kotlinx.serialization.json.JsonObject
  * recomposition, so a `setElementProperty` write reaches every property consumer
  * - the modifier chain and the element builder alike - exactly as on Apple,
  * where views read `validatedProperties`. Android has no central validation
- * stage (an open decision in the porting notes); overridden values are
+ * stage (not decided yet); overridden values are
  * validated warn-and-skip at read time like authored ones.
  *
  * [mutationToken] increments on every `setElementProperty` / `setElementState`

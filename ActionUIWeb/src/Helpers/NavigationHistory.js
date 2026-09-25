@@ -20,7 +20,7 @@
 //     commit("replace") -> history.replaceState: it updates the current entry
 //     without growing history, so a startup selection becomes the baseline rather
 //     than a spurious entry. The trade-off - a purely programmatic navigation is
-//     not itself a distinct Back target - is documented in Web_Porting_Notes.
+//     not itself a distinct Back target - is a deliberate divergence.
 //   * popstate restores each participant from the entry's snapshot; a restore
 //     does NOT re-commit and does NOT fire selection actionIDs (it is a
 //     reconciliation, like setState).

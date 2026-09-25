@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
  * Continuous (or stepped) value selector along a linear range. Mirror of the
  * Apple `Slider` element (`ActionUI/Views/Slider.swift`), which wraps
  * `SwiftUI.Slider`. The first **Double**-valued control on the Android state
- * bridge (entry 17): it declares [ActionUIValueType.DOUBLE], so a host reads its
+ * bridge: it declares [ActionUIValueType.DOUBLE], so a host reads its
  * position with `ActionUIModel.getElementValue(...)` and sets it with
  * `setElementValueFromString(..., "75")`, and the control recomposes.
  *

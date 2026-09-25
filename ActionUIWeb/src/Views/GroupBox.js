@@ -4,8 +4,8 @@
 // A titled, visually grouped container: a bordered rounded box with an optional
 // `title` label above the content column — the default SwiftUI GroupBoxStyle
 // shape (Android renders the same as an OutlinedCard). The template/
-// setElementRows data-driven mode is deferred with the insertion API (see
-// Web_Porting_Notes.md) — only `children` renders.
+// setElementRows data-driven mode is deferred with the insertion API —
+// only `children` renders.
 //
 // Properties: title (String shown above the content; absent/non-string omits it).
 

@@ -2,7 +2,7 @@
 /*
  PersistentToolbarKeyTests.swift
 
- Tests for the "persistentToolbar" subview key (Missing_Features #36): a navigation
+ Tests for the "persistentToolbar" subview key: a navigation
  container's toolbar, whose items stay in the bar on every screen inside that container.
 
  These cover the parse and model layers. The UI tests in ActionUITestAppUITests cover what

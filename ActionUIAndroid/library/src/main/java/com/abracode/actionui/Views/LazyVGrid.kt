@@ -124,7 +124,7 @@ object LazyVGrid : ActionUIViewConstruction {
         val rows = if (template != null) templateRows(element.id) else emptyList()
 
         // A hidden scroll container must not consume touch (Apple/web make `hidden`
-        // non-interactive) - see ListView and Missing_Features #34. When hidden, render a bare
+        // non-interactive) - see ListView. When hidden, render a bare
         // Box that reserves the bounded viewport but carries no scrollable/pointer node, so
         // hit-testing falls through to a visible sibling behind it in an overlapping ZStack.
         if (!LocalActionUIInputEnabled.current) {

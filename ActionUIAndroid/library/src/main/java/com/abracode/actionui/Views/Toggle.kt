@@ -33,7 +33,7 @@ import com.abracode.actionui.Helpers.stringProperty
 /**
  * On/off control. Mirror of the Apple `Toggle` element
  * (`ActionUI/Views/Toggle.swift`), which wraps `SwiftUI.Toggle`. The first
- * **Boolean**-valued control on the Android state bridge (entry 17): it declares
+ * **Boolean**-valued control on the Android state bridge: it declares
  * [ActionUIValueType.BOOLEAN], so a host can read it with
  * `ActionUIModel.getElementValue(...)` and write it with
  * `setElementValueFromString(..., "true")`, and the control recomposes.

@@ -21,7 +21,7 @@
 // Browser autoplay policy (a documented divergence from Apple/Android): browsers
 // refuse autoplay-with-sound until the user has interacted with the page, so
 // `autoplay: true` additionally MUTES the element - muted autoplay is the only
-// autoplay the browser will honor unprompted. (See Web_Porting_Notes.)
+// autoplay the browser will honor unprompted.
 //
 // Value bridge (Apple's, valueType "string"): the runtime value is the video
 // URL; a host setString swaps the source and reloads. The element never writes
