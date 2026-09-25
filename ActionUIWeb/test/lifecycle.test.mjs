@@ -1,5 +1,4 @@
 // Tests for the page-lifecycle hooks (src/Helpers/LifecycleHooks.js).
-// Reconstructs the assertions recorded in Private/Commit_Notes_Web_Lifecycle.md.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

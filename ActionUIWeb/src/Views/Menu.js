@@ -20,8 +20,7 @@
 //
 // Divergence from Apple: submenus collapse to inline items (no nested popovers),
 // and the trigger defaults to "Menu" when the title is empty and there is no
-// label (so the control is visible), the Android stance. See
-// Private/Web_Porting_Notes.md (Menu).
+// label (so the control is visible), the Android stance.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { buildMenuChildNodes } from "../Helpers/MenuItems.js";

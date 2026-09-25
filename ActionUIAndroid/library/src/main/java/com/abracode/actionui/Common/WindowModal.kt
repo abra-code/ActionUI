@@ -8,8 +8,7 @@ package com.abracode.actionui.Common
  *
  * Unlike a [WindowDialog] (pure title / message / buttons), a modal loads a JSON
  * sub-document, registers its [ViewModel]s into the window pool so the value / state
- * API reaches the modal's controls, and removes exactly those on dismiss. See
- * `Private/Android_Porting_Notes.md`.
+ * API reaches the modal's controls, and removes exactly those on dismiss.
  */
 
 /** Presentation style for a window-level modal. Mirror of Swift's `ModalStyle`. */

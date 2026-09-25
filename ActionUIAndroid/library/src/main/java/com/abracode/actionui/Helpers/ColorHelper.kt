@@ -37,8 +37,7 @@ import kotlin.math.roundToInt
  * only inside composition). [resolveSemanticColor] - which takes a [ColorScheme]
  * captured at the modifier-application site - handles the semantic set, and
  * [resolveColorOrSemantic] is the combined entry point callers use (semantic
- * first, then this `parseColor` fallback). See `Private/Android_Porting_Notes.md`
- * section 11 / the semantic-color entry.
+ * first, then this `parseColor` fallback).
  */
 internal fun parseColor(name: String): Color? {
     val trimmed = name.trim()

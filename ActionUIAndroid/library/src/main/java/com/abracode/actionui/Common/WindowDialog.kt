@@ -7,7 +7,7 @@ package com.abracode.actionui.Common
  * rendered by [com.abracode.actionui.Helpers.WindowDialogHost].
  *
  * The *modal* half (`sheet` / `fullScreenCover`, which load a JSON sub-document)
- * lands separately. See `Private/Android_Porting_Notes.md`.
+ * lands separately.
  */
 
 /** Distinguishes a system alert from a confirmation dialog (iOS action sheet). */

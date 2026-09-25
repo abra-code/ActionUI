@@ -29,7 +29,7 @@ struct ChatConfig {
     let messageActionID: String?
     let errorActionID: String?
     let approveToolActionID: String?  // fired when an agent requests tool permission
-    let entryActionID: String?        // fired per finalized transcript entry (incremental persistence, P0-2)
+    let entryActionID: String?        // fired per finalized transcript entry (incremental persistence)
     let resumeCheckpointActionID: String?  // fired at turn boundaries with the resume cursor that pairs with
                                       // entryActionID. The component only OFFERS a checkpoint when
                                       // emitsEntryEvents is true, and that derives from entryActionID below -

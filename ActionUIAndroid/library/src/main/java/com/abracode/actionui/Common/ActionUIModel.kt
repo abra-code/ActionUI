@@ -74,7 +74,7 @@ internal data class OpenURLObserver(
  * fullScreenCover). **Runtime structural mutation** (`insertElement` /
  * `insertRow` / `removeElement`) is ported too - it mutates the parent's
  * [ViewModel.dynamicSubviews] (snapshot state) so the declaring container
- * recomposes; see [WindowModel] and `Private/Android_Porting_Notes.md`.
+ * recomposes; see [WindowModel].
  *
  * Handlers and the value/state API run on the main thread (Compose `onClick`
  * callbacks and host handlers); this object performs no synchronization of its

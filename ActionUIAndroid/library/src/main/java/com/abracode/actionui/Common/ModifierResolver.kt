@@ -106,8 +106,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * content within the box) is INNER, after the decoration. That is what keeps a
  * styled fixed/flex box filled when its content is empty or short, matching the
  * (reordered, frame-before-background) Apple pipeline and the Web single-node
- * renderer - the cross-platform FILLS contract (`Private/Layout_Engine_Parity.md`,
- * migration in `Private/Layout_Fill_Migration.md`).
+ * renderer - the cross-platform FILLS contract.
  *
  * The cut sits between the whole-subtree wrappers and the element's own
  * size-and-decoration: a decoration subview must cover the element's
@@ -282,7 +281,7 @@ fun Modifier.applyInnerProperties(
     // applied AFTER the decoration (below), so `background`/`border`/`clip` fill
     // the framed size instead of hugging the (possibly empty/short) content - the
     // Android side of the cross-platform FILLS contract that the Apple pipeline
-    // now shares (Private/Layout_Engine_Parity.md, Private/Layout_Fill_Migration.md).
+    // now shares.
     val frameObj = properties["frame"] as? JsonObject
     val hasFixedFrame = frameObj?.isFixedFrame() == true
     if (hasFixedFrame) m = m.applyPadding(properties)
@@ -560,7 +559,7 @@ private fun JsonObject.isFlexibleFrame(): Boolean = FLEX_FRAME_KEYS.any { this[i
  * decoration, by [applyFrameContentAlignment]. Splitting sizing from alignment
  * is what lets a styled fixed/flex box keep its fill when its content is empty
  * or short, matching the reordered Apple pipeline (`View.swift`) and the Web
- * single-node renderer - see `Private/Layout_Engine_Parity.md`.
+ * single-node renderer.
  */
 private fun Modifier.applyFrameSizing(frame: JsonObject, logger: ActionUILogger?, animator: ElementAnimator? = null): Modifier {
     var m: Modifier = this
@@ -814,8 +813,8 @@ internal fun parseHorizontalAlignment(name: String): Alignment.Horizontal? =
  * Returns `null` for unknown or unsupported names; the call site picks a
  * default and the warning is emitted here.
  *
- * See `Private/Android_Porting_Notes.md` for the deferred decision around
- * mapping baseline alignment to Compose's per-child `alignByBaseline()`.
+ * Mapping baseline alignment to Compose's per-child `alignByBaseline()` is a
+ * deferred decision.
  */
 internal fun parseRowAlignment(
     name: String,

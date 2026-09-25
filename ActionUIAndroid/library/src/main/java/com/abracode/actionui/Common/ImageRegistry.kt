@@ -16,7 +16,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * vector XML) but has no first-class runtime name lookup: drawables are
  * compile-time `R.drawable.*` constants, and the release resource shrinker
  * strips anything only reachable through a runtime string. This registry closes
- * that gap; see `Private/Android_Asset_Image_Design.md` for the full design.
+ * that gap.
  *
  * Two host mechanisms, composable because this is a `fun interface`:
  *

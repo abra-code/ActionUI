@@ -9,9 +9,9 @@
 // name == the target name (`ConvertC`); the Swift host just writes `import ConvertC`
 // and calls `aui_convert(...)`. No bridging header, no hand-written module.modulemap.
 //
-// (Section 7 of Private/Example_Host_Patterns.md describes the two-target C+Swift
-// split for adding C to an existing Swift package. Here the Swift side is the app
-// target itself, so a single pure-C library target is all that is needed.)
+// Adding C to an existing Swift package takes two targets, one C and one Swift.
+// Here the Swift side is the app target itself, so a single pure-C library target
+// is all that is needed.
 
 import PackageDescription
 

@@ -1,6 +1,6 @@
 // ToolbarHelper.js — renders an element's `toolbar` (and `navigationTitle`) as
 // screen chrome. Web analog of ActionUI/Helpers/ToolbarHelper.swift and
-// ActionUIAndroid Helpers/ToolbarHelper.kt (Private/Toolbar_Design.md).
+// ActionUIAndroid Helpers/ToolbarHelper.kt.
 //
 // SwiftUI's `.toolbar {}` attaches to a view; the enclosing navigation chrome /
 // window renders it. The web has no navigation bar to inherit, so — like
@@ -95,7 +95,7 @@ export function screenToolbarItems(element) {
 // list of actions, not a layout, and Apple's behavior here (the slot stays, blank, and
 // stays in the accessibility tree, so a host must ALSO author `accessibilityHidden` and
 // blank the label) is a wart hosts work around rather than a contract worth spreading.
-// See Private/Missing_Features.md #30 / #41. Until 2026-08-20 the web honored `hidden`
+// Until 2026-08-20 the web honored `hidden`
 // on chrome built through the registry but IGNORED it on a toolbar Button, whose node
 // renderChromeItem builds directly, bypassing applyViewModifiers - so an admin-only
 // button a host hid stayed visible and clickable on the web alone.
@@ -340,7 +340,7 @@ export function wrapWithToolbar(bodyNode, element, properties, ctx) {
         // at build - hiding a visible principal item at runtime leaves the slot blank (no
         // title span was ever created), and revealing an authored-hidden one shows the
         // item AND the title. Rebuilding the bar on a chrome property write is the real
-        // fix; see Private/Missing_Features.md #41.
+        // fix.
         buckets.principal.forEach((el) => principal.appendChild(renderChromeItem(el, ctx)));
         if (!buckets.principal.some((el) => !chromeHidden(el)) && inlineTitle !== null) {
             const t = document.createElement("span");

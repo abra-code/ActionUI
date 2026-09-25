@@ -30,8 +30,7 @@ import kotlinx.serialization.json.JsonObject
  * `collectAsState` indirection) and because all mutation happens on the main
  * thread from Compose callbacks or host handlers - the same single-threaded,
  * no-`@MainActor`-analog stance [ActionUIModel] already takes. There is no async
- * model layer, which is also why TextEditor needs no cursor-jump hardening (see
- * `Private/Android_Porting_Notes.md` section 14).
+ * model layer, which is also why TextEditor needs no cursor-jump hardening.
  *
  * ## Properties at runtime
  *

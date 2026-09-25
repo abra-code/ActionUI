@@ -8,8 +8,7 @@
 // squircle` — a progressive enhancement: browsers that support it render the
 // continuous curve, others keep circular arcs (the Android downgrade, minus
 // the warning since here it is the same declaration either way). Paint and
-// sizing via Helpers/ShapeStyleHelper.js; see Private/Web_Porting_Notes.md
-// (Shapes).
+// sizing via Helpers/ShapeStyleHelper.js.
 //
 // Properties: cornerRadius (Double, default 0), cornerStyle ("circular"
 // default | "continuous"), fill (String), stroke (String, fill takes

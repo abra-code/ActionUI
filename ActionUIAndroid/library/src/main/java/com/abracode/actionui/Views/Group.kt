@@ -44,7 +44,7 @@ import com.abracode.actionui.Helpers.templateRows
  * **Deferred vs. Apple.** Children of a Group receive only the base
  * `applyCommonProperties` modifier, so the scope-restricted `weight`/`align`
  * child modifiers are not propagated through a Group (same limitation as the
- * lazy stacks). See `Private/Android_Porting_Notes.md`.
+ * lazy stacks).
  */
 object Group : ActionUIViewConstruction {
 

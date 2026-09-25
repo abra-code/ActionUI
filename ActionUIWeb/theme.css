@@ -36,8 +36,7 @@
        rgba so they composite over any backdrop, exactly like SwiftUI's hierarchical
        styles. background.* are OPAQUE layered surfaces (the macOS window/content
        tones). src/Common/ModifierResolver.js NAMED_COLORS points each semantic name
-       at the matching token; the .opacity(f) path then color-mixes the var(). See
-       Private/Semantic_Color_Mapping_Design.md for the canonical table. */
+       at the matching token; the .opacity(f) path then color-mixes the var(). */
 
     /* Hierarchical content levels (label ink at the iOS opacity ladder). */
     --aui-primary: #1d1d1f;                          /* == --aui-color-primary (label) */
@@ -136,7 +135,7 @@
    becomes a grid box; place-content/place-items (set inline from the JSON) place
    the content. A class (not inline display) so a view's own inline `display`
    toggle still wins. Leaf-oriented: stacks/grids keep their own layout (the
-   resolver skips them). See Private/ActionUI-Web-Layout-Engine.md (Stage 2b). */
+   resolver skips them). */
 .aui-frame-align { display: grid; }
 
 /* View-valued overlay / background decorations (Helpers/DecorationModifier.js).
@@ -158,7 +157,7 @@
    .frame(maxWidth/maxHeight: .infinity) analog). View modifiers run before the
    node is attached, so the parent stack resolves the axis here: grow along its
    main axis, stretch across its cross axis. A view that fills only one axis hugs
-   its content on the other. See Private/ActionUI-Web-Layout-Engine.md. */
+   its content on the other. */
 .aui-vstack > .aui-fill-width  { align-self: stretch; }
 .aui-hstack > .aui-fill-width  { flex: 1 1 0; min-width: 0; }
 .aui-vstack > .aui-fill-height { flex: 1 1 0; min-height: 0; }
@@ -186,8 +185,8 @@
    (scrollbar/offset stability); the `auto` keyword then remembers each row's real
    size once it has rendered, so the estimate only applies to never-seen rows - right
    for variable-height rows like chat bubbles. content-visibility:auto is a no-op when
-   the whole list fits on screen. True windowing is a separate opt-in path (see
-   Private/ActionUIWeb_LazyVirtualization_Plan.md). .aui-list-row gets the same
+   the whole list fits on screen. True windowing is a separate opt-in path.
+   .aui-list-row gets the same
    treatment: SwiftUI's List is itself lazy (its UITableView/NSTableView backing
    recycles cells), so the web List rows deserve offscreen-skipping too. (A real
    <table> cannot - CSS containment is not defined for internal table elements, so
@@ -2044,7 +2043,7 @@
      - INPUT-MODALITY adaptivity lives here. It keys off the pointer/hover
        media features, NOT the viewport, so a wide touchscreen (tablet,
        kiosk) still gets big hit targets while a narrow desktop window does
-       not. See Private/ActionUIWeb_Mobile_Adaptation_Plan.md, Part 1.
+       not.
 
    These rules are last in the file so that, at equal specificity, they win
    over the base control rules above them.

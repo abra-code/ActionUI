@@ -23,7 +23,7 @@
 //   * Bounded-axis caveat (same as Android's): on an unbounded axis — inside a
 //     vertical scroller, where height is intrinsic — "fill available space" has
 //     nothing to fill and the box collapses; give it an explicit frame extent
-//     there. See Private/Web_Porting_Notes.md (GeometryReader).
+//     there.
 
 import { register } from "../Common/ActionUIRegistry.js";
 

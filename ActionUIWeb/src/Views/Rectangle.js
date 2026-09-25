@@ -6,7 +6,7 @@
 // shared Helpers/ShapeStyleHelper.js (fill → background, stroke → inner
 // border, bare → currentColor, Apple's fill-then-stroke-then-foreground
 // priority). Greedy without a frame, pinned with one — sizing and the stroke
-// divergence are documented in Private/Web_Porting_Notes.md (Shapes).
+// divergence are deliberate.
 //
 // Properties: fill (String), stroke (String, fill takes priority),
 // strokeLineWidth (Double, default 1.0, used with stroke).

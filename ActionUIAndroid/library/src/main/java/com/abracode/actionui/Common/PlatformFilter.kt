@@ -21,8 +21,7 @@ import kotlinx.serialization.json.JsonObject
  *
  * Mirror image of `PlatformFilter.swift` in ActionUI. Both filters must agree
  * on [ALL_PLATFORMS] so that a JSON file's "known platform tokens" don't
- * depend on which platform is reading it. See Stage 0 section Design notes in
- * Private/Android_Development_Plan.md.
+ * depend on which platform is reading it.
  *
  * @param active Platform tokens active for this runtime (e.g., `{"android"}`).
  * @param logger Receives unknown-suffix warnings. `null` silences them.

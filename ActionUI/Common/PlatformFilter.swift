@@ -23,8 +23,7 @@ import Foundation
 
  Mirror image of `PlatformFilter.kt` in ActionUIAndroid. Both filters must agree
  on the `allPlatforms` set so that a JSON file's "known platform tokens" don't
- depend on which platform is reading it. See Stage 0 §Design notes in
- Private/Android_Development_Plan.md.
+ depend on which platform is reading it.
 
  Wired into the load pipeline in `WindowModel`: `loadDescription(from:format:)`,
  `loadDescription(from:)`, and `loadSubViewDescription(...)` all run the raw JSON/

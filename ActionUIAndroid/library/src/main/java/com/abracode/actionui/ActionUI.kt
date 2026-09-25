@@ -135,7 +135,7 @@ object ActionUI {
      *
      * Like every window root here, [RenderWindow] attaches the window-level modal /
      * dialog chrome (the Android counterpart of Apple's `WindowModalView`) and the
-     * element-level modal host. See `Private/Android_Porting_Notes.md` entries 40/46.
+     * element-level modal host.
      */
     @Composable
     fun RenderSource(

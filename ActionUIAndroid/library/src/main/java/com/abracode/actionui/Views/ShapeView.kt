@@ -44,8 +44,7 @@ import com.abracode.actionui.Helpers.resolveShapePaint
  * in `ModifierResolver.kt`) and the shape draws nothing. With an unbounded axis
  * (e.g. height inside a vertical scroller) `fillMaxSize` cannot resolve, so a
  * shape there still needs an explicit `frame` to be visible - the remaining
- * "needs slack/size" caveat documented in section 11 of
- * `Private/Android_Porting_Notes.md`.
+ * "needs slack/size" caveat.
  */
 @Composable
 internal fun ShapeView(

@@ -171,9 +171,9 @@
  advertises the matching capability; those conversation actions flow to the transport as commands, and the
  sole new host action ID is "attachActionID" (the composer's attach button). The built-in "local-p2p"
  transport scripts all of it with no wire (the ChatPeople / ChatGroup examples). The remaining surfaces
- (terminals, multi-session) arrive in later milestones (see Private/chat-element-design.md).
+ (terminals, multi-session) are not implemented yet.
 
- Session transcript (P0-2): the element has no scalar value - its session transcript is CONTENT. A host
+ Session transcript: the element has no scalar value - its session transcript is CONTENT. A host
  RESTORES a saved session at runtime by injecting a serialized ChatTranscript (version, items, usage, plan,
  title) into states["content"], AFTER the interface is built - the same place Table / List keep their
  content, and the right vehicle for session DATA (a static UI document describes how to build the interface,

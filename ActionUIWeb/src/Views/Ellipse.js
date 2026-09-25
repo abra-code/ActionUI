@@ -4,8 +4,7 @@
 //
 // An ellipse inscribed in its frame — exactly what border-radius:50% makes of
 // the shape box (.aui-ellipse), so unlike Circle no inner disc is needed.
-// Paint and sizing via Helpers/ShapeStyleHelper.js; see
-// Private/Web_Porting_Notes.md (Shapes).
+// Paint and sizing via Helpers/ShapeStyleHelper.js.
 //
 // Properties: fill (String), stroke (String, fill takes priority),
 // strokeLineWidth (Double, default 1.0, used with stroke).
