@@ -5,24 +5,8 @@
    "type": "Chat",
    "id": 1,                  // Required: Non-zero positive integer for runtime programmatic interaction
    // protocol + transport are NOT declared in the document - a host injects them at runtime into
-   // states["config"] AFTER the element is built (see the "Host-injected transport" note below the
-   // sample). Shape: { "protocol": "local" | "openai-sse" | "acp" | "acp-remote",
-   //                   "transport": { ...protocol-specific } }
-   //   local:      "echo" (default true: stream a demo reply), "reply" ("echo"|"markdown"|"agentic"),
-   //               "chunkMs" (demo streaming pace, default 45).
-   //   openai-sse: requires "baseURL" (e.g. "http://127.0.0.1:8080/v1"); honors "model" (default "auto":
-   //               resolved from GET {baseURL}/models), "apiKey", "systemPrompt", "params" (merged into
-   //               the request body, e.g. { "temperature": 0.8, "max_tokens": 0 }).
-   //   acp (macOS, subprocess): requires "command" (the agent argv, e.g. ["claude-code-acp"]); honors
-   //               "cwd" ("~" expands, default: host cwd) and "mcpServers". A protocol whose module the
-   //               host did not link/register degrades to "local".
-   //   acp-remote: an ACP agent on ANOTHER machine, reached over a WebSocket to a chatview-acp-bridge.
-   //               Owns no subprocess, so unlike "acp" it is NOT macOS-only. Honors "session"
-   //               ("new" by default, or a bridge session id to rejoin) and "resumeAfterSeq" (the
-   //               afterSeq from the last checkpoint - ignored unless "session" names a session).
-   //               THE ONLY protocol that produces resumeCheckpointActionID cursors; the other three
-   //               have no resumable server side, so a host wiring that action ID against them will
-   //               store entries forever and never see a checkpoint.
+   // states["config"] AFTER the element is built; the second sample below lists their keys, and
+   // "Host-injected transport" further down says how an injection behaves.
    "properties": {
      "appearance": {                      // Optional: transcript appearance
        "alignment": "single",             //   "single" (default): leading / full-width, parties by tint + label.
@@ -114,11 +98,65 @@
                                           //           always show. Use "on-click" or "never" for a model or an agent -
                                           //           an image URL can carry data, and the fetch delivers it.
      "readOnly": false                    // Optional (default false): read-only viewer mode - hides the composer and
-                                          //           menus and starts NO transport ("protocol" may be omitted). Pair
-                                          //           with a runtime setElementState("content", ...) to show a saved session.
+                                          //           menus and starts NO transport, so it needs no states["config"]
+                                          //           injection ("protocol" may be omitted). Pair with a runtime
+                                          //           setElementState("content", ...) to show a saved session.
                                           // (Session data is NOT carried in the document - see "Session transcript" below.
                                           //  "properties.content" pre-populates a transcript for previews / testing only.)
    }
+ }
+
+ The document above declares ONLY properties - it is inert (composer disabled, no transport) until a HOST
+ injects protocol/transport into runtime state, after the element is built:
+   setElementState(windowUUID, chatID, "config", ["protocol": "openai-sse",
+                                                   "transport": ["baseURL": "http://127.0.0.1:8080/v1"]])
+ The value under states["config"] is the WHOLE object below (not a document field, not split across keys):
+ {
+   "protocol": "local",                  // Transport selector. "local" (default) is built in and streams a
+                                         //           scripted reply. Every other protocol is provided by a separate
+                                         //           transport module the host links and registers; the umbrella
+                                         //           ActionUIChat product bundles them and wires them in register().
+                                         //           "openai-sse" (the ActionUIChatOpenAI module) streams an
+                                         //           OpenAI-compatible /v1/chat/completions endpoint (llama-server,
+                                         //           mlx_lm.server, ...). "acp" (the ActionUIChatACP module, macOS
+                                         //           only: the agent is a subprocess) runs an Agent Client Protocol
+                                         //           agent over stdio. "acp-remote" (same module) drives an ACP agent
+                                         //           on ANOTHER machine over a WebSocket to a chatview-acp-bridge;
+                                         //           it owns no subprocess, so it is not macOS-only. A protocol whose
+                                         //           module the host did not register degrades to "local".
+   "transport": { "echo": true }         // Protocol-specific settings (interpreted by the chosen transport).
+                                         //           "local" honors "echo" (default true: stream a demo reply),
+                                         //           "reply" ("echo" default | "markdown" | "agentic": a scripted
+                                         //           agent turn with thoughts, tool calls, and a permission gate),
+                                         //           and "chunkMs" (demo streaming pace, default 45).
+                                         //           "openai-sse" requires "baseURL" (the endpoint, e.g.
+                                         //           "http://127.0.0.1:8080/v1") and honors "model" (default "auto":
+                                         //           resolved from GET {baseURL}/models), "apiKey" (default ""),
+                                         //           "systemPrompt" (default ""), and "params" (merged into the
+                                         //           request body, e.g. { "temperature": 0.8, "max_tokens": 0 };
+                                         //           max_tokens 0 means unlimited and is omitted).
+                                         //           "acp" requires "command" (the agent argv, e.g. ["claude-code-acp"])
+                                         //           and honors "cwd" (the session root; "~" expands, default: the
+                                         //           host's current directory), "mcpServers" (an array of MCP
+                                         //           server declarations passed to the agent verbatim), "env"
+                                         //           (strings merged over the inherited environment; its PATH
+                                         //           resolves a bare command name), "startupTimeoutSeconds" (default:
+                                         //           none - a local model may take minutes to load) and
+                                         //           "sessionConfig" (option id to value, e.g. { "mode": "plan" }: set
+                                         //           right after session/new, before the composer opens; a value the
+                                         //           agent does not offer, refuses or reports differently FAILS the
+                                         //           start, so the agent never runs in another mode than asked).
+                                         //           "acp-remote" honors "session" ("new" by default, or a bridge
+                                         //           session id to rejoin) and "resumeAfterSeq" (the afterSeq from
+                                         //           the last resumeCheckpointActionID cursor - ignored unless
+                                         //           "session" names a session). This is the return half of the
+                                         //           persistence round trip: store the cursor with the transcript,
+                                         //           then inject the transcript into states["content"] and the
+                                         //           cursor here, and the bridge replays only what came after it.
+                                         //           "acp-remote" is THE ONLY protocol that produces
+                                         //           resumeCheckpointActionID cursors; the others have no resumable
+                                         //           server side, so a host wiring that action ID against them will
+                                         //           store entries forever and never see a checkpoint.
  }
 
  A native chat surface, implemented as an ActionUI add-on (registered via ActionUIChat.register()).
@@ -188,33 +226,73 @@
  turn). Session identity (ids, titles) stays app-side; the component only passes the optional title through
  untouched. `properties.content` pre-populates a transcript for previews / basic internal testing only - it
  is NOT the production restore path.
- Appending ONE item: states["append"] takes a single serialized ChatItem and adds it to the END of the
+
+ Two TRANSIENT keys ride on the injected transcript (states["content"]) alongside version / items, and
+ neither is ever persisted - the transcript codec drops both, so they cannot reach storage or a later
+ restore:
+   "prime": how the restored transcript relates to the agent's CONTEXT, which is a separate thing from
+            what is displayed. true / absent - replay it into the agent now (the default). false -
+            display it against a FRESH, empty context, so continuing types against nothing rather than
+            against a conversation the agent never received. "defer" - display only and sync lazily on
+            the next send, which is what makes browsing a session list free: switching costs nothing
+            until the user actually says something.
+   "condense": { "keepRecentTurns": 6, "maxDigestTokens": 700 } - ask the agent to SUMMARIZE the older
+            part of the restore instead of replaying all of it, keeping the trailing messages verbatim.
+            Both bounds are optional and the agent clamps them; PRESENCE OF THE KEY IS THE REQUEST, so
+            an empty object means "summarize, your defaults" rather than "do nothing". Needs a transport
+            whose agent supports it (the ACP `session/prime` condense extension); anything else ignores
+            it. THE FALLBACK IS FULL FIDELITY, NEVER TRUNCATION - an agent that cannot summarize, or
+            declines to, primes the COMPLETE history, so a caller that ignores the outcome still gets a
+            correct session and merely pays for a slower first turn.
+ When a restore IS condensed the element appends a sessionEvent item carrying the digest - which model
+ wrote the summary, how many messages it replaced, and the summary itself in sections. That item is a
+ normal transcript entry (entryActionID fires for it, and it persists with the conversation), because a
+ summary the model holds and the reader cannot see is a context loss they can only infer from the answers
+ getting worse; shown it, they can restate whatever it missed.
+
+ APPENDING ONE ITEM: states["append"] takes a single serialized ChatItem and adds it to the END of the
  conversation already on screen. states["content"] cannot serve this - it REPLACES the transcript and
- re-primes the agent - so a host with one line to add (a session marker naming the model about to answer)
- otherwise had to choose between re-priming the whole conversation and not showing it until the next load.
- Setting this state appends and nothing else: no transport traffic, no re-prime. Like states["content"] it
- does NOT come back through entryActionID - the host is telling the element about an item it already has,
- and a host that also persists would write it twice. Appending a MESSAGE (rather than a marker) puts a line
- on screen the agent was never given, so the element reports its context as pending and the next send
- re-primes. Example: setElementState(window, chatID, "append",
- {"type":"sessionEvent","sessionEvent":{"id":"se-1","kind":"resumed","model":"Qwen3 4B"}}).
- Leading the NEXT message: states["lead"] takes serialized ChatItems - one per line - and HOLDS them until
- the user sends, then places them in front of that message. states["append"] cannot serve this: a host
- learns a message exists only when its entry finalizes, by which time the message has been on screen since
- the user pressed Return, so appending puts the line meant to introduce it underneath it. The waiting is
- half the point - a conversation the user opened and read is not a conversation resumed, so a marker shown
- when the transcript was merely displayed announces a handover that never happened. The value is the WHOLE
- waiting list, so set it again (with every line) to add one, and set it to "" to take the lines back when
- the conversation they belong to is replaced (an empty array, or text with no lines in it, withdraws the
- same way; a value NONE of whose lines decode is not obeyed as a withdrawal and leaves the list as it was);
- a line already placed is never placed again, whatever the channel goes on resting on. The lines fire no entry of their own, but the MESSAGE they lead reports them:
- its entryActionID envelope carries them under "lead", as placed - and a line handed over without a
- timestamp is stamped with the moment it is placed, because the host hands it over when it learns the line
- will be needed, which can be an hour before the user types, while the line says what happened when the
- message was sent. A host that stamps its lines keeps its stamps; a host that does not records the line from
- the message's entry. Example: setElementState(window, chatID, "lead",
- "{\"type\":\"sessionEvent\",\"sessionEvent\":{\"id\":\"se-1\",\"kind\":\"resumed\",\"model\":\"Qwen3 4B\"}}").
- Searching the conversation: states["search"] takes a query String. A non-empty value runs the transcript
+ re-primes the agent - so a host with one line to add had to choose between re-priming the whole
+ conversation to show it and not showing it until the next load. The case this exists for is a session
+ marker: which model is about to answer, or that the conversation was resumed against a summary of its
+ older half. Setting this state appends and nothing else - no transport traffic, no re-prime.
+   setElementState(window, chatID, "append",
+                   {"type":"sessionEvent","sessionEvent":{"id":"se-1","kind":"resumed","model":"Qwen3 4B"}})
+ LIKE states["content"], IT DOES NOT COME BACK THROUGH entryActionID. Both are the host saying "here is
+ something you already have"; persistence flows the other way, per finalized entry, and a host that
+ appends an item it just wrote to its own store would otherwise receive it back and write it twice.
+ The id is the dedup key: the state re-delivers on every state change, so re-setting the same item is a
+ no-op rather than a second line, and an id already in the transcript is ignored.
+ Appending a MESSAGE rather than a marker puts a line on screen the agent was never given - the element
+ reports its context as pending and the next send re-primes, so the status indicator does not claim the
+ model holds something it does not.
+
+ LEADING THE NEXT MESSAGE: states["lead"] takes serialized ChatItems - ONE PER LINE - and HOLDS them
+ until the user sends, then places them in front of that message. states["append"] cannot serve this,
+ and the reason is a matter of timing rather than taste: a host learns a message exists when its entry
+ finalizes, by which time it has been on screen since the user pressed Return, so the marker naming the
+ model it was sent INTO lands underneath it. There is no "insert before"; what was missing was a way to
+ say "when there is a next message, this goes in front of it".
+   setElementState(window, chatID, "lead",
+                   "{\"type\":\"sessionEvent\",\"sessionEvent\":{\"id\":\"se-1\",\"kind\":\"resumed\"}}")
+ THE WAITING IS THE OTHER HALF OF THE POINT. A conversation the user opened and read is not a
+ conversation resumed, so a marker shown when the transcript was displayed announces a handover that
+ never happened - once per row the user clicks through. Held here, the line exists only if a message
+ follows it, which is also the moment a host records one.
+ THE VALUE IS THE WHOLE WAITING LIST: set it again, with every line, to add one; set it to "" to take the
+ lines back when the conversation they belong to is replaced (an empty array, or text with no lines in
+ it, withdraws the same way, while a value NONE of whose lines decode is not obeyed as a withdrawal and
+ leaves the list as it was). A line already placed is never placed again, whatever the channel goes on
+ resting on, and a line whose id is already in the transcript is not placed. One line that will not
+ decode costs that line, not the list.
+ THE LINES FIRE NO ENTRY OF THEIR OWN, BUT THE MESSAGE THEY LEAD REPORTS THEM: its entryActionID envelope
+ carries them under "lead", as placed, and that is where a host records them from. As placed, because the
+ element changes one thing: a line handed over without a timestamp is stamped with the moment it is
+ placed. The host hands the line over when it learns it will be needed - the conversation displayed, the
+ engine loaded - and the user may not type for an hour; the line says what happened when the message was
+ sent, and only the send knows that moment. A host that stamps its lines keeps its stamps.
+
+ SEARCHING THE CONVERSATION: states["search"] takes a query String. A non-empty value runs the transcript
  find - the same engine as the Cmd-F bar: Markdown bodies matched as RENDERED text, so a bold "fox" is
  found by "fox"; thoughts and tool calls only when the bar's scope includes them - highlights every hit,
  scrolls to the first, and presents the bar with the term when "showFindBar" is on; "" dismisses. This is how a
@@ -227,11 +305,13 @@
  setElementState(window, chatID, "search", "deployment"). The search needs no element at all for a host
  that filters a chat list: ChatSearch (re-exported from ChatView) runs the same rules over a decoded
  ChatTranscript, and ChatItem.searchableText gives an indexer the plain text a reader sees.
+
  Host-injected transport (NOT document-declared): the non-visual settings (protocol, transport) are
  injected at runtime into states["config"] via setElementState / setElementStateFromString (e.g. OMC's
- omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The element
- stays inert (no transport, composer disabled) until states["config"] first resolves to a VIABLE
- transport, which builds it. After that, re-injecting an IDENTICAL config is a no-op (the channel
+ omc_set_state) AFTER the element is built - the same seam as states["content"] restore. The canonical
+ embedding loads a static document, then injects the runtime/session-specific config (resolved agent
+ path, working directory), then shows the view (see DemoApp). The element stays inert (no transport,
+ composer disabled) until states["config"] first resolves to a VIABLE transport, which builds it. After that, re-injecting an IDENTICAL config is a no-op (the channel
  re-delivers its current value on every states change), while re-injecting a DIFFERENT viable config
  RE-CONFIGURES the element in place: a turn in flight is closed first - its partial answer kept, its
  entries fired - the old transport is stopped (an ACP agent gets SIGTERM, then SIGKILL after a grace),

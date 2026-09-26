@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/abra-code/ChatView",
       "state" : {
-        "revision" : "9043ea2df56933fbcec1cde06249a2bd49fd6b81",
-        "version" : "0.6.3"
+        "revision" : "5c4af24da36c0d5c3434cff4548c075a8441931e",
+        "version" : "0.6.4"
       }
     },
     {

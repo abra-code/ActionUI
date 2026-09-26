@@ -110,7 +110,11 @@ let package = Package(
         //
         // 0.6.3 adds the "remoteImages" property (when images in message Markdown are fetched). Below it
         // the key would be ignored and every image fetched, so the floor is a security floor.
-        .package(url: "https://github.com/abra-code/ChatView", from: "0.6.3"),
+        //
+        // 0.6.4 adds the "acp" transport's "sessionConfig" (options set right after session/new, and a
+        // value the agent does not take fails the start). Below it the key would be ignored and the agent
+        // would start in its default permission mode, so this floor is one too.
+        .package(url: "https://github.com/abra-code/ChatView", from: "0.6.4"),
         // DO NOT COMMIT: local path dependency so an unreleased ChatView can be built
         // .package(path: "../../../ChatView"),
     ],
