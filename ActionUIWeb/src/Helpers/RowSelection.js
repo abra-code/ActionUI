@@ -1,5 +1,5 @@
 // RowSelection.js - which row stays selected when the rows of a data-driven Table or
-// List change (Views/List.buildDataRows and Views/Table). Mirrors the Swift
+// List change (Views/List.buildDataRows and Views/Table.applyRows). Mirrors the Swift
 // ActionUIModel.reconciledSelection and the Android ActionUIModel.reconciledSelection,
 // so all hosts keep the same row.
 //
@@ -11,7 +11,7 @@
 // missing cell as "" (as the tab-joined selection value shows it).
 
 const cellText = (cell) => String(cell ?? "");
-const sameRow = (a, b) =>
+export const sameRow = (a, b) =>
     a.length === b.length && a.every((cell, i) => cellText(cell) === cellText(b[i]));
 
 // selected: the selected row's columns ([] = none); oldRows / rows: the rows before

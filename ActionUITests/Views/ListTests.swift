@@ -336,10 +336,10 @@ final class ListTests: XCTestCase {
 
     /// The loaded List's model with three rows, the selection binding the List would get, and a
     /// count of the actionID calls.
-    private func rowSelectionFixture() throws -> (ViewModel, Binding<Set<Int>>, () -> Int) {
+    private func rowSelectionFixture(rows: [[String]] = [["Alpha", "a"], ["Beta", "b"], ["Gamma", "c"]]) throws -> (ViewModel, Binding<Set<Int>>, () -> Int) {
         try loadListElement()
         let model = ActionUIModel.shared
-        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alpha", "a"], ["Beta", "b"], ["Gamma", "c"]])
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: rows)
         let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[1])
         final class Counter { var calls = 0 }
         let counter = Counter()
@@ -350,7 +350,7 @@ final class ListTests: XCTestCase {
             counter.calls += 1
         }
         let binding = SelectionListHelper.makeRowSelectionBinding(
-            model: viewModel, actionID: "list.action", windowUUID: windowUUID, viewID: 1)
+            drawnRows: rows, model: viewModel, actionID: "list.action", windowUUID: windowUUID, viewID: 1)
         return (viewModel, binding, { counter.calls })
     }
 
@@ -412,8 +412,17 @@ final class ListTests: XCTestCase {
         binding.wrappedValue = [1] // the click takes ["Beta", "b"]; the write waits for the main queue
         ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Beta", "b2"], ["Alpha", "a"]])
         await drainMainQueue()
-        XCTAssertEqual(viewModel.value as? [String], ["Beta", "b2"], "the clicked row as it is now, so the list can highlight it")
-        XCTAssertEqual(binding.wrappedValue, [0])
+        XCTAssertEqual(viewModel.value as? [String], ["Beta", "b2"], "the clicked row as it is now, so the list can highlight it once it redraws")
+        XCTAssertEqual(calls(), 1)
+    }
+
+    func testRowSelection_theIndexNamesTheRowAsDrawnAfterAHostChange() async throws {
+        let (viewModel, binding, calls) = try rowSelectionFixture()
+        // The host inserts a row before the list redraws; the click index still counts drawn rows.
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["New", "n"], ["Alpha", "a"], ["Beta", "b"], ["Gamma", "c"]])
+        binding.wrappedValue = [1]
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], ["Beta", "b"], "the row drawn at the clicked place, not the row now at that index")
         XCTAssertEqual(calls(), 1)
     }
 
@@ -423,8 +432,7 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(shown, [0, 3], "rows with an empty first column are not shown, and the rest keep their content index")
 
         // A click on the second shown row reaches the binding as its tag, which must name Delta.
-        let (viewModel, binding, _) = try rowSelectionFixture()
-        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: items)
+        let (viewModel, binding, _) = try rowSelectionFixture(rows: items)
         binding.wrappedValue = [shown[1]]
         await drainMainQueue()
         XCTAssertEqual(viewModel.value as? [String], ["Delta", "d"])

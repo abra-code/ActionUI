@@ -170,7 +170,7 @@ test("RowSelection: an empty row is not a row with an empty first column, and ce
 // ---- Table data rows (<tbody>) ----
 
 // Table builds a <table> inside the .aui-table-scroll wrapper; the data rows are
-// <tr> in <tbody>. Selection is index-based (selectedIndex) and the click handler
+// <tr> in <tbody>. Selection is held as an index (selectedIndex) and the click handler
 // takes no event arg, so a bare fire("click") selects the row.
 function buildTable(id) {
     const logger = makeLogger();
@@ -205,4 +205,32 @@ test("Table data rows: a truncation that drops the selected row clears the selec
     model.setElementState(221, "content", [["a", "1"]]); // index 2 is gone
     assert.equal(tbody.children.length, 1);
     assert.ok(!tbody.children[0].classList.contains("aui-table-row-selected"), "selection cleared (its row is gone)");
+});
+
+test("Table data rows: a row inserted above the selected row does not move the selection", () => {
+    const { model, tbody } = buildTable(222);
+    model.setElementState(222, "content", [["a", "1"], ["b", "2"]]);
+    tbody.children[1].fire("click"); // selects "b"
+    model.setElementState(222, "content", [["new", "0"], ["a", "1"], ["b", "2"]]);
+    assert.equal(model.getElementValue(222), "b\t2", "still b, not the row now at index 1");
+    assert.ok(tbody.children[2].classList.contains("aui-table-row-selected"));
+    assert.ok(!tbody.children[1].classList.contains("aui-table-row-selected"));
+});
+
+test("Table data rows: a change to another column of the selected row keeps it selected", () => {
+    const { model, tbody } = buildTable(223);
+    model.setElementState(223, "content", [["a", "1"], ["b", "2"]]);
+    tbody.children[1].fire("click"); // selects "b"
+    model.setElementState(223, "content", [["b", "3"], ["a", "1"]]); // "b" changed and moved up
+    assert.equal(model.getElementValue(223), "b\t3");
+    assert.ok(tbody.children[0].classList.contains("aui-table-row-selected"));
+});
+
+test("Table data rows: of identical rows, the selected one stays selected across an append", () => {
+    const { model, tbody } = buildTable(224);
+    model.setElementState(224, "content", [["a", "1"], ["a", "1"]]);
+    tbody.children[1].fire("click"); // selects the second, identical row
+    model.setElementState(224, "content", [["a", "1"], ["a", "1"], ["c", "3"]]);
+    assert.ok(tbody.children[1].classList.contains("aui-table-row-selected"));
+    assert.ok(!tbody.children[0].classList.contains("aui-table-row-selected"));
 });

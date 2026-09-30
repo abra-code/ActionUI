@@ -23,7 +23,8 @@
 // reads the value, matching Apple). doubleClickActionID fires on a double-click of
 // the selected row with the row index as context. A Button cell fires its own
 // columnTypes[c].actionID and consumes the click, so per-cell actions and row
-// selection coexist.
+// selection coexist. A rows change keeps the selection on its row, as on Apple
+// (Helpers/RowSelection.js), and fires nothing.
 //
 // Properties (mirroring Table.swift):
 //   columns          Required [String] of header titles.
@@ -42,6 +43,7 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { commonRowPrefix } from "../Helpers/RowDiff.js";
+import { reconciledSelection, sameRow } from "../Helpers/RowSelection.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 
 const CELL_VIEW_TYPES = ["Text", "Button", "Image", "AsyncImage"];
@@ -382,6 +384,7 @@ register("Table", {
         // width-based (row-count independent), so an append needs no relayout.
         const applyRows = (next) => {
             next = Array.isArray(next) ? next : [];
+            const oldRows = rows;
             const keep = commonRowPrefix(rows, next);
             while (trNodes.length > keep) { trNodes[trNodes.length - 1].remove(); trNodes.pop(); }
             for (let rowIndex = keep; rowIndex < next.length; rowIndex++) {
@@ -390,8 +393,19 @@ register("Table", {
                 tbody.appendChild(tr);
             }
             rows = next;
-            // A re-render drops the prior selection if its row no longer exists.
-            if (selectedIndex >= rows.length) selectedIndex = -1;
+            // A rows change keeps the selection on its row, not on its index, silently
+            // (Helpers/RowSelection.js): a row inserted above it, or an edit to another of
+            // its columns, must not move it to another row.
+            if (selectedIndex >= 0) {
+                const selected = oldRows[selectedIndex] ?? [];
+                const kept = reconciledSelection(selected, oldRows, rows);
+                if (kept.length === 0) {
+                    selectedIndex = -1;
+                } else if (!(selectedIndex < rows.length && sameRow(rows[selectedIndex], kept))) {
+                    const at = rows.indexOf(kept);
+                    selectedIndex = at >= 0 ? at : rows.findIndex((row) => sameRow(row, kept));
+                }
+            }
             applySelectionStyles();
         };
 

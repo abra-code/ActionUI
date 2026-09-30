@@ -343,7 +343,7 @@ struct List: ActionUIViewConstruction {
 
             // Selection binding: the same index-based binding as the homogeneous list.
             let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
-                model: model, actionID: properties["actionID"] as? String,
+                drawnRows: rows, model: model, actionID: properties["actionID"] as? String,
                 windowUUID: windowUUID, viewID: element.id
             )
 
@@ -359,8 +359,10 @@ struct List: ActionUIViewConstruction {
             } primaryAction: { indices in
                 if let doubleClickActionID = doubleClickActionID,
                    let index = indices.first {
-                    if let content = model.states["content"] as? [[String]], content.indices.contains(index) {
-                        model.value = content[index]   // keep selection/value in sync for env export
+                    if rows.indices.contains(index) {   // an index into the rows as drawn
+                        // Keep selection/value in sync for env export, with the row as it is now.
+                        let current = model.states["content"] as? [[String]] ?? []
+                        model.value = ActionUIModel.reconciledSelection(rows[index], from: rows, to: current)
                     }
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
                 }
@@ -426,13 +428,13 @@ struct List: ActionUIViewConstruction {
             let elementID = element.id
 
             let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
-                model: model, actionID: properties["actionID"] as? String,
+                drawnRows: items, model: model, actionID: properties["actionID"] as? String,
                 windowUUID: windowUUID, viewID: elementID
             )
 
             return SwiftUI.List(selection: selectionBinding) {
                 // Row ids are indices into content, stable even with duplicate display strings;
-                // the selection binding and the double-click read content by the same index.
+                // the selection binding and the double-click read the drawn rows by the same index.
                 SwiftUI.ForEach(shownIndices, id: \.self) { index in
                     applyRowModifiers(
                         buildHomogeneousRow(
@@ -453,8 +455,10 @@ struct List: ActionUIViewConstruction {
             } primaryAction: { indices in
                 if let doubleClickActionID = doubleClickActionID,
                    let index = indices.first {
-                    if let content = model.states["content"] as? [[String]], content.indices.contains(index) {
-                        model.value = content[index]   // keep selection/value in sync for env export
+                    if items.indices.contains(index) {   // an index into the rows as drawn
+                        // Keep selection/value in sync for env export, with the row as it is now.
+                        let current = model.states["content"] as? [[String]] ?? []
+                        model.value = ActionUIModel.reconciledSelection(items[index], from: items, to: current)
                     }
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: index)
                 }

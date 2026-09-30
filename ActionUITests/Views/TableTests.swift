@@ -153,6 +153,64 @@ final class TableTests: XCTestCase {
         _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
     }
 
+    private func tableSelectionFixture() throws -> (ViewModel, Binding<Set<String>>, () -> Int) {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        let rows = [["Alice", "30"], ["Bob", "25"], ["Carol", "40"]]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: rows)
+        let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[1])
+        final class Counter { var calls = 0 }
+        let counter = Counter()
+        model.registerActionHandler(for: "table.action") { _, _, viewID, viewPartID, _ in
+            XCTAssertEqual(viewID, 1)
+            XCTAssertEqual(viewPartID, 0)
+            counter.calls += 1
+        }
+        let rowData = rows.enumerated().map { TableRowData(id: "row-\($0.offset)", values: $0.element) }
+        let binding = Table.makeSelectionBinding(
+            rowData: rowData, model: viewModel, actionID: "table.action", windowUUID: windowUUID, viewID: 1)
+        return (viewModel, binding, { counter.calls })
+    }
+
+    private func drainMainQueue() async {
+        let done = expectation(description: "main queue drained")
+        DispatchQueue.main.async { done.fulfill() }
+        await fulfillment(of: [done], timeout: 2)
+    }
+
+    func testTableSelection_selectAndDeselectFireAction() async throws {
+        let (viewModel, binding, calls) = try tableSelectionFixture()
+        binding.wrappedValue = ["row-1"]
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], ["Bob", "25"])
+        XCTAssertEqual(binding.wrappedValue, ["row-1"])
+        binding.wrappedValue = []
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], [])
+        XCTAssertEqual(calls(), 2)
+        binding.wrappedValue = ["row-9"]
+        await drainMainQueue()
+        XCTAssertEqual(calls(), 2, "an unknown row id is ignored")
+    }
+
+    func testTableSelection_aRefreshBeforeTheDeferredWriteKeepsTheNewColumns() async throws {
+        let (viewModel, binding, calls) = try tableSelectionFixture()
+        binding.wrappedValue = ["row-1"] // the click takes ["Bob", "25"]; the write waits for the main queue
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob", "26"], ["Alice", "30"]])
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], ["Bob", "26"], "the clicked row as it is now, so the table can highlight it")
+        XCTAssertEqual(calls(), 1)
+    }
+
+    func testTableSetRowsKeepsSelectionWhenAnotherColumnChanges() throws {
+        try loadTableElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        model.selectElementRow(windowUUID: windowUUID, viewID: 1, index: 1)
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob", "26"], ["Alice", "30"]])
+        XCTAssertEqual(model.getElementValue(windowUUID: windowUUID, viewID: 1) as? [String], ["Bob", "26"])
+    }
+
     func testTableGetRowsEmptyOnLoad() throws {
         try loadTableElement()
         let rows = ActionUIModel.shared.getElementRows(windowUUID: windowUUID, viewID: 1)

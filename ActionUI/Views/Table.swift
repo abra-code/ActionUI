@@ -21,7 +21,7 @@
      "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
  }
-   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"], using row IDs for tracking. The table-level actionID fires on selection change. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns.
+   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"] (the selected row's columns) and highlights the row with those columns. A rows change keeps the selection on its row (an equal row, else the row with the same first column, the same one among several, with its new columns), or clears it; no actionID fires. The table-level actionID fires on every selection change the user makes, a deselect included. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
 
  Observable state:
@@ -33,8 +33,6 @@
    states["content"]   [[String]]      All table rows; each inner array holds one row's column values.
                                        Access via getElementRows / setElementRows / appendElementRows /
                                        clearElementRows / getElementColumnCount.
-   states["selectedRowID"] String?     Stable row ID of the currently selected row; nil when nothing is
-                                       selected. No dedicated public API — use getElementState / setElementState.
  */
 
 import SwiftUI
@@ -149,7 +147,6 @@ struct Table: ActionUIViewConstruction {
         var states: [String: Any] = model.states
         if states.isEmpty {
             states["content"] = [] as [[String]]
-            states["selectedRowID"] = nil
         }
         return states
     }
@@ -198,47 +195,11 @@ struct Table: ActionUIViewConstruction {
             TableRowData(id: "row-\(index)", values: row)
         }
         
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let actionID = properties["actionID"] as? String
-        let selectionBinding: Binding<Set<String>> = mainActorBinding(
-            get: {
-                guard let selectedRow = model.value as? [String],
-                      !selectedRow.isEmpty else {
-                    return Set<String>()
-                }
-                // Find which row-id corresponds to this value array
-                if let matchingRow = rowData.first(where: { $0.values == selectedRow }) {
-                    return Set([matchingRow.id])
-                }
-                return Set<String>()
-            },
-            set: { newSet in
-                let newRowID: String? = newSet.first   // enforce single for now
-        
-                var selectedRowValues: [String] = []
-        
-                if let rowID = newRowID,
-                   let selectedRow = rowData.first(where: { $0.id == rowID }) {
-                    selectedRowValues = selectedRow.values
-                }
-        
-                guard (model.value as? [String]) != selectedRowValues else { return }
-                DispatchQueue.main.async {
-                    model.value = selectedRowValues
-
-                    if let actionID {
-                        ActionUIModel.shared.actionHandler(
-                            actionID,
-                            windowUUID: windowUUID,
-                            viewID: element.id,
-                            viewPartID: 0
-                        )
-                    }
-                }
-            }
+        let selectionBinding = makeSelectionBinding(
+            rowData: rowData, model: model, actionID: properties["actionID"] as? String,
+            windowUUID: windowUUID, viewID: element.id
         )
-        
+
         return SwiftUI.Table(rowData, selection: selectionBinding) {
             SwiftUI.TableColumnForEach(columnData) { column in
                 SwiftUI.TableColumn(column.name) { row in
@@ -301,7 +262,9 @@ struct Table: ActionUIViewConstruction {
             if let doubleClickActionID = properties["doubleClickActionID"] as? String,
                let firstID = ids.first,
                let index = rowData.firstIndex(where: { $0.id == firstID }) {
-                model.value = rowData[index].values   // keep selection/value in sync for env export
+                // Keep selection/value in sync for env export, with the row as it is now.
+                let current = model.states["content"] as? [[String]] ?? []
+                model.value = ActionUIModel.reconciledSelection(rowData[index].values, from: rowData.map(\.values), to: current)
                 ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
             }
         }
@@ -310,6 +273,44 @@ struct Table: ActionUIViewConstruction {
         #endif
     }
     
+    /// The Table's selection binding, by row id ("row-<index>") into `rowData`, the rows this
+    /// render draws. The value is the selected row's columns (`[]` when nothing is selected);
+    /// the user's changes, a deselect included, go through `SelectionListHelper.commitRowSelection`,
+    /// which fires `actionID` and takes the row as it is in the current rows.
+    static func makeSelectionBinding(
+        rowData: [TableRowData],
+        model: ViewModel,
+        actionID: String?,
+        windowUUID: String,
+        viewID: Int
+    ) -> Binding<Set<String>> {
+        let drawnRows = rowData.map(\.values)
+        return mainActorBinding(
+            get: {
+                guard let selectedRow = model.value as? [String],
+                      !selectedRow.isEmpty,
+                      let matchingRow = rowData.first(where: { $0.values == selectedRow }) else {
+                    return Set<String>()
+                }
+                return Set([matchingRow.id])
+            },
+            set: { newSet in
+                // Enforce single selection (take the first if several arrive).
+                let clicked: [String]
+                if let rowID = newSet.first {
+                    guard let row = rowData.first(where: { $0.id == rowID }) else { return }
+                    clicked = row.values
+                } else {
+                    clicked = []
+                }
+                SelectionListHelper.commitRowSelection(
+                    clicked, drawnRows: drawnRows, model: model,
+                    actionID: actionID, windowUUID: windowUUID, viewID: viewID
+                )
+            }
+        )
+    }
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? [String] {
             return initialValue
