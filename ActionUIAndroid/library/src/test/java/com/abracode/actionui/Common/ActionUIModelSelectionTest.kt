@@ -84,4 +84,34 @@ class ActionUIModelSelectionTest {
         ActionUIModel.clearElementSelection(viewID = 1)
         assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 1))
     }
+
+    @Test
+    fun `a rows change to another column keeps the row selected with its new columns`() {
+        loadList()
+        ActionUIModel.setElementRows(viewID = 1, rows = rows)
+        ActionUIModel.selectElementRow(viewID = 1, index = 1)
+        ActionUIModel.setElementRows(viewID = 1, rows = listOf(listOf("Bob", "26"), listOf("Alice", "30")))
+        assertEquals(listOf("Bob", "26"), ActionUIModel.getElementValue(viewID = 1))
+    }
+
+    @Test
+    fun `a rows change keeps an identical row over an earlier one with the same first column`() {
+        loadList()
+        ActionUIModel.setElementRows(viewID = 1, rows = listOf(listOf("Alice", "30"), listOf("Alice", "40")))
+        ActionUIModel.selectElementRow(viewID = 1, index = 1)
+        ActionUIModel.setElementRows(viewID = 1, rows = listOf(listOf("Alice", "30"), listOf("Alice", "40"), listOf("Bob", "25")))
+        assertEquals(listOf("Alice", "40"), ActionUIModel.getElementValue(viewID = 1))
+    }
+
+    @Test
+    fun `a rows change that drops the selected row clears the selection`() {
+        loadList()
+        ActionUIModel.setElementRows(viewID = 1, rows = rows)
+        ActionUIModel.selectElementRow(viewID = 1, index = 2)
+        ActionUIModel.setElementRows(viewID = 1, rows = rows.take(2))
+        assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 1))
+        ActionUIModel.selectElementRow(viewID = 1, index = 0)
+        ActionUIModel.clearElementRows(viewID = 1)
+        assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 1))
+    }
 }

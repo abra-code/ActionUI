@@ -128,6 +128,26 @@ test("List data rows: a truncation that drops the selected row clears the select
     assert.ok(!inner.children[0].classList.contains("aui-list-row-selected"), "selection cleared (its row is gone)");
 });
 
+test("List data rows: a change to another column of the selected row keeps it selected", () => {
+    const { model, inner } = buildList(212);
+    model.setElementState(212, "content", [["a", "1"], ["b", "2"]]);
+    inner.children[1].fire("click"); // selects "b"
+    assert.equal(model.getElementValue(212), "b\t2");
+    model.setElementState(212, "content", [["b", "3"], ["a", "1"]]); // "b" changed and moved up
+    assert.equal(model.getElementValue(212), "b\t3", "the value takes the row's new columns");
+    assert.ok(inner.children[0].classList.contains("aui-list-row-selected"), "the row stays highlighted");
+    assert.ok(!inner.children[1].classList.contains("aui-list-row-selected"));
+});
+
+test("List data rows: an identical row keeps the selection over an earlier row with the same first column", () => {
+    const { model, inner } = buildList(213);
+    model.setElementState(213, "content", [["a", "1"], ["a", "2"]]);
+    inner.children[1].fire("click"); // selects the second "a"
+    model.setElementState(213, "content", [["a", "1"], ["a", "2"], ["c", "3"]]);
+    assert.equal(model.getElementValue(213), "a\t2");
+    assert.ok(inner.children[1].classList.contains("aui-list-row-selected"));
+});
+
 // ---- Table data rows (<tbody>) ----
 
 // Table builds a <table> inside the .aui-table-scroll wrapper; the data rows are

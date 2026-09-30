@@ -368,6 +368,17 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         return rowNode;
     };
 
+    // The selection to keep after a rows change (silent, as on Apple): a row equal
+    // to it keeps it; else the first row with the same first column (the row's
+    // identity) takes its place, so a change to another column keeps the row
+    // selected with its new columns; with neither, the selection clears.
+    const reconciledSelection = (value) => {
+        if (value === "" || rows.some((row) => rowValue(row) === value)) return value;
+        const first = value.split("\t")[0];
+        const match = rows.find((row) => (row[0] ?? "") === first);
+        return match ? rowValue(match) : "";
+    };
+
     // Apply a new rows array with a common-prefix diff (Helpers/RowDiff.js) instead
     // of a full rebuild: an append (the rows API re-sends the whole array) keeps
     // every unchanged prefix row - its node, selection styling and wiring - in place
@@ -385,8 +396,7 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         }
         rows = next;
         node.classList.toggle("aui-list-empty", rows.length === 0);
-        // A rows change that drops the selected row clears the selection.
-        if (selectedRow !== "" && !rows.some((row) => rowValue(row) === selectedRow)) selectedRow = "";
+        selectedRow = reconciledSelection(selectedRow);
         applySelectionStyles();
     };
 

@@ -111,6 +111,8 @@
     states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
                                        hidden-column data. Access via getElementRows / setElementRows /
                                        appendElementRows / clearElementRows.
+                                       A rows change keeps the selection on its row (an equal row, else the first row
+                                       with the same first column, taking its new columns), or clears it; no actionID fires.
 */
 
 import SwiftUI
@@ -180,6 +182,13 @@ struct List: ActionUIViewConstruction {
         }
 
         return AnyView(modified)
+    }
+
+    /// The content rows a homogeneous list shows: its cell is the row's first column, and a row
+    /// whose first column is empty is not shown. Returns indices into content (not positions
+    /// among the shown rows), so a row's selection tag names the right content row.
+    static func shownRowIndices(_ items: [[String]]) -> [Int] {
+        items.indices.filter { !(items[$0].first ?? "").isEmpty }
     }
 
     /// Builds one row for homogeneous lists. Always returns AnyView so row modifiers can be uniformly
@@ -410,7 +419,7 @@ struct List: ActionUIViewConstruction {
             let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
             let actionContext = itemType["actionContext"] as? String ?? "title"
             let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
-            let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
+            let shownIndices = shownRowIndices(items)
             let buttonActionID = itemType["actionID"] as? String
             let doubleClickActionID = properties["doubleClickActionID"] as? String
             let elementID = element.id
@@ -421,11 +430,12 @@ struct List: ActionUIViewConstruction {
             )
 
             return SwiftUI.List(selection: selectionBinding) {
-                // Indices are 0..<displayItems.count — stable even with duplicate display strings
-                SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
+                // Row ids are indices into content, stable even with duplicate display strings;
+                // the selection binding and the double-click read content by the same index.
+                SwiftUI.ForEach(shownIndices, id: \.self) { index in
                     applyRowModifiers(
                         buildHomogeneousRow(
-                            item: displayItems[index], index: index, viewType: viewType,
+                            item: items[index][0], index: index, viewType: viewType,
                             dataInterpretation: dataInterpretation, buttonActionID: buttonActionID,
                             actionContext: actionContext, windowUUID: windowUUID, elementID: elementID
                         ),

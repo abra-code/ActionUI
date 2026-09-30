@@ -785,13 +785,32 @@ object ActionUIModel {
     /**
      * Replaces element [viewID]'s rows. Writes straight to the snapshot-state map
      * (not via [setElementState], whose type guard is for scalar state), so a
-     * bound `List` / `Section` recomposes. Mirrors the Swift `setElementRows`.
+     * bound `List` / `Section` recomposes. Keeps a row selection on its row, or
+     * clears it (see [reconciledSelection]). Mirrors the Swift `setElementRows`.
      */
     fun setElementRows(windowUUID: String = "", viewID: Int, rows: List<List<String>>) {
         val viewModel = viewModel(windowUUID, viewID) ?: return
         viewModel.states[ROWS_STATE_KEY] = rows
+        val selected = viewModel.value as? List<*>
+        if (selected != null && selected.isNotEmpty() && selected.all { it is String }) {
+            @Suppress("UNCHECKED_CAST")
+            val kept = reconciledSelection(selected as List<String>, rows)
+            if (kept != selected) viewModel.value = kept
+        }
         endRefreshTargeting(windowUUID, viewID)
         logger.log("Set ${rows.size} row(s) for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
+    }
+
+    /**
+     * The selection to keep after the rows change (silent, as on Apple). A row equal to
+     * [selected] keeps it; otherwise the first row with the same first column (the row's
+     * identity) takes its place, so a change to another column keeps the row selected
+     * with its new columns (the List highlights the row equal to the value); with
+     * neither, the selection clears. Mirrors the Swift `reconciledSelection`.
+     */
+    internal fun reconciledSelection(selected: List<String>, rows: List<List<String>>): List<String> {
+        if (selected.isEmpty() || selected in rows) return selected
+        return rows.firstOrNull { it.firstOrNull() == selected.first() } ?: emptyList()
     }
 
     /** Appends [rows] after element [viewID]'s existing rows. Mirrors `appendElementRows`. */

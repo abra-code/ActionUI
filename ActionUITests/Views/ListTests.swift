@@ -406,4 +406,17 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? [String], [])
         XCTAssertEqual(calls(), 1, "only the user's selection fired; the host's own clear does not")
     }
+
+    func testHomogeneousRows_shownRowsKeepTheirContentIndex() async throws {
+        let items = [["Alpha"], [""], [], ["Delta", "d"]]
+        let shown = List.shownRowIndices(items)
+        XCTAssertEqual(shown, [0, 3], "rows with an empty first column are not shown, and the rest keep their content index")
+
+        // A click on the second shown row reaches the binding as its tag, which must name Delta.
+        let (viewModel, binding, _) = try rowSelectionFixture()
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: items)
+        binding.wrappedValue = [shown[1]]
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], ["Delta", "d"])
+    }
 }

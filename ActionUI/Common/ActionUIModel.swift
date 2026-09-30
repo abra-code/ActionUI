@@ -236,8 +236,8 @@ public class ActionUIModel: ObservableObject {
             viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
             viewModel.states["content"] = newRows
-            if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
-                viewModel.value = [] as [String]
+            if let selectedRow = viewModel.value as? [String] {
+                viewModel.value = Self.reconciledSelection(selectedRow, in: newRows)
             }
             logger.log("Updated Table content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else if let newItems = value as? [String] {
@@ -246,8 +246,8 @@ public class ActionUIModel: ObservableObject {
             viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
             viewModel.states["content"] = newContent
-            if let selectedRow = viewModel.value as? [String], !newContent.contains(where: { $0.first == selectedRow.first }) {
-                viewModel.value = [] as [String]
+            if let selectedRow = viewModel.value as? [String] {
+                viewModel.value = Self.reconciledSelection(selectedRow, in: newContent)
             } else if let selectedItem = viewModel.value as? String, !newItems.contains(selectedItem) {
                 viewModel.value = []
             }
@@ -602,8 +602,21 @@ public class ActionUIModel: ObservableObject {
         return viewModel.states["content"] as? [[String]]
     }
 
+    // The selection to keep after the rows of a Table or List change. A row the selection
+    // still equals keeps it. Otherwise the first row with the same first column (the row's
+    // identity) takes its place: the selection bindings match whole rows, so a value left
+    // stale after another column changed would lose its highlight with no event. With no
+    // such row the selection clears. Programmatic, so no actionID fires.
+    static func reconciledSelection(_ selected: [String], in rows: [[String]]) -> [String] {
+        if selected.isEmpty || rows.contains(selected) {
+            return selected
+        }
+        return rows.first(where: { $0.first == selected.first }) ?? []
+    }
+
     // Sets all content rows for a table/list view element, replacing any existing rows.
-    // Clears the current selection if the selected row is no longer present.
+    // Keeps the selection on its row (matched by first column, taking the row's new
+    // columns) and clears it when that row is gone; see reconciledSelection.
     public func setElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
         guard let windowModel = windowModels[windowUUID],
               let viewModel = windowModel.viewModels[viewID] else {
@@ -612,8 +625,8 @@ public class ActionUIModel: ObservableObject {
         }
         viewModel.objectWillChange.send()
         viewModel.states["content"] = rows
-        if let selectedRow = viewModel.value as? [String], !rows.contains(where: { $0.first == selectedRow.first }) {
-            viewModel.value = [] as [String]
+        if let selectedRow = viewModel.value as? [String] {
+            viewModel.value = Self.reconciledSelection(selectedRow, in: rows)
         }
         windowModel.viewModels[viewID] = viewModel
         endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
