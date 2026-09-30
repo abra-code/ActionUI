@@ -12,7 +12,7 @@
         "actionID": "list.buttonClick",        // Button only — fires on button click
         "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
       },
-      "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
+      "actionID": "list.selection.changed",    // Optional: Fires on every selection change the user makes, a deselect included (all cell types)
       "doubleClickActionID": "list.double.click",  // Optional: String for double-click action (macOS only, context = row index)
       "onRefreshActionID": "list.refresh",      // Optional: String. When set, enables pull-to-refresh; fires this actionID on pull. The spinner stays until the client delivers fresh data to this list or anything inside it (any setElementRows/appendElementRows/clearElementRows/setElementValue/setElementState call targeting this list or a descendant), or a safety timeout elapses.
       // List styling
@@ -331,40 +331,10 @@ struct List: ActionUIViewConstruction {
                 return applyRowModifiers(templateView, properties: properties)
             }
 
-            // Selection binding: same index-based pattern as homogeneous list
-            // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-            // not the non-Sendable [String: Any] properties payload.
-            let actionID = properties["actionID"] as? String
-            let selectionBinding: Binding<Set<Int>> = mainActorBinding(
-                get: {
-                    guard let selectedRow = model.value as? [String],
-                          !selectedRow.isEmpty,
-                          let content = model.states["content"] as? [[String]],
-                          let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
-                        return Set<Int>()
-                    }
-                    return Set([selectedIndex])
-                },
-                set: { newSet in
-                    guard let newIndex = newSet.first else {
-                        if !(model.value as? [String] ?? []).isEmpty {
-                            DispatchQueue.main.async { model.value = [] }
-                        }
-                        return
-                    }
-                    guard let content = model.states["content"] as? [[String]],
-                          content.indices.contains(newIndex) else { return }
-                    let selectedRowValues = content[newIndex]
-                    guard (model.value as? [String]) != selectedRowValues else { return }
-                    DispatchQueue.main.async {
-                        model.value = selectedRowValues
-                        if let actionID {
-                            ActionUIModel.shared.actionHandler(
-                                actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0
-                            )
-                        }
-                    }
-                }
+            // Selection binding: the same index-based binding as the homogeneous list.
+            let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
+                model: model, actionID: properties["actionID"] as? String,
+                windowUUID: windowUUID, viewID: element.id
             )
 
             return SwiftUI.List(selection: selectionBinding) {
@@ -445,52 +415,13 @@ struct List: ActionUIViewConstruction {
             let doubleClickActionID = properties["doubleClickActionID"] as? String
             let elementID = element.id
 
-            // Indices are 0..<displayItems.count — stable even with duplicate display strings
-            // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-            // not the non-Sendable [String: Any] properties payload.
-            let actionID = properties["actionID"] as? String
-            let selectionBinding: Binding<Set<Int>> = mainActorBinding(
-                get: {
-                    guard let selectedRow = model.value as? [String],
-                          !selectedRow.isEmpty,
-                          let content = model.states["content"] as? [[String]],
-                          let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
-                        return Set<Int>()
-                    }
-                    return Set([selectedIndex])
-                },
-                set: { newSet in
-                    // Enforce single selection for now (take first if somehow multi arrives)
-                    guard let newIndex = newSet.first else {
-                        if !(model.value as? [String] ?? []).isEmpty {
-                            DispatchQueue.main.async {
-                                model.value = []
-                            }
-                        }
-                        return
-                    }
-
-                    guard let content = model.states["content"] as? [[String]],
-                          content.indices.contains(newIndex) else { return }
-
-                    let selectedRowValues = content[newIndex]
-
-                    guard (model.value as? [String]) != selectedRowValues else { return }
-                    DispatchQueue.main.async {
-                        model.value = selectedRowValues
-                        if let actionID {
-                            ActionUIModel.shared.actionHandler(
-                                actionID,
-                                windowUUID: windowUUID,
-                                viewID: elementID,
-                                viewPartID: 0
-                            )
-                        }
-                    }
-                }
+            let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
+                model: model, actionID: properties["actionID"] as? String,
+                windowUUID: windowUUID, viewID: elementID
             )
 
             return SwiftUI.List(selection: selectionBinding) {
+                // Indices are 0..<displayItems.count — stable even with duplicate display strings
                 SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
                     applyRowModifiers(
                         buildHomogeneousRow(

@@ -67,6 +67,51 @@ struct SelectionListHelper {
         }
     }
 
+    /// Creates a `Binding<Set<Int>>` for a data-driven list's selection (the homogeneous and the
+    /// template modes), by row index into `states["content"]`. Single selection: the selected
+    /// row's columns are stored in `model.value` as `[String]` (empty when nothing is selected).
+    /// Fires `actionID` (no context) whenever the user changes the selection, clearing included,
+    /// as a Table does: a host that keeps its own copy of the selection must learn that the row
+    /// was deselected (Cmd-click on the selected row, a click in the empty part of the list).
+    static func makeRowSelectionBinding(
+        model: ViewModel,
+        actionID: String?,
+        windowUUID: String,
+        viewID: Int
+    ) -> Binding<Set<Int>> {
+        mainActorBinding(
+            get: {
+                guard let selectedRow = model.value as? [String],
+                      !selectedRow.isEmpty,
+                      let content = model.states["content"] as? [[String]],
+                      let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
+                    return Set<Int>()
+                }
+                return Set([selectedIndex])
+            },
+            set: { newSet in
+                // Enforce single selection (take the first if several arrive).
+                let newValue: [String]
+                if let newIndex = newSet.first {
+                    guard let content = model.states["content"] as? [[String]],
+                          content.indices.contains(newIndex) else { return }
+                    newValue = content[newIndex]
+                } else {
+                    newValue = []
+                }
+                guard (model.value as? [String] ?? []) != newValue else { return }
+                DispatchQueue.main.async {
+                    model.value = newValue
+                    if let actionID {
+                        ActionUIModel.shared.actionHandler(
+                            actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0
+                        )
+                    }
+                }
+            }
+        )
+    }
+
     /// Creates a `Binding<Int?>` for heterogeneous list selection by child element ID.
     /// Selection is stored in `model.value` as `[String]` with the stringified child ID.
     /// Fires `actionID` on selection change with the child ID as context.

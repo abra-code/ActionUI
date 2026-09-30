@@ -329,4 +329,81 @@ final class ListTests: XCTestCase {
         XCTAssertNotNil(view, "buildView should succeed with empty children (homogeneous fallback)")
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty in homogeneous mode")
     }
+
+    // MARK: - Row selection binding (homogeneous and template modes)
+    // SelectionListHelper.makeRowSelectionBinding is what both data-driven modes hand to
+    // List(selection:); SwiftUI writes the set of selected row indices into it.
+
+    /// The loaded List's model with three rows, the selection binding the List would get, and a
+    /// count of the actionID calls.
+    private func rowSelectionFixture() throws -> (ViewModel, Binding<Set<Int>>, () -> Int) {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alpha", "a"], ["Beta", "b"], ["Gamma", "c"]])
+        let viewModel = try XCTUnwrap(model.windowModels[windowUUID]?.viewModels[1])
+        final class Counter { var calls = 0 }
+        let counter = Counter()
+        model.registerActionHandler(for: "list.action") { _, _, viewID, viewPartID, context in
+            XCTAssertEqual(viewID, 1)
+            XCTAssertEqual(viewPartID, 0)
+            XCTAssertNil(context, "the host reads the selection from the value, as for a Table")
+            counter.calls += 1
+        }
+        let binding = SelectionListHelper.makeRowSelectionBinding(
+            model: viewModel, actionID: "list.action", windowUUID: windowUUID, viewID: 1)
+        return (viewModel, binding, { counter.calls })
+    }
+
+    /// Lets the binding's deferred main-queue work run.
+    private func drainMainQueue() async {
+        let done = expectation(description: "main queue drained")
+        DispatchQueue.main.async { done.fulfill() }
+        await fulfillment(of: [done], timeout: 2)
+    }
+
+    func testRowSelection_selectingARowSetsValueAndFiresAction() async throws {
+        let (viewModel, binding, calls) = try rowSelectionFixture()
+        binding.wrappedValue = [1]
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], ["Beta", "b"], "value is the selected row, hidden columns included")
+        XCTAssertEqual(calls(), 1)
+        XCTAssertEqual(binding.wrappedValue, [1], "the binding reads the selection back as its index")
+    }
+
+    func testRowSelection_deselectingClearsValueAndFiresAction() async throws {
+        let (viewModel, binding, calls) = try rowSelectionFixture()
+        binding.wrappedValue = [2]
+        await drainMainQueue()
+        binding.wrappedValue = []
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], [], "a deselect clears the value")
+        XCTAssertEqual(calls(), 2, "a deselect fires actionID too, so the host learns of it")
+        XCTAssertEqual(binding.wrappedValue, [])
+    }
+
+    func testRowSelection_noChangeFiresNothing() async throws {
+        let (viewModel, binding, calls) = try rowSelectionFixture()
+        binding.wrappedValue = []
+        await drainMainQueue()
+        XCTAssertEqual(calls(), 0, "clearing an empty selection is no change")
+        binding.wrappedValue = [0]
+        await drainMainQueue()
+        binding.wrappedValue = [0]
+        await drainMainQueue()
+        XCTAssertEqual(calls(), 1, "selecting the selected row again is no change")
+        binding.wrappedValue = [7]
+        await drainMainQueue()
+        XCTAssertEqual(calls(), 1, "an index past the rows is ignored")
+        XCTAssertEqual(viewModel.value as? [String], ["Alpha", "a"], "and leaves the selection alone")
+    }
+
+    func testRowSelection_clearElementSelectionFiresNothing() async throws {
+        let (viewModel, binding, calls) = try rowSelectionFixture()
+        binding.wrappedValue = [1]
+        await drainMainQueue()
+        ActionUIModel.shared.clearElementSelection(windowUUID: windowUUID, viewID: 1)
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], [])
+        XCTAssertEqual(calls(), 1, "only the user's selection fired; the host's own clear does not")
+    }
 }
