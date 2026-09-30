@@ -54,6 +54,7 @@ import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { buildTemplateRow } from "../Helpers/TemplateHelper.js";
 import { commonRowPrefix } from "../Helpers/RowDiff.js";
+import { reconciledSelection } from "../Helpers/RowSelection.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { flatContainerBinding } from "../Helpers/InsertionHelper.js";
@@ -368,17 +369,6 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         return rowNode;
     };
 
-    // The selection to keep after a rows change (silent, as on Apple): a row equal
-    // to it keeps it; else the first row with the same first column (the row's
-    // identity) takes its place, so a change to another column keeps the row
-    // selected with its new columns; with neither, the selection clears.
-    const reconciledSelection = (value) => {
-        if (value === "" || rows.some((row) => rowValue(row) === value)) return value;
-        const first = value.split("\t")[0];
-        const match = rows.find((row) => (row[0] ?? "") === first);
-        return match ? rowValue(match) : "";
-    };
-
     // Apply a new rows array with a common-prefix diff (Helpers/RowDiff.js) instead
     // of a full rebuild: an append (the rows API re-sends the whole array) keeps
     // every unchanged prefix row - its node, selection styling and wiring - in place
@@ -387,6 +377,7 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
     // handlers). The diff preserves the selection across an append.
     const applyRows = (next) => {
         next = Array.isArray(next) ? next : [];
+        const oldRows = rows;
         const keep = commonRowPrefix(rows, next);
         while (rowNodes.length > keep) { rowNodes[rowNodes.length - 1].remove(); rowNodes.pop(); }
         for (let index = keep; index < next.length; index++) {
@@ -396,7 +387,13 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         }
         rows = next;
         node.classList.toggle("aui-list-empty", rows.length === 0);
-        selectedRow = reconciledSelection(selectedRow);
+        // A rows change keeps the selection on its row, silently (Helpers/RowSelection.js).
+        // The selected columns come from the old row itself where it is there, so a tab
+        // inside a cell does not split it.
+        if (selectedRow !== "") {
+            const selected = oldRows.find((row) => rowValue(row) === selectedRow) ?? selectedRow.split("\t");
+            selectedRow = rowValue(reconciledSelection(selected, oldRows, rows));
+        }
         applySelectionStyles();
     };
 

@@ -663,7 +663,14 @@ object ActionUIModel {
             return
         }
         viewModel.mutationToken += 1
+        val oldRows = rowsOf(viewModel)
         viewModel.states[key] = value
+        // Rows written as plain state keep the selection on its row, as setElementRows does.
+        if (key == ROWS_STATE_KEY) {
+            @Suppress("UNCHECKED_CAST")
+            val rows = value as? List<List<String>>
+            if (rows != null) keepSelectionOnItsRow(viewModel, oldRows, rows)
+        }
         endRefreshTargeting(windowUUID, viewID)
         logger.log("Set state '$key' for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
@@ -776,10 +783,9 @@ object ActionUIModel {
      * Compose snapshot state, a renderer reading these rows recomposes when they
      * change.
      */
-    @Suppress("UNCHECKED_CAST")
     fun getElementRows(windowUUID: String = "", viewID: Int): List<List<String>> {
         val viewModel = viewModel(windowUUID, viewID) ?: return emptyList()
-        return (viewModel.states[ROWS_STATE_KEY] as? List<List<String>>) ?: emptyList()
+        return rowsOf(viewModel)
     }
 
     /**
@@ -790,27 +796,45 @@ object ActionUIModel {
      */
     fun setElementRows(windowUUID: String = "", viewID: Int, rows: List<List<String>>) {
         val viewModel = viewModel(windowUUID, viewID) ?: return
+        val oldRows = rowsOf(viewModel)
         viewModel.states[ROWS_STATE_KEY] = rows
-        val selected = viewModel.value as? List<*>
-        if (selected != null && selected.isNotEmpty() && selected.all { it is String }) {
-            @Suppress("UNCHECKED_CAST")
-            val kept = reconciledSelection(selected as List<String>, rows)
-            if (kept != selected) viewModel.value = kept
-        }
+        keepSelectionOnItsRow(viewModel, oldRows, rows)
         endRefreshTargeting(windowUUID, viewID)
         logger.log("Set ${rows.size} row(s) for viewID: $viewID, windowUUID: $windowUUID", LoggerLevel.debug)
     }
 
     /**
-     * The selection to keep after the rows change (silent, as on Apple). A row equal to
-     * [selected] keeps it; otherwise the first row with the same first column (the row's
-     * identity) takes its place, so a change to another column keeps the row selected
-     * with its new columns (the List highlights the row equal to the value); with
-     * neither, the selection clears. Mirrors the Swift `reconciledSelection`.
+     * The selection to keep after the rows change from [oldRows] to [rows] (silent, as on
+     * Apple). A row equal to [selected] keeps it; otherwise a row with the same first
+     * column (the row's identity) takes its place, so a change to another column keeps
+     * the row selected with its new columns (the List highlights the row equal to the
+     * value). When several rows share that first column, the one at the same place among
+     * them is taken (the second "Alice" stays the second). With no such row the selection
+     * clears. Mirrors the Swift `reconciledSelection`.
      */
-    internal fun reconciledSelection(selected: List<String>, rows: List<List<String>>): List<String> {
+    internal fun reconciledSelection(
+        selected: List<String>,
+        oldRows: List<List<String>>,
+        rows: List<List<String>>,
+    ): List<String> {
         if (selected.isEmpty() || selected in rows) return selected
-        return rows.firstOrNull { it.firstOrNull() == selected.first() } ?: emptyList()
+        val isPeer = { row: List<String> -> row.firstOrNull() == selected.first() }
+        val place = oldRows.filter(isPeer).indexOf(selected).coerceAtLeast(0)
+        val peers = rows.filter(isPeer)
+        return if (place < peers.size) peers[place] else emptyList()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun rowsOf(viewModel: ViewModel): List<List<String>> =
+        (viewModel.states[ROWS_STATE_KEY] as? List<List<String>>) ?: emptyList()
+
+    /** Applies [reconciledSelection] to a row selection (a list of strings) after a rows change. */
+    private fun keepSelectionOnItsRow(viewModel: ViewModel, oldRows: List<List<String>>, rows: List<List<String>>) {
+        val selected = viewModel.value as? List<*> ?: return
+        if (selected.isEmpty() || !selected.all { it is String }) return
+        @Suppress("UNCHECKED_CAST")
+        val kept = reconciledSelection(selected as List<String>, oldRows, rows)
+        if (kept != selected) viewModel.value = kept
     }
 
     /** Appends [rows] after element [viewID]'s existing rows. Mirrors `appendElementRows`. */

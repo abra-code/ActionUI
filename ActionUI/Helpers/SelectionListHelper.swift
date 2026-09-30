@@ -91,17 +91,22 @@ struct SelectionListHelper {
             },
             set: { newSet in
                 // Enforce single selection (take the first if several arrive).
+                let content = model.states["content"] as? [[String]] ?? []
                 let newValue: [String]
                 if let newIndex = newSet.first {
-                    guard let content = model.states["content"] as? [[String]],
-                          content.indices.contains(newIndex) else { return }
+                    guard content.indices.contains(newIndex) else { return }
                     newValue = content[newIndex]
                 } else {
                     newValue = []
                 }
                 guard (model.value as? [String] ?? []) != newValue else { return }
                 DispatchQueue.main.async {
-                    model.value = newValue
+                    // The rows may have changed since the click (a host refresh queued ahead of
+                    // this block): take the clicked row as it is now, as a rows change would.
+                    let rows = model.states["content"] as? [[String]] ?? []
+                    let value = ActionUIModel.reconciledSelection(newValue, from: content, to: rows)
+                    guard (model.value as? [String] ?? []) != value else { return }
+                    model.value = value
                     if let actionID {
                         ActionUIModel.shared.actionHandler(
                             actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0

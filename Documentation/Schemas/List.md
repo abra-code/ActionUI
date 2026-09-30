@@ -114,6 +114,7 @@ JSON schema and usage documentation for `List`.
 //    states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
 //                                       hidden-column data. Access via getElementRows / setElementRows /
 //                                       appendElementRows / clearElementRows.
-//                                       A rows change keeps the selection on its row (an equal row, else the first row
-//                                       with the same first column, taking its new columns), or clears it; no actionID fires.
+//                                       A rows change keeps the selection on its row (an equal row, else the row with
+//                                       the same first column, the same one among several, with its new columns), or
+//                                       clears it; no actionID fires.
 ```

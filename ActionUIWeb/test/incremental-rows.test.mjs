@@ -148,6 +148,25 @@ test("List data rows: an identical row keeps the selection over an earlier row w
     assert.ok(inner.children[1].classList.contains("aui-list-row-selected"));
 });
 
+test("List data rows: of several rows sharing a first column, the same one stays selected", () => {
+    const { model, inner } = buildList(214);
+    model.setElementState(214, "content", [["a", "1"], ["a", "2"]]);
+    inner.children[1].fire("click"); // selects the second "a"
+    model.setElementState(214, "content", [["b", "0"], ["a", "1"], ["a", "3"]]);
+    assert.equal(model.getElementValue(214), "a\t3", "the second a, with its new columns");
+    assert.ok(inner.children[2].classList.contains("aui-list-row-selected"));
+    model.setElementState(214, "content", [["a", "9"]]);
+    assert.equal(model.getElementValue(214), "", "with one a left, which one went is unknown, so the selection clears");
+});
+
+test("RowSelection: an empty row is not a row with an empty first column, and cells compare as strings", async () => {
+    const { reconciledSelection } = await import("../src/Helpers/RowSelection.js");
+    assert.deepEqual(reconciledSelection(["", "x"], [["", "x"]], [[], ["", "y"]]), ["", "y"]);
+    assert.deepEqual(reconciledSelection(["", "x"], [["", "x"]], [[]]), []);
+    assert.deepEqual(reconciledSelection(["7", "x"], [["7", "x"]], [[7, "y"]]), [7, "y"]);
+    assert.deepEqual(reconciledSelection(["7", "x"], [["7", "x"]], [[7, "x"]]), ["7", "x"]);
+});
+
 // ---- Table data rows (<tbody>) ----
 
 // Table builds a <table> inside the .aui-table-scroll wrapper; the data rows are

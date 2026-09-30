@@ -407,6 +407,16 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(calls(), 1, "only the user's selection fired; the host's own clear does not")
     }
 
+    func testRowSelection_aRefreshBeforeTheDeferredWriteKeepsTheNewColumns() async throws {
+        let (viewModel, binding, calls) = try rowSelectionFixture()
+        binding.wrappedValue = [1] // the click takes ["Beta", "b"]; the write waits for the main queue
+        ActionUIModel.shared.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Beta", "b2"], ["Alpha", "a"]])
+        await drainMainQueue()
+        XCTAssertEqual(viewModel.value as? [String], ["Beta", "b2"], "the clicked row as it is now, so the list can highlight it")
+        XCTAssertEqual(binding.wrappedValue, [0])
+        XCTAssertEqual(calls(), 1)
+    }
+
     func testHomogeneousRows_shownRowsKeepTheirContentIndex() async throws {
         let items = [["Alpha"], [""], [], ["Delta", "d"]]
         let shown = List.shownRowIndices(items)

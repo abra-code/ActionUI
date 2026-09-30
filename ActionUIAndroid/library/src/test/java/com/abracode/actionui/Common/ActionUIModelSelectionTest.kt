@@ -114,4 +114,24 @@ class ActionUIModelSelectionTest {
         ActionUIModel.clearElementRows(viewID = 1)
         assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 1))
     }
+
+    @Test
+    fun `of several rows sharing a first column the same one stays selected`() {
+        loadList()
+        ActionUIModel.setElementRows(viewID = 1, rows = listOf(listOf("Alice", "30"), listOf("Alice", "40")))
+        ActionUIModel.selectElementRow(viewID = 1, index = 1)
+        ActionUIModel.setElementRows(viewID = 1, rows = listOf(listOf("Bob", "25"), listOf("Alice", "30"), listOf("Alice", "41")))
+        assertEquals(listOf("Alice", "41"), ActionUIModel.getElementValue(viewID = 1))
+        ActionUIModel.setElementRows(viewID = 1, rows = listOf(listOf("Alice", "31")))
+        assertEquals(emptyList<String>(), ActionUIModel.getElementValue(viewID = 1))
+    }
+
+    @Test
+    fun `rows written as plain state keep the selection on its row`() {
+        loadList()
+        ActionUIModel.setElementRows(viewID = 1, rows = rows)
+        ActionUIModel.selectElementRow(viewID = 1, index = 1)
+        ActionUIModel.setElementState(viewID = 1, key = ActionUIModel.ROWS_STATE_KEY, value = listOf(listOf("Bob", "26")))
+        assertEquals(listOf("Bob", "26"), ActionUIModel.getElementValue(viewID = 1))
+    }
 }
