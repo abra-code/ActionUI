@@ -9,8 +9,8 @@
 // a host can address it, but it has no value and no children.
 //
 // Note: like Apple, baseline View modifiers (padding/background/frame/...) apply
-// to nothing here - the element is deliberately invisible. There is no divergence
-// worth a Web_Porting_Notes entry; this is the trivial member of the group-A
+// to nothing here - the element is deliberately invisible. There is no notable
+// divergence here; this is the trivial member of the group-A
 // batch (EmptyView / Group / Link / ShareLink / ContentUnavailableView).
 
 import { register } from "../Common/ActionUIRegistry.js";

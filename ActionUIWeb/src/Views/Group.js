@@ -8,7 +8,7 @@
 // (.aui-group in theme.css): the group box generates no box, so its children flow
 // into the enclosing stack/grid as if the Group were not there.
 //
-// Divergence (documented in Web_Porting_Notes.md): because the box is
+// Divergence: because the box is
 // layout-transparent, decoration/geometry modifiers placed on the Group itself
 // (background / padding / frame / cornerRadius) are NOT honored - there is no box
 // to paint. SwiftUI applies such modifiers to the grouped result; on the web wrap

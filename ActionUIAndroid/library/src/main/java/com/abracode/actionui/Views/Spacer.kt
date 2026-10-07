@@ -26,7 +26,7 @@ import com.abracode.actionui.Common.ActionUIViewConstruction
  *
  * `minLength` (the Apple property) is **not yet ported** - it is a minimum
  * floor on the flexible length and needs the parent axis to map to
- * `widthIn`/`heightIn`. Tracked in `Private/Android_Porting_Notes.md`.
+ * `widthIn`/`heightIn`.
  *
  * Sample JSON: `{ "type": "Spacer" }`
  */

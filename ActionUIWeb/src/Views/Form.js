@@ -6,8 +6,8 @@
 // scroll on its own — SwiftUI's Form brings its own scroller, but here the
 // scrolling belongs to an enclosing ScrollView (the same stance the renderer
 // takes elsewhere), and macOS grouped/inset styling is not replicated; a small
-// default row spacing approximates the visual grouping. See
-// Web_Porting_Notes.md. Form.swift declares no properties of its own
+// default row spacing approximates the visual grouping. Form.swift declares
+// no properties of its own
 // (validateProperties passes through).
 
 import { register } from "../Common/ActionUIRegistry.js";

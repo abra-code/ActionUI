@@ -1,8 +1,8 @@
 // DialogHost.js — window-level alerts and confirmation dialogs.
 // Web analog of ActionUI/Common/WindowModalView.swift (the SwiftUI .alert /
-// .confirmationDialog presenters) and ActionUIAndroid's Material3 AlertDialog
-// (Android_Porting_Notes entry 40). The first member of the Phase 3 presentation
-// layer (Scenes/), and the first file under src/Scenes/.
+// .confirmationDialog presenters) and ActionUIAndroid's Material3 AlertDialog.
+// The first member of the presentation layer (Scenes/), and the first file under
+// src/Scenes/.
 //
 // A WindowDialog is pure data (title, message, buttons) - no ViewModels are
 // allocated, matching WindowModal.swift's WindowDialog. The web renders it as a

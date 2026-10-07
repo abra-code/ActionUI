@@ -70,7 +70,7 @@ import kotlinx.serialization.json.Json
  * Apple's dedup.
  *
  * **Deferred vs. Apple:** `.plist` sources (no Android property-list parser -
- * [LoadableFormat.PLIST] warn-and-skips). See `Private/Android_Porting_Notes.md`.
+ * [LoadableFormat.PLIST] warn-and-skips).
  */
 object LoadableView : ActionUIViewConstruction {
 

@@ -236,7 +236,7 @@ class PlatformFilterTest {
     @Test
     fun `all platforms set covers documented tokens`() {
         // Sanity check: the canonical list includes every platform token referenced
-        // in the plan section Design notes.
+        // by the Apple and Web filters.
         val expected = setOf(
             "ios", "macos", "tvos", "watchos", "visionos", "apple",
             "android", "androidtv", "wear",

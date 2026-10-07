@@ -52,8 +52,9 @@
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction, resolveColor } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
-import { buildTemplateRow } from "../Helpers/TemplateHelper.js";
+import { buildTemplateRow, rowsWithCell } from "../Helpers/TemplateHelper.js";
 import { commonRowPrefix } from "../Helpers/RowDiff.js";
+import { reconciledSelection } from "../Helpers/RowSelection.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
 import { ContainerShape } from "../Common/ActionUIInsertion.js";
 import { flatContainerBinding } from "../Helpers/InsertionHelper.js";
@@ -68,7 +69,9 @@ const ITEM_ACTION_CONTEXTS = ["title", "rowIndex"];
 
 // Interactive descendants that should consume their own tap instead of selecting
 // the row (so a Button cell fires its action while a Text cell selects the row).
-const INTERACTIVE_SELECTOR = "button, input, select, textarea, a";
+// A Toggle is a <label> around its input, so a click on its drawn box or title lands
+// on neither tag; its class covers the whole control.
+const INTERACTIVE_SELECTOR = "button, input, select, textarea, a, .aui-toggle";
 
 register("List", {
     // The selected child id / row, as a String ("" = nothing selected). See header.
@@ -93,7 +96,11 @@ register("List", {
         const itemType = (typeof properties.itemType === "object" && properties.itemType !== null)
             ? { ...properties.itemType } : { viewType: "Text" };
         const viewType = typeof itemType.viewType === "string" ? itemType.viewType : "Text";
-        if (!ITEM_VIEW_TYPES.includes(viewType)) {
+        if (viewType === "Toggle") {
+            // A one-column item has nowhere to hold both a title and a state.
+            logger.log("List itemType.viewType 'Toggle' is not supported; use a template with a Toggle (\"isOn\": \"$1\", \"title\": \"$2\") instead; defaulting to Text", "warning");
+            itemType.viewType = "Text";
+        } else if (!ITEM_VIEW_TYPES.includes(viewType)) {
             logger.log("List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", "warning");
             itemType.viewType = "Text";
         }
@@ -347,6 +354,9 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
                 selectRow(index, true);
             });
             rowNode.addEventListener("keydown", (event) => {
+                // A key on an interactive cell (Space on a Toggle) is the cell's own.
+                const control = event.target.closest?.(INTERACTIVE_SELECTOR);
+                if (control && rowNode.contains(control)) return;
                 if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     selectRow(index, true);
@@ -360,7 +370,8 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
                 });
             });
             rowNode.addEventListener("dblclick", () => {
-                if (typeof properties.doubleClickActionID === "string" && rowValue(row) === selectedRow) {
+                // The row as it is now: a Toggle in it may have written a cell since the node was built.
+                if (typeof properties.doubleClickActionID === "string" && rowValue(rows[index] ?? row) === selectedRow) {
                     ctx.model.dispatchAction(properties.doubleClickActionID, element.id, 0, index);
                 }
             });
@@ -376,6 +387,7 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
     // handlers). The diff preserves the selection across an append.
     const applyRows = (next) => {
         next = Array.isArray(next) ? next : [];
+        const oldRows = rows;
         const keep = commonRowPrefix(rows, next);
         while (rowNodes.length > keep) { rowNodes[rowNodes.length - 1].remove(); rowNodes.pop(); }
         for (let index = keep; index < next.length; index++) {
@@ -385,8 +397,13 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         }
         rows = next;
         node.classList.toggle("aui-list-empty", rows.length === 0);
-        // A rows change that drops the selected row clears the selection.
-        if (selectedRow !== "" && !rows.some((row) => rowValue(row) === selectedRow)) selectedRow = "";
+        // A rows change keeps the selection on its row, silently (Helpers/RowSelection.js).
+        // The selected columns come from the old row itself where it is there, so a tab
+        // inside a cell does not split it.
+        if (selectedRow !== "") {
+            const selected = oldRows.find((row) => rowValue(row) === selectedRow) ?? selectedRow.split("\t");
+            selectedRow = rowValue(reconciledSelection(selected, oldRows, rows));
+        }
         applySelectionStyles();
     };
 
@@ -396,6 +413,16 @@ function buildDataRows(node, element, properties, ctx, selectable, rowStyle, ren
         ctx.model.bindState(element.id, {
             getState: (key) => (key === "content" ? rows : undefined),
             setState: (key, value) => { if (key === "content") applyRows(value); },
+            // A user edit of a row-bound control (a Toggle in the template): the control
+            // already shows the new state, so the rows are updated and the row nodes stay
+            // in place. A selection resting on that row follows it, silently.
+            setCell: (rowIndex, column, text) => {
+                if (rowIndex < 0 || rowIndex >= rows.length) return false;
+                const wasSelected = selectedRow !== "" && rowValue(rows[rowIndex]) === selectedRow;
+                rows = rowsWithCell(rows, rowIndex, column, text);
+                if (wasSelected) selectedRow = rowValue(rows[rowIndex]);
+                return true;
+            },
         });
         // The selection value: the selected row tab-joined; highlighted silently
         // when set programmatically.

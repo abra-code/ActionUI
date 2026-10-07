@@ -23,13 +23,22 @@
 // reads the value, matching Apple). doubleClickActionID fires on a double-click of
 // the selected row with the row index as context. A Button cell fires its own
 // columnTypes[c].actionID and consumes the click, so per-cell actions and row
-// selection coexist.
+// selection coexist. A rows change keeps the selection on its row, as on Apple
+// (Helpers/RowSelection.js), and fires nothing.
+//
+// A Toggle column shows a checkbox with no title (the header names it) whose state
+// is the cell text ("true" or "1" is on; see Helpers/TemplateHelper.rowBool). A user
+// toggle writes "true" or "false" into that cell of the rows, leaves the selection
+// alone, and then fires columnTypes[c].actionID with viewPartID = the column index
+// and context = the row index, so a handler reads the new state from the rows.
+// columnTypes[c].disabledColumn (1-based) names a column that disables the cell.
 //
 // Properties (mirroring Table.swift):
 //   columns          Required [String] of header titles.
 //   columnHeadersVisibility  "automatic"|"hidden"|"visible".
 //   columnTypes      Per-column { viewType, actionContext, actionID,
-//                    dataInterpretation }; padded to columns with Text.
+//                    dataInterpretation, style, disabledColumn }; padded to
+//                    columns with Text.
 //   widths / minWidths  [Int] ideal / minimum column widths; the widest-ideal
 //                    column auto-sizes to fill the frame (macOS), the rest take
 //                    their ideal. Every column is user-resizable by dragging its
@@ -42,9 +51,12 @@ import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
 import { buildDataImageCell } from "../Helpers/DataImageCell.js";
 import { commonRowPrefix } from "../Helpers/RowDiff.js";
+import { reconciledSelection, sameRow } from "../Helpers/RowSelection.js";
 import { navigateRowsOnKey } from "../Helpers/RowKeyboardNav.js";
+import { rowBool, rowBoolText, rowsWithCell } from "../Helpers/TemplateHelper.js";
 
-const CELL_VIEW_TYPES = ["Text", "Button", "Image", "AsyncImage"];
+const CELL_VIEW_TYPES = ["Text", "Button", "Image", "AsyncImage", "Toggle"];
+const TOGGLE_STYLES = ["checkbox", "switch", "button"];
 const DATA_INTERPRETATIONS = ["path", "systemName", "assetName", "resourceName", "mixed"];
 const CELL_ACTION_CONTEXTS = ["title", "rowIndex", "columnIndex", "rowColumnIndex"];
 const HEADER_VISIBILITIES = ["visible", "hidden", "automatic"];
@@ -75,8 +87,18 @@ register("Table", {
         columnTypes.forEach((ct, i) => {
             const vt = typeof ct.viewType === "string" ? ct.viewType : "Text";
             if (!CELL_VIEW_TYPES.includes(vt)) {
-                logger.log(`Table columnTypes[${i}].viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text`, "warning");
+                logger.log(`Table columnTypes[${i}].viewType must be 'Text', 'Button', 'Image', 'AsyncImage', or 'Toggle'; defaulting to Text`, "warning");
                 ct.viewType = "Text";
+            }
+            if (vt === "Toggle") {
+                if (ct.style !== undefined && !TOGGLE_STYLES.includes(ct.style)) {
+                    logger.log(`Table columnTypes[${i}].style must be 'checkbox', 'switch', or 'button' for Toggle; defaulting to checkbox`, "warning");
+                    delete ct.style;
+                }
+                if (ct.disabledColumn !== undefined && !(Number.isInteger(ct.disabledColumn) && ct.disabledColumn >= 1)) {
+                    logger.log(`Table columnTypes[${i}].disabledColumn must be a 1-based column number for Toggle; ignoring`, "warning");
+                    delete ct.disabledColumn;
+                }
             }
             if (vt === "Image" && !DATA_INTERPRETATIONS.includes(ct.dataInterpretation)) {
                 logger.log(`Table columnTypes[${i}].dataInterpretation must be 'path', 'systemName', 'assetName', 'resourceName', or 'mixed' for Image; defaulting to systemName`, "warning");
@@ -308,11 +330,39 @@ register("Table", {
             }
         };
 
-        const buildCell = (value, colIndex, rowIndexRef) => {
+        const buildCell = (value, colIndex, rowIndexRef, row) => {
             const td = document.createElement("td");
             const colType = columnTypes[colIndex] ?? { viewType: "Text" };
             const viewType = colType.viewType ?? "Text";
-            if (viewType === "Button") {
+            if (viewType === "Toggle") {
+                // The same markup as a Toggle element without a title, so the theme's
+                // checkbox / switch drawing applies. The web has no button-style toggle.
+                const style = colType.style === "switch" || colType.style === "button" ? "switch" : "checkbox";
+                const label = document.createElement("label");
+                label.className = `aui-toggle aui-toggle-${style} aui-table-toggle`;
+                const input = document.createElement("input");
+                input.type = "checkbox";
+                input.checked = rowBool(value) === true;
+                input.disabled = Number.isInteger(colType.disabledColumn)
+                    && rowBool(row[colType.disabledColumn - 1] ?? "") === true;
+                const visual = document.createElement("span");
+                visual.className = "aui-toggle-visual";
+                label.append(input, visual);
+                // The cell's own click and keys, not row selection.
+                label.addEventListener("click", (event) => event.stopPropagation());
+                label.addEventListener("keydown", (event) => event.stopPropagation());
+                input.addEventListener("change", () => {
+                    const rowIndex = rowIndexRef();
+                    if (!setCell(rowIndex, colIndex, rowBoolText(input.checked))) {
+                        input.checked = !input.checked; // the row is gone
+                        return;
+                    }
+                    if (typeof colType.actionID === "string") {
+                        ctx.model.dispatchAction(colType.actionID, element.id, colIndex, rowIndex);
+                    }
+                });
+                td.appendChild(label);
+            } else if (viewType === "Button") {
                 const button = document.createElement("button");
                 button.className = "aui-table-button";
                 if (colType.dataInterpretation) {
@@ -342,13 +392,22 @@ register("Table", {
             return td;
         };
 
+        // A user toggle of a Toggle cell: the cell already shows the new state, so the
+        // rows are updated and the <tr> stays in place. The selection is by index and
+        // so stays on its row.
+        const setCell = (rowIndex, column, text) => {
+            if (rowIndex < 0 || rowIndex >= rows.length) return false;
+            rows = rowsWithCell(rows, rowIndex, column, text);
+            return true;
+        };
+
         const buildRow = (row, rowIndex) => {
             const tr = document.createElement("tr");
             tr.setAttribute("role", "row");
             tr.tabIndex = 0; // focusable, so the row keyboard pattern can drive selection
             const rowIndexRef = () => rowIndex;
             columns.forEach((colName, colIndex) => {
-                const td = buildCell(row[colIndex] ?? "", colIndex, rowIndexRef);
+                const td = buildCell(row[colIndex] ?? "", colIndex, rowIndexRef, row);
                 if (stackedCards) td.dataset.label = String(colName); // the card's row label (CSS ::before)
                 tr.appendChild(td);
             });
@@ -382,6 +441,7 @@ register("Table", {
         // width-based (row-count independent), so an append needs no relayout.
         const applyRows = (next) => {
             next = Array.isArray(next) ? next : [];
+            const oldRows = rows;
             const keep = commonRowPrefix(rows, next);
             while (trNodes.length > keep) { trNodes[trNodes.length - 1].remove(); trNodes.pop(); }
             for (let rowIndex = keep; rowIndex < next.length; rowIndex++) {
@@ -390,8 +450,19 @@ register("Table", {
                 tbody.appendChild(tr);
             }
             rows = next;
-            // A re-render drops the prior selection if its row no longer exists.
-            if (selectedIndex >= rows.length) selectedIndex = -1;
+            // A rows change keeps the selection on its row, not on its index, silently
+            // (Helpers/RowSelection.js): a row inserted above it, or an edit to another of
+            // its columns, must not move it to another row.
+            if (selectedIndex >= 0) {
+                const selected = oldRows[selectedIndex] ?? [];
+                const kept = reconciledSelection(selected, oldRows, rows);
+                if (kept.length === 0) {
+                    selectedIndex = -1;
+                } else if (!(selectedIndex < rows.length && sameRow(rows[selectedIndex], kept))) {
+                    const at = rows.indexOf(kept);
+                    selectedIndex = at >= 0 ? at : rows.findIndex((row) => sameRow(row, kept));
+                }
+            }
             applySelectionStyles();
         };
 
@@ -401,6 +472,7 @@ register("Table", {
             ctx.model.bindState(element.id, {
                 getState: (key) => (key === "content" ? rows : undefined),
                 setState: (key, value) => { if (key === "content") applyRows(value); },
+                setCell,
             });
             // The selection value: tab-joined selected row; set by value match.
             ctx.model.bind(element.id, {

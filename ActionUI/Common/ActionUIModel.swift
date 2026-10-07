@@ -235,9 +235,10 @@ public class ActionUIModel: ObservableObject {
         if let newRows = value as? [[String]] {
             viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
+            let oldRows = viewModel.states["content"] as? [[String]] ?? []
             viewModel.states["content"] = newRows
-            if let selectedRow = viewModel.value as? [String], !newRows.contains(where: { $0.first == selectedRow.first }) {
-                viewModel.value = [] as [String]
+            if let selectedRow = viewModel.value as? [String] {
+                viewModel.value = Self.reconciledSelection(selectedRow, from: oldRows, to: newRows)
             }
             logger.log("Updated Table content for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
         } else if let newItems = value as? [String] {
@@ -245,9 +246,10 @@ public class ActionUIModel: ObservableObject {
             let newContent = newItems.map { [$0] }
             viewModel.objectWillChange.send()
             viewModel.mutationToken &+= 1
+            let oldRows = viewModel.states["content"] as? [[String]] ?? []
             viewModel.states["content"] = newContent
-            if let selectedRow = viewModel.value as? [String], !newContent.contains(where: { $0.first == selectedRow.first }) {
-                viewModel.value = [] as [String]
+            if let selectedRow = viewModel.value as? [String] {
+                viewModel.value = Self.reconciledSelection(selectedRow, from: oldRows, to: newContent)
             } else if let selectedItem = viewModel.value as? String, !newItems.contains(selectedItem) {
                 viewModel.value = []
             }
@@ -483,7 +485,12 @@ public class ActionUIModel: ObservableObject {
         }
         viewModel.objectWillChange.send()
         viewModel.mutationToken &+= 1
+        let oldRows = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states[key] = value
+        // Rows written as plain state keep the selection on its row, as setElementRows does.
+        if key == "content", let rows = value as? [[String]], let selectedRow = viewModel.value as? [String] {
+            viewModel.value = Self.reconciledSelection(selectedRow, from: oldRows, to: rows)
+        }
         windowModel.viewModels[viewID] = viewModel
         endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)
         logger.log("Set state '\(key)' for viewID: \(viewID), windowUUID: \(windowUUID)", .debug)
@@ -602,8 +609,26 @@ public class ActionUIModel: ObservableObject {
         return viewModel.states["content"] as? [[String]]
     }
 
+    // The selection to keep after the rows of a Table or List change from oldRows to rows.
+    // A row the selection still equals keeps it. Otherwise a row with the same first column
+    // (the row's identity) takes its place: the selection bindings match whole rows, so a
+    // value left stale after another column changed would lose its highlight with no event.
+    // When several rows share that first column, the one at the same place among them is
+    // taken (the second "Alice" stays the second). With no such row the selection clears.
+    // Programmatic, so no actionID fires.
+    static func reconciledSelection(_ selected: [String], from oldRows: [[String]], to rows: [[String]]) -> [String] {
+        if selected.isEmpty || rows.contains(selected) {
+            return selected
+        }
+        let isPeer: ([String]) -> Bool = { $0.first == selected.first }
+        let place = oldRows.filter(isPeer).firstIndex(of: selected) ?? 0
+        let peers = rows.filter(isPeer)
+        return place < peers.count ? peers[place] : []
+    }
+
     // Sets all content rows for a table/list view element, replacing any existing rows.
-    // Clears the current selection if the selected row is no longer present.
+    // Keeps the selection on its row (matched by first column, taking the row's new
+    // columns) and clears it when that row is gone; see reconciledSelection.
     public func setElementRows(windowUUID: String, viewID: Int, rows: [[String]]) {
         guard let windowModel = windowModels[windowUUID],
               let viewModel = windowModel.viewModels[viewID] else {
@@ -611,9 +636,10 @@ public class ActionUIModel: ObservableObject {
             return
         }
         viewModel.objectWillChange.send()
+        let oldRows = viewModel.states["content"] as? [[String]] ?? []
         viewModel.states["content"] = rows
-        if let selectedRow = viewModel.value as? [String], !rows.contains(where: { $0.first == selectedRow.first }) {
-            viewModel.value = [] as [String]
+        if let selectedRow = viewModel.value as? [String] {
+            viewModel.value = Self.reconciledSelection(selectedRow, from: oldRows, to: rows)
         }
         windowModel.viewModels[viewID] = viewModel
         endRefreshTargeting(windowUUID: windowUUID, viewID: viewID)

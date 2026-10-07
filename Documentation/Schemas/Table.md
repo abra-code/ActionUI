@@ -12,12 +12,16 @@ JSON schema and usage documentation for `Table`.
      "columns": ["Name", "Action", "Icon"], // Required: Array of strings for column headers
      "columnHeadersVisibility": "hidden",   // Optional: column headers visibility: "automatic", "hidden", "visible"
      "columnTypes": [                       // Optional: Per-column type config array. Defaults to all Text.
-       { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"
+       { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"|"Toggle"
        { "viewType": "Button",              // Columns without an entry default to Text.
          "actionContext": "rowIndex",       // "actionContext": "title"|"rowIndex"|"columnIndex"|"rowColumnIndex" (Button only)
          "actionID": "row.action" },        // "actionID": "..." (Button only — fires on button click) }
        { "viewType": "Image",
-         "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image & Button)
+         "dataInterpretation": "systemName" }, // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image & Button)
+       { "viewType": "Toggle",              // A checkbox per row. The cell text is its state: "true" or "1" is on, "false", "0" or empty is off (any letter case).
+         "style": "checkbox",               // "style": "checkbox" (default)|"switch"|"button" (Toggle only)
+         "actionID": "row.toggled",         // "actionID": "..." (Toggle only - fires on a user toggle, after the cell is written; viewPartID = column index, context = row index)
+         "disabledColumn": 4 }              // "disabledColumn": 1-based column number (hidden columns included) whose text, read the same way, disables the cell for that row (Toggle only)
      ],
      "widths": [100, 80, 40],               // Optional: Array of integers for ideal column widths (resizable; last column fills remaining space)
      "minWidths": [80, 60, 30],             // Optional: Array of integers for minimum column widths in points; columns cannot be resized below these. Missing entries default to 10.
@@ -25,7 +29,7 @@ JSON schema and usage documentation for `Table`.
      "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
  }
-   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"], using row IDs for tracking. The table-level actionID fires on selection change. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns.
+   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"] (the selected row's columns) and highlights the row with those columns. A rows change keeps the selection on its row (an equal row, else the row with the same first column, the same one among several, with its new columns), or clears it; no actionID fires. The table-level actionID fires on every selection change the user makes, a deselect included. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
 
 // Observable state:
@@ -37,6 +41,40 @@ JSON schema and usage documentation for `Table`.
 //   states["content"]   [[String]]      All table rows; each inner array holds one row's column values.
 //                                       Access via getElementRows / setElementRows / appendElementRows /
 //                                       clearElementRows / getElementColumnCount.
-//   states["selectedRowID"] String?     Stable row ID of the currently selected row; nil when nothing is
-//                                       selected. No dedicated public API — use getElementState / setElementState.
 ```
+
+## Toggle columns
+
+A column with `"viewType": "Toggle"` shows a checkbox in every row, with no title: the column header names it.
+
+```json
+{
+  "type": "Table",
+  "id": 600,
+  "properties": {
+    "columns": ["", "Pack"],
+    "columnTypes": [
+      { "viewType": "Toggle", "style": "checkbox", "actionID": "packs.toggled", "disabledColumn": 4 },
+      { "viewType": "Text" }
+    ],
+    "widths": [28, 240],
+    "actionID": "packs.selection.changed"
+  }
+}
+```
+
+with rows such as `["true", "Xcode and Swift builds", "xcode", "false"]` (columns past `columns` are hidden data).
+
+- **State.** The cell text is the state: `"true"` or `"1"` is on; `"false"`, `"0"` or an empty string is off; letter case does not matter; any other text is off.
+- **Write-back.** A user toggle writes `"true"` or `"false"` into that cell of the rows. `getElementRows` returns the new state.
+- **Action.** The entry's `actionID` then fires with `viewID` = the table's id, `viewPartID` = the column index and `context` = the 0-based row index (the same as a Button cell with `"actionContext": "rowIndex"`). The handler reads the new state from the rows: `rows[context][viewPartID]`.
+- **`disabledColumn`.** A 1-based column number, hidden columns included, whose text is read the same way; when it is on, the cell is disabled for that row.
+- **Selection is separate.** Toggling does not select the row and does not fire the table's `actionID`. A selection stays on its row across the write.
+- **Changes made by the host fire nothing.** `setElementRows`, `appendElementRows` and `clearElementRows` change what the cells show and fire no action.
+
+Note the two conventions: in a `Table` the column is `viewPartID` and the row is the context, as for a Button cell; for a `Toggle` in a template the row is `viewPartID` and the context is the new Boolean, as for a Button in a template (see `Toggle`).
+
+### Host differences
+
+- **Android** has no `Table` (it renders nothing there); use a `List` with a `Toggle` template.
+- **Web** draws `button` style as `switch`. A toggled cell keeps its place (the row is not rebuilt), so a cell of the same row that depends on the toggled column, such as another Toggle whose `disabledColumn` is that column, changes only at the next rows change.

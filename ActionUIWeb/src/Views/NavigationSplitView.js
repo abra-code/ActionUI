@@ -33,8 +33,8 @@
 // when the element has an id. On a user selection the **sidebar List's** actionID
 // fires (viewID = sidebar.id, no context) — matching Swift and the web's existing
 // no-context selection convention; the host then reads selectedDestination.
-// (Android instead fires the NSV's own actionID with context = destId — divergence
-// documented in Private/Web_Porting_Notes.md.)
+// (Android instead fires the NSV's own actionID with context = destId — a
+// deliberate divergence.)
 //
 // Browser back/forward (opt-in, web-only): `browserHistory:web: true` makes a user
 // sidebar selection a browser-history entry, so Back returns to the previously

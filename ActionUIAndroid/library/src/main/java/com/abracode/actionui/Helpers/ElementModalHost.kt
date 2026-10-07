@@ -57,7 +57,7 @@ import com.abracode.actionui.Common.subElements
  * a `template` repeater - template instances are throw-away renders without
  * registered [com.abracode.actionui.Common.ViewModel]s, so they have no states to
  * observe (the same is true on Apple). `popover` stays deferred - no Android
- * popover subsystem yet (`Private/Android_Porting_Notes.md`).
+ * popover subsystem yet.
  */
 @Composable
 fun ElementModalsHost(root: ActionUIElement) {

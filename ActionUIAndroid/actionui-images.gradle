@@ -28,8 +28,6 @@
  * The rename transform MUST match `normalizeAssetDrawableName` in the
  * library's `Common/ImageRegistry.kt` (lowercase; any char outside [a-z0-9_]
  * becomes '_'), plus the `aui_` prefix. Both sides are pinned by tests.
- *
- * See `Private/Android_Asset_Image_Design.md` for the design.
  */
 
 import groovy.io.FileType

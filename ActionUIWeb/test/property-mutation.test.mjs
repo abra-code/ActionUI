@@ -1,8 +1,7 @@
 // Tests for the runtime property bridge:
 //   - ModifierResolver.applyElementProperty  (the per-property appliers)
 //   - ActionUIModel.setElementProperty       (find node -> apply -> record override)
-// Reconstructs the assertions recorded in Private/Commit_Notes_Web_SetElementProperty.md
-// and the scaleEffect/rotationEffect part of Private/Commit_Notes_Web_Animation.md.
+// Also covers the scaleEffect/rotationEffect animation properties.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

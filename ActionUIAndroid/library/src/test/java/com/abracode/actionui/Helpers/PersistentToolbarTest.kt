@@ -14,7 +14,7 @@ import org.junit.Test
 /**
  * Unit tests for the `persistentToolbar` key: the pure functions that decide WHICH items
  * belong to a container and which belong to a screen, and the merge that puts both in one
- * bar. See `Private/Design-36-Persistent-Toolbar.md` section 6.
+ * bar.
  *
  * The `@Composable` half - the container publishing through [LocalPersistentToolbarItems],
  * each screen merging what it finds, and the decision of WHETHER a screen gets a bar at

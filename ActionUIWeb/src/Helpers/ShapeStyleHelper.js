@@ -18,7 +18,7 @@
 // modifiers accept. resolveColor maps every semantic name to its --aui-* token
 // (theme.css, light + dark), so a semantic fill/stroke is theme-correct here
 // just as on Apple and Android; only a genuinely unknown color warns and falls
-// through to the foreground fill. See Private/Semantic_Color_Mapping_Design.md.
+// through to the foreground fill.
 //
 // File granularity: Android splits this into ShapeStyleHelper.kt (paint) +
 // Views/ShapeView.kt (DrawScope glue). On web a shape is a styled <div> —
@@ -54,8 +54,8 @@ export function resolveShapePaint(properties, logger) {
 // SwiftUI shape accepts the full proposal; .aui-shape stretches and grows —
 // the fillMaxSize analog from Android's ShapeView). An explicit numeric frame
 // dimension pins it instead (flex-grow:0), so a frame'd shape keeps its size
-// in a stack with free space — see Private/Web_Porting_Notes.md (Shapes) for
-// the one-axis-frame caveat.
+// in a stack with free space. A frame with only one dimension stops the growth
+// too, also along the axis it leaves free.
 export function createShapeBox(properties, extraClass) {
     const node = document.createElement("div");
     node.className = extraClass ? `aui-shape ${extraClass}` : "aui-shape";

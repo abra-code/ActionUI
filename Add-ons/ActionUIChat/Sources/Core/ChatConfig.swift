@@ -29,7 +29,7 @@ struct ChatConfig {
     let messageActionID: String?
     let errorActionID: String?
     let approveToolActionID: String?  // fired when an agent requests tool permission
-    let entryActionID: String?        // fired per finalized transcript entry (incremental persistence, P0-2)
+    let entryActionID: String?        // fired per finalized transcript entry (incremental persistence)
     let resumeCheckpointActionID: String?  // fired at turn boundaries with the resume cursor that pairs with
                                       // entryActionID. The component only OFFERS a checkpoint when
                                       // emitsEntryEvents is true, and that derives from entryActionID below -
@@ -98,7 +98,7 @@ struct ChatConfig {
                     continue
                 }
                 if mode == ChatConfiguration.SurfaceMode.panel.rawValue {
-                    logger.log("Chat surfaces.\(surface) 'panel' is not yet honored (M5); rendering inline", .verbose)
+                    logger.log("Chat surfaces.\(surface) 'panel' is not yet honored; rendering inline", .verbose)
                 }
             }
             validated["surfaces"] = surfacesRaw
@@ -129,6 +129,14 @@ struct ChatConfig {
         if let value = validated["showFindBar"], !(value is Bool) {
             logger.log("Chat showFindBar must be a Bool; ignoring", .warning)
             validated["showFindBar"] = nil
+        }
+
+        // Fails closed: a present but unrecognized value becomes "on-click" rather than being dropped, which
+        // would mean "automatic" - whoever set the key meant to restrict fetching.
+        if let value = validated["remoteImages"],
+           (value as? String).flatMap(ChatConfiguration.RemoteImages.init(rawValue:)) == nil {
+            logger.log("Chat remoteImages must be one of automatic / on-click / never; using on-click", .warning)
+            validated["remoteImages"] = ChatConfiguration.RemoteImages.onClick.rawValue
         }
 
         return validated

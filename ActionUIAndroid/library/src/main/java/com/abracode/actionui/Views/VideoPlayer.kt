@@ -42,8 +42,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * rendered as the platform [android.widget.VideoView] with a [MediaController]
  * overlay through Compose's [AndroidView] interop - the `WebView` stance:
  * the OS ships a native video element, so no androidx.media3/ExoPlayer
- * dependency (what that would add, and the provider-module escape hatch if
- * demand appears, is in the porting notes).
+ * dependency (a provider module could add one if demand appears).
  *
  * Sample JSON:
  * ```
@@ -79,7 +78,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * when hosted in an unbounded scroll column
  * ([[android-bounded-height-scroll]]).
  *
- * Remote URLs ride the existing `INTERNET` permission (entry 39). Cleartext
+ * Remote URLs ride the existing `INTERNET` permission. Cleartext
  * `http://` additionally needs the host to allow cleartext traffic, the
  * Android default-deny; prefer `https://`.
  */

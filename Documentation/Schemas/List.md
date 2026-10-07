@@ -16,7 +16,7 @@ JSON schema and usage documentation for `List`.
         "actionID": "list.buttonClick",        // Button only — fires on button click
         "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
       },
-      "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
+      "actionID": "list.selection.changed",    // Optional: Fires on every selection change the user makes, a deselect included (all cell types)
       "doubleClickActionID": "list.double.click",  // Optional: String for double-click action (macOS only, context = row index)
       "onRefreshActionID": "list.refresh",      // Optional: String. When set, enables pull-to-refresh; fires this actionID on pull. The spinner stays until the client delivers fresh data to this list or anything inside it (any setElementRows/appendElementRows/clearElementRows/setElementValue/setElementState call targeting this list or a descendant), or a safety timeout elapses.
       // List styling
@@ -60,6 +60,9 @@ JSON schema and usage documentation for `List`.
         { "type": "Text",  "properties": { "text": "$2" } }
       ]
     }
+    // A checkbox list is a template with a Toggle: the row holds the state, a user toggle writes
+    // it back into the row and fires the Toggle's actionID with the row index (see Toggle):
+    //   "template": { "type": "Toggle", "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "actionID": "item.toggled" } }
   }
     // Note: The List can operate in three modes (Form 1, 2, and 3):
     //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage)
@@ -114,4 +117,25 @@ JSON schema and usage documentation for `List`.
 //    states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
 //                                       hidden-column data. Access via getElementRows / setElementRows /
 //                                       appendElementRows / clearElementRows.
+//                                       A rows change keeps the selection on its row (an equal row, else the row with
+//                                       the same first column, the same one among several, with its new columns), or
+//                                       clears it; no actionID fires.
 ```
+
+## Checkbox list (Form 3 with a Toggle)
+
+```json
+{
+  "type": "List",
+  "id": 600,
+  "properties": { "actionID": "packs.selection.changed" },
+  "template": {
+    "type": "Toggle",
+    "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "disabled": "$4", "actionID": "packs.toggled" }
+  }
+}
+```
+
+Each row carries its own state in the column `isOn` names (`"true"` / `"false"`). A user toggle writes the new state into the row and fires the Toggle's `actionID` with `viewID` = the list's id, `viewPartID` = the row index and `context` = the new Boolean; it does not select the row. The full rules are in `Toggle`, "In a data-driven template".
+
+Form 1 has no Toggle item type (`"itemType": { "viewType": "Toggle" }` is refused with a warning and shown as Text): a one-column item has nowhere to hold both a title and a state.

@@ -12,7 +12,7 @@
         "actionID": "list.buttonClick",        // Button only — fires on button click
         "dataInterpretation": "systemName"     // "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image only)
       },
-      "actionID": "list.selection.changed",    // Optional: Fires on selection change (all cell types)
+      "actionID": "list.selection.changed",    // Optional: Fires on every selection change the user makes, a deselect included (all cell types)
       "doubleClickActionID": "list.double.click",  // Optional: String for double-click action (macOS only, context = row index)
       "onRefreshActionID": "list.refresh",      // Optional: String. When set, enables pull-to-refresh; fires this actionID on pull. The spinner stays until the client delivers fresh data to this list or anything inside it (any setElementRows/appendElementRows/clearElementRows/setElementValue/setElementState call targeting this list or a descendant), or a safety timeout elapses.
       // List styling
@@ -56,6 +56,9 @@
         { "type": "Text",  "properties": { "text": "$2" } }
       ]
     }
+    // A checkbox list is a template with a Toggle: the row holds the state, a user toggle writes
+    // it back into the row and fires the Toggle's actionID with the row index (see Toggle.swift):
+    //   "template": { "type": "Toggle", "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "actionID": "item.toggled" } }
   }
     // Note: The List can operate in three modes (Form 1, 2, and 3):
     //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage)
@@ -111,6 +114,9 @@
     states["content"]  [[String]]      All list items; each inner array holds the item string and any optional
                                        hidden-column data. Access via getElementRows / setElementRows /
                                        appendElementRows / clearElementRows.
+                                       A rows change keeps the selection on its row (an equal row, else the row with
+                                       the same first column, the same one among several, with its new columns), or
+                                       clears it; no actionID fires.
 */
 
 import SwiftUI
@@ -182,6 +188,13 @@ struct List: ActionUIViewConstruction {
         return AnyView(modified)
     }
 
+    /// The content rows a homogeneous list shows: its cell is the row's first column, and a row
+    /// whose first column is empty is not shown. Returns indices into content (not positions
+    /// among the shown rows), so a row's selection tag names the right content row.
+    static func shownRowIndices(_ items: [[String]]) -> [Int] {
+        items.indices.filter { !(items[$0].first ?? "").isEmpty }
+    }
+
     /// Builds one row for homogeneous lists. Always returns AnyView so row modifiers can be uniformly
     /// applied regardless of the underlying view type (Text, Button, Image, AsyncImage).
     private static func buildHomogeneousRow(
@@ -219,7 +232,11 @@ struct List: ActionUIViewConstruction {
 
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
-        if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
+        if viewType == "Toggle" {
+            // A one-column item has nowhere to hold both a title and a state.
+            logger.log("List itemType.viewType 'Toggle' is not supported; use a template with a Toggle (\"isOn\": \"$1\", \"title\": \"$2\") instead; defaulting to Text", .warning)
+            itemType["viewType"] = "Text"
+        } else if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
             logger.log("List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
             itemType["viewType"] = "Text"
         }
@@ -331,40 +348,10 @@ struct List: ActionUIViewConstruction {
                 return applyRowModifiers(templateView, properties: properties)
             }
 
-            // Selection binding: same index-based pattern as homogeneous list
-            // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-            // not the non-Sendable [String: Any] properties payload.
-            let actionID = properties["actionID"] as? String
-            let selectionBinding: Binding<Set<Int>> = mainActorBinding(
-                get: {
-                    guard let selectedRow = model.value as? [String],
-                          !selectedRow.isEmpty,
-                          let content = model.states["content"] as? [[String]],
-                          let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
-                        return Set<Int>()
-                    }
-                    return Set([selectedIndex])
-                },
-                set: { newSet in
-                    guard let newIndex = newSet.first else {
-                        if !(model.value as? [String] ?? []).isEmpty {
-                            DispatchQueue.main.async { model.value = [] }
-                        }
-                        return
-                    }
-                    guard let content = model.states["content"] as? [[String]],
-                          content.indices.contains(newIndex) else { return }
-                    let selectedRowValues = content[newIndex]
-                    guard (model.value as? [String]) != selectedRowValues else { return }
-                    DispatchQueue.main.async {
-                        model.value = selectedRowValues
-                        if let actionID {
-                            ActionUIModel.shared.actionHandler(
-                                actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0
-                            )
-                        }
-                    }
-                }
+            // Selection binding: the same index-based binding as the homogeneous list.
+            let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
+                drawnRows: rows, model: model, actionID: properties["actionID"] as? String,
+                windowUUID: windowUUID, viewID: element.id
             )
 
             return SwiftUI.List(selection: selectionBinding) {
@@ -379,8 +366,10 @@ struct List: ActionUIViewConstruction {
             } primaryAction: { indices in
                 if let doubleClickActionID = doubleClickActionID,
                    let index = indices.first {
-                    if let content = model.states["content"] as? [[String]], content.indices.contains(index) {
-                        model.value = content[index]   // keep selection/value in sync for env export
+                    if rows.indices.contains(index) {   // an index into the rows as drawn
+                        // Keep selection/value in sync for env export, with the row as it is now.
+                        let current = model.states["content"] as? [[String]] ?? []
+                        model.value = ActionUIModel.reconciledSelection(rows[index], from: rows, to: current)
                     }
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: index)
                 }
@@ -440,61 +429,23 @@ struct List: ActionUIViewConstruction {
             let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
             let actionContext = itemType["actionContext"] as? String ?? "title"
             let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
-            let displayItems: [String] = items.map { $0.first ?? "" }.filter { !$0.isEmpty } // Display first column only
+            let shownIndices = shownRowIndices(items)
             let buttonActionID = itemType["actionID"] as? String
             let doubleClickActionID = properties["doubleClickActionID"] as? String
             let elementID = element.id
 
-            // Indices are 0..<displayItems.count — stable even with duplicate display strings
-            // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-            // not the non-Sendable [String: Any] properties payload.
-            let actionID = properties["actionID"] as? String
-            let selectionBinding: Binding<Set<Int>> = mainActorBinding(
-                get: {
-                    guard let selectedRow = model.value as? [String],
-                          !selectedRow.isEmpty,
-                          let content = model.states["content"] as? [[String]],
-                          let selectedIndex = content.firstIndex(where: { $0 == selectedRow }) else {
-                        return Set<Int>()
-                    }
-                    return Set([selectedIndex])
-                },
-                set: { newSet in
-                    // Enforce single selection for now (take first if somehow multi arrives)
-                    guard let newIndex = newSet.first else {
-                        if !(model.value as? [String] ?? []).isEmpty {
-                            DispatchQueue.main.async {
-                                model.value = []
-                            }
-                        }
-                        return
-                    }
-
-                    guard let content = model.states["content"] as? [[String]],
-                          content.indices.contains(newIndex) else { return }
-
-                    let selectedRowValues = content[newIndex]
-
-                    guard (model.value as? [String]) != selectedRowValues else { return }
-                    DispatchQueue.main.async {
-                        model.value = selectedRowValues
-                        if let actionID {
-                            ActionUIModel.shared.actionHandler(
-                                actionID,
-                                windowUUID: windowUUID,
-                                viewID: elementID,
-                                viewPartID: 0
-                            )
-                        }
-                    }
-                }
+            let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
+                drawnRows: items, model: model, actionID: properties["actionID"] as? String,
+                windowUUID: windowUUID, viewID: elementID
             )
 
             return SwiftUI.List(selection: selectionBinding) {
-                SwiftUI.ForEach(displayItems.indices, id: \.self) { index in
+                // Row ids are indices into content, stable even with duplicate display strings;
+                // the selection binding and the double-click read the drawn rows by the same index.
+                SwiftUI.ForEach(shownIndices, id: \.self) { index in
                     applyRowModifiers(
                         buildHomogeneousRow(
-                            item: displayItems[index], index: index, viewType: viewType,
+                            item: items[index][0], index: index, viewType: viewType,
                             dataInterpretation: dataInterpretation, buttonActionID: buttonActionID,
                             actionContext: actionContext, windowUUID: windowUUID, elementID: elementID
                         ),
@@ -511,8 +462,10 @@ struct List: ActionUIViewConstruction {
             } primaryAction: { indices in
                 if let doubleClickActionID = doubleClickActionID,
                    let index = indices.first {
-                    if let content = model.states["content"] as? [[String]], content.indices.contains(index) {
-                        model.value = content[index]   // keep selection/value in sync for env export
+                    if items.indices.contains(index) {   // an index into the rows as drawn
+                        // Keep selection/value in sync for env export, with the row as it is now.
+                        let current = model.states["content"] as? [[String]] ?? []
+                        model.value = ActionUIModel.reconciledSelection(items[index], from: items, to: current)
                     }
                     ActionUIModel.shared.actionHandler(doubleClickActionID, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: index)
                 }

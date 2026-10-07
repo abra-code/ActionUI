@@ -40,7 +40,7 @@ import kotlinx.serialization.json.booleanOrNull
 /**
  * Renders an element's `toolbar` as the native Android screen chrome
  * (`Scaffold` + `TopAppBar` / `BottomAppBar`). The Android counterpart of Apple's
- * `.toolbar {}` modifier; see `Private/Android_Toolbar_Design.md`.
+ * `.toolbar {}` modifier.
  *
  * SwiftUI's `.toolbar` attaches to a view and the navigation chrome renders it.
  * Android has no per-view toolbar modifier - the native home is a screen-level
@@ -52,8 +52,7 @@ import kotlinx.serialization.json.booleanOrNull
  * CONTAINER instead: its items stay in the bar on every screen inside it. Android has no
  * window toolbar to hoist them into and no per-view modifier to attach them with, so the
  * container publishes them through [LocalPersistentToolbarItems] and each screen merges
- * them into its own `Scaffold` - one bar per screen, never two. See
- * `Private/Design-36-Persistent-Toolbar.md` section 6.
+ * them into its own `Scaffold` - one bar per screen, never two.
  */
 
 /** Where a toolbar item lands in the Android Scaffold chrome. */

@@ -34,6 +34,7 @@ The element value is the Markdown source string, so the host drives it with the 
 | `baseFontSize` | number | Base font point size. Omit for Dynamic Type body. |
 | `syntaxHighlighting` | boolean | Color fenced code blocks by language. Default from the RichText theme. |
 | `showFindBar` | boolean | A find bar over the document (default false): Cmd-F opens it, Cmd-G / Shift-Cmd-G step, Escape closes. Off, a runtime `setElementState("search", "<term>")` still highlights every match; `""` clears. |
+| `remoteImages` | string | When http / https images are fetched: `"automatic"` (default) at once, `"on-click"` when the reader clicks the placeholder naming the image's host, `"never"` not at all. Use `"on-click"` or `"never"` for Markdown a model or an agent wrote, since an image URL can carry data out. An unrecognized value counts as `"on-click"`. Same as the Chat element's property. |
 
 `baseFontSize` and `syntaxHighlighting` override those knobs on RichText's default theme; the rest of
 the theme keeps its defaults. Sizing / padding / background use the baseline View modifiers.

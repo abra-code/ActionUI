@@ -1,0 +1,206 @@
+{
+  "type": "TabView",
+  "id": 1,
+  "properties": {
+    "frame": { "minWidth": 760, "minHeight": 480, "idealWidth": 900, "idealHeight": 560 }
+  },
+  "children": [
+    {
+      "type": "Tab",
+      "properties": { "title": "Projects", "systemImage": "folder" },
+      "content": {
+        "type": "NavigationSplitView",
+        "id": 100,
+        "properties": {
+          "columnVisibility": "all",
+          "style": "balanced",
+          "onAppearActionID": "nsv.template.projects.load"
+        },
+        "sidebar": {
+          "type": "List",
+          "id": 101,
+          "properties": {
+            "actionID": "nsv.template.projects.selected",
+            "listStyle": "sidebar",
+            "listRowSeparator": "hidden",
+            "listRowInsets": { "top": 4, "leading": 8, "bottom": 4, "trailing": 8 },
+            "navigationSplitViewColumnWidth": { "min": 220, "ideal": 260, "max": 340 }
+          },
+          "template": {
+            "type": "VStack",
+            "properties": {
+              "alignment": "leading",
+              "spacing": 6,
+              "padding": 12,
+              "frame": { "maxWidth": "infinity", "alignment": "leading" },
+              "foregroundStyle": "white",
+              "background": "$5",
+              "cornerRadius": 12
+            },
+            "children": [
+              {
+                "type": "HStack",
+                "children": [
+                  { "type": "Image", "properties": { "systemName": "$2", "font": "title2" } },
+                  { "type": "Spacer" },
+                  { "type": "Image", "properties": { "systemName": "$4", "font": "title2" } }
+                ]
+              },
+              { "type": "Text", "properties": { "text": "$1", "font": { "size": 17, "weight": "bold" } } },
+              { "type": "Text", "properties": { "text": "$3", "font": "caption", "opacity": 0.85 } }
+            ]
+          },
+          "toolbar": [
+            {
+              "type": "ToolbarItem",
+              "properties": { "placement": "primaryAction" },
+              "content": {
+                "type": "Button",
+                "properties": { "systemImage": "plus", "help": "New Project...", "actionID": "nsv.template.projects.new" }
+              }
+            }
+          ]
+        },
+        "detail": {
+          "type": "ZStack",
+          "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+          "children": [
+            {
+              "type": "ContentUnavailableView",
+              "id": 119,
+              "properties": { "title": "No Project Selected", "systemImage": "folder", "description": "Select a project to see its details." }
+            },
+            {
+              "type": "VStack",
+              "id": 110,
+              "properties": {
+                "hidden": true,
+                "alignment": "leading",
+                "spacing": 16,
+                "padding": 20,
+                "frame": { "maxWidth": "infinity", "maxHeight": "infinity", "alignment": "topLeading" }
+              },
+              "children": [
+                { "type": "Text", "id": 112, "properties": { "text": "", "font": "largeTitle" } },
+                { "type": "Text", "id": 113, "properties": { "text": "", "foregroundStyle": "secondary" } },
+                {
+                  "type": "HStack",
+                  "children": [
+                    { "type": "Button", "id": 117, "properties": { "title": "Resume", "buttonStyle": "borderedProminent", "actionID": "nsv.template.projects.pauseresume" } },
+                    { "type": "Button", "properties": { "title": "Open", "actionID": "nsv.template.projects.open" } },
+                    { "type": "Spacer" },
+                    { "type": "Button", "properties": { "title": "Delete...", "role": "destructive", "actionID": "nsv.template.projects.delete" } }
+                  ]
+                },
+                { "type": "Text", "id": 114, "properties": { "text": "", "foregroundStyle": "orange" } },
+                { "type": "Spacer" }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Tab",
+      "properties": { "title": "Teams", "systemImage": "person.3" },
+      "content": {
+        "type": "NavigationSplitView",
+        "id": 200,
+        "properties": {
+          "columnVisibility": "all",
+          "style": "balanced",
+          "onAppearActionID": "nsv.template.teams.load"
+        },
+        "sidebar": {
+          "type": "List",
+          "id": 201,
+          "properties": {
+            "actionID": "nsv.template.teams.selected",
+            "listStyle": "sidebar",
+            "listRowSeparator": "hidden",
+            "listRowInsets": { "top": 4, "leading": 8, "bottom": 4, "trailing": 8 },
+            "navigationSplitViewColumnWidth": { "min": 220, "ideal": 260, "max": 340 }
+          },
+          "template": {
+            "type": "VStack",
+            "properties": {
+              "alignment": "leading",
+              "spacing": 6,
+              "padding": 12,
+              "frame": { "maxWidth": "infinity", "alignment": "leading" },
+              "foregroundStyle": "white",
+              "background": "$5",
+              "cornerRadius": 12
+            },
+            "children": [
+              {
+                "type": "HStack",
+                "children": [
+                  { "type": "Image", "properties": { "systemName": "$2", "font": "title2" } },
+                  { "type": "Spacer" },
+                  { "type": "Text", "properties": { "text": "$4", "font": { "size": 22, "weight": "bold" } } }
+                ]
+              },
+              { "type": "Text", "properties": { "text": "$1", "font": { "size": 17, "weight": "bold" } } },
+              { "type": "Text", "properties": { "text": "$3", "font": "caption", "opacity": 0.85 } }
+            ]
+          }
+        },
+        "detail": {
+          "type": "ZStack",
+          "properties": { "frame": { "maxWidth": "infinity", "maxHeight": "infinity" } },
+          "children": [
+            {
+              "type": "ContentUnavailableView",
+              "id": 219,
+              "properties": { "title": "No Team Selected", "systemImage": "person.3", "description": "Select a team to see its details." }
+            },
+            {
+              "type": "VStack",
+              "id": 210,
+              "properties": {
+                "hidden": true,
+                "alignment": "leading",
+                "spacing": 16,
+                "padding": 20,
+                "frame": { "maxWidth": "infinity", "maxHeight": "infinity", "alignment": "topLeading" }
+              },
+              "children": [
+                { "type": "Text", "id": 212, "properties": { "text": "", "font": "largeTitle" } },
+                { "type": "Text", "id": 213, "properties": { "text": "", "foregroundStyle": "secondary" } },
+                {
+                  "type": "HStack",
+                  "children": [
+                    { "type": "Button", "properties": { "title": "Add Member...", "buttonStyle": "borderedProminent", "actionID": "nsv.template.teams.addmember" } },
+                    { "type": "Button", "properties": { "title": "Rename...", "actionID": "nsv.template.teams.rename" } },
+                    { "type": "Spacer" },
+                    { "type": "Button", "properties": { "title": "Delete...", "role": "destructive", "actionID": "nsv.template.teams.delete" } }
+                  ]
+                },
+                { "type": "Spacer" }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Tab",
+      "properties": { "title": "Settings", "systemImage": "gearshape" },
+      "content": {
+        "type": "Form",
+        "children": [
+          {
+            "type": "Section",
+            "properties": { "header": "General" },
+            "children": [
+              { "type": "LabeledContent", "properties": { "title": "Version" }, "children": [ { "type": "Text", "properties": { "text": "1.0" } } ] },
+              { "type": "LabeledContent", "properties": { "title": "Storage" }, "children": [ { "type": "Text", "properties": { "text": "~/Documents/Projects" } } ] },
+              { "type": "LabeledContent", "properties": { "title": "Free disk space" }, "children": [ { "type": "Text", "properties": { "text": "71 GB" } } ] }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

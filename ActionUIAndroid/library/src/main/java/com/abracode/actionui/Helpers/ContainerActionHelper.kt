@@ -90,7 +90,7 @@ internal fun containerActionDispatch(
  * so a container inside a hidden subtree is inert while the press still passes THROUGH to
  * whatever is behind it. That is deliberate - `hiddenSubtree()` used to consume the event on
  * the Initial pass instead, which made a hidden element eat the taps of the content underneath
- * it (Missing_Features #45).
+ * it.
  *
  * `enabled` is read from [LocalActionUIEnabled], as every other clickable in the library does
  * (`Views/Button.kt`, `Views/NavigationLink.kt`, `Views/DisclosureGroup.kt`). That local

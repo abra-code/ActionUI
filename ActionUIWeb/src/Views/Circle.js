@@ -9,7 +9,7 @@
 // CircleShape. The box (.aui-circle) is a CSS size container centering an
 // inner disc sized min(100cqw, 100cqh) with aspect-ratio 1, so the inscribed
 // geometry is pure CSS; the paint applies to the disc. Paint and sizing via
-// Helpers/ShapeStyleHelper.js; see Private/Web_Porting_Notes.md (Shapes).
+// Helpers/ShapeStyleHelper.js.
 //
 // Properties: fill (String), stroke (String, fill takes priority),
 // strokeLineWidth (Double, default 1.0, used with stroke).

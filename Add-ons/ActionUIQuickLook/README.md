@@ -1,9 +1,7 @@
 # ActionUIQuickLook
 
 An optional ActionUI add-on that provides a native, in-process **Quick Look** preview element
-(`QuickLook`) - the embedded "4a" capability from `Private/ActionUI-QuickLook-Design.md` (proposed
-there as `QuickLookPreview`; shipped as `QuickLook`, since Quick Look already implies preview),
-built as a separately-linkable add-on instead of a core element.
+(`QuickLook`), built as a separately-linkable add-on instead of a core element.
 
 It is the first exercise of ActionUI's public add-on registration API
 (`ActionUIRegistry.register(_:as:)`), mirroring the ActionUIAndroid `map-google` / `map-osm`

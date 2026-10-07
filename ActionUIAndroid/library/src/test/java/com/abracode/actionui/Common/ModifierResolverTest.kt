@@ -380,7 +380,7 @@ class ModifierResolverTest {
     @Test
     fun `parseRowAlignment returns null for firstTextBaseline with warning`() {
         // Baseline alignment has no Compose equivalent - caller's default
-        // applies. See Private/Android_Porting_Notes.md.
+        // applies.
         val logger = CapturingLogger()
         val out = parseRowAlignment("firstTextBaseline", logger)
         assertNull(out)

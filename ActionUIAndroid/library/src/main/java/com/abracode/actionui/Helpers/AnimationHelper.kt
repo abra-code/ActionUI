@@ -39,8 +39,8 @@ import kotlin.math.roundToLong
 
 /**
  * The `animation` modifier - the host-driven-mutation animator, the Android
- * port of the Apple implementation in `ActionUI/Views/View.swift` (design:
- * `Private/Animation_Design.md`). An element declaring
+ * port of the Apple implementation in `ActionUI/Views/View.swift`. An element
+ * declaring
  *
  * ```
  * "animation": "spring"                                  // shorthand

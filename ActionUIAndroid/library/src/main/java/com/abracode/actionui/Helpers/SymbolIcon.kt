@@ -16,8 +16,8 @@ import androidx.compose.ui.unit.sp
 import com.abracode.actionui.Common.LoggerLevel
 
 /**
- * Shared symbol-glyph rendering for ActionUI Android - the convergence point the
- * porting notes called for, so `Image`, `Label`, and Button image-labels draw an
+ * Shared symbol-glyph rendering for ActionUI Android - one convergence point,
+ * so `Image`, `Label`, and Button image-labels draw an
  * SF Symbol (`systemName` / `systemImage`) or an explicit Material glyph
  * (`materialName`) through ONE path instead of each re-deriving icon handling
  * (mirrors how Apple resolves images centrally).

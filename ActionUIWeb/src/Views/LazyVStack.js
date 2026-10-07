@@ -2,7 +2,7 @@
 // Web analog of ActionUI/Views/LazyVStack.swift (and ActionUIAndroid Views/LazyVStack.kt).
 //
 // Same flexbox-column layout as VStack; on web it renders eagerly — the "lazy"
-// virtualization (only realizing on-screen cells) is a Phase 4 concern and not
+// virtualization (only realizing on-screen cells) is not
 // done yet, so visually LazyVStack and VStack are identical. It reuses the
 // `.aui-vstack` class (so Divider orientation and flex-direction come for free)
 // plus an `.aui-lazyvstack` marker. One divergence from VStack: the default

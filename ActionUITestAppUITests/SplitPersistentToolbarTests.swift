@@ -1,6 +1,6 @@
 // SplitPersistentToolbarTests.swift
 //
-// The NavigationSplitView half of `persistentToolbar` (Missing_Features #36). It began as a
+// The NavigationSplitView half of `persistentToolbar`. It began as a
 // discovery run that reported through XCTFail; it now asserts the behavior, so the suite
 // stays green and a future change to these semantics goes red.
 //

@@ -222,6 +222,77 @@ class CrossPlatformModeTests(unittest.TestCase):
         self.assertIn("is not a known type", str(warns[0]))
 
 
+class TemplateRowDataTests(unittest.TestCase):
+    """Inside a data-driven "template" the row supplies isOn / disabled / hidden."""
+
+    @staticmethod
+    def _list(template: dict) -> dict:
+        return {"type": "List", "id": 600, "properties": {"actionID": "sel"}, "template": template}
+
+    def test_row_booleans_are_accepted_as_strings_in_a_template(self):
+        doc = self._list({"type": "Toggle", "properties": {
+            "style": "checkbox", "isOn": "$1", "title": "$2", "disabled": "$4", "hidden": "$5",
+            "actionID": "packs.toggled"}})
+        issues = _validate(doc)
+        self.assertEqual(issues, [], _msg(issues))
+
+    def test_the_same_strings_are_still_errors_outside_a_template(self):
+        doc = {"type": "Toggle", "properties": {"isOn": "$1", "disabled": "true"}}
+        errors = _errors(_validate(doc))
+        self.assertEqual(len(errors), 2, _msg(errors))
+
+    def test_nested_template_elements_get_the_same_treatment(self):
+        doc = self._list({"type": "HStack", "children": [
+            {"type": "Toggle", "properties": {"isOn": "$1", "title": "$2"}},
+            {"type": "Text", "properties": {"text": "$3", "hidden": "$4"}},
+        ]})
+        issues = _validate(doc)
+        self.assertEqual(issues, [], _msg(issues))
+
+    def test_other_property_types_are_not_loosened(self):
+        doc = self._list({"type": "Text", "properties": {"text": "$1", "opacity": "$2"}})
+        errors = _errors(_validate(doc))
+        self.assertEqual(len(errors), 1, _msg(errors))
+        self.assertIn("opacity", str(errors[0]))
+
+    def test_a_toggle_whose_isOn_is_not_one_column_is_display_only(self):
+        for is_on in ["$1 x", "$1\n", "$1$2", "$0", "true", True]:
+            doc = self._list({"type": "Toggle", "properties": {"isOn": is_on, "title": "t"}})
+            issues = _validate(doc)
+            self.assertEqual(_errors(issues), [], _msg(issues))
+            warnings = _warnings(issues)
+            self.assertEqual(len(warnings), 1, f"{is_on!r}: {_msg(issues)}")
+            self.assertIn("single column reference", str(warnings[0]))
+
+    def test_a_toggle_without_isOn_in_a_template_is_display_only(self):
+        doc = self._list({"type": "Toggle", "properties": {"title": "t"}})
+        warnings = _warnings(_validate(doc))
+        self.assertEqual(len(warnings), 1, _msg(warnings))
+        self.assertIn("no 'isOn' column reference", str(warnings[0]))
+
+    def test_multi_digit_references_name_one_column(self):
+        doc = self._list({"type": "Toggle", "properties": {"isOn": "$12", "title": "t"}})
+        self.assertEqual(_validate(doc), [])
+
+    def test_table_toggle_column_is_clean(self):
+        doc = {"type": "Table", "id": 600, "properties": {
+            "columns": ["", "Pack"],
+            "columnTypes": [
+                {"viewType": "Toggle", "style": "checkbox", "actionID": "packs.toggled", "disabledColumn": 4},
+                {"viewType": "Text"},
+            ],
+            "widths": [28, 240],
+            "actionID": "packs.selection.changed",
+        }}
+        issues = _validate(doc, platform="macos")
+        self.assertEqual(issues, [], _msg(issues))
+
+    def test_list_item_type_toggle_is_flagged(self):
+        doc = {"type": "List", "id": 1, "properties": {"itemType": {"viewType": "Toggle"}}}
+        warnings = _warnings(_validate(doc))
+        self.assertEqual(len(warnings), 1, _msg(warnings))
+
+
 class DeploymentModeTests(unittest.TestCase):
     """--platform <p>: validate as if shipped to one platform."""
 

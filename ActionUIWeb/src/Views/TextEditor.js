@@ -14,7 +14,7 @@
 // `markdown` (attributed editing, macOS/iOS 26+) is deferred like Android:
 // its raw string renders as plain editable text with a warning, and `text`
 // wins when both are present (on the attributed platforms markdown takes
-// precedence — see Web_Porting_Notes.md). valueChangeActionID fires on every
+// precedence). valueChangeActionID fires on every
 // user edit; programmatic setValue is silent, mirroring the Apple container's
 // suppression of its own model echoes.
 // Observable value: the editor's plain-text string.

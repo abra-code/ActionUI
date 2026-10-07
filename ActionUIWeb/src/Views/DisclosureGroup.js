@@ -8,7 +8,7 @@
 // the state side of the bridge (win.getState / win.setState) — this is the
 // first web element to use it, as DisclosureGroup was on Android. One visual
 // divergence: the native disclosure marker leads the title, whereas SwiftUI's
-// chevron trails it (see Web_Porting_Notes.md). The template/setElementRows
+// chevron trails it. The template/setElementRows
 // data-driven mode is deferred with the insertion API — only `children` renders.
 //
 // Properties: title (String header label, defaults to ""), isExpanded (Boolean

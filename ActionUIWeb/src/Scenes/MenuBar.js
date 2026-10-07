@@ -25,8 +25,6 @@
 // CommandGroup edits with no children (deletions of native items) have no web
 // surface and are dropped. An account menu is any `CommandMenu` tagged with the
 // web-only role key `"role:web": "account"` (resolved to `role` by PlatformFilter).
-//
-// See Private/Web_Porting_Notes.md (Menu bar / app shell).
 
 import { makeFloatingPanel } from "../Helpers/PopoverPlacement.js";
 import { PlatformFilter } from "../Common/PlatformFilter.js";

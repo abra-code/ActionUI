@@ -1,6 +1,6 @@
 // Add-ons/ActionUIChat/Tests/ActionUIChatUmbrellaTests.swift
 //
-// The umbrella contract (P0-6): `import ActionUIChat` + `ActionUIChat.register()` must
+// The umbrella contract: `import ActionUIChat` + `ActionUIChat.register()` must
 // wire the element plus every bundled transport in one call, preserving the single-import
 // experience after the module split (and after the component's extraction into the
 // ChatView package). The component registry's public isRegistered proves the wiring.

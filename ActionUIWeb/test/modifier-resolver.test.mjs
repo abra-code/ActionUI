@@ -108,7 +108,7 @@ test("opacity / hidden / cornerRadius / colors / help", () => {
 // Modifier.hiddenSubtree()) keep the element LAID OUT while making it invisible,
 // non-interactive and inaudible to assistive tech. `visibility: hidden` is all four;
 // `display: none`, which this used to be, collapses the box and so laid identical JSON
-// out differently here than on the other two hosts. Private/Missing_Features.md #30.
+// out differently here than on the other two hosts.
 test("hidden reserves its layout space (SwiftUI .hidden() parity)", () => {
     const on = applied({ hidden: true }).node;
     assert.equal(on.style.visibility, "hidden");

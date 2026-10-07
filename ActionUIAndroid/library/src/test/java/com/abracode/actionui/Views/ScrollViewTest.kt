@@ -105,7 +105,7 @@ class ScrollViewTest {
         assertEquals(ScrollAxis.Vertical, selfScrollingAxis("LazyVStack"))
         assertEquals(ScrollAxis.Horizontal, selfScrollingAxis("LazyHGrid"))
         assertEquals(ScrollAxis.Horizontal, selfScrollingAxis("LazyHStack"))
-        // A List is its own resolved case (Missing_Features #34) and an ordinary
+        // A List is its own resolved case and an ordinary
         // VStack simply grows - neither takes the scroll off the ScrollView.
         assertEquals(null, selfScrollingAxis("List"))
         assertEquals(null, selfScrollingAxis("VStack"))

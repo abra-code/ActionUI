@@ -15,11 +15,17 @@
                                              //           block / document layout. "hug" sizes to the content
                                              //           width, wrapping only when it exceeds the proposal (the
                                              //           messaging-bubble idiom; pair with frame.maxWidth to cap).
-     "showFindBar": false                    // Optional: Bool (default false); a find bar over this document
+     "showFindBar": false,                   // Optional: Bool (default false); a find bar over this document
                                              //           (Cmd-F to open, Cmd-G / Shift-Cmd-G next / previous, Escape
                                              //           to close, options for case / whole word / diacritics).
                                              //           Matches are painted behind the text without re-laying it
                                              //           out. Off, states["search"] still highlights (see below).
+     "remoteImages": "on-click"              // Optional (default "automatic"): when http / https images are fetched.
+                                             //           "automatic": as soon as the document renders. "on-click": a
+                                             //           placeholder shows the alt text and the image's host until
+                                             //           the reader clicks it. "never": not fetched. data: images
+                                             //           always show. Use "on-click" or "never" for Markdown a model
+                                             //           or an agent wrote: an image URL can carry data out.
    }
    // Note: baseline View properties (padding, hidden, background, frame, opacity, cornerRadius, actionID,
    // onAppearActionID, onDisappearActionID, etc.) are inherited from base View. The document is read-only but
@@ -104,6 +110,13 @@ struct RichTextView: ActionUIViewConstruction {
             validated["showFindBar"] = nil
         }
 
+        // Fails closed: a present but unrecognized value becomes "on-click" rather than being dropped, which
+        // would mean "automatic" - whoever set the key meant to restrict fetching.
+        if let policy = validated["remoteImages"], RichTextView.remoteImagesPolicy(policy) == nil {
+            logger.log("RichText remoteImages must be one of automatic / on-click / never; using on-click", .warning)
+            validated["remoteImages"] = "on-click"
+        }
+
         return validated
     }
 
@@ -130,10 +143,27 @@ struct RichTextView: ActionUIViewConstruction {
         // wraps only at the proposal - pair it with frame.maxWidth for a content-hugging bubble.
         let behavior: RichTextWidthBehavior = (properties["widthBehavior"] as? String) == "hug" ? .hug : .fill
 
+        // When http / https images are fetched: "automatic" (default) at once, "on-click" when the reader
+        // clicks the placeholder naming the image's host, "never" not at all. A document shown to a user
+        // may carry Markdown someone else wrote - a model, an agent - and an image URL can carry data out.
+        let remoteImages = RichTextView.remoteImagesPolicy(properties["remoteImages"]) ?? .automatic
+
         // The find layers ride on the element's SwiftUI body (RichTextElementView), which owns the find
         // controller, renders the Markdown once per source, and observes states["search"].
         return RichTextElementView(model: model, markdown: markdown, theme: theme, behavior: behavior,
+                                   remoteImages: remoteImages,
                                    showsFindBar: (properties["showFindBar"] as? Bool) ?? false, logger: logger)
+    }
+
+    // The document spelling of RichTextRemoteImages, the same as the Chat element's "remoteImages";
+    // nil for anything else.
+    static func remoteImagesPolicy(_ value: Any?) -> RichTextRemoteImages? {
+        switch value as? String {
+        case "automatic": return .automatic
+        case "on-click": return .onClick
+        case "never": return .never
+        default: return nil
+        }
     }
 
     // Baseline View modifiers (frame, padding, background, cornerRadius, opacity, ...) are applied by the registry.

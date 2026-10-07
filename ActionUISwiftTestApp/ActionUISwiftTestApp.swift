@@ -260,6 +260,35 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 910, value: "Log: \(cellTapLog)")
         }
 
+        // Toggle in data-driven rows, fixture List.toggleRows.json: a List whose template
+        // holds a Toggle (id 920) and a Table with a Toggle column (id 930). The log appends,
+        // as above, so the UI test sees whether a toggle ALSO moved the selection. Each toggle
+        // entry carries the state read back from the rows, which shows the write came first.
+        var toggleRowsLog = ""
+        ActionUISwift.registerActionHandler(actionID: "togglerows.load") { _, windowUUID, _, _, _ in
+            toggleRowsLog = ""
+            let rows = [["false", "One", "false"], ["false", "Two", "false"], ["true", "Three", "true"]]
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 920, rows: rows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 930, rows: rows)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: ")
+        }
+        ActionUISwift.registerActionHandler(actionID: "togglerows.toggled") { _, windowUUID, viewID, viewPartID, context in
+            let stored = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID)?[viewPartID].first ?? "?"
+            toggleRowsLog += "T\(viewID)-\(viewPartID)=\(context as? Bool ?? false):\(stored);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: \(toggleRowsLog)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "togglerows.cell") { _, windowUUID, viewID, viewPartID, context in
+            let row = context as? Int ?? -1
+            let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID) ?? []
+            let stored = rows.indices.contains(row) ? rows[row][viewPartID] : "?"
+            toggleRowsLog += "C\(viewID)-\(viewPartID)=\(row):\(stored);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: \(toggleRowsLog)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "togglerows.selected") { _, windowUUID, viewID, _, _ in
+            toggleRowsLog += "S\(viewID);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: \(toggleRowsLog)")
+        }
+
         ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.append") { _, windowUUID, _, _, _ in
             let row = vstackTemplateExtraRows[vstackTemplateAppendIndex % vstackTemplateExtraRows.count]
             vstackTemplateAppendIndex += 1
@@ -379,6 +408,72 @@ struct ActionUISwiftTestApp: App {
                 ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99,
                     value: "Chip tapped: \(chip) (row \(viewPartID))")
             }
+        }
+
+        // NavigationSplitView.template.json: templated card List in the sidebar, one fixed detail
+        // view per tab that the handler fills from the selected row.
+        // Projects: List 101, placeholder 119, detail 110 (title 112, subtitle 113, notes 114, Pause/Resume 117)
+        //   columns: name, symbol, caption, status symbol, card color, status, notes
+        // Teams: List 201, placeholder 219, detail 210 (title 212, subtitle 213)
+        //   columns: name, symbol, caption, member count, card color
+        var nsvTemplateProjectRows: [[String]] = [
+            ["Garden Planner", "leaf", "Updated today", "play.circle.fill", "#34A853", "active", ""],
+            ["Recipe Box", "fork.knife", "Updated yesterday", "pause.circle.fill", "#8E8E93", "paused", ""],
+            ["Travel Log", "airplane", "Updated last week", "exclamationmark.triangle.fill", "#E8861A", "needs attention", "Two photos could not be found. Relink them or remove them from the log."],
+            ["Reading List", "book", "Updated in March", "pause.circle.fill", "#8E8E93", "paused", ""]
+        ]
+        let nsvTemplateTeamRows: [[String]] = [
+            ["Design", "paintpalette", "Owns the look of every project", "4", "#3478F6"],
+            ["Kitchen", "fork.knife", "Recipe Box", "2", "#3478F6"],
+            ["Editors", "pencil", "Travel Log - one open review", "3", "#E8861A"],
+            ["Library", "books.vertical", "Reading List", "0", "#3478F6"]
+        ]
+        func nsvTemplateShowDetail(_ windowUUID: String, placeholder: Int, detail: Int, show: Bool) {
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: placeholder, propertyName: "hidden", value: show)
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: detail, propertyName: "hidden", value: !show)
+        }
+        func nsvTemplateFillProject(_ windowUUID: String) {
+            guard let row = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 101) as? [String], row.count >= 7 else {
+                nsvTemplateShowDetail(windowUUID, placeholder: 119, detail: 110, show: false)
+                return
+            }
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 112, value: row[0])
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 113, value: "\(row[5].capitalized) - \(row[2])")
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 114, value: row[6])
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 117, propertyName: "title", value: row[5] == "active" ? "Pause" : "Resume")
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 117, propertyName: "disabled", value: row[5] == "needs attention")
+            nsvTemplateShowDetail(windowUUID, placeholder: 119, detail: 110, show: true)
+        }
+        ActionUISwift.registerActionHandler(actionID: "nsv.template.projects.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 101, rows: nsvTemplateProjectRows)
+        }
+        ActionUISwift.registerActionHandler(actionID: "nsv.template.teams.load") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 201, rows: nsvTemplateTeamRows)
+        }
+        ActionUISwift.registerActionHandler(actionID: "nsv.template.projects.selected") { _, windowUUID, _, _, _ in
+            nsvTemplateFillProject(windowUUID)
+        }
+        ActionUISwift.registerActionHandler(actionID: "nsv.template.teams.selected") { _, windowUUID, _, _, _ in
+            guard let row = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 201) as? [String], row.count >= 4 else {
+                nsvTemplateShowDetail(windowUUID, placeholder: 219, detail: 210, show: false)
+                return
+            }
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 212, value: row[0])
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 213, value: "\(row[2]) - \(row[3]) member(s)")
+            nsvTemplateShowDetail(windowUUID, placeholder: 219, detail: 210, show: true)
+        }
+        // Rewrites the rows the way a status refresh would. The templated List matches its selection
+        // by whole row, so a changed row loses its highlight until it is selected again by index.
+        ActionUISwift.registerActionHandler(actionID: "nsv.template.projects.pauseresume") { _, windowUUID, _, _, _ in
+            guard let row = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: 101) as? [String],
+                  let index = nsvTemplateProjectRows.firstIndex(where: { $0.first == row.first }) else { return }
+            let active = nsvTemplateProjectRows[index][5] == "active"
+            nsvTemplateProjectRows[index][3] = active ? "pause.circle.fill" : "play.circle.fill"
+            nsvTemplateProjectRows[index][4] = active ? "#8E8E93" : "#34A853"
+            nsvTemplateProjectRows[index][5] = active ? "paused" : "active"
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 101, rows: nsvTemplateProjectRows)
+            _ = ActionUISwift.selectElementRow(windowUUID: windowUUID, viewID: 101, index: index)
+            nsvTemplateFillProject(windowUUID)
         }
 
         // Sheet demo handlers

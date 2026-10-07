@@ -1268,13 +1268,12 @@ struct View: ActionUIViewConstruction {
         // frame is applied BEFORE the decoration below (background color/view,
         // cornerRadius, clipShape) so a background FILLS the frame and the rounding/
         // clip shapes that filled, sized box - the intuitive "sized box" semantics
-        // and the cross-platform contract shared with Web and Android (see
-        // Private/Layout_Engine_Parity.md). Padding is innermost (applied first
+        // and the cross-platform contract shared with Web and Android. Padding is
+        // innermost (applied first
         // above), so a padded element with NO frame is unchanged - the background
         // still fills content+padding (the pill/badge idiom). Changing this from the
         // old background-before-frame order is what makes a styled, fixed/flex-sized
-        // box keep its fill when its content is empty or short; the JSON adaptation
-        // for views that relied on the old hug is in Private/Layout_Fill_Migration.md.
+        // box keep its fill when its content is empty or short.
         if let frame = properties["frame"] as? [String: Any] {
             let alignment = (frame["alignment"] as? String).flatMap { alignmentString -> Alignment? in
                 switch alignmentString {

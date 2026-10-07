@@ -89,13 +89,24 @@ export function makeElement(tag = "div") {
         closest(selector) {
             if (typeof selector !== "string") return null;
             const parts = selector.split(",").map((s) => s.trim()).filter(Boolean);
+            // A class set either way counts: through classList, or by assigning className
+            // (which is how most views name their root node).
+            const hasClass = (n, cls) => !!n.classList?.contains(cls)
+                || (typeof n.className === "string" && n.className.split(/\s+/).includes(cls));
             const matches = (n) => parts.some((part) => (part.startsWith(".")
-                ? !!n.classList?.contains(part.slice(1))
+                ? hasClass(n, part.slice(1))
                 : n.tagName === part.toUpperCase()));
             for (let n = el; n; n = n.parentNode) {
                 if (matches(n)) return n;
             }
             return null;
+        },
+        // True for the node itself and for any descendant, as in the DOM.
+        contains(other) {
+            for (let n = other; n; n = n.parentNode) {
+                if (n === el) return true;
+            }
+            return false;
         },
         // Attributes are plain properties on the node, which is enough for the
         // renderer (it only ever sets and clears them) and lets a test read one back

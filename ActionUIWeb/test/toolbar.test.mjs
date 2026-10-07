@@ -52,7 +52,7 @@ test("placements map to leading / principal / trailing / overflow / bottom bucke
     assert.equal(b.bottom.length, 1, "bottomBar -> bottom");
 });
 
-// The chrome half of the `hidden` parity work (Private/Missing_Features.md #30 / #41):
+// The chrome half of the `hidden` parity work:
 // in a bar - and ONLY in a bar - `hidden` collapses the action instead of reserving its
 // space, matching Android's role-gating contract. The Button case is the one that was
 // broken: renderChromeItem builds a toolbar Button's node directly, bypassing

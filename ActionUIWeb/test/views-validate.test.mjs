@@ -118,7 +118,7 @@ test("ContentUnavailableView: materialName is validated like the other strings",
 // The empty state is mostly icon, so losing the glyph to an unmapped SF name is the
 // worst place to lose it. `materialName` is the escape hatch every other glyph-bearing
 // element carries (Image/Button/Label/Menu/TabView, and Android's own
-// ContentUnavailableView); this one used to ignore it. See Missing_Features #39.
+// ContentUnavailableView); this one used to ignore it.
 test("ContentUnavailableView: materialName draws a glyph and wins over systemImage", () => {
     installDom();
     // The hero glyph is the first child. Not a class query: the stub's `classList.add`

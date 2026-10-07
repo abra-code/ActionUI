@@ -3,7 +3,7 @@
 //
 // Properties: text (String, defaults to ""), markdown (String, takes precedence
 // over text). Web degrade: markdown is shown as its plain source string — no
-// markdown formatting yet (needs a renderer decision; see Web_Porting_Notes.md).
+// markdown formatting yet (needs a renderer decision).
 // Observable value: the displayed string (get/setElementValue round-trips).
 
 import { register } from "../Common/ActionUIRegistry.js";

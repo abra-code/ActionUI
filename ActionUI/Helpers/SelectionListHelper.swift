@@ -67,6 +67,72 @@ struct SelectionListHelper {
         }
     }
 
+    /// Creates a `Binding<Set<Int>>` for a data-driven list's selection (the homogeneous and the
+    /// template modes), by row index into `drawnRows`, the content rows this render of the list
+    /// shows: SwiftUI hands the setter an index into what it last drew, which the host may have
+    /// replaced since. Single selection: the selected row's columns are stored in `model.value`
+    /// as `[String]` (empty when nothing is selected). Fires `actionID` (no context) whenever the
+    /// user changes the selection, clearing included, as a Table does: a host that keeps its own
+    /// copy of the selection must learn that the row was deselected (Cmd-click on the selected
+    /// row, a click in the empty part of the list).
+    static func makeRowSelectionBinding(
+        drawnRows: [[String]],
+        model: ViewModel,
+        actionID: String?,
+        windowUUID: String,
+        viewID: Int
+    ) -> Binding<Set<Int>> {
+        mainActorBinding(
+            get: {
+                guard let selectedRow = model.value as? [String],
+                      !selectedRow.isEmpty,
+                      let selectedIndex = drawnRows.firstIndex(where: { $0 == selectedRow }) else {
+                    return Set<Int>()
+                }
+                return Set([selectedIndex])
+            },
+            set: { newSet in
+                // Enforce single selection (take the first if several arrive).
+                let clicked: [String]
+                if let newIndex = newSet.first {
+                    guard drawnRows.indices.contains(newIndex) else { return }
+                    clicked = drawnRows[newIndex]
+                } else {
+                    clicked = []
+                }
+                commitRowSelection(clicked, drawnRows: drawnRows, model: model,
+                                   actionID: actionID, windowUUID: windowUUID, viewID: viewID)
+            }
+        )
+    }
+
+    /// Stores a row the user selected (`[]` for a deselect) in `model.value` and fires `actionID`
+    /// (no context, `viewPartID` 0), unless nothing changes. Shared by the data-driven List and
+    /// the Table. The write waits for the next main-queue turn (a binding setter runs during a
+    /// view update); by then a host may have replaced the rows, so the clicked row is taken as it
+    /// is in the current rows (`ActionUIModel.reconciledSelection`, from `drawnRows`).
+    static func commitRowSelection(
+        _ clicked: [String],
+        drawnRows: [[String]],
+        model: ViewModel,
+        actionID: String?,
+        windowUUID: String,
+        viewID: Int
+    ) {
+        guard (model.value as? [String] ?? []) != clicked else { return }
+        DispatchQueue.main.async {
+            let rows = model.states["content"] as? [[String]] ?? []
+            let value = ActionUIModel.reconciledSelection(clicked, from: drawnRows, to: rows)
+            guard (model.value as? [String] ?? []) != value else { return }
+            model.value = value
+            if let actionID {
+                ActionUIModel.shared.actionHandler(
+                    actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: 0
+                )
+            }
+        }
+    }
+
     /// Creates a `Binding<Int?>` for heterogeneous list selection by child element ID.
     /// Selection is stored in `model.value` as `[String]` with the stringified child ID.
     /// Fires `actionID` on selection change with the child ID as context.

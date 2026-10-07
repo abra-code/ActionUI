@@ -121,5 +121,5 @@ tasks.named("preBuild") {
 
 // ActionUI shared images: generates aui_* drawables (+ exact keep rules) from
 // the Apple-named files in sharedImages/. This one line is the whole host
-// integration; see the script header and Private/Android_Asset_Image_Design.md.
+// integration; see the script header for the design.
 apply(from = "../actionui-images.gradle")

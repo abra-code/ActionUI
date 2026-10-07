@@ -18,7 +18,7 @@ What makes this one different: **the conversion math is not in the host language
    aui_convert(...)       -> aui_convert(...)     (mirrors convert.c)
 ```
 
-- **Apple** packages `convert.c` as a tiny local Swift package, `apple/ConvertC/` (one pure-C library target). SPM auto-generates the Clang module map from `publicHeadersPath: include`, so the module name equals the target name and the Swift host simply writes `import ConvertC` and calls `aui_convert(...)`. No bridging header, no hand-written `module.modulemap`. (This is the pattern from `Private/Example_Host_Patterns.md` section 7, with the Swift side being the app target itself.)
+- **Apple** packages `convert.c` as a tiny local Swift package, `apple/ConvertC/` (one pure-C library target). SPM auto-generates the Clang module map from `publicHeadersPath: include`, so the module name equals the target name and the Swift host simply writes `import ConvertC` and calls `aui_convert(...)`. No bridging header, no hand-written `module.modulemap`. The Swift side is the app target itself, so one pure-C library target is all the package needs.
 - **Android** compiles the *same* `convert.c` with the NDK via `cpp/CMakeLists.txt` (referenced by relative path - not copied), alongside a thin JNI shim `native-lib.c`. CMake emits `libunitconverter_native.so`; Kotlin's `NativeBridge` object loads it and declares `external fun nativeConvert(...)`, which forwards into `aui_convert`.
 - **Web** has no native step, so `web/convert.js` is a line-for-line JS twin of `convert.c` (same factor tables, same affine temperature formulas). Keep the two in lockstep. *(Stretch: compile `convert.c` to WASM with emscripten and call that instead, deleting `convert.js` - see "WASM, the next step" below.)*
 

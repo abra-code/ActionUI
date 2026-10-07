@@ -497,6 +497,60 @@ final class ActionUIModelTests: XCTestCase {
         XCTAssertEqual(selectedValue, ["Alice", "30"], "Selection should be preserved when selected row is still present")
     }
 
+    func testSetElementRowsKeepsSelectionWhenAnotherColumnChanges() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Alice", "30"]
+        // A refresh changes Alice's second column and moves her row down
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob", "25"], ["Alice", "31"]])
+        let selectedValue = model.windowModels[windowUUID]?.viewModels[1]?.value as? [String]
+        XCTAssertEqual(selectedValue, ["Alice", "31"], "The selection stays on the row with the same first column and takes its new columns, so the list can still highlight it")
+    }
+
+    func testSetElementRowsPrefersTheIdenticalRowAmongSameFirstColumns() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Alice", "40"]])
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Alice", "40"]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Alice", "40"], ["Bob", "25"]])
+        let selectedValue = model.windowModels[windowUUID]?.viewModels[1]?.value as? [String]
+        XCTAssertEqual(selectedValue, ["Alice", "40"], "A row equal to the selection keeps it, even when an earlier row shares its first column")
+    }
+
+    func testSetElementValueRowsKeepsSelectionWhenAnotherColumnChanges() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Bob", "25"]
+        model.setElementValue(windowUUID: windowUUID, viewID: 1, value: [["Alice", "30"], ["Bob", "26"]])
+        XCTAssertEqual(model.windowModels[windowUUID]?.viewModels[1]?.value as? [String], ["Bob", "26"])
+        model.setElementValue(windowUUID: windowUUID, viewID: 1, value: [["Alice", "30"]])
+        XCTAssertEqual(model.windowModels[windowUUID]?.viewModels[1]?.value as? [String], [], "The selection clears when its row is gone")
+    }
+
+    func testSetElementRowsKeepsThePlaceAmongRowsSharingAFirstColumn() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Alice", "40"]])
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Alice", "40"]
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Bob", "25"], ["Alice", "30"], ["Alice", "41"]])
+        XCTAssertEqual(model.windowModels[windowUUID]?.viewModels[1]?.value as? [String], ["Alice", "41"], "The second Alice stays selected, with its new columns")
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "31"]])
+        XCTAssertEqual(model.windowModels[windowUUID]?.viewModels[1]?.value as? [String], [], "With only one Alice left, which one went is unknown, so the selection clears")
+    }
+
+    func testSetElementStateContentKeepsSelectionOnItsRow() throws {
+        try loadListElement()
+        let model = ActionUIModel.shared
+        model.setElementRows(windowUUID: windowUUID, viewID: 1, rows: [["Alice", "30"], ["Bob", "25"]])
+        model.windowModels[windowUUID]?.viewModels[1]?.value = ["Bob", "25"]
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "content", value: [["Bob", "26"]])
+        XCTAssertEqual(model.windowModels[windowUUID]?.viewModels[1]?.value as? [String], ["Bob", "26"])
+        model.setElementState(windowUUID: windowUUID, viewID: 1, key: "content", value: [["Alice", "30"]])
+        XCTAssertEqual(model.windowModels[windowUUID]?.viewModels[1]?.value as? [String], [])
+    }
+
     func testSetElementRowsNoOpForUnknownView() throws {
         try loadListElement()
         let model = ActionUIModel.shared

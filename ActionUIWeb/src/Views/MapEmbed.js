@@ -20,8 +20,7 @@
 // string. A host setString re-centers (we own the iframe src and rebuild it).
 //
 // Divergences, all inherent to a display-only embed (decision-doc "mechanism B":
-// an iframe is opaque — no marker API, no center read-back). Documented in
-// Web_Porting_Notes.md (Map):
+// an iframe is opaque — no marker API, no center read-back):
 //   * USER PANS DO NOT REPORT BACK — there is no way to read an embed's center —
 //     so valueChangeActionID and the camera-change actionID never fire from this
 //     default. The host->view direction (re-center) works; the view->host

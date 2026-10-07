@@ -22,7 +22,7 @@
 // bridge) lives in src/Helpers/MapContract.js.
 //
 // Token + terms. MapKit JS requires a JWT signed with an Apple Developer MapKit key
-// (Apple Developer Program, see ActionUIWeb_Map_Options.md 4e) — which is exactly
+// (Apple Developer Program) — which is exactly
 // why it is an opt-in module, never a default. Supply it with token:web (a static
 // JWT) or tokenURL:web (an endpoint returning a fresh JWT, Apple's recommended
 // short-lived-token path; MapKit re-invokes it on expiry), or set a page-wide

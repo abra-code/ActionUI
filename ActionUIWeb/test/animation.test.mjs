@@ -1,5 +1,4 @@
 // Tests for the `animation` modifier (src/Helpers/AnimationModifier.js).
-// Reconstructs the assertions recorded in Private/Commit_Notes_Web_Animation.md.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

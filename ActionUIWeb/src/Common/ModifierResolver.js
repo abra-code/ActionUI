@@ -30,9 +30,9 @@
 //                    having only a path string). Requires non-empty onDropTypes.
 //   onDropTypes      [String] of UTType identifiers accepted as a drop target.
 //   onDropTargetedActionID  String -> fires when a drag enters/exits, context
-//                    {isTargeted}. See Helpers/DropHelper.swift (Apple canonical)
-//                    and HoverDrop_Design.md; web type-filtering is coarse (the DnD
-//                    spec hides item contents during dragover).
+//                    {isTargeted}. See Helpers/DropHelper.swift (Apple canonical);
+//                    web type-filtering is coarse (the DnD spec hides item
+//                    contents during dragover).
 
 import { applyContextMenu } from "../Helpers/ContextMenuModifier.js";
 import { applyIgnoresSafeArea } from "../Helpers/SafeAreaModifier.js";
@@ -62,7 +62,7 @@ const NAMED_COLORS = {
     // -> the --aui-* tokens defined in theme.css (light + dark, adaptive). The full
     // set so a semantic color authored once renders theme-correct here exactly as on
     // Apple and Android (Material roles). The .opacity(f) path below color-mixes the
-    // resolved var(). See Private/Semantic_Color_Mapping_Design.md for the table.
+    // resolved var().
     // (primary/secondary keep their existing --aui-color-* meaning, which already
     // tracks the label ink; the rest are new tokens.)
     primary: "var(--aui-color-primary)",
@@ -110,8 +110,7 @@ const FRAME_ALIGN_LIST_TEXT = `[${FRAME_ALIGN_VALID.map((a) => `"${a}"`).join(",
 
 // Nodes that lay out their own children (a flex/grid container) keep that layout;
 // turning them into a frame-alignment grid box would collapse it. Frame alignment
-// is therefore leaf-oriented (the design doc's "leaf-only" step), a documented
-// divergence for containers. See Private/ActionUI-Web-Layout-Engine.md (Stage 2b).
+// is therefore leaf-oriented, a deliberate divergence for containers.
 const SELF_LAYOUT_CLASSES = ["aui-stack", "aui-zstack", "aui-grid", "aui-geometry-reader", "aui-list"];
 
 function nodeManagesOwnLayout(node) {
@@ -151,8 +150,7 @@ function applyPadding(node, padding, logger) {
     }
 }
 
-// Frame -> CSS, following the SwiftUI frame contract (see
-// Private/ActionUI-Web-Layout-Engine.md). The browser viewport is the proposed
+// Frame -> CSS, following the SwiftUI frame contract. The browser viewport is the proposed
 // size; min/ideal/max clamp against it, per axis:
 //   - never below min (the box overflows the window instead of shrinking past it),
 //   - apply ideal when it fits the proposal,
@@ -380,7 +378,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
     // identical JSON laid out differently here than on Apple (`.hidden()`) and Android
     // (`Modifier.hiddenSubtree()` plus the environment narrowing around it - however
     // Android suppresses input at any given time, all of it is layout-inert and the space
-    // stays reserved). Private/Missing_Features.md #30.
+    // stays reserved).
     //
     // Two places where matching Apple is NOT the goal, both deliberate:
     //  - Accessibility. Apple's `.hidden()` leaves the element IN the accessibility tree,
@@ -395,7 +393,7 @@ export function applyViewModifiers(node, element, properties, ctx) {
     //    adds outside this node in buildElementView (a view-valued overlay/background
     //    subview, swipeActions panels, a safeAreaInset bar, a searchable field, toolbar
     //    chrome); those still paint, which is the Apple outcome. Web therefore sits between
-    //    the two hosts on this one combination. See Missing_Features #30.
+    //    the two hosts on this one combination.
     //
     // There is no collapse semantic on any host; the ZStack panel-switcher idiom (all
     // bodies overlaid, one visible) is what authors use instead. Toolbars are the single

@@ -23,7 +23,7 @@
 // (data-attribute) but not honored — the top strip is used, the Android stance.
 // Tab icons (systemImage / materialName:web)
 // draw through the shared SymbolIcon seam; `assetImage` warns-and-skips like
-// Image's assetName. See Private/Web_Porting_Notes.md (TabView).
+// Image's assetName.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";

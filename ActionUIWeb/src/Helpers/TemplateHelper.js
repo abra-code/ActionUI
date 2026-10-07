@@ -19,7 +19,19 @@
 // container already holds substituted children, with no per-container special
 // case. The one piece a leaf still needs — which container owns it and at which
 // row, for action dispatch — rides on a child build context (`ctx.templateContext`),
-// read by Button.
+// read by Button and Toggle.
+//
+// Boolean properties from row data. "isOn", "disabled" and "hidden" written as a
+// string in a template are read as a Boolean after substitution (rowBool): "true"
+// or "1" is on, "false", "0" or an empty string is off, in any letter case; any
+// other text is off, with one warning. The same rule as Swift and Android.
+//
+// Row-bound Toggle. The row data is the source of truth for a Toggle in a template.
+// When its "isOn" is exactly one column reference ("$N"), the substituted copy
+// carries that column as the internal "$isOnColumn" property (a name no schema
+// property can have), and a user toggle writes "true" or "false" into that cell
+// through ActionUIModel.writeRowCell before its actionID fires. Any other "isOn"
+// leaves the Toggle display-only.
 //
 // Substitution is single-pass and multi-digit-safe (a regex replaces every $N in
 // one sweep): a column value that itself contains "$2" is not re-substituted, and
@@ -36,6 +48,58 @@ import { buildElementView } from "../Common/ActionUIRegistry.js";
 import { commonRowPrefix } from "./RowDiff.js";
 
 const COLUMN_REF = /\$(\d+)/g;
+const SINGLE_COLUMN_REF = /^\$(\d+)$/;
+
+// The properties a template may give as a string, read as a Boolean after substitution.
+const ROW_BOOL_KEYS = ["isOn", "disabled", "hidden"];
+
+// The internal property a substituted Toggle carries when its isOn names one column.
+export const IS_ON_COLUMN_KEY = "$isOnColumn";
+
+// Reads row text as a Boolean: "true" or "1" is on, "false", "0" or "" is off, in
+// any letter case. Returns null for any other text (the caller treats it as off).
+export function rowBool(text) {
+    switch (String(text).toLowerCase()) {
+        case "true": case "1": return true;
+        case "false": case "0": case "": return false;
+        default: return null;
+    }
+}
+
+// The text a toggled cell stores.
+export const rowBoolText = (flag) => (flag ? "true" : "false");
+
+// The 0-based column a property names when it is exactly one column reference
+// ("$N", N of 1 or more), else null. "$0" (all columns) does not name one column.
+export function singleColumnIndex(value) {
+    if (typeof value !== "string") return null;
+    const match = SINGLE_COLUMN_REF.exec(value);
+    if (!match) return null;
+    const n = Number(match[1]);
+    return n >= 1 ? n - 1 : null;
+}
+
+// A warning logged the first time it is seen: a template builds once per row on
+// every refresh, so a per-row warning would otherwise repeat without end.
+const warned = new Set();
+export function warnOnce(message, logger) {
+    if (warned.has(message)) return;
+    warned.add(message);
+    logger?.log(message, "warning");
+}
+
+// A copy of `rows` with one cell replaced; a row shorter than `column` is padded
+// with empty strings. Shared by the row stores' setCell (List, Table, the template
+// repeater), which keep their built row nodes in place after a user edit.
+export function rowsWithCell(rows, rowIndex, column, text) {
+    return rows.map((row, index) => {
+        if (index !== rowIndex) return row;
+        const next = [...row];
+        while (next.length <= column) next.push("");
+        next[column] = text;
+        return next;
+    });
+}
 
 // Substitutes $0 / $1 / $N column references in `str` against `row`.
 export function substituteString(str, row) {
@@ -65,8 +129,22 @@ function substituteProperties(properties, row) {
 // properties and routed subviews (children / content / label / rows), and every
 // id forced to 0 (template instances aren't host-addressable). A nested
 // `template` subview is left untouched.
-export function substituteElement(element, row) {
-    const properties = substituteProperties(element.properties ?? {}, row);
+export function substituteElement(element, row, logger) {
+    const raw = element.properties ?? {};
+    const properties = substituteProperties(raw, row);
+    // Boolean properties written as a string take their value from the row.
+    for (const key of ROW_BOOL_KEYS) {
+        if (typeof raw[key] !== "string") continue;
+        const flag = rowBool(properties[key]);
+        if (flag === null) {
+            warnOnce(`${element.type} ${key} '${properties[key]}' in a template row is not a Boolean (true, false, 1, 0 or empty); treating as false`, logger);
+        }
+        properties[key] = flag ?? false;
+    }
+    if (element.type === "Toggle") {
+        const column = singleColumnIndex(raw.isOn);
+        if (column !== null) properties[IS_ON_COLUMN_KEY] = column;
+    }
     let subviews = null;
     if (element.subviews) {
         subviews = {};
@@ -76,10 +154,10 @@ export function substituteElement(element, row) {
             } else if (Array.isArray(value)) {
                 // "children" ([ActionUIElement]) or "rows" ([[ActionUIElement]]).
                 subviews[key] = value.map((entry) => Array.isArray(entry)
-                    ? entry.map((child) => substituteElement(child, row))
-                    : substituteElement(entry, row));
+                    ? entry.map((child) => substituteElement(child, row, logger))
+                    : substituteElement(entry, row, logger));
             } else {
-                subviews[key] = substituteElement(value, row); // "content" / "label"
+                subviews[key] = substituteElement(value, row, logger); // "content" / "label"
             }
         }
     }
@@ -91,7 +169,7 @@ export function substituteElement(element, row) {
 // Button inside dispatches with the owning container's id as viewID and `rowIndex`
 // as viewPartID (the Swift / Android action convention). Returns the HTMLElement.
 export function buildTemplateRow(template, row, rowIndex, parentID, ctx) {
-    const substituted = substituteElement(template, row);
+    const substituted = substituteElement(template, row, ctx.logger);
     const childCtx = { ...ctx, templateContext: { parentID, rowIndex } };
     childCtx.build = (element) => buildElementView(element, childCtx);
     return childCtx.build(substituted);
@@ -124,6 +202,13 @@ export function renderTemplateRows(node, element, template, ctx) {
         ctx.model.bindState(element.id, {
             getState: (key) => (key === "content" ? rows : undefined),
             setState: (key, value) => { if (key === "content") applyRows(value); },
+            // A user edit of a row-bound control (a Toggle): the control already shows
+            // the new state, so the rows are updated and the instances stay in place.
+            setCell: (rowIndex, column, text) => {
+                if (rowIndex < 0 || rowIndex >= rows.length) return false;
+                rows = rowsWithCell(rows, rowIndex, column, text);
+                return true;
+            },
         });
     }
     applyRows([]);

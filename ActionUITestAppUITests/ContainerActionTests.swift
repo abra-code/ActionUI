@@ -8,7 +8,7 @@
 // gesture is actually attached to the rendered stack, nor that a Button inside a tappable
 // cell stays the only dispatch. That second one was pure reasoning from SwiftUI semantics -
 // "a tap resolves to the innermost control" - and reasoning from semantics instead of
-// running it is how this project got Missing_Features #38a wrong.
+// running it is how this project once got this wrong.
 //
 // Fixture: Resources/VStack.containerAction.json
 //

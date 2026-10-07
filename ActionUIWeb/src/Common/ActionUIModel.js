@@ -236,6 +236,21 @@ export class ActionUIModel {
         this.logger.log(`Cleared selection for element ${viewID}`, "debug");
     }
 
+    // Writes one cell of a data-driven container's content rows after a user edit of
+    // a row-bound control (a Toggle in a template row or in a Table column). Unlike
+    // the rows API this is a user change: the row store updates its rows (and keeps a
+    // selection resting on that row) without rebuilding the row, whose control already
+    // shows the new state. Returns false when the container or the row is gone.
+    // Analog of Swift's TemplateHelper.writeRowCell.
+    writeRowCell(viewID, rowIndex, column, text) {
+        const binding = this.stateBindings.get(viewID);
+        if (!binding || typeof binding.setCell !== "function") return false;
+        if (!binding.setCell(rowIndex, column, text)) return false;
+        const states = this.states.get(viewID);
+        if (states) states.content = binding.getState("content");
+        return true;
+    }
+
     // User interaction entry point called by view implementations.
     // Mirrors the Swift action callback signature:
     // (actionID, windowUUID, viewID, viewPartID, context)

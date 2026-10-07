@@ -55,7 +55,7 @@ import java.io.IOException
  * name the registry does not know, warns and renders nothing (mirroring Apple,
  * where a name absent from the catalog renders nothing) - it does NOT fall
  * through to a lower-priority source, so integration gaps surface instead of
- * hiding. See `Private/Android_Asset_Image_Design.md`.
+ * hiding.
  *
  * ## Source priority
  *

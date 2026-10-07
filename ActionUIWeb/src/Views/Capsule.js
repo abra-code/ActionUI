@@ -6,8 +6,7 @@
 // classic CSS pill (.aui-capsule's oversized border-radius clamps to exactly
 // that). `style` "continuous" sets `corner-shape: squircle` for the
 // continuous end caps, the same progressive enhancement as RoundedRectangle's
-// cornerStyle. Paint and sizing via Helpers/ShapeStyleHelper.js; see
-// Private/Web_Porting_Notes.md (Shapes).
+// cornerStyle. Paint and sizing via Helpers/ShapeStyleHelper.js.
 //
 // Properties: style ("circular" default | "continuous"), fill (String),
 // stroke (String, fill takes priority), strokeLineWidth (Double, default 1.0,
