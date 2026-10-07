@@ -11,11 +11,25 @@
    $2  — column 1 (second column)
    $N  — column N-1
 
- Action convention for Button elements inside a template:
+ Action convention for Button and Toggle elements inside a template:
    actionID   — as declared in template
    viewID     — the parent container's id (via TemplateContext.parentID)
    viewPartID — 0-based row index (via TemplateContext.rowIndex)
-   context    — nil (host retrieves row via getElementRows if needed)
+   context    — Button: nil (host retrieves row via getElementRows if needed)
+                Toggle: the new Bool
+
+ Boolean properties from row data:
+   "isOn", "disabled" and "hidden" written as a string in a template are read as a
+   Bool after substitution (see rowBool): "true" or "1" is on, "false", "0" or an
+   empty string is off, in any letter case. Any other text is off, with one warning.
+
+ Row-bound Toggle:
+   The row data is the source of truth for a Toggle in a template. When its "isOn"
+   is exactly one column reference ("$N"), a user toggle writes "true" or "false"
+   into that column of that row in the container's states["content"] and then fires
+   the Toggle's actionID, so a handler that reads the rows sees the new value. Any
+   other "isOn" leaves the Toggle display-only. The same write serves a Table's
+   Toggle column (see writeRowCell).
 
  Rendering:
    All template views are rendered through the standard ActionUI registry pipeline
@@ -23,7 +37,7 @@
    with TemplateContext set. This gives template instances the same property, modifier,
    and view-building support as regular ActionUI views — no special-casing required.
 
-   Button checks model.templateContext for action dispatch override.
+   Button and Toggle check model.templateContext for action dispatch override.
    Container views (HStack, VStack, ZStack) check model.templateContext to render
    their children via TemplateHelper instead of ActionUIView.
 */
@@ -98,6 +112,139 @@ struct TemplateHelper {
         return result
     }
 
+    // MARK: - Boolean Row Data
+
+    /// The properties a template may give as a string, read as a Bool after substitution.
+    nonisolated static let rowBoolKeys = ["isOn", "disabled", "hidden"]
+
+    /// Reads row text as a Bool: "true" or "1" is on, "false", "0" or an empty string is
+    /// off, in any letter case. Returns nil for any other text (the caller treats it as off).
+    /// The same rule on every host.
+    nonisolated static func rowBool(_ text: String) -> Bool? {
+        switch text.lowercased() {
+        case "true", "1": return true
+        case "false", "0", "": return false
+        default: return nil
+        }
+    }
+
+    /// The text a toggled cell stores.
+    nonisolated static func rowBoolText(_ flag: Bool) -> String {
+        flag ? "true" : "false"
+    }
+
+    /// The 0-based column a property names when it is exactly one column reference
+    /// ("$N", N of 1 or more), else nil. "$0" (all columns) and text around a reference
+    /// do not name one column.
+    nonisolated static func singleColumnIndex(_ value: Any?) -> Int? {
+        guard let str = value as? String else { return nil }
+        let ns = str as NSString
+        let whole = NSRange(location: 0, length: ns.length)
+        guard let match = columnRefRegex.firstMatch(in: str, range: whole),
+              NSEqualRanges(match.range, whole),
+              let n = Int(ns.substring(with: match.range(at: 1))), n >= 1 else { return nil }
+        return n - 1
+    }
+
+    /// The properties of one template instance: the template's properties with the column
+    /// references substituted from `row`, and the Boolean properties written as a string
+    /// (`rowBoolKeys`) read from the row as a Bool.
+    static func instanceProperties(
+        of template: any ActionUIElementBase,
+        row: [String],
+        logger: any ActionUILogger
+    ) -> [String: Any] {
+        var properties = substituteProperties(template.properties, row: row)
+        for key in rowBoolKeys where template.properties[key] is String {
+            guard let text = properties[key] as? String else { continue }
+            if let flag = rowBool(text) {
+                properties[key] = flag
+            } else {
+                properties[key] = false
+                warnOnce("\(template.type) \(key) '\(text)' in a template row is not a Boolean (true, false, 1, 0 or empty); treating as false", logger: logger)
+            }
+        }
+        return properties
+    }
+
+    private static var warnedMessages = Set<String>()
+
+    /// Logs a warning the first time it is seen: a template renders once per row on every
+    /// refresh, so a per-row warning would otherwise repeat without end.
+    static func warnOnce(_ message: String, logger: any ActionUILogger) {
+        guard warnedMessages.insert(message).inserted else { return }
+        logger.log(message, .warning)
+    }
+
+    // MARK: - Row Write-back
+
+    /// The current index of a row a control was drawn for. A host may have replaced the
+    /// rows between the render and the click: the row is taken at its drawn index when it
+    /// is still there, else at the first place an equal row is found, else it is gone (nil).
+    static func currentRowIndex(of drawnRow: [String], drawnAt rowIndex: Int, in rows: [[String]]) -> Int? {
+        if rows.indices.contains(rowIndex), rows[rowIndex] == drawnRow {
+            return rowIndex
+        }
+        return rows.firstIndex(of: drawnRow)
+    }
+
+    /// Writes `text` into one cell of a container's states["content"] after a user edit of
+    /// a row-bound control (a Toggle in a template row or in a Table column). A row shorter
+    /// than `column` is padded with empty strings. A selection resting on that row follows
+    /// it, so the write loses no highlight and fires no selection action.
+    /// Returns the index of the row written, or nil when the container or the row is gone.
+    @discardableResult
+    static func writeRowCell(
+        windowUUID: String,
+        containerID: Int,
+        drawnRow: [String],
+        rowIndex: Int,
+        column: Int,
+        text: String
+    ) -> Int? {
+        guard column >= 0,
+              let model = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[containerID] else { return nil }
+        var rows = model.states["content"] as? [[String]] ?? []
+        guard let index = currentRowIndex(of: drawnRow, drawnAt: rowIndex, in: rows) else { return nil }
+        let oldRow = rows[index]
+        var newRow = oldRow
+        while newRow.count <= column {
+            newRow.append("")
+        }
+        newRow[column] = text
+        rows[index] = newRow
+        model.states["content"] = rows
+        if let selected = model.value as? [String], !selected.isEmpty, selected == oldRow {
+            model.value = newRow
+        }
+        return index
+    }
+
+    /// A user toggle of a Toggle in a template row: writes the new state into the row
+    /// (when `column` names one) and then fires `actionID` with the container's id, the
+    /// row index and the new Bool. Without a column the Toggle is display-only and nothing
+    /// happens. Returns whether the toggle was taken.
+    @discardableResult
+    static func commitRowToggle(
+        _ isOn: Bool,
+        context: TemplateContext,
+        column: Int?,
+        actionID: String?,
+        windowUUID: String
+    ) -> Bool {
+        guard let column,
+              let index = writeRowCell(
+                windowUUID: windowUUID, containerID: context.parentID, drawnRow: context.row,
+                rowIndex: context.rowIndex, column: column, text: rowBoolText(isOn)
+              ) else { return false }
+        if let actionID {
+            ActionUIModel.shared.actionHandler(
+                actionID, windowUUID: windowUUID, viewID: context.parentID, viewPartID: index, context: isOn
+            )
+        }
+        return true
+    }
+
     // MARK: - Template View Building
 
     /// Build a SwiftUI view from a template element and a single data row using
@@ -124,7 +271,7 @@ struct TemplateHelper {
         windowUUID: String,
         logger: any ActionUILogger
     ) -> AnyView {
-        let substitutedProps = substituteProperties(template.properties, row: row)
+        let substitutedProps = instanceProperties(of: template, row: row, logger: logger)
 
         let vm = ViewModel()
         vm.templateContext = TemplateContext(parentID: parentID, rowIndex: rowIndex, row: row)

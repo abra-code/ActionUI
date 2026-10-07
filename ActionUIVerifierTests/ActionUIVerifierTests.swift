@@ -56,6 +56,50 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
     #expect(any.contains("[ERROR] doc: properties.text:android: expected string, got integer"))
 }
 
+@Test func rowBooleansAreStringsOnlyInsideATemplate() throws {
+    let toggle: JSONValue = ["type": "Toggle", "properties": [
+        "style": "checkbox", "isOn": "$1", "title": "$2", "disabled": "$4", "hidden": "$5", "actionID": "packs.toggled",
+    ]]
+    // In a template (nested or not) the row supplies isOn, disabled and hidden.
+    let list: JSONValue = ["type": "List", "id": 600, "template": ["type": "HStack", "children": [toggle]]]
+    #expect(try issues(list) == [])
+    // Outside one, the same strings are type errors, and no other type is loosened inside one.
+    #expect(try errors(toggle).count == 3)
+    let opacity: JSONValue = ["type": "List", "id": 600, "template": ["type": "Text", "properties": ["text": "$1", "opacity": "$2"]]]
+    #expect(try errors(opacity) == ["[ERROR] doc: template.properties.opacity: expected number, got string"])
+}
+
+@Test func aTemplateToggleNeedsOneColumnForItsState() throws {
+    func warnings(isOn: JSONValue?) throws -> [String] {
+        var properties: [String: JSONValue] = ["title": "t"]
+        properties["isOn"] = isOn
+        let list: JSONValue = ["type": "List", "id": 600, "template": ["type": "Toggle", "properties": .object(properties)]]
+        return try issues(list)
+    }
+    #expect(try warnings(isOn: "$1") == [])
+    #expect(try warnings(isOn: "$12") == [])
+    let displayOnly = "[WARNING] doc: template.properties.isOn: 'isOn' of a Toggle in a template must be a single column "
+        + "reference such as \"$1\"; the Toggle cannot keep its state and is display-only"
+    for isOn: JSONValue in ["$1 x", "$1$2", "$0", "true", true] {
+        #expect(try warnings(isOn: isOn) == [displayOnly])
+    }
+    #expect(try warnings(isOn: nil) == ["[WARNING] doc: template.properties: Toggle in a template has no 'isOn' column "
+        + "reference such as \"$1\"; it cannot keep its state and is display-only"])
+}
+
+@Test func tableToggleColumnIsClean() throws {
+    let table: JSONValue = ["type": "Table", "id": 600, "properties": [
+        "columns": ["", "Pack"],
+        "columnTypes": [
+            ["viewType": "Toggle", "style": "checkbox", "actionID": "packs.toggled", "disabledColumn": 4],
+            ["viewType": "Text"],
+        ],
+        "widths": [28, 240],
+        "actionID": "packs.selection.changed",
+    ]]
+    #expect(try issues(table) == [])
+}
+
 @Test func menuBarDocumentsHaveAnArrayRoot() throws {
     let document: JSONValue = [["type": "CommandMenu", "properties": ["name": "Tools"], "children": []], ["type": "VStack"]]
     let found = try issues(document)

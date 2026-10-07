@@ -246,6 +246,18 @@ public struct DocumentValidator: Sendable {
     /// Keys used as JSON comments; allowed everywhere.
     private static let annotationKeys: Set<String> = ["description", "note", "comment", "info"]
     private static let menuBarTypes = ["CommandMenu", "CommandGroup"]
+    /// Boolean properties that an element inside a data-driven "template" may give as a string:
+    /// the runtime reads them from the row after substituting the $N column references.
+    private static let rowBoolKeys: Set<String> = ["isOn", "disabled", "hidden"]
+
+    /// Whether `value` is exactly one column reference ("$N", N of 1 or more), the form of "isOn"
+    /// that lets a Toggle in a template write its state back into its row.
+    private static func isSingleColumnReference(_ value: JSONValue) -> Bool {
+        guard case .string(let text) = value, text.hasPrefix("$") else { return false }
+        let digits = text.dropFirst()
+        guard !digits.isEmpty, digits.allSatisfy({ ("0"..."9").contains($0) }) else { return false }
+        return digits.contains { $0 != "0" }  // "$0" is all columns, not one
+    }
 
     private typealias Variants = [(suffix: String?, value: JSONValue)]
 
@@ -326,7 +338,10 @@ public struct DocumentValidator: Sendable {
         return (expanded, warnings)
     }
 
-    private func validate(node: [String: JSONValue], path: String, seenIDs: inout Set<Int>, isRoot: Bool) -> [ValidationIssue] {
+    /// - Parameter inTemplate: the node is a data-driven "template" or inside one, where the row
+    ///   data supplies some property values (see `rowBoolKeys`).
+    private func validate(node: [String: JSONValue], path: String, seenIDs: inout Set<Int>, isRoot: Bool,
+                          inTemplate: Bool = false) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         let separator = isRoot ? ": " : "."
         var (expanded, suffixWarnings) = expandSuffixed(node, path: path)
@@ -432,9 +447,11 @@ public struct DocumentValidator: Sendable {
             }
             if let pairedType = typeBySuffix[suffix] ?? primaryType {
                 let ownProperties = schemas.schema(pairedType)?["ownProperties"]?.object ?? [:]
-                issues += validateProperties(properties, own: ownProperties, elementType: pairedType, path: labelPath)
+                issues += validateProperties(properties, own: ownProperties, elementType: pairedType, path: labelPath,
+                                             inTemplate: inTemplate)
             } else {
-                issues += validateProperties(properties, own: mergedOwnProperties(variantTypes), elementType: typeLabel, path: labelPath)
+                issues += validateProperties(properties, own: mergedOwnProperties(variantTypes), elementType: typeLabel,
+                                             path: labelPath, inTemplate: inTemplate)
             }
         }
 
@@ -447,7 +464,8 @@ public struct DocumentValidator: Sendable {
             if variants.count <= 1 {
                 for (suffix, value) in variants {
                     let childPath = "\(path)\(separator)\(Platforms.label(key, suffix))"
-                    issues += validateSubview(value, path: childPath, seenIDs: &seenIDs)
+                    issues += validateSubview(value, path: childPath, seenIDs: &seenIDs,
+                                              inTemplate: inTemplate || key == "template")
                 }
                 continue
             }
@@ -455,7 +473,8 @@ public struct DocumentValidator: Sendable {
             for (suffix, value) in variants {
                 let childPath = "\(path)\(separator)\(Platforms.label(key, suffix))"
                 var variantIDs = idsBefore
-                issues += validateSubview(value, path: childPath, seenIDs: &variantIDs)
+                issues += validateSubview(value, path: childPath, seenIDs: &variantIDs,
+                                          inTemplate: inTemplate || key == "template")
                 seenIDs.formUnion(variantIDs)
             }
         }
@@ -481,7 +500,8 @@ public struct DocumentValidator: Sendable {
         return merged
     }
 
-    private func validateSubview(_ value: JSONValue, path: String, seenIDs: inout Set<Int>) -> [ValidationIssue] {
+    private func validateSubview(_ value: JSONValue, path: String, seenIDs: inout Set<Int>,
+                                 inTemplate: Bool) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         switch value {
         case .array(let items):
@@ -489,12 +509,13 @@ public struct DocumentValidator: Sendable {
                 let itemPath = "\(path)[\(index)]"
                 switch child {
                 case .object(let object):
-                    issues += validate(node: object, path: itemPath, seenIDs: &seenIDs, isRoot: false)
+                    issues += validate(node: object, path: itemPath, seenIDs: &seenIDs, isRoot: false, inTemplate: inTemplate)
                 case .array(let cells):  // Grid rows: arrays of cells
                     for (cellIndex, cell) in cells.enumerated() {
                         let cellPath = "\(itemPath)[\(cellIndex)]"
                         if let object = cell.object {
-                            issues += validate(node: object, path: cellPath, seenIDs: &seenIDs, isRoot: false)
+                            issues += validate(node: object, path: cellPath, seenIDs: &seenIDs, isRoot: false,
+                                               inTemplate: inTemplate)
                         } else {
                             issues.append(.init(severity: .error, path: cellPath, message: "cell must be an object"))
                         }
@@ -504,7 +525,7 @@ public struct DocumentValidator: Sendable {
                 }
             }
         case .object(let object):
-            issues += validate(node: object, path: path, seenIDs: &seenIDs, isRoot: false)
+            issues += validate(node: object, path: path, seenIDs: &seenIDs, isRoot: false, inTemplate: inTemplate)
         default:
             break
         }
@@ -512,7 +533,7 @@ public struct DocumentValidator: Sendable {
     }
 
     private func validateProperties(_ properties: [String: JSONValue], own: [String: JSONValue],
-                                    elementType: String, path: String) -> [ValidationIssue] {
+                                    elementType: String, path: String, inTemplate: Bool = false) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         let (expanded, suffixWarnings) = expandSuffixed(properties, path: path)
         issues += suffixWarnings
@@ -527,6 +548,9 @@ public struct DocumentValidator: Sendable {
                 }
                 if let spec {
                     issues += checkPropertyPlatform(base: base, suffix: suffix, spec: spec, label: label, path: path)
+                    if inTemplate, Self.rowBoolKeys.contains(base), case .string = value {
+                        continue  // read from the row as a Boolean
+                    }
                     issues += Self.validateProperty(key: label, value: value, spec: spec, path: path)
                 } else if Self.annotationKeys.contains(base) {
                     issues.append(.init(severity: .info, path: "\(path).\(label)",
@@ -540,6 +564,26 @@ public struct DocumentValidator: Sendable {
         }
         for key in own.keys.sorted() where own[key]?["required"]?.bool == true && expanded[key] == nil {
             issues.append(.init(severity: .error, path: "\(path).\(key)", message: "required property '\(key)' is missing"))
+        }
+
+        // A Toggle in a template keeps its state in its row, which it can only write back when
+        // isOn is exactly one column reference.
+        if inTemplate, elementType == "Toggle" {
+            let isOn = (expanded["isOn"] ?? []).filter { variant in
+                guard let target = targetPlatform, let suffix = variant.suffix else { return true }
+                return Platforms.matches(suffix, target)
+            }
+            if isOn.isEmpty {
+                issues.append(.init(severity: .warning, path: path,
+                                    message: "Toggle in a template has no 'isOn' column reference such as \"$1\"; "
+                                        + "it cannot keep its state and is display-only"))
+            }
+            for (suffix, value) in isOn where !Self.isSingleColumnReference(value) {
+                let label = Platforms.label("isOn", suffix)
+                issues.append(.init(severity: .warning, path: "\(path).\(label)",
+                                    message: "'\(label)' of a Toggle in a template must be a single column reference "
+                                        + "such as \"$1\"; the Toggle cannot keep its state and is display-only"))
+            }
         }
         return issues
     }

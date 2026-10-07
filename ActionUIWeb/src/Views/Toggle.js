@@ -5,9 +5,18 @@
 // "Toggle"), style ("switch" | "checkbox"; "button" style is out of PoC scope).
 // actionID fires on user change; valueChangeActionID on any change.
 // Observable value: Boolean on/off state.
+//
+// In a data-driven template the row data is the source of truth (see
+// Helpers/TemplateHelper.js): isOn is read from the row, and when it is exactly one
+// column reference a user toggle writes "true" or "false" into that cell of the
+// container's rows, then fires actionID with viewID = the container's id,
+// viewPartID = the row index and context = the new Boolean (the Swift / Android
+// convention; outside a template the context stays { isOn }). Any other isOn in a
+// template is display-only. A rows change made by the host fires nothing.
 
 import { register } from "../Common/ActionUIRegistry.js";
 import { markHandlesAction } from "../Common/ModifierResolver.js";
+import { IS_ON_COLUMN_KEY, rowBoolText, warnOnce } from "../Helpers/TemplateHelper.js";
 
 register("Toggle", {
     valueType: "boolean",
@@ -64,6 +73,27 @@ register("Toggle", {
         };
 
         markHandlesAction(wrapper);
+        const templateContext = ctx.templateContext;
+        if (templateContext) {
+            // A key on the control is the control's own, not a row selection.
+            wrapper.addEventListener("keydown", (event) => event.stopPropagation());
+            const column = properties[IS_ON_COLUMN_KEY];
+            if (!Number.isInteger(column)) {
+                warnOnce("Toggle isOn in a template must be a single column reference such as \"$1\" to keep its state; this Toggle is display-only", ctx.logger);
+            }
+            input.addEventListener("change", () => {
+                const { parentID, rowIndex } = templateContext;
+                if (!Number.isInteger(column)
+                    || !ctx.model.writeRowCell(parentID, rowIndex, column, rowBoolText(input.checked))) {
+                    input.checked = !input.checked; // display-only, or the row is gone
+                    return;
+                }
+                if (typeof properties.actionID === "string") {
+                    ctx.model.dispatchAction(properties.actionID, parentID, rowIndex, input.checked);
+                }
+            });
+            return wrapper;
+        }
         input.addEventListener("change", () => {
             dispatchValueChange();
             if (typeof properties.actionID === "string") {

@@ -27,6 +27,9 @@ import com.abracode.actionui.Common.LoggerLevel
 import com.abracode.actionui.Helpers.LocalActionUIEnabled
 import com.abracode.actionui.Helpers.LocalActionUILabelsHidden
 import com.abracode.actionui.Helpers.LocalActionUITint
+import com.abracode.actionui.Helpers.LocalTemplateContext
+import com.abracode.actionui.Helpers.TemplateHelper
+import com.abracode.actionui.Helpers.intProperty
 import com.abracode.actionui.Helpers.booleanProperty
 import com.abracode.actionui.Helpers.stringProperty
 
@@ -54,6 +57,13 @@ import com.abracode.actionui.Helpers.stringProperty
  * by id); otherwise it falls back to local [rememberSaveable] state. Host binding
  * requires a positive element `id`. Same dual-path binding the text controls use.
  *
+ * **In a data-driven template** the row data is the source of truth (see
+ * `Helpers/TemplateHelper.kt`): `isOn` is read from the row, and when it is exactly
+ * one column reference a user toggle writes "true" or "false" into that cell of the
+ * container's rows, then fires `actionID` with `viewID` = the container's id,
+ * `viewPartID` = the row index and `context` = the new Boolean. Any other `isOn` in a
+ * template is display-only. A rows change made by the host fires nothing.
+ *
  * **Deferred vs. Apple.** `style: "button"` (SwiftUI `ButtonToggleStyle`) renders
  * its label inside a pressable button rather than beside a control; its clean
  * Compose analog (a labeled toggle button / `FilterChip`) has a different layout
@@ -78,16 +88,36 @@ object Toggle : ActionUIViewConstruction {
         val initial = props?.booleanProperty("isOn") ?: false
         val style = resolveToggleStyle(props?.stringProperty("style"), logger)
 
+        // Template row: the row data holds the state (TemplateHelper has already read `isOn`
+        // from the row), and a user toggle is written back into the owning container's rows.
+        val templateContext = LocalTemplateContext.current
+        val container = templateContext?.let { LocalWindowModel.current?.viewModels?.get(it.parentID) }
+        val column = props?.intProperty(TemplateHelper.IS_ON_COLUMN_KEY)
+        if (templateContext != null && column == null) {
+            TemplateHelper.warnOnce(
+                "Toggle isOn in a template must be a single column reference such as \"\$1\" to keep its state; this Toggle is display-only",
+                logger,
+            )
+        }
+
         // Bind to the ViewModel value when a window is in scope; else local state.
         val viewModel = LocalWindowModel.current?.viewModels?.get(element.id)
         var localChecked by rememberSaveable(element.id) { mutableStateOf(initial) }
-        val checked = if (viewModel != null) (viewModel.value as? Boolean) ?: initial else localChecked
+        val checked = when {
+            templateContext != null -> initial
+            viewModel != null -> (viewModel.value as? Boolean) ?: initial
+            else -> localChecked
+        }
 
         val onChange: (Boolean) -> Unit = { new ->
             if (new != checked) {
-                if (viewModel != null) viewModel.value = new else localChecked = new
-                if (actionID != null) {
-                    ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0, context = new)
+                if (templateContext != null) {
+                    TemplateHelper.commitRowToggle(new, container, templateContext, column, actionID)
+                } else {
+                    if (viewModel != null) viewModel.value = new else localChecked = new
+                    if (actionID != null) {
+                        ActionUIModel.actionHandler(actionID, viewID = element.id, viewPartID = 0, context = new)
+                    }
                 }
             }
         }

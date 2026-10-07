@@ -256,6 +256,15 @@ internal fun resolveItemType(props: JsonObject?, logger: ActionUILogger): ListIt
             )
             "Text"
         }
+        "Toggle" -> {
+            // A one-column item has nowhere to hold both a title and a state.
+            logger.log(
+                "List itemType.viewType 'Toggle' is not supported; use a template with a Toggle " +
+                    "(\"isOn\": \"\$1\", \"title\": \"\$2\") instead; defaulting to Text",
+                LoggerLevel.warning,
+            )
+            "Text"
+        }
         else -> {
             logger.log("List itemType.viewType '$raw' invalid; defaulting to Text", LoggerLevel.warning)
             "Text"

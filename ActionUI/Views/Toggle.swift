@@ -9,6 +9,16 @@
      "style": "switch",        // Optional: "switch" (iOS/macOS/visionOS), "checkbox" (macOS only), "button" (iOS/macOS/visionOS); defaults to "switch"
      "actionID": "toggle.changed", // Optional: String for action triggered on value change
    }
+   // In a data-driven template (a List, VStack, HStack, ... with a "template"), the row data is the
+   // source of truth:
+   //   "isOn": "$1"   a string is read from the row: "true" or "1" is on, "false", "0" or empty is
+   //                  off, in any letter case; any other text is off, with one warning.
+   //   When "isOn" is exactly one column reference, a user toggle writes "true" or "false" into
+   //   that column of that row in the container's states["content"], then fires actionID with
+   //   viewID = the container's id, viewPartID = the 0-based row index and context = the new Bool.
+   //   Any other "isOn" in a template (a literal, "$0", text around a reference) is display-only.
+   //   setElementRows / appendElementRows / clearElementRows change what the toggles show and
+   //   fire nothing. Outside a template a string "isOn" is invalid, as before.
    // Note: These properties are specific to Toggle. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 */
@@ -50,11 +60,37 @@ struct Toggle: ActionUIViewConstruction {
     // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         
-        let initialValue = Self.initialValue(model) as? Bool ?? false
-        
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
+        // Hoisted out of the bindings: their main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
         let actionID = properties["actionID"] as? String
+        let title = properties["title"] as? String ?? "Toggle"
+
+        // Template row: the row data holds the state (TemplateHelper has already read "isOn"
+        // from the row as a Bool), and this instance's ViewModel is thrown away after the render.
+        if let templateContext = model.templateContext {
+            let shown = properties["isOn"] as? Bool ?? false
+            let column = TemplateHelper.singleColumnIndex(element.properties["isOn"])
+            if column == nil {
+                TemplateHelper.warnOnce("Toggle isOn in a template must be a single column reference such as \"$1\" to keep its state; this Toggle is display-only", logger: logger)
+            }
+            let rowBinding = mainActorBinding(
+                get: { shown },
+                set: { newValue in
+                    guard newValue != shown else { return }
+                    // After the view update, as below. The container redraws from the row written.
+                    DispatchQueue.main.async {
+                        TemplateHelper.commitRowToggle(
+                            newValue, context: templateContext, column: column,
+                            actionID: actionID, windowUUID: windowUUID
+                        )
+                    }
+                }
+            )
+            return SwiftUI.Toggle(title, isOn: rowBinding)
+        }
+
+        let initialValue = Self.initialValue(model) as? Bool ?? false
+        
         let toggleBinding = mainActorBinding(
             get: { model.value as? Bool ?? initialValue },
             set: { newValue in
@@ -73,8 +109,6 @@ struct Toggle: ActionUIViewConstruction {
                 }
             }
         )
-
-        let title = properties["title"] as? String ?? "Toggle"
 
         return SwiftUI.Toggle(title, isOn: toggleBinding)
     }

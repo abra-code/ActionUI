@@ -260,6 +260,35 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 910, value: "Log: \(cellTapLog)")
         }
 
+        // Toggle in data-driven rows, fixture List.toggleRows.json: a List whose template
+        // holds a Toggle (id 920) and a Table with a Toggle column (id 930). The log appends,
+        // as above, so the UI test sees whether a toggle ALSO moved the selection. Each toggle
+        // entry carries the state read back from the rows, which shows the write came first.
+        var toggleRowsLog = ""
+        ActionUISwift.registerActionHandler(actionID: "togglerows.load") { _, windowUUID, _, _, _ in
+            toggleRowsLog = ""
+            let rows = [["false", "One", "false"], ["false", "Two", "false"], ["true", "Three", "true"]]
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 920, rows: rows)
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 930, rows: rows)
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: ")
+        }
+        ActionUISwift.registerActionHandler(actionID: "togglerows.toggled") { _, windowUUID, viewID, viewPartID, context in
+            let stored = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID)?[viewPartID].first ?? "?"
+            toggleRowsLog += "T\(viewID)-\(viewPartID)=\(context as? Bool ?? false):\(stored);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: \(toggleRowsLog)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "togglerows.cell") { _, windowUUID, viewID, viewPartID, context in
+            let row = context as? Int ?? -1
+            let rows = ActionUISwift.getElementRows(windowUUID: windowUUID, viewID: viewID) ?? []
+            let stored = rows.indices.contains(row) ? rows[row][viewPartID] : "?"
+            toggleRowsLog += "C\(viewID)-\(viewPartID)=\(row):\(stored);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: \(toggleRowsLog)")
+        }
+        ActionUISwift.registerActionHandler(actionID: "togglerows.selected") { _, windowUUID, viewID, _, _ in
+            toggleRowsLog += "S\(viewID);"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 940, value: "Log: \(toggleRowsLog)")
+        }
+
         ActionUISwift.registerActionHandler(actionID: "vstack.template.demo.append") { _, windowUUID, _, _, _ in
             let row = vstackTemplateExtraRows[vstackTemplateAppendIndex % vstackTemplateExtraRows.count]
             vstackTemplateAppendIndex += 1

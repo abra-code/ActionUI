@@ -8,12 +8,16 @@
      "columns": ["Name", "Action", "Icon"], // Required: Array of strings for column headers
      "columnHeadersVisibility": "hidden",   // Optional: column headers visibility: "automatic", "hidden", "visible"
      "columnTypes": [                       // Optional: Per-column type config array. Defaults to all Text.
-       { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"
+       { "viewType": "Text" },              // Each entry: { "viewType": "Text"|"Button"|"Image"|"AsyncImage"|"Toggle"
        { "viewType": "Button",              // Columns without an entry default to Text.
          "actionContext": "rowIndex",       // "actionContext": "title"|"rowIndex"|"columnIndex"|"rowColumnIndex" (Button only)
          "actionID": "row.action" },        // "actionID": "..." (Button only — fires on button click) }
        { "viewType": "Image",
-         "dataInterpretation": "systemName" } // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image & Button)
+         "dataInterpretation": "systemName" }, // "dataInterpretation": "path"|"systemName"|"assetName"|"resourceName"|"mixed" (Image & Button)
+       { "viewType": "Toggle",              // A checkbox per row. The cell text is its state: "true" or "1" is on, "false", "0" or empty is off (any letter case).
+         "style": "checkbox",               // "style": "checkbox" (default)|"switch"|"button" (Toggle only)
+         "actionID": "row.toggled",         // "actionID": "..." (Toggle only - fires on a user toggle, after the cell is written; viewPartID = column index, context = row index)
+         "disabledColumn": 4 }              // "disabledColumn": 1-based column number (hidden columns included) whose text, read the same way, disables the cell for that row (Toggle only)
      ],
      "widths": [100, 80, 40],               // Optional: Array of integers for ideal column widths (resizable; last column fills remaining space)
      "minWidths": [80, 60, 30],             // Optional: Array of integers for minimum column widths in points; columns cannot be resized below these. Missing entries default to 10.
@@ -21,7 +25,7 @@
      "doubleClickActionID": "table.double.click" // Optional: String for double-click action (context = row index)
    }
  }
-   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"] (the selected row's columns) and highlights the row with those columns. A rows change keeps the selection on its row (an equal row, else the row with the same first column, the same one among several, with its new columns), or clears it; no actionID fires. The table-level actionID fires on every selection change the user makes, a deselect included. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns.
+   // Note: The Table view is macOS-only, showing a multi-column table with per-column cell types specified by the columnTypes array. If columnTypes is omitted or shorter than columns, missing entries default to Text. Selection is stored as [String] in state["value"] (the selected row's columns) and highlights the row with those columns. A rows change keeps the selection on its row (an equal row, else the row with the same first column, the same one among several, with its new columns), or clears it; no actionID fires. The table-level actionID fires on every selection change the user makes, a deselect included. Button columns have their own actionID in their columnTypes entry, fired on click — this cleanly separates selection events from button click events. A Toggle column shows a checkbox with no title (the column header names it); a user toggle writes "true" or "false" into that cell of states["content"], keeps the selection where it was, and then fires the entry's actionID with viewPartID = the column index and context = the row index, so a handler reads the new state from the rows. Toggling does not select the row and does not fire the table-level actionID; a rows change made by the host fires nothing. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties). The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension. SwiftUI types are explicitly prefixed (e.g., SwiftUI.Table, SwiftUI.TableColumn) to avoid namespace conflicts. Uses TableColumnForEach for dynamic columns.
    // Performance: Child views are strongly typed to avoid AnyView overhead, identified by stable indices in ForEach, optimizing SwiftUI diffing for large tables (e.g., 1000 rows x 50 columns). Image creation uses SwiftUI.Image extension, aligned with Image.swift, to minimize overhead. Ensure state updates are targeted to minimize re-renders.
 
  Observable state:
@@ -50,6 +54,44 @@ struct ColumnData: Identifiable {
     let maxWidth: CGFloat?
 }
 
+/// A Toggle cell of a Table column: a checkbox (or switch, or button) with no title, showing
+/// the cell's row data. A user toggle is handed to `onToggle` after the view update; the
+/// table then redraws from the row written.
+struct TableToggleCell: SwiftUI.View {
+    let isOn: Bool
+    let style: String
+    let isDisabled: Bool
+    let onToggle: @MainActor (Bool) -> Void
+
+    var body: some SwiftUI.View {
+        let binding = mainActorBinding(
+            get: { isOn },
+            set: { newValue in
+                guard newValue != isOn else { return }
+                DispatchQueue.main.async { onToggle(newValue) }
+            }
+        )
+        styled(SwiftUI.Toggle("", isOn: binding).labelsHidden())
+            .disabled(isDisabled)
+    }
+
+    @ViewBuilder
+    private func styled(_ toggle: some SwiftUI.View) -> some SwiftUI.View {
+        switch style {
+        case "switch":
+            toggle.toggleStyle(SwitchToggleStyle())
+        case "button":
+            toggle.toggleStyle(ButtonToggleStyle())
+        default:
+            #if os(macOS)
+            toggle.toggleStyle(CheckboxToggleStyle())
+            #else
+            toggle.toggleStyle(SwitchToggleStyle())
+            #endif
+        }
+    }
+}
+
 struct Table: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -72,9 +114,19 @@ struct Table: ActionUIViewConstruction {
         for i in 0..<columnTypes.count {
             var ct = columnTypes[i]
             let vt = ct["viewType"] as? String ?? "Text"
-            if !["Text", "Button", "Image", "AsyncImage"].contains(vt) {
-                logger.log("Table columnTypes[\(i)].viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
+            if !["Text", "Button", "Image", "AsyncImage", "Toggle"].contains(vt) {
+                logger.log("Table columnTypes[\(i)].viewType must be 'Text', 'Button', 'Image', 'AsyncImage', or 'Toggle'; defaulting to Text", .warning)
                 ct["viewType"] = "Text"
+            }
+            if vt == "Toggle" {
+                if let style = ct["style"], !["checkbox", "switch", "button"].contains(style as? String) {
+                    logger.log("Table columnTypes[\(i)].style must be 'checkbox', 'switch', or 'button' for Toggle; defaulting to checkbox", .warning)
+                    ct.removeValue(forKey: "style")
+                }
+                if let disabledColumn = ct["disabledColumn"], (disabledColumn as? Int ?? 0) < 1 {
+                    logger.log("Table columnTypes[\(i)].disabledColumn must be a 1-based column number for Toggle; ignoring", .warning)
+                    ct.removeValue(forKey: "disabledColumn")
+                }
             }
             if vt == "Image" {
                 let di = ct["dataInterpretation"] as? String
@@ -211,8 +263,23 @@ struct Table: ActionUIViewConstruction {
                     // Extract the button actionID here: colType is a non-Sendable [String: Any] and
                     // must not be captured into the Button's main-actor action closure (Swift 6 sending rule).
                     let buttonActionID = colType["actionID"] as? String
+                    let toggleStyle = colType["style"] as? String ?? "checkbox"
+                    let disabledColumn = colType["disabledColumn"] as? Int
                     SwiftUI.Group {
                         switch viewType {
+                        case "Toggle":
+                            TableToggleCell(
+                                isOn: TemplateHelper.rowBool(value) ?? false,
+                                style: toggleStyle,
+                                isDisabled: disabledColumn.map { $0 <= row.values.count && TemplateHelper.rowBool(row.values[$0 - 1]) == true } ?? false
+                            ) { newValue in
+                                Table.commitCellToggle(
+                                    newValue, drawnRow: row.values,
+                                    rowIndex: rowData.firstIndex(where: { $0.id == row.id }) ?? -1,
+                                    column: column.id, actionID: buttonActionID,
+                                    windowUUID: windowUUID, viewID: element.id
+                                )
+                            }
                         case "Text":
                             SwiftUI.Text(value)
                         case "Button":
@@ -273,6 +340,30 @@ struct Table: ActionUIViewConstruction {
         #endif
     }
     
+    /// A user toggle of a Toggle cell: writes "true" or "false" into that cell of the rows
+    /// (the selection follows its row), then fires the column's `actionID` with the column
+    /// as `viewPartID` and the row index as context, the Button cell's "rowIndex" convention.
+    /// Returns whether the toggle was taken (false when the row is gone).
+    @discardableResult
+    static func commitCellToggle(
+        _ isOn: Bool,
+        drawnRow: [String],
+        rowIndex: Int,
+        column: Int,
+        actionID: String?,
+        windowUUID: String,
+        viewID: Int
+    ) -> Bool {
+        guard let index = TemplateHelper.writeRowCell(
+            windowUUID: windowUUID, containerID: viewID, drawnRow: drawnRow,
+            rowIndex: rowIndex, column: column, text: TemplateHelper.rowBoolText(isOn)
+        ) else { return false }
+        if let actionID {
+            ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: viewID, viewPartID: column, context: index)
+        }
+        return true
+    }
+
     /// The Table's selection binding, by row id ("row-<index>") into `rowData`, the rows this
     /// render draws. The value is the selected row's columns (`[]` when nothing is selected);
     /// the user's changes, a deselect included, go through `SelectionListHelper.commitRowSelection`,

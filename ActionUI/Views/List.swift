@@ -56,6 +56,9 @@
         { "type": "Text",  "properties": { "text": "$2" } }
       ]
     }
+    // A checkbox list is a template with a Toggle: the row holds the state, a user toggle writes
+    // it back into the row and fires the Toggle's actionID with the row index (see Toggle.swift):
+    //   "template": { "type": "Toggle", "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "actionID": "item.toggled" } }
   }
     // Note: The List can operate in three modes (Form 1, 2, and 3):
     //   1. Homogeneous list: Shows a single-column list of homogeneous views (Text, Button, Image, AsyncImage)
@@ -229,7 +232,11 @@ struct List: ActionUIViewConstruction {
 
         var itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
         let viewType = itemType["viewType"] as? String ?? "Text"
-        if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
+        if viewType == "Toggle" {
+            // A one-column item has nowhere to hold both a title and a state.
+            logger.log("List itemType.viewType 'Toggle' is not supported; use a template with a Toggle (\"isOn\": \"$1\", \"title\": \"$2\") instead; defaulting to Text", .warning)
+            itemType["viewType"] = "Text"
+        } else if !["Text", "Button", "Image", "AsyncImage"].contains(viewType) {
             logger.log("List itemType.viewType must be 'Text', 'Button', 'Image', or 'AsyncImage'; defaulting to Text", .warning)
             itemType["viewType"] = "Text"
         }

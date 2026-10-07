@@ -1,0 +1,58 @@
+{
+  "type": "NavigationStack",
+  "content": {
+    "type": "VStack",
+    "properties": {
+      "spacing": 12,
+      "alignment": "leading",
+      "padding": "default",
+      "navigationTitle": "List.toggleRows"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "properties": { "text": "Toggle in data-driven rows", "font": "headline" }
+      },
+      {
+        "type": "Button",
+        "properties": { "title": "Load", "actionID": "togglerows.load", "buttonStyle": "borderedProminent" }
+      },
+      {
+        "type": "List",
+        "id": 920,
+        "properties": { "actionID": "togglerows.selected", "frame": { "height": 150 } },
+        "template": {
+          "type": "HStack",
+          "properties": { "spacing": 10 },
+          "children": [
+            {
+              "type": "Toggle",
+              "properties": { "style": "checkbox", "isOn": "$1", "title": "Check $2", "disabled": "$3", "actionID": "togglerows.toggled" }
+            },
+            { "type": "Spacer" },
+            { "type": "Text", "properties": { "text": "Row $2" } }
+          ]
+        }
+      },
+      {
+        "type": "Table",
+        "id": 930,
+        "properties": {
+          "columns": ["On", "Name"],
+          "columnTypes": [
+            { "viewType": "Toggle", "actionID": "togglerows.cell", "disabledColumn": 3 },
+            { "viewType": "Text" }
+          ],
+          "widths": [40, 240],
+          "actionID": "togglerows.selected",
+          "frame": { "height": 150 }
+        }
+      },
+      {
+        "type": "Text",
+        "id": 940,
+        "properties": { "text": "Log: " }
+      }
+    ]
+  }
+}

@@ -252,6 +252,9 @@ What the handler receives:
   way a data-driven cell can say which row was tapped.
 - **Outside a template**: the element's own id, with `viewPartID` 0.
 
+A `Toggle` in a template row is template-aware in the same way: it fires with
+the container's id and the row index (see "Checkbox list" below).
+
 A `Button` (or any control) nested inside keeps its own tap: pressing "Done"
 fires `receiver.done` and does NOT also fire `receiver.open`. The same holds for
 a tappable container nested inside another one, and for a tappable cell inside a
@@ -276,6 +279,43 @@ Web note: on the web ANY element carrying an `actionID` is clickable, not only
 these three containers - that predates the pattern and still holds. Apple and
 Android wire only `VStack`/`HStack`/`ZStack`, so keep the `actionID` on one of
 them if the document has to behave identically everywhere.
+
+### Checkbox list: a Toggle whose state lives in the row
+
+For a list of items the application fills at run time, each with a checkbox, put
+a `Toggle` in the `template` and point `isOn` at one column:
+
+```json
+{
+  "type": "List", "id": 600,
+  "properties": { "actionID": "packs.selection.changed" },
+  "template": {
+    "type": "Toggle",
+    "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "disabled": "$4", "actionID": "packs.toggled" }
+  }
+}
+```
+
+Rows: `["true", "Xcode and Swift builds", "xcode", "false"]`, one per item.
+
+- `isOn`, `disabled` and `hidden` take a column reference in a template: `"true"`
+  or `"1"` is on, `"false"`, `"0"` or empty is off.
+- `isOn` must be exactly one reference (`"$1"`). The user's toggle is then
+  written back into that column as `"true"` or `"false"`, so the rows always
+  hold the current ticks: read them with `getElementRows` when the user
+  confirms. Anything else (`true`, `"$0"`, `"$1 x"`) makes the Toggle
+  display-only, and the validator warns.
+- The handler receives `viewID` = the list's id, `viewPartID` = the row index,
+  `context` = the new Boolean. The row is already written when it runs. Do not
+  redraw the rows from the handler; there is nothing to redraw.
+- Toggling does not select the row, and filling the rows fires nothing.
+- Do not use `"itemType": { "viewType": "Toggle" }` (Form 1); it is refused.
+
+In a macOS `Table`, the same thing is a column type:
+`{ "viewType": "Toggle", "actionID": "packs.toggled", "disabledColumn": 4 }`.
+There the handler receives `viewPartID` = the column index and `context` = the
+row index, and reads the new state from `rows[context][viewPartID]`. Android has
+no `Table`; use the `List` form there.
 
 ### Table column minimum widths
 

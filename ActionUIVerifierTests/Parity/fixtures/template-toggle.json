@@ -1,0 +1,15 @@
+{ "type": "VStack", "children": [
+  { "type": "List", "id": 600, "properties": { "actionID": "sel" },
+    "template": { "type": "HStack", "children": [
+      { "type": "Toggle", "properties": { "style": "checkbox", "isOn": "$1", "title": "$2", "disabled": "$4", "hidden": "$5", "actionID": "t" } },
+      { "type": "Toggle", "properties": { "isOn": "$1 x", "title": "a" } },
+      { "type": "Toggle", "properties": { "isOn": true, "title": "b" } },
+      { "type": "Toggle", "properties": { "isOn": "$0", "title": "b" } },
+      { "type": "Toggle", "properties": { "title": "c" } },
+      { "type": "Text", "properties": { "text": "$2", "opacity": "$3" } } ] } },
+  { "type": "Toggle", "properties": { "isOn": "true", "disabled": "$1" } },
+  { "type": "Table", "id": 601, "properties": { "columns": ["", "Pack"],
+      "columnTypes": [ { "viewType": "Toggle", "style": "checkbox", "actionID": "p", "disabledColumn": 4 }, { "viewType": "Text" },
+                       { "viewType": "Toggle", "style": "radio", "disabledColumn": "4" } ] } },
+  { "type": "List", "id": 602, "properties": { "itemType": { "viewType": "Toggle" } } }
+] }
