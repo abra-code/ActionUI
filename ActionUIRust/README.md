@@ -84,7 +84,7 @@ fn main() -> actionui::Result<()> {
 | Add or remove controls while the window is open | `Window::insert_element`, `insert_row`, `remove_element` |
 | Show a sheet, an alert, a list of choices or a toast in a window | `Window::present_modal`, `present_alert`, `present_confirmation_dialog`, `present_toast` |
 | Ask with a standalone alert, or for files | `actionui::panels::Alert`, `OpenPanel`, `SavePanel` |
-| Add menus and menu items | `App::load_menu_bar`, called from the `on_will_finish_launching` handler or later |
+| Add menus and menu items | `App::load_menu_bar` |
 | Let child processes drive the windows | `App::start_remote_server` |
 
 ## Tests

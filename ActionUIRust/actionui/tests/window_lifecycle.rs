@@ -10,6 +10,7 @@
 // the will-terminate handler, which sets the exit status.
 
 use std::cell::{Cell, RefCell};
+use std::ffi::{CStr, c_char, c_void};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -24,6 +25,8 @@ const MENU_BAR: &str = r#"[
       { "type": "Button", "properties": { "title": "Run Report", "actionID": "test.report" } }
     ] }
 ]"#;
+
+const APP_NAME: &str = "ActionUI Rust Test";
 
 const INPUT: i64 = 10;
 const UNIT: i64 = 20;
@@ -118,9 +121,9 @@ fn check_structure(window: &Window) {
     let element = serde_json::json!({ "type": "Text", "id": INSERTED, "properties": { "text": "Inserted from Rust" } });
     let inserted = window.insert_element(ROOT, &element, None, InsertPosition::Append);
     check(&format!("an element is inserted (got {inserted:?})"), matches!(inserted, Ok(INSERTED)));
-    // An element without an "id" gets a negative one from ActionUI; -1 is among them.
+    // An element without an "id" gets a negative one from ActionUI, never -1.
     let unnamed = window.insert_element(ROOT, &serde_json::json!({ "type": "Text", "properties": { "text": "No ID" } }), None, InsertPosition::Append);
-    check(&format!("an element without an ID is inserted (got {unnamed:?})"), matches!(unnamed, Ok(id) if id < 0));
+    check(&format!("an element without an ID is inserted (got {unnamed:?})"), matches!(unnamed, Ok(id) if id < -1));
     if let Ok(id) = unnamed {
         check("and removed by the ID it was given", window.remove_element(id).is_ok());
     }
@@ -193,6 +196,50 @@ fn check_remote_server(app: App) {
     check("after stopping it reports no socket path", app.remote_server_endpoint().is_none());
 }
 
+// The menu bar belongs to AppKit and the crate has no call that reads it back, so the test
+// asks the Objective-C runtime for the titles of the top-level menus.
+#[link(name = "objc")]
+unsafe extern "C" {
+    fn objc_getClass(name: *const c_char) -> *mut c_void;
+    fn sel_registerName(name: *const c_char) -> *mut c_void;
+    fn objc_msgSend();
+}
+
+fn main_menu_titles() -> Vec<String> {
+    type Send0 = unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void;
+    type SendCount = unsafe extern "C" fn(*mut c_void, *mut c_void) -> isize;
+    type SendIndex = unsafe extern "C" fn(*mut c_void, *mut c_void, isize) -> *mut c_void;
+    let mut titles = Vec::new();
+    unsafe {
+        let send0: Send0 = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let send_count: SendCount = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let send_index: SendIndex = std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+        let application = send0(objc_getClass(c"NSApplication".as_ptr()), sel_registerName(c"sharedApplication".as_ptr()));
+        let menu = send0(application, sel_registerName(c"mainMenu".as_ptr()));
+        if menu.is_null() {
+            return titles;
+        }
+        for index in 0..send_count(menu, sel_registerName(c"numberOfItems".as_ptr())) {
+            let item = send_index(menu, sel_registerName(c"itemAtIndex:".as_ptr()), index);
+            // A top-level item shows its submenu's title; its own is often left at the default.
+            let submenu = send0(item, sel_registerName(c"submenu".as_ptr()));
+            let title = send0(if submenu.is_null() { item } else { submenu }, sel_registerName(c"title".as_ptr()));
+            let text = send0(title, sel_registerName(c"UTF8String".as_ptr()));
+            if !text.is_null() {
+                titles.push(CStr::from_ptr(text as *const c_char).to_string_lossy().into_owned());
+            }
+        }
+    }
+    titles
+}
+
+fn check_menu_bar() {
+    let titles = main_menu_titles();
+    check(&format!("the menu bar carries the application's name (got {titles:?})"), titles.first().is_some_and(|title| title == APP_NAME));
+    check("the menu loaded before run() is there once", titles.iter().filter(|title| *title == "Tools").count() == 1);
+    check("the standard menus are there", ["File", "Edit", "Window", "Help"].iter().all(|name| titles.iter().any(|title| title == name)));
+}
+
 fn check_at_termination() {
     SEEN.with(|seen| {
         check("will-finish-launching ran", seen.will_finish_launching.get());
@@ -229,14 +276,13 @@ fn main() {
     let app = App::new().expect("App::new on the main thread");
     assert!(matches!(App::new(), Err(Error::AppAlreadyCreated)), "a second App::new must fail");
     assert!(App::get().is_some());
-    app.set_name("ActionUI Rust Test").expect("set_name");
+    app.set_name(APP_NAME).expect("set_name");
     println!("ActionUI {}", actionui::version());
 
-    // Not before run(): with a name set, the menu bar is rebuilt as the application launches.
-    app.on_will_finish_launching(move || {
-        app.load_menu_bar(MENU_BAR).expect("load_menu_bar");
-        SEEN.with(|seen| seen.will_finish_launching.set(true));
-    });
+    // Before run(), with a name set: the menu bar is rebuilt as the application launches,
+    // and the menu loaded here has to survive that.
+    app.load_menu_bar(MENU_BAR).expect("load_menu_bar");
+    app.on_will_finish_launching(|| SEEN.with(|seen| seen.will_finish_launching.set(true)));
 
     app.on_window_will_present(|window| {
         let _ = window.set_string(INPUT, "100");
@@ -258,6 +304,7 @@ fn main() {
         let window = app.present_window_from_json(UI, Some("Lifecycle Test")).expect("present_window_from_json");
         SEEN.with(|seen| *seen.presented.borrow_mut() = Some(window.clone()));
         check_remote_server(app);
+        check_menu_bar();
 
         // A panic in a dispatched closure must not take the application down.
         main_thread::dispatch(|| panic!("expected in this test"));

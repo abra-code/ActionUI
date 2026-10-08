@@ -868,7 +868,8 @@ static PyObject* py_insert_element(PyObject* self, PyObject* args) {
 
     int64_t inserted_id = actionUIInsertElement(windowUUID, (int64_t)parentID, json, container,
                                                 (ActionUIInsertPosition)position, (int64_t)positionParam);
-    if (inserted_id < 0) {
+    // Only -1 is a failure: an element without an "id" gets an auto-assigned id of -2 or below.
+    if (inserted_id == -1) {
         char* err = actionUIGetLastError();
         if (err != NULL) { PyErr_SetString(PyExc_RuntimeError, err); actionUIFreeString(err); }
         else              { PyErr_SetString(PyExc_RuntimeError, "actionUIInsertElement failed"); }

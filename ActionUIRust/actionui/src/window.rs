@@ -10,7 +10,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::dialog::{DialogButton, InsertPosition, ModalStyle};
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::ffi;
 
 /// The smallest and largest size a window's content accepts, in points. A flexible axis
@@ -408,12 +408,10 @@ impl Window {
         let view_id = unsafe {
             sys::actionUIInsertElement(uuid.as_ptr(), parent_id, json.as_ptr(), ffi::optional_ptr(&container), position, position_param)
         };
-        // -1 reports a failure, but it is also a valid ID: ActionUI numbers elements that
-        // have no "id" of their own from -1 down. A failure always records an error.
+        // Only -1 is a failure. Other negative numbers are IDs: ActionUI numbers elements
+        // that have no "id" of their own from -2 down.
         if view_id == -1 {
-            if let Some(message) = ffi::last_error() {
-                return Err(Error::ActionUI(message));
-            }
+            return Err(ffi::failure("actionUIInsertElement"));
         }
         Ok(view_id)
     }

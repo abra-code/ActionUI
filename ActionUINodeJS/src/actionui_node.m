@@ -947,7 +947,8 @@ static napi_value node_insert_element(napi_env env, napi_callback_info info) {
 
     int64_t inserted_id = actionUIInsertElement(uuid, parentID, json, container_ptr,
                                                 (ActionUIInsertPosition)position, positionParam);
-    if (inserted_id < 0) {
+    // Only -1 is a failure: an element without an "id" gets an auto-assigned id of -2 or below.
+    if (inserted_id == -1) {
         char* err = actionUIGetLastError();
         napi_throw_error(env, NULL, err ? err : "actionUIInsertElement failed");
         if (err) actionUIFreeString(err);

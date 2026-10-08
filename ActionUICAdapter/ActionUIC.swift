@@ -1199,6 +1199,8 @@ private func swiftInsertPosition(_ position: ActionUIInsertPosition, param: Int)
 ///     `ActionUIInsertPositionBefore`/`After`; ignored for Append/Prepend.
 /// - Returns: The inserted element's id on success; `-1` on failure.
 ///   Call `actionUIGetLastError()` for details on failure.
+///   An element without an "id" gets an auto-assigned negative id, which is a
+///   success: auto-assigned ids start at -2, so only exactly `-1` means failure.
 @_cdecl("actionUIInsertElement")
 public func actionUIInsertElement(
     _ windowUUID:     UnsafePointer<CChar>,

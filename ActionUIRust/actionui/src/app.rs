@@ -24,7 +24,8 @@ pub struct ActionContext {
     /// The window the action came from. A menu bar action names the frontmost window;
     /// its UUID is empty when there is none.
     pub window: Window,
-    /// The `id` of the element, or 0 when the action has none (a menu item).
+    /// The `id` of the element. For a menu item it is a number ActionUI gave the item
+    /// (10000 or more), not the ID of an element.
     pub view_id: i64,
     /// The part of the element, for elements that have parts; otherwise 0.
     pub view_part_id: i64,
@@ -335,9 +336,8 @@ impl App {
     /// items. A menu item's `actionID` arrives like any other action. JSON that cannot be
     /// parsed is reported in ActionUI's log.
     ///
-    /// Call this from the [`App::on_will_finish_launching`] handler or later. After
-    /// [`App::set_name`], a menu bar loaded before [`App::run`] is replaced by the standard
-    /// one as the application launches, and the added menus are lost.
+    /// It can be called before [`App::run`] or later, and more than once: each call adds
+    /// to the menu bar.
     pub fn load_menu_bar(&self, json: &str) -> Result<()> {
         let json = ffi::cstring("menu bar JSON", json)?;
         unsafe { sys::actionUIAppLoadMenuBar(json.as_ptr()) };

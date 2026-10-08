@@ -118,12 +118,13 @@ final class ActionUIApplicationDelegate: NSObject, NSApplicationDelegate, NSWind
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Install the default menu bar before the user's handler fires,
         // so the menu bar is visible by the time didFinishLaunching runs.
-        // Always reinstall when appName is set — a menu bar may have been
+        // Always reinstall when appName is set - a menu bar may have been
         // loaded earlier (e.g. by actionUIAppLoadMenuBar) before the
         // caller set the app name, so the titles would be stale.
+        // The commands loaded so far are applied again to the new menu bar.
         let app = NSApplication.shared
         if appName != nil || app.mainMenu == nil || app.mainMenu?.items.isEmpty == true {
-            installDefaultMenuBar(appName: appName)
+            reinstallMenuBar(appName: appName)
         }
 
         willFinishLaunchingHandler?()
