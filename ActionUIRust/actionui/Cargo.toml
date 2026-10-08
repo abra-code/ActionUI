@@ -1,0 +1,22 @@
+[package]
+name = "actionui"
+description = "Native macOS user interfaces described in JSON, driven from Rust, through ActionUI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+actionui-sys = { path = "../actionui-sys", version = "0.1.0" }
+serde = "1"
+serde_json = "1"
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+
+# Opens a real window and runs the event loop, so it has its own main() instead of the
+# test harness, which would run it on a worker thread.
+[[test]]
+name = "window_lifecycle"
+harness = false
