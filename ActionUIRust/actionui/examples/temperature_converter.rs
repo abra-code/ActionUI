@@ -50,6 +50,6 @@ fn main() -> actionui::Result<()> {
         }
     });
 
-    app.present_window_from_json(UI, "Temperature Converter")?;
+    app.present_window_from_json(UI, Some("Temperature Converter"))?;
     app.run()
 }

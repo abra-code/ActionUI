@@ -31,10 +31,11 @@
 //!
 //! # Threads
 //!
-//! Everything here runs on the main thread, which [`App::run`] hands to the event loop.
-//! Calls from another thread return [`Error::NotMainThread`]. A worker thread passes its
-//! result to the interface with [`main_thread::dispatch`]; a [`Window`] can be moved into
-//! that closure. Never make the main thread wait for a worker.
+//! [`App`] exists only on the main thread, which [`App::run`] hands to the event loop, and
+//! handlers run there. A [`Window`] can be moved to any thread and used from it: setters
+//! return at once, getters wait for the main thread. Never make the main thread wait for
+//! a worker that calls into a window. [`main_thread::dispatch`] runs a closure on the main
+//! thread, for work that needs the [`App`].
 //!
 //! # Panics
 //!
@@ -50,6 +51,8 @@ compile_error!(
 #[cfg(target_os = "macos")]
 mod app;
 #[cfg(target_os = "macos")]
+mod dialog;
+#[cfg(target_os = "macos")]
 mod error;
 #[cfg(target_os = "macos")]
 mod ffi;
@@ -58,10 +61,14 @@ pub mod log;
 #[cfg(target_os = "macos")]
 pub mod main_thread;
 #[cfg(target_os = "macos")]
+pub mod panels;
+#[cfg(target_os = "macos")]
 mod window;
 
 #[cfg(target_os = "macos")]
 pub use app::{ActionContext, App};
+#[cfg(target_os = "macos")]
+pub use dialog::{ButtonRole, DialogButton, InsertPosition, ModalStyle};
 #[cfg(target_os = "macos")]
 pub use error::{Error, Result};
 #[cfg(target_os = "macos")]

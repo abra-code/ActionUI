@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::ffi::{CStr, c_char};
 use std::fs;
 use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -71,8 +71,6 @@ struct Handlers {
     should_terminate: Option<Rc<dyn Fn() -> bool>>,
     window_will_close: Option<WindowHandler>,
     window_will_present: Option<WindowHandler>,
-    /// Holds the JSON of windows presented from a string; removed at termination.
-    scratch_dir: Option<PathBuf>,
 }
 
 // Handlers are registered and called on the main thread only, so they live in that
@@ -164,12 +162,6 @@ unsafe extern "C" fn did_resign_active_trampoline() {
 }
 
 unsafe extern "C" fn will_terminate_trampoline() {
-    // The process ends in exit() right after this, so nothing else gets a chance to
-    // remove the scratch files. Done before the user's handler, which may itself exit.
-    let scratch_dir = HANDLERS.with(|handlers| handlers.borrow_mut().scratch_dir.take());
-    if let Some(scratch_dir) = scratch_dir {
-        let _ = fs::remove_dir_all(scratch_dir);
-    }
     run_event("will-terminate handler", |handlers| handlers.will_terminate.clone());
 }
 
@@ -243,7 +235,6 @@ impl App {
         // handler type has no room for a closure's captured state.
         unsafe {
             sys::actionUISetDefaultActionHandler(Some(action_trampoline));
-            sys::actionUIAppSetWillTerminateHandler(Some(will_terminate_trampoline));
         }
         Ok(App::token())
     }
@@ -317,24 +308,92 @@ impl App {
     }
 
     /// Opens a window showing ActionUI JSON held in a string, typically one compiled into
-    /// the program with `include_str!`.
+    /// the program with `include_str!`. Without a title the window is named after the
+    /// application.
     ///
-    /// ActionUI's application layer loads windows from URLs only, so the text is written
-    /// to a file in the temporary directory first. The file is removed at termination.
-    pub fn present_window_from_json(&self, json: &str, title: &str) -> Result<Window> {
-        let scratch_dir = HANDLERS.with(|handlers| -> Result<PathBuf> {
-            let mut handlers = handlers.borrow_mut();
-            if let Some(dir) = &handlers.scratch_dir {
-                return Ok(dir.clone());
-            }
-            let dir = std::env::temp_dir().join(format!("actionui-rust-{}", ffi::new_uuid()));
-            fs::create_dir_all(&dir)?;
-            handlers.scratch_dir = Some(dir.clone());
-            Ok(dir)
-        })?;
-        let path = scratch_dir.join(format!("{}.json", ffi::new_uuid()));
-        fs::write(&path, json)?;
-        self.present_window_from_file(&path, Some(title))
+    /// JSON that cannot be parsed is reported in ActionUI's log and shown as an error text
+    /// in the window. File paths inside the JSON are not resolved against any location.
+    pub fn present_window_from_json(&self, json: &str, title: Option<&str>) -> Result<Window> {
+        let window = Window::with_uuid(&ffi::new_uuid());
+        let json = ffi::cstring("window JSON", json)?;
+        let uuid = ffi::cstring("window UUID", window.uuid())?;
+        let title = ffi::optional_cstring("window title", title)?;
+        unsafe { sys::actionUIAppLoadAndPresentWindowFromJSON(json.as_ptr(), uuid.as_ptr(), ffi::optional_ptr(&title)) };
+        Ok(window)
+    }
+
+    // MARK: - Menu bar
+
+    /// Installs the standard menu bar (application, File, Edit, Format, Window, Help). This
+    /// also happens by itself when the application starts without a menu bar.
+    pub fn load_default_menu_bar(&self) {
+        unsafe { sys::actionUIAppLoadMenuBar(std::ptr::null()) };
+    }
+
+    /// Installs the standard menu bar with the changes described in `json`: a list of
+    /// `CommandMenu` and `CommandGroup` elements that add, replace or remove menus and
+    /// items. A menu item's `actionID` arrives like any other action. JSON that cannot be
+    /// parsed is reported in ActionUI's log.
+    ///
+    /// Call this from the [`App::on_will_finish_launching`] handler or later. After
+    /// [`App::set_name`], a menu bar loaded before [`App::run`] is replaced by the standard
+    /// one as the application launches, and the added menus are lost.
+    pub fn load_menu_bar(&self, json: &str) -> Result<()> {
+        let json = ffi::cstring("menu bar JSON", json)?;
+        unsafe { sys::actionUIAppLoadMenuBar(json.as_ptr()) };
+        Ok(())
+    }
+
+    /// [`App::load_menu_bar`] with the JSON read from a file.
+    pub fn load_menu_bar_from_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        self.load_menu_bar(&fs::read_to_string(path)?)
+    }
+
+    // MARK: - Remote server
+
+    /// Starts the remote server, through which other processes of the same user can read
+    /// and drive this application's windows (see `ActionUIRemote/PROTOCOL.md`). Returns
+    /// the path of the server's socket.
+    ///
+    /// Without a path the server uses one of its own in the temporary directory. Anything
+    /// already at a given path is removed first. The socket path, and the token a client
+    /// must present, are exported in this process's environment
+    /// (`ACTIONUI_REMOTE_ENDPOINT`, `ACTIONUI_REMOTE_TOKEN`), so processes started
+    /// afterwards inherit them. The server stops when the application terminates.
+    pub fn start_remote_server(&self, socket_path: Option<&Path>) -> Result<String> {
+        let socket_path = socket_path.map(|path| path.to_string_lossy().into_owned());
+        let socket_path = ffi::optional_cstring("socket path", socket_path.as_deref())?;
+        let started = unsafe { sys::actionUIAppStartRemoteServer(ffi::optional_ptr(&socket_path)) };
+        if !started {
+            // The reason is in ActionUI's log; this function records no last error.
+            return Err(Error::ActionUI("the remote server could not be started (already running, or the socket could not be created)".to_string()));
+        }
+        self.remote_server_endpoint()
+            .ok_or_else(|| Error::ActionUI("the remote server started but reports no socket path".to_string()))
+    }
+
+    /// Stops the remote server and removes its socket. Does nothing when it is not running.
+    pub fn stop_remote_server(&self) {
+        unsafe { sys::actionUIAppStopRemoteServer() };
+    }
+
+    /// The socket path of the running remote server.
+    pub fn remote_server_endpoint(&self) -> Option<String> {
+        unsafe { ffi::copy_string(sys::actionUIAppRemoteServerEndpoint()) }
+    }
+
+    /// The token the running remote server requires from its clients, or `None` when it
+    /// is not running or requires none. Processes started after
+    /// [`App::start_remote_server`] inherit it in their environment, so this is only for
+    /// handing it to a client some other way.
+    pub fn remote_server_token(&self) -> Option<String> {
+        // ActionUI documents 128 bytes as always enough.
+        let mut buffer = [0 as c_char; 256];
+        let copied = unsafe { sys::actionUIAppRemoteCopyServerToken(buffer.as_mut_ptr(), buffer.len() as isize) };
+        if !copied {
+            return None;
+        }
+        unsafe { ffi::copy_string(buffer.as_ptr()) }
     }
 
     // MARK: - Actions
@@ -398,6 +457,7 @@ impl App {
     /// The last chance to save anything: the process ends when the handler returns.
     pub fn on_will_terminate(&self, handler: impl Fn() + 'static) {
         HANDLERS.with(|handlers| handlers.borrow_mut().will_terminate.replace(Rc::new(handler)));
+        unsafe { sys::actionUIAppSetWillTerminateHandler(Some(will_terminate_trampoline)) };
     }
 
     /// Asked before quitting. Return false to keep the application running.

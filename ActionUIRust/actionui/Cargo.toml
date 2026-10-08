@@ -9,11 +9,8 @@ repository.workspace = true
 
 [dependencies]
 actionui-sys = { path = "../actionui-sys", version = "0.1.0" }
-serde = "1"
-serde_json = "1"
-
-[dev-dependencies]
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Opens a real window and runs the event loop, so it has its own main() instead of the
 # test harness, which would run it on a worker thread.

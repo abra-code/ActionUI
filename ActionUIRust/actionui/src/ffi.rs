@@ -18,9 +18,8 @@ pub(crate) fn is_main_thread() -> bool {
     unsafe { pthread_main_np() != 0 }
 }
 
-/// ActionUI keeps one last-error value for the whole process and gives its handlers no
-/// thread guarantees beyond "main thread". Keeping every call on the main thread makes
-/// error text reliable and rules out a worker waiting on a main thread that waits on it.
+/// For what exists only on the main thread: the application, and the handlers, whose
+/// tables ActionUI keeps without any locking.
 pub(crate) fn require_main_thread() -> Result<()> {
     if is_main_thread() { Ok(()) } else { Err(Error::NotMainThread) }
 }

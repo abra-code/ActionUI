@@ -1,9 +1,10 @@
 {
   "type": "VStack",
+  "id": 60,
   "properties": {
     "spacing": 12,
     "padding": 20,
-    "frame": { "minWidth": 320, "minHeight": 200 }
+    "frame": { "minWidth": 320, "minHeight": 320 }
   },
   "children": [
     {
@@ -26,6 +27,16 @@
       "type": "Text",
       "id": 40,
       "properties": { "text": "", "onAppearActionID": "test.appeared" }
+    },
+    {
+      "type": "Table",
+      "id": 50,
+      "properties": { "columns": ["Name", "Unit"], "frame": { "minHeight": 120 } }
+    },
+    {
+      "type": "Button",
+      "id": 70,
+      "properties": { "title": "Convert", "actionID": "test.convert" }
     }
   ]
 }
