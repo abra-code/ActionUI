@@ -957,8 +957,11 @@ private func configureActionItem(_ item: NSMenuItem, properties: [String: Any]) 
     if let shortcut = properties["keyboardShortcut"] as? [String: Any],
        let key = shortcut["key"] as? String {
         item.keyEquivalent = resolveKeyEquivalent(key)
-        let mask = resolveModifierMask(shortcut["modifiers"] as? [String] ?? ["command"])
-        if !mask.isEmpty {
+        // nil -> ["command"]; an explicit [] -> no modifier (the bare key). An array of only
+        // unknown names resolves to an empty mask and keeps NSMenuItem's default (Command).
+        let modifierNames = shortcut["modifiers"] as? [String] ?? ["command"]
+        let mask = resolveModifierMask(modifierNames)
+        if !mask.isEmpty || modifierNames.isEmpty {
             item.keyEquivalentModifierMask = mask
         }
     }

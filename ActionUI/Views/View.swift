@@ -98,7 +98,9 @@
                            //   Context: { "isTargeted": Bool }
      "keyboardShortcut": { // Optional: Dictionary for keyboard shortcut, supports key with array of modifiers
        "key": "a",         // Required: String for KeyEquivalent (single character like "a" or special key like "return", "space", "upArrow")
-       "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), defaults to ["command"], must contain unique elements
+       "modifiers": ["command", "shift"] // Optional: Array of strings for modifiers (e.g., ["command", "shift"]), must contain unique elements.
+                           //   Omitted means ["command"] (the macOS menu convention, like SwiftUI's own default).
+                           //   An explicit empty array [] means no modifier at all: a plain key such as "return" or "escape".
      },
      "controlSize": "regular", // Optional: "mini", "small", "regular", "large", "extraLarge"; defaults to none (system default)
      "labelsHidden": true,  // Optional: Boolean to hide labels on child views (e.g., within Form/LabeledContent); defaults to false
@@ -198,8 +200,12 @@
  You can also use hex color strings (e.g., "#FF0000", "#FF000080")
 
  Supported modifiers for keyboardShortcut:
-   - "command", "shift", "option", "control", "capsLock"
+   - "command", "shift", "option", "control", "capsLock" (names are case-insensitive)
    - Must be unique within the array; duplicates are ignored with a warning
+   - "modifiers" omitted (nil) and "modifiers": [] are different: omitted defaults to ["command"],
+     an empty array binds the bare key with no modifier (plain Return for a default button,
+     plain Escape for a cancel button). An array with only unknown names falls back to ["command"]
+     with a warning, like an omitted one.
 
  Supported keys for keyboardShortcut:
    - Single character (e.g., "a", "1")
@@ -751,8 +757,15 @@ struct View: ActionUIViewConstruction {
                     logger.log("Invalid or missing key in keyboardShortcut: expected non-empty String, ignoring keyboardShortcut", .warning)
                 }
                 
-                if let modifiers = shortcutDict["modifiers"] as? [String] {
-                    let validModifiers = ["command", "shift", "option", "control", "capsLock"]
+                // Three cases, and the first two must not be confused:
+                //   "modifiers" absent (nil)  -> ["command"], the macOS menu convention and SwiftUI's own default
+                //   "modifiers": []           -> no modifier: the bare key (plain Return, plain Escape)
+                //   "modifiers": [names]      -> the named modifiers; only unknown names -> ["command"] with a warning
+                if let modifiers = shortcutDict["modifiers"] as? [String], modifiers.isEmpty {
+                    validShortcut["modifiers"] = [String]()
+                } else if let modifiers = shortcutDict["modifiers"] as? [String] {
+                    // Names are compared lowercased, so the list is lowercased too ("capsLock" in JSON arrives as "capslock").
+                    let validModifiers = ["command", "shift", "option", "control", "capslock"]
                     // Check for uniqueness
                     let uniqueModifiers = Array(Set(modifiers.map { $0.lowercased() }))
                     if uniqueModifiers.count < modifiers.count {
@@ -767,7 +780,7 @@ struct View: ActionUIViewConstruction {
                         validShortcut["modifiers"] = ["command"]
                     }
                 } else if shortcutDict["modifiers"] == nil {
-                    // Default to ["command"] if not provided
+                    // Not provided at all: default to ["command"]. (Provided but empty was handled above.)
                     validShortcut["modifiers"] = ["command"]
                 } else {
                     logger.log("Invalid type for keyboardShortcut.modifiers: expected [String], got \(type(of: shortcutDict["modifiers"]!)), defaulting to ['command']", .warning)
@@ -1599,6 +1612,7 @@ struct View: ActionUIViewConstruction {
         if let keyboardShortcut = properties["keyboardShortcut"] as? [String: Any] {
             if let keyStr = keyboardShortcut["key"] as? String, !keyStr.isEmpty {
                 if let keyEquivalent = KeyEquivalentHelper.resolveKeyEquivalent(keyStr, logger: logger) {
+                    // nil -> ["command"]; [] -> no modifier (an empty EventModifiers set below). Keep the two apart.
                     let modifiersArray = (keyboardShortcut["modifiers"] as? [String])?.map { $0.lowercased() } ?? ["command"]
                     // Ensure unique modifiers
                     let uniqueModifiers = Array(Set(modifiersArray))
@@ -1616,7 +1630,7 @@ struct View: ActionUIViewConstruction {
                             eventModifiers.insert(.option)
                         case "control":
                             eventModifiers.insert(.control)
-                        case "capsLock":
+                        case "capslock": // the names were lowercased above
                             eventModifiers.insert(.capsLock)
                         default:
                             logger.log("Unknown modifier '\(modifier)' in keyboardShortcut.modifiers, ignoring", .warning)

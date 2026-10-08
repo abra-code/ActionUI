@@ -958,6 +958,26 @@ final class ViewTests: XCTestCase {
         }
     }
     
+    func testValidatePropertiesKeyboardShortcutCapsLockIsCaseInsensitive() throws {
+        // "capsLock" is the documented spelling; the validator lowercases names, so it must
+        // compare against "capslock" or the modifier is silently dropped (an old bug).
+        let properties: [String: Any] = [
+            "keyboardShortcut": ["key": "k", "modifiers": ["capsLock", "Shift"]]
+        ]
+
+        let validated = View.validateProperties(properties, logger)
+
+        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
+            if let modifiers = shortcut["modifiers"] as? [String] {
+                XCTAssertEqual(Set(modifiers), ["capslock", "shift"], "capsLock must survive validation regardless of case")
+            } else {
+                XCTFail("keyboardShortcut.modifiers should be an array")
+            }
+        } else {
+            XCTFail("keyboardShortcut should be a dictionary")
+        }
+    }
+
     func testValidatePropertiesKeyboardShortcutMissingModifiers() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "d"]
@@ -987,7 +1007,8 @@ final class ViewTests: XCTestCase {
         if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
             XCTAssertEqual(shortcut["key"] as? String, "e", "keyboardShortcut.key should be 'e'")
             if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] for empty array")
+                // Provided but empty is not the same as omitted: it means the bare key, no modifier.
+                XCTAssertEqual(modifiers, [], "keyboardShortcut.modifiers [] must stay empty (no modifier), unlike a missing key which defaults to ['command']")
             } else {
                 XCTFail("keyboardShortcut.modifiers should be an array")
             }

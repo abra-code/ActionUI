@@ -24,7 +24,7 @@ import SwiftUI
          "actionID": String, // Optional: Identifier for action dispatching
          "keyboardShortcut": { // Optional
            "key": String, // Required: Single character or special key (e.g., "return")
-           "modifiers": [String] // Optional: Array of modifiers (e.g., ["command", "shift"])
+           "modifiers": [String] // Optional: Array of modifiers (e.g., ["command", "shift"]); omitted means ["command"], an explicit [] means no modifier
          }
        }
      },

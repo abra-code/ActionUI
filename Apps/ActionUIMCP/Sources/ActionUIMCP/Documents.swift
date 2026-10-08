@@ -264,10 +264,12 @@ struct DialogSpec {
     private static func buttonElement(_ button: DialogButton) -> [String: Any] {
         var properties: [String: Any] = ["title": button.title, "actionID": button.actionID,
                                          "buttonStyle": button.isDefault ? "borderedProminent" : "bordered"]
+        // "modifiers": [] is required: an omitted modifiers key means Command in ActionUI, which
+        // would bind Command-Return and Command-Escape instead of the plain keys a dialog needs.
         if button.isDefault {
-            properties["keyboardShortcut"] = ["key": "return"]
+            properties["keyboardShortcut"] = ["key": "return", "modifiers": [String]()]
         } else if button.isCancel {
-            properties["keyboardShortcut"] = ["key": "escape"]
+            properties["keyboardShortcut"] = ["key": "escape", "modifiers": [String]()]
             properties["role"] = "cancel"
         }
         return ["type": "Button", "properties": properties]
