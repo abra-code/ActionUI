@@ -20,6 +20,8 @@
      "actionID": "text.submit",      // Optional: String for action triggered on submit (e.g., Return key, inherited from View)
                                      //   On macOS, actionID is also triggered when the field loses focus (tab away, click elsewhere),
                                      //   matching classic AppKit text field behavior where ending editing commits the value.
+                                     //   Without an actionID the field has no submit handler, so on macOS Return falls through
+                                     //   to the window's default button (a Button with keyboardShortcut return and modifiers []).
      "valueChangeActionID": "text.valueChanged" // Optional: String for action triggered on any value change (user or programmatic, inherited from View)
    }
  }
@@ -192,17 +194,24 @@ struct TextField: ActionUIViewConstruction {
                 }
             }
 
-            return TextFieldFocusContainer(onSubmit: onSubmit) {
-                AnyView(
-                    NumberFormatHelper.buildFormattedTextField(
-                        title: title,
-                        prompt: prompt,
-                        format: format,
-                        model: model,
-                        defaultValue: initialValue,
-                        onValueChange: onValueChange
-                    ).onSubmit(onSubmit)
+            let formatted = AnyView(
+                NumberFormatHelper.buildFormattedTextField(
+                    title: title,
+                    prompt: prompt,
+                    format: format,
+                    model: model,
+                    defaultValue: initialValue,
+                    onValueChange: onValueChange
                 )
+            )
+            return TextFieldFocusContainer(onSubmit: onSubmit) {
+                // A submit handler makes the field consume Return on macOS. Without an actionID
+                // there is nothing to run, so leave Return to the window's default button.
+                if actionID != nil {
+                    formatted.onSubmit(onSubmit)
+                } else {
+                    formatted
+                }
             }
         }
 
@@ -226,13 +235,16 @@ struct TextField: ActionUIViewConstruction {
 
         let isVertical = (properties["axis"] as? String) == "vertical"
 
+        let field = isVertical
+            ? AnyView(SwiftUI.TextField(title, text: textBinding, prompt: prompt, axis: .vertical))
+            : AnyView(SwiftUI.TextField(title, text: textBinding, prompt: prompt))
         return TextFieldFocusContainer(onSubmit: onSubmit) {
-            if isVertical {
-                SwiftUI.TextField(title, text: textBinding, prompt: prompt, axis: .vertical)
-                    .onSubmit(onSubmit)
+            // A submit handler makes the field consume Return on macOS. Without an actionID
+            // there is nothing to run, so leave Return to the window's default button.
+            if actionID != nil {
+                field.onSubmit(onSubmit)
             } else {
-                SwiftUI.TextField(title, text: textBinding, prompt: prompt)
-                    .onSubmit(onSubmit)
+                field
             }
         }
     }
