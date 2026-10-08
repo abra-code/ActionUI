@@ -47,7 +47,11 @@ private func runOnMainActorAsync(_ operation: @escaping @MainActor () -> Void) {
         // On background thread - dispatch asynchronously
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
+                // The caller has returned and cannot read an error recorded now (setError has
+                // logged it), so the main thread's own last error is left as it was.
+                let mainThreadError = lastError
                 operation()
+                lastError = mainThreadError
             }
         }
     }
@@ -68,11 +72,22 @@ private func runOnMainActorSync<T>(_ operation: @MainActor () -> T) -> T {
             result = operation()
         }
     } else {
-        // On background thread - must block and wait
+        // On background thread - must block and wait.
+        // The operation runs on the main thread on behalf of the calling thread: an error it
+        // records is carried back to the caller, and the main thread's own last error is left
+        // as it was. nonisolated(unsafe) for the same reason as `result`.
+        nonisolated(unsafe) var operationError: String? = nil
         DispatchQueue.main.sync {
             MainActor.assumeIsolated {
+                let mainThreadError = lastError
+                lastError = nil
                 result = operation()
+                operationError = lastError
+                lastError = mainThreadError
             }
+        }
+        if let operationError {
+            lastError = operationError
         }
     }
     return result
@@ -232,8 +247,25 @@ public func actionUIRemoveDefaultActionHandler() {
 
 // MARK: - Error Handling
 
-// nonisolated(unsafe): see cLoggerCallback. Set via setError/clearError, read via the last-error getter.
-private nonisolated(unsafe) var lastError: String? = nil
+// The last error belongs to the calling thread: every entry point clears it, a failing one sets
+// it, and the caller reads it right after its own call. A single slot shared by all threads would
+// be written concurrently by callers on different threads (a data race on the String) and would
+// let one thread read another's error.
+private let lastErrorThreadKey = "com.abracode.actionui.cadapter.lastError"
+
+private var lastError: String? {
+    get {
+        Thread.current.threadDictionary[lastErrorThreadKey] as? String
+    }
+    set {
+        let threadDictionary = Thread.current.threadDictionary
+        if let newValue {
+            threadDictionary[lastErrorThreadKey] = newValue
+        } else {
+            threadDictionary.removeObject(forKey: lastErrorThreadKey)
+        }
+    }
+}
 
 private func setError(_ message: String) {
     lastError = message
@@ -246,6 +278,8 @@ private func clearError() {
     lastError = nil
 }
 
+/// The error recorded by the calling thread's most recent call into this adapter, or NULL when
+/// that call succeeded. Each thread has its own last error.
 @_cdecl("actionUIGetLastError")
 public func actionUIGetLastError() -> UnsafeMutablePointer<CChar>? {
     guard let error = lastError else { return nil }
@@ -896,7 +930,13 @@ public func actionUIGetIntValue(
         outValue.pointee = Int64(intValue)
         return true
     } else if let doubleValue = value as? Double {
-        outValue.pointee = Int64(doubleValue)
+        // Truncates toward zero. Int64(doubleValue) would trap on NaN, an infinity, or a value
+        // outside the Int64 range.
+        guard let truncated = Int64(exactly: doubleValue.rounded(.towardZero)) else {
+            setError("Value \(doubleValue) cannot be represented as an integer")
+            return false
+        }
+        outValue.pointee = truncated
         return true
     }
     

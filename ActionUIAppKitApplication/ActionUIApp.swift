@@ -412,55 +412,95 @@ public func actionUIAppLoadAndPresentWindow(
                                         isContentView: true, logger: logger)
             : ActionUI.RemoteLoadableView(url: url, windowUUID: swiftUUID,
                                           isContentView: true, logger: logger)
-
-        let controller = NSHostingController(rootView: AnyView(view))
-        controller.view.autoresizingMask = [.width, .height]
-
-        // Use the SwiftUI fitting size; fall back if the view has not yet laid out.
-        let fittingSize = controller.view.fittingSize
-        let windowSize  = (fittingSize.width >= 10 && fittingSize.height >= 10)
-            ? fittingSize
-            : NSSize(width: 480, height: 320)
-
-        // .fullSizeContentView is required, not cosmetic. On macOS 27 a root NavigationSplitView
-        // has to reach the top of the window, or AppKit paints its per-column titlebar bands over
-        // the detail column's first ~52 points (see View.windowRootSafeArea in ActionUI). Any
-        // other root is still inset below the titlebar by SwiftUI, so its layout does not change.
-        let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: windowSize),
-            styleMask:   [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-            backing:     .buffered,
-            defer:       false
-        )
-        // ARC manages the window's lifetime via the `windows` dictionary.
-        // The default (isReleasedWhenClosed = true) would cause AppKit to
-        // call an extra -release on close, conflicting with ARC and leaving
-        // the close animation with a dangling pointer, causing SIGSEGV.
-        window.isReleasedWhenClosed  = false
-        window.title                 = swiftTitle ?? url.deletingPathExtension().lastPathComponent
-        window.contentViewController = controller
-        // windowSize is the LAYOUT size, and the content view now spans the titlebar, so the
-        // titlebar's height has to be added. It can only be measured at this point: assigning the
-        // controller shrinks the window to 1x1 until the setContentSize below, and the layout pass
-        // makes sure a SwiftUI toolbar, which makes the titlebar taller, is in place first.
-        // Measure in a window taller than any titlebar: contentLayoutRect's height stops at 0, so
-        // a window shorter than its own titlebar reports only part of it. windowSize can be that
-        // short - the fitting size is accepted from 10 points up - and the window would then come
-        // out smaller than the layout it has to hold.
-        window.setContentSize(NSSize(width: windowSize.width, height: max(windowSize.height, 200)))
-        window.layoutIfNeeded()
-        let titlebarHeight = max(0, window.frame.height - window.contentLayoutRect.height)
-        window.setContentSize(NSSize(width: windowSize.width, height: windowSize.height + titlebarHeight))
-        window.center()
-        window.delegate = ActionUIApplicationDelegate.shared
-
-        windows[swiftUUID] = window
-        if let handler = windowWillPresentHandler {
-            swiftUUID.withCString { handler($0) }
-        }
-        window.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate()
+        presentWindow(with: view, windowUUID: swiftUUID,
+                      title: swiftTitle ?? url.deletingPathExtension().lastPathComponent)
     }
+}
+
+/// Load an ActionUI JSON view from a string and present it in a new window.
+///
+/// For a definition the caller already holds in memory, for example one compiled into the
+/// program. File paths inside the definition are not resolved against any base location.
+///
+/// - Parameters:
+///   - jsonString: The ActionUI JSON definition, UTF-8.
+///   - windowUUID: Caller-supplied UUID; used as the ActionUI window identifier
+///                 for all subsequent value and state operations.
+///   - title:      Window title.  Pass NULL to use the application's name.
+///
+/// The window is created and sized as by `actionUIAppLoadAndPresentWindow`. A definition
+/// that cannot be parsed is logged and shown as an error text in the window.
+@_cdecl("actionUIAppLoadAndPresentWindowFromJSON")
+public func actionUIAppLoadAndPresentWindowFromJSON(
+    _ jsonString: UnsafePointer<CChar>,
+    _ windowUUID: UnsafePointer<CChar>,
+    _ title: UnsafePointer<CChar>?
+) {
+    let data       = Data(String(cString: jsonString).utf8)
+    let swiftUUID  = String(cString: windowUUID)
+    let swiftTitle = title.map { String(cString: $0) }
+
+    runOnMainActorSync {
+        // The source name only has to be distinct per window: it labels log messages.
+        let view = ActionUI.FileLoadableView(data: data, format: "json",
+                                             sourceName: "JSON string for window \(swiftUUID)",
+                                             windowUUID: swiftUUID, isContentView: true,
+                                             logger: ActionUIModel.shared.logger)
+        presentWindow(with: view, windowUUID: swiftUUID,
+                      title: swiftTitle ?? appName ?? ProcessInfo.processInfo.processName)
+    }
+}
+
+/// Create a window around `view`, register it under `windowUUID` and show it.
+@MainActor
+private func presentWindow(with view: any View, windowUUID: String, title: String) {
+    let controller = NSHostingController(rootView: AnyView(view))
+    controller.view.autoresizingMask = [.width, .height]
+
+    // Use the SwiftUI fitting size; fall back if the view has not yet laid out.
+    let fittingSize = controller.view.fittingSize
+    let windowSize  = (fittingSize.width >= 10 && fittingSize.height >= 10)
+        ? fittingSize
+        : NSSize(width: 480, height: 320)
+
+    // .fullSizeContentView is required, not cosmetic. On macOS 27 a root NavigationSplitView
+    // has to reach the top of the window, or AppKit paints its per-column titlebar bands over
+    // the detail column's first ~52 points (see View.windowRootSafeArea in ActionUI). Any
+    // other root is still inset below the titlebar by SwiftUI, so its layout does not change.
+    let window = NSWindow(
+        contentRect: NSRect(origin: .zero, size: windowSize),
+        styleMask:   [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+        backing:     .buffered,
+        defer:       false
+    )
+    // ARC manages the window's lifetime via the `windows` dictionary.
+    // The default (isReleasedWhenClosed = true) would cause AppKit to
+    // call an extra -release on close, conflicting with ARC and leaving
+    // the close animation with a dangling pointer, causing SIGSEGV.
+    window.isReleasedWhenClosed  = false
+    window.title                 = title
+    window.contentViewController = controller
+    // windowSize is the LAYOUT size, and the content view now spans the titlebar, so the
+    // titlebar's height has to be added. It can only be measured at this point: assigning the
+    // controller shrinks the window to 1x1 until the setContentSize below, and the layout pass
+    // makes sure a SwiftUI toolbar, which makes the titlebar taller, is in place first.
+    // Measure in a window taller than any titlebar: contentLayoutRect's height stops at 0, so
+    // a window shorter than its own titlebar reports only part of it. windowSize can be that
+    // short - the fitting size is accepted from 10 points up - and the window would then come
+    // out smaller than the layout it has to hold.
+    window.setContentSize(NSSize(width: windowSize.width, height: max(windowSize.height, 200)))
+    window.layoutIfNeeded()
+    let titlebarHeight = max(0, window.frame.height - window.contentLayoutRect.height)
+    window.setContentSize(NSSize(width: windowSize.width, height: windowSize.height + titlebarHeight))
+    window.center()
+    window.delegate = ActionUIApplicationDelegate.shared
+
+    windows[windowUUID] = window
+    if let handler = windowWillPresentHandler {
+        windowUUID.withCString { handler($0) }
+    }
+    window.makeKeyAndOrderFront(nil)
+    NSApplication.shared.activate()
 }
 
 /// Close the window identified by `windowUUID`.

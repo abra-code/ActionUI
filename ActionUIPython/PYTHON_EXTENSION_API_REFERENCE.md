@@ -48,6 +48,7 @@ void actionUIFreeString(char* str);
 ```c
 char* actionUIGetLastError(void);   // NULL if no error; free with actionUIFreeString
 void  actionUIClearError(void);
+// The last error is per thread: it is the error of the calling thread's most recent call.
 ```
 
 ### Action handlers
@@ -272,6 +273,14 @@ void actionUIAppLoadAndPresentWindow(const char* urlString,
 // urlString  — file:// or http(s):// URL of the ActionUI JSON definition.
 // windowUUID — caller-supplied UUID for all subsequent value/state operations.
 // title      — window title; pass NULL to derive from the URL filename.
+
+void actionUIAppLoadAndPresentWindowFromJSON(const char* jsonString,
+                                             const char* windowUUID,
+                                             const char* title);
+// Same as actionUIAppLoadAndPresentWindow, for an ActionUI JSON definition the
+// caller already holds in memory (for example one compiled into the program).
+// title — window title; pass NULL to use the application's name.
+// File paths inside the definition are not resolved against any base location.
 
 void actionUIAppCloseWindow(const char* windowUUID);
 // Close the window identified by windowUUID.

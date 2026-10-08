@@ -168,6 +168,9 @@ unsafe extern "C" {
     pub fn actionUIAppTerminate();
 
     pub fn actionUIAppLoadAndPresentWindow(urlString: *const c_char, windowUUID: *const c_char, title: *const c_char);
+    /// Like `actionUIAppLoadAndPresentWindow`, for a JSON definition held in memory. A null
+    /// title gives the window the application's name.
+    pub fn actionUIAppLoadAndPresentWindowFromJSON(jsonString: *const c_char, windowUUID: *const c_char, title: *const c_char);
     pub fn actionUIAppCloseWindow(windowUUID: *const c_char);
 
     pub fn actionUIAppRunAlert(configJSON: *const c_char) -> *mut c_char;
