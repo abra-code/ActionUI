@@ -1,0 +1,42 @@
+{
+  "type": "VStack",
+  "id": 60,
+  "properties": {
+    "spacing": 12,
+    "padding": 20,
+    "frame": { "minWidth": 320, "minHeight": 320 }
+  },
+  "children": [
+    {
+      "type": "TextField",
+      "id": 10,
+      "properties": { "prompt": "Number" }
+    },
+    {
+      "type": "Picker",
+      "id": 20,
+      "properties": {
+        "pickerStyle": "menu",
+        "options": [
+          { "title": "Celsius", "tag": "C" },
+          { "title": "Fahrenheit", "tag": "F" }
+        ]
+      }
+    },
+    {
+      "type": "Text",
+      "id": 40,
+      "properties": { "text": "", "onAppearActionID": "test.appeared" }
+    },
+    {
+      "type": "Table",
+      "id": 50,
+      "properties": { "columns": ["Name", "Unit"], "frame": { "minHeight": 120 } }
+    },
+    {
+      "type": "Button",
+      "id": 70,
+      "properties": { "title": "Convert", "actionID": "test.convert" }
+    }
+  ]
+}

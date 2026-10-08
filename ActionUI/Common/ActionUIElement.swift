@@ -92,8 +92,10 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
     
     // Counter for generating unique negative IDs when not specified.
     // Protected by a lock so it is safe to call from any thread (e.g. Decodable init).
+    // Starts at -2: -1 is never assigned, so the C adapter and the language bindings can
+    // return it to mean "no element" (a failed insert).
     private static let negativeIDLock = NSLock()
-    nonisolated(unsafe) private static var negativeIDCounter: Int = -1
+    nonisolated(unsafe) private static var negativeIDCounter: Int = -2
 
     // Generates a unique negative ID for elements without an explicit ID
     internal static func generateNegativeID() -> Int {
@@ -308,7 +310,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
 // and never addressed by host code. Their IDs only need to be self-consistent so that
 // two decodes of the same JSON produce equal results.
 //
-// Auto-generated live-view IDs count down from -1 toward Int.min. To make template IDs
+// Auto-generated live-view IDs count down from -2 toward Int.min. To make template IDs
 // visually and numerically distinct — and to guarantee they can never collide with any
 // live-view auto-generated ID in practice — normalized template IDs are placed at the
 // opposite end of the negative range, counting up from Int.min:
@@ -318,7 +320,7 @@ public struct ActionUIElement: ActionUIElementBase, @unchecked Sendable {
 // Positive (user-assigned) IDs are preserved unchanged.
 extension ActionUIElement {
     // Sentinel base for normalized template IDs. Chosen to be unreachable by the
-    // auto-generated counter (which starts at -1 and decrements one per element per session).
+    // auto-generated counter (which starts at -2 and decrements one per element per session).
     static let templateIDBase = Int.min
 
     static func normalizeTemplateIDs(_ root: ActionUIElement) -> ActionUIElement {

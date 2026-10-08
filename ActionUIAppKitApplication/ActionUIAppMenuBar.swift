@@ -117,12 +117,32 @@ func loadMenuBarCommands(from jsonString: String) {
                                                itemBuilder: actionUIModelMenuItem)
 }
 
+/// Every commands JSON given to `actionUIAppLoadMenuBar`, in call order, so the
+/// commands can be applied again when the default menu bar is rebuilt at launch.
+/// Mutated and read only on the main thread.
+private nonisolated(unsafe) var loadedMenuBarCommands: [String] = []
+
+/// Rebuilds the default menu bar with `appName` and applies again the commands
+/// loaded so far.  Used at launch, when a menu bar built before the application
+/// name was set carries stale titles.
+@MainActor
+func reinstallMenuBar(appName: String?) {
+    installDefaultMenuBar(appName: appName)
+    for json in loadedMenuBarCommands {
+        loadMenuBarCommands(from: json)
+    }
+}
+
 // MARK: - C API
 
 /// Install the default menu bar and optionally apply commands from a JSON string.
 ///
 /// - Parameter jsonString: Optional JSON array of CommandMenu / CommandGroup
 ///   elements.  Pass NULL to install only the default menu bar.
+///
+/// May be called before or after `actionUIAppRun`, and more than once: each
+/// call adds to the menu bar.  Commands loaded before launch survive the
+/// rebuild of the default menu bar that `actionUIAppSetName` causes at launch.
 @_cdecl("actionUIAppLoadMenuBar")
 public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
     // Copy the C string into a Swift String before entering the
@@ -142,6 +162,7 @@ public func actionUIAppLoadMenuBar(_ jsonString: UnsafePointer<CChar>?) {
         // Apply custom commands if provided.
         if let json = swiftJSON {
             loadMenuBarCommands(from: json)
+            loadedMenuBarCommands.append(json)
         }
     }
 }

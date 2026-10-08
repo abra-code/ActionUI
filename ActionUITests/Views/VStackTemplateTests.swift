@@ -230,7 +230,7 @@ final class VStackTemplateTests: XCTestCase {
 
     func testVStackTemplate_normalizedIDs_areInTemplateRange() throws {
         // Auto-generated template IDs must be normalized to templateIDBase+ordinal (DFS order),
-        // placing them far from the live-view auto-generated range (which counts down from -1).
+        // placing them far from the live-view auto-generated range (which counts down from -2).
         let json = """
         {
             "type": "VStack",
@@ -255,7 +255,7 @@ final class VStackTemplateTests: XCTestCase {
 
     func testVStackTemplate_normalizedIDs_neverCollideWithLiveViewIDs() throws {
         // Template IDs (Int.min range) must never equal any auto-generated live-view ID
-        // (which counts down from -1). Verify that all template IDs are < any plausible live-view ID.
+        // (which counts down from -2). Verify that all template IDs are < any plausible live-view ID.
         let json = """
         {
             "type": "VStack",

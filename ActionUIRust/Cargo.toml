@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+members = ["actionui-sys", "actionui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license-file = "../LICENSE.txt"
+repository = "https://github.com/abra-code/ActionUI"
+
+# Leave the build tools of a release build (procedural macros such as serde's derive)
+# unstripped. Cargo strips them by default, and a library stripped by the strip tool of
+# Xcode 27 is refused by the loader of macOS 27 ("mis-aligned LINKEDIT string pool"),
+# which fails the build. This does not change the program that is built.
+[profile.release.build-override]
+strip = "none"

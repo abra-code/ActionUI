@@ -1,0 +1,6 @@
+# The ActionUI frameworks are built for macOS 14.6. Without a matching deployment
+# target the linker warns for every object file that it "was built for newer macOS
+# version than being linked". An app that depends on these crates from its own
+# workspace needs the same setting in its own .cargo/config.toml.
+[env]
+MACOSX_DEPLOYMENT_TARGET = "14.6"
