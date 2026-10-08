@@ -1,8 +1,8 @@
 //! Getting work onto the main thread.
 //!
-//! The main thread belongs to the application's event loop, and every ActionUI call has
-//! to be made there. A worker thread that has a result for the interface hands a closure
-//! to [`dispatch`].
+//! The main thread belongs to the application's event loop, and the [`crate::App`] exists
+//! only there. A worker thread can use a [`crate::Window`] directly; for anything that
+//! needs the `App` (a panel, a new window, a handler) it hands a closure to [`dispatch`].
 
 use std::ffi::c_void;
 

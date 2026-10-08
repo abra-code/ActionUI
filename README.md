@@ -41,10 +41,11 @@ This produces a fully native form — a SwiftUI form on Apple, a Compose form on
 - **Runtime flexibility** — load UIs from JSON files or network without recompilation
 - **Add-on architecture** — third-party element types (Chat, Diff, RichText, QuickLook, CachedImage) plug into the engine without living in core
 - **Python bridge** — build complete macOS apps in Python with `import actionui`
+- **Rust bridge** - native macOS interface in JSON, program logic in Rust, one self-contained executable (see [ActionUIRust](ActionUIRust/README.md))
 - **Multi-window, menu bar, dialogs** — native app features out of the box
 - **AI-first design** — predictable JSON schema that LLMs generate reliably - for agent skill information see [Skill/README.md](Skill/README.md)
 - **Apple platforms** — macOS, iOS, iPadOS, watchOS, tvOS, visionOS
-- **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript
+- **Multiple language adapters** — Swift, Objective-C, C, C++, Python, JavaScript, Rust
 
 ## Example Apps using ActionUI
 

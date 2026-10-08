@@ -103,6 +103,8 @@ ActionUI's core is a Swift framework. Language adapters provide bindings for dif
 - **ActionUIJavaScriptCoreAdapter** — JavaScriptCore integration
 - **ActionUIWebKitJSAdapter** — WebKit JavaScript bridge
 - **ActionUI Python Module** — Full Python package with pip install (see [Python Bridge](#python-bridge))
+- **ActionUI Node.js Addon** - Native addon over the same C functions (see `ActionUINodeJS/`)
+- **ActionUI Rust Crates** - `actionui-sys` and `actionui` (see [Rust Bridge](#rust-bridge))
 - **ActionUIRemote** — Out-of-process binding (see [Remote Binding](#remote-binding))
 
 ## Remote Binding
@@ -142,6 +144,34 @@ The Python module is built from `ActionUIPython/` using `build_and_install.sh`, 
 1. Builds ActionUI static frameworks via xcodebuild (universal arm64 + x86_64)
 2. Compiles the C bridge (`actionui_native.m`) against the frameworks
 3. Installs the `actionui` Python package via pip
+
+## Rust Bridge
+
+The `actionui` crate pairs a native macOS interface described in JSON with program logic written in Rust. It is built on the C adapter and on `ActionUIAppKitApplication`, the application layer the Python and Node.js modules also use: that layer creates the windows and the menu bar and runs the event loop, and the Rust code opens windows from JSON and reacts to named actions.
+
+```rust
+use actionui::App;
+
+fn main() -> actionui::Result<()> {
+    let app = App::new()?;
+    let window = app.present_window_from_json(include_str!("ui.json"), Some("My Window"))?;
+
+    app.on_action("buttonClicked", move |_action| {
+        let value = window.get_string(10).ok().flatten().unwrap_or_default();
+        let _ = window.set_string(20, &format!("You entered: {value}"));
+    });
+
+    app.run()
+}
+```
+
+- Two crates in `ActionUIRust/`: `actionui-sys` (the C declarations and the link setup) and `actionui` (the safe API).
+- The ActionUI frameworks are linked statically, so the result is one executable that depends only on macOS itself.
+- `App` exists only on the main thread; a `Window` can be used from any thread, so a worker thread updates the interface directly.
+- A panic in a handler is caught and logged, and the application keeps running.
+- `make_app_bundle.sh` wraps the executable in an `.app` bundle.
+
+See `ActionUIRust/README.md`, `ActionUIRust/RUST_API_REFERENCE.md` and `ActionUIRust/BUILD_GUIDE.md`.
 
 ## Platform Support
 

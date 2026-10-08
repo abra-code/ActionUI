@@ -41,7 +41,10 @@ fn recompute(window: &Window) -> actionui::Result<()> {
 
 fn main() -> actionui::Result<()> {
     let app = App::new()?;
-    app.set_name("Temperature Converter")?;
+    // A program started from an .app bundle takes its name from the bundle's Info.plist.
+    if !actionui::running_from_bundle() {
+        app.set_name("Temperature Converter")?;
+    }
 
     // The JSON fires this one action when the number or either unit changes.
     app.on_action("temp.recompute", |action| {

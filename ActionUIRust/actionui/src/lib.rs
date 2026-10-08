@@ -17,7 +17,9 @@
 //!
 //! fn main() -> actionui::Result<()> {
 //!     let app = App::new()?;
-//!     app.set_name("Greeter")?;
+//!     if !actionui::running_from_bundle() {
+//!         app.set_name("Greeter")?;
+//!     }
 //!     let window = app.present_window_from_file("Greeter.json", None)?;
 //!
 //!     app.on_action("greet", move |_action| {
@@ -80,4 +82,40 @@ pub use window::{ContentSizeLimits, Window};
 #[cfg(target_os = "macos")]
 pub fn version() -> String {
     unsafe { ffi::take_string(actionui_sys::actionUIGetVersion()) }.unwrap_or_default()
+}
+
+/// Whether this program was started from inside an application bundle
+/// (`Name.app/Contents/MacOS/program`).
+///
+/// A bundled program takes its name and icon from the bundle's `Info.plist`, and
+/// [`App::set_name`] must not be called for it. A program that can be run both ways calls
+/// `set_name` only when this returns false.
+#[cfg(target_os = "macos")]
+pub fn running_from_bundle() -> bool {
+    std::env::current_exe().is_ok_and(|path| is_inside_bundle(&path))
+}
+
+#[cfg(target_os = "macos")]
+fn is_inside_bundle(executable: &std::path::Path) -> bool {
+    let mut parents = executable.ancestors().skip(1);
+    let in_macos = parents.next().is_some_and(|folder| folder.file_name().is_some_and(|name| name == "MacOS"));
+    let in_contents = parents.next().is_some_and(|folder| folder.file_name().is_some_and(|name| name == "Contents"));
+    let in_app = parents.next().is_some_and(|folder| folder.extension().is_some_and(|extension| extension == "app"));
+    in_macos && in_contents && in_app
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use std::path::Path;
+
+    use super::is_inside_bundle;
+
+    #[test]
+    fn a_bundle_is_recognized_by_the_folders_around_the_executable() {
+        assert!(is_inside_bundle(Path::new("/Applications/Folder Contents.app/Contents/MacOS/folder_contents")));
+        assert!(!is_inside_bundle(Path::new("/Users/me/project/target/debug/examples/folder_contents")));
+        assert!(!is_inside_bundle(Path::new("/Users/me/Thing.app/Contents/Resources/tool")));
+        assert!(!is_inside_bundle(Path::new("/Users/me/MacOS/tool")));
+        assert!(!is_inside_bundle(Path::new("tool")));
+    }
 }

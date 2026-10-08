@@ -9,6 +9,11 @@ Two crates:
 
 The Rust program links ActionUI's application layer (`ActionUIAppKitApplication`), the same one the Python and Node.js modules use. That layer creates the windows and the menu bar and runs the event loop; the Rust code describes the interface in JSON and reacts to named actions.
 
+Documentation:
+
+- [RUST_API_REFERENCE.md](RUST_API_REFERENCE.md) - every type and method.
+- [BUILD_GUIDE.md](BUILD_GUIDE.md) - building, using the crates in your own project, packaging as an `.app`, common problems.
+
 Status: `actionui` covers everything the C adapter and the application layer offer, the same ground as the Python module. The one function left unwrapped is `actionUILoadHostingControllerFromURL`, for programs that create their own windows; it is declared in `actionui-sys`.
 
 ## Requirements
@@ -22,7 +27,13 @@ cd ActionUIRust
 ./build_frameworks.sh          # builds the static frameworks into ./frameworks/Release
 cargo build
 cargo run --example temperature_converter
+cargo run --example folder_contents
 ```
+
+The examples, in `actionui/examples`:
+
+- `temperature_converter` - the Rust host for `Examples/TemperatureConverter`, on the same JSON as the Swift, Android and web hosts. Values and one action.
+- `folder_contents` - a table filled from a worker thread, a menu bar, a file panel and an alert.
 
 `actionui-sys` looks for the frameworks in `ActionUIRust/frameworks/Release`. To use frameworks built elsewhere, set `ACTIONUI_FRAMEWORKS_DIR` to the directory that contains the `.framework` bundles.
 
@@ -52,7 +63,9 @@ const GREETING: i64 = 2;
 
 fn main() -> actionui::Result<()> {
     let app = App::new()?;
-    app.set_name("Greeter")?;          // only for a program run outside an .app bundle
+    if !actionui::running_from_bundle() {
+        app.set_name("Greeter")?;      // an .app bundle names itself in its Info.plist
+    }
     let window = app.present_window_from_json(include_str!("Greeter.json"), Some("Greeter"))?;
 
     app.on_action("greet", move |_action| {
@@ -63,6 +76,15 @@ fn main() -> actionui::Result<()> {
     app.run()
 }
 ```
+
+## Packaging as an application
+
+```sh
+cargo build --release --example folder_contents
+./make_app_bundle.sh target/release/examples/folder_contents "Folder Contents"
+```
+
+`make_app_bundle.sh` wraps an executable in an `.app` bundle with an `Info.plist` and an optional icon, signed for this Mac. See [BUILD_GUIDE.md](BUILD_GUIDE.md) for what changes in a bundled program.
 
 ## Rules to know
 

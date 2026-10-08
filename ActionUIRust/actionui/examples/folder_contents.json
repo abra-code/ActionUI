@@ -1,0 +1,31 @@
+{
+  "type": "VStack",
+  "id": 1,
+  "properties": {
+    "alignment": "leading",
+    "spacing": 10,
+    "padding": 16,
+    "frame": { "minWidth": 520, "minHeight": 360 }
+  },
+  "children": [
+    {
+      "type": "HStack",
+      "properties": { "spacing": 10 },
+      "children": [
+        { "type": "Text", "id": 10, "properties": { "text": "No folder chosen" } },
+        { "type": "Spacer" },
+        { "type": "Button", "properties": { "title": "Choose Folder...", "actionID": "folder.choose" } }
+      ]
+    },
+    {
+      "type": "Table",
+      "id": 20,
+      "properties": {
+        "columns": ["Name", "Kind", "Size"],
+        "widths": [280, 90, 100],
+        "actionID": "folder.row.selected"
+      }
+    },
+    { "type": "Text", "id": 30, "properties": { "text": "" } }
+  ]
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "type": "CommandGroup",
+    "properties": { "placement": "replacing", "placementTarget": "new" }
+  },
+  {
+    "type": "CommandGroup",
+    "properties": { "placement": "replacing", "placementTarget": "open" },
+    "children": [
+      {
+        "type": "Button",
+        "properties": {
+          "title": "Open Folder...",
+          "actionID": "folder.choose",
+          "keyboardShortcut": { "key": "o" }
+        }
+      }
+    ]
+  },
+  {
+    "type": "CommandMenu",
+    "properties": { "name": "Folder" },
+    "children": [
+      {
+        "type": "Button",
+        "properties": {
+          "title": "Refresh",
+          "actionID": "folder.refresh",
+          "keyboardShortcut": { "key": "r" }
+        }
+      }
+    ]
+  }
+]
