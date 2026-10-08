@@ -1,0 +1,10 @@
+[package]
+name = "actionui-sys"
+description = "Raw C declarations and link setup for the ActionUI native UI frameworks (macOS)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+links = "actionui"
+build = "build.rs"

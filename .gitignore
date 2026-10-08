@@ -34,3 +34,7 @@ ActionUIAndroid/.idea/androidTestResultsUserPreferences.xml
 # churn like caches/deviceStreaming.xml, gradle.xml, vcs.xml).
 Examples/**/.idea/
 Scripts/make-release.sh
+
+# ActionUI Rust crates
+ActionUIRust/frameworks/
+ActionUIRust/target/

@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+members = ["actionui-sys"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license-file = "../LICENSE.txt"
+repository = "https://github.com/abra-code/ActionUI"
