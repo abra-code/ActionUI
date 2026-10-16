@@ -240,6 +240,52 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 30, rows: vstackChipRows)
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Tap a row or chip to see the action here.")
         }
+        // Chart.dynamic.json: the host replaces the chart description (lines or bars) and
+        // streams rows. A description without "data" keeps the rows, so switching forms
+        // keeps the weeks that were added.
+        let chartColumns: [Any] = [["name": "week", "type": "date"], "platform", ["name": "users", "type": "number"]]
+        func chartDescription(_ mark: String) -> [String: Any] {
+            [
+                "columns": chartColumns,
+                "content": [["type": "ForEach", "content": [[
+                    "type": mark,
+                    "x": ["label": "Week", "value": "$week", "unit": "weekOfYear"],
+                    "y": ["label": "Users", "value": "$users"],
+                    "foregroundStyle": ["by": ["label": "Platform", "value": "$platform"]],
+                ]]]],
+                "chartYScale": ["domain": [0, 2000]],
+                "chartLegend": ["position": "bottom"],
+            ]
+        }
+        var chartWeeks = 0
+        func chartWeekRows(_ week: Int) -> [[String]] {
+            let gregorian = Calendar(identifier: .gregorian)
+            let firstWeek = gregorian.date(from: DateComponents(year: 2026, month: 8, day: 3, hour: 12))!
+            let c = gregorian.dateComponents([.year, .month, .day], from: gregorian.date(byAdding: .day, value: 7 * week, to: firstWeek)!)
+            let key = String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+            return [[key, "iOS", String(1100 + 60 * week + (week % 3) * 40)],
+                    [key, "macOS", String(760 + 35 * week - (week % 2) * 30)]]
+        }
+        func chartResetRows(_ windowUUID: String) {
+            chartWeeks = 6
+            ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 10, rows: (0..<chartWeeks).flatMap(chartWeekRows))
+        }
+        ActionUISwift.registerActionHandler(actionID: "chart.demo.lines") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "chart", value: chartDescription("LineMark"))
+            if chartWeeks == 0 { chartResetRows(windowUUID) }
+        }
+        ActionUISwift.registerActionHandler(actionID: "chart.demo.bars") { _, windowUUID, _, _, _ in
+            ActionUISwift.setElementProperty(windowUUID: windowUUID, viewID: 10, propertyName: "chart", value: chartDescription("BarMark"))
+            if chartWeeks == 0 { chartResetRows(windowUUID) }
+        }
+        ActionUISwift.registerActionHandler(actionID: "chart.demo.append") { _, windowUUID, _, _, _ in
+            ActionUISwift.appendElementRows(windowUUID: windowUUID, viewID: 10, rows: chartWeekRows(chartWeeks))
+            chartWeeks += 1
+        }
+        ActionUISwift.registerActionHandler(actionID: "chart.demo.reset") { _, windowUUID, _, _, _ in
+            chartResetRows(windowUUID)
+        }
+
         // Whole-cell tap dispatch, fixture VStack.containerAction.json.
         // The log APPENDS rather than replaces, because the question the UI test asks is not
         // "what fired last" but "did anything ELSE also fire": a Button inside a tappable

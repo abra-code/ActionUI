@@ -1080,6 +1080,7 @@ public class ActionUIModel: ObservableObject {
         viewModel.validatedProperties[propertyName] = value
         // Re-validate to ensure type safety and HIG compliance
         viewModel.validateProperties(viewModel.validatedProperties, elementType: viewModel.elementType, logger: logger)
+        ActionUIRegistry.shared.getDidSetProperty(forElementType: viewModel.elementType)?(propertyName, viewModel, logger)
         logger.log("Set property '\(propertyName)' to \(value) for viewID: \(viewID)", .debug)
     }
 }

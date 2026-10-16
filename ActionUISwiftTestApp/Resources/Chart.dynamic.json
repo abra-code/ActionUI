@@ -1,0 +1,18 @@
+{
+  "type": "VStack",
+  "properties": { "padding": "default", "spacing": 12 },
+  "children": [
+    { "type": "Text", "properties": { "text": "The host sets the chart description and streams the rows. Switching between lines and bars replaces the description without its data, so the streamed rows stay.", "foregroundStyle": "secondary" } },
+    {
+      "type": "HStack",
+      "properties": { "spacing": 8 },
+      "children": [
+        { "type": "Button", "properties": { "title": "Lines", "actionID": "chart.demo.lines" } },
+        { "type": "Button", "properties": { "title": "Bars", "actionID": "chart.demo.bars" } },
+        { "type": "Button", "properties": { "title": "Add a week", "actionID": "chart.demo.append" } },
+        { "type": "Button", "properties": { "title": "Reset rows", "actionID": "chart.demo.reset" } }
+      ]
+    },
+    { "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 260 }, "animation": "smooth" } }
+  ]
+}

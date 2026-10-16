@@ -133,6 +133,7 @@ let package = Package(
             // Unconditional: AVKit exists on every platform this package declares.
             linkerSettings: [
                 .linkedFramework("AVKit"),
+                .linkedFramework("Charts"),
             ],
         ),
 

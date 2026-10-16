@@ -1,0 +1,17 @@
+{
+  "type": "Chart",
+  "description": "A Swift Charts surface. What it shows is one 'chart' description (columns, optional inline data, marks and chart modifiers) that a host replaces whole with setElementProperty; data rows are also set through the rows API.",
+  "id": { "policy": "optional" },
+  "inheritsViewProperties": true,
+  "topLevelKeys": [],
+  "ownProperties": {
+    "chart": {
+      "types": ["object"],
+      "required": false,
+      "description": "The chart description: 'columns', 'data', 'content' (ForEach, BarMark, LineMark), 'chartXScale'/'chartYScale', 'chartXAxis'/'chartYAxis', 'chartXAxisLabel'/'chartYAxisLabel', 'chartLegend'. Its contents are checked by the Chart element when the document loads."
+    }
+  },
+  "observable": {
+    "states.content": { "types": ["array"], "description": "The chart's data rows as [[String]]; use getElementRows/setElementRows/appendElementRows" }
+  }
+}

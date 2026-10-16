@@ -1,0 +1,58 @@
+{
+  "type": "VStack",
+  "properties": { "padding": "default", "spacing": 16 },
+  "children": [
+    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, one line per platform)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 11,
+      "properties": {
+        "frame": { "minHeight": 240 },
+        "chart": {
+          "columns": [{ "name": "week", "type": "date" }, "platform", { "name": "users", "type": "number" }],
+          "data": [
+            ["2026-08-03", "iOS", 1180], ["2026-08-03", "macOS", 790],
+            ["2026-08-10", "iOS", 1240], ["2026-08-10", "macOS", 805],
+            ["2026-08-17", "iOS", 1310], ["2026-08-17", "macOS", 860],
+            ["2026-08-24", "iOS", 1290], ["2026-08-24", "macOS", 910]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "LineMark",
+                "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
+                "y": { "label": "Users", "value": "$users" },
+                "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } } }
+            ] }
+          ],
+          "chartYScale": { "domain": [0, 1500] },
+          "chartXAxisLabel": "Week",
+          "chartYAxisLabel": "Users",
+          "chartLegend": { "position": "bottom" }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Tickets by month (integer column, stacked bars)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 12,
+      "properties": {
+        "frame": { "minHeight": 200 },
+        "chart": {
+          "columns": ["month", "team", { "name": "tickets", "type": "integer" }],
+          "data": [
+            ["Jan", "Apps", 3], ["Jan", "Web", 1], ["Feb", "Apps", 2], ["Feb", "Web", 2],
+            ["Mar", "Apps", 4], ["Mar", "Web", 1]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "BarMark",
+                "x": { "label": "Month", "value": "$month" },
+                "y": { "label": "Tickets", "value": "$tickets" },
+                "foregroundStyle": { "by": { "label": "Team", "value": "$team" } } }
+            ] }
+          ]
+        }
+      }
+    }
+  ]
+}

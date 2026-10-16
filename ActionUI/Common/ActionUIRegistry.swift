@@ -60,6 +60,7 @@ public class ActionUIRegistry {
         registerView(Ellipse.self)
         registerView(EmptyView.self)
         registerView(Form.self)
+        registerView(Chart.self)
         registerView(Gauge.self)
         registerView(GeometryReader.self)
         registerView(Grid.self)
@@ -205,6 +206,10 @@ public class ActionUIRegistry {
 
     func getStringContentSerializer(forElementType type: String) -> ((Any, String?, any ActionUILogger) -> String?)? {
         viewRegistrations[type]?.serializeValueToString
+    }
+
+    func getDidSetProperty(forElementType type: String) -> ((String, ViewModel, any ActionUILogger) -> Void)? {
+        viewRegistrations[type]?.didSetProperty
     }
 
     func getInitialStates(forElementType type: String, model: ViewModel) -> [String: Any] {

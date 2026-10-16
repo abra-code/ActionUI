@@ -39,6 +39,10 @@ final class ViewModelExtras {
     // no refresh is in flight.
     var refreshContinuation: CheckedContinuation<Void, Never>?
     var refreshSubtreeIDs: Set<Int>?
+    // An element's private render cache (Chart keeps its parsed description and built marks
+    // here). Not published: writing it from a view body triggers no update, and it dies with
+    // the view model when the element is removed.
+    var elementCache: AnyObject?
 }
 
 // Public as a type so it can appear in the public ActionUIViewConstruction signatures that
@@ -88,6 +92,12 @@ public class ViewModel: ObservableObject {
     var refreshSubtreeIDs: Set<Int>? {
         get { extras?.refreshSubtreeIDs }
         set { requireExtras.refreshSubtreeIDs = newValue }
+    }
+
+    // An element's private render cache; see ViewModelExtras.
+    var elementCache: AnyObject? {
+        get { extras?.elementCache }
+        set { requireExtras.elementCache = newValue }
     }
 
     init() {
