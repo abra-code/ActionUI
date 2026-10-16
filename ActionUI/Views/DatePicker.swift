@@ -12,6 +12,11 @@
      "selectedDate": "2024-07-16" // Optional: Initial selected value. Accepts "YYYY-MM-DD", "HH:mm", or a full ISO datetime
    }
    // Value serialization: "date" emits "YYYY-MM-DD"; "hourAndMinute"/"dateAndTime" emit a full ISO datetime "YYYY-MM-DDTHH:mm:ss".
+   //   Emitted values never carry a zone: they are the local day or local wall-clock time.
+   // Input strings (selectedDate, range, values written by a host) mean:
+   //   "YYYY-MM-DD" a calendar day; "YYYY-MM-DDTHH:mm[:ss]" wall-clock time in the device's time zone;
+   //   "...Z", "...+hh:mm", "...+hhmm" or "...+hh" an instant, shown in the device's time zone (a "date" picker shows its local day);
+   //   "HH:mm[:ss]" that wall-clock time today. To give a calendar day, pass "YYYY-MM-DD", not "...T00:00:00Z".
    // Note: These properties are specific to DatePicker. Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
  }
 */

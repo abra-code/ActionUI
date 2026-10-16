@@ -176,14 +176,29 @@ function inputTypeFor(mode) {
     return "date";
 }
 
-// Parses a flexible ISO 8601 input into { y, mo, d, h, mi, s } parts, or null.
-// Accepts "YYYY-MM-DD", "HH:mm" / "HH:mm:ss", and full ISO datetime forms.
+// Parses a flexible ISO 8601 input into local { y, mo, d, h, mi, s } parts, or null.
+// Accepts "YYYY-MM-DD", "HH:mm" / "HH:mm:ss", and full ISO datetime forms. A
+// datetime with a zone designator ("Z", "+hh:mm") is an instant, converted to the
+// browser's zone; without one it is wall-clock time (as on Apple and Android).
 function parseParts(value) {
     if (typeof value !== "string" || value === "") return null;
     const trimmed = value.trim();
 
-    // Full datetime "YYYY-MM-DDTHH:mm[:ss]" (with optional offset/Z).
-    let m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(trimmed);
+    // Full datetime "YYYY-MM-DDTHH:mm[:ss[.fff]]" with an optional designator.
+    let m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?([Zz]|[+-]\d{2}(?::?\d{2})?)?$/.exec(trimmed);
+    if (m && m[8]) {
+        // Rebuild it in the one format every engine's Date parser must accept
+        // ("YYYY-MM-DDTHH:mm:ss.sss" + "Z" or "+hh:mm"): "z", "+hh", "+hhmm", a
+        // missing seconds field and other fraction lengths are not part of it.
+        const zone = m[8].toUpperCase() === "Z" ? "Z" : m[8].replace(/^([+-]\d{2}):?(\d{2})?$/, (_, h, mm) => `${h}:${mm ?? "00"}`);
+        const frac = (m[7] ?? "").padEnd(3, "0").slice(0, 3);
+        const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6] ?? "00"}.${frac}${zone}`);
+        if (Number.isNaN(dt.getTime())) return null;
+        return {
+            y: dt.getFullYear(), mo: dt.getMonth() + 1, d: dt.getDate(),
+            h: dt.getHours(), mi: dt.getMinutes(), s: dt.getSeconds(),
+        };
+    }
     if (m) {
         return { y: +m[1], mo: +m[2], d: +m[3], h: +m[4], mi: +m[5], s: m[6] ? +m[6] : 0 };
     }

@@ -67,3 +67,38 @@ test("unparseable input yields empty string", () => {
     assert.equal(toWireValue("", "dateAndTime"), "");
     assert.equal(wireToInput("nope", "hourAndMinute"), "");
 });
+
+// Zone designators: a zoned datetime is an instant, shown in the browser's zone;
+// an offset-less one is wall-clock time. Expected values are computed from the
+// instant's local fields, so the assertions hold in any zone; run the suite under
+// a non-UTC TZ (e.g. TZ=Asia/Tokyo) for them to tell the two rules apart.
+const localWire = (ms) => {
+    const n = new Date(ms);
+    const p = (x) => String(x).padStart(2, "0");
+    return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}T${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+};
+const instant1430Z = Date.UTC(2024, 6, 16, 14, 30, 0);
+
+test("a zoned datetime is an instant converted to the local zone", () => {
+    assert.equal(toWireValue("2024-07-16T14:30:00Z", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T16:30:00+02:00", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T09:30:00-05:00", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T16:30:00+0200", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T14:30:00.250z", "dateAndTime"), localWire(instant1430Z));
+    // The other forms Apple and Android accept: "+hh", no seconds, other fraction lengths.
+    assert.equal(toWireValue("2024-07-16T16:30:00+02", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T14:30Z", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T14:30:00.123456Z", "dateAndTime"), localWire(instant1430Z));
+    assert.equal(toWireValue("2024-07-16T14:30:00+02:00 junk", "dateAndTime"), "");
+});
+
+test("date mode shows the local day of a zoned instant", () => {
+    const midnightZ = Date.UTC(2024, 6, 16, 0, 0, 0);
+    assert.equal(toWireValue("2024-07-16T00:00:00Z", "date"), localWire(midnightZ).slice(0, 10));
+});
+
+test("an offset-less datetime stays wall-clock time", () => {
+    assert.equal(toWireValue("2024-07-16T09:05:00", "dateAndTime"), "2024-07-16T09:05:00");
+    assert.equal(toWireValue("2024-07-16T09:05", "dateAndTime"), "2024-07-16T09:05:00");
+    assert.equal(toWireValue("2024-07-16T09:05:00.5", "dateAndTime"), "2024-07-16T09:05:00");
+});

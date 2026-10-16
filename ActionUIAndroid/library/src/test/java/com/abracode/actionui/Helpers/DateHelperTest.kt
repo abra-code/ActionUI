@@ -6,12 +6,14 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 
 /**
  * Unit tests for [DateHelper] - the ISO 8601 date parsing/formatting that backs
  * the `DatePicker` element and the `DATE` value-bridge branch. The Android
  * counterpart of Apple's `DateHelperTests` (the value bridge carries a date-only
- * [LocalDate], so any date-time input is reduced to its date component).
+ * [LocalDate], so any date-time input is reduced to its date component; a zoned
+ * one is first converted to the device zone, passed explicitly here).
  */
 class DateHelperTest {
 
@@ -20,14 +22,21 @@ class DateHelperTest {
         assertEquals(LocalDate.of(2024, 7, 16), DateHelper.parseDate("2024-07-16"))
     }
 
+    private val losAngeles = ZoneId.of("America/Los_Angeles")
+    private val tokyo = ZoneId.of("Asia/Tokyo")
+
     @Test
-    fun `parseDate reduces a date-time with Z offset to its date`() {
-        assertEquals(LocalDate.of(2024, 7, 16), DateHelper.parseDate("2024-07-16T14:30:00Z"))
+    fun `parseDate converts a Z date-time to the device zone before taking its date`() {
+        // UTC midnight on July 16 is the evening of July 15 in Los Angeles.
+        assertEquals(LocalDate.of(2024, 7, 15), DateHelper.parseDate("2024-07-16T00:00:00Z", losAngeles))
+        assertEquals(LocalDate.of(2024, 7, 16), DateHelper.parseDate("2024-07-16T00:00:00Z", tokyo))
     }
 
     @Test
-    fun `parseDate reduces a date-time with numeric offset to its date`() {
-        assertEquals(LocalDate.of(2024, 7, 16), DateHelper.parseDate("2024-07-16T14:30:00+01:00"))
+    fun `parseDate converts a numeric-offset date-time to the device zone`() {
+        // 23:30 at +01:00 is 07:30 the next day in Tokyo.
+        assertEquals(LocalDate.of(2024, 7, 17), DateHelper.parseDate("2024-07-16T23:30:00+01:00", tokyo))
+        assertEquals(LocalDate.of(2024, 7, 16), DateHelper.parseDate("2024-07-16T23:30:00+01:00", losAngeles))
     }
 
     @Test
@@ -75,11 +84,27 @@ class DateHelperTest {
     }
 
     @Test
-    fun `parseDateTime reduces an offset datetime to local date and time`() {
-        assertEquals(
-            LocalDateTime.of(2024, 7, 16, 14, 30, 0),
-            DateHelper.parseDateTime("2024-07-16T14:30:00Z"),
-        )
+    fun `parseDateTime converts a zoned datetime to the device zone`() {
+        // 14:30 UTC is 23:30 in Tokyo and 07:30 in Los Angeles (PDT).
+        assertEquals(LocalDateTime.of(2024, 7, 16, 23, 30, 0), DateHelper.parseDateTime("2024-07-16T14:30:00Z", tokyo))
+        assertEquals(LocalDateTime.of(2024, 7, 16, 7, 30, 0), DateHelper.parseDateTime("2024-07-16T14:30:00Z", losAngeles))
+        assertEquals(LocalDateTime.of(2024, 7, 16, 23, 30, 0), DateHelper.parseDateTime("2024-07-16T16:30:00+02:00", tokyo))
+    }
+
+    @Test
+    fun `parseDateTime accepts the offset forms Apple and the web accept`() {
+        val expected = LocalDateTime.of(2024, 7, 16, 21, 30, 0)
+        assertEquals(expected, DateHelper.parseDateTime("2024-07-16T14:30:00+0200", tokyo))
+        assertEquals(expected, DateHelper.parseDateTime("2024-07-16T14:30:00+02", tokyo))
+        assertEquals(expected, DateHelper.parseDateTime("2024-07-16T14:30+02:00", tokyo))
+        assertEquals(LocalDate.of(2024, 7, 17), DateHelper.parseDate("2024-07-16T23:30:00+0100", tokyo))
+        assertEquals(null, DateHelper.parseDateTime("2024-07-16T14:30:00+02:00 junk", tokyo))
+    }
+
+    @Test
+    fun `parseDateTime keeps an offset-less datetime as wall-clock time in any zone`() {
+        assertEquals(LocalDateTime.of(2024, 7, 16, 9, 5, 0), DateHelper.parseDateTime("2024-07-16T09:05:00", tokyo))
+        assertEquals(LocalDateTime.of(2024, 7, 16, 9, 5, 0), DateHelper.parseDateTime("2024-07-16T09:05:00", losAngeles))
     }
 
     @Test

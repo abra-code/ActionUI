@@ -313,9 +313,7 @@ public class ActionUIModel: ObservableObject {
                 if viewModel.elementType == "DatePicker", ActionUI.DatePicker.isTimeBearing(components) {
                     return DateHelper.formatDateTime(from: date)
                 }
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withFullDate]
-                return formatter.string(from: date)
+                return DateHelper.formatDate(from: date)
             } else if valueType == CLLocationCoordinate2D.self, let coordinate = value as? CLLocationCoordinate2D {
                 return "{\"latitude\":\(coordinate.latitude),\"longitude\":\(coordinate.longitude)}"
             } else if valueType == [String].self, let stringArray = value as? [String] {
