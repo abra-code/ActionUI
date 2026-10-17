@@ -179,5 +179,5 @@ JSON schema and usage documentation for `Chart`.
 
 ### Host differences
 
-- **Android** and **Web** have no `Chart`: Android draws nothing in its place, and Web logs an unknown-type warning and shows a placeholder.
+- **Android** and **Web** have no chart renderer: they draw a "Chart Unavailable" placeholder (the ContentUnavailableView look) in the chart's place, sized by its frame and padding, and log one warning. The value (`""` until a host sets one), the rows API and setting the `chart` property work as on Apple; the description is not read, so its inline `data` does not become the rows, and no action fires.
 - **Apple** draws it with Swift Charts on every platform ActionUI supports.

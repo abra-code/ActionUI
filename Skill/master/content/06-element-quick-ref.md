@@ -52,7 +52,7 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 
 ### Charts
 
-`Chart` (Apple only) has one property, `chart`: a description `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Read `docs/Schemas/Chart.md` before writing one.
+`Chart` (Apple only; Android and Web draw a "Chart Unavailable" placeholder) has one property, `chart`: a description `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Read `docs/Schemas/Chart.md` before writing one.
 
 ```json
 { "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 240 }, "chart": {

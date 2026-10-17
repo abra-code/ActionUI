@@ -4,6 +4,7 @@ import com.abracode.actionui.Views.AsyncImage
 import com.abracode.actionui.Views.Button
 import com.abracode.actionui.Views.Canvas
 import com.abracode.actionui.Views.Capsule
+import com.abracode.actionui.Views.Chart
 import com.abracode.actionui.Views.Circle
 import com.abracode.actionui.Views.Color
 import com.abracode.actionui.Views.ColorPicker
@@ -125,6 +126,8 @@ object ActionUIRegistry {
         register("WebView", WebView)
         register("AsyncImage", AsyncImage)
         register("VideoPlayer", VideoPlayer)
+        // Apple-only for now: a "Chart Unavailable" placeholder that keeps the value and rows API.
+        register("Chart", Chart)
         // "Map" is deliberately NOT a core element: a map engine is
         // distribution baggage for clients that never show one. A provider
         // module (:map-osm or :map-google) self-registers it at app startup;

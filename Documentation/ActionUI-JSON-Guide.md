@@ -159,7 +159,7 @@ Layout follows SwiftUI stacking rules:
 | `AsyncImage` | Image loaded from URL |
 | `ProgressView` | Determinate or indeterminate progress |
 | `Gauge` | Value indicator |
-| `Chart` | Bar, line, point, area, rule, rectangle and sector charts (Swift Charts) - **Apple**; see [Charts](#charts) |
+| `Chart` | Bar, line, point, area, rule, rectangle and sector charts (Swift Charts) - **Apple**; Android and Web show a placeholder; see [Charts](#charts) |
 | `Table` | Multi-column data table — **macOS, iPadOS, Web** (Web shows a stacked-card layout on narrow screens) |
 | `List` | Scrollable list of items |
 | `Divider` | Visual separator |
@@ -221,7 +221,7 @@ Annotate a few marks (a goal line, the selection, the largest values), not every
 
 **Checks.** The verifier checks the description's structure: mark types, the keys of each initializer, value types and enum values. ActionUI warns about the rest when it draws the chart: a `"$name"` that names no column, a row whose cell does not parse under its column's type (the row is skipped). Settings Swift Charts cannot draw, such as a log scale that reaches 0 or a stride that would draw thousands of axis marks, are refused or fall back to the automatic form, with a warning.
 
-**Platforms.** Apple only, on every platform ActionUI supports. Android draws nothing in its place, and Web shows a placeholder.
+**Platforms.** Apple only, on every platform ActionUI supports. Android and Web draw a "Chart Unavailable" placeholder in its place, sized by its frame, and log one warning; the value, the rows calls and setting `chart` still work there, so the same host code runs unchanged.
 
 The complete vocabulary is in [Schemas/Chart.md](Schemas/Chart.md); a template is in [Elements/Chart.json](Elements/Chart.json).
 

@@ -85,6 +85,8 @@ import "./Views/EmptyView.js";
 import "./Views/Link.js";
 import "./Views/ShareLink.js";
 import "./Views/ContentUnavailableView.js";
+// Apple-only for now: a "Chart Unavailable" placeholder that keeps the value and rows API.
+import "./Views/Chart.js";
 
 // Re-export so hosts can `import { Window, InsertPosition, ModalStyle } from
 // ".../ActionUI.js"` (mirrors the Node.js adapter exposing these alongside Window).

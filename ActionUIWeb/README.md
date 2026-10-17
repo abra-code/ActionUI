@@ -120,6 +120,9 @@ sh scripts/sync-symbol-map.sh           # re-copy from the sibling ActionUIAndro
   structural/utility passthroughs Group (transparent, via `display:contents`),
   EmptyView, Link (a native `<a>`), ShareLink (the Web Share API), and
   ContentUnavailableView (an empty-state hero glyph + title + description).
+  Chart has no web renderer: it draws a "Chart Unavailable" placeholder and keeps
+  the value, the rows API and the `chart` property, so Apple host code runs
+  unchanged.
   Each view's `validateProperties` warnings match the Swift
   contract (`ActionUI/Views/*.swift`) verbatim; deliberate omissions log console
   warnings.
