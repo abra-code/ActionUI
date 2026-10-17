@@ -381,4 +381,105 @@ final class ChartTests: XCTestCase {
         let differing = zip(a, pixels(referenceImage)).filter { $0 != $1 }.count
         XCTAssertEqual(differing, 0, "erased marks plus neutral modifiers draw exactly what typed marks draw")
     }
+
+    // MARK: - Rendering smoke tests
+
+    private static let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+
+    private func loadDocument(_ relativePath: String) throws -> ActionUIElement {
+        let data = try Data(contentsOf: Self.repositoryRoot.appendingPathComponent(relativePath))
+        return try ActionUIModel.shared.loadDescription(from: data, format: "json", windowUUID: windowUUID)
+    }
+
+    private func chartElements(in element: any ActionUIElementBase) -> [ActionUIElement] {
+        let own = element.type == "Chart" ? [element as? ActionUIElement].compactMap { $0 } : []
+        return own + element.childElements.flatMap { chartElements(in: $0) }
+    }
+
+    // Renders one Chart through ActionUIView, as a window would, and counts the pixels it drew.
+    private func renderChart(_ element: ActionUIElement) throws -> (image: CGImage, inked: Int) {
+        let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id])
+        let image = try XCTUnwrap(render(ActionUIView(element: element, model: viewModel, windowUUID: windowUUID)))
+        let inked = pixels(image).enumerated().filter { $0.offset % 4 == 0 && $0.element < 200 }.count
+        return (image, inked)
+    }
+
+    func testEveryChartExampleRendersWithoutWarnings() throws {
+        for path in ["ActionUISwiftTestApp/Resources/Chart.json", "Documentation/Elements/Chart.json"] {
+            let charts = chartElements(in: try loadDocument(path))
+            XCTAssertFalse(charts.isEmpty, path)
+            for chart in charts {
+                XCTAssertGreaterThan(try renderChart(chart).inked, 500, "\(path): chart \(chart.id) drew something")
+            }
+        }
+        XCTAssertEqual(logger.warnings, [], "the examples load and render without warnings")
+    }
+
+    func testTheDynamicExampleTakesSeveralDescriptionsInARow() throws {
+        let chart = try XCTUnwrap(chartElements(in: try loadDocument("ActionUISwiftTestApp/Resources/Chart.dynamic.json")).first)
+        XCTAssertLessThan(try renderChart(chart).inked, 500, "no description yet: an empty plot area")
+
+        // What the test app's buttons do: lines, rows, bars, another week, lines again.
+        func described(_ mark: String) -> [String: Any] {
+            var chart = description(content: [["type": "ForEach", "content": [
+                ["type": mark,
+                 "x": ["label": "Week", "value": "$week", "unit": "weekOfYear"],
+                 "y": ["label": "Users", "value": "$users"],
+                 "foregroundStyle": ["by": ["label": "Platform", "value": "$platform"]]],
+            ]]])
+            chart["chartLegend"] = ["position": "bottom"]
+            return chart
+        }
+        let model = ActionUIModel.shared
+        model.setElementProperty(windowUUID: windowUUID, viewID: chart.id, propertyName: "chart", value: described("LineMark"))
+        model.setElementRows(windowUUID: windowUUID, viewID: chart.id, rows: [
+            ["2026-08-03", "iOS", "1100"], ["2026-08-03", "macOS", "760"],
+            ["2026-08-10", "iOS", "1200"], ["2026-08-10", "macOS", "765"],
+        ])
+        let lines = try renderChart(chart)
+        XCTAssertGreaterThan(lines.inked, 500, "lines")
+
+        model.setElementProperty(windowUUID: windowUUID, viewID: chart.id, propertyName: "chart", value: described("BarMark"))
+        let bars = try renderChart(chart)
+        XCTAssertGreaterThan(bars.inked, lines.inked, "bars fill more of the plot than lines")
+        XCTAssertEqual(rows?.count, 4, "replacing the description kept the streamed rows")
+
+        model.appendElementRows(windowUUID: windowUUID, viewID: chart.id, rows: [["2026-08-17", "iOS", "1300"], ["2026-08-17", "macOS", "780"]])
+        let threeWeeks = try renderChart(chart)
+        XCTAssertGreaterThan(threeWeeks.inked, 500)
+        XCTAssertNotEqual(pixels(threeWeeks.image), pixels(bars.image), "an appended week redraws the bars")
+        XCTAssertEqual(rows?.count, 6)
+
+        model.setElementProperty(windowUUID: windowUUID, viewID: chart.id, propertyName: "chart", value: described("LineMark"))
+        XCTAssertGreaterThan(try renderChart(chart).inked, 500, "lines again")
+        XCTAssertEqual(logger.warnings, [])
+    }
+
+    // Swift Charts draws marks beyond a fixed domain outside the plot area; the plot style's
+    // clipShape (as the head comment says) cuts them off.
+    func testAClipShapeKeepsMarksBeyondAFixedDomainInsideThePlot() throws {
+        func inkAbovePlot(clipped: Bool) throws -> Int {
+            var chart = description(data: [["2026-08-03", "iOS", 1500], ["2026-08-03", "macOS", 900]],
+                                    content: [["type": "ForEach", "content": [
+                                        ["type": "BarMark",
+                                         "x": ["label": "Week", "value": "$week", "unit": "weekOfYear"],
+                                         "y": ["label": "Users", "value": "$users"],
+                                         "foregroundStyle": ["by": ["label": "Platform", "value": "$platform"]]],
+                                    ]]])
+            chart["chartYScale"] = ["domain": [0, 2000]]
+            chart["chartLegend"] = "hidden"
+            if clipped { chart["chartPlotStyle"] = ["clipShape": "rectangle"] }
+            ActionUIModel.resetForTesting()
+            try loadChart(chart)
+            let built = Chart.buildView(ActionUIElement(id: 10, type: "Chart", properties: [:], subviews: nil),
+                                        model, windowUUID, model.validatedProperties, logger)
+            // The chart sits 40 points below an empty band; a bar that leaves the plot draws into it.
+            let image = try XCTUnwrap(render(AnyView(built).padding(.top, 40)))
+            let bandBytes = image.width * 4 * 60    // the top 30 points at 2x
+            return pixels(image).prefix(bandBytes).enumerated().filter { $0.offset % 4 == 0 && $0.element < 200 }.count
+        }
+        XCTAssertGreaterThan(try inkAbovePlot(clipped: false), 100, "the stacked bar (2400) leaves a 0...2000 plot")
+        XCTAssertEqual(try inkAbovePlot(clipped: true), 0, "clipped to the plot area")
+    }
 }

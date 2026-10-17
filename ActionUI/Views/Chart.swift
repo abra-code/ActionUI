@@ -31,7 +31,9 @@
                                               //   "type": "linear" | "log" | "date" | "category" | "squareRoot" | "symmetricLog" |
                                               //   {"power": {"exponent": 2}} | {"symmetricLog": {"slopeAtZero": 1}}. On a number axis
                                               //   "log", "squareRoot" and "power" need a "domain" inside theirs (log: low end above 0);
-                                              //   "date" and "category" never apply to a number or date axis (Swift Charts stops the app)
+                                              //   "date" and "category" never apply to a number or date axis (Swift Charts stops the app).
+                                              //   Marks beyond a fixed domain (stacked bars add up) draw outside the plot area;
+                                              //   chartPlotStyle {"clipShape": "rectangle"} cuts them off
        "chartYScale": { "domain": { "automatic": { "includesZero": true } } },
        "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden"; also chartYAxis
        "chartXAxisLabel": "Week",             // Optional: axis title, or {"text", "position", "alignment", "spacing"};

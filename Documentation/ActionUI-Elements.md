@@ -13,6 +13,7 @@ All views inherit baseline properties from [View](Schemas/View.md) ([template](E
 | AsyncImage | [Schemas/AsyncImage.md](Schemas/AsyncImage.md) | [Elements/AsyncImage.json](Elements/AsyncImage.json) |
 | Button | [Schemas/Button.md](Schemas/Button.md) | [Elements/Button.json](Elements/Button.json) |
 | Canvas | [Schemas/Canvas.md](Schemas/Canvas.md) | [Elements/Canvas.json](Elements/Canvas.json) |
+| Chart | [Schemas/Chart.md](Schemas/Chart.md) | [Elements/Chart.json](Elements/Chart.json) |
 | ColorPicker | [Schemas/ColorPicker.md](Schemas/ColorPicker.md) | [Elements/ColorPicker.json](Elements/ColorPicker.json) |
 | ContentUnavailableView | [Schemas/ContentUnavailableView.md](Schemas/ContentUnavailableView.md) | [Elements/ContentUnavailableView.json](Elements/ContentUnavailableView.json) |
 | ControlGroup | [Schemas/ControlGroup.md](Schemas/ControlGroup.md) | [Elements/ControlGroup.json](Elements/ControlGroup.json) |
