@@ -4,7 +4,7 @@
   "type": "VStack",
   "properties": { "padding": "default", "spacing": 16 },
   "children": [
-    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, a Plot of smoothed lines and points per row, a goal rule)", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, a Plot of smoothed lines and points per row, a goal rule, axis marks with formats)", "font": "headline" } },
     {
       "type": "Chart",
       "id": 11,
@@ -35,6 +35,14 @@
               "lineStyle": { "lineWidth": 1, "dash": [4, 3] }, "foregroundStyle": "gray" }
           ],
           "chartYScale": { "domain": [0, 1500] },
+          "chartXAxis": [
+            { "type": "AxisMarks", "values": { "stride": { "by": "weekOfYear", "count": 2 } }, "content": [
+              { "type": "AxisGridLine", "stroke": { "lineWidth": 0.5, "dash": [2, 2] } },
+              { "type": "AxisTick" },
+              { "type": "AxisValueLabel", "format": { "dateTime": { "month": "abbreviated", "day": "defaultDigits" } } }
+            ] }
+          ],
+          "chartYAxis": [{ "type": "AxisMarks", "values": [0, 500, 1000, 1500], "format": "decimal", "fractionLength": 0 }],
           "chartXAxisLabel": "Week",
           "chartYAxisLabel": "Users",
           "chartLegend": { "position": "bottom" }

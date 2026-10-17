@@ -4,6 +4,9 @@
 // modifier is always applied, with a neutral value where the description is silent, so a
 // replaced description changes values, not the view's type: SwiftUI keeps the same chart and can
 // animate between the two. Each neutral value draws pixel-identically to leaving the modifier out.
+// Where Swift Charts has no neutral value (an axis label, a color or symbol size range), a view
+// modifier of fixed type leaves the modifier out instead; adding or removing one of those
+// recreates the chart.
 
 import Foundation
 import SwiftUI
@@ -111,6 +114,31 @@ struct ChartForegroundStyleScaler: ViewModifier {
     }
 }
 
+// An axis label has no neutral form: an empty Text or EmptyView reserves space under the axis,
+// and even a zero-size view with zero spacing moves a chart with a continuous size legend. Without
+// a label the modifier is left out; its own type stays the same either way (adding or removing a
+// label recreates the chart, as a branch).
+struct ChartAxisLabeler: ViewModifier {
+    let axis: Axis
+    let spec: ChartAxisSpec
+
+    func body(content: Content) -> some SwiftUI.View {
+        if let label = spec.label {
+            if axis == .horizontal {
+                content.chartXAxisLabel(position: spec.labelPosition, alignment: spec.labelAlignment, spacing: spec.labelSpacing) {
+                    SwiftUI.Text(label)
+                }
+            } else {
+                content.chartYAxisLabel(position: spec.labelPosition, alignment: spec.labelAlignment, spacing: spec.labelSpacing) {
+                    SwiftUI.Text(label)
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
 struct ChartSymbolSizeScaler: ViewModifier {
     let domain: ForwardingDomain
     let range: ClosedRange<CGFloat>?
@@ -137,18 +165,13 @@ extension SwiftUI.View {
             .chartSymbolScale(domain: spec.styles.symbolDomain, range: spec.styles.symbolRange)
             .chartLineStyleScale(domain: spec.styles.lineStyleDomain, range: spec.styles.lineStyleRange)
             .modifier(ChartSymbolSizeScaler(domain: spec.styles.symbolSizeDomain, range: spec.styles.symbolSizeRange))
+            // Axis content is always given (a plain AxisMarks() draws like none), then visibility.
+            .chartXAxis { ChartAxisContentBuilder.content(spec.x.marks) }
             .chartXAxis(spec.x.visibility)
+            .chartYAxis { ChartAxisContentBuilder.content(spec.y.marks) }
             .chartYAxis(spec.y.visibility)
-            // An absent label is a zero-size view with zero spacing: an empty Text, or
-            // EmptyView, still reserves space under the axis.
-            .chartXAxisLabel(position: spec.x.labelPosition, alignment: spec.x.labelAlignment,
-                             spacing: spec.x.label == nil ? 0 : spec.x.labelSpacing) {
-                if let label = spec.x.label { SwiftUI.Text(label) } else { SwiftUI.Color.clear.frame(width: 0, height: 0) }
-            }
-            .chartYAxisLabel(position: spec.y.labelPosition, alignment: spec.y.labelAlignment,
-                             spacing: spec.y.label == nil ? 0 : spec.y.labelSpacing) {
-                if let label = spec.y.label { SwiftUI.Text(label) } else { SwiftUI.Color.clear.frame(width: 0, height: 0) }
-            }
+            .modifier(ChartAxisLabeler(axis: .horizontal, spec: spec.x))
+            .modifier(ChartAxisLabeler(axis: .vertical, spec: spec.y))
             .chartLegend(position: spec.legendPosition, alignment: nil, spacing: nil)
             .chartLegend(spec.legendVisibility)
             .chartPlotStyle { plot in plot.modifier(ChartPlotStyler(style: plotStyle)) }

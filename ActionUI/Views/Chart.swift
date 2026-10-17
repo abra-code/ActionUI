@@ -48,7 +48,26 @@
                                               //   {"gradient": [colors]}; chartSymbolScale a list of symbol names;
                                               //   chartLineStyleScale a list of stroke styles; chartSymbolSizeScale two numbers,
                                               //   the smallest and largest symbol area
-       "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden"; also chartYAxis
+       "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden", or up to 4 AxisMarks (below);
+                                              //   also chartYAxis
+       "chartYAxis": [
+         { "type": "AxisMarks", "preset": "automatic", "position": "leading",
+           "values": [0, 500, 1000, 1500],    // "automatic", {"automatic": {"desiredCount" (1 to 100), "roundLowerBound",
+                                              //   "roundUpperBound"}}, {"stride": {"by": "month", "count": 1}} (a calendar unit, dates),
+                                              //   {"stride": {"by": 10}} (numbers), or a list of values typed by the axis. A stride
+                                              //   that would draw more than 1000 marks over the axis falls back to "automatic"
+           "format": "decimal", "fractionLength": 0, // Without "content" only: labels' format (below); "stroke" likewise
+           "content": [                       // Optional: up to 4 marks; absent = Swift's default marks, [] = none
+             { "type": "AxisGridLine", "centered": false, "stroke": { "lineWidth": 0.5, "dash": [2, 2] } },
+             { "type": "AxisTick", "length": "automatic" }, // or a number, "label", "longestLabel", {"label": {"extendPastBy": 2}}
+             { "type": "AxisValueLabel", "format": "percent", "anchor": "top", "orientation": "automatic",
+               "collisionResolution": "automatic", "font": "caption", "foregroundStyle": "gray", "offset": { "x": 0, "y": 2 } }
+           ] }                                // AxisValueLabel also takes "centered", "multiLabelAlignment", "offsetsMarks",
+       ],                                     //   "horizontalSpacing", "verticalSpacing"; every mark takes foregroundStyle, font, offset.
+                                              //   Formats: on a number axis "integer" | "decimal" | "percent" | "currency" with
+                                              //   "fractionLength" (n or {"min", "max"}) and "currencyCode"; on a date axis
+                                              //   {"dateTime": {"year", "quarter", "month", "day", "weekday", "hour", "minute", "second"}}
+                                              //   (Date.FormatStyle symbol names) or {"date": "abbreviated", "time": "omitted"}
        "chartXAxisLabel": "Week",             // Optional: axis title, or {"text", "position", "alignment", "spacing"};
                                               //   also chartYAxisLabel
        "chartLegend": "automatic",            // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
@@ -199,6 +218,9 @@ struct Chart: ActionUIViewConstruction {
 final class ChartRenderCache {
     private var description: NSDictionary?
     private var spec = ChartSpec()
+    // The spec as drawn: axis strides that would draw too many marks fall back to automatic
+    // values, which depends on the rows (ChartAxisStrideLimit).
+    private var drawnSpec = ChartSpec()
     private var rows: [[String]]?
     private var items: [AnyChartContent] = []
     // Times the marks were built; lets tests see that unchanged inputs rebuild nothing.
@@ -223,7 +245,12 @@ final class ChartRenderCache {
                 let place = first.inlineData ? "row \(first.row + 1) of a ForEach's data" : "row \(first.row + 1)"
                 logger.log("Chart \(viewID): skipped \(builder.skippedRows) row(s) with a cell that does not parse; first: \(place), column \(first.column + 1) is not a \(first.type.rawValue)", .warning)
             }
+            drawnSpec = spec
+            drawnSpec.x.marks = ChartAxisStrideLimit.limited(spec.x.marks, domain: spec.x.domain, extent: builder.xExtent,
+                                                             key: "chartXAxis", viewID: viewID, logger: logger)
+            drawnSpec.y.marks = ChartAxisStrideLimit.limited(spec.y.marks, domain: spec.y.domain, extent: builder.yExtent,
+                                                             key: "chartYAxis", viewID: viewID, logger: logger)
         }
-        return (spec, items)
+        return (drawnSpec, items)
     }
 }

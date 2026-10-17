@@ -33,6 +33,7 @@
           "chartSymbolSizeScale": { "range": ["big", 2] },
           "chartForegroundStyleScale": { "range": { "gradient": "red" } },
           "chartYAxisLabel": { "position": "bottom" },
+          "chartXAxis": [{ "type": "AxisMarks", "preset": "wide", "format": { "dateTime": { "month": "huge" } }, "content": [{ "type": "AxisRule" }] }],
           "chartLegend": 3,
           "chartPlotStyle": { "onHoverActionID": "hover", "background": 1 },
           "chartFoo": true

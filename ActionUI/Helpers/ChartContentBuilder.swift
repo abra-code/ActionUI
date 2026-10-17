@@ -377,6 +377,25 @@ struct ChartContentBuilder {
     // `inlineData` when the row is in a ForEach's own data.
     private(set) var skippedRows = 0
     private(set) var firstSkip: (row: Int, column: Int, type: ChartColumnType, inlineData: Bool)?
+    // The range of the numbers or dates (as seconds since the reference date) the marks plot on
+    // each axis, for the axis stride limit.
+    private(set) var xExtent: ClosedRange<Double>?
+    private(set) var yExtent: ClosedRange<Double>?
+
+    private static func widen(_ extent: ClosedRange<Double>?, _ scalar: ChartScalar) -> ClosedRange<Double>? {
+        let value: Double
+        switch scalar {
+        case .number(let number): value = number
+        case .integer(let integer): value = Double(integer)
+        case .date(let date): value = date.timeIntervalSinceReferenceDate
+        case .string: return extent
+        }
+        // A "nan" or "inf" cell parses as a number; NaN...NaN would stop the app, and Swift
+        // Charts draws neither value.
+        guard value.isFinite else { return extent }
+        guard let extent else { return value...value }
+        return min(extent.lowerBound, value)...max(extent.upperBound, value)
+    }
 
     init(columns: ChartTypedColumns) {
         self.columns = columns
@@ -462,6 +481,27 @@ struct ChartContentBuilder {
         for (key, plottable) in spec.values {
             guard let scalar = resolve(plottable, row: row) else { return nil }
             scalars[key] = scalar
+        }
+        // A normalized stack spans 0...1 on its stacked axis whatever the values: the numeric x
+        // axis when y is not numeric (or the x-only bar form), else the y axis.
+        var normalizedAxis: Axis?
+        if spec.stacking == .normalized, spec.kind == .BarMark || spec.kind == .AreaMark {
+            let numeric: (String) -> Bool = { key in
+                switch scalars[key] {
+                case .number?, .integer?: return true
+                default: return false
+                }
+            }
+            normalizedAxis = spec.form == .xPoints || (numeric("x") && !numeric("y")) ? .horizontal : .vertical
+            if normalizedAxis == .horizontal { xExtent = Self.widen(Self.widen(xExtent, .number(0)), .number(1)) }
+            else { yExtent = Self.widen(Self.widen(yExtent, .number(0)), .number(1)) }
+        }
+        for (key, scalar) in scalars {
+            switch key {
+            case "x", "xStart", "xEnd": if normalizedAxis != .horizontal { xExtent = Self.widen(xExtent, scalar) }
+            case "y", "yStart", "yEnd": if normalizedAxis != .vertical { yExtent = Self.widen(yExtent, scalar) }
+            default: break
+            }
         }
         let args = MarkArguments(spec: spec, scalars: scalars)
         let built: AnyChartContent?

@@ -695,6 +695,27 @@ class ChartSchemaTests(unittest.TestCase):
         self.assertTrue(any("chartSymbolScale.range[0]: 'hexagon' is not a known value" in f for f in found))
         self.assertTrue(any("chartSymbolSizeScale.range[0]: expected number, got string" in f for f in found))
 
+    def test_axis_marks_are_checked(self):
+        good = {"type": "Chart", "id": 1, "properties": {"chart": {
+            "chartXAxis": [{"type": "AxisMarks", "values": {"stride": {"by": "month", "count": 2}}, "content": [
+                {"type": "AxisGridLine", "stroke": {"lineWidth": 0.5}},
+                {"type": "AxisTick", "length": "label"},
+                {"type": "AxisValueLabel", "format": {"dateTime": {"month": "abbreviated"}}, "font": "caption", "offset": {"y": 2}},
+            ]}],
+            "chartYAxis": [{"type": "AxisMarks", "position": "leading", "values": [0, 50], "format": "percent", "fractionLength": 1}],
+        }}}
+        self.assertEqual([(i.path, i.message) for i in _validate(good)], [])
+        bad = {"type": "Chart", "id": 1, "properties": {"chart": {
+            "chartXAxis": [{"type": "AxisMarks", "position": "middle", "content": [{"type": "AxisLabel"}, {"type": "AxisTick", "centered": "yes"}]}],
+            "chartYAxis": "shown",
+        }}}
+        found = [f"{i.path}: {i.message}" for i in _validate(bad)]
+        self.assertEqual(len(found), 4, found)
+        self.assertTrue(any("chartXAxis[0].position: 'middle' is not a known value" in f for f in found))
+        self.assertTrue(any("'AxisLabel' is not a known type" in f for f in found))
+        self.assertTrue(any("content[1].centered: expected boolean, got string" in f for f in found))
+        self.assertTrue(any("chartYAxis: 'shown' is not a known value" in f for f in found))
+
     def test_a_sector_angle_of_another_type_is_reported(self):
         angle = {"label": "Day", "value": "$day", "type": "date", "unit": "day"}
         messages = [i.message for i in _validate(self._chart([{"type": "SectorMark", "angle": angle}]))]

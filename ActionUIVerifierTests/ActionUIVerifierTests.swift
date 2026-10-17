@@ -263,6 +263,28 @@ private func chart(_ marks: [JSONValue], forEach: Bool = true) -> JSONValue {
     #expect(found.contains { $0.contains("chartSymbolSizeScale.range[0]: expected number, got string") })
 }
 
+@Test func axisMarksAreChecked() throws {
+    let good: JSONValue = ["type": "Chart", "id": 1, "properties": ["chart": [
+        "chartXAxis": [["type": "AxisMarks", "values": ["stride": ["by": "month", "count": 2]], "content": [
+            ["type": "AxisGridLine", "stroke": ["lineWidth": 0.5]],
+            ["type": "AxisTick", "length": "label"],
+            ["type": "AxisValueLabel", "format": ["dateTime": ["month": "abbreviated"]], "font": "caption", "offset": ["y": 2]],
+        ]]],
+        "chartYAxis": [["type": "AxisMarks", "position": "leading", "values": [0, 50], "format": "percent", "fractionLength": 1]],
+    ]]]
+    #expect(try issues(good) == [])
+    let bad: JSONValue = ["type": "Chart", "id": 1, "properties": ["chart": [
+        "chartXAxis": [["type": "AxisMarks", "position": "middle", "content": [["type": "AxisLabel"], ["type": "AxisTick", "centered": "yes"]]]],
+        "chartYAxis": "shown",
+    ]]]
+    let found = try issues(bad)
+    #expect(found.count == 4)
+    #expect(found.contains { $0.contains("chartXAxis[0].position: 'middle' is not a known value") })
+    #expect(found.contains { $0.contains("'AxisLabel' is not a known type") })
+    #expect(found.contains { $0.contains("content[1].centered: expected boolean, got string") })
+    #expect(found.contains { $0.contains("chartYAxis: 'shown' is not a known value") })
+}
+
 @Test func aSectorAngleOfAnotherTypeIsReported() throws {
     let found = try issues(chart([["type": "SectorMark", "angle": ["label": "Day", "value": "$day", "type": "date", "unit": "day"]]]))
     #expect(found.count == 2)

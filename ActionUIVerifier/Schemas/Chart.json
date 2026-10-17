@@ -275,6 +275,95 @@
       ]
     },
     "visibility": { "types": ["string"], "enum": ["automatic", "visible", "hidden"] },
+    "strokeStyle": { "types": ["object"], "properties": {
+      "lineWidth": { "types": ["number"] },
+      "lineCap": { "types": ["string"], "enum": ["butt", "round", "square"] },
+      "lineJoin": { "types": ["string"], "enum": ["miter", "round", "bevel"] },
+      "miterLimit": { "types": ["number"] },
+      "dash": { "types": ["array"], "itemTypes": ["number"] },
+      "dashPhase": { "types": ["number"] }
+    } },
+    "axisFormat": {
+      "types": ["string", "object"],
+      "enum": ["integer", "decimal", "percent", "currency"],
+      "description": "A number format (with fractionLength, currencyCode) on a number axis, or a date format on a date axis",
+      "properties": {
+        "dateTime": { "types": ["object"], "properties": {
+          "year": { "types": ["string"], "enum": ["defaultDigits", "twoDigits"] },
+          "quarter": { "types": ["string"], "enum": ["oneDigit", "twoDigits", "abbreviated", "wide", "narrow"] },
+          "month": { "types": ["string"], "enum": ["defaultDigits", "twoDigits", "abbreviated", "wide", "narrow"] },
+          "day": { "types": ["string"], "enum": ["defaultDigits", "twoDigits"] },
+          "weekday": { "types": ["string"], "enum": ["abbreviated", "wide", "narrow", "short"] },
+          "hour": { "types": ["string"], "enum": ["defaultDigits", "twoDigits"] },
+          "minute": { "types": ["string"], "enum": ["defaultDigits", "twoDigits"] },
+          "second": { "types": ["string"], "enum": ["defaultDigits", "twoDigits"] }
+        } },
+        "date": { "types": ["string"], "enum": ["omitted", "numeric", "abbreviated", "long", "complete"] },
+        "time": { "types": ["string"], "enum": ["omitted", "shortened", "standard", "complete"] }
+      }
+    },
+    "axisItemModifiers": {
+      "type": { "types": ["string"], "required": true },
+      "foregroundStyle": { "types": ["string"], "description": "A color" },
+      "font": { "types": ["string", "object"] },
+      "offset": { "types": ["object"], "properties": { "x": { "types": ["number"] }, "y": { "types": ["number"] } } }
+    },
+    "axis": {
+      "types": ["string", "array"],
+      "enum": ["automatic", "visible", "hidden"],
+      "description": "Visibility, or up to 4 AxisMarks",
+      "discriminatedItems": {
+        "discriminator": "type",
+        "schemas": {
+          "AxisMarks": {
+            "type": { "types": ["string"], "required": true },
+            "preset": { "types": ["string"], "enum": ["automatic", "extended", "aligned", "inset"] },
+            "position": { "types": ["string"], "enum": ["automatic", "leading", "trailing", "top", "bottom"] },
+            "values": { "types": ["string", "object", "array"], "enum": ["automatic"],
+              "description": "\"automatic\", {\"automatic\": {...}}, {\"stride\": {\"by\", \"count\"}} or a list typed by the axis",
+              "properties": {
+                "automatic": { "types": ["object"], "properties": {
+                  "desiredCount": { "types": ["number"], "description": "1 to 100" },
+                  "roundLowerBound": { "types": ["boolean"] },
+                  "roundUpperBound": { "types": ["boolean"] }
+                } },
+                "stride": { "types": ["object"], "properties": {
+                  "by": { "types": ["string", "number"], "required": true, "description": "A calendar unit (dates) or a step (numbers); a stride drawing more than 1000 marks falls back to automatic" },
+                  "count": { "types": ["number"] }
+                } }
+              } },
+            "format": { "$ref": "axisFormat", "description": "Only without content" },
+            "fractionLength": { "types": ["number", "object"] },
+            "currencyCode": { "types": ["string"] },
+            "stroke": { "$ref": "strokeStyle", "description": "Only without content" },
+            "content": {
+              "types": ["array"],
+              "description": "Up to 4 marks; absent = Swift's default marks, empty = none",
+              "discriminatedItems": {
+                "discriminator": "type",
+                "schemas": {
+                  "AxisGridLine": { "$ref": "axisItemModifiers", "centered": { "types": ["boolean"] }, "stroke": { "$ref": "strokeStyle" } },
+                  "AxisTick": { "$ref": "axisItemModifiers", "centered": { "types": ["boolean"] }, "stroke": { "$ref": "strokeStyle" },
+                    "length": { "types": ["number", "string", "object"], "enum": ["automatic", "label", "longestLabel"] } },
+                  "AxisValueLabel": { "$ref": "axisItemModifiers",
+                    "format": { "$ref": "axisFormat" },
+                    "fractionLength": { "types": ["number", "object"] },
+                    "currencyCode": { "types": ["string"] },
+                    "centered": { "types": ["boolean"] },
+                    "anchor": { "types": ["string"], "enum": ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+                    "multiLabelAlignment": { "types": ["string"], "enum": ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+                    "collisionResolution": { "types": ["string", "object"], "enum": ["automatic", "greedy", "truncate", "disabled"] },
+                    "offsetsMarks": { "types": ["boolean"] },
+                    "orientation": { "types": ["string"], "enum": ["automatic", "horizontal", "vertical", "verticalReversed"] },
+                    "horizontalSpacing": { "types": ["number"] },
+                    "verticalSpacing": { "types": ["number"] } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "styleDomain": { "types": ["array", "object"], "description": "Two numbers or two dates (a range), a list of strings, or {\"automatic\": {\"includesZero\", \"reversed\"}}, typed by the {\"by\"} values the scale styles" }
   },
   "ownProperties": {
@@ -331,8 +420,8 @@
           "domain": { "$ref": "styleDomain" },
           "range": { "types": ["array"], "itemTypes": ["number"], "description": "Two numbers: the smallest and largest symbol area" }
         } },
-        "chartXAxis": { "$ref": "visibility" },
-        "chartYAxis": { "$ref": "visibility" },
+        "chartXAxis": { "$ref": "axis" },
+        "chartYAxis": { "$ref": "axis" },
         "chartXAxisLabel": { "$ref": "axisLabel" },
         "chartYAxisLabel": { "$ref": "axisLabel" },
         "chartLegend": { "oneOf": [

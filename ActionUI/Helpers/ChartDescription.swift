@@ -66,6 +66,8 @@ struct ChartAxisSpec {
     var range: ForwardingPositionRange = .automatic
     var scaleType: ScaleType?
     var visibility: Visibility = .automatic
+    // AxisMarks content; nil draws Swift's default axis.
+    var marks: [ChartAxisMarksSpec]?
     var label: String?
     var labelPosition: AnnotationPosition = .automatic
     var labelAlignment: Alignment?
@@ -500,8 +502,12 @@ enum ChartDescription {
             if let name = visibility as? String, let parsed = parseVisibility(name) {
                 spec.visibility = parsed
                 cleaned[axisKey] = name
+            } else if let items = visibility as? [Any] {
+                let parsed = parseAxisMarks(items, key: axisKey, axisType: axisType, logger: logger)
+                spec.marks = parsed.specs
+                cleaned[axisKey] = parsed.cleaned
             } else {
-                logger?.log("Chart: \(axisKey) must be \"automatic\", \"visible\" or \"hidden\"; ignoring it", .warning)
+                logger?.log("Chart: \(axisKey) must be \"automatic\", \"visible\", \"hidden\" or an array of AxisMarks; ignoring it", .warning)
             }
         }
         let labelKey = "chart\(axis)AxisLabel"

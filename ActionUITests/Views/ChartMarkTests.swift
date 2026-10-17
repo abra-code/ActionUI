@@ -695,4 +695,195 @@ final class ChartMarkTests: XCTestCase {
         ActionUIModel.resetForTesting()
         try assertSameRendering(points, rows: rows, pointsReference)
     }
+
+    // MARK: - Axis marks
+
+    private let weekRows: [[String]] = [["2026-08-03", "4"], ["2026-08-10", "6"], ["2026-08-17", "5"], ["2026-09-07", "8"]]
+
+    private func weekChart(_ extra: [String: Any]) -> [String: Any] {
+        var description: [String: Any] = [
+            "columns": [["name": "week", "type": "date"], ["name": "n", "type": "number"]],
+            "content": [["type": "ForEach", "content": [["type": "LineMark", "x": pv("Week", "$week"), "y": pv("N", "$n")]]]],
+        ]
+        for (key, value) in extra { description[key] = value }
+        return description
+    }
+
+    private var weekReference: some ChartContent {
+        let weeks = weekRows.map { DateHelper.parseDate(from: $0[0])! }, values = weekRows.map { Double($0[1])! }
+        return Charts.ForEach(weeks.indices, id: \.self) { i in
+            Charts.LineMark(x: .value("Week", weeks[i]), y: .value("N", values[i]))
+        }
+    }
+
+    func testAxisMarksParseAndCleanIdempotently() {
+        let description = weekChart([
+            "chartXAxis": [
+                ["type": "AxisMarks", "preset": "aligned", "values": ["stride": ["by": "month"]], "content": [
+                    ["type": "AxisGridLine", "centered": false, "stroke": ["lineWidth": 0.5, "dash": [2, 2]]],
+                    ["type": "AxisTick", "length": ["label": ["extendPastBy": 2]]],
+                    ["type": "AxisValueLabel", "format": ["dateTime": ["month": "abbreviated", "day": "defaultDigits"]], "anchor": "top",
+                     "collisionResolution": ["greedy": ["priority": 1]], "orientation": "vertical", "font": "caption",
+                     "foregroundStyle": "gray", "offset": ["y": 2]],
+                ]],
+            ],
+            "chartYAxis": [
+                ["type": "AxisMarks", "position": "leading", "values": [0, 4, 8], "format": "decimal", "fractionLength": 1],
+                ["type": "AxisMarks", "values": ["automatic": ["desiredCount": 3]], "stroke": ["lineWidth": 2]],
+            ],
+        ])
+        let parsed = ChartDescription.parse(description, logger: logger)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertEqual(parsed.spec.x.marks?.first?.items?.count, 3)
+        XCTAssertEqual(parsed.spec.y.marks?.count, 2)
+        XCTAssertEqual(ChartDescription.parse(parsed.cleaned, logger: logger).cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+        XCTAssertEqual(logger.warnings, [])
+    }
+
+    func testAxisMarksMistakesAreDroppedWithOneWarningEach() {
+        let marks: [Any] = [
+            ["type": "AxisMarks", "format": "percent"],                                     // a number format on a date axis
+            ["type": "AxisMarks", "values": ["stride": ["by": 10]]],                        // a number stride on a date axis
+            ["type": "AxisMarks", "format": ["dateTime": ["month": "huge"]]],               // an unknown month symbol
+            ["type": "AxisMarks", "format": ["date": "abbreviated"],                        // format with content,
+             "content": [["type": "AxisLabel"], ["type": "AxisTick", "length": -1]]],       // an unknown item, a bad length
+            ["type": "AxisMarks", "preset": "huge"],                                        // a fifth AxisMarks
+        ]
+        let parsed = ChartDescription.parse(weekChart(["chartXAxis": marks]), logger: logger)
+        XCTAssertEqual(logger.warnings.count, 7, logger.warnings.joined(separator: "\n"))
+        XCTAssertEqual(parsed.spec.x.marks?.count, 4, "only the first four AxisMarks are kept")
+        XCTAssertTrue(logger.warnings.contains { $0.contains("takes at most 4 AxisMarks") })
+        XCTAssertTrue(logger.warnings[0].contains("formats numbers, but the axis plots date"), logger.warnings[0])
+        XCTAssertEqual(ChartDescription.parse(parsed.cleaned, logger: nil).cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+    }
+
+    func testAxisMarksLeftoverKeysBooleansAndBadFontsWarnOnceAndCleanIdempotently() throws {
+        // Parsed from JSON text: JSON booleans arrive as NSNumber, which converts to Int.
+        let axes = try JSONSerialization.jsonObject(with: Data("""
+        {"chartXAxis": [{"type": "AxisMarks", "format": {"date": "abbreviated"}, "fractionLength": 2}],
+         "chartYAxis": [{"type": "AxisMarks", "values": {"automatic": {"desiredCount": true}}, "content": [
+           {"type": "AxisValueLabel", "fractionLength": 1, "font": {"name": "Menlo"}, "offset": {"x": true}}]}]}
+        """.utf8)) as! [String: Any]
+        let parsed = ChartDescription.parse(weekChart(axes), logger: logger)
+        let warnings = logger.warnings
+        XCTAssertEqual(warnings.count, 5, warnings.joined(separator: "\n"))
+        for fragment in ["chartXAxis[0].fractionLength applies only with a number format", "values must be",
+                         "content[0].fractionLength applies only with a number 'format'", "content[0].font must be", "content[0].offset must be"] {
+            XCTAssertTrue(warnings.contains { $0.contains(fragment) }, fragment)
+        }
+        XCTAssertNil(parsed.spec.y.marks?.first?.items?.first?.font)
+        XCTAssertEqual(ChartDescription.parse(parsed.cleaned, logger: logger).cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+        XCTAssertEqual(logger.warnings.count, 5, "the cleaned description re-parses without a warning")
+    }
+
+    func testDateAxisContentRendersLikeTypedAxisMarks() throws {
+        let description = weekChart(["chartXAxis": [
+            ["type": "AxisMarks", "values": ["stride": ["by": "weekOfYear", "count": 2]], "content": [
+                ["type": "AxisGridLine", "stroke": ["lineWidth": 0.5, "dash": [2, 2]]],
+                ["type": "AxisValueLabel", "format": ["dateTime": ["month": "abbreviated", "day": "defaultDigits"]], "font": "caption2",
+                 "foregroundStyle": "red"],
+            ]],
+        ]])
+        let reference = Charts.Chart { weekReference }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .weekOfYear, count: 2)) {
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                    AxisValueLabel(format: Date.FormatStyle().month(.abbreviated).day(.defaultDigits)).font(.caption2).foregroundStyle(SwiftUI.Color.red)
+                }
+            }
+        try assertSameRendering(description, rows: weekRows, reference)
+    }
+
+    func testNumberAxisFormatsAndSeveralAxisMarksRenderLikeTypedAxisMarks() throws {
+        let description = weekChart(["chartYAxis": [
+            ["type": "AxisMarks", "position": "leading", "values": [0, 4, 8], "format": "percent", "fractionLength": 0],
+            ["type": "AxisMarks", "position": "trailing", "content": [["type": "AxisTick", "length": 6], ["type": "AxisValueLabel", "format": "integer"]]],
+        ]])
+        let reference = Charts.Chart { weekReference }
+            .chartYAxis {
+                AxisMarks(format: FloatingPointFormatStyle<Double>.Percent.percent.precision(.fractionLength(0...0)), position: .leading, values: [0.0, 4.0, 8.0])
+                AxisMarks(position: .trailing) {
+                    AxisTick(length: 6)
+                    AxisValueLabel(format: FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0)))
+                }
+            }
+        try assertSameRendering(description, rows: weekRows, reference)
+    }
+
+    func testEmptyAxisContentDrawsNoMarks() throws {
+        let description = weekChart(["chartYAxis": [["type": "AxisMarks", "content": []]]])
+        let reference = Charts.Chart { weekReference }
+            .chartYAxis { AxisMarks { AxisTick(length: 0, stroke: StrokeStyle(lineWidth: 0)) } }
+        try assertSameRendering(description, rows: weekRows, reference)
+    }
+
+    // Sized by a number (a continuous size legend). Typed and erased marks draw the same once both
+    // carry the plot style the element always applies.
+    func testPointsSizedByANumberRenderLikeTypedMarks() throws {
+        let rows = self.rows
+        let description = chart([["type": "PointMark", "x": pv("Day", "$day"), "y": pv("High", "$high"),
+                                  "symbolSize": ["by": pv("Low", "$low")]]])
+        let reference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.PointMark(x: .value("Day", rows[i][0]), y: .value("High", Double(rows[i][2])!))
+                .symbolSize(by: .value("Low", Double(rows[i][1])!))
+        }
+        try assertSameRendering(description, rows: rows, reference)
+    }
+
+    // A stride that would draw thousands of marks keeps Swift Charts busy for minutes; it falls
+    // back to automatic values when the marks are built (the span depends on the rows).
+    func testAxisStridesThatWouldDrawTooManyMarksFallBackToAutomatic() {
+        func drawnValues(_ extra: [String: Any]) -> (x: ChartAxisValues?, y: ChartAxisValues?) {
+            let description = ChartDescription.parse(weekChart(extra), logger: logger).cleaned
+            let drawn = ChartRenderCache().render(description: description, rows: weekRows, viewID: 10, logger: logger).spec
+            return (drawn.x.marks?.first?.values, drawn.y.marks?.first?.values)
+        }
+        func isAutomatic(_ values: ChartAxisValues?) -> Bool {
+            if case .automatic? = values { return true } else { return false }
+        }
+        // The data spans 0...8 (the automatic domain includes 0) and five weeks.
+        var drawn = drawnValues(["chartXAxis": [["type": "AxisMarks", "values": ["stride": ["by": "second"]]]],
+                                 "chartYAxis": [["type": "AxisMarks", "values": ["stride": ["by": 0.0001]]]]])
+        XCTAssertTrue(isAutomatic(drawn.x) && isAutomatic(drawn.y))
+        XCTAssertEqual(logger.warnings.count, 2, "\(logger.warnings)")
+        XCTAssertTrue(logger.warnings[0].contains("chartXAxis[0] values stride would draw about"), logger.warnings[0])
+
+        // Reasonable strides stay, and an explicit domain is the span when there is one.
+        let quiet = CollectingLogger()
+        logger = quiet
+        drawn = drawnValues(["chartXAxis": [["type": "AxisMarks", "values": ["stride": ["by": "day"]]]],
+                             "chartYAxis": [["type": "AxisMarks", "values": ["stride": ["by": 0.01]]]],
+                             "chartYScale": ["domain": [0, 5]]])
+        if case .calendarStride(.day, 1)? = drawn.x {} else { XCTFail("day stride kept: \(String(describing: drawn.x))") }
+        if case .numberStride(0.01)? = drawn.y {} else { XCTFail("0.01 stride over 0...5 kept: \(String(describing: drawn.y))") }
+        XCTAssertEqual(quiet.warnings, [])
+
+        // "nan" and "inf" cells parse as numbers; they neither stop the app nor widen the span.
+        let odd = ChartRenderCache().render(description: ChartDescription.parse(weekChart(["chartYAxis": [
+            ["type": "AxisMarks", "values": ["stride": ["by": 0.01]]]]]), logger: quiet).cleaned,
+            rows: [["2026-08-03", "nan"], ["2026-08-10", "inf"], ["2026-08-17", "5"]], viewID: 10, logger: quiet).spec
+        if case .numberStride(0.01)? = odd.y.marks?.first?.values {} else { XCTFail("0.01 stride over 0...5 kept: \(String(describing: odd.y.marks))") }
+        XCTAssertEqual(quiet.warnings, [])
+
+        // A normalized stack spans 0...1 whatever its values, and a domain without 0 is not widened to it.
+        let stackRows = [["Mon", "900", "A"], ["Mon", "100", "B"]]
+        let normalized = ChartRenderCache().render(description: ChartDescription.parse([
+            "columns": ["day", ["name": "n", "type": "number"], "team"] as [Any],
+            "content": [["type": "ForEach", "content": [["type": "AreaMark", "x": pv("Day", "$day"), "y": pv("N", "$n"),
+                                                         "stacking": "normalized", "foregroundStyle": ["by": pv("Team", "$team")]]]]],
+            "chartYAxis": [["type": "AxisMarks", "values": ["stride": ["by": 0.1]]]],
+        ], logger: quiet).cleaned, rows: stackRows, viewID: 10, logger: quiet).spec
+        if case .numberStride(0.1)? = normalized.y.marks?.first?.values {} else { XCTFail("0.1 stride on a normalized stack kept") }
+        let offset = ChartRenderCache().render(description: ChartDescription.parse(weekChart([
+            "chartYScale": ["domain": ["automatic": ["includesZero": false]]],
+            "chartYAxis": [["type": "AxisMarks", "values": ["stride": ["by": 0.01]]]],
+        ]), logger: quiet).cleaned, rows: [["2026-08-03", "10000"], ["2026-08-10", "10001"]], viewID: 10, logger: quiet).spec
+        if case .numberStride(0.01)? = offset.y.marks?.first?.values {} else { XCTFail("0.01 stride over 10000...10001 kept") }
+        XCTAssertEqual(quiet.warnings, [])
+
+        // desiredCount is at most 100.
+        _ = ChartDescription.parse(weekChart(["chartYAxis": [["type": "AxisMarks", "values": ["automatic": ["desiredCount": 1000]]]]]), logger: quiet)
+        XCTAssertEqual(quiet.warnings.count, 1)
+        XCTAssertTrue(quiet.warnings.first?.contains("(1 to 100)") == true)
+    }
 }

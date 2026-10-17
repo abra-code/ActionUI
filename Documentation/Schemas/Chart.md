@@ -52,7 +52,26 @@ JSON schema and usage documentation for `Chart`.
                                               //   {"gradient": [colors]}; chartSymbolScale a list of symbol names;
                                               //   chartLineStyleScale a list of stroke styles; chartSymbolSizeScale two numbers,
                                               //   the smallest and largest symbol area
-       "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden"; also chartYAxis
+       "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden", or up to 4 AxisMarks (below);
+                                              //   also chartYAxis
+       "chartYAxis": [
+         { "type": "AxisMarks", "preset": "automatic", "position": "leading",
+           "values": [0, 500, 1000, 1500],    // "automatic", {"automatic": {"desiredCount" (1 to 100), "roundLowerBound",
+                                              //   "roundUpperBound"}}, {"stride": {"by": "month", "count": 1}} (a calendar unit, dates),
+                                              //   {"stride": {"by": 10}} (numbers), or a list of values typed by the axis. A stride
+                                              //   that would draw more than 1000 marks over the axis falls back to "automatic"
+           "format": "decimal", "fractionLength": 0, // Without "content" only: labels' format (below); "stroke" likewise
+           "content": [                       // Optional: up to 4 marks; absent = Swift's default marks, [] = none
+             { "type": "AxisGridLine", "centered": false, "stroke": { "lineWidth": 0.5, "dash": [2, 2] } },
+             { "type": "AxisTick", "length": "automatic" }, // or a number, "label", "longestLabel", {"label": {"extendPastBy": 2}}
+             { "type": "AxisValueLabel", "format": "percent", "anchor": "top", "orientation": "automatic",
+               "collisionResolution": "automatic", "font": "caption", "foregroundStyle": "gray", "offset": { "x": 0, "y": 2 } }
+           ] }                                // AxisValueLabel also takes "centered", "multiLabelAlignment", "offsetsMarks",
+       ],                                     //   "horizontalSpacing", "verticalSpacing"; every mark takes foregroundStyle, font, offset.
+                                              //   Formats: on a number axis "integer" | "decimal" | "percent" | "currency" with
+                                              //   "fractionLength" (n or {"min", "max"}) and "currencyCode"; on a date axis
+                                              //   {"dateTime": {"year", "quarter", "month", "day", "weekday", "hour", "minute", "second"}}
+                                              //   (Date.FormatStyle symbol names) or {"date": "abbreviated", "time": "omitted"}
        "chartXAxisLabel": "Week",             // Optional: axis title, or {"text", "position", "alignment", "spacing"};
                                               //   also chartYAxisLabel
        "chartLegend": "automatic",            // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
