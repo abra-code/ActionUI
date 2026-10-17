@@ -19,7 +19,7 @@ This folder is tracked; `artifacts/` and `dist/` are gitignored.
 
 | File | Signing | Payload verify (the executable) | Use |
 |---|---|---|---|
-| `actionui-mcp.pkgbld` | on, installer identity given at build time | arm64 and x86_64, version 0.1.0 from `--version`, Developer ID, hardened runtime, secure timestamp | the distribution build, on the signing machine |
+| `actionui-mcp.pkgbld` | on, installer identity given at build time | arm64 and x86_64, version 0.2.0 from `--version`, Developer ID, hardened runtime, secure timestamp | the distribution build, on the signing machine |
 | `actionui-mcp-local.pkgbld` | off | arm64 and x86_64, version only | a local smoke build on a machine with no Developer ID |
 
 `--unsigned` skips only the installer signature; the payload assertions still run, so the distribution document cannot be smoke-built with ad-hoc signed artifacts. Keep the two in step: a change to payload, destinations or presentation belongs in both. The resource bundles hold no code and assert nothing.
@@ -61,8 +61,8 @@ It lands `dist/actionui-mcp-unsigned.pkg`. Test only: macOS will not install it 
 Then notarize the signed package with Notarize.app (Sign before submitting off, so it keeps the installer signature), or:
 
 ```sh
-xcrun notarytool submit dist/actionui-mcp_0.1.0.pkg --keychain-profile <profile> --wait
-xcrun stapler staple dist/actionui-mcp_0.1.0.pkg
+xcrun notarytool submit dist/actionui-mcp_0.2.0.pkg --keychain-profile <profile> --wait
+xcrun stapler staple dist/actionui-mcp_0.2.0.pkg
 ```
 
 ## Checking a package without installing it

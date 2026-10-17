@@ -150,7 +150,7 @@
     "NAME" : "actionui-mcp",
     "OUTPUT_DIR" : "dist",
     "PACKAGE_NAME" : "${NAME}_${VERSION}-localtest.pkg",
-    "VERSION" : "0.1.0",
+    "VERSION" : "0.2.0",
     "ARTIFACTS_DIR" : "artifacts",
     "MIN_OS_VERSION" : "14.6"
   },
