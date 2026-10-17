@@ -1,7 +1,7 @@
 #!/bin/bash
-# stage-artifacts.sh - build actionui-mcp for release (arm64 and x86_64) and copy the executable
-# and its resource bundles into installer/artifacts, the payload folder of both installer
-# documents in this directory.
+# stage-artifacts.sh - build actionui-mcp for release (arm64 and x86_64) and copy the executable,
+# stripped, and its resource bundles into installer/artifacts, the payload folder of both installer
+# documents in this directory. The executable's symbols go to artifacts/actionui-mcp.dSYM.
 #
 # Usage: stage-artifacts.sh [--identity "Developer ID Application: <name> (<TEAMID>)"]
 #
@@ -90,6 +90,30 @@ if [ "$status" -ne 0 ]; then
     printf 'error: cannot copy actionui-mcp into %s\n' "$artifacts_dir" >&2
     exit 1
 fi
+
+# Symbols: keep a dSYM for reading crash reports (not part of the package), then strip the
+# executable, which takes 44 percent off it. dsymutil reads the debug map in the symbol table, so it runs before
+# strip; signing comes after both. Nothing looks up the executable's own symbols at run time.
+/usr/bin/xcrun dsymutil "$artifacts_dir/actionui-mcp" -o "$artifacts_dir/actionui-mcp.dSYM"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'error: dsymutil failed for actionui-mcp (exit %s)\n' "$status" >&2
+    exit 1
+fi
+# The linker's ad-hoc signature goes first, so strip does not warn that it invalidates it.
+/usr/bin/codesign --remove-signature "$artifacts_dir/actionui-mcp"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'error: cannot remove the linker signature from actionui-mcp\n' >&2
+    exit 1
+fi
+/usr/bin/xcrun strip "$artifacts_dir/actionui-mcp"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'error: strip failed for actionui-mcp (exit %s)\n' "$status" >&2
+    exit 1
+fi
+
 missing=0
 for bundle in $BUNDLES; do
     if [ ! -d "$bin_dir/$bundle" ]; then
@@ -190,4 +214,27 @@ if [ "$status" -ne 0 ] || [ -z "$version" ]; then
     printf 'error: the staged actionui-mcp --version failed (exit %s)\n' "$status" >&2
     exit 1
 fi
-printf 'Staged %s in %s\n' "$version" "$artifacts_dir" >&2
+
+# A copy of the dSYM next to the packages, named by version: artifacts/ is recreated by the next
+# run, and a crash report from this release needs this dSYM to be read.
+dist_dir="$installer_dir/dist"
+dsym_copy="$dist_dir/actionui-mcp_${version##* }.dSYM"
+/bin/mkdir -p "$dist_dir"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'error: cannot create %s\n' "$dist_dir" >&2
+    exit 1
+fi
+/bin/rm -rf "$dsym_copy"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'error: cannot remove the previous %s\n' "$dsym_copy" >&2
+    exit 1
+fi
+/usr/bin/ditto "$artifacts_dir/actionui-mcp.dSYM" "$dsym_copy"
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf 'error: cannot copy actionui-mcp.dSYM to %s\n' "$dsym_copy" >&2
+    exit 1
+fi
+printf 'Staged %s in %s; symbols in %s\n' "$version" "$artifacts_dir" "$dsym_copy" >&2
