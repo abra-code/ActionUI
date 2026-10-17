@@ -50,6 +50,23 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 | `Table` | `columns` (array of column defs) | `rows` (2-D array of cell values) |
 | `DisclosureGroup` | `label`, `isExpanded`, `actionID` | `children` array |
 
+### Charts
+
+`Chart` (Apple only) has one property, `chart`: a description `{"columns", "data", "content", ...}` in Swift Charts' vocabulary. Read `docs/Schemas/Chart.md` before writing one.
+
+```json
+{ "type": "Chart", "id": 10, "properties": { "frame": { "minHeight": 240 }, "chart": {
+  "columns": ["day", { "name": "visits", "type": "number" }],
+  "data": [["Mon", 120], ["Tue", 180]],
+  "content": [{ "type": "ForEach", "content": [
+    { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" } }] }] } } }
+```
+
+- Marks: `BarMark`, `LineMark`, `PointMark`, `AreaMark`, `RuleMark`, `RectangleMark`, `SectorMark`; each takes the keys of one Swift Charts initializer (`x` + `y`, `x` + `yStart` + `yEnd`, ...), and every plotted value is `{"label", "value"}`.
+- `ForEach` draws its content once per row; inside it `"$name"` or `"$1"` reads a cell. Column types: `string` (a bare name), `number`, `integer`, `date` (ISO 8601).
+- `{"by": "$column"}` in `foregroundStyle`, `symbol` or `lineStyle` styles by a column and adds a legend. Chart keys: `chartXScale`, `chartYAxis` (`"hidden"` or `AxisMarks`), `chartXAxisLabel`, `chartLegend`, `chartPlotStyle`.
+- At runtime, set the `chart` property to replace the chart whole, and use the rows calls to stream data (cells in column order).
+
 ### Text and Display
 
 | Type | Key properties | Notes |
