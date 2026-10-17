@@ -1,0 +1,298 @@
+{
+  "type": "VStack",
+  "properties": {
+    "alignment": "leading",
+    "spacing": 16,
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Scroll each chart sideways. The first shows a week of 30 days and starts on September 20; the second shows four of twelve teams.",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Text",
+      "id": 99,
+      "properties": {
+        "text": "Nothing selected yet.",
+        "font": "callout"
+      }
+    },
+    {
+      "type": "Chart",
+      "id": 1,
+      "properties": {
+        "frame": {
+          "width": 560, "height": 200
+        },
+        "valueChangeActionID": "chart.selection.changed",
+        "chart": {
+          "columns": [
+            {
+              "name": "day",
+              "type": "date"
+            },
+            {
+              "name": "visits",
+              "type": "number"
+            }
+          ],
+          "data": [
+            [
+              "2026-09-01",
+              137
+            ],
+            [
+              "2026-09-02",
+              132
+            ],
+            [
+              "2026-09-03",
+              166
+            ],
+            [
+              "2026-09-04",
+              160
+            ],
+            [
+              "2026-09-05",
+              108
+            ],
+            [
+              "2026-09-06",
+              102
+            ],
+            [
+              "2026-09-07",
+              134
+            ],
+            [
+              "2026-09-08",
+              151
+            ],
+            [
+              "2026-09-09",
+              146
+            ],
+            [
+              "2026-09-10",
+              180
+            ],
+            [
+              "2026-09-11",
+              174
+            ],
+            [
+              "2026-09-12",
+              122
+            ],
+            [
+              "2026-09-13",
+              116
+            ],
+            [
+              "2026-09-14",
+              148
+            ],
+            [
+              "2026-09-15",
+              165
+            ],
+            [
+              "2026-09-16",
+              160
+            ],
+            [
+              "2026-09-17",
+              194
+            ],
+            [
+              "2026-09-18",
+              188
+            ],
+            [
+              "2026-09-19",
+              136
+            ],
+            [
+              "2026-09-20",
+              130
+            ],
+            [
+              "2026-09-21",
+              162
+            ],
+            [
+              "2026-09-22",
+              179
+            ],
+            [
+              "2026-09-23",
+              174
+            ],
+            [
+              "2026-09-24",
+              208
+            ],
+            [
+              "2026-09-25",
+              202
+            ],
+            [
+              "2026-09-26",
+              150
+            ],
+            [
+              "2026-09-27",
+              144
+            ],
+            [
+              "2026-09-28",
+              176
+            ],
+            [
+              "2026-09-29",
+              193
+            ],
+            [
+              "2026-09-30",
+              188
+            ]
+          ],
+          "content": [
+            {
+              "type": "ForEach",
+              "content": [
+                {
+                  "type": "BarMark",
+                  "x": {
+                    "label": "Day",
+                    "value": "$day",
+                    "unit": "day"
+                  },
+                  "y": {
+                    "label": "Visits",
+                    "value": "$visits"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "RuleMark",
+              "x": {
+                "label": "Selected",
+                "value": "$selection"
+              },
+              "foregroundStyle": "orange",
+              "lineStyle": {
+                "lineWidth": 1
+              }
+            }
+          ],
+          "chartXSelection": "value",
+          "chartScrollableAxes": "horizontal",
+          "chartXVisibleDomain": {
+            "length": 604800
+          },
+          "chartScrollPosition": {
+            "initialX": "2026-09-20"
+          }
+        }
+      }
+    },
+    {
+      "type": "Chart",
+      "id": 2,
+      "properties": {
+        "frame": {
+          "width": 560, "height": 200
+        },
+        "chart": {
+          "columns": [
+            "team",
+            {
+              "name": "tickets",
+              "type": "integer"
+            }
+          ],
+          "data": [
+            [
+              "Team A",
+              12
+            ],
+            [
+              "Team B",
+              18
+            ],
+            [
+              "Team C",
+              9
+            ],
+            [
+              "Team D",
+              15
+            ],
+            [
+              "Team E",
+              21
+            ],
+            [
+              "Team F",
+              7
+            ],
+            [
+              "Team G",
+              14
+            ],
+            [
+              "Team H",
+              11
+            ],
+            [
+              "Team I",
+              19
+            ],
+            [
+              "Team J",
+              8
+            ],
+            [
+              "Team K",
+              16
+            ],
+            [
+              "Team L",
+              13
+            ]
+          ],
+          "content": [
+            {
+              "type": "ForEach",
+              "content": [
+                {
+                  "type": "BarMark",
+                  "x": {
+                    "label": "Team",
+                    "value": "$team"
+                  },
+                  "y": {
+                    "label": "Tickets",
+                    "value": "$tickets"
+                  },
+                  "foregroundStyle": "teal"
+                }
+              ]
+            }
+          ],
+          "chartScrollableAxes": "horizontal",
+          "chartXVisibleDomain": {
+            "length": 4
+          }
+        }
+      }
+    }
+  ]
+}

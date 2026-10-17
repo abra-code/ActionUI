@@ -733,6 +733,23 @@ class ChartSchemaTests(unittest.TestCase):
         self.assertTrue(any("chartXSelection: 'hover' is not a known value" in f for f in found))
         self.assertTrue(any("chartAngleSelection: 'range' is not a known value" in f for f in found))
 
+    def test_scroll_keys_are_checked(self):
+        good = {"type": "Chart", "id": 1, "properties": {"chart": {
+            "chartScrollableAxes": ["horizontal", "vertical"], "chartXVisibleDomain": {"length": 30},
+            "chartScrollPosition": {"initialX": "2026-09-01", "initialY": 5},
+        }}}
+        self.assertEqual([(i.path, i.message) for i in _validate(good)], [])
+        bad = {"type": "Chart", "id": 1, "properties": {"chart": {
+            "chartScrollableAxes": "sideways", "chartXVisibleDomain": {"length": "30"}, "chartYVisibleDomain": {},
+            "chartScrollPosition": {"initialX": True},
+        }}}
+        found = [f"{i.path}: {i.message}" for i in _validate(bad)]
+        self.assertEqual(len(found), 4, found)
+        self.assertTrue(any("chartScrollableAxes: 'sideways' is not a known value" in f for f in found))
+        self.assertTrue(any("chartXVisibleDomain.length: expected number, got string" in f for f in found))
+        self.assertTrue(any("chartYVisibleDomain.length: required key 'length' is missing" in f for f in found))
+        self.assertTrue(any("chartScrollPosition.initialX: expected string or number, got boolean" in f for f in found))
+
     def test_a_sector_angle_of_another_type_is_reported(self):
         angle = {"label": "Day", "value": "$day", "type": "date", "unit": "day"}
         messages = [i.message for i in _validate(self._chart([{"type": "SectorMark", "angle": angle}]))]

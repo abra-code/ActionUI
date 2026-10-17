@@ -80,11 +80,19 @@ JSON schema and usage documentation for `Chart`.
        "chartLegend": "automatic",            // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
        "chartPlotStyle": { "background": "gray.opacity(0.1)", "cornerRadius": 4 }, // Optional: View properties for the plot area: padding,
                                               //   background, border, frame, cornerRadius, clipShape, shadow, opacity, offset, foregroundStyle
-       "chartXSelection": "value"             // Optional: the user selects on the x axis: "value" | "range" (a number or date
+       "chartXSelection": "value",            // Optional: the user selects on the x axis: "value" | "range" (a number or date
                                               //   axis); also chartYSelection;
                                               //   "chartAngleSelection": "value" selects a SectorMark. Without these keys the chart
                                               //   installs no selection gesture. Swift Charts draws nothing for a selection: draw it
                                               //   with "$selection" marks (below)
+       "chartScrollableAxes": "horizontal",   // Optional: "horizontal" | "vertical" | ["horizontal", "vertical"]; the chart scrolls.
+                                              //   Without it the chart installs no scrolling, and the two keys below are ignored
+       "chartXVisibleDomain": { "length": 30 }, // Optional: how much of a scrolling axis shows: data units on a number axis,
+                                              //   seconds on a date axis, a whole count of categories on a string axis; also
+                                              //   chartYVisibleDomain. A length so short that the axis would lay out more than
+                                              //   100 automatic marks is lengthened to the shortest that does not, with a warning
+       "chartScrollPosition": { "initialX": "2026-09-01" } // Optional: where a scrolling axis starts, a value of the axis's
+                                              //   type; also "initialY"
      }
    }
    // Marks: every argument is a key named like Swift's initializer argument. A plottable value is an object

@@ -444,7 +444,11 @@
         } },
         "chartXSelection": { "types": ["string"], "enum": ["value", "range"], "description": "The user selects on the x axis; draw the selection with \"$selection\" marks" },
         "chartYSelection": { "types": ["string"], "enum": ["value", "range"], "description": "The user selects on the y axis; draw the selection with \"$selection\" marks" },
-        "chartAngleSelection": { "types": ["string"], "enum": ["value"], "description": "The user selects a SectorMark" }
+        "chartAngleSelection": { "types": ["string"], "enum": ["value"], "description": "The user selects a SectorMark" },
+        "chartScrollableAxes": { "types": ["string", "array"], "enum": ["horizontal", "vertical"], "itemTypes": ["string"], "itemEnum": ["horizontal", "vertical"], "description": "The axes the chart scrolls along" },
+        "chartXVisibleDomain": { "types": ["object"], "description": "How much of the scrolling x axis shows: data units, seconds on a date axis, a count of categories", "properties": { "length": { "types": ["number"], "required": true } } },
+        "chartYVisibleDomain": { "types": ["object"], "description": "How much of the scrolling y axis shows", "properties": { "length": { "types": ["number"], "required": true } } },
+        "chartScrollPosition": { "types": ["object"], "description": "Where each scrolling axis starts, a value of the axis's type", "properties": { "initialX": { "types": ["string", "number"] }, "initialY": { "types": ["string", "number"] } } }
       }
     },
     "selectionActionTiming": { "types": ["string"], "enum": ["settled", "continuous"], "description": "When valueChangeActionID fires on a selection change: settled (default, after 150 ms of rest) or continuous" }

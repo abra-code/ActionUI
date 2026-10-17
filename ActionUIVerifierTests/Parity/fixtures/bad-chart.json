@@ -39,6 +39,9 @@
           "chartPlotStyle": { "onHoverActionID": "hover", "background": 1 },
           "chartXSelection": "hover",
           "chartAngleSelection": 1,
+          "chartScrollableAxes": ["horizontal", "sideways"],
+          "chartXVisibleDomain": { "length": "30" },
+          "chartScrollPosition": { "initialX": true, "zoom": 2 },
           "chartFoo": true
         }
       }

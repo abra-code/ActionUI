@@ -99,7 +99,9 @@ struct ChartSelection: Equatable {
         }
     }
 
-    private static func scalar(_ raw: Any, type: ChartColumnType) -> ChartScalar? {
+    /// A JSON value as a scalar of `type`: a string, a number that is not a boolean, a whole
+    /// number in Int's range, or an ISO 8601 date string. Also reads a scroll position.
+    static func scalar(_ raw: Any, type: ChartColumnType) -> ChartScalar? {
         switch type {
         case .string:
             return (raw as? String).map { .string($0) }

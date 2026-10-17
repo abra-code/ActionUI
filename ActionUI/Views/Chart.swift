@@ -76,11 +76,19 @@
        "chartLegend": "automatic",            // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
        "chartPlotStyle": { "background": "gray.opacity(0.1)", "cornerRadius": 4 }, // Optional: View properties for the plot area: padding,
                                               //   background, border, frame, cornerRadius, clipShape, shadow, opacity, offset, foregroundStyle
-       "chartXSelection": "value"             // Optional: the user selects on the x axis: "value" | "range" (a number or date
+       "chartXSelection": "value",            // Optional: the user selects on the x axis: "value" | "range" (a number or date
                                               //   axis); also chartYSelection;
                                               //   "chartAngleSelection": "value" selects a SectorMark. Without these keys the chart
                                               //   installs no selection gesture. Swift Charts draws nothing for a selection: draw it
                                               //   with "$selection" marks (below)
+       "chartScrollableAxes": "horizontal",   // Optional: "horizontal" | "vertical" | ["horizontal", "vertical"]; the chart scrolls.
+                                              //   Without it the chart installs no scrolling, and the two keys below are ignored
+       "chartXVisibleDomain": { "length": 30 }, // Optional: how much of a scrolling axis shows: data units on a number axis,
+                                              //   seconds on a date axis, a whole count of categories on a string axis; also
+                                              //   chartYVisibleDomain. A length so short that the axis would lay out more than
+                                              //   100 automatic marks is lengthened to the shortest that does not, with a warning
+       "chartScrollPosition": { "initialX": "2026-09-01" } // Optional: where a scrolling axis starts, a value of the axis's
+                                              //   type; also "initialY"
      }
    }
    // Marks: every argument is a key named like Swift's initializer argument. A plottable value is an object
@@ -249,6 +257,7 @@ struct Chart: ActionUIViewConstruction {
                 AnyView(View.applyModifiers(plot, plotElement, windowUUID, plotStyle, logger))
             })
             .modifier(ChartSelector(binder: binder))
+            .modifier(ChartScroller(spec: rendered.spec.scroll))
     }
 
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in
@@ -278,7 +287,8 @@ final class ChartRenderCache {
     private var description: NSDictionary?
     private var spec = ChartSpec()
     // The spec as drawn: axis strides that would draw too many marks fall back to automatic
-    // values, which depends on the rows (ChartAxisStrideLimit).
+    // values, and visible lengths that would lay out too many are lengthened, which depends on the rows
+    // (ChartAxisStrideLimit, ChartVisibleLengthLimit).
     private var drawnSpec = ChartSpec()
     private var rows: [[String]]?
     private var segments: [Segment] = []
@@ -326,6 +336,8 @@ final class ChartRenderCache {
                                                              key: "chartXAxis", viewID: viewID, logger: logger)
             drawnSpec.y.marks = ChartAxisStrideLimit.limited(spec.y.marks, domain: spec.y.domain, extent: builder.yExtent,
                                                              key: "chartYAxis", viewID: viewID, logger: logger)
+            drawnSpec.scroll = ChartVisibleLengthLimit.limited(spec.scroll, x: drawnSpec.x, y: drawnSpec.y, xExtent: builder.xExtent,
+                                                               yExtent: builder.yExtent, viewID: viewID, logger: logger)
         }
         let newSelection = ChartSelection.decode(selectionValue, spec: spec.selection)
         if rebuilt || newSelection != selection {

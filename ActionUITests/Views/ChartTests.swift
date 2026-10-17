@@ -405,6 +405,8 @@ final class ChartTests: XCTestCase {
         return (image, inked)
     }
 
+    // Chart.scroll.json is drawn in a window by ChartScrollTests: offscreen, a scrolling chart
+    // draws no marks.
     func testEveryChartExampleRendersWithoutWarnings() throws {
         for path in ["ActionUISwiftTestApp/Resources/Chart.json", "ActionUISwiftTestApp/Resources/Chart.selection.json",
                      "Documentation/Elements/Chart.json"] {

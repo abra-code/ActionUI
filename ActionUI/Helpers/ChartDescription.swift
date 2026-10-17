@@ -92,6 +92,7 @@ struct ChartSpec {
     // View modifier properties for the plot area, already validated as baseline View properties.
     var plotStyle: [String: Any] = [:]
     var selection = ChartSelectionSpec()
+    var scroll = ChartScrollSpec()
 
     // Every (column, type) pair the marks read from the chart's rows, so the rows are parsed
     // once per pair. A ForEach with its own data reads its own rows (referencedColumns(in:)).
@@ -133,6 +134,7 @@ enum ChartDescription {
         "chartXAxisLabel", "chartYAxisLabel", "chartLegend", "chartPlotStyle",
         "chartForegroundStyleScale", "chartSymbolScale", "chartLineStyleScale", "chartSymbolSizeScale",
         "chartXSelection", "chartYSelection", "chartAngleSelection",
+        "chartScrollableAxes", "chartXVisibleDomain", "chartYVisibleDomain", "chartScrollPosition",
     ]
     static let plotStyleKeys: Set<String> = [
         "padding", "background", "border", "frame", "cornerRadius", "clipShape", "shadow", "opacity", "offset", "foregroundStyle",
@@ -193,6 +195,7 @@ enum ChartDescription {
         spec.styles = parseStyleScales(spec.content, description: description, cleaned: &cleaned, logger: logger)
         spec.selection = parseSelection(spec.content, xType: xType, yType: yType, description: description, cleaned: &cleaned, logger: logger)
         spec.content = typingSelectionValues(spec.content, spec: spec.selection, logger: logger)
+        spec.scroll = parseScroll(xType: xType, yType: yType, description: description, cleaned: &cleaned, logger: logger)
 
         if let legend = description["chartLegend"] {
             if let visibility = legend as? String, let parsed = parseVisibility(visibility) {
@@ -527,6 +530,93 @@ enum ChartDescription {
                 cleaned["chartAngleSelection"] = ChartSelectionMode.value.rawValue
                 spec.angle = true
                 spec.angleType = angleType
+            }
+        }
+        return spec
+    }
+
+    // The longest visible length of a date axis, in seconds: about 30 million years.
+    static let maxDateVisibleLength = 1e15
+
+    // chartScrollableAxes, then each scrolling axis's visible length and initial position, in
+    // the unit and type of the axis.
+    private static func parseScroll(xType: ChartColumnType?, yType: ChartColumnType?, description: [String: Any],
+                                    cleaned: inout [String: Any], logger: (any ActionUILogger)?) -> ChartScrollSpec {
+        var spec = ChartScrollSpec(xType: xType, yType: yType)
+        if let raw = description["chartScrollableAxes"] {
+            let names = (raw as? String).map { [$0] } ?? (raw as? [Any])?.compactMap { $0 as? String }
+            let count = (raw as? [Any])?.count ?? 1
+            let axes = names?.compactMap { ["horizontal": Axis.Set.horizontal, "vertical": .vertical][$0] } ?? []
+            // A repeated axis merges into one, as the verifier accepts it.
+            if let names, !axes.isEmpty, axes.count == count {
+                axes.forEach { spec.axes.formUnion($0) }
+                cleaned["chartScrollableAxes"] = raw
+            } else {
+                logger?.log("Chart: 'chartScrollableAxes' must be \"horizontal\", \"vertical\" or both in an array; ignoring it", .warning)
+            }
+        }
+        for (axis, type) in [("X", xType), ("Y", yType)] {
+            let key = "chart\(axis)VisibleDomain"
+            let scrolls = spec.axes.contains(axis == "X" ? .horizontal : .vertical)
+            let direction = axis == "X" ? "horizontal" : "vertical"
+            guard let raw = description[key] else { continue }
+            guard scrolls else {
+                logger?.log("Chart: '\(key)' needs chartScrollableAxes with \"\(direction)\"; ignoring it", .warning)
+                continue
+            }
+            guard let type else {
+                logger?.log("Chart: '\(key)' needs a mark that plots a value on the \(axis.lowercased()) axis; ignoring it", .warning)
+                continue
+            }
+            let object = raw as? [String: Any] ?? [:]
+            for name in object.keys where name != "length" {
+                logger?.log("Chart: \(key).\(name) is not supported; ignoring it", .warning)
+            }
+            let number = (object["length"] as? NSNumber).flatMap { CFGetTypeID($0) == CFBooleanGetTypeID() ? nil : $0.doubleValue }
+            let length: ChartVisibleLength?
+            switch (type, number) {
+            case (.string, let value?) where value >= 1 && value == value.rounded() && value <= Double(Int32.max):
+                length = .categories(Int(value))
+            case (.number, let value?), (.integer, let value?):
+                length = value.isFinite && value > 0 ? .amount(value) : nil
+            case (.date, let value?):
+                // Swift Charts stops the app at a date length of about 1e19 seconds (Int's range).
+                length = value > 0 && value <= maxDateVisibleLength ? .amount(value) : nil
+            default:
+                length = nil
+            }
+            guard let length else {
+                let unit = type == .string ? "a whole count of categories" : type == .date ? "a number of seconds above 0 and at most 1e15" : "a number above 0"
+                logger?.log("Chart: '\(key)' must be {\"length\": n}, n \(unit) on this axis; ignoring it", .warning)
+                continue
+            }
+            cleaned[key] = object.filter { $0.key == "length" }
+            if axis == "X" { spec.xLength = length } else { spec.yLength = length }
+        }
+        if let raw = description["chartScrollPosition"] {
+            guard let object = raw as? [String: Any] else {
+                logger?.log("Chart: 'chartScrollPosition' must be {\"initialX\", \"initialY\"}; ignoring it", .warning)
+                return spec
+            }
+            var cleanedPosition: [String: Any] = [:]
+            for key in object.keys where key != "initialX" && key != "initialY" {
+                logger?.log("Chart: chartScrollPosition.\(key) is not supported; ignoring it", .warning)
+            }
+            for (key, axis, type) in [("initialX", Axis.Set.horizontal, xType), ("initialY", Axis.Set.vertical, yType)] {
+                guard let value = object[key] else { continue }
+                guard spec.axes.contains(axis) else {
+                    logger?.log("Chart: chartScrollPosition.\(key) needs chartScrollableAxes with \"\(axis == .horizontal ? "horizontal" : "vertical")\"; ignoring it", .warning)
+                    continue
+                }
+                guard let type, let scalar = ChartSelection.scalar(value, type: type) else {
+                    logger?.log("Chart: chartScrollPosition.\(key) must be a value of the axis's type\(type.map { " (\($0.rawValue))" } ?? ""); ignoring it", .warning)
+                    continue
+                }
+                if axis == .horizontal { spec.initialX = scalar } else { spec.initialY = scalar }
+                cleanedPosition[key] = value
+            }
+            if !cleanedPosition.isEmpty {
+                cleaned["chartScrollPosition"] = cleanedPosition
             }
         }
         return spec

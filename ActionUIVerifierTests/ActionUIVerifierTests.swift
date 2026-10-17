@@ -303,6 +303,24 @@ private func chart(_ marks: [JSONValue], forEach: Bool = true) -> JSONValue {
     #expect(found.contains { $0.contains("chartAngleSelection: 'range' is not a known value") })
 }
 
+@Test func scrollKeysAreChecked() throws {
+    let good: JSONValue = ["type": "Chart", "id": 1, "properties": ["chart": [
+        "chartScrollableAxes": ["horizontal", "vertical"], "chartXVisibleDomain": ["length": 30],
+        "chartScrollPosition": ["initialX": "2026-09-01", "initialY": 5],
+    ]]]
+    #expect(try issues(good) == [])
+    let bad: JSONValue = ["type": "Chart", "id": 1, "properties": ["chart": [
+        "chartScrollableAxes": "sideways", "chartXVisibleDomain": ["length": "30"], "chartYVisibleDomain": [:],
+        "chartScrollPosition": ["initialX": true],
+    ]]]
+    let found = try issues(bad)
+    #expect(found.count == 4)
+    #expect(found.contains { $0.contains("chartScrollableAxes: 'sideways' is not a known value") })
+    #expect(found.contains { $0.contains("chartXVisibleDomain.length: expected number, got string") })
+    #expect(found.contains { $0.contains("chartYVisibleDomain.length: required key 'length' is missing") })
+    #expect(found.contains { $0.contains("chartScrollPosition.initialX: expected string or number, got boolean") })
+}
+
 @Test func aSectorAngleOfAnotherTypeIsReported() throws {
     let found = try issues(chart([["type": "SectorMark", "angle": ["label": "Day", "value": "$day", "type": "date", "unit": "day"]]]))
     #expect(found.count == 2)

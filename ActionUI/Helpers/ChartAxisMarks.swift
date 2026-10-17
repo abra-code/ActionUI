@@ -565,21 +565,10 @@ enum ChartAxisStrideLimit {
             switch specs[index].values {
             case .numberStride(let step):
                 stepSeconds = step
-                switch domain.kind {
-                case .numbers(let range):
-                    span = range.upperBound - range.lowerBound
-                case .automatic(let includesZero, _) where includesZero == false:
-                    span = extent.map { $0.upperBound - $0.lowerBound }
-                default:
-                    span = extent.map { max($0.upperBound, 0) - min($0.lowerBound, 0) }
-                }
+                span = self.span(domain, extent: extent, dates: false)
             case .calendarStride(let unit, let count):
                 stepSeconds = approximateSeconds(unit) * Double(count)
-                if case .dates(let range) = domain.kind {
-                    span = range.upperBound.timeIntervalSince(range.lowerBound)
-                } else {
-                    span = extent.map { $0.upperBound - $0.lowerBound }
-                }
+                span = self.span(domain, extent: extent, dates: true)
             default:
                 continue
             }
@@ -588,6 +577,25 @@ enum ChartAxisStrideLimit {
             specs[index].values = .automatic(desiredCount: nil, roundLowerBound: nil, roundUpperBound: nil)
         }
         return specs
+    }
+
+    /// The axis span in the axis's unit (dates in seconds), as described above; also bounds a
+    /// scrolling axis's visible length (ChartVisibleLengthLimit).
+    static func span(_ domain: ForwardingDomain, extent: ClosedRange<Double>?, dates: Bool) -> Double? {
+        if dates {
+            if case .dates(let range) = domain.kind {
+                return range.upperBound.timeIntervalSince(range.lowerBound)
+            }
+            return extent.map { $0.upperBound - $0.lowerBound }
+        }
+        switch domain.kind {
+        case .numbers(let range):
+            return range.upperBound - range.lowerBound
+        case .automatic(let includesZero, _) where includesZero == false:
+            return extent.map { $0.upperBound - $0.lowerBound }
+        default:
+            return extent.map { max($0.upperBound, 0) - min($0.lowerBound, 0) }
+        }
     }
 
     // The shortest length of a unit, so the estimate never undercounts.
