@@ -181,6 +181,7 @@ actionui_extension = Extension(
         '-framework', 'SwiftUI',
         '-framework', 'AppKit',
         '-framework', 'AVKit',
+        '-framework', 'Charts',
         f"-mmacosx-version-min={MIN_MACOS_VERSION}",
     ],
 )

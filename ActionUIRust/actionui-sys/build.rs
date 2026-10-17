@@ -19,7 +19,7 @@ const FRAMEWORKS: [&str; 5] = [
 // System frameworks ActionUI's Swift code uses. Most are named by the object files
 // themselves; AVKit is not (see the note in ActionUI's Package.swift), and listing the
 // main ones keeps the link independent of that mechanism.
-const SYSTEM_FRAMEWORKS: [&str; 4] = ["Foundation", "AppKit", "SwiftUI", "AVKit"];
+const SYSTEM_FRAMEWORKS: [&str; 5] = ["Foundation", "AppKit", "SwiftUI", "AVKit", "Charts"];
 
 fn main() {
     println!("cargo:rerun-if-env-changed=ACTIONUI_FRAMEWORKS_DIR");

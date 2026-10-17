@@ -23,6 +23,7 @@
             "-framework SwiftUI",
             "-framework AppKit",
             "-framework AVKit",
+            "-framework Charts",
             "-mmacosx-version-min=14.6"
           ]
         }

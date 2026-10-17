@@ -225,6 +225,7 @@ clang -shared -fPIC \
   -framework SwiftUI \
   -framework AppKit \
   -framework AVKit \
+  -framework Charts \
   -o _actionui.so \
   actionui_native.m
 ```
