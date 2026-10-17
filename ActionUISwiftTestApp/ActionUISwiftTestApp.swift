@@ -240,6 +240,13 @@ struct ActionUISwiftTestApp: App {
             ActionUISwift.setElementRows(windowUUID: windowUUID, viewID: 30, rows: vstackChipRows)
             ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: "Tap a row or chip to see the action here.")
         }
+        // Chart.selection.json: each chart's selection is its value, a JSON string ("" when
+        // nothing is selected); show the latest one in the status line.
+        ActionUISwift.registerActionHandler(actionID: "chart.selection.changed") { _, windowUUID, viewID, _, _ in
+            let selection = ActionUISwift.getElementValue(windowUUID: windowUUID, viewID: viewID) as? String ?? ""
+            let text = selection.isEmpty ? "Chart \(viewID): nothing selected" : "Chart \(viewID): \(selection)"
+            ActionUISwift.setElementValue(windowUUID: windowUUID, viewID: 99, value: text)
+        }
         // Chart.dynamic.json: the host replaces the chart description (lines or bars) and
         // streams rows. A description without "data" keeps the rows, so switching forms
         // keeps the weeks that were added.

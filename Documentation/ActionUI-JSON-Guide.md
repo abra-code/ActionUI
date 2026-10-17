@@ -202,6 +202,12 @@ Layout follows SwiftUI stacking rules:
 - Replace the chart whole by setting its `chart` property to a new description. A description with `data` also replaces the rows; one without keeps them.
 - Stream data with the rows calls (set, append and clear rows), as for a Table: each row is an array of cells in column order. The in-process adapters take cells as strings (`"120"`, `"2026-08-03"`). Changing the rows never changes the description.
 
+**Selection.** `"chartXSelection": "value"` (or `"range"`; also `chartYSelection`, and `"chartAngleSelection": "value"` for sectors) lets the user select with the pointer or by touch, as Swift Charts does on each platform. The selection becomes the chart's value, a JSON string such as `{"x": "Tue"}` (`""` when nothing is selected), and `valueChangeActionID` fires once the selection settles; `"selectionActionTiming": "continuous"` fires it on every change. Swift Charts draws nothing for a selection, so draw it with a mark outside the ForEach whose value is `"$selection"`, drawn only while something is selected:
+
+```json
+{ "type": "RuleMark", "x": { "label": "Selected", "value": "$selection" }, "foregroundStyle": "gray.opacity(0.4)" }
+```
+
 **Checks.** The verifier checks the description's structure: mark types, the keys of each initializer, value types and enum values. ActionUI warns about the rest when it draws the chart: a `"$name"` that names no column, a row whose cell does not parse under its column's type (the row is skipped). Settings Swift Charts cannot draw, such as a log scale that reaches 0 or a stride that would draw thousands of axis marks, are refused or fall back to the automatic form, with a warning.
 
 **Platforms.** Apple only, on every platform ActionUI supports. Android draws nothing in its place, and Web shows a placeholder.

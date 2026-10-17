@@ -264,6 +264,14 @@ s.call(138, "update_window", {"window": chart_window, "properties": {"10": {"cha
 result = structured(s.response(138)) or {}
 check("update_window replaces a chart and streams its rows",
       result.get("updated") == 2 and result.get("problems") == [] and result.get("warnings") == [], result)
+# A chart's selection is its value, a JSON string; a host selects with values and reads it back.
+s.call(159, "update_window", {"window": chart_window, "properties": {"10": {"chart": dict(description, chartXSelection="value")}},
+                              "values": {"10": '{"x":"Tue"}'}})
+result = structured(s.response(159)) or {}
+check("update_window sets a chart's selection", result.get("updated") == 2 and result.get("problems") == [], result)
+s.call(160, "get_values", {"window": chart_window, "ids": [10]})
+result = structured(s.response(160)) or {}
+check("get_values reads a chart's selection", result.get("values", {}).get("10") == '{"x":"Tue"}', result)
 s.call(139, "update_window", {"window": chart_window, "properties": {"10": {"chart": {"content": "bars"}}}})
 result = structured(s.response(139)) or {}
 check("update_window refuses a chart description the verifier rejects",

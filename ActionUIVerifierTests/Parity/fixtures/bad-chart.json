@@ -5,6 +5,7 @@
       "type": "Chart",
       "id": 1,
       "properties": {
+        "selectionActionTiming": "often",
         "chart": {
           "columns": ["day", { "name": "n", "type": "number" }],
           "content": [
@@ -36,6 +37,8 @@
           "chartXAxis": [{ "type": "AxisMarks", "preset": "wide", "format": { "dateTime": { "month": "huge" } }, "content": [{ "type": "AxisRule" }] }],
           "chartLegend": 3,
           "chartPlotStyle": { "onHoverActionID": "hover", "background": 1 },
+          "chartXSelection": "hover",
+          "chartAngleSelection": 1,
           "chartFoo": true
         }
       }

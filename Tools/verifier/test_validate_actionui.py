@@ -716,6 +716,23 @@ class ChartSchemaTests(unittest.TestCase):
         self.assertTrue(any("content[1].centered: expected boolean, got string" in f for f in found))
         self.assertTrue(any("chartYAxis: 'shown' is not a known value" in f for f in found))
 
+    def test_selection_keys_are_checked(self):
+        rule = {"type": "RuleMark", "x": {"label": "Selected", "value": "$selection"}}
+        good = {"type": "Chart", "id": 1, "properties": {"selectionActionTiming": "continuous", "valueChangeActionID": "picked", "chart": {
+            "columns": ["day", {"name": "n", "type": "number"}],
+            "content": [{"type": "ForEach", "content": [{"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}}]}, rule],
+            "chartXSelection": "value", "chartYSelection": "range", "chartAngleSelection": "value",
+        }}}
+        self.assertEqual([(i.path, i.message) for i in _validate(good)], [])
+        bad = {"type": "Chart", "id": 1, "properties": {"selectionActionTiming": "often", "chart": {
+            "chartXSelection": "hover", "chartAngleSelection": "range",
+        }}}
+        found = [f"{i.path}: {i.message}" for i in _validate(bad)]
+        self.assertEqual(len(found), 3, found)
+        self.assertTrue(any("selectionActionTiming: 'often' is not a known value" in f for f in found))
+        self.assertTrue(any("chartXSelection: 'hover' is not a known value" in f for f in found))
+        self.assertTrue(any("chartAngleSelection: 'range' is not a known value" in f for f in found))
+
     def test_a_sector_angle_of_another_type_is_reported(self):
         angle = {"label": "Day", "value": "$day", "type": "date", "unit": "day"}
         messages = [i.message for i in _validate(self._chart([{"type": "SectorMark", "angle": angle}]))]

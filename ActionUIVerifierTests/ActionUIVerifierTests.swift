@@ -285,6 +285,24 @@ private func chart(_ marks: [JSONValue], forEach: Bool = true) -> JSONValue {
     #expect(found.contains { $0.contains("chartYAxis: 'shown' is not a known value") })
 }
 
+@Test func selectionKeysAreChecked() throws {
+    let rule: JSONValue = ["type": "RuleMark", "x": ["label": "Selected", "value": "$selection"]]
+    let good: JSONValue = ["type": "Chart", "id": 1, "properties": ["selectionActionTiming": "continuous", "valueChangeActionID": "picked", "chart": [
+        "columns": ["day", ["name": "n", "type": "number"]],
+        "content": [["type": "ForEach", "content": [["type": "BarMark", "x": ["label": "Day", "value": "$day"], "y": ["label": "N", "value": "$n"]]]], rule],
+        "chartXSelection": "value", "chartYSelection": "range", "chartAngleSelection": "value",
+    ]]]
+    #expect(try issues(good) == [])
+    let bad: JSONValue = ["type": "Chart", "id": 1, "properties": ["selectionActionTiming": "often", "chart": [
+        "chartXSelection": "hover", "chartAngleSelection": "range",
+    ]]]
+    let found = try issues(bad)
+    #expect(found.count == 3)
+    #expect(found.contains { $0.contains("selectionActionTiming: 'often' is not a known value") })
+    #expect(found.contains { $0.contains("chartXSelection: 'hover' is not a known value") })
+    #expect(found.contains { $0.contains("chartAngleSelection: 'range' is not a known value") })
+}
+
 @Test func aSectorAngleOfAnotherTypeIsReported() throws {
     let found = try issues(chart([["type": "SectorMark", "angle": ["label": "Day", "value": "$day", "type": "date", "unit": "day"]]]))
     #expect(found.count == 2)

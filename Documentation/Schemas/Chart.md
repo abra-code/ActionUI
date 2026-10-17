@@ -7,8 +7,11 @@ JSON schema and usage documentation for `Chart`.
 // JSON specification for ActionUI.Chart:
  {
    "type": "Chart",
-   "id": 10,             // Required when the chart is replaced or fed at runtime (setElementProperty, rows)
+   "id": 10,             // Required when the chart is replaced or fed at runtime (setElementProperty, rows) or selects
    "properties": {
+     "valueChangeActionID": "chart.selected", // Optional: fires when the user changes the selection (below)
+     "selectionActionTiming": "settled",      // Optional: "settled" (default): the action fires once the selection has
+                                              //   rested for 150 ms, and at once when it is cleared; "continuous": on every change
      "chart": {          // Optional: the chart description. Absent = an empty plot area.
                          //   Replace it whole at runtime with setElementProperty(10, "chart", {...}).
        "columns": ["week", "platform", { "name": "users", "type": "number" }],
@@ -75,8 +78,13 @@ JSON schema and usage documentation for `Chart`.
        "chartXAxisLabel": "Week",             // Optional: axis title, or {"text", "position", "alignment", "spacing"};
                                               //   also chartYAxisLabel
        "chartLegend": "automatic",            // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
-       "chartPlotStyle": { "background": "gray.opacity(0.1)", "cornerRadius": 4 } // Optional: View properties for the plot area: padding,
+       "chartPlotStyle": { "background": "gray.opacity(0.1)", "cornerRadius": 4 }, // Optional: View properties for the plot area: padding,
                                               //   background, border, frame, cornerRadius, clipShape, shadow, opacity, offset, foregroundStyle
+       "chartXSelection": "value"             // Optional: the user selects on the x axis: "value" | "range" (a number or date
+                                              //   axis); also chartYSelection;
+                                              //   "chartAngleSelection": "value" selects a SectorMark. Without these keys the chart
+                                              //   installs no selection gesture. Swift Charts draws nothing for a selection: draw it
+                                              //   with "$selection" marks (below)
      }
    }
    // Marks: every argument is a key named like Swift's initializer argument. A plottable value is an object
@@ -121,6 +129,12 @@ JSON schema and usage documentation for `Chart`.
    //   (or a date with "type": "date" or a "unit").
    //   "unit" is year | quarter | month | weekOfYear | weekOfMonth | day | hour | minute | second (dates).
    //   Dates are ISO 8601: "YYYY-MM-DD" is a calendar day; a zone designator ("Z", "+hh:mm") makes an instant.
+   // Selection marks: outside a ForEach, a plotted value "$selection" reads the selection: on x, xStart or xEnd the
+   //   x selection, on y, yStart or yEnd the y selection; a range selection is read by xStart / xEnd (yStart / yEnd)
+   //   as its start and end. Such a mark is drawn only while there is a selection and takes the axis's type, e.g.
+   //   { "type": "RuleMark", "x": { "label": "Selected", "value": "$selection" }, "foregroundStyle": "gray.opacity(0.4)" }
+   //   or a RectangleMark with "xStart" and "xEnd" "$selection" for a range. A selected category the chart does not
+   //   plot is not drawn (it would add a category). Only these marks are rebuilt on a selection change.
    // One axis plots one type: number and integer may share an axis; a mark plotting another type is dropped.
    // A row whose referenced cell does not parse under its type is skipped, with one warning.
    // Note: Baseline View properties (padding, hidden, frame, background, opacity, animation, accessibility...)
@@ -128,6 +142,13 @@ JSON schema and usage documentation for `Chart`.
    //   Without "value", the baseline "animation" modifier animates every property set, a replaced description included.
  }
 // Observable state:
+//   value               String       The selection as a JSON string, "" when nothing is selected: {"x": "Tue"},
+//                                    {"x": [2.5, 7]} (a range), {"x": "2026-09-01", "y": 140}, {"angle": 51.2, "row": 1}
+//                                    ("row": the 0-based data row of the selected sector). Dates print as "yyyy-MM-dd" when
+//                                    the axis's first mark has a unit of a day or coarser, else as a local
+//                                    "yyyy-MM-ddTHH:mm:ss". setElementValue with the same shape selects (no action fires); a
+//                                    part that does not fit the axes reads as nothing selected, and a replaced description
+//                                    clears a selection it cannot hold.
 //   states["content"]   [[String]]   The chart's data rows (getElementRows / setElementRows / appendElementRows /
 //                                    clearElementRows). Changing the rows never changes the description.
 ```

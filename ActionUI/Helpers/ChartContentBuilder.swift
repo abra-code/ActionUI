@@ -381,6 +381,16 @@ struct ChartContentBuilder {
     // each axis, for the axis stride limit.
     private(set) var xExtent: ClosedRange<Double>?
     private(set) var yExtent: ClosedRange<Double>?
+    // The selection that "$selection" values read; marks reading an empty one are not drawn.
+    var selection = ChartSelection()
+    // Whether to record the categories each axis plots (xCategories, yCategories), for drawing
+    // selection marks only at values the chart shows.
+    var collectsCategories = false
+    private(set) var xCategories: Set<String> = []
+    private(set) var yCategories: Set<String> = []
+    // Each drawn sector's angle value, in drawing order, with its row (nil outside a ForEach),
+    // to find the row an angle selection falls in.
+    private(set) var sectorAngles: [(row: Int?, value: Double)] = []
 
     private static func widen(_ extent: ClosedRange<Double>?, _ scalar: ChartScalar) -> ClosedRange<Double>? {
         let value: Double
@@ -462,10 +472,19 @@ struct ChartContentBuilder {
         return true
     }
 
-    private mutating func resolve(_ plottable: ChartPlottable, row: Int?) -> ChartScalar? {
+    private mutating func resolve(_ plottable: ChartPlottable, row: Int?, key: String = "") -> ChartScalar? {
         switch plottable.source {
         case .literal(let scalar):
             return scalar
+        case .selection(let axis):
+            switch axis == .horizontal ? selection.x : selection.y {
+            case .value(let scalar)?:
+                return scalar
+            case .range(let start, let end)?:
+                return key.hasSuffix("Start") ? start : key.hasSuffix("End") ? end : nil
+            case nil:
+                return nil
+            }
         case .column(let index):
             guard let row else { return nil }
             let value = columns.scalar(row: row, ref: ChartColumnRef(index: index, type: plottable.type))
@@ -479,7 +498,7 @@ struct ChartContentBuilder {
     private mutating func buildMark(_ spec: ChartMarkSpec, row: Int?) -> AnyChartContent? {
         var scalars: [String: ChartScalar] = [:]
         for (key, plottable) in spec.values {
-            guard let scalar = resolve(plottable, row: row) else { return nil }
+            guard let scalar = resolve(plottable, row: row, key: key) else { return nil }
             scalars[key] = scalar
         }
         // A normalized stack spans 0...1 on its stacked axis whatever the values: the numeric x
@@ -498,8 +517,12 @@ struct ChartContentBuilder {
         }
         for (key, scalar) in scalars {
             switch key {
-            case "x", "xStart", "xEnd": if normalizedAxis != .horizontal { xExtent = Self.widen(xExtent, scalar) }
-            case "y", "yStart", "yEnd": if normalizedAxis != .vertical { yExtent = Self.widen(yExtent, scalar) }
+            case "x", "xStart", "xEnd":
+                if normalizedAxis != .horizontal { xExtent = Self.widen(xExtent, scalar) }
+                if collectsCategories, case .string(let category) = scalar { xCategories.insert(category) }
+            case "y", "yStart", "yEnd":
+                if normalizedAxis != .vertical { yExtent = Self.widen(yExtent, scalar) }
+                if collectsCategories, case .string(let category) = scalar { yCategories.insert(category) }
             default: break
             }
         }
@@ -541,6 +564,13 @@ struct ChartContentBuilder {
         for modifier in spec.modifiers {
             guard let modified = apply(modifier, to: content, row: row) else { return nil }
             content = modified
+        }
+        if spec.kind == .SectorMark {
+            switch scalars["angle"] {
+            case .number(let value)?: sectorAngles.append((row, value))
+            case .integer(let value)?: sectorAngles.append((row, Double(value)))
+            default: break
+            }
         }
         return content
     }

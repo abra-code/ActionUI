@@ -236,6 +236,7 @@ Element type names are PascalCase. For full property documentation read `docs/Sc
 - `ForEach` draws its content once per row; inside it `"$name"` or `"$1"` reads a cell. Column types: `string` (a bare name), `number`, `integer`, `date` (ISO 8601).
 - `{"by": "$column"}` in `foregroundStyle`, `symbol` or `lineStyle` styles by a column and adds a legend. Chart keys: `chartXScale`, `chartYAxis` (`"hidden"` or `AxisMarks`), `chartXAxisLabel`, `chartLegend`, `chartPlotStyle`.
 - At runtime, set the `chart` property to replace the chart whole, and use the rows calls to stream data (cells in column order).
+- Selection: `"chartXSelection": "value"` (or `"range"`, `chartYSelection`, `"chartAngleSelection": "value"`) makes the selection the chart's value (a JSON string such as `{"x": "Tue"}`) and fires `valueChangeActionID`. Draw it with a mark outside the ForEach whose value is `"$selection"` (a RuleMark), shown only while something is selected.
 
 ### Text and Display
 

@@ -1,0 +1,84 @@
+{
+  "type": "ScrollView",
+  "content": {
+    "type": "VStack",
+    "properties": { "alignment": "leading", "spacing": 16, "padding": "default" },
+    "children": [
+      { "type": "Text", "properties": { "text": "Select in each chart with the pointer or by touch. The selection is the chart's value, shown below.", "foregroundStyle": "secondary" } },
+      { "type": "Text", "id": 99, "properties": { "text": "Nothing selected yet.", "font": "callout" } },
+      { "type": "HStack", "properties": { "spacing": 16 }, "children": [
+        { "type": "Chart", "id": 1,
+          "properties": {
+            "frame": { "width": 300, "height": 200 },
+            "valueChangeActionID": "chart.selection.changed",
+            "chart": {
+              "columns": ["day", { "name": "tickets", "type": "integer" }],
+              "data": [["Mon", 12], ["Tue", 18], ["Wed", 9], ["Thu", 15], ["Fri", 21]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Tickets", "value": "$tickets" } }
+                ] },
+                { "type": "RuleMark", "x": { "label": "Selected", "value": "$selection" },
+                  "foregroundStyle": "gray.opacity(0.35)", "lineStyle": { "lineWidth": 18 } }
+              ],
+              "chartXSelection": "value"
+            }
+          } },
+        { "type": "Chart", "id": 2,
+          "properties": {
+            "frame": { "width": 300, "height": 200 },
+            "valueChangeActionID": "chart.selection.changed",
+            "chart": {
+              "columns": [{ "name": "day", "type": "date" }, { "name": "visits", "type": "number" }],
+              "data": [["2026-09-01", 120], ["2026-09-02", 135], ["2026-09-03", 128], ["2026-09-04", 160], ["2026-09-05", 152], ["2026-09-06", 98], ["2026-09-07", 90]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "LineMark", "x": { "label": "Day", "value": "$day", "unit": "day" }, "y": { "label": "Visits", "value": "$visits" } }
+                ] },
+                { "type": "RuleMark", "x": { "label": "Selected", "value": "$selection" },
+                  "foregroundStyle": "orange", "lineStyle": { "lineWidth": 1, "dash": [3, 3] } }
+              ],
+              "chartXSelection": "value"
+            }
+          } }
+      ] },
+      { "type": "HStack", "properties": { "spacing": 16 }, "children": [
+        { "type": "Chart", "id": 3,
+          "properties": {
+            "frame": { "width": 300, "height": 200 },
+            "valueChangeActionID": "chart.selection.changed",
+            "selectionActionTiming": "continuous",
+            "chart": {
+              "columns": [{ "name": "t", "type": "number" }, { "name": "level", "type": "number" }],
+              "data": [[0, 2], [1, 3.5], [2, 3], [3, 5], [4, 4.2], [5, 6], [6, 5.5], [7, 7], [8, 6.4], [9, 8]],
+              "content": [
+                { "type": "RectangleMark", "xStart": { "label": "From", "value": "$selection" }, "xEnd": { "label": "To", "value": "$selection" },
+                  "foregroundStyle": "blue.opacity(0.15)" },
+                { "type": "ForEach", "content": [
+                  { "type": "AreaMark", "x": { "label": "Time", "value": "$t" }, "y": { "label": "Level", "value": "$level" },
+                    "foregroundStyle": "teal.opacity(0.5)" }
+                ] }
+              ],
+              "chartXSelection": "range"
+            }
+          } },
+        { "type": "Chart", "id": 4,
+          "properties": {
+            "frame": { "width": 300, "height": 200 },
+            "valueChangeActionID": "chart.selection.changed",
+            "chart": {
+              "columns": ["language", { "name": "count", "type": "number" }],
+              "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27]],
+              "content": [
+                { "type": "ForEach", "content": [
+                  { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" }, "innerRadius": { "ratio": 0.6 },
+                    "angularInset": 1.5, "cornerRadius": 4, "foregroundStyle": { "by": { "label": "Language", "value": "$language" } } }
+                ] }
+              ],
+              "chartAngleSelection": "value"
+            }
+          } }
+      ] }
+    ]
+  }
+}

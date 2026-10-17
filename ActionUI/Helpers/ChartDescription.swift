@@ -26,6 +26,13 @@ struct ChartPlottable {
     enum Source {
         case column(Int)
         case literal(ChartScalar)
+        // "$selection" outside a ForEach: the chart's selection on this axis (ChartSelection).
+        case selection(Axis)
+    }
+
+    var isSelection: Bool {
+        if case .selection = source { return true }
+        return false
     }
     let label: String
     let source: Source
@@ -84,6 +91,7 @@ struct ChartSpec {
     var legendPosition: AnnotationPosition = .automatic
     // View modifier properties for the plot area, already validated as baseline View properties.
     var plotStyle: [String: Any] = [:]
+    var selection = ChartSelectionSpec()
 
     // Every (column, type) pair the marks read from the chart's rows, so the rows are parsed
     // once per pair. A ForEach with its own data reads its own rows (referencedColumns(in:)).
@@ -124,6 +132,7 @@ enum ChartDescription {
         "columns", "data", "content", "chartXScale", "chartYScale", "chartXAxis", "chartYAxis",
         "chartXAxisLabel", "chartYAxisLabel", "chartLegend", "chartPlotStyle",
         "chartForegroundStyleScale", "chartSymbolScale", "chartLineStyleScale", "chartSymbolSizeScale",
+        "chartXSelection", "chartYSelection", "chartAngleSelection",
     ]
     static let plotStyleKeys: Set<String> = [
         "padding", "background", "border", "frame", "cornerRadius", "clipShape", "shadow", "opacity", "offset", "foregroundStyle",
@@ -182,6 +191,8 @@ enum ChartDescription {
         spec.x = parseAxis("X", axisType: xType, description: description, cleaned: &cleaned, logger: logger)
         spec.y = parseAxis("Y", axisType: yType, description: description, cleaned: &cleaned, logger: logger)
         spec.styles = parseStyleScales(spec.content, description: description, cleaned: &cleaned, logger: logger)
+        spec.selection = parseSelection(spec.content, xType: xType, yType: yType, description: description, cleaned: &cleaned, logger: logger)
+        spec.content = typingSelectionValues(spec.content, spec: spec.selection, logger: logger)
 
         if let legend = description["chartLegend"] {
             if let visibility = legend as? String, let parsed = parseVisibility(visibility) {
@@ -305,7 +316,11 @@ enum ChartDescription {
 
     // MARK: - Plottable values (marks and their modifiers are in ChartMarkParsing.swift)
 
+    /// - Parameter selectionAxis: the axis of the mark argument being parsed (x, xStart, xEnd:
+    ///   horizontal; y, yStart, yEnd: vertical), where "$selection" may read the selection; nil
+    ///   elsewhere.
     static func parsePlottable(_ object: [String: Any], role: String, insideForEach: Bool, columns: [Column],
+                                       selectionAxis: Axis? = nil,
                                        logger: (any ActionUILogger)?) -> (value: ChartPlottable, cleaned: [String: Any])? {
         guard let label = object["label"] as? String else {
             logger?.log("Chart: \(role) requires a 'label' string; ignoring the mark", .warning)
@@ -342,6 +357,19 @@ enum ChartDescription {
             }
             cleaned["value"] = reference
             return (ChartPlottable(label: label, source: .column(index), type: type, unit: type == .date ? unit : nil), cleaned)
+        }
+        // "$selection" outside a ForEach reads the selection; its type is the axis's, set once
+        // the axis types are known (typingSelectionValues).
+        if !insideForEach, raw as? String == ChartSelectionSpec.reference, declaredType != .string {
+            guard let selectionAxis else {
+                logger?.log("Chart: \(role) value '\(ChartSelectionSpec.reference)' reads the selection only as a plotted x or y value (x, xStart, xEnd, y, yStart, yEnd); plotting it as literal text", .warning)
+                cleaned["value"] = ChartSelectionSpec.reference
+                cleaned["type"] = ChartColumnType.string.rawValue
+                return (ChartPlottable(label: label, source: .literal(.string(ChartSelectionSpec.reference)), type: .string, unit: nil), cleaned)
+            }
+            cleaned["value"] = ChartSelectionSpec.reference
+            cleaned["type"] = nil
+            return (ChartPlottable(label: label, source: .selection(selectionAxis), type: .string, unit: nil), cleaned)
         }
         // An explicit "type": "string" says the text is meant literally. Validation writes that
         // type, so re-validation (on every setElementProperty) does not repeat the warning.
@@ -398,13 +426,14 @@ enum ChartDescription {
     }
 
     // The type of the first value plotted on an axis (a mark may plot only points on it).
-    private static func axisType(_ entries: [ChartEntry], _ keyPath: KeyPath<ChartMarkSpec, [ChartPlottable]>) -> ChartColumnType? {
-        firstType(entries) { $0[keyPath: keyPath].first }
-    }
-
     // The type of the first value a style channel's {"by"} modifiers plot.
     private static func styleType(_ entries: [ChartEntry], _ matches: @escaping (ChartMarkModifier) -> ChartPlottable?) -> ChartColumnType? {
         firstType(entries) { mark in mark.modifiers.lazy.compactMap(matches).first }
+    }
+
+    // Selection values take their axis's type, so they never decide it.
+    private static func axisType(_ entries: [ChartEntry], _ keyPath: KeyPath<ChartMarkSpec, [ChartPlottable]>) -> ChartColumnType? {
+        firstType(entries) { $0[keyPath: keyPath].first { !$0.isSelection } }
     }
 
     private static func firstType(_ entries: [ChartEntry], _ value: (ChartMarkSpec) -> ChartPlottable?) -> ChartColumnType? {
@@ -425,11 +454,11 @@ enum ChartDescription {
         for (entry, json) in zip(entries, cleaned) {
             switch entry {
             case .mark(let mark):
-                if let xType, let other = mark.xValues.first(where: { family($0.type) != family(xType) }) {
+                if let xType, let other = mark.xValues.first(where: { !$0.isSelection && family($0.type) != family(xType) }) {
                     logger?.log("Chart: \(mark.kind.rawValue) plots \(other.type.rawValue) on an x axis of \(xType.rawValue) values; ignoring it", .warning)
                     continue
                 }
-                if let yType, let other = mark.yValues.first(where: { family($0.type) != family(yType) }) {
+                if let yType, let other = mark.yValues.first(where: { !$0.isSelection && family($0.type) != family(yType) }) {
                     logger?.log("Chart: \(mark.kind.rawValue) plots \(other.type.rawValue) on a y axis of \(yType.rawValue) values; ignoring it", .warning)
                     continue
                 }
@@ -452,6 +481,101 @@ enum ChartDescription {
         }
         cleaned = keptCleaned
         return kept
+    }
+
+    // chartXSelection / chartYSelection ("value" | "range") and chartAngleSelection ("value"),
+    // typed by the axis (or the sectors' angle values) they select on.
+    private static func parseSelection(_ entries: [ChartEntry], xType: ChartColumnType?, yType: ChartColumnType?,
+                                       description: [String: Any], cleaned: inout [String: Any],
+                                       logger: (any ActionUILogger)?) -> ChartSelectionSpec {
+        var spec = ChartSelectionSpec()
+        for (axis, type) in [("X", xType), ("Y", yType)] {
+            let key = "chart\(axis)Selection"
+            guard let raw = description[key] else { continue }
+            guard let name = raw as? String, let mode = ChartSelectionMode(rawValue: name) else {
+                logger?.log("Chart: '\(key)' must be \"value\" or \"range\"; ignoring it", .warning)
+                continue
+            }
+            guard let type else {
+                logger?.log("Chart: '\(key)' needs a mark that plots a value on the \(axis.lowercased()) axis; ignoring it", .warning)
+                continue
+            }
+            // Swift orders a range of strings alphabetically, not as the categories stand on
+            // the axis, so it would not mean what the user dragged over.
+            if mode == .range, type == .string {
+                logger?.log("Chart: '\(key)' \"range\" needs a number or date axis, not categories; ignoring it", .warning)
+                continue
+            }
+            cleaned[key] = name
+            if axis == "X" {
+                spec.x = mode
+                spec.xType = type
+                spec.xDateOnly = type == .date && dateOnly(entries, \.xValues)
+            } else {
+                spec.y = mode
+                spec.yType = type
+                spec.yDateOnly = type == .date && dateOnly(entries, \.yValues)
+            }
+        }
+        if let raw = description["chartAngleSelection"] {
+            let angleType = firstType(entries) { $0.kind == .SectorMark ? $0.values["angle"] : nil }
+            if raw as? String != ChartSelectionMode.value.rawValue {
+                logger?.log("Chart: 'chartAngleSelection' must be \"value\"; ignoring it", .warning)
+            } else if angleType == nil {
+                logger?.log("Chart: 'chartAngleSelection' needs a SectorMark; ignoring it", .warning)
+            } else {
+                cleaned["chartAngleSelection"] = ChartSelectionMode.value.rawValue
+                spec.angle = true
+                spec.angleType = angleType
+            }
+        }
+        return spec
+    }
+
+    // Whether the first value plotted on an axis has a unit of a day or coarser.
+    private static func dateOnly(_ entries: [ChartEntry], _ keyPath: KeyPath<ChartMarkSpec, [ChartPlottable]>) -> Bool {
+        let coarse: Set<Calendar.Component> = [.era, .year, .quarter, .month, .weekOfYear, .weekOfMonth, .day]
+        var unit: Calendar.Component??
+        func find(_ entries: [ChartEntry]) {
+            for entry in entries where unit == nil {
+                if case .mark(let mark) = entry {
+                    if let first = mark[keyPath: keyPath].first(where: { !$0.isSelection }) { unit = .some(first.unit) }
+                } else {
+                    find(entry.children)
+                }
+            }
+        }
+        find(entries)
+        guard let found = unit, let component = found else { return false }
+        return coarse.contains(component)
+    }
+
+    // "$selection" values take the type of the axis they are plotted on. Selection values sit
+    // only in marks outside a ForEach (top level or in Plots).
+    private static func typingSelectionValues(_ entries: [ChartEntry], spec: ChartSelectionSpec,
+                                              logger: (any ActionUILogger)?) -> [ChartEntry] {
+        entries.map { entry in
+            switch entry {
+            case .mark(var mark):
+                for (key, value) in mark.values {
+                    guard case .selection(let axis) = value.source else { continue }
+                    let name = axis == .horizontal ? "X" : "Y"
+                    let mode = axis == .horizontal ? spec.x : spec.y
+                    let type = axis == .horizontal ? spec.xType : spec.yType
+                    if mode == nil {
+                        logger?.log("Chart: \(mark.kind.rawValue).\(key) reads the selection, but the description has no chart\(name)Selection; the mark is never drawn", .warning)
+                    } else if mode == .range, key == "x" || key == "y" {
+                        logger?.log("Chart: \(mark.kind.rawValue).\(key) reads a range selection, which only \(key)Start and \(key)End can read; the mark is never drawn", .warning)
+                    }
+                    mark.values[key] = ChartPlottable(label: value.label, source: value.source, type: type ?? .string, unit: nil)
+                }
+                return .mark(mark)
+            case .plot(let children):
+                return .plot(typingSelectionValues(children, spec: spec, logger: logger))
+            case .forEach:
+                return entry
+            }
+        }
     }
 
     private static func parseAxis(_ axis: String, axisType: ChartColumnType?, description: [String: Any],

@@ -84,7 +84,7 @@ struct ChartMarkSpec {
     let kind: ChartMarkKind
     let form: ChartMarkForm
     // Plottable arguments by initializer label (x, y, xStart, xEnd, yStart, yEnd, series, angle).
-    let values: [String: ChartPlottable]
+    var values: [String: ChartPlottable]
     // Point arguments by initializer label.
     let points: [String: CGFloat]
     var width: MarkDimension = .automatic
@@ -300,7 +300,10 @@ extension ChartDescription {
                 points[key] = CGFloat(number.doubleValue)
                 cleaned[key] = number
             } else if let object = raw as? [String: Any] {
-                guard let parsed = parsePlottable(object, role: "\(name).\(key)", insideForEach: insideForEach, columns: columns, logger: logger) else {
+                let selectionAxis: Axis? = ["x", "xStart", "xEnd"].contains(key) ? .horizontal
+                    : ["y", "yStart", "yEnd"].contains(key) ? .vertical : nil
+                guard let parsed = parsePlottable(object, role: "\(name).\(key)", insideForEach: insideForEach, columns: columns,
+                                                  selectionAxis: selectionAxis, logger: logger) else {
                     return nil
                 }
                 values[key] = parsed.value
@@ -318,7 +321,8 @@ extension ChartDescription {
             return nil
         }
         for (start, end) in [("xStart", "xEnd"), ("yStart", "yEnd")] {
-            if let a = values[start], let b = values[end], a.type != b.type {
+            // A selection value takes its axis's type later, so it has none to compare yet.
+            if let a = values[start], let b = values[end], !a.isSelection, !b.isSelection, a.type != b.type {
                 logger?.log("Chart: \(name) \(start) is \(a.type.rawValue) but \(end) is \(b.type.rawValue); a start and end must have one type. Ignoring the mark", .warning)
                 return nil
             }

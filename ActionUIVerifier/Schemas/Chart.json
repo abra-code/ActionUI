@@ -441,11 +441,16 @@
           "opacity": { "types": ["number"] },
           "offset": { "types": ["object"] },
           "foregroundStyle": { "types": ["string"] }
-        } }
+        } },
+        "chartXSelection": { "types": ["string"], "enum": ["value", "range"], "description": "The user selects on the x axis; draw the selection with \"$selection\" marks" },
+        "chartYSelection": { "types": ["string"], "enum": ["value", "range"], "description": "The user selects on the y axis; draw the selection with \"$selection\" marks" },
+        "chartAngleSelection": { "types": ["string"], "enum": ["value"], "description": "The user selects a SectorMark" }
       }
-    }
+    },
+    "selectionActionTiming": { "types": ["string"], "enum": ["settled", "continuous"], "description": "When valueChangeActionID fires on a selection change: settled (default, after 150 ms of rest) or continuous" }
   },
   "observable": {
+    "value": { "types": ["string"], "description": "The selection as a JSON string, \"\" when nothing is selected: {\"x\": \"Tue\"}, {\"x\": [2.5, 7]}, {\"angle\": 51.2, \"row\": 1}" },
     "states.content": { "types": ["array"], "description": "The chart's data rows as [[String]]; use getElementRows/setElementRows/appendElementRows" }
   }
 }
