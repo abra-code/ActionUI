@@ -305,6 +305,12 @@ class ElementValidator:
             issues += self.validate(val, child_path, seen_ids, _is_root=False, _in_template=in_template)
         return issues
 
+    def _validate_embedded(self, node: dict, path: str) -> list[ValidationIssue]:
+        """An element held in a property ("element": true), such as a chart annotation's
+        view: it is built for each row as a template row is, and never registered, so its
+        ids are its own. Mirrors validateEmbedded in the Swift verifier."""
+        return self.validate(node, path, set(), _is_root=False, _in_template=True)
+
     def _validate_properties(
         self,
         properties: dict,
@@ -346,7 +352,7 @@ class ElementValidator:
                     issues += self._check_property_platform(base, suffix, spec, label, path)
                     if in_template and base in _ROW_BOOL_KEYS and isinstance(value, str):
                         continue  # read from the row as a Boolean
-                    issues += validate_property(label, value, spec, path)
+                    issues += validate_property(label, value, spec, path, self._validate_embedded)
                 elif base in _ANNOTATION_KEYS:
                     issues.append(ValidationIssue(
                         "info",

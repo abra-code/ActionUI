@@ -97,8 +97,22 @@
       "accessibilityLabel": { "types": ["string"], "description": "Text; inside a ForEach it may embed \"$N\" / \"$name\" references" },
       "accessibilityValue": { "types": ["string"] },
       "accessibilityIdentifier": { "types": ["string"] },
-      "accessibilityHidden": { "types": ["boolean"] }
+      "accessibilityHidden": { "types": ["boolean"] },
+      "annotation": { "types": ["object"], "description": "A view drawn next to the mark", "properties": {
+        "content": { "types": ["object"], "element": true, "excludesTypes": ["Chart"], "required": true, "description":"An ActionUI view element, built for each row as a template row is; inside a ForEach its text may embed \"$N\" / \"$name\" references" },
+        "position": { "types": ["string"], "enum": ["automatic", "overlay", "top", "bottom", "leading", "trailing", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+        "alignment": { "types": ["string"], "enum": ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+        "spacing": { "types": ["number"], "description": "Points between the mark and the view" },
+        "overflowResolution": { "types": ["object"], "description": "What happens to a view that would overflow the chart, per axis", "properties": {
+          "x": { "$ref": "overflowStrategy" },
+          "y": { "$ref": "overflowStrategy" }
+        } }
+      } }
     },
+    "overflowStrategy": { "oneOf": [
+      { "types": ["string"], "enum": ["automatic", "fit", "padScale", "disabled"] },
+      { "types": ["object"], "properties": { "fit": { "types": ["string"], "enum": ["plot", "chart", "automatic"], "required": true } } }
+    ] },
     "xyArguments": {
       "$ref": "markModifiers",
       "x": { "$ref": "argument" },

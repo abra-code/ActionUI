@@ -13,7 +13,10 @@
               { "type": "RectangleMark", "x": { "label": "Day", "value": "$day" }, "yStart": 0, "yEnd": 4, "width": { "ratio": 0.2 } }
             ] }
           ] },
-          { "type": "Plot", "content": [{ "type": "RuleMark", "y": { "label": "Goal", "value": 0.5 } }] }
+          { "type": "Plot", "content": [{ "type": "RuleMark", "y": { "label": "Goal", "value": 0.5 },
+            "annotation": { "position": "top", "alignment": "leading", "overflowResolution": { "y": "padScale" }, "content": { "type": "HStack", "properties": { "spacing": 2 }, "children": [
+              { "type": "Image", "properties": { "systemName": "flag" } }, { "type": "Text", "properties": { "text": "Goal" } }
+            ] } } }] }
         ] }
       ]
     }

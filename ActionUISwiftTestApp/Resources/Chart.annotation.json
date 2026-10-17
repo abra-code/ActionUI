@@ -1,0 +1,96 @@
+{
+  "type": "VStack",
+  "properties": {
+    "alignment": "leading",
+    "spacing": 16,
+    "padding": "default"
+  },
+  "children": [
+    {
+      "type": "Text",
+      "properties": {
+        "text": "Annotations: each bar's value above it and a labeled goal line; a callout on the peak day, drawn from a ForEach's own data; a donut labeled inside its sectors.",
+        "foregroundStyle": "secondary"
+      }
+    },
+    {
+      "type": "Chart",
+      "id": 1,
+      "properties": {
+        "frame": { "width": 520, "height": 200 },
+        "chart": {
+          "columns": ["day", { "name": "visits", "type": "number" }],
+          "data": [["Mon", 132], ["Tue", 148], ["Wed", 161], ["Thu", 139], ["Fri", 172], ["Sat", 96], ["Sun", 88]],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" },
+                "foregroundStyle": "teal",
+                "annotation": { "position": "top", "spacing": 2,
+                  "content": { "type": "Text", "properties": { "text": "$visits", "font": "caption", "foregroundStyle": "secondary" } } } }
+            ] },
+            { "type": "RuleMark", "y": { "label": "Goal", "value": 150 }, "lineStyle": { "lineWidth": 1, "dash": [4, 3] },
+              "foregroundStyle": "orange",
+              "annotation": { "position": "top", "alignment": "leading",
+                "content": { "type": "Text", "properties": { "text": "Goal 150", "font": "caption", "foregroundStyle": "orange" } } } }
+          ],
+          "chartYScale": { "domain": [0, 200] }
+        }
+      }
+    },
+    {
+      "type": "Chart",
+      "id": 2,
+      "properties": {
+        "frame": { "width": 520, "height": 200 },
+        "chart": {
+          "columns": [{ "name": "day", "type": "date" }, { "name": "visits", "type": "number" }],
+          "data": [
+            ["2026-09-01", 137], ["2026-09-02", 132], ["2026-09-03", 166], ["2026-09-04", 160], ["2026-09-05", 121],
+            ["2026-09-06", 98], ["2026-09-07", 104], ["2026-09-08", 151], ["2026-09-09", 158], ["2026-09-10", 182],
+            ["2026-09-11", 169], ["2026-09-12", 117], ["2026-09-13", 101], ["2026-09-14", 140]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "LineMark", "x": { "label": "Day", "value": "$day", "unit": "day" }, "y": { "label": "Visits", "value": "$visits" },
+                "interpolationMethod": "catmullRom" }
+            ] },
+            { "type": "ForEach", "columns": [{ "name": "day", "type": "date" }, { "name": "visits", "type": "number" }, "note"],
+              "data": [["2026-09-10", 182, "Launch day"]],
+              "content": [
+                { "type": "PointMark", "x": { "label": "Day", "value": "$day", "unit": "day" }, "y": { "label": "Visits", "value": "$visits" },
+                  "symbolSize": 60, "foregroundStyle": "red",
+                  "annotation": { "position": "top", "overflowResolution": { "x": "fit" },
+                    "content": { "type": "VStack", "properties": { "spacing": 0 }, "children": [
+                      { "type": "Text", "properties": { "text": "$note", "font": "caption" } },
+                      { "type": "Text", "properties": { "text": "$visits visits", "font": "caption2", "foregroundStyle": "secondary" } }
+                    ] } } }
+              ] }
+          ],
+          "chartYScale": { "domain": [0, 250] },
+          "chartXAxis": [{ "type": "AxisMarks", "values": { "stride": { "by": "day", "count": 2 } },
+            "content": [{ "type": "AxisGridLine" }, { "type": "AxisValueLabel", "format": { "dateTime": { "day": "defaultDigits" } } }] }]
+        }
+      }
+    },
+    {
+      "type": "Chart",
+      "id": 3,
+      "properties": {
+        "frame": { "width": 240, "height": 240 },
+        "chart": {
+          "columns": ["language", { "name": "count", "type": "number" }],
+          "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27]],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" }, "innerRadius": { "ratio": 0.5 },
+                "angularInset": 1.5, "cornerRadius": 4, "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
+                "annotation": { "position": "overlay",
+                  "content": { "type": "Text", "properties": { "text": "$count", "font": "caption", "foregroundStyle": "white" } } } }
+            ] }
+          ],
+          "chartLegend": { "position": "bottom" }
+        }
+      }
+    }
+  ]
+}

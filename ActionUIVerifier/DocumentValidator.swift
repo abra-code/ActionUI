@@ -551,7 +551,7 @@ public struct DocumentValidator: Sendable {
                     if inTemplate, Self.rowBoolKeys.contains(base), case .string = value {
                         continue  // read from the row as a Boolean
                     }
-                    issues += Self.validateProperty(key: label, value: value, spec: spec, path: path)
+                    issues += Self.validateProperty(key: label, value: value, spec: spec, path: path, element: validateEmbedded)
                 } else if Self.annotationKeys.contains(base) {
                     issues.append(.init(severity: .info, path: "\(path).\(label)",
                                         message: "'\(label)' is an annotation key used as a JSON comment; ignored at runtime"))
@@ -611,9 +611,22 @@ public struct DocumentValidator: Sendable {
         return []
     }
 
+    /// An element held in a property (`"element": true`), such as a chart annotation's view: it is
+    /// built for each row as a template row is, and never registered, so its ids are its own.
+    private func validateEmbedded(_ node: [String: JSONValue], path: String) -> [ValidationIssue] {
+        var ids: Set<Int> = []
+        return validate(node: node, path: path, seenIDs: &ids, isRoot: false, inTemplate: true)
+    }
+
     // MARK: Property values
 
-    static func validateProperty(key: String, value: JSONValue, spec: [String: JSONValue], path: String) -> [ValidationIssue] {
+    /// Validates an element nested in a property value, at the given path.
+    typealias ElementCheck = ([String: JSONValue], String) -> [ValidationIssue]
+
+    /// - Parameter element: validates a value whose spec has `"element": true`; without it such a
+    ///   value is checked as an open object.
+    static func validateProperty(key: String, value: JSONValue, spec: [String: JSONValue], path: String,
+                                 element: ElementCheck? = nil) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         let propertyPath = "\(path).\(key)"
 
@@ -623,7 +636,7 @@ public struct DocumentValidator: Sendable {
                     "value type '\(TypeCheck.name(value))' (value: \(shortRepr(value))) does not match any allowed form")]
             }
             if (match["types"]?.stringArray ?? []).contains("object"), let object = value.object {
-                issues += validateObject(object, spec: match, path: propertyPath)
+                issues += validateObject(object, spec: match, path: propertyPath, element: element)
             }
             return issues
         }
@@ -639,7 +652,14 @@ public struct DocumentValidator: Sendable {
                                 message: "'\(text)' is not a known value; expected one of: \(pyList(options))"))
         }
         if (types ?? []).contains("object"), let object = value.object {
-            issues += validateObject(object, spec: spec, path: propertyPath)
+            issues += validateObject(object, spec: spec, path: propertyPath, element: element)
+            if spec["element"]?.bool == true, let element {
+                issues += element(object, propertyPath)
+                for excluded in spec["excludesTypes"]?.stringArray ?? [] where containsType(excluded, in: value) {
+                    issues.append(.init(severity: .error, path: propertyPath, message:
+                        "'\(excluded)' is not allowed inside this element; ActionUI drops the element when it loads"))
+                }
+            }
         }
         if (types ?? []).contains("array"), let items = value.array {
             if let itemTypes = spec["itemTypes"]?.stringArray, !itemTypes.isEmpty {
@@ -674,7 +694,7 @@ public struct DocumentValidator: Sendable {
                             "'\(itemType.string ?? pyRepr(itemType))' is not a known type; known: \(pyList(itemSchemas.keys.sorted()))"))
                         continue
                     }
-                    issues += validateObject(object, spec: ["properties": itemSchema], path: itemPath)
+                    issues += validateObject(object, spec: ["properties": itemSchema], path: itemPath, element: element)
                     if let patterns = discriminated["argumentPatterns"]?.object?[typeName]?.object {
                         issues += checkArgumentPatterns(object, patterns: patterns, typeName: typeName, path: itemPath)
                     }
@@ -682,6 +702,21 @@ public struct DocumentValidator: Sendable {
             }
         }
         return issues
+    }
+
+    /// Whether a node of `type` is anywhere in `value`, under "type" or a platform variant of it.
+    private static func containsType(_ type: String, in value: JSONValue) -> Bool {
+        switch value {
+        case .object(let object):
+            if object.contains(where: { Platforms.split($0.key).base == "type" && $0.value == .string(type) }) {
+                return true
+            }
+            return object.values.contains { containsType(type, in: $0) }
+        case .array(let items):
+            return items.contains { containsType(type, in: $0) }
+        default:
+            return false
+        }
     }
 
     /// An item's argument keys (the pattern set's "keys") must match one form, as a Swift
@@ -721,7 +756,8 @@ public struct DocumentValidator: Sendable {
 
     /// Sub-keys of an object value against the spec's "properties". Sub-keys may carry a platform
     /// suffix; required and mutually exclusive checks compare base names.
-    private static func validateObject(_ object: [String: JSONValue], spec: [String: JSONValue], path: String) -> [ValidationIssue] {
+    private static func validateObject(_ object: [String: JSONValue], spec: [String: JSONValue], path: String,
+                                       element: ElementCheck?) -> [ValidationIssue] {
         guard let subSpecs = spec["properties"]?.object else {
             return []  // open object
         }
@@ -742,7 +778,7 @@ public struct DocumentValidator: Sendable {
                 continue
             }
             if let subSpec = subSpecs[base]?.object {
-                issues += validateProperty(key: label, value: object[key]!, spec: subSpec, path: path)
+                issues += validateProperty(key: label, value: object[key]!, spec: subSpec, path: path, element: element)
             } else {
                 issues.append(.init(severity: .warning, path: "\(path).\(label)", message: "unexpected key '\(label)' inside object"))
             }

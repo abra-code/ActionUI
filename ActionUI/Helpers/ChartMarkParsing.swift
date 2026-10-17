@@ -43,6 +43,19 @@ enum ChartOffset {
     case ranges(xStart: CGFloat, xEnd: CGFloat, yStart: CGFloat, yEnd: CGFloat)
 }
 
+// A view drawn next to a mark: an ActionUI element, built for each row as a template row is
+// (TemplateHelper.buildTemplateView), with its "$name" references already turned into "$N".
+struct ChartAnnotationSpec {
+    var position: AnnotationPosition = .automatic
+    var alignment: Alignment = .center
+    var spacing: CGFloat?
+    var overflow = AnnotationOverflowResolution.automatic
+    let content: ActionUIElement
+    // Written inside a ForEach. A Plot outside one that holds a ForEach appends its annotation
+    // to marks drawn per row, but its text reads no row, as its other modifiers' does.
+    let readsRows: Bool
+}
+
 // Mark and Plot modifiers, applied in this declaration order.
 enum ChartMarkModifier {
     case foregroundStyle(SwiftUI.Color)
@@ -67,6 +80,7 @@ enum ChartMarkModifier {
     case accessibilityValue(ChartText)
     case accessibilityIdentifier(ChartText)
     case accessibilityHidden(Bool)
+    case annotation(ChartAnnotationSpec)
 
     var plottable: ChartPlottable? {
         switch self {
@@ -107,7 +121,7 @@ extension ChartDescription {
     static let modifierKeys = [
         "foregroundStyle", "symbol", "symbolSize", "lineStyle", "interpolationMethod", "position", "cornerRadius",
         "opacity", "zIndex", "offset", "blur", "shadow", "alignsMarkStylesWithPlotArea",
-        "accessibilityLabel", "accessibilityValue", "accessibilityIdentifier", "accessibilityHidden",
+        "accessibilityLabel", "accessibilityValue", "accessibilityIdentifier", "accessibilityHidden", "annotation",
     ]
 
     private struct FormPattern {
@@ -535,6 +549,16 @@ extension ChartDescription {
                 }
                 modifiers.append(key == "accessibilityHidden" ? .accessibilityHidden(flag) : .alignsMarkStylesWithPlotArea(flag))
                 cleaned[key] = flag
+            case "annotation":
+                guard let object = raw as? [String: Any] else {
+                    invalid(key, "{\"content\": {an element}, \"position\", \"alignment\", \"spacing\", \"overflowResolution\"}")
+                    continue
+                }
+                // parseAnnotation reports its own failure.
+                guard let parsed = parseAnnotation(object, role: "\(role).annotation", insideForEach: insideForEach,
+                                                   columns: columns, logger: logger) else { continue }
+                modifiers.append(.annotation(parsed.spec))
+                cleaned[key] = parsed.cleaned
             default: // accessibilityLabel, accessibilityValue, accessibilityIdentifier
                 guard let text = raw as? String else {
                     invalid(key, "text")
@@ -550,6 +574,135 @@ extension ChartDescription {
             }
         }
         return modifiers
+    }
+
+    // MARK: - Annotations
+
+    private static let annotationKeys: Set<String> = ["content", "position", "alignment", "spacing", "overflowResolution"]
+
+    // The annotation's view must be a known element type, and cannot hold a Chart: the
+    // per-row substitution would rewrite that chart's own references, and it would have no
+    // rows. Its element is kept as given in the cleaned JSON and validated when each row's
+    // instance is built, after substitution, as a template row's is.
+    private static func parseAnnotation(_ object: [String: Any], role: String, insideForEach: Bool, columns: [Column],
+                                        logger: (any ActionUILogger)?) -> (spec: ChartAnnotationSpec, cleaned: [String: Any])? {
+        for key in object.keys where !annotationKeys.contains(key) {
+            logger?.log("Chart: '\(key)' is not supported in \(role); ignoring it", .warning)
+        }
+        guard let content = object["content"] as? [String: Any] else {
+            logger?.log("Chart: \(role) requires 'content', a view element such as {\"type\": \"Text\", \"properties\": {\"text\": \"...\"}}; ignoring the annotation", .warning)
+            return nil
+        }
+        guard let type = content["type"] as? String, ActionUIRegistry.shared.viewRegistrations[type] != nil else {
+            logger?.log("Chart: \(role).content must be a view element with a known 'type'; ignoring the annotation", .warning)
+            return nil
+        }
+        if containsChart(content) {
+            logger?.log("Chart: \(role).content cannot hold a Chart; ignoring the annotation", .warning)
+            return nil
+        }
+        let resolved = insideForEach ? resolvingNames(in: content, columns: columns) as? [String: Any] ?? content : content
+        guard let element = decodeElement(resolved, logger: logger) else {
+            logger?.log("Chart: \(role).content is not a valid element; ignoring the annotation", .warning)
+            return nil
+        }
+        var spec = ChartAnnotationSpec(content: ActionUIElement.normalizeTemplateIDs(element), readsRows: insideForEach)
+        var cleaned: [String: Any] = ["content": content]
+        if let raw = object["position"] {
+            if let name = raw as? String, let position = parsePosition(name) {
+                spec.position = position
+                cleaned["position"] = name
+            } else {
+                logger?.log("Chart: \(role).position must be automatic, overlay, top, bottom, leading, trailing, topLeading, topTrailing, bottomLeading or bottomTrailing; ignoring it", .warning)
+            }
+        }
+        if let raw = object["alignment"] {
+            if let name = raw as? String, let alignment = parseAlignment(name) {
+                spec.alignment = alignment
+                cleaned["alignment"] = name
+            } else {
+                logger?.log("Chart: \(role).alignment must be center, leading, trailing, top, bottom, topLeading, topTrailing, bottomLeading or bottomTrailing; ignoring it", .warning)
+            }
+        }
+        if let raw = object["spacing"] {
+            if let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() {
+                spec.spacing = CGFloat(number.doubleValue)
+                cleaned["spacing"] = number
+            } else {
+                logger?.log("Chart: \(role).spacing must be a number; ignoring it", .warning)
+            }
+        }
+        if let raw = object["overflowResolution"] {
+            if let overflow = parseOverflowResolution(raw) {
+                spec.overflow = overflow
+                cleaned["overflowResolution"] = raw
+            } else {
+                logger?.log("Chart: \(role).overflowResolution must be {\"x\", \"y\"}, each automatic, fit, padScale, disabled or {\"fit\": \"plot\"|\"chart\"|\"automatic\"}; ignoring it", .warning)
+            }
+        }
+        return (spec, cleaned)
+    }
+
+    private static func containsChart(_ value: Any) -> Bool {
+        if let object = value as? [String: Any] {
+            return object["type"] as? String == "Chart" || object.values.contains(where: containsChart)
+        }
+        if let items = value as? [Any] {
+            return items.contains(where: containsChart)
+        }
+        return false
+    }
+
+    // Through the document decoder, which reads every subview key an element may have.
+    private static func decodeElement(_ object: [String: Any], logger: (any ActionUILogger)?) -> ActionUIElement? {
+        guard JSONSerialization.isValidJSONObject(object), let data = try? JSONSerialization.data(withJSONObject: object) else {
+            return nil
+        }
+        return try? JSONDecoder(logger: logger ?? SilentChartLogger.shared).decode(ActionUIElement.self, from: data)
+    }
+
+    // Every string in an annotation's element, its children's included, with "$name" turned
+    // into "$N".
+    private static func resolvingNames(in value: Any, columns: [Column]) -> Any {
+        if let text = value as? String {
+            return resolvingNames(text, columns: columns).text
+        }
+        if let object = value as? [String: Any] {
+            return object.mapValues { resolvingNames(in: $0, columns: columns) }
+        }
+        if let items = value as? [Any] {
+            return items.map { resolvingNames(in: $0, columns: columns) }
+        }
+        return value
+    }
+
+    private static func parseOverflowResolution(_ raw: Any) -> AnnotationOverflowResolution? {
+        guard let object = raw as? [String: Any], Set(object.keys).isSubset(of: ["x", "y"]) else { return nil }
+        var strategies: [String: AnnotationOverflowResolution.Strategy] = [:]
+        for (axis, value) in object {
+            guard let strategy = parseOverflowStrategy(value) else { return nil }
+            strategies[axis] = strategy
+        }
+        return AnnotationOverflowResolution(x: strategies["x"] ?? .automatic, y: strategies["y"] ?? .automatic)
+    }
+
+    private static func parseOverflowStrategy(_ raw: Any) -> AnnotationOverflowResolution.Strategy? {
+        if let name = raw as? String {
+            switch name {
+            case "automatic": return .automatic
+            case "fit": return .fit
+            case "padScale": return .padScale
+            case "disabled": return .disabled
+            default: return nil
+            }
+        }
+        guard let object = raw as? [String: Any], object.count == 1, let boundary = object["fit"] as? String else { return nil }
+        switch boundary {
+        case "plot": return .fit(to: .plot)
+        case "chart": return .fit(to: .chart)
+        case "automatic": return .fit(to: .automatic)
+        default: return nil
+        }
     }
 
     // MARK: - Small parsers
@@ -657,13 +810,20 @@ extension ChartDescription {
     // Text inside a ForEach may embed "$N" or "$name" references; names become "$N" here so
     // each row only substitutes positions. A "$..." naming no column stays literal.
     private static func textWithReferences(_ text: String, columns: [Column]) -> ChartText {
-        guard text.contains("$") else { return .literal(text) }
-        let pattern = try! NSRegularExpression(pattern: #"\$([A-Za-z_][A-Za-z0-9_]*|[0-9]+)"#)
+        let resolved = resolvingNames(text, columns: columns)
+        return resolved.found ? .perRow(resolved.text) : .literal(text)
+    }
+
+    private nonisolated static let referencePattern = try! NSRegularExpression(pattern: #"\$([A-Za-z_][A-Za-z0-9_]*|[0-9]+)"#)
+
+    // `text` with its "$name" references as "$N"; `found` when it refers to any column.
+    private static func resolvingNames(_ text: String, columns: [Column]) -> (text: String, found: Bool) {
+        guard text.contains("$") else { return (text, false) }
         let ns = text as NSString
         var result = ""
         var cursor = 0
         var found = false
-        for match in pattern.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+        for match in referencePattern.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
             let token = ns.substring(with: match.range)
             result += ns.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             if let index = columnIndex(token, columns: columns) {
@@ -675,7 +835,7 @@ extension ChartDescription {
             cursor = match.range.location + match.range.length
         }
         result += ns.substring(from: cursor)
-        return found ? .perRow(result) : .literal(text)
+        return (result, found)
     }
 }
 

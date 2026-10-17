@@ -409,7 +409,7 @@ final class ChartTests: XCTestCase {
     // draws no marks.
     func testEveryChartExampleRendersWithoutWarnings() throws {
         for path in ["ActionUISwiftTestApp/Resources/Chart.json", "ActionUISwiftTestApp/Resources/Chart.selection.json",
-                     "Documentation/Elements/Chart.json"] {
+                     "ActionUISwiftTestApp/Resources/Chart.annotation.json", "Documentation/Elements/Chart.json"] {
             let charts = chartElements(in: try loadDocument(path))
             XCTAssertFalse(charts.isEmpty, path)
             for chart in charts {

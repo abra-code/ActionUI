@@ -120,6 +120,21 @@ struct ChartSpec {
         visit(entries)
         return refs
     }
+
+    // How many annotation views the content draws over `rowCount` rows (a ForEach with its own
+    // data draws over those), unparsable rows included.
+    static func annotationCount(in entries: [ChartEntry], rowCount: Int) -> Int {
+        entries.reduce(0) { total, entry in
+            switch entry {
+            case .mark(let mark):
+                return total + mark.modifiers.filter { if case .annotation = $0 { true } else { false } }.count
+            case .plot(let children):
+                return total + annotationCount(in: children, rowCount: rowCount)
+            case .forEach(let children, let data):
+                return total + (data?.count ?? rowCount) * annotationCount(in: children, rowCount: rowCount)
+            }
+        }
+    }
 }
 
 struct ChartColumnRef: Hashable {

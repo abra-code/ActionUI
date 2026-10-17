@@ -32,7 +32,9 @@
                  "y": { "label": "Users", "value": "$users" } }
              ] }
          ] },
-         { "type": "RuleMark", "y": { "label": "Goal", "value": 1500 }, "lineStyle": { "lineWidth": 1, "dash": [4, 3] } }
+         { "type": "RuleMark", "y": { "label": "Goal", "value": 1500 }, "lineStyle": { "lineWidth": 1, "dash": [4, 3] },
+           "annotation": { "position": "top", "alignment": "leading",  // A view drawn next to the mark (below)
+             "content": { "type": "Text", "properties": { "text": "Goal", "font": "caption" } } } }
        ],
        "chartXScale": { "domain": [0, 100] },  // Optional: "domain": two numbers or two dates (a range), a list of strings
                                               //   (categories), or {"automatic": {"includesZero": false, "reversed": true}};
@@ -124,6 +126,19 @@
    //   "blur": number   "offset": {"x", "y"} with start/end forms for ranges   "shadow": {"radius", "color", "x", "y"}
    //   "alignsMarkStylesWithPlotArea", "accessibilityHidden": bool   "accessibilityLabel", "accessibilityValue",
    //   "accessibilityIdentifier": text, which inside a ForEach may embed "$N" / "$name" references
+   //   "annotation": a view drawn next to the mark (below)
+   // Annotations: {"content": a view element, "position", "alignment", "spacing", "overflowResolution"}.
+   //   "content" is any element but a Chart, built for each row as a template row is: inside a ForEach its text
+   //   reads the row's cells through "$N" / "$name" ({"type": "Text", "properties": {"text": "$users"}}), and
+   //   controls in it act with the chart's id as viewID and the 0-based row as viewPartID (a row of a ForEach's
+   //   own data when it has some; -1 outside a ForEach).
+   //   "position": automatic | overlay | top | bottom | leading | trailing | topLeading | topTrailing |
+   //   bottomLeading | bottomTrailing; "alignment": center | leading | trailing | top | bottom | topLeading |
+   //   topTrailing | bottomLeading | bottomTrailing; "spacing": points from the mark; "overflowResolution":
+   //   {"x", "y"}, each automatic | fit | padScale | disabled | {"fit": "plot" | "chart" | "automatic"}.
+   //   Swift Charts takes long to draw many annotations (0.1 s for 1000, 2 s for 5000, on every render), so
+   //   past 1000 the chart draws its marks without them, with a warning: annotate a few marks (a goal, the
+   //   selection, the largest values), not every row of a long series.
    // Plottable values: {"label": text, "value": v, "type": optional, "unit": optional}.
    //   Inside a ForEach, "$N" (1-based) or "$name" reads that cell of each row. Every column reference needs
    //   a type, from its column or the value's own "type" (which wins); an untyped one is plotted as text.
@@ -135,7 +150,8 @@
    //   Dates are ISO 8601: "YYYY-MM-DD" is a calendar day; a zone designator ("Z", "+hh:mm") makes an instant.
    // Selection marks: outside a ForEach, a plotted value "$selection" reads the selection: on x, xStart or xEnd the
    //   x selection, on y, yStart or yEnd the y selection; a range selection is read by xStart / xEnd (yStart / yEnd)
-   //   as its start and end. Such a mark is drawn only while there is a selection and takes the axis's type, e.g.
+   //   as its start and end. Such a mark (with its annotation) is drawn only while there is a selection and takes
+   //   the axis's type, e.g.
    //   { "type": "RuleMark", "x": { "label": "Selected", "value": "$selection" }, "foregroundStyle": "gray.opacity(0.4)" }
    //   or a RectangleMark with "xStart" and "xEnd" "$selection" for a range. A selected category the chart does not
    //   plot is not drawn (it would add a category). Only these marks are rebuilt on a selection change.
@@ -242,7 +258,7 @@ struct Chart: ActionUIViewConstruction {
         let description = properties["chart"] as? [String: Any] ?? [:]
         let rows = model.states["content"] as? [[String]] ?? []
         let rendered = cache.render(description: description, rows: rows, selectionValue: model.value as? String ?? "",
-                                    viewID: element.id, logger: logger)
+                                    viewID: element.id, windowUUID: windowUUID, logger: logger)
         let items = rendered.items
         let plotStyle = rendered.spec.plotStyle
         // View.applyModifiers also draws the element's own background, overlay and safeAreaInset
@@ -298,14 +314,20 @@ final class ChartRenderCache {
     // The categories the built marks plot on each axis (onAxis).
     private var xCategories: Set<String> = []
     private var yCategories: Set<String> = []
+    // False when the built marks are too many annotations to draw (maxAnnotations).
+    private var drawsAnnotations = true
     private var pendingAction: DispatchWorkItem?
+    // Swift Charts lays out annotations on every render, in a time that grows with the square of
+    // their count (measured on macOS 27: 0.13 s for 1000, 2.2 s for 5000, 8 s for 10000), so past
+    // this many the marks are drawn without them.
+    static let maxAnnotations = 1000
     // Times the marks were built; lets tests see that unchanged inputs rebuild nothing.
     private(set) var buildCount = 0
     // Times the selection marks were built.
     private(set) var selectionBuildCount = 0
 
     func render(description newDescription: [String: Any], rows newRows: [[String]], selectionValue: String = "",
-                viewID: Int, logger: any ActionUILogger) -> (spec: ChartSpec, items: [Item]) {
+                viewID: Int, windowUUID: String = "", logger: any ActionUILogger) -> (spec: ChartSpec, items: [Item]) {
         let descriptionObject = newDescription as NSDictionary
         let descriptionChanged = description.map { !$0.isEqual(to: newDescription) } ?? true
         if descriptionChanged {
@@ -317,6 +339,13 @@ final class ChartRenderCache {
         if descriptionChanged || rows != newRows {
             let columns = ChartTypedColumns(rows: newRows, refs: spec.referencedColumns)
             var builder = ChartContentBuilder(columns: columns)
+            (builder.viewID, builder.windowUUID, builder.logger) = (viewID, windowUUID, logger)
+            let annotations = ChartSpec.annotationCount(in: spec.content, rowCount: newRows.count)
+            drawsAnnotations = annotations <= Self.maxAnnotations
+            builder.drawsAnnotations = drawsAnnotations
+            if !drawsAnnotations {
+                logger.log("Chart \(viewID): \(annotations) annotations would take Swift Charts seconds to draw on every render (more than \(Self.maxAnnotations)); drawing the marks without them", .warning)
+            }
             let runs = Self.segments(spec.content)
             builder.collectsCategories = runs.contains { $0.readsSelection }
             segments = runs.map { readsSelection, entries in
@@ -342,17 +371,19 @@ final class ChartRenderCache {
         let newSelection = ChartSelection.decode(selectionValue, spec: spec.selection)
         if rebuilt || newSelection != selection {
             selection = newSelection
-            items = assemble(newSelection)
+            items = assemble(newSelection, viewID: viewID, windowUUID: windowUUID, logger: logger)
         }
         return (drawnSpec, items)
     }
 
-    private func assemble(_ selection: ChartSelection) -> [Item] {
+    private func assemble(_ selection: ChartSelection, viewID: Int, windowUUID: String, logger: any ActionUILogger) -> [Item] {
         var result: [Item] = []
         var builtID = 0
         var selectionID = -1
         // Selection marks read no rows.
         var builder = ChartContentBuilder(columns: ChartTypedColumns(rows: [], refs: []))
+        (builder.viewID, builder.windowUUID, builder.logger) = (viewID, windowUUID, logger)
+        builder.drawsAnnotations = drawsAnnotations
         var shown = selection
         shown.x = selection.x.flatMap { Self.onAxis($0, categories: xCategories) }
         shown.y = selection.y.flatMap { Self.onAxis($0, categories: yCategories) }

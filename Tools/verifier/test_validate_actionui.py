@@ -750,6 +750,39 @@ class ChartSchemaTests(unittest.TestCase):
         self.assertTrue(any("chartYVisibleDomain.length: required key 'length' is missing" in f for f in found))
         self.assertTrue(any("chartScrollPosition.initialX: expected string or number, got boolean" in f for f in found))
 
+    def test_annotation_elements_are_checked_as_template_rows(self):
+        day, n = {"label": "Day", "value": "$day"}, {"label": "N", "value": "$n"}
+        good = self._chart([{"type": "BarMark", "x": day, "y": n, "annotation": {
+            "position": "top", "alignment": "leading", "spacing": 2, "overflowResolution": {"x": "fit", "y": {"fit": "plot"}},
+            "content": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "$n", "hidden": "$3"}}]},
+        }}])
+        self.assertEqual([(i.path, i.message) for i in _validate(good)], [])
+        # The annotation's ids are its own: id 1 is the chart's too, and is not reported.
+        bad = self._chart([
+            {"type": "BarMark", "x": day, "y": n, "annotation": {
+                "position": "above", "overflowResolution": {"x": "clip"},
+                "content": {"type": "Text", "id": 1, "properties": {"text": 3, "colour": "red"}},
+            }},
+            {"type": "PointMark", "x": day, "y": n, "annotation": {"spacing": 2}},
+            {"type": "RuleMark", "y": n, "annotation": {"content": {"type": "Toggle", "properties": {"isOn": "yes"}}}},
+        ])
+        found = [f"{i.path}: {i.message}" for i in _validate(bad)]
+        self.assertEqual(len(found), 6, found)
+        self.assertTrue(any("annotation.position: 'above' is not a known value" in f for f in found))
+        self.assertTrue(any("annotation.overflowResolution.x: value type 'string'" in f for f in found))
+        self.assertTrue(any("annotation.content.properties.text: expected string, got integer" in f for f in found))
+        self.assertTrue(any("annotation.content.properties.colour: 'colour' is not a known property" in f for f in found))
+        self.assertTrue(any("annotation.content: required key 'content' is missing" in f for f in found))
+        self.assertTrue(any("'isOn' of a Toggle in a template must be a single column reference" in f for f in found))
+        # A Chart anywhere inside: ActionUI drops the annotation.
+        nested = self._chart([{"type": "BarMark", "x": day, "y": n, "annotation": {
+            "content": {"type": "VStack", "children": [{"type": "Chart"}]},
+        }}])
+        self.assertEqual([(i.severity, i.path, i.message) for i in _validate(nested)], [(
+            "error", "test: properties.chart.content[0].content[0].annotation.content",
+            "'Chart' is not allowed inside this element; ActionUI drops the element when it loads",
+        )])
+
     def test_a_sector_angle_of_another_type_is_reported(self):
         angle = {"label": "Day", "value": "$day", "type": "date", "unit": "day"}
         messages = [i.message for i in _validate(self._chart([{"type": "SectorMark", "angle": angle}]))]

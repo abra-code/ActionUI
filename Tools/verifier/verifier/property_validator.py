@@ -3,6 +3,8 @@ Validates individual property values against their schema spec.
 """
 from __future__ import annotations
 
+from typing import Callable
+
 from .errors import ValidationIssue
 from .type_checker import json_type_of, matches_types, matches_spec, check_one_of
 from .platform_filter import ALL_PLATFORMS, split_platform_suffix, format_suffix_label
@@ -10,11 +12,18 @@ from .platform_filter import ALL_PLATFORMS, split_platform_suffix, format_suffix
 # Keys intentionally used as JSON comments inside any object; silently skipped.
 _ANNOTATION_KEYS = {"description", "note", "comment", "info"}
 
+# Validates an element nested in a property value (node, path).
+ElementCheck = Callable[[dict, str], "list[ValidationIssue]"]
 
-def validate_property(key: str, value, prop_spec: dict, path: str) -> list[ValidationIssue]:
+
+def validate_property(key: str, value, prop_spec: dict, path: str,
+                      validate_element: ElementCheck | None = None) -> list[ValidationIssue]:
     """
     Validate a single property value against its schema spec.
     Returns a list of ValidationIssues (empty = valid).
+
+    `validate_element(node, path)` validates a value whose spec has `"element": true`;
+    without it such a value is checked as an open object.
     """
     issues = []
     prop_path = f"{path}.{key}"
@@ -31,7 +40,7 @@ def validate_property(key: str, value, prop_spec: dict, path: str) -> list[Valid
             for alt in prop_spec["oneOf"]:
                 if matches_spec(value, alt):
                     if "object" in alt.get("types", []) and isinstance(value, dict):
-                        issues += _validate_object_props(value, alt, prop_path)
+                        issues += _validate_object_props(value, alt, prop_path, validate_element)
                     break
         return issues
 
@@ -56,7 +65,15 @@ def validate_property(key: str, value, prop_spec: dict, path: str) -> list[Valid
 
     # Object property validation
     if "object" in prop_spec.get("types", []) and isinstance(value, dict):
-        issues += _validate_object_props(value, prop_spec, prop_path)
+        issues += _validate_object_props(value, prop_spec, prop_path, validate_element)
+        if prop_spec.get("element") is True and validate_element is not None:
+            issues += validate_element(value, prop_path)
+            for excluded in _string_list(prop_spec.get("excludesTypes")):
+                if _contains_type(value, excluded):
+                    issues.append(ValidationIssue(
+                        "error", prop_path,
+                        f"'{excluded}' is not allowed inside this element; ActionUI drops the element when it loads"
+                    ))
 
     # Array item type check
     if "array" in prop_spec.get("types", []) and isinstance(value, list):
@@ -103,7 +120,7 @@ def validate_property(key: str, value, prop_spec: dict, path: str) -> list[Valid
                     ))
                     continue
                 item_schema = {"properties": schemas[item_type]}
-                issues += _validate_object_props(item, item_schema, item_path)
+                issues += _validate_object_props(item, item_schema, item_path, validate_element)
                 all_patterns = discriminated.get("argumentPatterns")
                 patterns = all_patterns.get(item_type) if isinstance(all_patterns, dict) else None
                 if isinstance(patterns, dict):
@@ -143,12 +160,25 @@ def _check_argument_patterns(obj: dict, spec: dict, type_name: str, path: str) -
     )]
 
 
+def _contains_type(value, type_name: str) -> bool:
+    """Whether a node of `type_name` is anywhere in `value`, under "type" or a
+    platform variant of it. Mirrors containsType in the Swift verifier."""
+    if isinstance(value, dict):
+        if any(split_platform_suffix(key)[0] == "type" and item == type_name for key, item in value.items()):
+            return True
+        return any(_contains_type(item, type_name) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_type(item, type_name) for item in value)
+    return False
+
+
 def _string_list(value) -> list[str]:
     """The strings of a list (JSONValue.stringArray in the Swift verifier); [] otherwise."""
     return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
-def _validate_object_props(obj: dict, spec: dict, path: str) -> list[ValidationIssue]:
+def _validate_object_props(obj: dict, spec: dict, path: str,
+                          validate_element: ElementCheck | None = None) -> list[ValidationIssue]:
     """Validate sub-properties of an object against its spec's 'properties' dict.
 
     Sub-keys may carry a `:<platform>` suffix; the base name is looked up in the
@@ -192,7 +222,7 @@ def _validate_object_props(obj: dict, spec: dict, path: str) -> list[ValidationI
         if base in _ANNOTATION_KEYS:
             pass  # intentional JSON comment; silently accepted anywhere
         elif base in sub_specs:
-            issues += validate_property(label, sub_value, sub_specs[base], path)
+            issues += validate_property(label, sub_value, sub_specs[base], path, validate_element)
         else:
             issues.append(ValidationIssue(
                 "warning", f"{path}.{label}",

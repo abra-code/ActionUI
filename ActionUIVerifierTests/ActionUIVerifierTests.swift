@@ -321,6 +321,40 @@ private func chart(_ marks: [JSONValue], forEach: Bool = true) -> JSONValue {
     #expect(found.contains { $0.contains("chartScrollPosition.initialX: expected string or number, got boolean") })
 }
 
+@Test func annotationElementsAreCheckedAsTemplateRows() throws {
+    let day: JSONValue = ["label": "Day", "value": "$day"]
+    let n: JSONValue = ["label": "N", "value": "$n"]
+    let good = chart([["type": "BarMark", "x": day, "y": n, "annotation": [
+        "position": "top", "alignment": "leading", "spacing": 2, "overflowResolution": ["x": "fit", "y": ["fit": "plot"]],
+        "content": ["type": "VStack", "children": [["type": "Text", "properties": ["text": "$n", "hidden": "$3"]]]],
+    ]]])
+    #expect(try issues(good) == [])
+    // The annotation's ids are its own: id 1 is the chart's too, and is not reported.
+    let bad = chart([
+        ["type": "BarMark", "x": day, "y": n, "annotation": [
+            "position": "above", "overflowResolution": ["x": "clip"],
+            "content": ["type": "Text", "id": 1, "properties": ["text": 3, "colour": "red"]],
+        ]],
+        ["type": "PointMark", "x": day, "y": n, "annotation": ["spacing": 2]],
+        ["type": "RuleMark", "y": n, "annotation": ["content": ["type": "Toggle", "properties": ["isOn": "yes"]]]],
+    ])
+    let found = try issues(bad)
+    #expect(found.count == 6)
+    #expect(found.contains { $0.contains("annotation.position: 'above' is not a known value") })
+    #expect(found.contains { $0.contains("annotation.overflowResolution.x: value type 'string'") })
+    #expect(found.contains { $0.contains("annotation.content.properties.text: expected string, got integer") })
+    #expect(found.contains { $0.contains("annotation.content.properties.colour: 'colour' is not a known property") })
+    #expect(found.contains { $0.contains("annotation.content: required key 'content' is missing") })
+    #expect(found.contains { $0.contains("'isOn' of a Toggle in a template must be a single column reference") })
+    // A Chart anywhere inside: ActionUI drops the annotation.
+    let nested = chart([["type": "BarMark", "x": day, "y": n, "annotation": [
+        "content": ["type": "VStack", "children": [["type": "Chart"]]],
+    ]]])
+    #expect(try issues(nested) == [
+        "[ERROR] doc: properties.chart.content[0].content[0].annotation.content: 'Chart' is not allowed inside this element; ActionUI drops the element when it loads",
+    ])
+}
+
 @Test func aSectorAngleOfAnotherTypeIsReported() throws {
     let found = try issues(chart([["type": "SectorMark", "angle": ["label": "Day", "value": "$day", "type": "date", "unit": "day"]]]))
     #expect(found.count == 2)

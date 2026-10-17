@@ -25,6 +25,11 @@
               { "type": "BarMark", "x:macos": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" }, "stacking": "sideways", "width": "wide" }
             ] },
             { "type": "RuleMark", "x": 4, "y": 2 },
+            { "type": "RuleMark", "y": { "label": "Goal", "value": 3 }, "annotation": { "position": "above", "overflowResolution": { "x": "clip", "y": { "fit": "window" }, "z": "fit" },
+              "content": { "type": "Text", "id": 1, "properties": { "text": 3, "colour": "red", "hidden": "$1" }, "children": [] } } },
+            { "type": "PointMark", "x": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 },
+              "annotation": { "spacing": "2", "content:ios": { "type": "Toggle", "properties": { "isOn": "yes" } }, "content:android": { "type": "Nope" } } },
+            { "type": "RuleMark", "y": { "label": "Goal", "value": 3 }, "annotation": { "content": { "type": "VStack", "children": [{ "type": "Text", "type:ios": "Chart" }] } } },
             { "type": "ForEach", "data": [1, 2], "columns": "day", "content": [] },
             { "type": "PointMark", "x": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 }, "series": { "label": "S", "value": "s" } },
             { "type": "LineMark", "x:foo": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 }, "xStart": 3 }

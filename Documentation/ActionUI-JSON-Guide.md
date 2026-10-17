@@ -210,6 +210,15 @@ Layout follows SwiftUI stacking rules:
 
 **Scrolling.** `"chartScrollableAxes": "horizontal"` makes the chart scroll; `"chartXVisibleDomain": {"length": 30}` sets how much of the axis shows (data units on a number axis, seconds on a date axis, a count of categories on a string axis), and `"chartScrollPosition": {"initialX": "2026-09-01"}` where it starts.
 
+**Annotations.** `"annotation"` on a mark draws an ActionUI view next to it, as Swift Charts' `annotation` modifier does; `alignment`, `spacing` and `overflowResolution` follow Swift too. The view is built for each row, as a template row is, so inside a ForEach its text reads the row's cells:
+
+```json
+{ "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "Visits", "value": "$visits" },
+  "annotation": { "position": "top", "content": { "type": "Text", "properties": { "text": "$visits", "font": "caption" } } } }
+```
+
+Annotate a few marks (a goal line, the selection, the largest values), not every row of a long series: past 1000 annotations Swift Charts takes seconds to draw, and the chart leaves them out with a warning.
+
 **Checks.** The verifier checks the description's structure: mark types, the keys of each initializer, value types and enum values. ActionUI warns about the rest when it draws the chart: a `"$name"` that names no column, a row whose cell does not parse under its column's type (the row is skipped). Settings Swift Charts cannot draw, such as a log scale that reaches 0 or a stride that would draw thousands of axis marks, are refused or fall back to the automatic form, with a warning.
 
 **Platforms.** Apple only, on every platform ActionUI supports. Android draws nothing in its place, and Web shows a placeholder.

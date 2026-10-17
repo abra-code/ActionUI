@@ -22,7 +22,9 @@
             "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } } }
         ] },
         { "type": "RuleMark", "y": { "label": "Goal", "value": 1250 },
-          "lineStyle": { "lineWidth": 1, "dash": [4, 3] }, "foregroundStyle": "gray" }
+          "lineStyle": { "lineWidth": 1, "dash": [4, 3] }, "foregroundStyle": "gray",
+          "annotation": { "position": "top", "alignment": "leading",
+            "content": { "type": "Text", "properties": { "text": "Goal", "font": "caption", "foregroundStyle": "secondary" } } } }
       ],
       "chartXAxisLabel": "Week",
       "chartYAxisLabel": "Users",

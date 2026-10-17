@@ -391,6 +391,12 @@ struct ChartContentBuilder {
     // Each drawn sector's angle value, in drawing order, with its row (nil outside a ForEach),
     // to find the row an angle selection falls in.
     private(set) var sectorAngles: [(row: Int?, value: Double)] = []
+    // Where annotation views are built: the chart's id (the viewID of their actions) and window.
+    var viewID = 0
+    var windowUUID = ""
+    var logger: any ActionUILogger = SilentChartLogger.shared
+    // False draws the marks without their annotations (ChartRenderCache.maxAnnotations).
+    var drawsAnnotations = true
 
     private static func widen(_ extent: ClosedRange<Double>?, _ scalar: ChartScalar) -> ClosedRange<Double>? {
         let value: Double
@@ -627,6 +633,17 @@ struct ChartContentBuilder {
             return AnyChartContent(erasing: content.accessibilityIdentifier(resolve(text, row: row)))
         case .accessibilityHidden(let hidden):
             return AnyChartContent(erasing: content.accessibilityHidden(hidden))
+        case .annotation(let annotation):
+            guard drawsAnnotations else { return content }
+            // A template row's instance: the row (empty outside a ForEach) substituted, and its
+            // actions carrying the chart's id and the row's index (-1 outside a ForEach).
+            let read = annotation.readsRows ? row : nil
+            let view = TemplateHelper.buildTemplateView(template: annotation.content, row: read.map { columns.rows[$0] } ?? [],
+                                                        rowIndex: read ?? -1, parentID: viewID, windowUUID: windowUUID,
+                                                        logger: logger)
+            return AnyChartContent(erasing: content.annotation(position: annotation.position, alignment: annotation.alignment,
+                                                               spacing: annotation.spacing,
+                                                               overflowResolution: annotation.overflow) { view })
         case .foregroundStyleBy, .symbolBy, .symbolSizeBy, .lineStyleBy, .position:
             return content // handled above
         }
