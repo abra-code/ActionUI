@@ -276,6 +276,29 @@ s.call(139, "update_window", {"window": chart_window, "properties": {"10": {"cha
 result = structured(s.response(139)) or {}
 check("update_window refuses a chart description the verifier rejects",
       result.get("updated") == 0 and len(result.get("problems", [])) == 1, result)
+
+
+# A chart's annotations hold elements, which get the document rules, platform suffixes resolved.
+def annotated(content, key="annotation"):
+    bar = dict(description["content"][0]["content"][0], **{key: {"position": "top", "content": content}})
+    return dict(description, content=[{"type": "ForEach", "content": [bar]}])
+
+
+s.call(161, "update_window", {"window": chart_window, "properties": {"10": {"chart": annotated(
+    {"type": "Text", "type:macos:macos": "SecureField", "id": 1})}}})
+result = structured(s.response(161)) or {}
+check("update_window refuses a SecureField in a chart annotation, behind a doubled suffix",
+      result.get("updated") == 0 and any("SecureField is not allowed" in p for p in result.get("problems", [])), result)
+s.call(162, "update_window", {"window": chart_window, "properties": {"10": {"chart": annotated(
+    {"type": "WebView", "properties": {"html": "<p>x</p>", "userScripts": [{"source": "1"}]}}, key="annotation:macos")}}})
+result = structured(s.response(162)) or {}
+check("update_window removes userScripts from a chart annotation",
+      result.get("updated") == 1 and any("userScripts removed" in w for w in result.get("warnings", [])), result)
+s.call(163, "update_window", {"window": chart_window, "properties": {"10": {"chart": annotated(
+    {"type": "Text", "properties": {"text": "$n"}})}}})
+result = structured(s.response(163)) or {}
+check("update_window takes a chart annotation", result.get("updated") == 1 and result.get("problems") == []
+      and result.get("warnings") == [], result)
 s.call(140, "close_window", {"window": chart_window})
 s.response(140)
 s.call(141, "wait", {"window": chart_window, "timeout_s": 5})  # drain its window.closed event
@@ -304,6 +327,16 @@ s.call(150, "show", {"title": "Chart", "kind": "chart", "width": 360, "height": 
 result = structured(s.response(150)) or {}
 shown_chart = result.get("window", "")
 check("show opens a chart", bool(shown_chart) and "warnings" not in result, result)
+s.call(164, "show", {"title": "Chart", "kind": "chart", "chart": annotated({"type": "VStack", "children": [{"type": "SecureField"}]})})
+message = s.response(164)
+check("show refuses a SecureField in a chart annotation", is_error(message)
+      and "chart.content[0].content[0].annotation.content.children[0] (SecureField)" in message["result"]["content"][0]["text"],
+      message)
+s.call(165, "validate_document", {"document": {"type": "Chart", "id": 3, "properties": {"chart": annotated(
+    {"type": "LoadableView", "properties": {"name": "x"}})}}})
+result = structured(s.response(165)) or {}
+check("validate refuses a LoadableView in a chart annotation", result.get("ok") is False
+      and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
 s.call(151, "update_window", {"window": shown_chart, "append_rows": {"1": [["Wed", 4]]}})
 result = structured(s.response(151)) or {}
 check("update_window streams rows into a shown chart", result.get("updated") == 1 and result.get("problems") == [], result)

@@ -460,7 +460,8 @@ struct ViewerSpec {
                 // The agent passed a description, not a document: name it and its paths so.
                 throw MCPToolError(error.message
                     .replacingOccurrences(of: "the document has errors:", with: "the chart description has errors:")
-                    .replacingOccurrences(of: "root: properties.chart", with: "chart"))
+                    .replacingOccurrences(of: "root: properties.chart", with: "chart")
+                    .replacingOccurrences(of: "root.properties.chart", with: "chart"))
             }
             root = document.foundation
             checkWarnings = document.warnings

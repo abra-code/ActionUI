@@ -468,8 +468,8 @@ final class WindowHost: NSObject, NSWindowDelegate {
                     problems.append(refusal)
                     continue
                 }
-                ActionUISwift.setElementProperty(windowUUID: windowID, viewID: id, propertyName: name, value: propertyValue.any)
-                agentProperties[windowID, default: [:]][id, default: [:]][name] = propertyValue
+                ActionUISwift.setElementProperty(windowUUID: windowID, viewID: id, propertyName: name, value: check.value.any)
+                agentProperties[windowID, default: [:]][id, default: [:]][name] = check.value
                 updated += 1
             }
         }

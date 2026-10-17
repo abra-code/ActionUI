@@ -42,36 +42,53 @@ struct AgentDocument {
     /// The rules for one property an agent sets on an element of an open window (update_window
     /// `properties`): the document's safety rules, then the ActionUIVerifier on a synthetic
     /// element `{"type", "id", "properties": {name: value}}`. Returns the reason the property is
-    /// refused, or nil, plus the verifier's warnings.
-    static func checkProperty(type: String, id: Int, name: String, value: JSONValue) -> (refusal: String?, warnings: [String]) {
+    /// refused, or nil, the verifier's warnings, and the value to set: a Chart's description
+    /// resolved and checked as a document is (Chart resolves platform suffixes inside it, and its
+    /// annotations hold elements), any other value as given.
+    static func checkProperty(type: String, id: Int, name: String, value: JSONValue)
+        -> (refusal: String?, warnings: [String], value: JSONValue) {
         let here = "id \(id) (\(type)) \(name)"
         if value == .null {
-            return ("\(here): a property needs a value", [])
+            return ("\(here): a property needs a value", [], value)
         }
         if type == "SecureField" && !allowSecureFields {
-            return ("\(here): SecureField is not allowed; whatever the user types is sent to the AI agent", [])
+            return ("\(here): SecureField is not allowed; whatever the user types is sent to the AI agent", [], value)
         }
         if type == "LoadableView" {
-            return ("\(here): \(loadableViewRefusal)", [])
+            return ("\(here): \(loadableViewRefusal)", [], value)
         }
         // setElementProperty stores the name as given and does not resolve "<name>:<platform>"
         // overrides, so a suffixed name would do nothing now and is a way around the rules below
         // if that ever changes.
         if name.contains(":") {
-            return ("\(here): platform suffixes are not resolved here; set the plain property name", [])
+            return ("\(here): platform suffixes are not resolved here; set the plain property name", [], value)
         }
         if name == "userScripts" {
-            return ("\(here): userScripts is refused; scripts from an agent are not run", [])
+            return ("\(here): userScripts is refused; scripts from an agent are not run", [], value)
         }
         if containerKeys.contains(name) || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
-            return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [])
+            return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [], value)
+        }
+        var checked = value
+        var safetyWarnings: [String] = []
+        if type == "Chart", name == "chart" {
+            var errors: [String] = []
+            do {
+                checked = checkAnnotations(in: try resolvingPlatformSuffixes(value), at: "id \(id) (Chart) chart",
+                                           errors: &errors, warnings: &safetyWarnings)
+            } catch {
+                errors.append("\(here): \((error as? MCPToolError)?.message ?? "\(error)")")
+            }
+            if !errors.isEmpty {
+                return (errors.joined(separator: "; "), safetyWarnings, value)
+            }
         }
         guard let validator = Verifier.validator else {
-            return (nil, [Verifier.unavailableWarning])
+            return (nil, safetyWarnings + [Verifier.unavailableWarning], checked)
         }
         let node: [String: Any] = ["type": type, "id": id, "properties": [name: value.any]]
         var errors: [String] = []
-        var warnings: [String] = []
+        var warnings = safetyWarnings
         for issue in validator.validate(jsonObject: node, rootPath: "id \(id)") {
             switch issue.severity {
             case .error: errors.append("\(issue.path): \(issue.message)")
@@ -79,7 +96,25 @@ struct AgentDocument {
             default: break
             }
         }
-        return (errors.isEmpty ? nil : errors.joined(separator: "; "), warnings)
+        return (errors.isEmpty ? nil : errors.joined(separator: "; "), warnings, checked)
+    }
+
+    /// `value` with every "<key>:<platform>" override resolved as ActionUI resolves a document's.
+    /// One pass strips only the last suffix ("type:macos:macos" becomes "type:macos"), and the
+    /// loader resolves what it is given once more, so resolve until no suffix is left: otherwise
+    /// a suffix could hide an element from the checks.
+    static func resolvingPlatformSuffixes(_ value: JSONValue) throws -> JSONValue {
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet)
+        var resolved = JSONValue(any: filter.filter(value.any))
+        var passes = 1
+        while true {
+            let next = JSONValue(any: filter.filter(resolved.any))
+            if next == resolved { break }
+            passes += 1
+            guard passes <= 8 else { throw MCPToolError("platform suffixes are nested too deeply") }
+            resolved = next
+        }
+        return resolved
     }
 
     /// Reads `document` (object) or `path` (absolute .json file) from the arguments and checks it.
@@ -106,18 +141,7 @@ struct AgentDocument {
         // ActionUI resolves "<key>:<platform>" overrides when it loads a document, so the safety
         // rules run on, and the window loads, the resolved document: otherwise "type:macos":
         // "SecureField", "children:macos" or "userScripts:macos" would pass the checks unseen.
-        // One pass strips only the last suffix ("type:macos:macos" becomes "type:macos"), and the
-        // loader resolves the staged document once more, so resolve until no suffix is left.
-        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet)
-        var resolved = JSONValue(any: filter.filter(value.any))
-        var passes = 1
-        while true {
-            let next = JSONValue(any: filter.filter(resolved.any))
-            if next == resolved { break }
-            passes += 1
-            guard passes <= 8 else { throw MCPToolError("the document's platform suffixes are nested too deeply") }
-            resolved = next
-        }
+        let resolved = try Self.resolvingPlatformSuffixes(value)
         let checked = Self.check(resolved, at: "root", errors: &errors, warnings: &warnings, ids: &ids)
         // Then the ActionUIVerifier checks the document as written (its platform-suffix rules
         // need the suffixes): element types, property names, value types, enums, required
@@ -204,6 +228,11 @@ struct AgentDocument {
         if type == "LoadableView" {
             errors.append("\(here): \(loadableViewRefusal)")
         }
+        // A chart description holds elements too: its annotations' views.
+        if type == "Chart", var properties = object["properties"]?.object, let chart = properties["chart"] {
+            properties["chart"] = checkAnnotations(in: chart, at: "\(location).properties.chart", errors: &errors, warnings: &warnings)
+            object["properties"] = .object(properties)
+        }
         // Recurse into every child slot whose shape matches; anything else is left to the loader.
         func checkItems(_ items: [JSONValue], at path: String) -> [JSONValue] {
             items.enumerated().map { index, item in
@@ -226,6 +255,26 @@ struct AgentDocument {
                 object[key] = check(object[key]!, at: "\(location).\(key)", errors: &errors, warnings: &warnings, ids: &ids)
             }
         }
+        return .object(object)
+    }
+
+    /// A chart description's annotation elements (a mark's or Plot's "annotation" "content"), in
+    /// its "content" entries at any depth (ForEach and Plot entries hold more), checked as
+    /// document elements are. Their ids are their own, as the verifier counts them: an annotation
+    /// is built for each row and never registered.
+    private static func checkAnnotations(in description: JSONValue, at location: String, errors: inout [String],
+                                         warnings: inout [String]) -> JSONValue {
+        guard var object = description.object, case .array(let entries) = object["content"] else { return description }
+        object["content"] = .array(entries.enumerated().map { index, entry in
+            guard var entryObject = entry.object else { return entry }
+            let here = "\(location).content[\(index)]"
+            if var annotation = entryObject["annotation"]?.object, let content = annotation["content"], content.object != nil {
+                var ids: Set<Int> = []
+                annotation["content"] = check(content, at: "\(here).annotation.content", errors: &errors, warnings: &warnings, ids: &ids)
+                entryObject["annotation"] = .object(annotation)
+            }
+            return checkAnnotations(in: .object(entryObject), at: here, errors: &errors, warnings: &warnings)
+        })
         return .object(object)
     }
 }

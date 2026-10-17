@@ -27,11 +27,12 @@ Everything the user enters in a window goes back to the agent, and the agent, no
 - `LoadableView` is refused: the document it loads (from `url`, `filePath`, a bundle `name`, or a new value) would skip every check here. Put its content in the document instead.
 - WebView `userScripts` are removed, with a warning: scripts from an agent are not run.
 - Platform overrides (`"<key>:macos"`, repeated suffixes such as `"type:macos:macos"` included) are resolved before these checks, and the window loads the resolved document, so a suffixed key cannot carry a refused element past them.
+- The rules reach elements nested anywhere, a Chart's annotation views included (the `content` of a mark's `annotation` in its `chart` description).
 - The document is a JSON object (never a string) or an absolute `.json` path, at most 4 MB. Ids are unique positive integers, and container keys such as `children` sit next to `properties`, not inside it. Verifier errors and ActionUI load errors also refuse the document.
 
 `update_window` applies the same rules to each entry:
 
-- `properties`: no null value, no `userScripts`, no child-element key such as `children` or `content`, no `id` or `type`, and no `:<platform>` suffix (not resolved here); no property of a SecureField or LoadableView. Each entry is then checked by the verifier as a one-element document.
+- `properties`: no null value, no `userScripts`, no child-element key such as `children` or `content`, no `id` or `type`, and no `:<platform>` suffix (not resolved here); no property of a SecureField or LoadableView. A Chart's `chart` description is resolved and its annotation views checked as a document's elements are, and the window gets the resolved description. Each entry is then checked by the verifier as a one-element document.
 - `values`: strings, numbers or booleans; a LoadableView's value (its source) cannot be set.
 
 ## Kept windows
