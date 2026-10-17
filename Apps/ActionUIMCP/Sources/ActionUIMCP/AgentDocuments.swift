@@ -8,7 +8,8 @@
 // validate_document). A document arrives as a JSON object nested in the tool arguments, or as an
 // absolute path to a .json file, never as a string. Before anything loads it gets structural
 // checks for the mistakes ActionUI's loader would silently ignore, and the safety rules of the
-// design: no SecureField (every answer reaches the model), no WebView user scripts.
+// design: no SecureField (every answer reaches the model), no LoadableView (the document it loads
+// would skip these checks), no WebView user scripts.
 
 import Foundation
 import ActionUI
@@ -34,6 +35,9 @@ struct AgentDocument {
                                     "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview",
                                     "safeAreaInset"]
     static let allowSecureFields = ProcessInfo.processInfo.environment["ACTIONUI_MCP_ALLOW_SECURE_FIELDS"] == "1"
+    /// A LoadableView loads another document when it is shown, past every check here, through any
+    /// of its sources (`url`, `filePath`, `name`) or a new value.
+    static let loadableViewRefusal = "LoadableView is not allowed; the document it loads would skip these checks, so put its content inline"
 
     /// The rules for one property an agent sets on an element of an open window (update_window
     /// `properties`): the document's safety rules, then the ActionUIVerifier on a synthetic
@@ -47,10 +51,8 @@ struct AgentDocument {
         if type == "SecureField" && !allowSecureFields {
             return ("\(here): SecureField is not allowed; whatever the user types is sent to the AI agent", [])
         }
-        // A LoadableView loads a document the checks above never see; changing its source would
-        // load one now.
-        if type == "LoadableView" && ["url", "filePath", "name"].contains(name) {
-            return ("\(here): a LoadableView's source cannot be changed; the document it loads would skip these checks", [])
+        if type == "LoadableView" {
+            return ("\(here): \(loadableViewRefusal)", [])
         }
         // setElementProperty stores the name as given and does not resolve "<name>:<platform>"
         // overrides, so a suffixed name would do nothing now and is a way around the rules below
@@ -104,7 +106,18 @@ struct AgentDocument {
         // ActionUI resolves "<key>:<platform>" overrides when it loads a document, so the safety
         // rules run on, and the window loads, the resolved document: otherwise "type:macos":
         // "SecureField", "children:macos" or "userScripts:macos" would pass the checks unseen.
-        let resolved = JSONValue(any: PlatformFilter(active: PlatformFilter.runtimeActiveSet).filter(value.any))
+        // One pass strips only the last suffix ("type:macos:macos" becomes "type:macos"), and the
+        // loader resolves the staged document once more, so resolve until no suffix is left.
+        let filter = PlatformFilter(active: PlatformFilter.runtimeActiveSet)
+        var resolved = JSONValue(any: filter.filter(value.any))
+        var passes = 1
+        while true {
+            let next = JSONValue(any: filter.filter(resolved.any))
+            if next == resolved { break }
+            passes += 1
+            guard passes <= 8 else { throw MCPToolError("the document's platform suffixes are nested too deeply") }
+            resolved = next
+        }
         let checked = Self.check(resolved, at: "root", errors: &errors, warnings: &warnings, ids: &ids)
         // Then the ActionUIVerifier checks the document as written (its platform-suffix rules
         // need the suffixes): element types, property names, value types, enums, required
@@ -187,6 +200,9 @@ struct AgentDocument {
         }
         if type == "SecureField" && !allowSecureFields {
             errors.append("\(here): SecureField is not allowed; whatever the user types is sent to the AI agent")
+        }
+        if type == "LoadableView" {
+            errors.append("\(here): \(loadableViewRefusal)")
         }
         // Recurse into every child slot whose shape matches; anything else is left to the loader.
         func checkItems(_ items: [JSONValue], at path: String) -> [JSONValue] {

@@ -8,16 +8,31 @@ Tools:
 - `notify` - a short notice in a small floating panel at the top right of the screen. Returns at once; the notice takes no focus and goes away after `duration_s` (default 6) or a click. At most 4 on screen, fewer when they are tall; a new one replaces the oldest.
 - `show` - a non-blocking viewer window for markdown, plain text, an image, a PDF or any Quick Look file, a video, a web page, a diff of two texts or files, or a table (up to 50000 rows). Returns `{window}` at once and does not take keyboard focus. `keep: true` keeps the window open after the session ends.
 - `pick_path` - the system open or save panel. Blocks and returns `{action, paths}`.
-- `show_document` - opens an ActionUI document the agent wrote, passed as a nested object or an absolute `.json` path. In `dialog` mode it adds a footer and a button row, waits, and returns every element's value by id. In `window` mode it returns `{window}` at once and queues the window's actions for `wait`; `keep: true` keeps the window open after the session ends. A document ActionUI cannot load is not shown; the load errors come back instead. SecureField is refused and WebView user scripts are removed.
+- `show_document` - opens an ActionUI document the agent wrote, passed as a nested object or an absolute `.json` path. In `dialog` mode it adds a footer and a button row, waits, and returns every element's value by id. In `window` mode it returns `{window}` at once and queues the window's actions for `wait`; `keep: true` keeps the window open after the session ends. A document ActionUI cannot load is not shown; the load errors come back instead. What is refused is listed under Rules for agent documents.
 - `validate_document` - checks a document without showing it: first element shape, unique positive ids, container keys placed inside `properties`, and refused elements; when those pass, the ActionUIVerifier library (the Swift twin of the Python verifier) checks element types, property names, value types, enum values, required properties, and platform suffixes; then ActionUI's own load errors. Errors also make `show_document` refuse the document; warnings (usually typos) come back with the result. Validation targets macOS.
 - `wait` - returns the queued actions of live windows (`show_document` window mode), waiting for at least one or a timeout. Repeated actions on one element are merged; closing a window adds a `window.closed` event.
-- `update_window` / `get_values` - write element properties, values and table rows into an open window, and read values back. `properties` (`{"<id>": {"<name>": value}}`, for example a Chart's `chart` description) is applied first, then values, then rows. Each property gets the document rules (no `SecureField`, no `userScripts`, no child-element keys, no new source for a `LoadableView`), may not carry a `:<platform>` suffix (not resolved here), and is checked by the verifier as a one-element document; a refused one comes back in `problems`, and verifier warnings in `warnings`.
+- `update_window` / `get_values` - write element properties, values and table rows into an open window, and read values back. `properties` (`{"<id>": {"<name>": value}}`, for example a Chart's `chart` description) is applied first, then values, then rows. Each entry gets the rules under Rules for agent documents; a refused one comes back in `problems`, and verifier warnings in `warnings`.
 - `screenshot` - a PNG of an open window, or of a document rendered in a window that never appears on screen (to check a layout before showing it). Returns an image content block and saves the PNG; captured in-process, so it needs no Screen Recording permission and works with the screen locked. Rendered documents get `validate_document`'s checks first; their controls draw in the inactive style.
 - `close_window` - closes a window.
 
 Resources: ActionUI's element reference, for clients without the actionui skill: `actionui://docs/guide` (the JSON guide), `actionui://docs/elements` (the element index), `actionui://docs/elements/<Type>` (one element, core and add-ons) and `actionui://docs/templates/<Type>` (a JSON template). They are read from the documentation bundles that `swift build` places next to the executable; ship those bundles with the binary, or the resources are left out.
 
 Every window shows "Requested by <client>" in its title bar.
+
+## Rules for agent documents
+
+Everything the user enters in a window goes back to the agent, and the agent, not the person who installed the server, writes the documents. So `show_document`, `validate_document` and `screenshot` (of a document) refuse anything that could keep input away from these checks or run code:
+
+- `SecureField` is refused: whatever the user types in it would be sent to the agent. `ACTIONUI_MCP_ALLOW_SECURE_FIELDS=1` allows it.
+- `LoadableView` is refused: the document it loads (from `url`, `filePath`, a bundle `name`, or a new value) would skip every check here. Put its content in the document instead.
+- WebView `userScripts` are removed, with a warning: scripts from an agent are not run.
+- Platform overrides (`"<key>:macos"`, repeated suffixes such as `"type:macos:macos"` included) are resolved before these checks, and the window loads the resolved document, so a suffixed key cannot carry a refused element past them.
+- The document is a JSON object (never a string) or an absolute `.json` path, at most 4 MB. Ids are unique positive integers, and container keys such as `children` sit next to `properties`, not inside it. Verifier errors and ActionUI load errors also refuse the document.
+
+`update_window` applies the same rules to each entry:
+
+- `properties`: no null value, no `userScripts`, no child-element key such as `children` or `content`, no `id` or `type`, and no `:<platform>` suffix (not resolved here); no property of a SecureField or LoadableView. Each entry is then checked by the verifier as a one-element document.
+- `values`: strings, numbers or booleans; a LoadableView's value (its source) cannot be set.
 
 ## Kept windows
 

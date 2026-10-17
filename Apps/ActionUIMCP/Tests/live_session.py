@@ -273,17 +273,22 @@ s.response(140)
 s.call(141, "wait", {"window": chart_window, "timeout_s": 5})  # drain its window.closed event
 s.response(141)
 
-# A LoadableView's source cannot be changed: the document it would load skips the checks.
+# LoadableView is refused anywhere in a document: the document it loads would skip the checks.
 s.call(145, "show_document", {"title": "Loadable", "document": {"type": "LoadableView", "id": 20, "properties": {"name": "nothing"}}})
-loadable_window = (structured(s.response(145)) or {}).get("window", "")
-s.call(146, "update_window", {"window": loadable_window, "properties": {"20": {"filePath": "/tmp/x.json"}}})
+message = s.response(145)
+check("show_document refuses a LoadableView", is_error(message)
+      and "LoadableView is not allowed" in message["result"]["content"][0]["text"], message)
+s.call(146, "validate_document", {"document": {"type": "VStack", "children": [{"type": "Text", "properties": {"text": "x"}}],
+                                               "children:macos": [{"type": "LoadableView", "properties": {"filePath": "/tmp/x.json"}}]}})
 result = structured(s.response(146)) or {}
-check("update_window refuses a new LoadableView source", result.get("updated") == 0
-      and any("LoadableView's source cannot be changed" in p for p in result.get("problems", [])), result)
-s.call(147, "close_window", {"window": loadable_window})
-s.response(147)
-s.call(148, "wait", {"window": loadable_window, "timeout_s": 5})  # drain its window.closed event
-s.response(148)
+check("validate refuses a LoadableView behind a platform suffix", result.get("ok") is False
+      and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
+# One filter pass leaves "type:macos" from "type:macos:macos", which the loader would resolve.
+s.call(147, "validate_document", {"document": {"type": "VStack", "children": [
+    {"type": "Text", "type:macos:macos": "LoadableView", "properties": {"text": "x"}}]}})
+result = structured(s.response(147)) or {}
+check("validate refuses a LoadableView behind a doubled platform suffix", result.get("ok") is False
+      and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
 
 # A wait for one window ends when an older wait for any window takes that window's close event.
 s.call(44, "show_document", {"title": "Live", "document": FORM})

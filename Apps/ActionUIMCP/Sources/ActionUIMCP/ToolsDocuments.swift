@@ -52,7 +52,9 @@ func showDocumentTool(host: WindowHost, label: String?) -> MCPTool {
             back with the result. mode "dialog" waits for the user \
             and returns {action, button, close_action?, values}, where values maps each element id to \
             its current value. mode "window" returns {window} at once; collect the user's actions with \
-            wait, change values with update_window. SecureField is not allowed: everything the user enters is sent to you.
+            wait, change values with update_window. Not allowed: SecureField (everything the user \
+            enters is sent to you) and LoadableView (the document it loads would skip the checks; put \
+            its content inline). WebView userScripts are removed.
             """,
         inputSchema: input,
         annotations: ["readOnlyHint": true, "openWorldHint": false],
@@ -117,7 +119,8 @@ func validateDocumentTool(host: WindowHost) -> MCPTool {
         title: "Check an ActionUI document",
         description: """
             Check an ActionUI document without showing it: structure (element shape, unique positive \
-            ids, container keys such as children placed next to properties) and disallowed elements; \
+            ids, container keys such as children placed next to properties) and refused elements \
+            (SecureField, LoadableView); \
             when those pass, the rules of the ActionUI verifier (element types, property names, value \
             types, enum values, required properties, platform suffixes); then ActionUI's own load \
             errors. Returns {ok, errors, warnings}; fix every error, and read the warnings, which \
@@ -188,7 +191,7 @@ func updateWindowTool(host: WindowHost) -> MCPTool {
         "properties": [
             "window": windowProperty,
             "properties": ["type": "object", "additionalProperties": ["type": "object"],
-                           "description": "Element id to {property name: value}, set as in the document's \"properties\"; for example {\"10\": {\"chart\": {...}}} replaces a Chart's description. Applied first, then values, then rows. Each is checked like a document; a refused one comes back in problems."],
+                           "description": "Element id to {property name: value}, set as in the document's \"properties\"; for example {\"10\": {\"chart\": {...}}} replaces a Chart's description. Applied first, then values, then rows. Each is checked like a document; a refused one comes back in problems. Not allowed: null, userScripts, child-element keys such as children, id, type, a \"<name>:<platform>\" suffix, and any property of a SecureField or LoadableView."],
             "values": ["type": "object", "description": "Element id to new value (string, number, or boolean), for example {\"3\": \"Done\", \"4\": 0.75}."],
             "rows": byID.merging(description: "Table or List id to its new rows, each an array of cells; replaces all rows."),
             "append_rows": byID.merging(description: "Table or List id to rows to add at the end."),

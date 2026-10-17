@@ -450,7 +450,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
             }
             return id
         }
-        let types = properties.isEmpty ? [:] : ActionUISwift.getElementInfo(windowUUID: windowID)
+        let types = properties.isEmpty && values.isEmpty ? [:] : ActionUISwift.getElementInfo(windowUUID: windowID)
         for (key, value) in properties.sorted(by: { $0.key < $1.key }) {
             guard let id = element(key) else { continue }
             guard let named = value.object, !named.isEmpty else {
@@ -475,6 +475,12 @@ final class WindowHost: NSObject, NSWindowDelegate {
         }
         for (key, value) in values.sorted(by: { $0.key < $1.key }) {
             guard let id = element(key) else { continue }
+            // A LoadableView's value is its source. Agent documents cannot contain one; this keeps
+            // any other window's from loading a document the checks never saw.
+            if types[id] == "LoadableView" {
+                problems.append("id \(key) (LoadableView): \(AgentDocument.loadableViewRefusal)")
+                continue
+            }
             let text: String
             switch value {
             case .string(let string): text = string
