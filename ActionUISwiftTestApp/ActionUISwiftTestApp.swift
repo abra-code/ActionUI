@@ -253,7 +253,6 @@ struct ActionUISwiftTestApp: App {
                     "y": ["label": "Users", "value": "$users"],
                     "foregroundStyle": ["by": ["label": "Platform", "value": "$platform"]],
                 ]]]],
-                "chartYScale": ["domain": [0, 2000]],
                 "chartLegend": ["position": "bottom"],
             ]
         }

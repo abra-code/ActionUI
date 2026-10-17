@@ -208,8 +208,8 @@ final class ChartTests: XCTestCase {
         guard case .forEach(let children)? = parsed.spec.content.first, case .mark(let mark)? = children.first else {
             return XCTFail("expected one mark in a ForEach")
         }
-        XCTAssertEqual(mark.x.type, .string)
-        XCTAssertEqual(mark.y.type, .integer, "the value's own type is used")
+        XCTAssertEqual(mark.values["x"]?.type, .string)
+        XCTAssertEqual(mark.values["y"]?.type, .integer, "the value's own type is used")
         // Validation writes the default type, so the cleaned description parses without a warning.
         let quiet = RecordingLogger()
         _ = ChartDescription.parse(parsed.cleaned, logger: quiet)
@@ -223,7 +223,7 @@ final class ChartTests: XCTestCase {
         ]
         let parsed = ChartDescription.parse(chart, logger: logger)
         XCTAssertEqual(logger.warnings.count, 1)
-        guard case .mark(let mark)? = parsed.spec.content.first, case .literal(.string(let text)) = mark.x.source else {
+        guard case .mark(let mark)? = parsed.spec.content.first, case .literal(.string(let text))? = mark.values["x"]?.source else {
             return XCTFail("expected a literal mark")
         }
         XCTAssertEqual(text, "$platform")
@@ -258,8 +258,8 @@ final class ChartTests: XCTestCase {
         let second = ChartDescription.parse(first.cleaned, logger: logger)
         guard case .forEach(let a)? = first.spec.content.first, case .mark(let m1)? = a.first,
               case .forEach(let b)? = second.spec.content.first, case .mark(let m2)? = b.first else { return XCTFail("shape") }
-        XCTAssertEqual(m1.x.type, .date)
-        XCTAssertEqual(m2.x.type, .date)
+        XCTAssertEqual(m1.values["x"]?.type, .date)
+        XCTAssertEqual(m2.values["x"]?.type, .date)
         XCTAssertTrue((first.cleaned as NSDictionary).isEqual(to: second.cleaned), "\(first.cleaned) vs \(second.cleaned)")
     }
 
@@ -342,7 +342,8 @@ final class ChartTests: XCTestCase {
 
     private func render(_ view: some SwiftUI.View) -> CGImage? {
         let renderer = ImageRenderer(content: view.frame(width: 320, height: 200).background(SwiftUI.Color.white))
-        renderer.scale = 1
+        // 2x: at 1x, layout rounding shifts pixels even for a pass-through modifier.
+        renderer.scale = 2
         return renderer.cgImage
     }
 
@@ -363,7 +364,9 @@ final class ChartTests: XCTestCase {
                                     model, windowUUID, model.validatedProperties, logger)
         let chartImage = try XCTUnwrap(render(AnyView(built)))
 
-        // The same marks, typed, with no modifiers at all.
+        // The same marks, typed, with only an identity plot style: Swift Charts itself shifts a few
+        // pixels of antialiasing whenever chartPlotStyle is present, even as { $0 }, and the
+        // chart always applies it so its type never changes.
         let weeks = ["2026-08-03", "2026-08-10", "2026-08-03", "2026-08-10"].map { DateHelper.parseDate(from: $0)! }
         let platforms = ["iOS", "iOS", "macOS", "macOS"]
         let users: [Double] = [10, 14, 7, 9]
@@ -371,10 +374,11 @@ final class ChartTests: XCTestCase {
             Charts.LineMark(x: .value("Week", weeks[i], unit: .weekOfYear), y: .value("Users", users[i]))
                 .foregroundStyle(by: .value("Platform", platforms[i]))
         }
-        let referenceImage = try XCTUnwrap(render(reference))
+        let referenceImage = try XCTUnwrap(render(reference.chartPlotStyle { plot in plot }))
 
         let a = pixels(chartImage)
         XCTAssertGreaterThan(a.enumerated().filter { $0.offset % 4 == 0 && $0.element < 200 }.count, 500, "the chart drew something")
-        XCTAssertEqual(a, pixels(referenceImage), "erased marks plus neutral modifiers draw exactly what typed marks draw")
+        let differing = zip(a, pixels(referenceImage)).filter { $0 != $1 }.count
+        XCTAssertEqual(differing, 0, "erased marks plus neutral modifiers draw exactly what typed marks draw")
     }
 }

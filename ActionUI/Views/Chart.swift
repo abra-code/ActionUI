@@ -17,21 +17,50 @@
                          //   without "data" keeps the rows. The stored description keeps no "data".
        "content": [      // The marks, in Swift Charts' vocabulary
          { "type": "ForEach", "content": [  // Draws its content once per row
-           { "type": "LineMark",            // "BarMark" or "LineMark", each with "x" and "y"
+           { "type": "LineMark",
              "x": { "label": "Week", "value": "$week", "type": "date", "unit": "weekOfYear" },
              "y": { "label": "Users", "value": "$users" },
-             "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } } } // or a color: "blue"
+             "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } }, // or a color: "blue"
+             "interpolationMethod": "catmullRom" }
          ] },
-         { "type": "BarMark", "x": { "label": "Goal", "value": "Goal" }, "y": { "label": "Users", "value": 1500 } }
+         { "type": "RuleMark", "y": { "label": "Goal", "value": 1500 }, "lineStyle": { "lineWidth": 1, "dash": [4, 3] } }
        ],
-       "chartXScale": { "domain": [0, 100] },  // Optional: two numbers or two dates (a range), a list of strings
-                                              //   (categories), or {"automatic": {"includesZero": false, "reversed": true}}
+       "chartXScale": { "domain": [0, 100] },  // Optional: "domain": two numbers or two dates (a range), a list of strings
+                                              //   (categories), or {"automatic": {"includesZero": false, "reversed": true}};
+                                              //   "range": {"startPadding", "endPadding"}, {"padding"} or two numbers (points);
+                                              //   "type": "linear" | "log" | "date" | "category" | "squareRoot" | "symmetricLog" |
+                                              //   {"power": {"exponent": 2}} | {"symmetricLog": {"slopeAtZero": 1}}. On a number axis
+                                              //   "log", "squareRoot" and "power" need a "domain" inside theirs (log: low end above 0);
+                                              //   "date" and "category" never apply to a number or date axis (Swift Charts stops the app)
        "chartYScale": { "domain": { "automatic": { "includesZero": true } } },
        "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden"; also chartYAxis
-       "chartXAxisLabel": "Week",             // Optional: axis title; also chartYAxisLabel
-       "chartLegend": "automatic"             // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
+       "chartXAxisLabel": "Week",             // Optional: axis title, or {"text", "position", "alignment", "spacing"};
+                                              //   also chartYAxisLabel
+       "chartLegend": "automatic",            // Optional: "automatic" | "visible" | "hidden", or {"position": "bottom"}
+       "chartPlotStyle": { "background": "gray.opacity(0.1)", "cornerRadius": 4 } // Optional: View properties for the plot area: padding,
+                                              //   background, border, frame, cornerRadius, clipShape, shadow, opacity, offset, foregroundStyle
      }
    }
+   // Marks: every argument is a key named like Swift's initializer argument. A plottable value is an object
+   //   (below); a number means points. The keys must match one initializer:
+   //   BarMark   x + y | x (+ yStart/yEnd points) | x + yStart + yEnd | (xStart/xEnd points +) y |
+   //             (xStart/xEnd points +) yStart + yEnd | xStart + xEnd + y | xStart + xEnd (+ yStart/yEnd points);
+   //             "width" / "height" (where the initializer has them): a number (fixed), "automatic", {"ratio"},
+   //             {"inset"} or {"fixed"}; "stacking": "standard" | "normalized" | "center" | "unstacked"
+   //   LineMark  x + y | x + y + series
+   //   PointMark x + y | (x point +) y | x (+ y point)
+   //   RuleMark  (x point +) yStart + yEnd | x (+ yStart/yEnd points) | x + yStart + yEnd | (xStart/xEnd points +) y |
+   //             xStart + xEnd (+ y point) | xStart + xEnd + y
+   //   A start and its end have one type.
+   // Mark modifiers (a modifier that does not apply to a mark changes nothing):
+   //   "foregroundStyle": color or {"by": value}   "symbol": circle|square|triangle|diamond|pentagon|plus|cross|asterisk or {"by"}
+   //   "symbolSize": area, {"width", "height"} or {"by"}   "lineStyle": {"lineWidth", "lineCap", "lineJoin", "miterLimit",
+   //   "dash", "dashPhase"} or {"by"}   "interpolationMethod": linear|cardinal|catmullRom|monotone|stepStart|stepCenter|
+   //   stepEnd, {"cardinal": {"tension"}} or {"catmullRom": {"alpha"}}   "position": {"by", "axis": horizontal|vertical,
+   //   "span": dimension}   "cornerRadius": number or {"radius", "style": continuous|circular}   "opacity", "zIndex",
+   //   "blur": number   "offset": {"x", "y"} with start/end forms for ranges   "shadow": {"radius", "color", "x", "y"}
+   //   "alignsMarkStylesWithPlotArea", "accessibilityHidden": bool   "accessibilityLabel", "accessibilityValue",
+   //   "accessibilityIdentifier": text, which inside a ForEach may embed "$N" / "$name" references
    // Plottable values: {"label": text, "value": v, "type": optional, "unit": optional}.
    //   Inside a ForEach, "$N" (1-based) or "$name" reads that cell of each row. Every column reference needs
    //   a type, from its column or the value's own "type" (which wins); an untyped one is plotted as text.
@@ -119,8 +148,15 @@ struct Chart: ActionUIViewConstruction {
         let rows = model.states["content"] as? [[String]] ?? []
         let rendered = cache.render(description: description, rows: rows, viewID: element.id, logger: logger)
         let items = rendered.items
+        let plotStyle = rendered.spec.plotStyle
+        // View.applyModifiers also draws the element's own background, overlay and safeAreaInset
+        // subviews, which the chart as a whole already has: the plot area gets an element
+        // without subviews.
+        let plotElement = ActionUIElement(id: element.id, type: element.type, properties: plotStyle, subviews: nil)
         return Charts.Chart(items.indices, id: \.self) { items[$0] }
-            .chartModifiers(rendered.spec)
+            .chartModifiers(rendered.spec, plotStyle: plotStyle.isEmpty ? nil : { plot in
+                AnyView(View.applyModifiers(plot, plotElement, windowUUID, plotStyle, logger))
+            })
     }
 
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in

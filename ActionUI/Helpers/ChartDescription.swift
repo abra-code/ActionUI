@@ -33,18 +33,6 @@ struct ChartPlottable {
     let unit: Calendar.Component?
 }
 
-enum ChartMarkKind: String {
-    case BarMark, LineMark
-}
-
-struct ChartMarkSpec {
-    let kind: ChartMarkKind
-    let x: ChartPlottable
-    let y: ChartPlottable
-    let foregroundColor: SwiftUI.Color?
-    let foregroundBy: ChartPlottable?
-}
-
 indirect enum ChartEntry {
     case mark(ChartMarkSpec)
     case forEach([ChartEntry])
@@ -52,8 +40,13 @@ indirect enum ChartEntry {
 
 struct ChartAxisSpec {
     var domain: ForwardingDomain = .automatic
+    var range: ForwardingPositionRange = .automatic
+    var scaleType: ScaleType?
     var visibility: Visibility = .automatic
     var label: String?
+    var labelPosition: AnnotationPosition = .automatic
+    var labelAlignment: Alignment?
+    var labelSpacing: CGFloat?
 }
 
 struct ChartSpec {
@@ -63,6 +56,8 @@ struct ChartSpec {
     var y = ChartAxisSpec()
     var legendVisibility: Visibility = .automatic
     var legendPosition: AnnotationPosition = .automatic
+    // View modifier properties for the plot area, already validated as baseline View properties.
+    var plotStyle: [String: Any] = [:]
 
     // Every (column, type) pair the marks read, so the rows are parsed once per pair.
     var referencedColumns: [ChartColumnRef] {
@@ -73,7 +68,7 @@ struct ChartSpec {
                 case .forEach(let children):
                     visit(children)
                 case .mark(let mark):
-                    for value in [mark.x, mark.y] + (mark.foregroundBy.map { [$0] } ?? []) {
+                    for value in mark.plottables {
                         if case .column(let index) = value.source {
                             let ref = ChartColumnRef(index: index, type: value.type)
                             if !refs.contains(ref) { refs.append(ref) }
@@ -92,13 +87,17 @@ struct ChartColumnRef: Hashable {
     let type: ChartColumnType
 }
 
+@MainActor
 enum ChartDescription {
     static let supportedKeys: Set<String> = [
         "columns", "data", "content", "chartXScale", "chartYScale", "chartXAxis", "chartYAxis",
-        "chartXAxisLabel", "chartYAxisLabel", "chartLegend",
+        "chartXAxisLabel", "chartYAxisLabel", "chartLegend", "chartPlotStyle",
+    ]
+    static let plotStyleKeys: Set<String> = [
+        "padding", "background", "border", "frame", "cornerRadius", "clipShape", "shadow", "opacity", "offset", "foregroundStyle",
     ]
 
-    private struct Column {
+    struct Column {
         let name: String?
         let type: ChartColumnType?
         // A column given by bare name ("platform") is a string column.
@@ -140,8 +139,8 @@ enum ChartDescription {
 
         // One type per axis: number and integer may share an axis, string and date may not
         // share it with anything else. Marks that disagree with the first mark are dropped.
-        let xType = axisType(spec.content, \.x)
-        let yType = axisType(spec.content, \.y)
+        let xType = axisType(spec.content, \.xValues)
+        let yType = axisType(spec.content, \.yValues)
         var cleanedContent = cleaned["content"] as? [Any] ?? []
         spec.content = dropMismatched(spec.content, cleaned: &cleanedContent, xType: xType, yType: yType, logger: logger)
         if cleaned["content"] != nil {
@@ -161,6 +160,26 @@ enum ChartDescription {
                 cleaned["chartLegend"] = ["position": position]
             } else {
                 logger?.log("Chart: 'chartLegend' must be \"automatic\", \"visible\", \"hidden\" or {\"position\": ...}; ignoring", .warning)
+            }
+        }
+
+        if let plotStyle = description["chartPlotStyle"] {
+            if let properties = plotStyle as? [String: Any] {
+                // The plot area takes the visual baseline View properties, validated as on any
+                // view. Others (actions, accessibility, layout of the chart itself) do not apply.
+                var visual: [String: Any] = [:]
+                for (key, value) in properties {
+                    if plotStyleKeys.contains(key) {
+                        visual[key] = value
+                    } else {
+                        logger?.log("Chart: '\(key)' does not apply in chartPlotStyle (it takes \(plotStyleKeys.sorted().joined(separator: ", "))); ignoring it", .warning)
+                    }
+                }
+                let validated = View.validateProperties(visual, logger ?? SilentChartLogger.shared)
+                spec.plotStyle = validated
+                cleaned["chartPlotStyle"] = validated
+            } else {
+                logger?.log("Chart: 'chartPlotStyle' must be an object of View properties; ignoring", .warning)
             }
         }
         return (cleaned, spec)
@@ -251,79 +270,9 @@ enum ChartDescription {
         }
     }
 
-    // MARK: - Content
+    // MARK: - Plottable values (marks and their modifiers are in ChartMarkParsing.swift)
 
-    private static func parseEntries(_ entries: [Any], insideForEach: Bool, columns: [Column],
-                                     cleaned: inout [Any], logger: (any ActionUILogger)?) -> [ChartEntry] {
-        var result: [ChartEntry] = []
-        for item in entries {
-            guard let entry = item as? [String: Any], let type = entry["type"] as? String else {
-                logger?.log("Chart: a content entry must be an object with a 'type'; ignoring it", .warning)
-                continue
-            }
-            if type == "ForEach" {
-                if insideForEach {
-                    logger?.log("Chart: a ForEach cannot be inside another ForEach; ignoring it", .warning)
-                    continue
-                }
-                guard let children = entry["content"] as? [Any] else {
-                    logger?.log("Chart: ForEach requires 'content' (an array); ignoring it", .warning)
-                    continue
-                }
-                var cleanedChildren: [Any] = []
-                let parsed = parseEntries(children, insideForEach: true, columns: columns, cleaned: &cleanedChildren, logger: logger)
-                result.append(.forEach(parsed))
-                cleaned.append(["type": "ForEach", "content": cleanedChildren])
-                continue
-            }
-            guard let kind = ChartMarkKind(rawValue: type) else {
-                logger?.log("Chart: content type '\(type)' is not supported; ignoring it", .warning)
-                continue
-            }
-            if let mark = parseMark(kind, entry, insideForEach: insideForEach, columns: columns, logger: logger) {
-                result.append(.mark(mark.spec))
-                cleaned.append(mark.cleaned)
-            }
-        }
-        return result
-    }
-
-    private static func parseMark(_ kind: ChartMarkKind, _ entry: [String: Any], insideForEach: Bool, columns: [Column],
-                                  logger: (any ActionUILogger)?) -> (spec: ChartMarkSpec, cleaned: [String: Any])? {
-        var cleaned: [String: Any] = ["type": kind.rawValue]
-        let supported: Set<String> = ["type", "x", "y", "foregroundStyle"]
-        for key in entry.keys where !supported.contains(key) {
-            logger?.log("Chart: '\(key)' is not supported on \(kind.rawValue); ignoring it", .warning)
-        }
-        guard let xObject = entry["x"] as? [String: Any], let yObject = entry["y"] as? [String: Any] else {
-            logger?.log("Chart: \(kind.rawValue) requires 'x' and 'y', each {\"label\", \"value\"}; ignoring it", .warning)
-            return nil
-        }
-        guard let x = parsePlottable(xObject, role: "\(kind.rawValue).x", insideForEach: insideForEach, columns: columns, logger: logger),
-              let y = parsePlottable(yObject, role: "\(kind.rawValue).y", insideForEach: insideForEach, columns: columns, logger: logger) else {
-            return nil
-        }
-        cleaned["x"] = x.cleaned
-        cleaned["y"] = y.cleaned
-
-        var foregroundColor: SwiftUI.Color?
-        var foregroundBy: ChartPlottable?
-        if let style = entry["foregroundStyle"] {
-            if let colorName = style as? String, let color = ColorHelper.resolveColor(colorName) {
-                foregroundColor = color
-                cleaned["foregroundStyle"] = colorName
-            } else if let object = style as? [String: Any], let by = object["by"] as? [String: Any],
-                      let parsed = parsePlottable(by, role: "foregroundStyle.by", insideForEach: insideForEach, columns: columns, logger: logger) {
-                foregroundBy = parsed.value
-                cleaned["foregroundStyle"] = ["by": parsed.cleaned]
-            } else {
-                logger?.log("Chart: \(kind.rawValue) foregroundStyle must be a color or {\"by\": {\"label\", \"value\"}}; ignoring it", .warning)
-            }
-        }
-        return (ChartMarkSpec(kind: kind, x: x.value, y: y.value, foregroundColor: foregroundColor, foregroundBy: foregroundBy), cleaned)
-    }
-
-    private static func parsePlottable(_ object: [String: Any], role: String, insideForEach: Bool, columns: [Column],
+    static func parsePlottable(_ object: [String: Any], role: String, insideForEach: Bool, columns: [Column],
                                        logger: (any ActionUILogger)?) -> (value: ChartPlottable, cleaned: [String: Any])? {
         guard let label = object["label"] as? String else {
             logger?.log("Chart: \(role) requires a 'label' string; ignoring the mark", .warning)
@@ -415,11 +364,12 @@ enum ChartDescription {
         }
     }
 
-    private static func axisType(_ entries: [ChartEntry], _ keyPath: KeyPath<ChartMarkSpec, ChartPlottable>) -> ChartColumnType? {
+    // The type of the first value plotted on an axis (a mark may plot only points on it).
+    private static func axisType(_ entries: [ChartEntry], _ keyPath: KeyPath<ChartMarkSpec, [ChartPlottable]>) -> ChartColumnType? {
         for entry in entries {
             switch entry {
             case .mark(let mark):
-                return mark[keyPath: keyPath].type
+                if let first = mark[keyPath: keyPath].first { return first.type }
             case .forEach(let children):
                 if let type = axisType(children, keyPath) { return type }
             }
@@ -434,12 +384,12 @@ enum ChartDescription {
         for (entry, json) in zip(entries, cleaned) {
             switch entry {
             case .mark(let mark):
-                if let xType, family(mark.x.type) != family(xType) {
-                    logger?.log("Chart: \(mark.kind.rawValue) plots \(mark.x.type.rawValue) on an x axis of \(xType.rawValue) values; ignoring it", .warning)
+                if let xType, let other = mark.xValues.first(where: { family($0.type) != family(xType) }) {
+                    logger?.log("Chart: \(mark.kind.rawValue) plots \(other.type.rawValue) on an x axis of \(xType.rawValue) values; ignoring it", .warning)
                     continue
                 }
-                if let yType, family(mark.y.type) != family(yType) {
-                    logger?.log("Chart: \(mark.kind.rawValue) plots \(mark.y.type.rawValue) on a y axis of \(yType.rawValue) values; ignoring it", .warning)
+                if let yType, let other = mark.yValues.first(where: { family($0.type) != family(yType) }) {
+                    logger?.log("Chart: \(mark.kind.rawValue) plots \(other.type.rawValue) on a y axis of \(yType.rawValue) values; ignoring it", .warning)
                     continue
                 }
                 kept.append(entry)
@@ -460,15 +410,42 @@ enum ChartDescription {
         var spec = ChartAxisSpec()
         let scaleKey = "chart\(axis)Scale"
         if let scale = description[scaleKey] {
-            if let object = scale as? [String: Any], let domain = object["domain"],
-               let parsed = parseDomain(domain, axisType: axisType) {
-                spec.domain = parsed
-                cleaned[scaleKey] = ["domain": domain]
-                for key in object.keys where key != "domain" {
+            if let object = scale as? [String: Any] {
+                var cleanedScale: [String: Any] = [:]
+                if let domain = object["domain"] {
+                    if let parsed = parseDomain(domain, axisType: axisType) {
+                        spec.domain = parsed
+                        cleanedScale["domain"] = domain
+                    } else {
+                        logger?.log("Chart: \(scaleKey).domain must be two numbers or two dates (a range), a list of strings, or {\"automatic\": {...}}, typed by the axis; ignoring it", .warning)
+                    }
+                }
+                if let range = object["range"] {
+                    if let parsed = parseRange(range) {
+                        spec.range = parsed
+                        cleanedScale["range"] = range
+                    } else {
+                        logger?.log("Chart: \(scaleKey).range must be {\"startPadding\", \"endPadding\"}, {\"padding\"} or two numbers (points); ignoring it", .warning)
+                    }
+                }
+                if let type = object["type"] {
+                    if let parsed = parseScaleType(type) {
+                        if let problem = scaleTypeProblem(type, axisType: axisType, domain: spec.domain) {
+                            logger?.log("Chart: \(scaleKey).type \(problem); ignoring it", .warning)
+                        } else {
+                            spec.scaleType = parsed
+                            cleanedScale["type"] = type
+                        }
+                    } else {
+                        logger?.log("Chart: \(scaleKey).type must be linear, log, date, category, squareRoot, symmetricLog, {\"power\": {\"exponent\"}} or {\"symmetricLog\": {\"slopeAtZero\"}}; ignoring it", .warning)
+                    }
+                }
+                for key in object.keys where !["domain", "range", "type"].contains(key) {
                     logger?.log("Chart: '\(key)' in \(scaleKey) is not supported; ignoring it", .warning)
                 }
+                cleaned[scaleKey] = cleanedScale
             } else {
-                logger?.log("Chart: \(scaleKey) must be {\"domain\": ...} with two numbers or dates, a list of strings, or {\"automatic\": {...}}, typed by the axis; ignoring it", .warning)
+                logger?.log("Chart: \(scaleKey) must be an object with 'domain', 'range' or 'type'; ignoring it", .warning)
             }
         }
         let axisKey = "chart\(axis)Axis"
@@ -485,11 +462,118 @@ enum ChartDescription {
             if let text = label as? String {
                 spec.label = text
                 cleaned[labelKey] = text
+            } else if let object = label as? [String: Any], let text = object["text"] as? String {
+                spec.label = text
+                var cleanedLabel: [String: Any] = ["text": text]
+                if let position = object["position"] as? String, let parsed = parsePosition(position) {
+                    spec.labelPosition = parsed
+                    cleanedLabel["position"] = position
+                }
+                if let alignment = object["alignment"] as? String, let parsed = parseAlignment(alignment) {
+                    spec.labelAlignment = parsed
+                    cleanedLabel["alignment"] = alignment
+                }
+                if let spacing = object["spacing"] as? NSNumber, CFGetTypeID(spacing) != CFBooleanGetTypeID() {
+                    spec.labelSpacing = CGFloat(spacing.doubleValue)
+                    cleanedLabel["spacing"] = spacing
+                }
+                for key in object.keys where cleanedLabel[key] == nil {
+                    logger?.log("Chart: '\(key)' in \(labelKey) is not supported or not valid; ignoring it", .warning)
+                }
+                cleaned[labelKey] = cleanedLabel
             } else {
-                logger?.log("Chart: \(labelKey) must be a string; ignoring it", .warning)
+                logger?.log("Chart: \(labelKey) must be a string or {\"text\", \"position\", \"alignment\", \"spacing\"}; ignoring it", .warning)
             }
         }
         return spec
+    }
+
+    private static func parseRange(_ value: Any) -> ForwardingPositionRange? {
+        if let object = value as? [String: Any] {
+            if object.count == 1, let padding = object["padding"] as? NSNumber {
+                return ForwardingPositionRange(.plotDimension(startPadding: CGFloat(padding.doubleValue), endPadding: CGFloat(padding.doubleValue)))
+            }
+            let keys = Set(object.keys)
+            guard !keys.isEmpty, keys.isSubset(of: ["startPadding", "endPadding"]) else { return nil }
+            let start = (object["startPadding"] as? NSNumber)?.doubleValue
+            let end = (object["endPadding"] as? NSNumber)?.doubleValue
+            if (object["startPadding"] != nil && start == nil) || (object["endPadding"] != nil && end == nil) { return nil }
+            return ForwardingPositionRange(.plotDimension(startPadding: CGFloat(start ?? 0), endPadding: CGFloat(end ?? 0)))
+        }
+        if let items = value as? [Any], items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
+           low.doubleValue <= high.doubleValue {
+            return ForwardingPositionRange(.points(CGFloat(low.doubleValue)...CGFloat(high.doubleValue)))
+        }
+        return nil
+    }
+
+    private static func parseScaleType(_ value: Any) -> ScaleType? {
+        if let name = value as? String {
+            switch name {
+            case "linear": return .linear
+            case "log": return .log
+            case "date": return .date
+            case "category": return .category
+            case "squareRoot": return .squareRoot
+            case "symmetricLog": return .symmetricLog
+            default: return nil
+            }
+        }
+        if let object = value as? [String: Any], object.count == 1 {
+            if let power = object["power"] as? [String: Any], let exponent = power["exponent"] as? NSNumber {
+                return .power(exponent: exponent.doubleValue)
+            }
+            if let log = object["symmetricLog"] as? [String: Any], let slope = log["slopeAtZero"] as? NSNumber {
+                return .symmetricLog(slopeAtZero: slope.doubleValue)
+            }
+        }
+        return nil
+    }
+
+    // Swift Charts stops the app (a fatal error) for some scale types on a number or date axis:
+    // "date" and "category" always, and log, squareRoot or power whenever a plotted value, a
+    // bar's zero baseline included, is outside the type's domain (measured on macOS 27). An
+    // explicit domain clamps the values, so those three need one that is inside their domain.
+    // A string axis, or an axis that plots no values, takes any type unharmed.
+    private static func scaleTypeProblem(_ raw: Any, axisType: ChartColumnType?, domain: ForwardingDomain) -> String? {
+        guard let axisType, family(axisType) != .string else { return nil }
+        let name = (raw as? String) ?? (raw as? [String: Any])?.keys.first ?? ""
+        switch name {
+        case "date", "category":
+            return "\(name) does not apply to an axis of \(axisType.rawValue) values"
+        case "log", "squareRoot", "power":
+            if family(axisType) == .date {
+                return "\(name) does not apply to an axis of dates"
+            }
+            // A power of 0 always fails; a negative power, like log, fails at 0.
+            let exponent = (((raw as? [String: Any])?["power"] as? [String: Any])?["exponent"] as? NSNumber)?.doubleValue ?? 1
+            if exponent == 0 {
+                return "power needs a nonzero exponent"
+            }
+            let aboveZero = name == "log" || exponent < 0
+            let inside: (Double) -> Bool = aboveZero ? { $0 > 0 } : { $0 >= 0 }
+            guard case .numbers(let range) = domain.kind, inside(range.lowerBound) else {
+                return "\(name) needs a 'domain' of two numbers whose low end is \(aboveZero ? "above 0" : "0 or more")"
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    static func parseAlignment(_ name: String) -> Alignment? {
+        switch name {
+        case "center": return .center
+        case "leading": return .leading
+        case "trailing": return .trailing
+        case "top": return .top
+        case "bottom": return .bottom
+        case "topLeading": return .topLeading
+        case "topTrailing": return .topTrailing
+        case "bottomLeading": return .bottomLeading
+        case "bottomTrailing": return .bottomTrailing
+        default: return nil
+        }
     }
 
     private static func parseDomain(_ value: Any, axisType: ChartColumnType?) -> ForwardingDomain? {
@@ -528,7 +612,7 @@ enum ChartDescription {
         }
     }
 
-    private static func parsePosition(_ name: String) -> AnnotationPosition? {
+    static func parsePosition(_ name: String) -> AnnotationPosition? {
         switch name {
         case "automatic": return .automatic
         case "overlay": return .overlay
@@ -544,7 +628,7 @@ enum ChartDescription {
         }
     }
 
-    private static func calendarComponent(_ name: String) -> Calendar.Component? {
+    static func calendarComponent(_ name: String) -> Calendar.Component? {
         switch name {
         case "year": return .year
         case "quarter": return .quarter
@@ -559,13 +643,13 @@ enum ChartDescription {
         }
     }
 
-    private static func isIdentifier(_ name: String) -> Bool {
+    static func isIdentifier(_ name: String) -> Bool {
         guard let first = name.unicodeScalars.first, first == "_" || (first.isASCII && CharacterSet.letters.contains(first)) else { return false }
         return name.unicodeScalars.allSatisfy { $0 == "_" || ($0.isASCII && CharacterSet.alphanumerics.contains($0)) }
     }
 
     // "$N" (1-based) or "$name"; nil when it is neither or names no column.
-    private static func columnIndex(_ reference: String, columns: [Column]) -> Int? {
+    static func columnIndex(_ reference: String, columns: [Column]) -> Int? {
         guard reference.hasPrefix("$") else { return nil }
         let body = String(reference.dropFirst())
         if let number = Int(body), body.allSatisfy(\.isASCII) {
@@ -575,7 +659,7 @@ enum ChartDescription {
         return columns.firstIndex { $0.name == body }
     }
 
-    private static func isReferenceShaped(_ string: String) -> Bool {
+    static func isReferenceShaped(_ string: String) -> Bool {
         guard string.hasPrefix("$"), string.count > 1 else { return false }
         return isIdentifier(String(string.dropFirst())) || Int(string.dropFirst()) != nil
     }

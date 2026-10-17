@@ -1,8 +1,10 @@
 {
+  "type": "ScrollView",
+  "content": {
   "type": "VStack",
   "properties": { "padding": "default", "spacing": 16 },
   "children": [
-    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, one line per platform)", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, smoothed lines and a goal rule)", "font": "headline" } },
     {
       "type": "Chart",
       "id": 11,
@@ -21,8 +23,11 @@
               { "type": "LineMark",
                 "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
                 "y": { "label": "Users", "value": "$users" },
-                "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } } }
-            ] }
+                "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } },
+                "interpolationMethod": "catmullRom" }
+            ] },
+            { "type": "RuleMark", "y": { "label": "Goal", "value": 1250 },
+              "lineStyle": { "lineWidth": 1, "dash": [4, 3] }, "foregroundStyle": "gray" }
           ],
           "chartYScale": { "domain": [0, 1500] },
           "chartXAxisLabel": "Week",
@@ -53,6 +58,35 @@
           ]
         }
       }
+    },
+    { "type": "Text", "properties": { "text": "Daily temperature range (range bars, point marks for the average)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 13,
+      "properties": {
+        "frame": { "minHeight": 200 },
+        "chart": {
+          "columns": ["day", { "name": "low", "type": "number" }, { "name": "high", "type": "number" }, { "name": "mean", "type": "number" }],
+          "data": [["Mon", 11, 19, 15], ["Tue", 12, 22, 17], ["Wed", 9, 16, 12.5], ["Thu", 13, 24, 18.5], ["Fri", 14, 21, 17.5]],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "BarMark",
+                "x": { "label": "Day", "value": "$day" },
+                "yStart": { "label": "Low", "value": "$low" },
+                "yEnd": { "label": "High", "value": "$high" },
+                "width": { "ratio": 0.35 }, "cornerRadius": 4, "foregroundStyle": "orange.opacity(0.5)",
+                "accessibilityLabel": "$day", "accessibilityValue": "$low to $high degrees" },
+              { "type": "PointMark",
+                "x": { "label": "Day", "value": "$day" },
+                "y": { "label": "Average", "value": "$mean" },
+                "symbol": "diamond", "symbolSize": 60, "foregroundStyle": "red" }
+            ] }
+          ],
+          "chartYAxisLabel": { "text": "Degrees", "position": "leading" },
+          "chartPlotStyle": { "background": "gray.opacity(0.08)" }
+        }
+      }
     }
   ]
+  }
 }
