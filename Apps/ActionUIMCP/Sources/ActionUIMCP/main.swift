@@ -135,7 +135,7 @@ let server = MCPServer(
     instructions: """
         Shows native macOS windows on the user's screen. ask_user asks a question with optional \
         fields and waits for the answer; pick_path shows the system file panels; show presents a \
-        report, image, PDF, video, web page, diff, or table without waiting; notify shows a short notice \
+        report, image, PDF, video, web page, diff, table, or chart without waiting; notify shows a short notice \
         that goes away by itself. For anything the canned \
         tools cannot express, write an ActionUI document (see the actionui skill if available), check \
         it with validate_document, and open it with show_document: as a dialog that returns every \

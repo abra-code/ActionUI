@@ -164,14 +164,17 @@ extension WindowHost {
 
     /// Opens a `show` window; a table gets its rows once the window exists. Viewers have no actions
     /// worth reporting, so they queue no events: a closed viewer leaves nothing behind for `wait`.
-    func openViewer(spec: ViewerSpec, subtitle: String, keep: Bool) throws -> String {
-        let windowID = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
-                                      sizing: .fixed(NSSize(width: spec.width, height: spec.height)),
-                                      activate: false, queuesEvents: false, keep: keep).id
+    /// Returns the window id and, for a chart (the agent's description), the check and load
+    /// warnings; its load errors refuse the window, as show_document's do.
+    func openViewer(spec: ViewerSpec, subtitle: String, keep: Bool) throws -> (id: String, warnings: [String]) {
+        let isChart = spec.kind == .chart
+        let opened = try openWindow(document: spec.root, title: spec.title, subtitle: subtitle,
+                                    sizing: .fixed(NSSize(width: spec.width, height: spec.height)),
+                                    activate: false, queuesEvents: false, rejectLoadErrors: isChart, keep: keep)
         if let rows = spec.tableRows, !rows.isEmpty {
-            ActionUISwift.setElementRows(windowUUID: windowID, viewID: ViewerSpec.tableViewID, rows: rows)
+            ActionUISwift.setElementRows(windowUUID: opened.id, viewID: ViewerSpec.tableViewID, rows: rows)
         }
-        return windowID
+        return (opened.id, isChart ? spec.warnings + opened.warnings : [])
     }
 
     // MARK: Field values

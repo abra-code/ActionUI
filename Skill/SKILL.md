@@ -626,7 +626,7 @@ When the `actionui` MCP server is connected, you can put native windows on the u
 | A question, choice, or approval with a few typed fields | `ask_user` - no ActionUI syntax; returns `{action, button, values}` |
 | Several options at once | `ask_user` with a `multichoice` field (checkboxes; the answer is an array) |
 | A file, folder, or save location | `pick_path` |
-| Show a report, text, image, PDF, video, web page, diff, or table and move on | `show` - returns at once |
+| Show a report, text, image, PDF, video, web page, diff, table, or chart and move on | `show` - returns at once; a chart's Chart has id 1 for `update_window` |
 | Tell the user something short, such as a finished job, without interrupting | `notify` - disappears by itself |
 | Any other layout | `show_document` with a document you write |
 

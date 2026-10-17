@@ -290,6 +290,36 @@ result = structured(s.response(147)) or {}
 check("validate refuses a LoadableView behind a doubled platform suffix", result.get("ok") is False
       and any("LoadableView is not allowed" in e for e in result.get("errors", [])), result)
 
+# show kind chart: the description gets the document checks; the Chart has id 1 for update_window.
+s.call(150, "show", {"title": "Chart", "kind": "chart", "width": 360, "height": 240,
+                     "chart": dict(description, data=[["Mon", 3], ["Tue", 5]])})
+result = structured(s.response(150)) or {}
+shown_chart = result.get("window", "")
+check("show opens a chart", bool(shown_chart) and "warnings" not in result, result)
+s.call(151, "update_window", {"window": shown_chart, "append_rows": {"1": [["Wed", 4]]}})
+result = structured(s.response(151)) or {}
+check("update_window streams rows into a shown chart", result.get("updated") == 1 and result.get("problems") == [], result)
+s.call(152, "screenshot", {"window": shown_chart})
+info = structured(s.response(152)) or {}
+check("screenshot captures a shown chart", info.get("width", 0) > 0 and os.path.exists(info.get("path", "")), info)
+s.call(153, "close_window", {"window": shown_chart})
+s.response(153)
+s.call(154, "show", {"title": "Chart", "kind": "chart", "chart": dict(description, chartLegnd={"position": "bottom"})})
+result = structured(s.response(154)) or {}
+check("show returns a chart description's warnings", any("chartLegnd" in w for w in result.get("warnings", [])), result)
+s.call(155, "close_window", {"window": result.get("window", "")})
+s.response(155)
+s.call(156, "show", {"title": "Chart", "kind": "chart", "chart": {"content": "bars"}})
+message = s.response(156)
+check("show refuses a chart description the verifier rejects", is_error(message)
+      and message["result"]["content"][0]["text"].startswith("the chart description has errors:\nchart"), message)
+s.call(157, "show", {"title": "Chart", "kind": "chart", "chart": description, "rows": [["Mon", 3]]})
+message = s.response(157)
+check("show refuses rows outside a chart description", is_error(message)
+      and "inside 'chart'" in message["result"]["content"][0]["text"], message)
+s.call(158, "show", {"title": "Chart", "kind": "chart"})
+check("show refuses a chart without a description", is_error(s.response(158)))
+
 # A wait for one window ends when an older wait for any window takes that window's close event.
 s.call(44, "show_document", {"title": "Live", "document": FORM})
 live = (structured(s.response(44)) or {}).get("window", "")

@@ -127,7 +127,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         "properties": [
             "title": ["type": "string", "description": "Window title."],
             "kind": ["type": "string", "enum": kinds,
-                     "description": "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows)."],
+                     "description": "markdown (text), text (plain monospaced text), image (path or url), pdf or file (path; anything Quick Look previews), video (path or url), web (url, or HTML in text), diff (old_text or old_path against new_text or new_path), table (columns and rows), chart (chart)."],
             "text": ["type": "string", "description": "Content for markdown, text, and web (HTML)."],
             "path": ["type": "string", "description": "Absolute path of a local file for image, pdf, file, video."],
             "url": ["type": "string", "description": "http(s) URL for image, video, web."],
@@ -138,6 +138,7 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
             "columns": ["type": "array", "items": ["type": "string"], "description": "For table: column headers."],
             "rows": ["type": "array", "description": "For table: rows, each an array of cells (strings or numbers), at most one per column.",
                      "items": ["type": "array", "items": ["type": ["string", "number", "boolean", "null"]]]],
+            "chart": ["type": "object", "description": "For chart: the Chart element's description, {\"columns\", \"data\", \"content\", ...} (resource actionui://docs/elements/Chart). It gets the checks of show_document. The window's Chart has id 1: replace the description with update_window properties {\"1\": {\"chart\": {...}}}, and replace or stream its data with update_window rows or append_rows {\"1\": [[...]]}, cells in column order."],
             "width": ["type": "number", "description": "Content width in points. Default 800."],
             "height": ["type": "number", "description": "Content height in points. Default 600."],
             "keep": ["type": "boolean", "description": "Keep the window open after this session ends (default false). Use it for content the user will want to read after you are done. The kept window is a copy that no longer reports to you."],
@@ -147,7 +148,8 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
     ]
     let output: JSONValue = [
         "type": "object",
-        "properties": ["window": ["type": "string", "description": "Window id for close_window."]],
+        "properties": ["window": ["type": "string", "description": "Window id for close_window."],
+                       "warnings": ["type": "array", "items": ["type": "string"], "description": "For chart: problems in the description that did not stop it from showing."]],
         "required": ["window"],
     ]
     return MCPTool(
@@ -156,8 +158,8 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         description: """
             Open a native macOS window that presents content to the user: a markdown report, plain \
             text, an image, a PDF or any file Quick Look can preview, a video, a web page, a diff of two \
-            texts or files, or a table. Returns \
-            {window} at once without waiting; the window stays open until the user closes it, you call \
+            texts or files, a table, or a chart. Returns \
+            {window, warnings?} at once without waiting; the window stays open until the user closes it, you call \
             close_window, or this session ends (with keep: true, until the user closes it). It does not \
             take keyboard focus.
             """,
@@ -169,8 +171,10 @@ private func showTool(host: WindowHost, label: String?) -> MCPTool {
         let keep = try keepArgument(arguments)
         try await requireGraphicalSession(host)
         let subtitle = provenance(clientName: context.clientName, label: label)
-        let windowID = try await host.openViewer(spec: spec, subtitle: subtitle, keep: keep)
-        return .structured(["window": .string(windowID)])
+        let opened = try await host.openViewer(spec: spec, subtitle: subtitle, keep: keep)
+        var result: [String: JSONValue] = ["window": .string(opened.id)]
+        if !opened.warnings.isEmpty { result["warnings"] = .array(opened.warnings.map(JSONValue.string)) }
+        return .structured(.object(result))
     }
 }
 

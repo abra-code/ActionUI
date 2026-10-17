@@ -318,7 +318,7 @@ struct DialogSpec {
 // MARK: - show
 
 enum ContentKind: String, CaseIterable {
-    case markdown, text, image, pdf, file, video, web, diff, table
+    case markdown, text, image, pdf, file, video, web, diff, table, chart
 }
 
 struct ViewerSpec {
@@ -330,8 +330,11 @@ struct ViewerSpec {
     /// For `table`: the rows, set through the value API once the window exists (Table takes its
     /// rows as state, not as a property).
     let tableRows: [[String]]?
+    /// For `chart`: the warnings of the document checks, returned with the result.
+    let warnings: [String]
 
     static let tableViewID = 1
+    static let chartViewID = 1
     static let maxTableRows = 50000
 
     init(arguments: [String: JSONValue]) throws {
@@ -358,6 +361,7 @@ struct ViewerSpec {
         let fill: [String: Any] = ["maxWidth": "infinity", "maxHeight": "infinity"]
 
         var parsedRows: [[String]]?
+        var checkWarnings: [String] = []
         switch kind {
         case .markdown:
             guard let text else { throw MCPToolError("kind 'markdown' needs 'text'") }
@@ -437,8 +441,32 @@ struct ViewerSpec {
             }
             parsedRows = rows
             root = ["type": "Table", "id": Self.tableViewID, "properties": ["columns": columns, "frame": fill]]
+        case .chart:
+            guard let chart = arguments["chart"], case .object = chart else {
+                throw MCPToolError("kind 'chart' needs 'chart', a chart description object such as {\"columns\": [...], \"data\": [...], \"content\": [...]}")
+            }
+            if arguments["columns"] != nil || arguments["rows"] != nil {
+                throw MCPToolError("kind 'chart' takes its columns and data inside 'chart'")
+            }
+            // The description is the agent's, so the document gets the checks of show_document,
+            // the verifier among them, and its warnings go back with the result.
+            let document: AgentDocument
+            do {
+                document = try AgentDocument(arguments: ["document": [
+                    "type": "Chart", "id": .int(Self.chartViewID),
+                    "properties": ["chart": chart, "padding": 16, "frame": ["maxWidth": "infinity", "maxHeight": "infinity"]],
+                ]])
+            } catch let error as MCPToolError {
+                // The agent passed a description, not a document: name it and its paths so.
+                throw MCPToolError(error.message
+                    .replacingOccurrences(of: "the document has errors:", with: "the chart description has errors:")
+                    .replacingOccurrences(of: "root: properties.chart", with: "chart"))
+            }
+            root = document.foundation
+            checkWarnings = document.warnings
         }
         tableRows = parsedRows
+        warnings = checkWarnings
     }
 
     /// Paths must be absolute: the server does not share the client's working directory.
