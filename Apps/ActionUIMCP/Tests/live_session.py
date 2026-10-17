@@ -197,6 +197,19 @@ check("show_document refuses a wrong value type", is_error(message)
 s.call(53, "validate_document", {"document": {"type": "QuickLook", "properties": {"filePath": "/tmp/x.pdf"}}})
 result = structured(s.response(53)) or {}
 check("validate knows add-on elements", result.get("ok") is True and result.get("warnings") == [], result)
+# ActionUI resolves "<key>:<platform>" overrides at load, so the safety rules see resolved keys.
+s.call(142, "validate_document", {"document": {"type": "Text", "type:macos": "SecureField", "id": 1}})
+result = structured(s.response(142)) or {}
+check("validate refuses a SecureField behind a platform suffix", result.get("ok") is False
+      and any("SecureField is not allowed" in e for e in result.get("errors", [])), result)
+s.call(143, "validate_document", {"document": {"type": "VStack", "children:macos": [{"type": "SecureField", "id": 1}]}})
+result = structured(s.response(143)) or {}
+check("validate refuses a SecureField in suffixed children", result.get("ok") is False, result)
+s.call(144, "validate_document", {"document": {"type": "WebView", "properties": {
+    "html": "<p>x</p>", "userScripts:macos": [{"source": "1"}]}}})
+result = structured(s.response(144)) or {}
+check("validate removes suffixed userScripts", result.get("ok") is True
+      and any("userScripts removed" in w for w in result.get("warnings", [])), result)
 s.call(34, "show_document", {"title": "T", "document": {"type": "NoSuchElement"}})
 check("show_document refuses a document ActionUI cannot load", is_error(s.response(34)))
 
@@ -213,6 +226,21 @@ s.call(37, "get_values", {"window": live, "ids": [1, 2, 3]})
 result = structured(s.response(37)) or {}
 check("get_values reads what update_window wrote",
       result.get("values") == {"1": "Status: busy", "2": "Grace", "3": False}, result)
+# Properties go through the document's safety rules and the verifier, one entry at a time.
+s.call(136, "update_window", {"window": live, "properties": {
+    "1": {"foregroundStyle": "red", "font": 5, "colour": "blue"},
+    "2": {"children": []},
+    "4": {"userScripts": ["x"], "actionID": None, "font:macos": "body"},
+    "99": {"text": "x", "font": "body"}}})
+result = structured(s.response(136)) or {}
+problems = result.get("problems", [])
+check("update_window properties: refused entries come back as problems",
+      result.get("updated") == 2 and len(problems) == 6
+      and any("font" in p for p in problems) and any("\"children\" is not a property" in p for p in problems)
+      and any("userScripts is refused" in p for p in problems) and any("needs a value" in p for p in problems)
+      and any("platform suffixes are not resolved" in p for p in problems)
+      and "no element with id 99" in problems, result)
+check("update_window properties: verifier warnings come back", any("colour" in w for w in result.get("warnings", [])), result)
 s.call(38, "wait", {"window": live, "timeout_s": 1})
 result = structured(s.response(38)) or {}
 check("wait times out with no events", result.get("events") == [] and result.get("timed_out") is True, result)
@@ -223,6 +251,39 @@ result = structured(s.response(40)) or {}
 check("wait reports window.closed", [e.get("action") for e in result.get("events", [])] == ["window.closed"], result)
 s.call(41, "wait", {"window": live, "timeout_s": 1})
 check("wait on a closed, drained window is an error", is_error(s.response(41)))
+
+# A chart replaced through properties, then streamed rows.
+CHART = {"type": "Chart", "id": 10, "properties": {"frame": {"width": 320, "height": 200}}}
+s.call(137, "show_document", {"title": "Chart", "document": CHART})
+chart_window = (structured(s.response(137)) or {}).get("window", "")
+description = {"columns": [{"name": "day", "type": "string"}, {"name": "n", "type": "number"}],
+               "content": [{"type": "ForEach", "content": [
+                   {"type": "BarMark", "x": {"label": "Day", "value": "$day"}, "y": {"label": "N", "value": "$n"}}]}]}
+s.call(138, "update_window", {"window": chart_window, "properties": {"10": {"chart": description}},
+                              "rows": {"10": [["Mon", 3], ["Tue", 5]]}})
+result = structured(s.response(138)) or {}
+check("update_window replaces a chart and streams its rows",
+      result.get("updated") == 2 and result.get("problems") == [] and result.get("warnings") == [], result)
+s.call(139, "update_window", {"window": chart_window, "properties": {"10": {"chart": {"content": "bars"}}}})
+result = structured(s.response(139)) or {}
+check("update_window refuses a chart description the verifier rejects",
+      result.get("updated") == 0 and len(result.get("problems", [])) == 1, result)
+s.call(140, "close_window", {"window": chart_window})
+s.response(140)
+s.call(141, "wait", {"window": chart_window, "timeout_s": 5})  # drain its window.closed event
+s.response(141)
+
+# A LoadableView's source cannot be changed: the document it would load skips the checks.
+s.call(145, "show_document", {"title": "Loadable", "document": {"type": "LoadableView", "id": 20, "properties": {"name": "nothing"}}})
+loadable_window = (structured(s.response(145)) or {}).get("window", "")
+s.call(146, "update_window", {"window": loadable_window, "properties": {"20": {"filePath": "/tmp/x.json"}}})
+result = structured(s.response(146)) or {}
+check("update_window refuses a new LoadableView source", result.get("updated") == 0
+      and any("LoadableView's source cannot be changed" in p for p in result.get("problems", [])), result)
+s.call(147, "close_window", {"window": loadable_window})
+s.response(147)
+s.call(148, "wait", {"window": loadable_window, "timeout_s": 5})  # drain its window.closed event
+s.response(148)
 
 # A wait for one window ends when an older wait for any window takes that window's close event.
 s.call(44, "show_document", {"title": "Live", "document": FORM})
@@ -415,6 +476,7 @@ check("show with keep", bool(structured(s.response(1, timeout=5))))
 s.call(2, "show_document", {"title": "Kept live", "document": FORM, "keep": True})
 kept_live = (structured(s.response(2)) or {}).get("window", "")
 s.call(3, "update_window", {"window": kept_live, "values": {"1": "Status: kept", "2": "Grace"},
+                            "properties": {"1": {"foregroundStyle": "red"}},
                             "rows": {"5": [["x", 1], ["y", 2]]}})
 s.response(3)
 s.call(4, "show", {"title": "Not kept", "kind": "text", "text": "gone"})
@@ -436,6 +498,8 @@ check("keeper keeps the frames", all(w.get("frame") == w.get("manifest_frame") f
 check("keeper restores table rows set after loading", 3 in table.get("row_counts", {}).values(), table)
 check("keeper restores values and rows from update_window", live_copy.get("values", {}).get("1") == "Status: kept"
       and live_copy.get("values", {}).get("2") == "Grace" and live_copy.get("row_counts", {}).get("5") == 2, live_copy)
+check("keeper restores properties from update_window",
+      live_copy.get("properties") == {"1": {"foregroundStyle": "\"red\""}}, live_copy)
 check("keeper exits when its last window closes", process_gone(result.get("pid", -1), 5), result.get("pid"))
 check("keeper removes its spool directory", spool_dirs() == spools_before, spool_dirs() - spools_before)
 

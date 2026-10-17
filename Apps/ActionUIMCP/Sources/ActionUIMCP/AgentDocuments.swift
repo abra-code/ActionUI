@@ -11,6 +11,7 @@
 // design: no SecureField (every answer reaches the model), no WebView user scripts.
 
 import Foundation
+import ActionUI
 import MCPStdio
 
 struct AgentDocument {
@@ -32,7 +33,52 @@ struct AgentDocument {
     private static let childKeys = ["content", "destination", "sidebar", "detail", "label", "popover", "template",
                                     "sheet", "fullScreenCover", "overlay", "background", "contextMenuPreview",
                                     "safeAreaInset"]
-    private static let allowSecureFields = ProcessInfo.processInfo.environment["ACTIONUI_MCP_ALLOW_SECURE_FIELDS"] == "1"
+    static let allowSecureFields = ProcessInfo.processInfo.environment["ACTIONUI_MCP_ALLOW_SECURE_FIELDS"] == "1"
+
+    /// The rules for one property an agent sets on an element of an open window (update_window
+    /// `properties`): the document's safety rules, then the ActionUIVerifier on a synthetic
+    /// element `{"type", "id", "properties": {name: value}}`. Returns the reason the property is
+    /// refused, or nil, plus the verifier's warnings.
+    static func checkProperty(type: String, id: Int, name: String, value: JSONValue) -> (refusal: String?, warnings: [String]) {
+        let here = "id \(id) (\(type)) \(name)"
+        if value == .null {
+            return ("\(here): a property needs a value", [])
+        }
+        if type == "SecureField" && !allowSecureFields {
+            return ("\(here): SecureField is not allowed; whatever the user types is sent to the AI agent", [])
+        }
+        // A LoadableView loads a document the checks above never see; changing its source would
+        // load one now.
+        if type == "LoadableView" && ["url", "filePath", "name"].contains(name) {
+            return ("\(here): a LoadableView's source cannot be changed; the document it loads would skip these checks", [])
+        }
+        // setElementProperty stores the name as given and does not resolve "<name>:<platform>"
+        // overrides, so a suffixed name would do nothing now and is a way around the rules below
+        // if that ever changes.
+        if name.contains(":") {
+            return ("\(here): platform suffixes are not resolved here; set the plain property name", [])
+        }
+        if name == "userScripts" {
+            return ("\(here): userScripts is refused; scripts from an agent are not run", [])
+        }
+        if containerKeys.contains(name) || childArrayKeys.contains(name) || ["id", "type"].contains(name) {
+            return ("\(here): \"\(name)\" is not a property; child elements and ids are set by the document", [])
+        }
+        guard let validator = Verifier.validator else {
+            return (nil, [Verifier.unavailableWarning])
+        }
+        let node: [String: Any] = ["type": type, "id": id, "properties": [name: value.any]]
+        var errors: [String] = []
+        var warnings: [String] = []
+        for issue in validator.validate(jsonObject: node, rootPath: "id \(id)") {
+            switch issue.severity {
+            case .error: errors.append("\(issue.path): \(issue.message)")
+            case .warning: warnings.append("\(issue.path): \(issue.message)")
+            default: break
+            }
+        }
+        return (errors.isEmpty ? nil : errors.joined(separator: "; "), warnings)
+    }
 
     /// Reads `document` (object) or `path` (absolute .json file) from the arguments and checks it.
     /// Throws MCPToolError listing every structural error found.
@@ -55,13 +101,18 @@ struct AgentDocument {
         var errors: [String] = []
         var warnings: [String] = []
         var ids: Set<Int> = []
-        let checked = Self.check(value, at: "root", errors: &errors, warnings: &warnings, ids: &ids)
-        // Then the ActionUIVerifier checks: element types, property names, value types, enums,
-        // required properties, platform rules. Its errors refuse the document; its warnings go
-        // back with the result.
+        // ActionUI resolves "<key>:<platform>" overrides when it loads a document, so the safety
+        // rules run on, and the window loads, the resolved document: otherwise "type:macos":
+        // "SecureField", "children:macos" or "userScripts:macos" would pass the checks unseen.
+        let resolved = JSONValue(any: PlatformFilter(active: PlatformFilter.runtimeActiveSet).filter(value.any))
+        let checked = Self.check(resolved, at: "root", errors: &errors, warnings: &warnings, ids: &ids)
+        // Then the ActionUIVerifier checks the document as written (its platform-suffix rules
+        // need the suffixes): element types, property names, value types, enums, required
+        // properties, platform rules. Its errors refuse the document; its warnings go back with
+        // the result.
         if errors.isEmpty {
             if let validator = Verifier.validator {
-                for issue in validator.validate(jsonObject: checked.any, rootPath: "root") {
+                for issue in validator.validate(jsonObject: value.any, rootPath: "root") {
                     switch issue.severity {
                     case .error: errors.append("\(issue.path): \(issue.message)")
                     case .warning: warnings.append("\(issue.path): \(issue.message)")

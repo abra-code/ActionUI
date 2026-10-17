@@ -187,6 +187,8 @@ func updateWindowTool(host: WindowHost) -> MCPTool {
         "type": "object",
         "properties": [
             "window": windowProperty,
+            "properties": ["type": "object", "additionalProperties": ["type": "object"],
+                           "description": "Element id to {property name: value}, set as in the document's \"properties\"; for example {\"10\": {\"chart\": {...}}} replaces a Chart's description. Applied first, then values, then rows. Each is checked like a document; a refused one comes back in problems."],
             "values": ["type": "object", "description": "Element id to new value (string, number, or boolean), for example {\"3\": \"Done\", \"4\": 0.75}."],
             "rows": byID.merging(description: "Table or List id to its new rows, each an array of cells; replaces all rows."),
             "append_rows": byID.merging(description: "Table or List id to rows to add at the end."),
@@ -197,17 +199,19 @@ func updateWindowTool(host: WindowHost) -> MCPTool {
     return MCPTool(
         name: "update_window",
         title: "Change values in a window",
-        description: "Set element values and table rows in an open window, for example to update a progress view while you work. Returns {updated, problems}.",
+        description: "Set element properties, values and table rows in an open window, for example to update a progress view while you work or to replace a chart. Returns {updated, problems, warnings}.",
         inputSchema: input,
         annotations: ["readOnlyHint": false, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false]
     ) { arguments, _ in
         guard let windowID = arguments["window"]?.string else { throw MCPToolError("'window' is required") }
+        let properties = arguments["properties"]?.object ?? [:]
         let values = arguments["values"]?.object ?? [:]
         let rows = arguments["rows"]?.object ?? [:]
         let appendRows = arguments["append_rows"]?.object ?? [:]
-        let problems = try await host.update(windowID: windowID, values: values, rows: rows, appendRows: appendRows)
-        let attempted = values.count + rows.count + appendRows.count
-        return .structured(["updated": .int(attempted - problems.count), "problems": .array(problems.map(JSONValue.string))])
+        let result = try await host.update(windowID: windowID, properties: properties, values: values, rows: rows, appendRows: appendRows)
+        return .structured(["updated": .int(result.updated),
+                            "problems": .array(result.problems.map(JSONValue.string)),
+                            "warnings": .array(result.warnings.map(JSONValue.string))])
     }
 }
 

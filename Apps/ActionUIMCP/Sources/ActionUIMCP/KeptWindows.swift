@@ -20,6 +20,7 @@
 import AppKit
 import ActionUI
 import ActionUISwiftAdapter
+import MCPStdio
 
 /// One window handed to the keeper.
 struct KeptWindowRecord: Codable {
@@ -35,6 +36,9 @@ struct KeptWindowRecord: Codable {
     let values: [String: String]
     /// Table and list rows, keyed by view id.
     let rows: [String: [[String]]]
+    /// Properties update_window set, keyed by view id and name, each value as JSON text. Set again
+    /// after the document loads and before rows and values. Absent in manifests that predate it.
+    let properties: [String: [String: String]]?
 }
 
 struct KeptWindowManifest: Codable {
@@ -72,10 +76,14 @@ extension WindowHost {
                 keptDocuments[entry.id] = nil
                 let state = snapshot(windowID: entry.id)
                 let frame = entry.window.frame
+                let properties = agentProperties[entry.id].map { byID in
+                    Dictionary(uniqueKeysWithValues: byID.map { id, named in (String(id), named.mapValues { $0.serialized() }) })
+                }
                 records.append(KeptWindowRecord(
                     window: entry.id, document: name, title: entry.window.title, subtitle: entry.window.subtitle,
                     frame: [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height],
-                    styleMask: entry.window.styleMask.rawValue, values: state.values, rows: state.rows))
+                    styleMask: entry.window.styleMask.rawValue, values: state.values, rows: state.rows,
+                    properties: properties))
             }
             let manifest = KeptWindowManifest(version: KeptWindowManifest.currentVersion, windows: records)
             try JSONEncoder().encode(manifest).write(to: spool.appendingPathComponent(KeptWindowManifest.fileName))
@@ -265,10 +273,19 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
         window.orderFrontRegardless()
     }
 
-    /// Rows first, then values, so a table's selection finds its row. Only what differs from the
-    /// freshly loaded document is written, so nothing the user did not change is touched.
+    /// Properties the agent set (checked when it set them), then rows, then values, so a replaced
+    /// chart description is in place before its rows and a table's selection finds its row. Only
+    /// rows and values that differ from the freshly loaded document are written, so nothing the
+    /// user did not change is touched.
     private func restore(_ record: KeptWindowRecord) {
         let id = record.window
+        for (key, named) in record.properties ?? [:] {
+            guard let viewID = Int(key) else { continue }
+            for (name, json) in named {
+                guard let value = try? JSONSerialization.jsonObject(with: Data(json.utf8), options: [.fragmentsAllowed]) else { continue }
+                ActionUISwift.setElementProperty(windowUUID: id, viewID: viewID, propertyName: name, value: value)
+            }
+        }
         for (key, rows) in record.rows {
             guard let viewID = Int(key), ActionUISwift.getElementRows(windowUUID: id, viewID: viewID) != rows else { continue }
             ActionUISwift.setElementRows(windowUUID: id, viewID: viewID, rows: rows)
@@ -301,8 +318,9 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
 
     #if DEBUG
     /// ACTIONUI_MCP_TEST_REHOST_REPORT=<path>: for the live test, write what was shown (pid, and per
-    /// window the manifest frame, the actual frame, title, subtitle, values) to that file, then
-    /// close every window a second later, which must end the process.
+    /// window the manifest frame, the actual frame, title, subtitle, values, row counts and restored
+    /// properties) to that file, then close every window a second later, which must end the
+    /// process.
     private func writeTestReport(_ manifest: KeptWindowManifest) {
         guard let path = ProcessInfo.processInfo.environment["ACTIONUI_MCP_TEST_REHOST_REPORT"] else { return }
         let shown: [[String: Any]] = manifest.windows.compactMap { record in
@@ -320,9 +338,18 @@ final class KeptWindowKeeper: NSObject, NSWindowDelegate {
                     rowCounts[key] = ActionUISwift.getElementRows(windowUUID: record.window, viewID: viewID)?.count ?? -1
                 }
             }
+            // Each restored property as the element now holds it, re-encoded as JSON text.
+            var properties: [String: [String: String]] = [:]
+            for (key, named) in record.properties ?? [:] {
+                guard let viewID = Int(key) else { continue }
+                for name in named.keys {
+                    let value = ActionUISwift.getElementProperty(windowUUID: record.window, viewID: viewID, propertyName: name)
+                    properties[key, default: [:]][name] = value.map { JSONValue(any: $0).serialized() } ?? "missing"
+                }
+            }
             return ["title": window.title, "subtitle": window.subtitle, "manifest_frame": record.frame,
                     "frame": [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height],
-                    "values": values, "row_counts": rowCounts]
+                    "values": values, "row_counts": rowCounts, "properties": properties]
         }
         let report: [String: Any] = ["pid": Int(getpid()), "windows": shown]
         if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {

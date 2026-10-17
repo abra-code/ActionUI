@@ -65,6 +65,9 @@ final class WindowHost: NSObject, NSWindowDelegate {
     /// Staged document files of windows opened with `keep`, handed to a keeper process at shutdown
     /// (KeptWindows.swift).
     var keptDocuments: [String: URL] = [:]
+    /// Properties update_window set, per window and element id, so a kept window's keeper sets
+    /// them again over its staged document (KeptWindows.swift).
+    var agentProperties: [String: [Int: [String: JSONValue]]] = [:]
     /// Notices on screen, oldest first (WindowHost+Notices.swift). Not windows: they do not count
     /// toward the window cap or the activation policy.
     var notices: [Notice] = []
@@ -221,6 +224,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
               let windowID = windows.first(where: { $0.value === window })?.key else { return }
         windows[windowID] = nil
         controllers[windowID] = nil
+        agentProperties[windowID] = nil
         if let file = keptDocuments.removeValue(forKey: windowID) {
             try? FileManager.default.removeItem(at: file)
         }
@@ -429,16 +433,45 @@ final class WindowHost: NSObject, NSWindowDelegate {
     }
 
     /// Writes values and table rows into an open window. Returns the problems, one per bad entry.
-    func update(windowID: String, values: [String: JSONValue], rows: [String: JSONValue],
-                appendRows: [String: JSONValue]) throws -> [String] {
+    /// Applies properties, then values, then rows (so a replaced chart description is in place
+    /// before rows streamed in the same call). Returns the number of entries written, the refused
+    /// entries and verifier warnings.
+    func update(windowID: String, properties: [String: JSONValue], values: [String: JSONValue], rows: [String: JSONValue],
+                appendRows: [String: JSONValue]) throws -> (updated: Int, problems: [String], warnings: [String]) {
         try requireWindow(windowID)
+        // Entries written: each property, value and rows entry counts one.
+        var updated = 0
         var problems: [String] = []
+        var warnings: [String] = []
         func element(_ key: String) -> Int? {
             guard let id = Int(key), ActionUISwift.hasElement(windowUUID: windowID, viewID: id) else {
                 problems.append("no element with id \(key)")
                 return nil
             }
             return id
+        }
+        let types = properties.isEmpty ? [:] : ActionUISwift.getElementInfo(windowUUID: windowID)
+        for (key, value) in properties.sorted(by: { $0.key < $1.key }) {
+            guard let id = element(key) else { continue }
+            guard let named = value.object, !named.isEmpty else {
+                problems.append("id \(key): properties must be an object of property names to values")
+                continue
+            }
+            guard let type = types[id] else {
+                problems.append("id \(key): the element's type is unknown")
+                continue
+            }
+            for (name, propertyValue) in named.sorted(by: { $0.key < $1.key }) {
+                let check = AgentDocument.checkProperty(type: type, id: id, name: name, value: propertyValue)
+                warnings += check.warnings
+                if let refusal = check.refusal {
+                    problems.append(refusal)
+                    continue
+                }
+                ActionUISwift.setElementProperty(windowUUID: windowID, viewID: id, propertyName: name, value: propertyValue.any)
+                agentProperties[windowID, default: [:]][id, default: [:]][name] = propertyValue
+                updated += 1
+            }
         }
         for (key, value) in values.sorted(by: { $0.key < $1.key }) {
             guard let id = element(key) else { continue }
@@ -451,6 +484,7 @@ final class WindowHost: NSObject, NSWindowDelegate {
                 continue
             }
             ActionUISwift.setElementValueFromString(windowUUID: windowID, viewID: id, value: text)
+            updated += 1
         }
         for (table, append) in [(rows, false), (appendRows, true)] {
             for (key, value) in table.sorted(by: { $0.key < $1.key }) {
@@ -465,9 +499,10 @@ final class WindowHost: NSObject, NSWindowDelegate {
                 } else {
                     ActionUISwift.setElementRows(windowUUID: windowID, viewID: id, rows: cells)
                 }
+                updated += 1
             }
         }
-        return problems
+        return (updated, problems, warnings)
     }
 
     // MARK: Test hooks
