@@ -180,3 +180,69 @@ private func errors(_ document: JSONValue, platform: String? = "macos") throws -
     #expect(pyStringRepr("a\nb\tc\u{7}") == #"'a\nb\tc\x07'"#)
     #expect(pyStringRepr("caf\u{e9} zero\u{200b}width") == "'caf\u{e9} zero\\u200bwidth'")
 }
+
+// MARK: - $ref expansion and argument patterns (mirrored in Tools/verifier/test_validate_actionui.py)
+
+@Test func referencesAreReplacedAndMergedWithSiblings() throws {
+    let schema: JSONValue = [
+        "definitions": ["num": ["types": ["number"], "description": "a"], "pair": ["a": ["$ref": "num"]]],
+        "ownProperties": ["x": ["$ref": "num", "description": "b"],
+                          "p": ["types": ["object"], "properties": ["$ref": "pair", "b": ["$ref": "num"]]]],
+    ]
+    let expanded = try SchemaSet.expandReferences(schema, schema: "T")
+    #expect(expanded.object?["definitions"] == nil)
+    #expect(expanded.object?["ownProperties"]?.object?["x"] == ["types": ["number"], "description": "b"])
+    #expect(Set(expanded.object?["ownProperties"]?.object?["p"]?.object?["properties"]?.object?.keys ?? [:].keys) == ["a", "b"])
+}
+
+@Test func unknownSelfAndMalformedReferencesFail() {
+    let schemas: [JSONValue] = [
+        ["x": ["$ref": "missing"]],
+        ["definitions": ["loop": ["inner": ["$ref": "loop"]]], "x": ["$ref": "loop"]],
+        ["x": ["$ref": 3]],
+    ]
+    for schema in schemas {
+        #expect(throws: SchemaReferenceError.self) { try SchemaSet.expandReferences(schema, schema: "T") }
+    }
+}
+
+private func chart(_ marks: [JSONValue], forEach: Bool = true) -> JSONValue {
+    let content: JSONValue = forEach ? [["type": "ForEach", "content": .array(marks)]] : .array(marks)
+    return ["type": "Chart", "id": 1, "properties": ["chart": ["columns": ["day", ["name": "n", "type": "number"]], "content": content]]]
+}
+
+@Test func everyAcceptedChartFormIsClean() throws {
+    let day: JSONValue = ["label": "Day", "value": "$day"]
+    let n: JSONValue = ["label": "N", "value": "$n"]
+    let marks: [JSONValue] = [
+        ["type": "BarMark", "x": day, "yStart": 1, "yEnd": 2],
+        ["type": "BarMark", "xStart": n, "xEnd": n, "y": day],
+        ["type": "LineMark", "x": day, "y": n, "series": day],
+        ["type": "PointMark", "x": 3, "y": n],
+        ["type": "RuleMark", "x": 4, "yStart": n, "yEnd": n],
+    ]
+    #expect(try issues(chart(marks)) == [])
+}
+
+@Test func chartArgumentsThatMatchNoInitializerError() throws {
+    let found = try errors(chart([["type": "RuleMark", "x": 4, "y": 2]], forEach: false))
+    #expect(found.count == 1)
+    #expect(found.first?.contains("RuleMark arguments match no initializer (plottable values [], points ['x', 'y'])") == true)
+    #expect(found.first?.contains("accepted: (x point +) yStart + yEnd |") == true)
+}
+
+@Test func anArgumentTheMarkLacksStillCounts() throws {
+    // The element reads every argument key on every mark, so a PointMark's series drops it.
+    let a: JSONValue = ["label": "A", "value": 1]
+    let b: JSONValue = ["label": "B", "value": 2]
+    let found = try errors(chart([["type": "PointMark", "x": a, "y": b, "series": a], ["type": "LineMark", "x:foo": a, "y": b]]))
+    #expect(found.count == 2)
+    #expect(found.contains { $0.contains("PointMark arguments match no initializer (plottable values ['series', 'x', 'y'], points [])") })
+    #expect(found.contains { $0.contains("LineMark arguments match no initializer (plottable values ['y'], points [])") })
+}
+
+@Test func aBooleanIsNotAChartPoint() throws {
+    let day: JSONValue = ["label": "Day", "value": "$day"]
+    let found = try errors(chart([["type": "PointMark", "x": day, "y": true]]))
+    #expect(found == ["[ERROR] doc: properties.chart.content[0].content[0].y: value type 'boolean' (value: True) does not match any allowed form"])
+}

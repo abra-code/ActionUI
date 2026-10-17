@@ -1,14 +1,257 @@
 {
   "type": "Chart",
-  "description": "A Swift Charts surface. What it shows is one 'chart' description (columns, optional inline data, marks and chart modifiers) that a host replaces whole with setElementProperty; data rows are also set through the rows API.",
+  "description": "A Swift Charts surface. What it shows is one 'chart' description (columns, optional inline data, marks and chart modifiers) that a host replaces whole with setElementProperty; data rows are also set through the rows API. Column references, their types and one type per axis are checked by the Chart element when the document loads.",
   "id": { "policy": "optional" },
   "inheritsViewProperties": true,
   "topLevelKeys": [],
+  "definitions": {
+    "plottable": {
+      "types": ["object"],
+      "description": "A plottable value: .value(label, value). Inside a ForEach, \"$N\" or \"$name\" reads a cell of each row.",
+      "properties": {
+        "label": { "types": ["string"], "required": true },
+        "value": { "types": ["string", "number"], "required": true, "description": "A column reference (\"$users\", \"$2\"), a number or a string" },
+        "type":  { "types": ["string"], "enum": ["string", "number", "integer", "date"], "description": "The value's type; wins over its column's" },
+        "unit":  { "types": ["string"], "enum": ["year", "quarter", "month", "weekOfYear", "weekOfMonth", "day", "hour", "minute", "second"], "description": "Calendar unit for a date value" }
+      }
+    },
+    "argument": {
+      "oneOf": [
+        { "$ref": "plottable" },
+        { "types": ["number"], "description": "A position in points" }
+      ]
+    },
+    "byValue": {
+      "types": ["object"],
+      "properties": { "by": { "$ref": "plottable", "required": true } }
+    },
+    "dimension": {
+      "oneOf": [
+        { "types": ["number"], "description": "Fixed size in points" },
+        { "types": ["string"], "enum": ["automatic"] },
+        { "types": ["object"], "properties": {
+          "ratio": { "types": ["number"] },
+          "inset": { "types": ["number"] },
+          "fixed": { "types": ["number"] }
+        } }
+      ]
+    },
+    "markModifiers": {
+      "type": { "types": ["string"], "required": true },
+      "foregroundStyle": { "oneOf": [ { "types": ["string"], "description": "A color" }, { "$ref": "byValue" } ] },
+      "symbol": { "oneOf": [
+        { "types": ["string"], "enum": ["circle", "square", "triangle", "diamond", "pentagon", "plus", "cross", "asterisk"] },
+        { "$ref": "byValue" }
+      ] },
+      "symbolSize": { "oneOf": [
+        { "types": ["number"], "description": "Symbol area" },
+        { "types": ["object"], "properties": {
+          "width": { "types": ["number"] },
+          "height": { "types": ["number"] },
+          "by": { "$ref": "plottable" }
+        } }
+      ] },
+      "lineStyle": { "types": ["object"], "description": "A stroke style, or {\"by\": value}", "properties": {
+        "lineWidth": { "types": ["number"] },
+        "lineCap": { "types": ["string"], "enum": ["butt", "round", "square"] },
+        "lineJoin": { "types": ["string"], "enum": ["miter", "round", "bevel"] },
+        "miterLimit": { "types": ["number"] },
+        "dash": { "types": ["array"], "itemTypes": ["number"] },
+        "dashPhase": { "types": ["number"] },
+        "by": { "$ref": "plottable" }
+      } },
+      "interpolationMethod": { "oneOf": [
+        { "types": ["string"], "enum": ["linear", "cardinal", "catmullRom", "monotone", "stepStart", "stepCenter", "stepEnd"] },
+        { "types": ["object"], "properties": {
+          "cardinal": { "types": ["object"], "properties": { "tension": { "types": ["number"], "required": true } } },
+          "catmullRom": { "types": ["object"], "properties": { "alpha": { "types": ["number"], "required": true } } }
+        } }
+      ] },
+      "position": { "types": ["object"], "properties": {
+        "by": { "$ref": "plottable", "required": true },
+        "axis": { "types": ["string"], "enum": ["horizontal", "vertical"] },
+        "span": { "$ref": "dimension" }
+      } },
+      "cornerRadius": { "oneOf": [
+        { "types": ["number"] },
+        { "types": ["object"], "properties": {
+          "radius": { "types": ["number"], "required": true },
+          "style": { "types": ["string"], "enum": ["continuous", "circular"] }
+        } }
+      ] },
+      "opacity": { "types": ["number"] },
+      "zIndex": { "types": ["number"] },
+      "blur": { "types": ["number"], "description": "Blur radius" },
+      "offset": { "types": ["object"], "properties": {
+        "x": { "types": ["number"] }, "y": { "types": ["number"] },
+        "xStart": { "types": ["number"] }, "xEnd": { "types": ["number"] },
+        "yStart": { "types": ["number"] }, "yEnd": { "types": ["number"] }
+      } },
+      "shadow": { "types": ["object"], "properties": {
+        "radius": { "types": ["number"], "required": true },
+        "color": { "types": ["string"] },
+        "x": { "types": ["number"] },
+        "y": { "types": ["number"] }
+      } },
+      "alignsMarkStylesWithPlotArea": { "types": ["boolean"] },
+      "accessibilityLabel": { "types": ["string"], "description": "Text; inside a ForEach it may embed \"$N\" / \"$name\" references" },
+      "accessibilityValue": { "types": ["string"] },
+      "accessibilityIdentifier": { "types": ["string"] },
+      "accessibilityHidden": { "types": ["boolean"] }
+    },
+    "xyArguments": {
+      "$ref": "markModifiers",
+      "x": { "$ref": "argument" },
+      "y": { "$ref": "argument" },
+      "xStart": { "$ref": "argument" },
+      "xEnd": { "$ref": "argument" },
+      "yStart": { "$ref": "argument" },
+      "yEnd": { "$ref": "argument" }
+    },
+    "markSchemas": {
+      "BarMark": {
+        "$ref": "xyArguments",
+        "width": { "$ref": "dimension" },
+        "height": { "$ref": "dimension" },
+        "stacking": { "types": ["string"], "enum": ["standard", "normalized", "center", "unstacked"] }
+      },
+      "LineMark": {
+        "$ref": "markModifiers",
+        "x": { "$ref": "argument" },
+        "y": { "$ref": "argument" },
+        "series": { "$ref": "argument" }
+      },
+      "PointMark": {
+        "$ref": "markModifiers",
+        "x": { "$ref": "argument" },
+        "y": { "$ref": "argument" }
+      },
+      "RuleMark": { "$ref": "xyArguments" }
+    },
+    "markPatterns": {
+      "BarMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "patterns": [
+          { "values": ["x", "y"], "points": [], "form": "x + y" },
+          { "values": ["x"], "points": ["yStart", "yEnd"], "form": "x (+ yStart/yEnd points)" },
+          { "values": ["x", "yStart", "yEnd"], "points": [], "form": "x + yStart + yEnd" },
+          { "values": ["y"], "points": ["xStart", "xEnd"], "form": "(xStart/xEnd points +) y" },
+          { "values": ["yStart", "yEnd"], "points": ["xStart", "xEnd"], "form": "(xStart/xEnd points +) yStart + yEnd" },
+          { "values": ["xStart", "xEnd", "y"], "points": [], "form": "xStart + xEnd + y" },
+          { "values": ["xStart", "xEnd"], "points": ["yStart", "yEnd"], "form": "xStart + xEnd (+ yStart/yEnd points)" }
+        ]
+      },
+      "LineMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "patterns": [
+          { "values": ["x", "y"], "points": [], "form": "x + y" },
+          { "values": ["x", "y", "series"], "points": [], "form": "x + y + series" }
+        ]
+      },
+      "PointMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "patterns": [
+          { "values": ["x", "y"], "points": [], "form": "x + y" },
+          { "values": ["y"], "points": ["x"], "form": "(x point +) y" },
+          { "values": ["x"], "points": ["y"], "form": "x (+ y point)" }
+        ]
+      },
+      "RuleMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "patterns": [
+          { "values": ["yStart", "yEnd"], "points": ["x"], "form": "(x point +) yStart + yEnd" },
+          { "values": ["x"], "points": ["yStart", "yEnd"], "form": "x (+ yStart/yEnd points)" },
+          { "values": ["x", "yStart", "yEnd"], "points": [], "form": "x + yStart + yEnd" },
+          { "values": ["y"], "points": ["xStart", "xEnd"], "form": "(xStart/xEnd points +) y" },
+          { "values": ["xStart", "xEnd"], "points": ["y"], "form": "xStart + xEnd (+ y point)" },
+          { "values": ["xStart", "xEnd", "y"], "points": [], "form": "xStart + xEnd + y" }
+        ]
+      }
+    },
+    "scale": {
+      "types": ["object"],
+      "properties": {
+        "domain": { "types": ["array", "object"], "description": "Two numbers or two dates (a range), a list of strings, or {\"automatic\": {\"includesZero\", \"reversed\"}}" },
+        "range": { "types": ["object", "array"], "description": "{\"startPadding\", \"endPadding\"}, {\"padding\"} or two numbers (points)" },
+        "type": { "oneOf": [
+          { "types": ["string"], "enum": ["linear", "log", "date", "category", "squareRoot", "symmetricLog"] },
+          { "types": ["object"], "properties": {
+            "power": { "types": ["object"], "properties": { "exponent": { "types": ["number"], "required": true } } },
+            "symmetricLog": { "types": ["object"], "properties": { "slopeAtZero": { "types": ["number"], "required": true } } }
+          } }
+        ] }
+      }
+    },
+    "axisLabel": {
+      "oneOf": [
+        { "types": ["string"] },
+        { "types": ["object"], "properties": {
+          "text": { "types": ["string"], "required": true },
+          "position": { "types": ["string"], "enum": ["automatic", "overlay", "top", "bottom", "leading", "trailing", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+          "alignment": { "types": ["string"], "enum": ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+          "spacing": { "types": ["number"] }
+        } }
+      ]
+    },
+    "visibility": { "types": ["string"], "enum": ["automatic", "visible", "hidden"] }
+  },
   "ownProperties": {
     "chart": {
       "types": ["object"],
       "required": false,
-      "description": "The chart description: 'columns', 'data', 'content' (ForEach; BarMark, LineMark, PointMark, RuleMark with their initializer arguments and mark modifiers), 'chartXScale'/'chartYScale' (domain, range, type), 'chartXAxis'/'chartYAxis', 'chartXAxisLabel'/'chartYAxisLabel', 'chartLegend', 'chartPlotStyle'. Its contents are checked by the Chart element when the document loads."
+      "description": "The chart description; replace it whole at runtime with setElementProperty.",
+      "properties": {
+        "columns": { "types": ["array"], "itemTypes": ["string", "object"], "description": "Names (string columns) or {\"name\", \"type\": string|number|integer|date}" },
+        "data": { "types": ["array"], "itemTypes": ["array"], "description": "Inline rows; cells are strings, numbers, booleans or null" },
+        "content": {
+          "types": ["array"],
+          "description": "ForEach entries and marks",
+          "discriminatedItems": {
+            "discriminator": "type",
+            "schemas": {
+              "$ref": "markSchemas",
+              "ForEach": {
+                "type": { "types": ["string"], "required": true },
+                "content": {
+                  "types": ["array"],
+                  "required": true,
+                  "description": "Marks drawn once per row",
+                  "discriminatedItems": {
+                    "discriminator": "type",
+                    "schemas": { "$ref": "markSchemas" },
+                    "argumentPatterns": { "$ref": "markPatterns" }
+                  }
+                }
+              }
+            },
+            "argumentPatterns": { "$ref": "markPatterns" }
+          }
+        },
+        "chartXScale": { "$ref": "scale" },
+        "chartYScale": { "$ref": "scale" },
+        "chartXAxis": { "$ref": "visibility" },
+        "chartYAxis": { "$ref": "visibility" },
+        "chartXAxisLabel": { "$ref": "axisLabel" },
+        "chartYAxisLabel": { "$ref": "axisLabel" },
+        "chartLegend": { "oneOf": [
+          { "$ref": "visibility" },
+          { "types": ["object"], "properties": {
+            "position": { "types": ["string"], "enum": ["automatic", "overlay", "top", "bottom", "leading", "trailing", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] }
+          } }
+        ] },
+        "chartPlotStyle": { "types": ["object"], "description": "View properties for the plot area: padding, background, border, frame, cornerRadius, clipShape, shadow, opacity, offset, foregroundStyle", "properties": {
+          "padding": { "types": ["number", "string", "object"] },
+          "background": { "types": ["string"] },
+          "border": { "types": ["object"] },
+          "frame": { "types": ["object"] },
+          "cornerRadius": { "types": ["number"] },
+          "clipShape": { "types": ["string", "object"] },
+          "shadow": { "types": ["object"] },
+          "opacity": { "types": ["number"] },
+          "offset": { "types": ["object"] },
+          "foregroundStyle": { "types": ["string"] }
+        } }
+      }
     }
   },
   "observable": {

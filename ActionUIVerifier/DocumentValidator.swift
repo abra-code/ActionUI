@@ -675,10 +675,48 @@ public struct DocumentValidator: Sendable {
                         continue
                     }
                     issues += validateObject(object, spec: ["properties": itemSchema], path: itemPath)
+                    if let patterns = discriminated["argumentPatterns"]?.object?[typeName]?.object {
+                        issues += checkArgumentPatterns(object, patterns: patterns, typeName: typeName, path: itemPath)
+                    }
                 }
             }
         }
         return issues
+    }
+
+    /// An item's argument keys (the pattern set's "keys") must match one form, as a Swift
+    /// initializer's arguments do: its object-valued keys must equal a pattern's "values", and its
+    /// number-valued keys must be among that pattern's "points".
+    private static func checkArgumentPatterns(_ object: [String: JSONValue], patterns spec: [String: JSONValue],
+                                              typeName: String, path: String) -> [ValidationIssue] {
+        let keys = Set(spec["keys"]?.stringArray ?? [])
+        var values: Set<String> = []
+        var points: Set<String> = []
+        for (key, value) in object {
+            let (base, suffix) = Platforms.split(key)
+            // A key with an unknown platform suffix is dropped at runtime (reported elsewhere).
+            guard keys.contains(base), suffix.map(Platforms.all.contains) ?? true else {
+                continue
+            }
+            switch value {
+            case .object:
+                values.insert(base)
+            case .int, .double:
+                points.insert(base)
+            default:
+                break
+            }
+        }
+        let forms = spec["patterns"]?.array?.compactMap(\.object) ?? []
+        let matched = forms.contains { form in
+            Set(form["values"]?.stringArray ?? []) == values && points.isSubset(of: Set(form["points"]?.stringArray ?? []))
+        }
+        if matched {
+            return []
+        }
+        let accepted = forms.compactMap { $0["form"]?.string }.joined(separator: " | ")
+        return [.init(severity: .error, path: path, message:
+            "\(typeName) arguments match no initializer (plottable values \(pyList(values.sorted())), points \(pyList(points.sorted()))); accepted: \(accepted)")]
     }
 
     /// Sub-keys of an object value against the spec's "properties". Sub-keys may carry a platform

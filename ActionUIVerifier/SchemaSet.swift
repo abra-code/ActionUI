@@ -34,7 +34,7 @@ public struct SchemaSet: Sendable {
                     continue
                 }
                 let data = try Data(contentsOf: file)
-                loaded[name] = JSONValue(any: try JSONSerialization.jsonObject(with: data))
+                loaded[name] = try Self.expandReferences(JSONValue(any: try JSONSerialization.jsonObject(with: data)), schema: name)
             }
         }
         guard loaded["View"] != nil else {
@@ -42,6 +42,44 @@ public struct SchemaSet: Sendable {
         }
         schemas = loaded
         knownTypes = Set(loaded.keys).subtracting(["View"])
+    }
+
+    /// Expands `$ref` within one schema file: an object holding `"$ref": "name"` becomes the
+    /// schema's `definitions[name]`, expanded too, merged with the object's other keys (which win).
+    /// The `definitions` key itself is removed. Mirrors the Python SchemaLoader.
+    static func expandReferences(_ schema: JSONValue, schema name: String) throws -> JSONValue {
+        guard case .object(var top) = schema else {
+            return schema
+        }
+        let definitions = top["definitions"]?.object ?? [:]
+        top["definitions"] = nil
+        func expand(_ value: JSONValue, _ trail: [String]) throws -> JSONValue {
+            switch value {
+            case .array(let items):
+                return .array(try items.map { try expand($0, trail) })
+            case .object(let object):
+                guard let reference = object["$ref"] else {
+                    return .object(try object.mapValues { try expand($0, trail) })
+                }
+                guard let referenceName = reference.string else {
+                    throw SchemaReferenceError(message: "schema \(name): $ref must name a definition")
+                }
+                guard !trail.contains(referenceName) else {
+                    throw SchemaReferenceError(message: "schema \(name): $ref '\(referenceName)' refers back to itself")
+                }
+                guard let definition = definitions[referenceName], case .object = definition,
+                      case .object(var merged) = try expand(definition, trail + [referenceName]) else {
+                    throw SchemaReferenceError(message: "schema \(name): $ref '\(referenceName)' names no object in 'definitions'")
+                }
+                for (key, sibling) in object where key != "$ref" {
+                    merged[key] = try expand(sibling, trail)
+                }
+                return .object(merged)
+            default:
+                return value
+            }
+        }
+        return try expand(.object(top), [])
     }
 
     /// The built-in schemas bundled with this library, plus `extra` add-on directories.
@@ -119,3 +157,9 @@ public struct SchemaSet: Sendable {
 
 /// Anchors Bundle(for:) to the binary this library is linked into.
 private final class BundleFinder {}
+
+/// A schema's `$ref` names nothing, or refers back to itself.
+public struct SchemaReferenceError: Error, CustomStringConvertible {
+    public let message: String
+    public var description: String { message }
+}

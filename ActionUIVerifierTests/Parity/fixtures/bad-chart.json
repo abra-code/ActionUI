@@ -1,0 +1,35 @@
+{
+  "type": "VStack",
+  "children": [
+    {
+      "type": "Chart",
+      "id": 1,
+      "properties": {
+        "chart": {
+          "columns": ["day", { "name": "n", "type": "number" }],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "LineMark", "x": { "label": "Day", "value": "$day" } },
+              { "type": "BarMark", "x": { "label": "Day", "value": "$day" }, "y": 5, "yEnd": 9 },
+              { "type": "PointMark", "x": { "label": "Day" }, "y": { "label": "N", "value": "$n", "type": "decimal" },
+                "symbol": "hexagon", "symbolSize": "big", "opacity": "half" },
+              { "type": "RuleMark", "y": { "label": "Goal", "value": 3 }, "lineStyle": { "lineCap": "pointy", "dash": ["4"] },
+                "position": { "axis": "sideways" }, "shadow": { "color": "gray" } },
+              { "type": "AreaMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" } },
+              { "type": "BarMark:ios", "x": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" } },
+              { "type": "BarMark", "x:macos": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" }, "stacking": "sideways", "width": "wide" }
+            ] },
+            { "type": "RuleMark", "x": 4, "y": 2 },
+            { "type": "PointMark", "x": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 }, "series": { "label": "S", "value": "s" } },
+            { "type": "LineMark", "x:foo": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 }, "xStart": 3 }
+          ],
+          "chartXScale": { "type": "cubic", "zoom": 2 },
+          "chartYAxisLabel": { "position": "bottom" },
+          "chartLegend": 3,
+          "chartPlotStyle": { "onHoverActionID": "hover", "background": 1 },
+          "chartFoo": true
+        }
+      }
+    }
+  ]
+}

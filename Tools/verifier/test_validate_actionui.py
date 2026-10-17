@@ -617,5 +617,77 @@ class AddOnAutoDiscoveryTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
+
+class SchemaReferenceTests(unittest.TestCase):
+    """$ref / definitions expansion at schema load (mirrors the Swift SchemaSet)."""
+
+    def test_reference_is_replaced_and_merged_with_siblings(self):
+        from verifier.schema_loader import expand_references
+        schema = {
+            "definitions": {"num": {"types": ["number"], "description": "a"}, "pair": {"a": {"$ref": "num"}}},
+            "ownProperties": {"x": {"$ref": "num", "description": "b"}, "p": {"types": ["object"], "properties": {"$ref": "pair", "b": {"$ref": "num"}}}},
+        }
+        expanded = expand_references(schema, "T")
+        self.assertNotIn("definitions", expanded)
+        self.assertEqual(expanded["ownProperties"]["x"], {"types": ["number"], "description": "b"})
+        self.assertEqual(set(expanded["ownProperties"]["p"]["properties"]), {"a", "b"})
+
+    def test_unknown_self_and_malformed_references_fail(self):
+        from verifier.schema_loader import expand_references, SchemaReferenceError
+        for schema in ({"x": {"$ref": "missing"}},
+                       {"definitions": {"loop": {"inner": {"$ref": "loop"}}}, "x": {"$ref": "loop"}},
+                       {"x": {"$ref": 3}}):
+            with self.assertRaises(SchemaReferenceError):
+                expand_references(schema, "T")
+
+
+class ChartSchemaTests(unittest.TestCase):
+    """The Chart schema: initializer forms (argumentPatterns) and mark modifiers."""
+
+    @staticmethod
+    def _chart(marks, foreach=True):
+        content = [{"type": "ForEach", "content": marks}] if foreach else marks
+        return {"type": "Chart", "id": 1, "properties": {"chart": {"columns": ["day", {"name": "n", "type": "number"}], "content": content}}}
+
+    def test_every_accepted_form_is_clean(self):
+        day, n = {"label": "Day", "value": "$day"}, {"label": "N", "value": "$n"}
+        marks = [
+            {"type": "BarMark", "x": day, "yStart": 1, "yEnd": 2},
+            {"type": "BarMark", "xStart": n, "xEnd": n, "y": day},
+            {"type": "LineMark", "x": day, "y": n, "series": day},
+            {"type": "PointMark", "x": 3, "y": n},
+            {"type": "RuleMark", "x": 4, "yStart": n, "yEnd": n},
+        ]
+        self.assertEqual([(i.path, i.message) for i in _validate(self._chart(marks))], [])
+
+    def test_arguments_that_match_no_initializer_error_with_the_accepted_forms(self):
+        issues = _errors(_validate(self._chart([{"type": "RuleMark", "x": 4, "y": 2}], foreach=False)))
+        self.assertEqual(len(issues), 1)
+        self.assertIn("RuleMark arguments match no initializer (plottable values [], points ['x', 'y'])", issues[0].message)
+        self.assertIn("accepted: (x point +) yStart + yEnd |", issues[0].message)
+
+    def test_an_argument_the_mark_lacks_still_counts(self):
+        # The element reads every argument key on every mark, so a PointMark's series drops it.
+        a, b = {"label": "A", "value": 1}, {"label": "B", "value": 2}
+        issues = _errors(_validate(self._chart([{"type": "PointMark", "x": a, "y": b, "series": a},
+                                                {"type": "LineMark", "x:foo": a, "y": b}])))
+        self.assertEqual(len(issues), 2)
+        self.assertIn("PointMark arguments match no initializer (plottable values ['series', 'x', 'y'], points [])", issues[0].message)
+        self.assertIn("LineMark arguments match no initializer (plottable values ['y'], points [])", issues[1].message)
+
+    def test_a_boolean_is_not_a_point(self):
+        day = {"label": "Day", "value": "$day"}
+        issues = _errors(_validate(self._chart([{"type": "PointMark", "x": day, "y": True}])))
+        self.assertEqual([(i.path, i.message) for i in issues],
+                         [("test: properties.chart.content[0].content[0].y", "value type 'boolean' (value: True) does not match any allowed form")])
+
+    def test_modifier_values_are_checked(self):
+        day, n = {"label": "Day", "value": "$day"}, {"label": "N", "value": "$n"}
+        mark = {"type": "LineMark", "x": day, "y": n, "interpolationMethod": "wiggly", "lineStyle": {"lineWidth": "thick"},
+                "foregroundStyle": {"by": {"label": "P"}}, "accessibilityHidden": "no"}
+        paths = sorted(i.path.split(".")[-1] for i in _validate(self._chart([mark])))
+        self.assertEqual(paths, ["accessibilityHidden", "interpolationMethod", "lineWidth", "value"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

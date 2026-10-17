@@ -104,8 +104,48 @@ def validate_property(key: str, value, prop_spec: dict, path: str) -> list[Valid
                     continue
                 item_schema = {"properties": schemas[item_type]}
                 issues += _validate_object_props(item, item_schema, item_path)
+                all_patterns = discriminated.get("argumentPatterns")
+                patterns = all_patterns.get(item_type) if isinstance(all_patterns, dict) else None
+                if isinstance(patterns, dict):
+                    issues += _check_argument_patterns(item, patterns, item_type, item_path)
 
     return issues
+
+
+def _check_argument_patterns(obj: dict, spec: dict, type_name: str, path: str) -> list[ValidationIssue]:
+    """An item's argument keys (the pattern set's "keys") must match one form, as
+    a Swift initializer's arguments do: its object-valued keys must equal a
+    pattern's "values", and its number-valued keys must be among that pattern's
+    "points". Mirrors checkArgumentPatterns in the Swift verifier.
+    """
+    keys = set(_string_list(spec.get("keys")))
+    values: set[str] = set()
+    points: set[str] = set()
+    for key, value in obj.items():
+        base, suffix = split_platform_suffix(key)
+        # A key with an unknown platform suffix is dropped at runtime (reported elsewhere).
+        if base not in keys or (suffix is not None and suffix not in ALL_PLATFORMS):
+            continue
+        if isinstance(value, dict):
+            values.add(base)
+        elif isinstance(value, (int, float)) and not isinstance(value, bool):
+            points.add(base)
+    patterns = spec.get("patterns")
+    forms = [form for form in patterns if isinstance(form, dict)] if isinstance(patterns, list) else []
+    for form in forms:
+        if set(_string_list(form.get("values"))) == values and points <= set(_string_list(form.get("points"))):
+            return []
+    accepted = " | ".join(form["form"] for form in forms if isinstance(form.get("form"), str))
+    return [ValidationIssue(
+        "error", path,
+        f"{type_name} arguments match no initializer (plottable values {sorted(values)}, "
+        f"points {sorted(points)}); accepted: {accepted}"
+    )]
+
+
+def _string_list(value) -> list[str]:
+    """The strings of a list (JSONValue.stringArray in the Swift verifier); [] otherwise."""
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
 def _validate_object_props(obj: dict, spec: dict, path: str) -> list[ValidationIssue]:
