@@ -19,13 +19,19 @@ JSON schema and usage documentation for `Chart`.
                          // Optional: inline rows (strings, numbers, booleans, null). Setting a description that
                          //   has "data" replaces the chart's rows with it, at load and at runtime; a description
                          //   without "data" keeps the rows. The stored description keeps no "data".
-       "content": [      // The marks, in Swift Charts' vocabulary
+       "content": [      // ForEach, Plot and the marks, in Swift Charts' vocabulary
          { "type": "ForEach", "content": [  // Draws its content once per row
-           { "type": "LineMark",
-             "x": { "label": "Week", "value": "$week", "type": "date", "unit": "weekOfYear" },
-             "y": { "label": "Users", "value": "$users" },
+           { "type": "Plot",                // Groups marks; its modifiers apply to each mark inside
              "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } }, // or a color: "blue"
-             "interpolationMethod": "catmullRom" }
+             "content": [
+               { "type": "LineMark",
+                 "x": { "label": "Week", "value": "$week", "type": "date", "unit": "weekOfYear" },
+                 "y": { "label": "Users", "value": "$users" },
+                 "interpolationMethod": "catmullRom" },
+               { "type": "PointMark",
+                 "x": { "label": "Week", "value": "$week", "type": "date", "unit": "weekOfYear" },
+                 "y": { "label": "Users", "value": "$users" } }
+             ] }
          ] },
          { "type": "RuleMark", "y": { "label": "Goal", "value": 1500 }, "lineStyle": { "lineWidth": 1, "dash": [4, 3] } }
        ],
@@ -57,7 +63,16 @@ JSON schema and usage documentation for `Chart`.
    //   PointMark x + y | (x point +) y | x (+ y point)
    //   RuleMark  (x point +) yStart + yEnd | x (+ yStart/yEnd points) | x + yStart + yEnd | (xStart/xEnd points +) y |
    //             xStart + xEnd (+ y point) | xStart + xEnd + y
+   //   AreaMark  x + y | xStart + xEnd + y | x + yStart + yEnd, each (+ series); "stacking" on x + y (+ series)
+   //   RectangleMark x + y | x (+ yStart/yEnd points) | (xStart/xEnd points +) y | xStart + xEnd + y |
+   //             xStart + xEnd (+ yStart/yEnd points) | x + yStart + yEnd | (xStart/xEnd points +) yStart + yEnd |
+   //             xStart + xEnd + yStart + yEnd | xStart/xEnd/yStart/yEnd points; "width" / "height" as BarMark
+   //   SectorMark angle (+ angularInset points); the angle is a number or integer value, each sector's share of the
+   //             sum; "innerRadius" / "outerRadius" take the forms of "width" (a pie or a donut: {"ratio": 0.6})
    //   A start and its end have one type.
+   // Plot: {"type": "Plot", "content": [...], modifiers}. Its modifiers apply to every mark inside, after the
+   //   mark's own. Inside a ForEach a Plot holds marks (and Plots); outside it may also hold a ForEach, and
+   //   its modifiers then read no row ("$..." is literal there, as for any mark outside a ForEach).
    // Mark modifiers (a modifier that does not apply to a mark changes nothing):
    //   "foregroundStyle": color or {"by": value}   "symbol": circle|square|triangle|diamond|pentagon|plus|cross|asterisk or {"by"}
    //   "symbolSize": area, {"width", "height"} or {"by"}   "lineStyle": {"lineWidth", "lineCap", "lineJoin", "miterLimit",

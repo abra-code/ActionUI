@@ -116,7 +116,7 @@ private struct MarkArguments {
     func point(_ key: String) -> CGFloat? { spec.points[key] }
 }
 
-// x + y (BarMark, LineMark, PointMark) and x + y + series (LineMark).
+// x + y (BarMark, LineMark, PointMark, AreaMark, RectangleMark) and x + y + series (LineMark, AreaMark).
 @MainActor
 private struct XYOpener: PlottableOpener {
     let args: MarkArguments
@@ -132,7 +132,7 @@ private struct XYOpener2<X: Plottable>: PlottableOpener {
     func open<Y: Plottable>(_ y: PlottableValue<Y>) -> AnyChartContent? {
         let spec = args.spec
         if spec.form == .xySeries {
-            return openScalar(args.scalar("series"), args.plottable("series"), SeriesOpener(x: x, y: y))
+            return openScalar(args.scalar("series"), args.plottable("series"), SeriesOpener(spec: spec, x: x, y: y))
         }
         switch spec.kind {
         case .BarMark:
@@ -141,7 +141,11 @@ private struct XYOpener2<X: Plottable>: PlottableOpener {
             return AnyChartContent(erasing: Charts.LineMark(x: x, y: y))
         case .PointMark:
             return AnyChartContent(erasing: Charts.PointMark(x: x, y: y))
-        case .RuleMark:
+        case .AreaMark:
+            return AnyChartContent(erasing: Charts.AreaMark(x: x, y: y, stacking: spec.stacking))
+        case .RectangleMark:
+            return AnyChartContent(erasing: Charts.RectangleMark(x: x, y: y, width: spec.width, height: spec.height))
+        case .RuleMark, .SectorMark:
             return nil
         }
     }
@@ -149,10 +153,29 @@ private struct XYOpener2<X: Plottable>: PlottableOpener {
 
 @MainActor
 private struct SeriesOpener<X: Plottable, Y: Plottable>: PlottableOpener {
+    let spec: ChartMarkSpec
     let x: PlottableValue<X>
     let y: PlottableValue<Y>
     func open<S: Plottable>(_ series: PlottableValue<S>) -> AnyChartContent? {
-        AnyChartContent(erasing: Charts.LineMark(x: x, y: y, series: series))
+        switch spec.kind {
+        case .LineMark:
+            return AnyChartContent(erasing: Charts.LineMark(x: x, y: y, series: series))
+        case .AreaMark:
+            return AnyChartContent(erasing: Charts.AreaMark(x: x, y: y, series: series, stacking: spec.stacking))
+        default:
+            return nil
+        }
+    }
+}
+
+// SectorMark: the angle with its radii and inset.
+@MainActor
+private struct SectorOpener: PlottableOpener {
+    let args: MarkArguments
+    func open<A: Plottable>(_ angle: PlottableValue<A>) -> AnyChartContent? {
+        let spec = args.spec
+        return AnyChartContent(erasing: Charts.SectorMark(angle: angle, innerRadius: spec.innerRadius, outerRadius: spec.outerRadius,
+                                                          angularInset: args.point("angularInset")))
     }
 }
 
@@ -170,6 +193,12 @@ private struct SingleOpener: PlottableOpener {
             return AnyChartContent(erasing: Charts.RuleMark(x: value, yStart: args.point("yStart"), yEnd: args.point("yEnd")))
         case (.xPoints, .PointMark):
             return AnyChartContent(erasing: Charts.PointMark(x: value, y: args.point("y")))
+        case (.xPoints, .RectangleMark):
+            return AnyChartContent(erasing: Charts.RectangleMark(x: value, yStart: args.point("yStart"), yEnd: args.point("yEnd"),
+                                                                 width: spec.width))
+        case (.yPoints, .RectangleMark):
+            return AnyChartContent(erasing: Charts.RectangleMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"), y: value,
+                                                                 height: spec.height))
         case (.yPoints, .BarMark):
             return AnyChartContent(erasing: Charts.BarMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"), y: value,
                                                            height: spec.height, stacking: spec.stacking))
@@ -198,14 +227,32 @@ private struct XPairOpener2<X: Plottable>: PairOpener {
     let args: MarkArguments
     let x: PlottableValue<X>
     func open<Y: Plottable>(_ yStart: PlottableValue<Y>, _ yEnd: PlottableValue<Y>) -> AnyChartContent? {
+        if args.spec.form == .xPairSeries {
+            return openScalar(args.scalar("series"), args.plottable("series"), XPairSeriesOpener(x: x, yStart: yStart, yEnd: yEnd))
+        }
         switch args.spec.kind {
         case .BarMark:
             return AnyChartContent(erasing: Charts.BarMark(x: x, yStart: yStart, yEnd: yEnd, width: args.spec.width))
         case .RuleMark:
             return AnyChartContent(erasing: Charts.RuleMark(x: x, yStart: yStart, yEnd: yEnd))
+        case .AreaMark:
+            return AnyChartContent(erasing: Charts.AreaMark(x: x, yStart: yStart, yEnd: yEnd))
+        case .RectangleMark:
+            return AnyChartContent(erasing: Charts.RectangleMark(x: x, yStart: yStart, yEnd: yEnd, width: args.spec.width))
         default:
             return nil
         }
+    }
+}
+
+// AreaMark x + yStart/yEnd + series.
+@MainActor
+private struct XPairSeriesOpener<X: Plottable, Y: Plottable>: PlottableOpener {
+    let x: PlottableValue<X>
+    let yStart: PlottableValue<Y>
+    let yEnd: PlottableValue<Y>
+    func open<S: Plottable>(_ series: PlottableValue<S>) -> AnyChartContent? {
+        AnyChartContent(erasing: Charts.AreaMark(x: x, yStart: yStart, yEnd: yEnd, series: series))
     }
 }
 
@@ -224,14 +271,51 @@ private struct PairYOpener2<X: Plottable>: PlottableOpener {
     let xStart: PlottableValue<X>
     let xEnd: PlottableValue<X>
     func open<Y: Plottable>(_ y: PlottableValue<Y>) -> AnyChartContent? {
+        if args.spec.form == .pairYSeries {
+            return openScalar(args.scalar("series"), args.plottable("series"), PairYSeriesOpener(xStart: xStart, xEnd: xEnd, y: y))
+        }
         switch args.spec.kind {
         case .BarMark:
             return AnyChartContent(erasing: Charts.BarMark(xStart: xStart, xEnd: xEnd, y: y, height: args.spec.height))
         case .RuleMark:
             return AnyChartContent(erasing: Charts.RuleMark(xStart: xStart, xEnd: xEnd, y: y))
+        case .AreaMark:
+            return AnyChartContent(erasing: Charts.AreaMark(xStart: xStart, xEnd: xEnd, y: y))
+        case .RectangleMark:
+            return AnyChartContent(erasing: Charts.RectangleMark(xStart: xStart, xEnd: xEnd, y: y, height: args.spec.height))
         default:
             return nil
         }
+    }
+}
+
+// AreaMark xStart/xEnd + y + series.
+@MainActor
+private struct PairYSeriesOpener<X: Plottable, Y: Plottable>: PlottableOpener {
+    let xStart: PlottableValue<X>
+    let xEnd: PlottableValue<X>
+    let y: PlottableValue<Y>
+    func open<S: Plottable>(_ series: PlottableValue<S>) -> AnyChartContent? {
+        AnyChartContent(erasing: Charts.AreaMark(xStart: xStart, xEnd: xEnd, y: y, series: series))
+    }
+}
+
+// RectangleMark xStart/xEnd + yStart/yEnd.
+@MainActor
+private struct PairPairOpener: PairOpener {
+    let args: MarkArguments
+    func open<X: Plottable>(_ xStart: PlottableValue<X>, _ xEnd: PlottableValue<X>) -> AnyChartContent? {
+        openScalarPair(args.scalar("yStart"), args.plottable("yStart"), args.scalar("yEnd"), args.plottable("yEnd"),
+                       PairPairOpener2(xStart: xStart, xEnd: xEnd))
+    }
+}
+
+@MainActor
+private struct PairPairOpener2<X: Plottable>: PairOpener {
+    let xStart: PlottableValue<X>
+    let xEnd: PlottableValue<X>
+    func open<Y: Plottable>(_ yStart: PlottableValue<Y>, _ yEnd: PlottableValue<Y>) -> AnyChartContent? {
+        AnyChartContent(erasing: Charts.RectangleMark(xStart: xStart, xEnd: xEnd, yStart: yStart, yEnd: yEnd))
     }
 }
 
@@ -249,6 +333,10 @@ private struct PairPointsOpener: PairOpener {
             return AnyChartContent(erasing: Charts.BarMark(xStart: start, xEnd: end, yStart: args.point("yStart"), yEnd: args.point("yEnd")))
         case (.pairPoints, .RuleMark):
             return AnyChartContent(erasing: Charts.RuleMark(xStart: start, xEnd: end, y: args.point("y")))
+        case (.pointsPair, .RectangleMark):
+            return AnyChartContent(erasing: Charts.RectangleMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"), yStart: start, yEnd: end))
+        case (.pairPoints, .RectangleMark):
+            return AnyChartContent(erasing: Charts.RectangleMark(xStart: start, xEnd: end, yStart: args.point("yStart"), yEnd: args.point("yEnd")))
         default:
             return nil
         }
@@ -305,24 +393,40 @@ struct ChartContentBuilder {
             if let content = buildMark(spec, row: row) {
                 output.append(content)
             }
+        case .plot(let children):
+            for child in children {
+                append(child, row: row, into: &output)
+            }
         case .forEach(let children):
             // A row is drawn whole or not at all: one unparsable cell skips all its marks.
-            // A ForEach holds only marks (validation refuses a nested ForEach).
+            // A ForEach holds marks and Plots of marks (validation refuses a nested ForEach).
             output.reserveCapacity(output.count + columns.rowCount * children.count)
             var rowItems: [AnyChartContent] = []
             for rowIndex in 0..<columns.rowCount {
                 rowItems.removeAll(keepingCapacity: true)
-                for child in children {
-                    guard case .mark(let spec) = child, let content = buildMark(spec, row: rowIndex) else { break }
-                    rowItems.append(content)
-                }
-                if rowItems.count == children.count {
+                if appendRow(children, row: rowIndex, into: &rowItems) {
                     output.append(contentsOf: rowItems)
                 } else {
                     skippedRows += 1
                 }
             }
         }
+    }
+
+    // Builds one row's marks; false as soon as one cannot be built.
+    private mutating func appendRow(_ entries: [ChartEntry], row: Int, into items: inout [AnyChartContent]) -> Bool {
+        for entry in entries {
+            switch entry {
+            case .mark(let spec):
+                guard let content = buildMark(spec, row: row) else { return false }
+                items.append(content)
+            case .plot(let children):
+                guard appendRow(children, row: row, into: &items) else { return false }
+            case .forEach:
+                return false
+            }
+        }
+        return true
     }
 
     private mutating func resolve(_ plottable: ChartPlottable, row: Int?) -> ChartScalar? {
@@ -365,6 +469,19 @@ struct ChartContentBuilder {
         case .pairPoints:
             built = openScalarPair(args.scalar("xStart"), args.plottable("xStart"),
                                                         args.scalar("xEnd"), args.plottable("xEnd"), PairPointsOpener(args: args))
+        case .xPairSeries:
+            built = openScalar(args.scalar("x"), args.plottable("x"), XPairOpener(args: args))
+        case .pairYSeries:
+            built = openScalarPair(args.scalar("xStart"), args.plottable("xStart"),
+                                   args.scalar("xEnd"), args.plottable("xEnd"), PairYOpener(args: args))
+        case .pairPair:
+            built = openScalarPair(args.scalar("xStart"), args.plottable("xStart"),
+                                   args.scalar("xEnd"), args.plottable("xEnd"), PairPairOpener(args: args))
+        case .pointsOnly:
+            built = AnyChartContent(erasing: Charts.RectangleMark(xStart: args.point("xStart"), xEnd: args.point("xEnd"),
+                                                                  yStart: args.point("yStart"), yEnd: args.point("yEnd")))
+        case .angle:
+            built = openScalar(args.scalar("angle"), args.plottable("angle"), SectorOpener(args: args))
         }
         guard var content = built else { return nil }
         for modifier in spec.modifiers {

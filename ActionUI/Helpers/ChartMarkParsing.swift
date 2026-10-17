@@ -1,6 +1,6 @@
 // Helpers/ChartMarkParsing.swift
 //
-// Chart content entries: ForEach, the marks and their modifiers (see Views/Chart.swift). Each
+// Chart content entries: ForEach, Plot, the marks and their modifiers (see Views/Chart.swift). Each
 // mark entry holds its Swift initializer's arguments as keys; an argument is a plottable value
 // object or a number in points, and the set of keys must match exactly one initializer.
 
@@ -9,20 +9,25 @@ import SwiftUI
 import Charts
 
 enum ChartMarkKind: String {
-    case BarMark, LineMark, PointMark, RuleMark
+    case BarMark, LineMark, PointMark, RuleMark, AreaMark, RectangleMark, SectorMark
 }
 
 // The argument shapes the mark initializers share. "Pair" is a start/end pair of plottable
 // values of one type; "points" are optional numbers in points.
 enum ChartMarkForm {
     case xy            // x, y
-    case xySeries      // x, y, series (LineMark)
+    case xySeries      // x, y, series (LineMark, AreaMark)
     case xPoints       // x; yStart/yEnd points (PointMark: y point)
     case yPoints       // y; xStart/xEnd points (PointMark: x point)
     case xPair         // x; yStart + yEnd
     case pairY         // xStart + xEnd; y
     case pointsPair    // xStart/xEnd points (RuleMark: x point); yStart + yEnd
     case pairPoints    // xStart + xEnd; yStart/yEnd points (RuleMark: y point)
+    case xPairSeries   // x; yStart + yEnd; series (AreaMark)
+    case pairYSeries   // xStart + xEnd; y; series (AreaMark)
+    case pairPair      // xStart + xEnd; yStart + yEnd (RectangleMark)
+    case pointsOnly    // xStart/xEnd/yStart/yEnd points (RectangleMark)
+    case angle         // angle; angularInset points (SectorMark)
 }
 
 enum ChartText {
@@ -78,25 +83,27 @@ enum ChartMarkModifier {
 struct ChartMarkSpec {
     let kind: ChartMarkKind
     let form: ChartMarkForm
-    // Plottable arguments by initializer label (x, y, xStart, xEnd, yStart, yEnd, series).
+    // Plottable arguments by initializer label (x, y, xStart, xEnd, yStart, yEnd, series, angle).
     let values: [String: ChartPlottable]
     // Point arguments by initializer label.
     let points: [String: CGFloat]
     var width: MarkDimension = .automatic
     var height: MarkDimension = .automatic
     var stacking: MarkStackingMethod = .standard
+    var innerRadius: MarkDimension = .automatic
+    var outerRadius: MarkDimension = .automatic
     var modifiers: [ChartMarkModifier] = []
 
     var xValues: [ChartPlottable] { ["x", "xStart", "xEnd"].compactMap { values[$0] } }
     var yValues: [ChartPlottable] { ["y", "yStart", "yEnd"].compactMap { values[$0] } }
     var plottables: [ChartPlottable] {
-        ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"].compactMap { values[$0] } + modifiers.compactMap(\.plottable)
+        ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle"].compactMap { values[$0] } + modifiers.compactMap(\.plottable)
     }
 }
 
 extension ChartDescription {
-    static let argumentKeys = ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"]
-    static let dimensionKeys = ["width", "height", "stacking"]
+    static let argumentKeys = ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"]
+    static let dimensionKeys = ["width", "height", "stacking", "innerRadius", "outerRadius"]
     static let modifierKeys = [
         "foregroundStyle", "symbol", "symbolSize", "lineStyle", "interpolationMethod", "position", "cornerRadius",
         "opacity", "zIndex", "offset", "blur", "shadow", "alignsMarkStylesWithPlotArea",
@@ -107,7 +114,7 @@ extension ChartDescription {
         let form: ChartMarkForm
         let values: Set<String>
         let points: Set<String>
-        // Which of width / height / stacking this initializer takes.
+        // Which of width / height / stacking / innerRadius / outerRadius this initializer takes.
         let dimensions: Set<String>
         let text: String
     }
@@ -146,6 +153,32 @@ extension ChartDescription {
                 FormPattern(form: .pairPoints, values: ["xStart", "xEnd"], points: ["y"], dimensions: [], text: "xStart + xEnd (+ y point)"),
                 FormPattern(form: .pairY, values: ["xStart", "xEnd", "y"], points: [], dimensions: [], text: "xStart + xEnd + y"),
             ]
+        case .AreaMark:
+            return [
+                FormPattern(form: .xy, values: ["x", "y"], points: [], dimensions: ["stacking"], text: "x + y"),
+                FormPattern(form: .pairY, values: ["xStart", "xEnd", "y"], points: [], dimensions: [], text: "xStart + xEnd + y"),
+                FormPattern(form: .xPair, values: ["x", "yStart", "yEnd"], points: [], dimensions: [], text: "x + yStart + yEnd"),
+                FormPattern(form: .xySeries, values: ["x", "y", "series"], points: [], dimensions: ["stacking"], text: "x + y + series"),
+                FormPattern(form: .pairYSeries, values: ["xStart", "xEnd", "y", "series"], points: [], dimensions: [], text: "xStart + xEnd + y + series"),
+                FormPattern(form: .xPairSeries, values: ["x", "yStart", "yEnd", "series"], points: [], dimensions: [], text: "x + yStart + yEnd + series"),
+            ]
+        case .RectangleMark:
+            return [
+                FormPattern(form: .xy, values: ["x", "y"], points: [], dimensions: ["width", "height"], text: "x + y"),
+                FormPattern(form: .xPoints, values: ["x"], points: ["yStart", "yEnd"], dimensions: ["width"], text: "x (+ yStart/yEnd points)"),
+                FormPattern(form: .yPoints, values: ["y"], points: ["xStart", "xEnd"], dimensions: ["height"], text: "(xStart/xEnd points +) y"),
+                FormPattern(form: .pairY, values: ["xStart", "xEnd", "y"], points: [], dimensions: ["height"], text: "xStart + xEnd + y"),
+                FormPattern(form: .pairPoints, values: ["xStart", "xEnd"], points: ["yStart", "yEnd"], dimensions: [], text: "xStart + xEnd (+ yStart/yEnd points)"),
+                FormPattern(form: .xPair, values: ["x", "yStart", "yEnd"], points: [], dimensions: ["width"], text: "x + yStart + yEnd"),
+                FormPattern(form: .pointsPair, values: ["yStart", "yEnd"], points: ["xStart", "xEnd"], dimensions: [], text: "(xStart/xEnd points +) yStart + yEnd"),
+                FormPattern(form: .pairPair, values: ["xStart", "xEnd", "yStart", "yEnd"], points: [], dimensions: [], text: "xStart + xEnd + yStart + yEnd"),
+                FormPattern(form: .pointsOnly, values: [], points: ["xStart", "xEnd", "yStart", "yEnd"], dimensions: [], text: "xStart/xEnd/yStart/yEnd points"),
+            ]
+        case .SectorMark:
+            return [
+                FormPattern(form: .angle, values: ["angle"], points: ["angularInset"], dimensions: ["innerRadius", "outerRadius"],
+                            text: "angle (+ angularInset points)"),
+            ]
         }
     }
 
@@ -174,6 +207,27 @@ extension ChartDescription {
                 cleaned.append(["type": "ForEach", "content": cleanedChildren])
                 continue
             }
+            if type == "Plot" {
+                let known = Set(["type", "content"] + modifierKeys)
+                for key in entry.keys where !known.contains(key) {
+                    logger?.log("Chart: '\(key)' is not supported on Plot; ignoring it", .warning)
+                }
+                guard let children = entry["content"] as? [Any] else {
+                    logger?.log("Chart: Plot requires 'content' (an array); ignoring it", .warning)
+                    continue
+                }
+                var cleanedPlot: [String: Any] = ["type": "Plot"]
+                let modifiers = parseModifiers(entry, role: "Plot", insideForEach: insideForEach, columns: columns,
+                                               cleaned: &cleanedPlot, logger: logger)
+                var cleanedChildren: [Any] = []
+                let parsed = parseEntries(children, insideForEach: insideForEach, columns: columns, cleaned: &cleanedChildren, logger: logger)
+                cleanedPlot["content"] = cleanedChildren
+                // Swift applies a Plot's modifiers to everything inside it, after the content's own;
+                // appending them to each mark draws the same (and keeps one flat list of marks).
+                result.append(.plot(parsed.map { appending(modifiers, to: $0) }))
+                cleaned.append(cleanedPlot)
+                continue
+            }
             guard let kind = ChartMarkKind(rawValue: type) else {
                 logger?.log("Chart: content type '\(type)' is not supported; ignoring it", .warning)
                 continue
@@ -184,6 +238,18 @@ extension ChartDescription {
             }
         }
         return result
+    }
+
+    private static func appending(_ modifiers: [ChartMarkModifier], to entry: ChartEntry) -> ChartEntry {
+        switch entry {
+        case .mark(var spec):
+            spec.modifiers += modifiers
+            return .mark(spec)
+        case .forEach(let children):
+            return .forEach(children.map { appending(modifiers, to: $0) })
+        case .plot(let children):
+            return .plot(children.map { appending(modifiers, to: $0) })
+        }
     }
 
     // MARK: - Marks
@@ -229,6 +295,12 @@ extension ChartDescription {
             }
         }
 
+        // A sector's size is its share of the angle values' sum, so the angle is a quantity.
+        if let angle = values["angle"], angle.type != .number, angle.type != .integer {
+            logger?.log("Chart: \(name).angle must be a number or integer value, not \(angle.type.rawValue); ignoring the mark", .warning)
+            return nil
+        }
+
         var spec = ChartMarkSpec(kind: kind, form: pattern.form, values: values, points: points)
         for key in dimensionKeys {
             guard let raw = entry[key] else { continue }
@@ -244,7 +316,12 @@ extension ChartDescription {
                     logger?.log("Chart: \(name).stacking must be standard, normalized, center or unstacked; ignoring it", .warning)
                 }
             } else if let dimension = parseDimension(raw) {
-                if key == "width" { spec.width = dimension } else { spec.height = dimension }
+                switch key {
+                case "width": spec.width = dimension
+                case "height": spec.height = dimension
+                case "innerRadius": spec.innerRadius = dimension
+                default: spec.outerRadius = dimension
+                }
                 cleaned[key] = raw
             } else {
                 logger?.log("Chart: \(name).\(key) must be a number, \"automatic\", {\"ratio\"}, {\"inset\"} or {\"fixed\"}; ignoring it", .warning)

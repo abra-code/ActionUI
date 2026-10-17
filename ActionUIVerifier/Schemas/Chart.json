@@ -126,11 +126,32 @@
         "x": { "$ref": "argument" },
         "y": { "$ref": "argument" }
       },
-      "RuleMark": { "$ref": "xyArguments" }
+      "RuleMark": { "$ref": "xyArguments" },
+      "AreaMark": {
+        "$ref": "xyArguments",
+        "series": { "$ref": "argument" },
+        "stacking": { "types": ["string"], "enum": ["standard", "normalized", "center", "unstacked"] }
+      },
+      "RectangleMark": {
+        "$ref": "xyArguments",
+        "width": { "$ref": "dimension" },
+        "height": { "$ref": "dimension" }
+      },
+      "SectorMark": {
+        "$ref": "markModifiers",
+        "angle": { "types": ["object"], "description": "A number or integer value: each sector's share of the sum", "properties": {
+          "label": { "types": ["string"], "required": true },
+          "value": { "types": ["string", "number"], "required": true },
+          "type": { "types": ["string"], "enum": ["number", "integer"] }
+        } },
+        "innerRadius": { "$ref": "dimension" },
+        "outerRadius": { "$ref": "dimension" },
+        "angularInset": { "types": ["number"], "description": "Gap between sectors, in points" }
+      }
     },
     "markPatterns": {
       "BarMark": {
-        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
         "patterns": [
           { "values": ["x", "y"], "points": [], "form": "x + y" },
           { "values": ["x"], "points": ["yStart", "yEnd"], "form": "x (+ yStart/yEnd points)" },
@@ -142,14 +163,14 @@
         ]
       },
       "LineMark": {
-        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
         "patterns": [
           { "values": ["x", "y"], "points": [], "form": "x + y" },
           { "values": ["x", "y", "series"], "points": [], "form": "x + y + series" }
         ]
       },
       "PointMark": {
-        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
         "patterns": [
           { "values": ["x", "y"], "points": [], "form": "x + y" },
           { "values": ["y"], "points": ["x"], "form": "(x point +) y" },
@@ -157,7 +178,7 @@
         ]
       },
       "RuleMark": {
-        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series"],
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
         "patterns": [
           { "values": ["yStart", "yEnd"], "points": ["x"], "form": "(x point +) yStart + yEnd" },
           { "values": ["x"], "points": ["yStart", "yEnd"], "form": "x (+ yStart/yEnd points)" },
@@ -166,6 +187,64 @@
           { "values": ["xStart", "xEnd"], "points": ["y"], "form": "xStart + xEnd (+ y point)" },
           { "values": ["xStart", "xEnd", "y"], "points": [], "form": "xStart + xEnd + y" }
         ]
+      },
+      "AreaMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
+        "patterns": [
+          { "values": ["x", "y"], "points": [], "form": "x + y" },
+          { "values": ["xStart", "xEnd", "y"], "points": [], "form": "xStart + xEnd + y" },
+          { "values": ["x", "yStart", "yEnd"], "points": [], "form": "x + yStart + yEnd" },
+          { "values": ["x", "y", "series"], "points": [], "form": "x + y + series" },
+          { "values": ["xStart", "xEnd", "y", "series"], "points": [], "form": "xStart + xEnd + y + series" },
+          { "values": ["x", "yStart", "yEnd", "series"], "points": [], "form": "x + yStart + yEnd + series" }
+        ]
+      },
+      "RectangleMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
+        "patterns": [
+          { "values": ["x", "y"], "points": [], "form": "x + y" },
+          { "values": ["x"], "points": ["yStart", "yEnd"], "form": "x (+ yStart/yEnd points)" },
+          { "values": ["y"], "points": ["xStart", "xEnd"], "form": "(xStart/xEnd points +) y" },
+          { "values": ["xStart", "xEnd", "y"], "points": [], "form": "xStart + xEnd + y" },
+          { "values": ["xStart", "xEnd"], "points": ["yStart", "yEnd"], "form": "xStart + xEnd (+ yStart/yEnd points)" },
+          { "values": ["x", "yStart", "yEnd"], "points": [], "form": "x + yStart + yEnd" },
+          { "values": ["yStart", "yEnd"], "points": ["xStart", "xEnd"], "form": "(xStart/xEnd points +) yStart + yEnd" },
+          { "values": ["xStart", "xEnd", "yStart", "yEnd"], "points": [], "form": "xStart + xEnd + yStart + yEnd" },
+          { "values": [], "points": ["xStart", "xEnd", "yStart", "yEnd"], "form": "xStart/xEnd/yStart/yEnd points" }
+        ]
+      },
+      "SectorMark": {
+        "keys": ["x", "y", "xStart", "xEnd", "yStart", "yEnd", "series", "angle", "angularInset"],
+        "patterns": [
+          { "values": ["angle"], "points": ["angularInset"], "form": "angle (+ angularInset points)" }
+        ]
+      }
+    },
+    "markItems": {
+      "discriminator": "type",
+      "schemas": { "$ref": "markSchemas" },
+      "argumentPatterns": { "$ref": "markPatterns" }
+    },
+    "plotOfMarks": {
+      "$ref": "markModifiers",
+      "content": {
+        "types": ["array"],
+        "required": true,
+        "description": "Marks; the Plot's modifiers apply to each",
+        "discriminatedItems": { "$ref": "markItems" }
+      }
+    },
+    "forEach": {
+      "type": { "types": ["string"], "required": true },
+      "content": {
+        "types": ["array"],
+        "required": true,
+        "description": "Marks and Plots drawn once per row",
+        "discriminatedItems": {
+          "discriminator": "type",
+          "schemas": { "$ref": "markSchemas", "Plot": { "$ref": "plotOfMarks" } },
+          "argumentPatterns": { "$ref": "markPatterns" }
+        }
       }
     },
     "scale": {
@@ -205,20 +284,21 @@
         "data": { "types": ["array"], "itemTypes": ["array"], "description": "Inline rows; cells are strings, numbers, booleans or null" },
         "content": {
           "types": ["array"],
-          "description": "ForEach entries and marks",
+          "description": "ForEach entries, Plots and marks",
           "discriminatedItems": {
             "discriminator": "type",
             "schemas": {
               "$ref": "markSchemas",
-              "ForEach": {
-                "type": { "types": ["string"], "required": true },
+              "ForEach": { "$ref": "forEach" },
+              "Plot": {
+                "$ref": "markModifiers",
                 "content": {
                   "types": ["array"],
                   "required": true,
-                  "description": "Marks drawn once per row",
+                  "description": "ForEach entries, Plots of marks and marks; the Plot's modifiers apply to each mark",
                   "discriminatedItems": {
                     "discriminator": "type",
-                    "schemas": { "$ref": "markSchemas" },
+                    "schemas": { "$ref": "markSchemas", "ForEach": { "$ref": "forEach" }, "Plot": { "$ref": "plotOfMarks" } },
                     "argumentPatterns": { "$ref": "markPatterns" }
                   }
                 }

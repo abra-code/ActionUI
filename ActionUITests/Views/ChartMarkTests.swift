@@ -52,13 +52,17 @@ final class ChartMarkTests: XCTestCase {
         return description
     }
 
+    // Every mark, in order, through ForEach and Plot groups.
     private func marks(of spec: ChartSpec) -> [ChartMarkSpec] {
-        spec.content.flatMap { entry -> [ChartMarkSpec] in
-            switch entry {
-            case .mark(let mark): return [mark]
-            case .forEach(let children): return children.compactMap { if case .mark(let m) = $0 { return m } else { return nil } }
+        func flatten(_ entries: [ChartEntry]) -> [ChartMarkSpec] {
+            entries.flatMap { entry -> [ChartMarkSpec] in
+                switch entry {
+                case .mark(let mark): return [mark]
+                case .forEach(let children), .plot(let children): return flatten(children)
+                }
             }
         }
+        return flatten(spec.content)
     }
 
     private func build(_ description: [String: Any]) -> Int {
@@ -128,6 +132,22 @@ final class ChartMarkTests: XCTestCase {
             ("RuleMark", ["y": high], .yPoints),
             ("RuleMark", ["xStart": low, "xEnd": high, "y": 4], .pairPoints),
             ("RuleMark", ["xStart": low, "xEnd": high, "y": day], .pairY),
+            ("AreaMark", ["x": day, "y": high, "stacking": "normalized"], .xy),
+            ("AreaMark", ["xStart": low, "xEnd": high, "y": day], .pairY),
+            ("AreaMark", ["x": day, "yStart": low, "yEnd": high], .xPair),
+            ("AreaMark", ["x": day, "y": high, "series": team], .xySeries),
+            ("AreaMark", ["xStart": low, "xEnd": high, "y": day, "series": team], .pairYSeries),
+            ("AreaMark", ["x": day, "yStart": low, "yEnd": high, "series": team], .xPairSeries),
+            ("RectangleMark", ["x": day, "y": team, "width": ["ratio": 0.9], "height": 20], .xy),
+            ("RectangleMark", ["x": day, "yStart": 10, "width": 8], .xPoints),
+            ("RectangleMark", ["xEnd": 40, "y": team, "height": 8], .yPoints),
+            ("RectangleMark", ["xStart": low, "xEnd": high, "y": team, "height": 8], .pairY),
+            ("RectangleMark", ["xStart": low, "xEnd": high, "yStart": 5], .pairPoints),
+            ("RectangleMark", ["x": day, "yStart": low, "yEnd": high, "width": 8], .xPair),
+            ("RectangleMark", ["xStart": 5, "yStart": low, "yEnd": high], .pointsPair),
+            ("RectangleMark", ["xStart": low, "xEnd": high, "yStart": low, "yEnd": high], .pairPair),
+            ("RectangleMark", ["xStart": 10, "yEnd": 30], .pointsOnly),
+            ("SectorMark", ["angle": high, "innerRadius": ["ratio": 0.6], "outerRadius": "automatic", "angularInset": 1.5], .angle),
         ]
         for (kind, arguments, form) in cases {
             var mark = arguments
@@ -412,5 +432,111 @@ final class ChartMarkTests: XCTestCase {
         .chartXScale(range: .plotDimension(startPadding: 20, endPadding: 20))
         .chartXAxisLabel("Day", alignment: .trailing)
         try assertSameRendering(description, rows: simpleRows, reference)
+    }
+
+    // MARK: - SectorMark and Plot
+
+    func testASectorAngleMustBeAQuantity() {
+        let parsed = ChartDescription.parse(chart([["type": "SectorMark", "angle": pv("Day", "$day")]]), logger: logger)
+        XCTAssertTrue(marks(of: parsed.spec).isEmpty)
+        XCTAssertEqual(logger.warnings.count, 1)
+        XCTAssertTrue(logger.warnings[0].contains("SectorMark.angle must be a number or integer value"), logger.warnings[0])
+    }
+
+    func testAPlotAppendsItsModifiersToEveryMarkInside() {
+        let point = pv("Day", "$day"), high = pv("High", "$high")
+        let description = chart([["type": "Plot", "foregroundStyle": ["by": pv("Team", "$team")], "opacity": 0.5, "content": [
+            ["type": "LineMark", "x": point, "y": high, "zIndex": 1],
+            ["type": "PointMark", "x": point, "y": high],
+        ]]])
+        let parsed = ChartDescription.parse(description, logger: logger)
+        XCTAssertEqual(logger.warnings, [])
+        let built = marks(of: parsed.spec)
+        XCTAssertEqual(built.map(\.kind), [.LineMark, .PointMark])
+        // The mark's own modifiers first, then the Plot's, as Swift applies them.
+        XCTAssertEqual(built.map { $0.modifiers.map { "\($0)".prefix(while: { $0 != "(" }) } },
+                       [["zIndex", "foregroundStyleBy", "opacity"], ["foregroundStyleBy", "opacity"]])
+        XCTAssertEqual(build(parsed.cleaned), rows.count * 2, "two marks per row")
+
+        // The cleaned description keeps the Plot, and cleaning it again changes nothing.
+        let plot = ((parsed.cleaned["content"] as? [[String: Any]])?.first?["content"] as? [[String: Any]])?.first
+        XCTAssertEqual(plot?["type"] as? String, "Plot")
+        XCTAssertEqual((plot?["content"] as? [Any])?.count, 2)
+        let again = ChartDescription.parse(parsed.cleaned, logger: logger)
+        XCTAssertEqual(again.cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+        XCTAssertEqual(logger.warnings, [])
+    }
+
+    func testAPlotMayHoldAForEachButNotInsideOne() {
+        let line: [String: Any] = ["type": "LineMark", "x": pv("Day", "$day"), "y": pv("High", "$high")]
+        let outer: [String: Any] = ["columns": columns, "content": [
+            ["type": "Plot", "foregroundStyle": "red", "content": [["type": "ForEach", "content": [line]]]],
+        ]]
+        let parsed = ChartDescription.parse(outer, logger: logger)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertEqual(build(parsed.cleaned), rows.count)
+
+        // A Plot inside a ForEach is still inside it: a ForEach in that Plot is nested.
+        _ = ChartDescription.parse(chart([["type": "Plot", "content": [["type": "ForEach", "content": [line]]]]]), logger: logger)
+        XCTAssertEqual(logger.warnings.count, 1)
+        XCTAssertTrue(logger.warnings[0].contains("cannot be inside another ForEach"), logger.warnings[0])
+
+        // Outside a ForEach, a Plot's by-value has no row to read: "$team" is literal text, with a warning.
+        let quiet = CollectingLogger()
+        _ = ChartDescription.parse(["columns": columns, "content": [
+            ["type": "Plot", "foregroundStyle": ["by": pv("Team", "$team")], "content": [["type": "ForEach", "content": [line]]]],
+        ]], logger: quiet)
+        XCTAssertEqual(quiet.warnings.count, 1, "\(quiet.warnings)")
+    }
+
+    func testStackedAreasRenderLikeTypedMarks() throws {
+        let rows = self.rows
+        let description = chart([["type": "AreaMark", "x": pv("Day", "$day"), "y": pv("High", "$high"),
+                                  "foregroundStyle": ["by": pv("Team", "$team")]]])
+        let reference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.AreaMark(x: .value("Day", rows[i][0]), y: .value("High", Double(rows[i][2])!))
+                .foregroundStyle(by: .value("Team", rows[i][3]))
+        }
+        try assertSameRendering(description, rows: rows, reference)
+    }
+
+    func testAHeatMapOfRectanglesRendersLikeTypedMarks() throws {
+        let rows = self.rows
+        let description = chart([["type": "RectangleMark", "x": pv("Day", "$day"), "y": pv("Team", "$team"), "height": ["ratio": 0.8],
+                                  "foregroundStyle": ["by": pv("High", "$high")]]])
+        let reference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.RectangleMark(x: .value("Day", rows[i][0]), y: .value("Team", rows[i][3]), height: .ratio(0.8))
+                .foregroundStyle(by: .value("High", Double(rows[i][2])!))
+        }
+        try assertSameRendering(description, rows: rows, reference)
+    }
+
+    func testADonutRendersLikeTypedMarks() throws {
+        let rows = self.rows
+        let description = chart([["type": "SectorMark", "angle": pv("High", "$high"), "innerRadius": ["ratio": 0.6], "angularInset": 1.5,
+                                  "cornerRadius": 4, "foregroundStyle": ["by": pv("Day", "$day")]]])
+        let reference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.SectorMark(angle: .value("High", Double(rows[i][2])!), innerRadius: .ratio(0.6), angularInset: 1.5)
+                .cornerRadius(4)
+                .foregroundStyle(by: .value("Day", rows[i][0]))
+        }
+        try assertSameRendering(description, rows: rows, reference)
+    }
+
+    func testAPlotPerRowRendersLikeATypedPlot() throws {
+        let rows = self.rows
+        let day = pv("Day", "$day"), high = pv("High", "$high")
+        let description = chart([["type": "Plot", "foregroundStyle": ["by": pv("Team", "$team")], "content": [
+            ["type": "LineMark", "x": day, "y": high],
+            ["type": "PointMark", "x": day, "y": high],
+        ]]])
+        let reference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.Plot {
+                Charts.LineMark(x: .value("Day", rows[i][0]), y: .value("High", Double(rows[i][2])!))
+                Charts.PointMark(x: .value("Day", rows[i][0]), y: .value("High", Double(rows[i][2])!))
+            }
+            .foregroundStyle(by: .value("Team", rows[i][3]))
+        }
+        try assertSameRendering(description, rows: rows, reference)
     }
 }

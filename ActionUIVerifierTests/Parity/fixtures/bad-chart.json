@@ -15,7 +15,11 @@
                 "symbol": "hexagon", "symbolSize": "big", "opacity": "half" },
               { "type": "RuleMark", "y": { "label": "Goal", "value": 3 }, "lineStyle": { "lineCap": "pointy", "dash": ["4"] },
                 "position": { "axis": "sideways" }, "shadow": { "color": "gray" } },
-              { "type": "AreaMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" } },
+              { "type": "PieMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" } },
+              { "type": "SectorMark", "angle": { "label": "N", "value": "$n" }, "x": 3, "innerRadius": "half" },
+              { "type": "AreaMark", "xStart": { "label": "A", "value": 1 }, "y": { "label": "N", "value": "$n" } },
+              { "type": "Plot", "series": { "label": "S", "value": "s" }, "opacity": "half" },
+              { "type": "Plot", "content": [{ "type": "RectangleMark", "x": { "label": "Day", "value": "$day" }, "width": "wide" }] },
               { "type": "BarMark:ios", "x": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" } },
               { "type": "BarMark", "x:macos": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" }, "stacking": "sideways", "width": "wide" }
             ] },

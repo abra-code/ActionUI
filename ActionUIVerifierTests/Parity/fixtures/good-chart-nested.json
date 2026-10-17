@@ -1,0 +1,21 @@
+{
+  "type": "Chart",
+  "id": 1,
+  "properties": {
+    "chart": {
+      "columns": ["day", { "name": "n", "type": "number" }, "team"],
+      "data": [["Mon", 3, "A"], ["Tue", 5, "A"], ["Mon", 2, "B"], ["Tue", 4, "B"]],
+      "content": [
+        { "type": "Plot", "opacity": 0.9, "content": [
+          { "type": "ForEach", "content": [
+            { "type": "Plot", "foregroundStyle": { "by": { "label": "Team", "value": "$team" } }, "content": [
+              { "type": "AreaMark", "x": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" }, "stacking": "normalized" },
+              { "type": "RectangleMark", "x": { "label": "Day", "value": "$day" }, "yStart": 0, "yEnd": 4, "width": { "ratio": 0.2 } }
+            ] }
+          ] },
+          { "type": "Plot", "content": [{ "type": "RuleMark", "y": { "label": "Goal", "value": 0.5 } }] }
+        ] }
+      ]
+    }
+  }
+}

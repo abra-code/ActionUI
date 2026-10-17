@@ -4,7 +4,7 @@
   "type": "VStack",
   "properties": { "padding": "default", "spacing": 16 },
   "children": [
-    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, smoothed lines and a goal rule)", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Weekly users by platform (inline data, a Plot of smoothed lines and points per row, a goal rule)", "font": "headline" } },
     {
       "type": "Chart",
       "id": 11,
@@ -20,11 +20,16 @@
           ],
           "content": [
             { "type": "ForEach", "content": [
-              { "type": "LineMark",
-                "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
-                "y": { "label": "Users", "value": "$users" },
-                "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } },
-                "interpolationMethod": "catmullRom" }
+              { "type": "Plot", "foregroundStyle": { "by": { "label": "Platform", "value": "$platform" } }, "content": [
+                { "type": "LineMark",
+                  "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
+                  "y": { "label": "Users", "value": "$users" },
+                  "interpolationMethod": "catmullRom" },
+                { "type": "PointMark",
+                  "x": { "label": "Week", "value": "$week", "unit": "weekOfYear" },
+                  "y": { "label": "Users", "value": "$users" },
+                  "symbolSize": 30 }
+              ] }
             ] },
             { "type": "RuleMark", "y": { "label": "Goal", "value": 1250 },
               "lineStyle": { "lineWidth": 1, "dash": [4, 3] }, "foregroundStyle": "gray" }
@@ -84,6 +89,53 @@
           ],
           "chartYAxisLabel": { "text": "Degrees", "position": "leading" },
           "chartPlotStyle": { "background": "gray.opacity(0.08)" }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Storage by kind (stacked areas)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 14,
+      "properties": {
+        "frame": { "minHeight": 200 },
+        "chart": {
+          "columns": [{ "name": "month", "type": "date" }, "kind", { "name": "gigabytes", "type": "number" }],
+          "data": [
+            ["2026-05-01", "Photos", 120], ["2026-05-01", "Apps", 60], ["2026-05-01", "Documents", 25],
+            ["2026-06-01", "Photos", 135], ["2026-06-01", "Apps", 64], ["2026-06-01", "Documents", 30],
+            ["2026-07-01", "Photos", 160], ["2026-07-01", "Apps", 66], ["2026-07-01", "Documents", 31],
+            ["2026-08-01", "Photos", 170], ["2026-08-01", "Apps", 75], ["2026-08-01", "Documents", 40]
+          ],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "AreaMark",
+                "x": { "label": "Month", "value": "$month", "unit": "month" },
+                "y": { "label": "Gigabytes", "value": "$gigabytes" },
+                "foregroundStyle": { "by": { "label": "Kind", "value": "$kind" } },
+                "interpolationMethod": "monotone" }
+            ] }
+          ],
+          "chartLegend": { "position": "bottom" }
+        }
+      }
+    },
+    { "type": "Text", "properties": { "text": "Languages (a donut of sector marks)", "font": "headline" } },
+    {
+      "type": "Chart",
+      "id": 15,
+      "properties": {
+        "frame": { "width": 220, "height": 220 },
+        "chart": {
+          "columns": ["language", { "name": "count", "type": "integer" }],
+          "data": [["Swift", 42], ["Kotlin", 31], ["JavaScript", 27], ["Rust", 12]],
+          "content": [
+            { "type": "ForEach", "content": [
+              { "type": "SectorMark", "angle": { "label": "Count", "value": "$count" }, "innerRadius": { "ratio": 0.6 },
+                "angularInset": 1.5, "cornerRadius": 4,
+                "foregroundStyle": { "by": { "label": "Language", "value": "$language" } },
+                "accessibilityLabel": "$language", "accessibilityValue": "$count projects" }
+            ] }
+          ]
         }
       }
     }

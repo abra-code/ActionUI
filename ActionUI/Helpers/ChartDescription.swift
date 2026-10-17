@@ -36,6 +36,8 @@ struct ChartPlottable {
 indirect enum ChartEntry {
     case mark(ChartMarkSpec)
     case forEach([ChartEntry])
+    // A Plot's entries, its modifiers already appended to every mark inside.
+    case plot([ChartEntry])
 }
 
 struct ChartAxisSpec {
@@ -65,7 +67,7 @@ struct ChartSpec {
         func visit(_ entries: [ChartEntry]) {
             for entry in entries {
                 switch entry {
-                case .forEach(let children):
+                case .forEach(let children), .plot(let children):
                     visit(children)
                 case .mark(let mark):
                     for value in mark.plottables {
@@ -370,7 +372,7 @@ enum ChartDescription {
             switch entry {
             case .mark(let mark):
                 if let first = mark[keyPath: keyPath].first { return first.type }
-            case .forEach(let children):
+            case .forEach(let children), .plot(let children):
                 if let type = axisType(children, keyPath) { return type }
             }
         }
@@ -394,11 +396,14 @@ enum ChartDescription {
                 }
                 kept.append(entry)
                 keptCleaned.append(json)
-            case .forEach(let children):
-                var childJSON = ((json as? [String: Any])?["content"] as? [Any]) ?? []
+            case .forEach(let children), .plot(let children):
+                // The group keeps its own keys (a Plot's modifiers); only its content shrinks.
+                var groupJSON = json as? [String: Any] ?? [:]
+                var childJSON = groupJSON["content"] as? [Any] ?? []
                 let keptChildren = dropMismatched(children, cleaned: &childJSON, xType: xType, yType: yType, logger: logger)
-                kept.append(.forEach(keptChildren))
-                keptCleaned.append(["type": "ForEach", "content": childJSON])
+                if case .forEach = entry { kept.append(.forEach(keptChildren)) } else { kept.append(.plot(keptChildren)) }
+                groupJSON["content"] = childJSON
+                keptCleaned.append(groupJSON)
             }
         }
         cleaned = keptCleaned

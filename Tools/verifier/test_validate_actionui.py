@@ -657,8 +657,28 @@ class ChartSchemaTests(unittest.TestCase):
             {"type": "LineMark", "x": day, "y": n, "series": day},
             {"type": "PointMark", "x": 3, "y": n},
             {"type": "RuleMark", "x": 4, "yStart": n, "yEnd": n},
+            {"type": "AreaMark", "x": day, "yStart": n, "yEnd": n, "series": day},
+            {"type": "RectangleMark", "xStart": n, "xEnd": n, "yStart": n, "yEnd": n},
+            {"type": "RectangleMark", "xStart": 1, "yEnd": 2},
+            {"type": "SectorMark", "angle": n, "innerRadius": {"ratio": 0.6}, "angularInset": 1.5},
+            {"type": "Plot", "opacity": 0.5, "content": [{"type": "PointMark", "x": day, "y": n}]},
         ]
         self.assertEqual([(i.path, i.message) for i in _validate(self._chart(marks))], [])
+
+    def test_a_top_level_plot_may_hold_a_foreach_of_plots(self):
+        day, n = {"label": "Day", "value": "$day"}, {"label": "N", "value": "$n"}
+        plot = {"type": "Plot", "foregroundStyle": "red", "content": [
+            {"type": "ForEach", "content": [{"type": "Plot", "content": [{"type": "LineMark", "x": day, "y": n}]}]},
+            {"type": "RuleMark", "y": n},
+        ]}
+        self.assertEqual([(i.path, i.message) for i in _validate(self._chart([plot], foreach=False))], [])
+
+    def test_a_sector_angle_of_another_type_is_reported(self):
+        angle = {"label": "Day", "value": "$day", "type": "date", "unit": "day"}
+        messages = [i.message for i in _validate(self._chart([{"type": "SectorMark", "angle": angle}]))]
+        self.assertEqual(len(messages), 2)
+        self.assertTrue(any("'date' is not a known value; expected one of: ['number', 'integer']" in m for m in messages))
+        self.assertTrue(any("unexpected key 'unit'" in m for m in messages))
 
     def test_arguments_that_match_no_initializer_error_with_the_accepted_forms(self):
         issues = _errors(_validate(self._chart([{"type": "RuleMark", "x": 4, "y": 2}], foreach=False)))
