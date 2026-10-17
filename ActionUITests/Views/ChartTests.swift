@@ -205,7 +205,7 @@ final class ChartTests: XCTestCase {
         ]
         let parsed = ChartDescription.parse(chart, logger: logger)
         XCTAssertEqual(logger.warnings.count, 1, "\(logger.warnings)")
-        guard case .forEach(let children)? = parsed.spec.content.first, case .mark(let mark)? = children.first else {
+        guard case .forEach(let children, _)? = parsed.spec.content.first, case .mark(let mark)? = children.first else {
             return XCTFail("expected one mark in a ForEach")
         }
         XCTAssertEqual(mark.values["x"]?.type, .string)
@@ -256,8 +256,8 @@ final class ChartTests: XCTestCase {
         // unit makes "$when" a date, and re-validation must keep it one.
         let first = ChartDescription.parse(chart, logger: logger)
         let second = ChartDescription.parse(first.cleaned, logger: logger)
-        guard case .forEach(let a)? = first.spec.content.first, case .mark(let m1)? = a.first,
-              case .forEach(let b)? = second.spec.content.first, case .mark(let m2)? = b.first else { return XCTFail("shape") }
+        guard case .forEach(let a, _)? = first.spec.content.first, case .mark(let m1)? = a.first,
+              case .forEach(let b, _)? = second.spec.content.first, case .mark(let m2)? = b.first else { return XCTFail("shape") }
         XCTAssertEqual(m1.values["x"]?.type, .date)
         XCTAssertEqual(m2.values["x"]?.type, .date)
         XCTAssertTrue((first.cleaned as NSDictionary).isEqual(to: second.cleaned), "\(first.cleaned) vs \(second.cleaned)")

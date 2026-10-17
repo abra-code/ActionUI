@@ -41,6 +41,13 @@
                                               //   Marks beyond a fixed domain (stacked bars add up) draw outside the plot area;
                                               //   chartPlotStyle {"clipShape": "rectangle"} cuts them off
        "chartYScale": { "domain": { "automatic": { "includesZero": true } } },
+       "chartForegroundStyleScale": { "domain": ["iOS", "macOS"], "range": ["blue", "orange"] },
+                                              // Optional style scales, each {"domain", "range"}: the domain is typed by the
+                                              //   {"by"} values the scale styles (a list of strings, two numbers or dates, or
+                                              //   {"automatic": {...}}). Ranges: chartForegroundStyleScale a list of colors or
+                                              //   {"gradient": [colors]}; chartSymbolScale a list of symbol names;
+                                              //   chartLineStyleScale a list of stroke styles; chartSymbolSizeScale two numbers,
+                                              //   the smallest and largest symbol area
        "chartXAxis": "automatic",             // Optional: "automatic" | "visible" | "hidden"; also chartYAxis
        "chartXAxisLabel": "Week",             // Optional: axis title, or {"text", "position", "alignment", "spacing"};
                                               //   also chartYAxisLabel
@@ -66,6 +73,10 @@
    //   SectorMark angle (+ angularInset points); the angle is a number or integer value, each sector's share of the
    //             sum; "innerRadius" / "outerRadius" take the forms of "width" (a pie or a donut: {"ratio": 0.6})
    //   A start and its end have one type.
+   // ForEach: {"type": "ForEach", "content": [...]} draws its content once per row of the chart's rows. With
+   //   "data" (inline rows, as the chart's "data") it draws over those rows instead, laid out by its own
+   //   "columns" when it has them, else by the chart's. A ForEach's data stays in the description (only the
+   //   chart's "data" becomes the rows), so it suits fixed series such as targets next to streamed rows.
    // Plot: {"type": "Plot", "content": [...], modifiers}. Its modifiers apply to every mark inside, after the
    //   mark's own. Inside a ForEach a Plot holds marks (and Plots); outside it may also hold a ForEach, and
    //   its modifiers then read no row ("$..." is literal there, as for any mark outside a ForEach).
@@ -209,7 +220,8 @@ final class ChartRenderCache {
             buildCount += 1
             rows = newRows
             if builder.skippedRows > 0, let first = builder.firstSkip {
-                logger.log("Chart \(viewID): skipped \(builder.skippedRows) row(s) with a cell that does not parse; first: row \(first.row + 1), column \(first.column + 1) is not a \(first.type.rawValue)", .warning)
+                let place = first.inlineData ? "row \(first.row + 1) of a ForEach's data" : "row \(first.row + 1)"
+                logger.log("Chart \(viewID): skipped \(builder.skippedRows) row(s) with a cell that does not parse; first: \(place), column \(first.column + 1) is not a \(first.type.rawValue)", .warning)
             }
         }
         return (spec, items)

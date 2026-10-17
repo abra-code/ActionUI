@@ -239,6 +239,30 @@ private func chart(_ marks: [JSONValue], forEach: Bool = true) -> JSONValue {
     #expect(try issues(chart([plot], forEach: false)) == [])
 }
 
+@Test func forEachDataAndStyleScalesAreChecked() throws {
+    let day: JSONValue = ["label": "Day", "value": "$day"]
+    let n: JSONValue = ["label": "N", "value": "$n"]
+    let good: JSONValue = ["type": "Chart", "id": 1, "properties": ["chart": [
+        "content": [["type": "ForEach", "columns": ["day", ["name": "n", "type": "number"]], "data": [["Mon", 3]],
+                     "content": [["type": "PointMark", "x": day, "y": n, "symbol": ["by": day]]]]],
+        "chartForegroundStyleScale": ["domain": ["A"], "range": ["gradient": ["blue", "red"]]],
+        "chartSymbolScale": ["domain": ["Mon"], "range": ["square"]],
+        "chartLineStyleScale": ["range": [["lineWidth": 2]]],
+        "chartSymbolSizeScale": ["domain": [0, 10], "range": [10, 100]],
+    ]]]
+    #expect(try issues(good) == [])
+    let bad: JSONValue = ["type": "Chart", "id": 1, "properties": ["chart": [
+        "content": [["type": "ForEach", "data": [1], "content": []]],
+        "chartSymbolScale": ["range": ["hexagon"]],
+        "chartSymbolSizeScale": ["range": ["big"]],
+    ]]]
+    let found = try issues(bad)
+    #expect(found.count == 3)
+    #expect(found.contains { $0.contains("content[0].data[0]: expected array, got integer") })
+    #expect(found.contains { $0.contains("chartSymbolScale.range[0]: 'hexagon' is not a known value") })
+    #expect(found.contains { $0.contains("chartSymbolSizeScale.range[0]: expected number, got string") })
+}
+
 @Test func aSectorAngleOfAnotherTypeIsReported() throws {
     let found = try issues(chart([["type": "SectorMark", "angle": ["label": "Day", "value": "$day", "type": "date", "unit": "day"]]]))
     #expect(found.count == 2)

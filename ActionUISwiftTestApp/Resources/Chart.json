@@ -41,7 +41,7 @@
         }
       }
     },
-    { "type": "Text", "properties": { "text": "Tickets by month (integer column, stacked bars)", "font": "headline" } },
+    { "type": "Text", "properties": { "text": "Tickets by month (integer column, stacked bars in scale colors, targets from a ForEach with its own data)", "font": "headline" } },
     {
       "type": "Chart",
       "id": 12,
@@ -59,8 +59,15 @@
                 "x": { "label": "Month", "value": "$month" },
                 "y": { "label": "Tickets", "value": "$tickets" },
                 "foregroundStyle": { "by": { "label": "Team", "value": "$team" } } }
-            ] }
-          ]
+            ] },
+            { "type": "ForEach", "columns": ["month", { "name": "target", "type": "integer" }],
+              "data": [["Jan", 5], ["Feb", 5], ["Mar", 6]],
+              "content": [
+                { "type": "PointMark", "x": { "label": "Month", "value": "$month" }, "y": { "label": "Tickets", "value": "$target" },
+                  "symbol": "diamond", "symbolSize": 80, "foregroundStyle": "red", "accessibilityLabel": "$month target" }
+              ] }
+          ],
+          "chartForegroundStyleScale": { "domain": ["Apps", "Web"], "range": ["indigo", "teal"] }
         }
       }
     },

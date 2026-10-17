@@ -58,7 +58,7 @@ final class ChartMarkTests: XCTestCase {
             entries.flatMap { entry -> [ChartMarkSpec] in
                 switch entry {
                 case .mark(let mark): return [mark]
-                case .forEach(let children), .plot(let children): return flatten(children)
+                case .forEach(let children, _), .plot(let children): return flatten(children)
                 }
             }
         }
@@ -538,5 +538,161 @@ final class ChartMarkTests: XCTestCase {
             .foregroundStyle(by: .value("Team", rows[i][3]))
         }
         try assertSameRendering(description, rows: rows, reference)
+    }
+
+    // MARK: - ForEach data
+
+    private var targetsForEach: [String: Any] {
+        ["type": "ForEach", "columns": ["when", ["name": "target", "type": "number"]],
+         "data": [["Mon", 4.5], ["Tue", 6]],
+         "content": [["type": "PointMark", "x": pv("Day", "$when"), "y": pv("High", "$target"), "symbol": "diamond"]]]
+    }
+
+    func testAForEachDrawsItsOwnDataByItsOwnColumns() {
+        let description: [String: Any] = ["columns": columns, "content": [
+            ["type": "ForEach", "content": [["type": "LineMark", "x": pv("Day", "$day"), "y": pv("High", "$high"), "series": pv("Team", "$team")]]],
+            targetsForEach,
+        ]]
+        let parsed = ChartDescription.parse(description, logger: logger)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertEqual(build(parsed.cleaned), rows.count + 2, "one line point per chart row, one point per inline row")
+        // The ForEach keeps its data and columns (only the chart's data becomes the rows), and
+        // cleaning again changes nothing.
+        let own = (parsed.cleaned["content"] as? [[String: Any]])?.last
+        XCTAssertEqual((own?["data"] as? [Any])?.count, 2)
+        XCTAssertEqual((own?["columns"] as? [Any])?.count, 2)
+        let again = ChartDescription.parse(parsed.cleaned, logger: logger)
+        XCTAssertEqual(again.cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertFalse(parsed.spec.referencedColumns.contains(ChartColumnRef(index: 1, type: .number)),
+                       "the inline ForEach's $target is not read from the chart's rows")
+    }
+
+    func testForEachDataMistakesAreReported() {
+        let line: [String: Any] = ["type": "LineMark", "x": pv("Day", "$day"), "y": pv("High", "$high")]
+        _ = ChartDescription.parse(chart([]).merging(["content": [
+            ["type": "ForEach", "columns": ["a"], "content": [line]],
+            ["type": "ForEach", "data": [["Mon", ["nested"]]], "content": [line]],
+            ["type": "ForEach", "rows": [], "content": [line]],
+        ]]) { $1 }, logger: logger)
+        XCTAssertEqual(logger.warnings.count, 3, "\(logger.warnings)")
+        XCTAssertTrue(logger.warnings[0].contains("'columns' lay out its own 'data'"), logger.warnings[0])
+        XCTAssertTrue(logger.warnings[1].contains("drawing it over the chart's rows"), logger.warnings[1])
+        XCTAssertTrue(logger.warnings[2].contains("'rows' is not supported on ForEach"), logger.warnings[2])
+    }
+
+    func testAForEachsInvalidColumnsLeaveTheChartsColumnsInPlace() {
+        // Columns that are not an array are ignored, so the chart's lay out the data, as they do
+        // once the cleaned description (which has no columns) is parsed again.
+        var forEach = targetsForEach
+        forEach["columns"] = "when"
+        forEach["content"] = [["type": "PointMark", "x": pv("Day", "$day"), "y": pv("High", "$high")]]
+        let parsed = ChartDescription.parse(["columns": columns, "content": [forEach]], logger: logger)
+        XCTAssertEqual(logger.warnings, ["Chart: 'columns' must be an array; ignoring"])
+        guard case .forEach(let children, _)? = parsed.spec.content.first, case .mark(let mark)? = children.first,
+              case .column(0)? = mark.values["x"]?.source, case .column(2)? = mark.values["y"]?.source else {
+            return XCTFail("expected $day and $high to read the chart's columns 1 and 3: \(parsed.spec.content)")
+        }
+        let quiet = CollectingLogger()
+        let again = ChartDescription.parse(parsed.cleaned, logger: quiet)
+        XCTAssertEqual(quiet.warnings, [])
+        XCTAssertEqual(again.cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+    }
+
+    func testAnUnparsableInlineRowIsReportedAsTheForEachsData() {
+        var forEach = targetsForEach
+        forEach["data"] = [["Mon", 4.5], ["Tue", "lots"]]
+        let description = ChartDescription.parse(["columns": columns, "content": [forEach]], logger: logger).cleaned
+        _ = ChartRenderCache().render(description: description, rows: rows, viewID: 10, logger: logger)
+        XCTAssertEqual(logger.warnings, ["Chart 10: skipped 1 row(s) with a cell that does not parse; first: row 2 of a ForEach's data, column 2 is not a number"])
+    }
+
+    func testAForEachWithItsOwnDataRendersLikeTypedMarks() throws {
+        let days = self.days, highs = self.highs
+        let description: [String: Any] = ["columns": columns, "content": [
+            ["type": "ForEach", "content": [["type": "LineMark", "x": pv("Day", "$day"), "y": pv("High", "$high")]]],
+            targetsForEach,
+        ]]
+        let targetDays = ["Mon", "Tue"], targets: [Double] = [4.5, 6]
+        let reference = Charts.Chart {
+            Charts.ForEach(days.indices, id: \.self) { i in
+                Charts.LineMark(x: .value("Day", days[i]), y: .value("High", highs[i]))
+            }
+            Charts.ForEach(targetDays.indices, id: \.self) { i in
+                Charts.PointMark(x: .value("Day", targetDays[i]), y: .value("High", targets[i])).symbol(.diamond)
+            }
+        }
+        try assertSameRendering(description, rows: simpleRows, reference)
+    }
+
+    // MARK: - Style scales
+
+    func testStyleScalesParseAndTheirDomainsAreTypedByTheirByValues() {
+        let mark: [String: Any] = ["type": "PointMark", "x": pv("Day", "$day"), "y": pv("High", "$high"),
+                                   "foregroundStyle": ["by": pv("Team", "$team")], "symbol": ["by": pv("Team", "$team")],
+                                   "symbolSize": ["by": pv("High", "$high")]]
+        let good = chart([mark], extra: [
+            "chartForegroundStyleScale": ["domain": ["A", "B"], "range": ["red", "orange"]],
+            "chartSymbolScale": ["domain": ["A", "B"], "range": ["square", "triangle"]],
+            "chartLineStyleScale": ["range": [["lineWidth": 2], ["lineWidth": 1, "dash": [4, 2]]]],
+            "chartSymbolSizeScale": ["domain": [0, 10], "range": [20, 200]],
+        ])
+        let parsed = ChartDescription.parse(good, logger: logger)
+        XCTAssertEqual(logger.warnings, [])
+        XCTAssertNotNil(parsed.spec.styles.foregroundRange)
+        XCTAssertEqual(parsed.spec.styles.symbolRange.count, 2)
+        XCTAssertEqual(parsed.spec.styles.lineStyleRange.map(\.lineWidth), [2, 1])
+        XCTAssertEqual(parsed.spec.styles.symbolSizeRange, 20...200)
+        XCTAssertEqual(ChartDescription.parse(parsed.cleaned, logger: logger).cleaned as NSDictionary, parsed.cleaned as NSDictionary)
+        XCTAssertEqual(logger.warnings, [])
+
+        let quiet = CollectingLogger()
+        let bad = ChartDescription.parse(chart([mark], extra: [
+            "chartForegroundStyleScale": ["domain": [0, 10], "range": [], "type": "linear"],   // numbers for string by-values
+            "chartSymbolScale": ["range": ["hexagon"]],
+            "chartLineStyleScale": ["range": [["lineWidth": "thick"]]],
+            "chartSymbolSizeScale": ["range": [200, 20]],
+        ]), logger: quiet)
+        XCTAssertEqual(quiet.warnings.count, 6, "\(quiet.warnings)")
+        XCTAssertNil(bad.spec.styles.foregroundRange)
+        XCTAssertTrue(bad.spec.styles.symbolRange.isEmpty)
+        XCTAssertNil(bad.spec.styles.symbolSizeRange)
+        XCTAssertEqual(bad.cleaned["chartForegroundStyleScale"] as? NSDictionary, [:] as NSDictionary)
+    }
+
+    func testStyleScalesRenderLikeTypedModifiers() throws {
+        let rows = self.rows
+        let byTeam: [String: Any] = ["by": pv("Team", "$team")]
+        let lines = chart([["type": "LineMark", "x": pv("Day", "$day"), "y": pv("High", "$high"), "series": pv("Team", "$team"),
+                            "foregroundStyle": byTeam, "lineStyle": byTeam]], extra: [
+            "chartForegroundStyleScale": ["domain": ["A", "B"], "range": ["red", "orange"]],
+            "chartLineStyleScale": ["domain": ["A", "B"], "range": [["lineWidth": 3], ["lineWidth": 1, "dash": [4, 2]]]],
+        ])
+        let linesReference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.LineMark(x: .value("Day", rows[i][0]), y: .value("High", Double(rows[i][2])!), series: .value("Team", rows[i][3]))
+                .foregroundStyle(by: .value("Team", rows[i][3]))
+                .lineStyle(by: .value("Team", rows[i][3]))
+        }
+        .chartForegroundStyleScale(domain: ["A", "B"], range: [SwiftUI.Color.red, SwiftUI.Color.orange])
+        .chartLineStyleScale(domain: ["A", "B"], range: [StrokeStyle(lineWidth: 3), StrokeStyle(lineWidth: 1, dash: [4, 2])])
+        try assertSameRendering(lines, rows: rows, linesReference)
+
+        let points = chart([["type": "PointMark", "x": pv("Day", "$day"), "y": pv("Team", "$team"),
+                             "symbol": byTeam, "symbolSize": ["by": pv("High", "$high")], "foregroundStyle": ["by": pv("High", "$high")]]], extra: [
+            "chartSymbolScale": ["domain": ["A", "B"], "range": ["square", "triangle"]],
+            "chartSymbolSizeScale": ["domain": [0, 10], "range": [20, 300]],
+            "chartForegroundStyleScale": ["domain": [0, 10], "range": ["gradient": ["blue", "red"]]],
+        ])
+        let pointsReference = Charts.Chart(rows.indices, id: \.self) { i in
+            Charts.PointMark(x: .value("Day", rows[i][0]), y: .value("Team", rows[i][3]))
+                .symbol(by: .value("Team", rows[i][3]))
+                .symbolSize(by: .value("High", Double(rows[i][2])!))
+                .foregroundStyle(by: .value("High", Double(rows[i][2])!))
+        }
+        .chartForegroundStyleScale(domain: 0.0...10.0, range: Gradient(colors: [.blue, .red]))
+        .chartSymbolScale(domain: ["A", "B"], range: [BasicChartSymbolShape.square, .triangle])
+        .chartSymbolSizeScale(domain: 0.0...10.0, range: CGFloat(20)...CGFloat(300))
+        ActionUIModel.resetForTesting()
+        try assertSameRendering(points, rows: rows, pointsReference)
     }
 }

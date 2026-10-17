@@ -24,10 +24,14 @@
               { "type": "BarMark", "x:macos": { "label": "Day", "value": "$day" }, "y": { "label": "N", "value": "$n" }, "stacking": "sideways", "width": "wide" }
             ] },
             { "type": "RuleMark", "x": 4, "y": 2 },
+            { "type": "ForEach", "data": [1, 2], "columns": "day", "content": [] },
             { "type": "PointMark", "x": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 }, "series": { "label": "S", "value": "s" } },
             { "type": "LineMark", "x:foo": { "label": "A", "value": 1 }, "y": { "label": "B", "value": 2 }, "xStart": 3 }
           ],
           "chartXScale": { "type": "cubic", "zoom": 2 },
+          "chartSymbolScale": { "range": ["hexagon"], "type": "linear" },
+          "chartSymbolSizeScale": { "range": ["big", 2] },
+          "chartForegroundStyleScale": { "range": { "gradient": "red" } },
           "chartYAxisLabel": { "position": "bottom" },
           "chartLegend": 3,
           "chartPlotStyle": { "onHoverActionID": "hover", "background": 1 },

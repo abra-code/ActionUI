@@ -673,6 +673,28 @@ class ChartSchemaTests(unittest.TestCase):
         ]}
         self.assertEqual([(i.path, i.message) for i in _validate(self._chart([plot], foreach=False))], [])
 
+    def test_foreach_data_and_style_scales_are_checked(self):
+        day, n = {"label": "Day", "value": "$day"}, {"label": "N", "value": "$n"}
+        good = {"type": "Chart", "id": 1, "properties": {"chart": {
+            "content": [{"type": "ForEach", "columns": ["day", {"name": "n", "type": "number"}], "data": [["Mon", 3]],
+                         "content": [{"type": "PointMark", "x": day, "y": n, "symbol": {"by": day}}]}],
+            "chartForegroundStyleScale": {"domain": ["A"], "range": {"gradient": ["blue", "red"]}},
+            "chartSymbolScale": {"domain": ["Mon"], "range": ["square"]},
+            "chartLineStyleScale": {"range": [{"lineWidth": 2}]},
+            "chartSymbolSizeScale": {"domain": [0, 10], "range": [10, 100]},
+        }}}
+        self.assertEqual([(i.path, i.message) for i in _validate(good)], [])
+        bad = {"type": "Chart", "id": 1, "properties": {"chart": {
+            "content": [{"type": "ForEach", "data": [1], "content": []}],
+            "chartSymbolScale": {"range": ["hexagon"]},
+            "chartSymbolSizeScale": {"range": ["big"]},
+        }}}
+        found = [f"{i.path}: {i.message}" for i in _validate(bad)]
+        self.assertEqual(len(found), 3, found)
+        self.assertTrue(any("content[0].data[0]: expected array, got integer" in f for f in found))
+        self.assertTrue(any("chartSymbolScale.range[0]: 'hexagon' is not a known value" in f for f in found))
+        self.assertTrue(any("chartSymbolSizeScale.range[0]: expected number, got string" in f for f in found))
+
     def test_a_sector_angle_of_another_type_is_reported(self):
         angle = {"label": "Day", "value": "$day", "type": "date", "unit": "day"}
         messages = [i.message for i in _validate(self._chart([{"type": "SectorMark", "angle": angle}]))]

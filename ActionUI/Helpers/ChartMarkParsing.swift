@@ -201,10 +201,39 @@ extension ChartDescription {
                     logger?.log("Chart: ForEach requires 'content' (an array); ignoring it", .warning)
                     continue
                 }
+                for key in entry.keys where !["type", "content", "data", "columns"].contains(key) {
+                    logger?.log("Chart: '\(key)' is not supported on ForEach; ignoring it", .warning)
+                }
+                var cleanedForEach: [String: Any] = ["type": "ForEach"]
+                // Its own inline rows stay in the description (unlike the chart's data, which
+                // becomes the rows), laid out by its own columns when it has them.
+                var data: [[String]]?
+                var rowColumns = columns
+                if let raw = entry["data"] {
+                    if let rows = raw as? [Any], rows.allSatisfy(isDataRow) {
+                        data = rowStrings(rows)
+                        cleanedForEach["data"] = rows
+                    } else {
+                        logger?.log("Chart: ForEach 'data' must be an array of rows, each an array of strings, numbers, booleans or null; drawing it over the chart's rows", .warning)
+                    }
+                }
+                if let rawColumns = entry["columns"] {
+                    if data != nil {
+                        let own = parseColumns(rawColumns, cleaned: &cleanedForEach, logger: logger)
+                        // Columns that are not an array are ignored (and not kept), so the chart's
+                        // lay out the data, as on every later parse of the cleaned description.
+                        if cleanedForEach["columns"] != nil {
+                            rowColumns = own
+                        }
+                    } else {
+                        logger?.log("Chart: ForEach 'columns' lay out its own 'data', which it does not have; ignoring them", .warning)
+                    }
+                }
                 var cleanedChildren: [Any] = []
-                let parsed = parseEntries(children, insideForEach: true, columns: columns, cleaned: &cleanedChildren, logger: logger)
-                result.append(.forEach(parsed))
-                cleaned.append(["type": "ForEach", "content": cleanedChildren])
+                let parsed = parseEntries(children, insideForEach: true, columns: rowColumns, cleaned: &cleanedChildren, logger: logger)
+                result.append(.forEach(parsed, data: data))
+                cleanedForEach["content"] = cleanedChildren
+                cleaned.append(cleanedForEach)
                 continue
             }
             if type == "Plot" {
@@ -245,8 +274,8 @@ extension ChartDescription {
         case .mark(var spec):
             spec.modifiers += modifiers
             return .mark(spec)
-        case .forEach(let children):
-            return .forEach(children.map { appending(modifiers, to: $0) })
+        case .forEach(let children, let data):
+            return .forEach(children.map { appending(modifiers, to: $0) }, data: data)
         case .plot(let children):
             return .plot(children.map { appending(modifiers, to: $0) })
         }
@@ -548,7 +577,7 @@ extension ChartDescription {
         }
     }
 
-    private static func parseSymbol(_ name: String) -> BasicChartSymbolShape? {
+    static func parseSymbol(_ name: String) -> BasicChartSymbolShape? {
         switch name {
         case "circle": return .circle
         case "square": return .square
@@ -586,7 +615,7 @@ extension ChartDescription {
     }
 
     // Canvas's stroke keys. Every present key must be valid.
-    private static func parseStrokeStyle(_ object: [String: Any]) -> StrokeStyle? {
+    static func parseStrokeStyle(_ object: [String: Any]) -> StrokeStyle? {
         let keys: Set<String> = ["lineWidth", "lineCap", "lineJoin", "miterLimit", "dash", "dashPhase"]
         guard Set(object.keys).isSubset(of: keys) else { return nil }
         if object["lineWidth"] != nil, object.cgFloat(forKey: "lineWidth") == nil { return nil }

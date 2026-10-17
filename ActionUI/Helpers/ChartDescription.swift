@@ -35,9 +35,30 @@ struct ChartPlottable {
 
 indirect enum ChartEntry {
     case mark(ChartMarkSpec)
-    case forEach([ChartEntry])
+    // `data` is the ForEach's own inline rows; nil draws it over the chart's rows.
+    case forEach([ChartEntry], data: [[String]]?)
     // A Plot's entries, its modifiers already appended to every mark inside.
     case plot([ChartEntry])
+
+    var children: [ChartEntry] {
+        switch self {
+        case .mark: return []
+        case .forEach(let children, _), .plot(let children): return children
+        }
+    }
+}
+
+// The style scales (chartForegroundStyleScale and the others). Each domain is typed by the
+// values its channel's {"by"} modifiers plot.
+struct ChartStyleScales {
+    var foregroundDomain: ForwardingDomain = .automatic
+    var foregroundRange: ForwardingColorRange?
+    var symbolDomain: ForwardingDomain = .automatic
+    var symbolRange: [BasicChartSymbolShape] = []
+    var lineStyleDomain: ForwardingDomain = .automatic
+    var lineStyleRange: [StrokeStyle] = []
+    var symbolSizeDomain: ForwardingDomain = .automatic
+    var symbolSizeRange: ClosedRange<CGFloat>?
 }
 
 struct ChartAxisSpec {
@@ -56,18 +77,24 @@ struct ChartSpec {
     var content: [ChartEntry] = []
     var x = ChartAxisSpec()
     var y = ChartAxisSpec()
+    var styles = ChartStyleScales()
     var legendVisibility: Visibility = .automatic
     var legendPosition: AnnotationPosition = .automatic
     // View modifier properties for the plot area, already validated as baseline View properties.
     var plotStyle: [String: Any] = [:]
 
-    // Every (column, type) pair the marks read, so the rows are parsed once per pair.
-    var referencedColumns: [ChartColumnRef] {
+    // Every (column, type) pair the marks read from the chart's rows, so the rows are parsed
+    // once per pair. A ForEach with its own data reads its own rows (referencedColumns(in:)).
+    var referencedColumns: [ChartColumnRef] { Self.referencedColumns(in: content) }
+
+    static func referencedColumns(in entries: [ChartEntry]) -> [ChartColumnRef] {
         var refs: [ChartColumnRef] = []
         func visit(_ entries: [ChartEntry]) {
             for entry in entries {
                 switch entry {
-                case .forEach(let children), .plot(let children):
+                case .forEach(_, data: .some):
+                    continue
+                case .forEach(let children, data: nil), .plot(let children):
                     visit(children)
                 case .mark(let mark):
                     for value in mark.plottables {
@@ -79,7 +106,7 @@ struct ChartSpec {
                 }
             }
         }
-        visit(content)
+        visit(entries)
         return refs
     }
 }
@@ -94,6 +121,7 @@ enum ChartDescription {
     static let supportedKeys: Set<String> = [
         "columns", "data", "content", "chartXScale", "chartYScale", "chartXAxis", "chartYAxis",
         "chartXAxisLabel", "chartYAxisLabel", "chartLegend", "chartPlotStyle",
+        "chartForegroundStyleScale", "chartSymbolScale", "chartLineStyleScale", "chartSymbolSizeScale",
     ]
     static let plotStyleKeys: Set<String> = [
         "padding", "background", "border", "frame", "cornerRadius", "clipShape", "shadow", "opacity", "offset", "foregroundStyle",
@@ -151,6 +179,7 @@ enum ChartDescription {
 
         spec.x = parseAxis("X", axisType: xType, description: description, cleaned: &cleaned, logger: logger)
         spec.y = parseAxis("Y", axisType: yType, description: description, cleaned: &cleaned, logger: logger)
+        spec.styles = parseStyleScales(spec.content, description: description, cleaned: &cleaned, logger: logger)
 
         if let legend = description["chartLegend"] {
             if let visibility = legend as? String, let parsed = parseVisibility(visibility) {
@@ -189,7 +218,7 @@ enum ChartDescription {
 
     // MARK: - Columns and data
 
-    private static func parseColumns(_ value: Any?, cleaned: inout [String: Any], logger: (any ActionUILogger)?) -> [Column] {
+    static func parseColumns(_ value: Any?, cleaned: inout [String: Any], logger: (any ActionUILogger)?) -> [Column] {
         guard let value else { return [] }
         guard let items = value as? [Any] else {
             logger?.log("Chart: 'columns' must be an array; ignoring", .warning)
@@ -237,7 +266,7 @@ enum ChartDescription {
         return columns
     }
 
-    private static func isDataRow(_ row: Any) -> Bool {
+    static func isDataRow(_ row: Any) -> Bool {
         guard let cells = row as? [Any] else { return false }
         return cells.allSatisfy { $0 is String || $0 is NSNumber || $0 is NSNull }
     }
@@ -368,12 +397,20 @@ enum ChartDescription {
 
     // The type of the first value plotted on an axis (a mark may plot only points on it).
     private static func axisType(_ entries: [ChartEntry], _ keyPath: KeyPath<ChartMarkSpec, [ChartPlottable]>) -> ChartColumnType? {
+        firstType(entries) { $0[keyPath: keyPath].first }
+    }
+
+    // The type of the first value a style channel's {"by"} modifiers plot.
+    private static func styleType(_ entries: [ChartEntry], _ matches: @escaping (ChartMarkModifier) -> ChartPlottable?) -> ChartColumnType? {
+        firstType(entries) { mark in mark.modifiers.lazy.compactMap(matches).first }
+    }
+
+    private static func firstType(_ entries: [ChartEntry], _ value: (ChartMarkSpec) -> ChartPlottable?) -> ChartColumnType? {
         for entry in entries {
-            switch entry {
-            case .mark(let mark):
-                if let first = mark[keyPath: keyPath].first { return first.type }
-            case .forEach(let children), .plot(let children):
-                if let type = axisType(children, keyPath) { return type }
+            if case .mark(let mark) = entry {
+                if let first = value(mark) { return first.type }
+            } else if let type = firstType(entry.children, value) {
+                return type
             }
         }
         return nil
@@ -396,12 +433,17 @@ enum ChartDescription {
                 }
                 kept.append(entry)
                 keptCleaned.append(json)
-            case .forEach(let children), .plot(let children):
-                // The group keeps its own keys (a Plot's modifiers); only its content shrinks.
+            case .forEach(let children, _), .plot(let children):
+                // The group keeps its own keys (a Plot's modifiers, a ForEach's data); only its
+                // content shrinks.
                 var groupJSON = json as? [String: Any] ?? [:]
                 var childJSON = groupJSON["content"] as? [Any] ?? []
                 let keptChildren = dropMismatched(children, cleaned: &childJSON, xType: xType, yType: yType, logger: logger)
-                if case .forEach = entry { kept.append(.forEach(keptChildren)) } else { kept.append(.plot(keptChildren)) }
+                if case .forEach(_, let data) = entry {
+                    kept.append(.forEach(keptChildren, data: data))
+                } else {
+                    kept.append(.plot(keptChildren))
+                }
                 groupJSON["content"] = childJSON
                 keptCleaned.append(groupJSON)
             }
@@ -491,6 +533,96 @@ enum ChartDescription {
             }
         }
         return spec
+    }
+
+    // MARK: - Style scales
+
+    private static func parseStyleScales(_ content: [ChartEntry], description: [String: Any], cleaned: inout [String: Any],
+                                         logger: (any ActionUILogger)?) -> ChartStyleScales {
+        var styles = ChartStyleScales()
+
+        // Each scale is {"domain", "range"}; the domain is typed by its channel's by-values.
+        // `parseRange` returns nil for an invalid range, which is reported here.
+        func scale<Range>(_ key: String, byType: ChartColumnType?, rangeForms: String,
+                          parseRange: (Any) -> Range?) -> (domain: ForwardingDomain?, range: Range?) {
+            guard let raw = description[key] else { return (nil, nil) }
+            guard let object = raw as? [String: Any] else {
+                logger?.log("Chart: \(key) must be an object with 'domain' and/or 'range'; ignoring it", .warning)
+                return (nil, nil)
+            }
+            var cleanedScale: [String: Any] = [:]
+            var domain: ForwardingDomain?
+            var range: Range?
+            if let rawDomain = object["domain"] {
+                if let parsed = parseDomain(rawDomain, axisType: byType) {
+                    domain = parsed
+                    cleanedScale["domain"] = rawDomain
+                } else {
+                    logger?.log("Chart: \(key).domain must be two numbers or two dates (a range), a list of strings, or {\"automatic\": {...}}, typed by the {\"by\"} values it styles; ignoring it", .warning)
+                }
+            }
+            if let rawRange = object["range"] {
+                if let parsed = parseRange(rawRange) {
+                    range = parsed
+                    cleanedScale["range"] = rawRange
+                } else {
+                    logger?.log("Chart: \(key).range must be \(rangeForms); ignoring it", .warning)
+                }
+            }
+            for name in object.keys where name != "domain" && name != "range" {
+                logger?.log("Chart: '\(name)' in \(key) is not supported; ignoring it", .warning)
+            }
+            cleaned[key] = cleanedScale
+            return (domain, range)
+        }
+        // A non-empty list whose items all parse.
+        func list<T>(_ raw: Any, _ item: (Any) -> T?) -> [T]? {
+            guard let items = raw as? [Any], !items.isEmpty else { return nil }
+            let parsed = items.compactMap(item)
+            return parsed.count == items.count ? parsed : nil
+        }
+        func color(_ raw: Any) -> SwiftUI.Color? { (raw as? String).flatMap(ColorHelper.resolveColor) }
+
+        let foreground = scale("chartForegroundStyleScale", byType: styleType(content) { modifier in
+            if case .foregroundStyleBy(let value) = modifier { return value } else { return nil }
+        }, rangeForms: "a list of colors or {\"gradient\": [colors]}") { raw -> ForwardingColorRange? in
+            if let object = raw as? [String: Any], object.count == 1, let stops = object["gradient"] {
+                return list(stops, color).map { ForwardingColorRange(.gradient(Gradient(colors: $0))) }
+            }
+            return list(raw, color).map { ForwardingColorRange(.colors($0)) }
+        }
+        styles.foregroundDomain = foreground.domain ?? .automatic
+        styles.foregroundRange = foreground.range
+
+        let symbol = scale("chartSymbolScale", byType: styleType(content) { modifier in
+            if case .symbolBy(let value) = modifier { return value } else { return nil }
+        }, rangeForms: "a list of circle, square, triangle, diamond, pentagon, plus, cross or asterisk") { raw in
+            list(raw) { ($0 as? String).flatMap(parseSymbol) }
+        }
+        styles.symbolDomain = symbol.domain ?? .automatic
+        styles.symbolRange = symbol.range ?? []
+
+        let lineStyle = scale("chartLineStyleScale", byType: styleType(content) { modifier in
+            if case .lineStyleBy(let value) = modifier { return value } else { return nil }
+        }, rangeForms: "a list of stroke styles {\"lineWidth\", \"lineCap\", \"lineJoin\", \"miterLimit\", \"dash\", \"dashPhase\"}") { raw in
+            list(raw) { ($0 as? [String: Any]).flatMap(parseStrokeStyle) }
+        }
+        styles.lineStyleDomain = lineStyle.domain ?? .automatic
+        styles.lineStyleRange = lineStyle.range ?? []
+
+        // Two numbers, smallest and largest symbol area. (An empty list of sizes stops the app
+        // inside Swift Charts, so sizes are a range, not a list.)
+        let symbolSize = scale("chartSymbolSizeScale", byType: styleType(content) { modifier in
+            if case .symbolSizeBy(let value) = modifier { return value } else { return nil }
+        }, rangeForms: "two numbers 0 or more, the smallest and largest symbol area") { raw -> ClosedRange<CGFloat>? in
+            guard let items = raw as? [Any], items.count == 2, let low = items[0] as? NSNumber, let high = items[1] as? NSNumber,
+                  CFGetTypeID(low) != CFBooleanGetTypeID(), CFGetTypeID(high) != CFBooleanGetTypeID(),
+                  low.doubleValue >= 0, low.doubleValue <= high.doubleValue else { return nil }
+            return CGFloat(low.doubleValue)...CGFloat(high.doubleValue)
+        }
+        styles.symbolSizeDomain = symbolSize.domain ?? .automatic
+        styles.symbolSizeRange = symbolSize.range
+        return styles
     }
 
     private static func parseRange(_ value: Any) -> ForwardingPositionRange? {

@@ -370,10 +370,13 @@ private struct ByModifierOpener: PlottableOpener {
 
 @MainActor
 struct ChartContentBuilder {
-    let columns: ChartTypedColumns
-    // Rows with a cell that did not parse, and the first such (row, column) for the warning.
+    // The rows being drawn: the chart's, or a ForEach's own data while that ForEach is built.
+    private(set) var columns: ChartTypedColumns
+    private var drawingInlineData = false
+    // Rows with a cell that did not parse, and the first such (row, column) for the warning;
+    // `inlineData` when the row is in a ForEach's own data.
     private(set) var skippedRows = 0
-    private(set) var firstSkip: (row: Int, column: Int, type: ChartColumnType)?
+    private(set) var firstSkip: (row: Int, column: Int, type: ChartColumnType, inlineData: Bool)?
 
     init(columns: ChartTypedColumns) {
         self.columns = columns
@@ -397,7 +400,18 @@ struct ChartContentBuilder {
             for child in children {
                 append(child, row: row, into: &output)
             }
-        case .forEach(let children):
+        case .forEach(let children, let data):
+            if let data {
+                let chartRows = columns
+                columns = ChartTypedColumns(rows: data, refs: ChartSpec.referencedColumns(in: children))
+                drawingInlineData = true
+                defer {
+                    columns = chartRows
+                    drawingInlineData = false
+                }
+                append(.forEach(children, data: nil), row: row, into: &output)
+                return
+            }
             // A row is drawn whole or not at all: one unparsable cell skips all its marks.
             // A ForEach holds marks and Plots of marks (validation refuses a nested ForEach).
             output.reserveCapacity(output.count + columns.rowCount * children.count)
@@ -437,7 +451,7 @@ struct ChartContentBuilder {
             guard let row else { return nil }
             let value = columns.scalar(row: row, ref: ChartColumnRef(index: index, type: plottable.type))
             if value == nil, firstSkip == nil {
-                firstSkip = (row, index, plottable.type)
+                firstSkip = (row, index, plottable.type, drawingInlineData)
             }
             return value
         }

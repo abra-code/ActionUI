@@ -236,6 +236,8 @@
     },
     "forEach": {
       "type": { "types": ["string"], "required": true },
+      "data": { "types": ["array"], "itemTypes": ["array"], "description": "Its own inline rows, drawn instead of the chart's rows; kept in the description" },
+      "columns": { "types": ["array"], "itemTypes": ["string", "object"], "description": "Names and types of its own data's cells (only with 'data')" },
       "content": {
         "types": ["array"],
         "required": true,
@@ -272,7 +274,8 @@
         } }
       ]
     },
-    "visibility": { "types": ["string"], "enum": ["automatic", "visible", "hidden"] }
+    "visibility": { "types": ["string"], "enum": ["automatic", "visible", "hidden"] },
+    "styleDomain": { "types": ["array", "object"], "description": "Two numbers or two dates (a range), a list of strings, or {\"automatic\": {\"includesZero\", \"reversed\"}}, typed by the {\"by\"} values the scale styles" }
   },
   "ownProperties": {
     "chart": {
@@ -309,6 +312,25 @@
         },
         "chartXScale": { "$ref": "scale" },
         "chartYScale": { "$ref": "scale" },
+        "chartForegroundStyleScale": { "types": ["object"], "properties": {
+          "domain": { "$ref": "styleDomain" },
+          "range": { "oneOf": [
+            { "types": ["array"], "itemTypes": ["string"], "description": "Colors, one per domain value" },
+            { "types": ["object"], "properties": { "gradient": { "types": ["array"], "itemTypes": ["string"], "required": true } } }
+          ] }
+        } },
+        "chartSymbolScale": { "types": ["object"], "properties": {
+          "domain": { "$ref": "styleDomain" },
+          "range": { "types": ["array"], "itemTypes": ["string"], "itemEnum": ["circle", "square", "triangle", "diamond", "pentagon", "plus", "cross", "asterisk"] }
+        } },
+        "chartLineStyleScale": { "types": ["object"], "properties": {
+          "domain": { "$ref": "styleDomain" },
+          "range": { "types": ["array"], "itemTypes": ["object"], "description": "Stroke styles {\"lineWidth\", \"lineCap\", \"lineJoin\", \"miterLimit\", \"dash\", \"dashPhase\"}" }
+        } },
+        "chartSymbolSizeScale": { "types": ["object"], "properties": {
+          "domain": { "$ref": "styleDomain" },
+          "range": { "types": ["array"], "itemTypes": ["number"], "description": "Two numbers: the smallest and largest symbol area" }
+        } },
         "chartXAxis": { "$ref": "visibility" },
         "chartYAxis": { "$ref": "visibility" },
         "chartXAxisLabel": { "$ref": "axisLabel" },

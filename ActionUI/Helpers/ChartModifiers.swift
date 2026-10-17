@@ -70,6 +70,60 @@ struct ForwardingPositionRange: PositionScaleRange {
     }
 }
 
+/// One ScaleRange type for a list of colors and a gradient, for the same reason as
+/// ForwardingDomain. Both of Apple's types map values to Color.
+struct ForwardingColorRange: ScaleRange {
+    typealias VisualValue = SwiftUI.Color
+    enum Kind {
+        case colors([SwiftUI.Color])
+        case gradient(Gradient)
+    }
+    let kind: Kind
+
+    init(_ kind: Kind) {
+        self.kind = kind
+    }
+
+    func _makeScaleRange() -> _ScaleRangeOutputs<SwiftUI.Color> {
+        switch kind {
+        case .colors(let colors):
+            return colors._makeScaleRange()
+        case .gradient(let gradient):
+            return gradient._makeScaleRange()
+        }
+    }
+}
+
+// The foreground style and symbol size scales have no neutral range: an empty color list draws
+// differently from no scale, and an empty size list stops the app inside Swift Charts. Without a
+// range they take the domain-only form, which draws exactly like no scale; the modifier's own
+// type stays the same either way (adding or removing a range recreates the chart, as a branch).
+struct ChartForegroundStyleScaler: ViewModifier {
+    let domain: ForwardingDomain
+    let range: ForwardingColorRange?
+
+    func body(content: Content) -> some SwiftUI.View {
+        if let range {
+            content.chartForegroundStyleScale(domain: domain, range: range)
+        } else {
+            content.chartForegroundStyleScale(domain: domain)
+        }
+    }
+}
+
+struct ChartSymbolSizeScaler: ViewModifier {
+    let domain: ForwardingDomain
+    let range: ClosedRange<CGFloat>?
+
+    func body(content: Content) -> some SwiftUI.View {
+        if let range {
+            content.chartSymbolSizeScale(domain: domain, range: range)
+        } else {
+            content.chartSymbolSizeScale(domain: domain)
+        }
+    }
+}
+
 extension SwiftUI.View {
     /// - Parameter plotStyle: applies the description's chartPlotStyle (baseline View
     ///   properties) to the plot area; nil when the description has none.
@@ -78,6 +132,11 @@ extension SwiftUI.View {
         self
             .chartXScale(domain: spec.x.domain, range: spec.x.range, type: spec.x.scaleType)
             .chartYScale(domain: spec.y.domain, range: spec.y.range, type: spec.y.scaleType)
+            .modifier(ChartForegroundStyleScaler(domain: spec.styles.foregroundDomain, range: spec.styles.foregroundRange))
+            // An empty symbol or line style list draws exactly like no scale.
+            .chartSymbolScale(domain: spec.styles.symbolDomain, range: spec.styles.symbolRange)
+            .chartLineStyleScale(domain: spec.styles.lineStyleDomain, range: spec.styles.lineStyleRange)
+            .modifier(ChartSymbolSizeScaler(domain: spec.styles.symbolSizeDomain, range: spec.styles.symbolSizeRange))
             .chartXAxis(spec.x.visibility)
             .chartYAxis(spec.y.visibility)
             // An absent label is a zero-size view with zero spacing: an empty Text, or
