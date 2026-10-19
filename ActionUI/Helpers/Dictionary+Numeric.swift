@@ -9,12 +9,13 @@
 import Foundation
 import CoreGraphics
 
-extension [String: Any] {
-    // Retrieves a value for the given key and converts it to Double if it's a numeric type.
-    // Returns nil for non-numeric types, logging a warning via the provided logger.
-    // Design decision: Supports scalable type coercion for JSON-parsed dictionaries, per JSON Property Flexibility.
-    func double(forKey key: String) -> Double? {
-        guard let value = self[key] else {
+/// Numeric conversion of one JSON-decoded or runtime-set value, shared by the dictionary readers
+/// below and by property parsers that receive a value rather than a dictionary.
+enum JSONNumber {
+    /// The value as a Double: Int, Double, Float, CGFloat, Int64, UInt, or the strings "inf" and
+    /// "infinity" (any case). nil for anything else, including nil.
+    static func double(_ value: Any?) -> Double? {
+        guard let value else {
             return nil
         }
 
@@ -41,7 +42,45 @@ extension [String: Any] {
             return nil
         }
     }
-    
+
+    /// The value as an Int: an Int, Int64 or UInt that fits, or a Double or Float with no
+    /// fractional part that fits. nil for anything else, including nil.
+    static func int(_ value: Any?) -> Int? {
+        guard let value else {
+            return nil
+        }
+
+        switch value {
+        case let intValue as Int:
+            return intValue
+        case let int64Value as Int64:
+            return Int(exactly: int64Value)
+        case let uintValue as UInt:
+            return Int(exactly: uintValue)
+        case let doubleValue as Double:
+            return Int(exactly: doubleValue)
+        case let floatValue as Float:
+            return Int(exactly: floatValue)
+        default:
+            return nil
+        }
+    }
+}
+
+extension [String: Any] {
+    // Retrieves a value for the given key and converts it to Double if it's a numeric type.
+    // Returns nil for non-numeric types.
+    // Design decision: Supports scalable type coercion for JSON-parsed dictionaries, per JSON Property Flexibility.
+    func double(forKey key: String) -> Double? {
+        JSONNumber.double(self[key])
+    }
+
+    // Retrieves a value for the given key as an Int (see JSONNumber.int): integral numbers of any
+    // numeric type, so a count written as 3.0, or set at runtime as an Int64, still reads as 3.
+    func int(forKey key: String) -> Int? {
+        JSONNumber.int(self[key])
+    }
+
     // Retrieves a value for the given key and converts it to CGFloat if it's a numeric type.
     // Returns nil for non-numeric types, logging a warning via the provided logger.
     // Design decision: Ensures compatibility with SwiftUI modifiers expecting CGFloat, addressing CGFloat vs. Double mismatches.

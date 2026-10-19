@@ -121,6 +121,89 @@
 
 import SwiftUI
 
+extension List {
+    /// List's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The cell of a homogeneous list (itemType.viewType). "Toggle" and unknown names are Text.
+        enum ViewType: String, Sendable, CaseIterable {
+            case text = "Text", button = "Button", image = "Image", asyncImage = "AsyncImage"
+        }
+
+        /// How an Image cell reads its row text (itemType.dataInterpretation).
+        enum DataInterpretation: String, Sendable, CaseIterable {
+            case path, systemName, assetName, resourceName, mixed
+        }
+
+        /// What a Button cell passes as its action's context (itemType.actionContext).
+        enum ActionContext: String, Sendable, CaseIterable {
+            case title, rowIndex
+        }
+
+        /// Not every style exists on every platform; the renderer applies none for a missing one.
+        enum ListStyle: String, Sendable, CaseIterable {
+            case automatic, plain, inset, sidebar, grouped, insetGrouped
+        }
+
+        enum RowSeparator: String, Sendable, CaseIterable {
+            case visible, hidden, automatic
+        }
+
+        enum RowInsets: Equatable, Sendable {
+            case uniform(Double)
+            /// Missing edges are 0.
+            case edges(top: Double, leading: Double, bottom: Double, trailing: Double)
+        }
+
+        var viewType = ViewType.text
+        var dataInterpretation = DataInterpretation.systemName
+        var actionContext = ActionContext.title
+        /// itemType.actionID: the action of a Button cell.
+        var itemActionID: String?
+        /// Fires on every selection change the user makes.
+        var actionID: String?
+        var doubleClickActionID: String?
+        var onRefreshActionID: String?
+        var listStyle: ListStyle?
+        var rowBackground: String?
+        var rowSeparator: RowSeparator?
+        var rowSeparatorTint: String?
+        var rowInsets: RowInsets?
+
+        init(_ properties: [String: Any]) {
+            let itemType = properties["itemType"] as? [String: Any] ?? [:]
+            viewType = (itemType["viewType"] as? String).flatMap(ViewType.init(rawValue:)) ?? .text
+            dataInterpretation = (itemType["dataInterpretation"] as? String).flatMap(DataInterpretation.init(rawValue:)) ?? .systemName
+            actionContext = (itemType["actionContext"] as? String).flatMap(ActionContext.init(rawValue:)) ?? .title
+            itemActionID = itemType["actionID"] as? String
+            actionID = properties["actionID"] as? String
+            doubleClickActionID = properties["doubleClickActionID"] as? String
+            onRefreshActionID = properties["onRefreshActionID"] as? String
+            listStyle = (properties["listStyle"] as? String).flatMap(ListStyle.init(rawValue:))
+            rowBackground = properties["listRowBackground"] as? String
+            rowSeparator = (properties["listRowSeparator"] as? String).flatMap(RowSeparator.init(rawValue:))
+            rowSeparatorTint = properties["listRowSeparatorTint"] as? String
+            // A number (Int or Double only) or a dictionary of edges.
+            if let n = properties["listRowInsets"] as? Int {
+                rowInsets = .uniform(Double(n))
+            } else if let n = properties["listRowInsets"] as? Double {
+                rowInsets = .uniform(n)
+            } else if let dict = properties["listRowInsets"] as? [String: Any] {
+                rowInsets = .edges(
+                    top: dict.double(forKey: "top") ?? 0,
+                    leading: dict.double(forKey: "leading") ?? 0,
+                    bottom: dict.double(forKey: "bottom") ?? 0,
+                    trailing: dict.double(forKey: "trailing") ?? 0
+                )
+            }
+        }
+
+        /// True when any row-level styling is set, so rows need the row modifiers.
+        var hasRowModifiers: Bool {
+            rowBackground != nil || rowSeparator != nil || rowSeparatorTint != nil || rowInsets != nil
+        }
+    }
+}
+
 struct List: ActionUIViewConstruction {
     static var valueType: Any.Type = [String].self // Value is the selected item as [String]
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -129,60 +212,41 @@ struct List: ActionUIViewConstruction {
 
     // MARK: - Row modifier helpers
 
-    private static func hasRowModifiers(_ properties: [String: Any]) -> Bool {
-        return properties["listRowBackground"] != nil ||
-               properties["listRowSeparator"] != nil ||
-               properties["listRowSeparatorTint"] != nil ||
-               properties["listRowInsets"] != nil
-    }
-
     /// Applies row-level list modifiers to a view. Returns the view wrapped in AnyView with any
     /// configured modifiers applied. When no row modifiers are set, returns AnyView(view) unchanged.
-    private static func applyRowModifiers(_ view: some SwiftUI.View, properties: [String: Any]) -> AnyView {
-        guard hasRowModifiers(properties) else { return AnyView(view) }
+    private static func applyRowModifiers(_ view: some SwiftUI.View, props: Props) -> AnyView {
+        guard props.hasRowModifiers else { return AnyView(view) }
         var modified: any SwiftUI.View = view
 
-        if let bgStr = properties["listRowBackground"] as? String,
+        if let bgStr = props.rowBackground,
            let color = ColorHelper.resolveColor(bgStr) {
             modified = modified.listRowBackground(color)
         }
 
         #if os(iOS) || os(macOS) || os(visionOS)
-        if let sep = properties["listRowSeparator"] as? String {
+        if let sep = props.rowSeparator {
             let visibility: Visibility
             switch sep {
-            case "hidden":  visibility = .hidden
-            case "visible": visibility = .visible
-            default:        visibility = .automatic
+            case .hidden:    visibility = .hidden
+            case .visible:   visibility = .visible
+            case .automatic: visibility = .automatic
             }
             modified = modified.listRowSeparator(visibility)
         }
 
-        if let tintStr = properties["listRowSeparatorTint"] as? String,
+        if let tintStr = props.rowSeparatorTint,
            let color = ColorHelper.resolveColor(tintStr) {
             modified = modified.listRowSeparatorTint(color)
         }
         #endif
 
-        if let insetsValue = properties["listRowInsets"] {
-            let edgeInsets: EdgeInsets?
-            if let n = insetsValue as? Double {
-                let f = CGFloat(n)
-                edgeInsets = EdgeInsets(top: f, leading: f, bottom: f, trailing: f)
-            } else if let n = insetsValue as? Int {
-                let f = CGFloat(n)
-                edgeInsets = EdgeInsets(top: f, leading: f, bottom: f, trailing: f)
-            } else if let dict = insetsValue as? [String: Any] {
-                edgeInsets = EdgeInsets(
-                    top: dict.cgFloat(forKey: "top") ?? 0,
-                    leading: dict.cgFloat(forKey: "leading") ?? 0,
-                    bottom: dict.cgFloat(forKey: "bottom") ?? 0,
-                    trailing: dict.cgFloat(forKey: "trailing") ?? 0
-                )
-            } else {
-                edgeInsets = nil
-            }
-            modified = modified.listRowInsets(edgeInsets)
+        switch props.rowInsets {
+        case .uniform(let n):
+            modified = modified.listRowInsets(EdgeInsets(top: n, leading: n, bottom: n, trailing: n))
+        case .edges(let top, let leading, let bottom, let trailing):
+            modified = modified.listRowInsets(EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing))
+        case nil:
+            break
         }
 
         return AnyView(modified)
@@ -198,28 +262,28 @@ struct List: ActionUIViewConstruction {
     /// Builds one row for homogeneous lists. Always returns AnyView so row modifiers can be uniformly
     /// applied regardless of the underlying view type (Text, Button, Image, AsyncImage).
     private static func buildHomogeneousRow(
-        item: String, index: Int, viewType: String,
-        dataInterpretation: String, buttonActionID: String?,
-        actionContext: String, windowUUID: String, elementID: Int
+        item: String, index: Int, viewType: Props.ViewType,
+        dataInterpretation: Props.DataInterpretation, buttonActionID: String?,
+        actionContext: Props.ActionContext, windowUUID: String, elementID: Int
     ) -> AnyView {
         let row: any SwiftUI.View
         switch viewType {
-        case "Button":
+        case .button:
             row = SwiftUI.Button(item) {
                 if let aid = buttonActionID {
-                    let ctx: Any = actionContext == "rowIndex" ? index : item
+                    let ctx: Any = actionContext == .rowIndex ? index : item
                     ActionUIModel.shared.actionHandler(aid, windowUUID: windowUUID, viewID: elementID, viewPartID: 0, context: ctx)
                 }
             }
-        case "Image":
-            row = SwiftUI.Image(from: item, interpretation: dataInterpretation)
-        case "AsyncImage":
+        case .image:
+            row = SwiftUI.Image(from: item, interpretation: dataInterpretation.rawValue)
+        case .asyncImage:
             row = SwiftUI.AsyncImage(url: URL(string: item)) { image in
                 image.resizable().scaledToFit()
             } placeholder: {
                 SwiftUI.ProgressView()
             }
-        default: // "Text" and fallback
+        case .text:
             row = SwiftUI.Text(item)
         }
         return AnyView(row)
@@ -336,21 +400,23 @@ struct List: ActionUIViewConstruction {
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Template mode: render one template instance per row in states["content"].
         // Replaces itemType with full ActionUI template support for richer cell layouts.
+        let props = Props(properties)
+
         if let template = element.subviews?["template"] as? any ActionUIElementBase {
             let rows = (model.states["content"] as? [[String]]) ?? []
             let parentID = element.id
-            let doubleClickActionID = properties["doubleClickActionID"] as? String
+            let doubleClickActionID = props.doubleClickActionID
             let rowViews: [AnyView] = rows.indices.map { rowIndex in
                 let templateView = TemplateHelper.buildTemplateView(
                     template: template, row: rows[rowIndex], rowIndex: rowIndex,
                     parentID: parentID, windowUUID: windowUUID, logger: logger
                 )
-                return applyRowModifiers(templateView, properties: properties)
+                return applyRowModifiers(templateView, props: props)
             }
 
             // Selection binding: the same index-based binding as the homogeneous list.
             let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
-                drawnRows: rows, model: model, actionID: properties["actionID"] as? String,
+                drawnRows: rows, model: model, actionID: props.actionID,
                 windowUUID: windowUUID, viewID: element.id
             )
 
@@ -380,7 +446,7 @@ struct List: ActionUIViewConstruction {
         // Check for heterogeneous list (children array)
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         if !children.isEmpty {
-            if let actionID = properties["actionID"] as? String {
+            if let actionID = props.actionID {
                 // Selectable heterogeneous list mode: List(selection:) with child ID mapping.
                 // Same pattern as NavigationSplitView.buildSidebarList — Labels/Text are selectable,
                 // actionID fires on selection change with child element ID as context.
@@ -400,7 +466,7 @@ struct List: ActionUIViewConstruction {
                     listModel: nil as ViewModel?,
                     windowModel: windowModel,
                     windowUUID: windowUUID,
-                    rowModifier: hasRowModifiers(properties) ? { view in applyRowModifiers(view, properties: properties) } : nil
+                    rowModifier: props.hasRowModifiers ? { view in applyRowModifiers(view, props: props) } : nil
                 )
             } else {
                 // No-selection heterogeneous list mode: NavigationLinks handle their own taps.
@@ -415,7 +481,7 @@ struct List: ActionUIViewConstruction {
                         if let childModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[child.id] {
                             applyRowModifiers(
                                 ActionUIView(element: child, model: childModel, windowUUID: windowUUID),
-                                properties: properties
+                                props: props
                             )
                         }
                     }
@@ -424,18 +490,17 @@ struct List: ActionUIViewConstruction {
             }
         } else {
             // Homogeneous list mode
-            let itemType = properties["itemType"] as? [String: Any] ?? ["viewType": "Text"]
-            let viewType = itemType["viewType"] as? String ?? "Text"
-            let dataInterpretation = itemType["dataInterpretation"] as? String ?? "systemName"
-            let actionContext = itemType["actionContext"] as? String ?? "title"
+            let viewType = props.viewType
+            let dataInterpretation = props.dataInterpretation
+            let actionContext = props.actionContext
             let items: [[String]] = (model.states["content"] as? [[String]]) ?? []
             let shownIndices = shownRowIndices(items)
-            let buttonActionID = itemType["actionID"] as? String
-            let doubleClickActionID = properties["doubleClickActionID"] as? String
+            let buttonActionID = props.itemActionID
+            let doubleClickActionID = props.doubleClickActionID
             let elementID = element.id
 
             let selectionBinding = SelectionListHelper.makeRowSelectionBinding(
-                drawnRows: items, model: model, actionID: properties["actionID"] as? String,
+                drawnRows: items, model: model, actionID: props.actionID,
                 windowUUID: windowUUID, viewID: elementID
             )
 
@@ -449,7 +514,7 @@ struct List: ActionUIViewConstruction {
                             dataInterpretation: dataInterpretation, buttonActionID: buttonActionID,
                             actionContext: actionContext, windowUUID: windowUUID, elementID: elementID
                         ),
-                        properties: properties
+                        props: props
                     )
                 }
             }
@@ -476,43 +541,43 @@ struct List: ActionUIViewConstruction {
 
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
-        if let onRefreshActionID = properties["onRefreshActionID"] as? String {
+        let props = Props(properties)
+        if let onRefreshActionID = props.onRefreshActionID {
             let viewID = element.id
             modifiedView = modifiedView.refreshable {
                 await ActionUIModel.shared.runRefresh(windowUUID: windowUUID, viewID: viewID, actionID: onRefreshActionID)
             }
         }
-        if let style = properties["listStyle"] as? String {
-            switch style {
-            case "plain":
-                modifiedView = modifiedView.listStyle(.plain)
-            case "inset":
-                #if os(iOS) || os(macOS) || os(visionOS)
-                modifiedView = modifiedView.listStyle(.inset)
-                #else
-                logger.log("inset listStyle unavailable on this platform; ignoring", .warning)
-                #endif
-            case "sidebar":
-                #if os(iOS) || os(macOS) || os(visionOS)
-                modifiedView = modifiedView.listStyle(.sidebar)
-                #else
-                logger.log("sidebar listStyle unavailable on this platform; ignoring", .warning)
-                #endif
-            case "grouped":
-                #if os(iOS) || os(tvOS) || os(visionOS)
-                modifiedView = modifiedView.listStyle(.grouped)
-                #else
-                logger.log("grouped listStyle unavailable on this platform; ignoring", .warning)
-                #endif
-            case "insetGrouped":
-                #if os(iOS) || os(visionOS)
-                modifiedView = modifiedView.listStyle(.insetGrouped)
-                #else
-                logger.log("insetGrouped listStyle unavailable on this platform; ignoring", .warning)
-                #endif
-            default:
-                break // "automatic" and unknown values use the system default
-            }
+        // A style this platform lacks applies nothing, as an unknown one does.
+        switch props.listStyle {
+        case .plain:
+            modifiedView = modifiedView.listStyle(.plain)
+        case .inset:
+            #if os(iOS) || os(macOS) || os(visionOS)
+            modifiedView = modifiedView.listStyle(.inset)
+            #else
+            break
+            #endif
+        case .sidebar:
+            #if os(iOS) || os(macOS) || os(visionOS)
+            modifiedView = modifiedView.listStyle(.sidebar)
+            #else
+            break
+            #endif
+        case .grouped:
+            #if os(iOS) || os(tvOS) || os(visionOS)
+            modifiedView = modifiedView.listStyle(.grouped)
+            #else
+            break
+            #endif
+        case .insetGrouped:
+            #if os(iOS) || os(visionOS)
+            modifiedView = modifiedView.listStyle(.insetGrouped)
+            #else
+            break
+            #endif
+        case .automatic, nil:
+            break // the system default
         }
         return modifiedView
     }

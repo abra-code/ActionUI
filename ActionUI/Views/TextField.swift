@@ -61,6 +61,59 @@ import SwiftUI
 import UIKit
 #endif
 
+extension TextField {
+    /// TextField's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Axis: String, Sendable, CaseIterable {
+            case horizontal, vertical
+        }
+
+        enum LineLimit: Equatable, Sendable {
+            case exact(Int)
+            /// At least one bound is set.
+            case range(min: Int?, max: Int?)
+        }
+
+        var title = ""
+        var prompt: String?
+        /// The initial text of a field without a format.
+        var text: String?
+        var textContentType: String?
+        /// The number format; nil for a plain text field.
+        var format: NumberFormatHelper?
+        /// The initial value of a field with a format, as text ("value", else "text", else "0").
+        var formattedInitialValue: String
+        var axis: Axis?
+        var lineLimit: LineLimit?
+        var actionID: String?
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? ""
+            prompt = properties["prompt"] as? String
+            text = properties["text"] as? String
+            textContentType = properties["textContentType"] as? String
+            format = NumberFormatHelper.resolve(from: properties)
+            formattedInitialValue = NumberFormatHelper.initialValueString(from: properties)
+            axis = (properties["axis"] as? String).flatMap(Axis.init(rawValue:))
+            if let exact = properties["lineLimit"] as? Int {
+                lineLimit = .exact(exact)
+            } else if let dict = properties["lineLimit"] as? [String: Any] {
+                let min = dict["min"] as? Int
+                let max = dict["max"] as? Int
+                lineLimit = (min != nil || max != nil) ? .range(min: min, max: max) : nil
+            }
+            actionID = properties["actionID"] as? String
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+
+        /// The value the field starts with when the model has none.
+        var initialValue: String {
+            format != nil ? formattedInitialValue : (text ?? "")
+        }
+    }
+}
+
 struct TextField: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -170,11 +223,12 @@ struct TextField: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let title = properties["title"] as? String ?? ""
-        let prompt = (properties["prompt"] as? String).map { SwiftUI.Text($0) }
+        let props = Props(properties)
+        let title = props.title
+        let prompt = props.prompt.map { SwiftUI.Text($0) }
         let initialValue = Self.initialValue(model) as? String ?? ""
-        let actionID = properties["actionID"] as? String
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let actionID = props.actionID
+        let valueChangeActionID = props.valueChangeActionID
 
         let onSubmit = {
             if let actionID = actionID {
@@ -184,7 +238,7 @@ struct TextField: ActionUIViewConstruction {
         }
 
         // Formatted numeric TextField
-        if let format = NumberFormatHelper.resolve(from: properties) {
+        if let format = props.format {
             let onValueChange: (String) -> Void = { newValue in
                 DispatchQueue.main.async {
                     model.value = newValue
@@ -233,7 +287,7 @@ struct TextField: ActionUIViewConstruction {
             }
         )
 
-        let isVertical = (properties["axis"] as? String) == "vertical"
+        let isVertical = props.axis == .vertical
 
         let field = isVertical
             ? AnyView(SwiftUI.TextField(title, text: textBinding, prompt: prompt, axis: .vertical))
@@ -251,27 +305,25 @@ struct TextField: ActionUIViewConstruction {
 
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
+        let props = Props(properties)
         #if canImport(UIKit)
-        if let textContentType = properties["textContentType"] as? String {
+        if let textContentType = props.textContentType {
             modifiedView = modifiedView.textContentType(UITextContentType(rawValue: textContentType))
         }
         #endif
 
         // Apply lineLimit: exact Int, or range via {min, max}
-        if let lineLimit = properties["lineLimit"] {
-            if let exact = lineLimit as? Int {
-                modifiedView = modifiedView.lineLimit(exact)
-            } else if let dict = lineLimit as? [String: Any] {
-                let min = dict["min"] as? Int
-                let max = dict["max"] as? Int
-                if let min, let max {
-                    modifiedView = modifiedView.lineLimit(min...max)
-                } else if let min {
-                    modifiedView = modifiedView.lineLimit(min...)
-                } else if let max {
-                    modifiedView = modifiedView.lineLimit(...max)
-                }
-            }
+        switch props.lineLimit {
+        case .exact(let exact):
+            modifiedView = modifiedView.lineLimit(exact)
+        case .range(let min?, let max?):
+            modifiedView = modifiedView.lineLimit(min...max)
+        case .range(let min?, nil):
+            modifiedView = modifiedView.lineLimit(min...)
+        case .range(nil, let max?):
+            modifiedView = modifiedView.lineLimit(...max)
+        case .range(nil, nil), nil:
+            break
         }
 
         return modifiedView
@@ -281,15 +333,7 @@ struct TextField: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        let props = model.validatedProperties
-        // For formatted fields, use "value" property (may be numeric from JSON)
-        if props["format"] != nil {
-            return NumberFormatHelper.initialValueString(from: props)
-        }
-        // Fall back to "text" property if set in JSON (e.g., for pre-populated fields)
-        if let text = props["text"] as? String {
-            return text
-        }
-        return ""
+        // A formatted field starts from "value" (may be numeric from JSON); a plain one from "text".
+        return Props(model.validatedProperties).initialValue
     }
 }

@@ -25,6 +25,29 @@
 
 import SwiftUI
 
+extension Toggle {
+    /// Toggle's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// "checkbox" exists on macOS only; elsewhere the renderer applies no style for it.
+        enum Style: String, Sendable, CaseIterable {
+            case `switch`, button, checkbox
+        }
+
+        /// The initial state; nil when not given (or not a Bool).
+        var isOn: Bool?
+        var title = "Toggle"
+        var style: Style?
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            isOn = properties["isOn"] as? Bool
+            title = properties["title"] as? String ?? "Toggle"
+            style = (properties["style"] as? String).flatMap(Style.init(rawValue:))
+            actionID = properties["actionID"] as? String
+        }
+    }
+}
+
 struct Toggle: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -59,16 +82,17 @@ struct Toggle: ActionUIViewConstruction {
     // Builds the Toggle view, binding isOn to state
     // Design decision: Initializes value as false if not set, preserving shared state (validatedProperties) from ActionUIRegistry.build
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        
-        // Hoisted out of the bindings: their main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let actionID = properties["actionID"] as? String
-        let title = properties["title"] as? String ?? "Toggle"
+        let props = Props(properties)
+        // The bindings' main-actor closures capture these Sendable values, not the non-Sendable
+        // [String: Any] properties payload.
+        let actionID = props.actionID
+        let title = props.title
 
         // Template row: the row data holds the state (TemplateHelper has already read "isOn"
         // from the row as a Bool), and this instance's ViewModel is thrown away after the render.
         if let templateContext = model.templateContext {
-            let shown = properties["isOn"] as? Bool ?? false
+            let shown = props.isOn ?? false
+            // The template's own "isOn" (before substitution) names the column that holds the state.
             let column = TemplateHelper.singleColumnIndex(element.properties["isOn"])
             if column == nil {
                 TemplateHelper.warnOnce("Toggle isOn in a template must be a single column reference such as \"$1\" to keep its state; this Toggle is display-only", logger: logger)
@@ -115,31 +139,28 @@ struct Toggle: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        if let style = properties["style"] as? String {
-            switch style {
-            case "checkbox":
-                #if os(macOS)
-                modifiedView = modifiedView.toggleStyle(CheckboxToggleStyle())
-                #else
-                logger.log("CheckboxToggleStyle unavailable on iOS/visionOS/MacCatalyst; using SwitchToggleStyle", .warning)
-                modifiedView = modifiedView.toggleStyle(SwitchToggleStyle())
-                #endif
-            case "button":
-                modifiedView = modifiedView.toggleStyle(ButtonToggleStyle())
-            default:
-                modifiedView = modifiedView.toggleStyle(SwitchToggleStyle())
-            }
+        switch Props(properties).style {
+        case .checkbox:
+            #if os(macOS)
+            modifiedView = modifiedView.toggleStyle(CheckboxToggleStyle())
+            #else
+            // No checkbox style here: apply none, so the platform's default stays.
+            break
+            #endif
+        case .button:
+            modifiedView = modifiedView.toggleStyle(ButtonToggleStyle())
+        case .switch:
+            modifiedView = modifiedView.toggleStyle(SwitchToggleStyle())
+        case nil:
+            break
         }
         return modifiedView
     }
-    
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? Bool {
             return initialValue
         }
-        if let isOn = model.validatedProperties["isOn"] as? Bool {
-            return isOn
-        }
-        return false
+        return Props(model.validatedProperties).isOn ?? false
     }
 }

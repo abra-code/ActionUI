@@ -226,38 +226,38 @@
 
 import SwiftUI
 
-private func resolveAlignment(_ string: String?) -> Alignment {
-    switch string {
-    case "leading":       return .leading
-    case "trailing":      return .trailing
-    case "top":           return .top
-    case "bottom":        return .bottom
-    case "topLeading":    return .topLeading
-    case "topTrailing":   return .topTrailing
-    case "bottomLeading": return .bottomLeading
-    case "bottomTrailing":return .bottomTrailing
-    default:              return .center
+private func resolveAlignment(_ name: BaseModifiers.AlignmentName?) -> Alignment {
+    switch name ?? .center {
+    case .center:         return .center
+    case .leading:        return .leading
+    case .trailing:       return .trailing
+    case .top:            return .top
+    case .bottom:         return .bottom
+    case .topLeading:     return .topLeading
+    case .topTrailing:    return .topTrailing
+    case .bottomLeading:  return .bottomLeading
+    case .bottomTrailing: return .bottomTrailing
     }
 }
 
-// safe-area helpers (ignoresSafeArea / safeAreaInset). Edges default to .all; regions to .all.
-private func resolveSafeAreaEdges(_ string: String?) -> Edge.Set {
-    switch string {
-    case "top":        return .top
-    case "bottom":     return .bottom
-    case "leading":    return .leading
-    case "trailing":   return .trailing
-    case "horizontal": return .horizontal
-    case "vertical":   return .vertical
-    default:           return .all
+// safe-area helpers (ignoresSafeArea / safeAreaInset).
+private func resolveSafeAreaEdges(_ edges: BaseModifiers.SafeArea.Edges) -> Edge.Set {
+    switch edges {
+    case .all:        return .all
+    case .top:        return .top
+    case .bottom:     return .bottom
+    case .leading:    return .leading
+    case .trailing:   return .trailing
+    case .horizontal: return .horizontal
+    case .vertical:   return .vertical
     }
 }
 
-private func resolveSafeAreaRegions(_ string: String?) -> SafeAreaRegions {
-    switch string {
-    case "container": return .container
-    case "keyboard":  return .keyboard
-    default:          return .all
+private func resolveSafeAreaRegions(_ regions: BaseModifiers.SafeArea.Regions) -> SafeAreaRegions {
+    switch regions {
+    case .all:       return .all
+    case .container: return .container
+    case .keyboard:  return .keyboard
     }
 }
 
@@ -278,42 +278,39 @@ private func resolveSafeAreaVerticalAlignment(_ string: String?) -> VerticalAlig
     }
 }
 
-private func resolveUnitPoint(_ string: String?) -> UnitPoint {
-    switch string {
-    case "leading":       return .leading
-    case "trailing":      return .trailing
-    case "top":           return .top
-    case "bottom":        return .bottom
-    case "topLeading":    return .topLeading
-    case "topTrailing":   return .topTrailing
-    case "bottomLeading": return .bottomLeading
-    case "bottomTrailing":return .bottomTrailing
-    default:              return .center
+private func resolveUnitPoint(_ name: BaseModifiers.AlignmentName) -> UnitPoint {
+    switch name {
+    case .center:         return .center
+    case .leading:        return .leading
+    case .trailing:       return .trailing
+    case .top:            return .top
+    case .bottom:         return .bottom
+    case .topLeading:     return .topLeading
+    case .topTrailing:    return .topTrailing
+    case .bottomLeading:  return .bottomLeading
+    case .bottomTrailing: return .bottomTrailing
     }
 }
 
-private func resolveAnimation(_ config: [String: Any]) -> Animation {
-    let curve = config["curve"] as? String ?? "default"
-    let duration = config.double(forKey: "duration")
-    let delay = config.double(forKey: "delay") ?? 0.0
-    let speed = config.double(forKey: "speed") ?? 1.0
+private func resolveAnimation(_ config: BaseModifiers.Animation) -> Animation {
+    let duration = config.duration
 
     var animation: Animation
-    switch curve {
-    case "linear":            animation = duration != nil ? .linear(duration: duration!) : .linear
-    case "easeIn":            animation = duration != nil ? .easeIn(duration: duration!) : .easeIn
-    case "easeOut":           animation = duration != nil ? .easeOut(duration: duration!) : .easeOut
-    case "easeInOut":         animation = duration != nil ? .easeInOut(duration: duration!) : .easeInOut
-    case "spring":            animation = duration != nil ? .spring(duration: duration!) : .spring
-    case "bouncy":            animation = duration != nil ? .bouncy(duration: duration!) : .bouncy
-    case "smooth":            animation = duration != nil ? .smooth(duration: duration!) : .smooth
-    case "snappy":            animation = duration != nil ? .snappy(duration: duration!) : .snappy
-    case "interactiveSpring": animation = .interactiveSpring
-    default:                  animation = .default
+    switch config.curve {
+    case .linear:            animation = duration != nil ? .linear(duration: duration!) : .linear
+    case .easeIn:            animation = duration != nil ? .easeIn(duration: duration!) : .easeIn
+    case .easeOut:           animation = duration != nil ? .easeOut(duration: duration!) : .easeOut
+    case .easeInOut:         animation = duration != nil ? .easeInOut(duration: duration!) : .easeInOut
+    case .spring:            animation = duration != nil ? .spring(duration: duration!) : .spring
+    case .bouncy:            animation = duration != nil ? .bouncy(duration: duration!) : .bouncy
+    case .smooth:            animation = duration != nil ? .smooth(duration: duration!) : .smooth
+    case .snappy:            animation = duration != nil ? .snappy(duration: duration!) : .snappy
+    case .interactiveSpring: animation = .interactiveSpring
+    case .default:           animation = .default
     }
 
-    if delay > 0 { animation = animation.delay(delay) }
-    if speed != 1.0 { animation = animation.speed(speed) }
+    if config.delay > 0 { animation = animation.delay(config.delay) }
+    if config.speed != 1.0 { animation = animation.speed(config.speed) }
     return animation
 }
 
@@ -331,46 +328,38 @@ private func resolveAnimationWatchedValue(
     return AnyHashable(0)
 }
 
-// A single edge for the `move` transition (vs resolveSafeAreaEdges, which builds an Edge.Set).
-private func resolveTransitionEdge(_ string: String?) -> Edge {
-    switch string {
-    case "top":      return .top
-    case "leading":  return .leading
-    case "trailing": return .trailing
-    default:         return .bottom
+private func resolveEdge(_ name: BaseModifiers.EdgeName) -> Edge {
+    switch name {
+    case .top:      return .top
+    case .bottom:   return .bottom
+    case .leading:  return .leading
+    case .trailing: return .trailing
     }
 }
 
-// Resolves a validated `transition` value (a normalized dict, or an array = combined) to an
-// AnyTransition. Mirrors the shorthand/dict/array/asymmetric grammar validated in validateProperties.
+// Resolves a parsed `transition` (ModifierParsing.transition) to an AnyTransition.
 // The element's `.transition()` plays only when the view is structurally inserted/removed inside an
 // animated transaction (WindowModel wraps insert/remove in withAnimation when `transition` is set).
-private func resolveTransition(_ value: Any) -> AnyTransition? {
-    if let array = value as? [Any] {
-        let parts = array.compactMap { resolveTransition($0) }
-        guard let first = parts.first else { return nil }
-        return parts.dropFirst().reduce(first) { $0.combined(with: $1) }
-    }
-    guard let dict = value as? [String: Any], let type = dict["type"] as? String else { return nil }
-    switch type {
-    case "identity": return .identity
-    case "opacity":  return .opacity
-    case "slide":    return .slide
-    case "scale":
-        if let factor = dict.cgFloat(forKey: "scale") {
-            return .scale(scale: factor, anchor: resolveUnitPoint(dict["anchor"] as? String))
+private func resolveTransition(_ transition: BaseModifiers.Transition) -> AnyTransition {
+    switch transition {
+    case .identity: return .identity
+    case .opacity:  return .opacity
+    case .slide:    return .slide
+    case .scale(let factor, let anchor):
+        if let factor {
+            return .scale(scale: factor, anchor: resolveUnitPoint(anchor))
         }
         return .scale
-    case "move":
-        return .move(edge: resolveTransitionEdge(dict["edge"] as? String))
-    case "offset":
-        return .offset(x: dict.cgFloat(forKey: "x") ?? 0.0, y: dict.cgFloat(forKey: "y") ?? 0.0)
-    case "asymmetric":
-        let insertion = dict["insertion"].flatMap { resolveTransition($0) } ?? .identity
-        let removal = dict["removal"].flatMap { resolveTransition($0) } ?? .identity
-        return .asymmetric(insertion: insertion, removal: removal)
-    default:
-        return nil
+    case .move(let edge):
+        return .move(edge: resolveEdge(edge))
+    case .offset(let x, let y):
+        return .offset(x: x, y: y)
+    case .asymmetric(let insertion, let removal):
+        return .asymmetric(insertion: resolveTransition(insertion), removal: resolveTransition(removal))
+    case .combined(let parts):
+        // ModifierParsing never returns an empty combination.
+        let resolved = parts.map(resolveTransition)
+        return resolved.dropFirst().reduce(resolved[0]) { $0.combined(with: $1) }
     }
 }
 
@@ -1230,30 +1219,31 @@ struct View: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
-        
+        // Every base property, parsed once; below, only the subviews (background, overlay, sheet, ...)
+        // and the animation's watched value are read from anything else.
+        let mods = BaseModifiers(properties)
+
         // Do not handle actionID here; concrete views (e.g., DatePicker) should handle actionID in buildView with specific context (e.g., windowUUID, viewID, viewPartID)
-        
-        if let padding = properties["padding"] as? [String: Any] {
-            modifiedView = modifiedView.padding(EdgeInsets(
-                top: padding.cgFloat(forKey: "top") ?? 0.0,
-                leading: padding.cgFloat(forKey: "leading") ?? 0.0,
-                bottom: padding.cgFloat(forKey: "bottom") ?? 0.0,
-                trailing: padding.cgFloat(forKey: "trailing") ?? 0.0
-            ))
-        } else if let padding = properties.cgFloat(forKey: "padding") {
+
+        switch mods.padding {
+        case .edges(let top, let leading, let bottom, let trailing):
+            modifiedView = modifiedView.padding(EdgeInsets(top: top, leading: leading, bottom: bottom, trailing: trailing))
+        case .uniform(let padding):
             modifiedView = modifiedView.padding(padding)
-        } else if let padding = properties["padding"] as? String, padding.lowercased() == "default" {
+        case .system:
             modifiedView = modifiedView.padding()
+        case nil:
+            break
         }
-        
-        if let font = properties["font"] {
+
+        if let font = mods.font {
             modifiedView = modifiedView.font(FontHelper.resolveFont(font, logger))
         }
-        
+
         // Use foregroundStyle with resolveShapeStyle. A present-but-unresolvable color string
         // warns (matching the web renderer) so an unsupported SwiftUI color idiom surfaces at
         // authoring time instead of silently rendering nothing.
-        if let foregroundStyle = properties["foregroundStyle"] as? String {
+        if let foregroundStyle = mods.foregroundStyle {
             if let style = ColorHelper.resolveShapeStyle(foregroundStyle) {
                 modifiedView = modifiedView.foregroundStyle(style)
             } else if !foregroundStyle.isEmpty {
@@ -1262,22 +1252,22 @@ struct View: ActionUIViewConstruction {
         }
 
         // Use tint with resolveShapeStyle
-        if let tint = properties["tint"] as? String {
+        if let tint = mods.tint {
             if let style = ColorHelper.resolveShapeStyle(tint) {
                 modifiedView = modifiedView.tint(style)
             } else if !tint.isEmpty {
                 logger.log("Unknown color \"\(tint)\"", .warning)
             }
         }
-        
-        if let disabled = properties["disabled"] as? Bool {
+
+        if let disabled = mods.disabled {
             modifiedView = modifiedView.disabled(disabled)
         }
-        
-        if properties["hidden"] as? Bool == true {
+
+        if mods.hidden {
             modifiedView = modifiedView.hidden()
         }
-        
+
         // frame is applied BEFORE the decoration below (background color/view,
         // cornerRadius, clipShape) so a background FILLS the frame and the rounding/
         // clip shapes that filled, sized box - the intuitive "sized box" semantics
@@ -1287,44 +1277,22 @@ struct View: ActionUIViewConstruction {
         // still fills content+padding (the pill/badge idiom). Changing this from the
         // old background-before-frame order is what makes a styled, fixed/flex-sized
         // box keep its fill when its content is empty or short.
-        if let frame = properties["frame"] as? [String: Any] {
-            let alignment = (frame["alignment"] as? String).flatMap { alignmentString -> Alignment? in
-                switch alignmentString {
-                case "leading": return .leading
-                case "center": return .center
-                case "trailing": return .trailing
-                case "top": return .top
-                case "bottom": return .bottom
-                case "topLeading": return .topLeading
-                case "topTrailing": return .topTrailing
-                case "bottomLeading": return .bottomLeading
-                case "bottomTrailing": return .bottomTrailing
-                default: return nil
-                }
-            } ?? .center
-
-            // Check for fixed frame keys
-            let hasFixedFrameKeys = frame["width"] != nil || frame["height"] != nil
-            let hasFlexibleFrameKeys = ["minWidth", "idealWidth", "maxWidth", "minHeight", "idealHeight", "maxHeight"].contains { frame[$0] != nil }
-
-            if hasFixedFrameKeys {
-                let width = frame.cgFloat(forKey: "width")
-                let height = frame.cgFloat(forKey: "height")
-                modifiedView = modifiedView.frame(width: width, height: height, alignment: alignment)
-            } else if hasFlexibleFrameKeys {
-                let minWidth = frame.cgFloat(forKey: "minWidth")
-                let idealWidth = frame.cgFloat(forKey: "idealWidth")
-                let maxWidth = frame.cgFloat(forKey: "maxWidth")
-                let minHeight = frame.cgFloat(forKey: "minHeight")
-                let idealHeight = frame.cgFloat(forKey: "idealHeight")
-                let maxHeight = frame.cgFloat(forKey: "maxHeight")
+        if let frame = mods.frame {
+            let alignment = resolveAlignment(frame.alignment)
+            if frame.isFixed {
                 modifiedView = modifiedView.frame(
-                    minWidth: minWidth,
-                    idealWidth: idealWidth,
-                    maxWidth: maxWidth,
-                    minHeight: minHeight,
-                    idealHeight: idealHeight,
-                    maxHeight: maxHeight,
+                    width: frame.width.map { CGFloat($0) },
+                    height: frame.height.map { CGFloat($0) },
+                    alignment: alignment
+                )
+            } else if frame.isFlexible {
+                modifiedView = modifiedView.frame(
+                    minWidth: frame.minWidth.map { CGFloat($0) },
+                    idealWidth: frame.idealWidth.map { CGFloat($0) },
+                    maxWidth: frame.maxWidth.map { CGFloat($0) },
+                    minHeight: frame.minHeight.map { CGFloat($0) },
+                    idealHeight: frame.idealHeight.map { CGFloat($0) },
+                    maxHeight: frame.maxHeight.map { CGFloat($0) },
                     alignment: alignment
                 )
             } else {
@@ -1335,7 +1303,7 @@ struct View: ActionUIViewConstruction {
 
         // Use background with resolveShapeStyle. Applied AFTER frame, so it fills the
         // framed size (was applied before frame, where it hugged the content).
-        if let background = properties["background"] as? String {
+        if let background = mods.background {
             if let style = ColorHelper.resolveShapeStyle(background) {
                 modifiedView = modifiedView.background(style)
             } else if !background.isEmpty {
@@ -1347,7 +1315,7 @@ struct View: ActionUIViewConstruction {
         if let bgElement = element.subviews?["background"] as? any ActionUIElementBase,
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let bgModel = windowModel.viewModels[bgElement.id] {
-            let alignment = resolveAlignment(properties["backgroundAlignment"] as? String)
+            let alignment = resolveAlignment(mods.backgroundAlignment)
             modifiedView = modifiedView.background(alignment: alignment) {
                 ActionUIView(element: bgElement, model: bgModel, windowUUID: windowUUID)
             }
@@ -1356,86 +1324,76 @@ struct View: ActionUIViewConstruction {
         // cornerRadius then clipShape, applied after frame+background so they round /
         // clip the filled, framed box (and, with no background, clip a sized element -
         // e.g. an avatar Image - after it is sized, the correct SwiftUI order).
-        if let cornerRadius = properties.cgFloat(forKey: "cornerRadius") {
+        if let cornerRadius = mods.cornerRadius {
             modifiedView = modifiedView.cornerRadius(cornerRadius)
         }
 
-        if let clipShape = properties["clipShape"] {
-            if let shapeName = clipShape as? String {
-                switch shapeName {
-                case "circle":   modifiedView = modifiedView.clipShape(SwiftUI.Circle())
-                case "capsule":  modifiedView = modifiedView.clipShape(SwiftUI.Capsule())
-                case "ellipse":  modifiedView = modifiedView.clipShape(SwiftUI.Ellipse())
-                default:         modifiedView = modifiedView.clipShape(SwiftUI.Rectangle()) // "rectangle"
-                }
-            } else if let shapeDict = clipShape as? [String: Any] {
-                if let radius = shapeDict.cgFloat(forKey: "cornerRadius") {
-                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerRadius: radius))
-                } else if let rx = shapeDict.cgFloat(forKey: "cornerRadiusX"),
-                          let ry = shapeDict.cgFloat(forKey: "cornerRadiusY") {
-                    modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerSize: CGSize(width: rx, height: ry)))
-                }
-            }
-        }
-        
-        if let offset = properties["offset"] as? [String: Any] {
-            let x = offset.cgFloat(forKey: "x") ?? 0.0
-            let y = offset.cgFloat(forKey: "y") ?? 0.0
-            modifiedView = modifiedView.offset(x: x, y: y)
-            logger.log("Applied offset: x=\(x), y=\(y)", .debug)
-        }
-        
-        if let opacity = properties.double(forKey: "opacity"), (0.0...1.0).contains(opacity) {
-            modifiedView = modifiedView.opacity(opacity)
-        }
-        
-        if let textSelection = properties["textSelection"] as? String {
-            switch textSelection {
-            case "enabled":
-                modifiedView = modifiedView.textSelection(.enabled)
-            case "disabled":
-                modifiedView = modifiedView.textSelection(.disabled)
-            default:
-                break
-            }
+        switch mods.clipShape {
+        case .circle:
+            modifiedView = modifiedView.clipShape(SwiftUI.Circle())
+        case .capsule:
+            modifiedView = modifiedView.clipShape(SwiftUI.Capsule())
+        case .ellipse:
+            modifiedView = modifiedView.clipShape(SwiftUI.Ellipse())
+        case .rectangle:
+            modifiedView = modifiedView.clipShape(SwiftUI.Rectangle())
+        case .roundedRectangle(let radiusX, let radiusY):
+            modifiedView = modifiedView.clipShape(SwiftUI.RoundedRectangle(cornerSize: CGSize(width: radiusX, height: radiusY)))
+        case nil:
+            break
         }
 
-        if let degrees = properties.double(forKey: "rotationEffect") {
+        if let offset = mods.offset {
+            modifiedView = modifiedView.offset(x: offset.x, y: offset.y)
+            logger.log("Applied offset: x=\(offset.x), y=\(offset.y)", .debug)
+        }
+
+        if let opacity = mods.opacity {
+            modifiedView = modifiedView.opacity(opacity)
+        }
+
+        switch mods.textSelection {
+        case .enabled:
+            modifiedView = modifiedView.textSelection(.enabled)
+        case .disabled:
+            modifiedView = modifiedView.textSelection(.disabled)
+        case nil:
+            break
+        }
+
+        if let degrees = mods.rotationDegrees {
             modifiedView = modifiedView.rotationEffect(.degrees(degrees))
         }
 
-        if let scaleEffect = properties["scaleEffect"] as? [String: Any] {
-            let x = scaleEffect.cgFloat(forKey: "x") ?? 1.0
-            let y = scaleEffect.cgFloat(forKey: "y") ?? 1.0
-            let anchor = resolveUnitPoint(scaleEffect["anchor"] as? String)
-            modifiedView = modifiedView.scaleEffect(x: x, y: y, anchor: anchor)
-        } else if let scale = properties.cgFloat(forKey: "scaleEffect") {
-            modifiedView = modifiedView.scaleEffect(scale)
+        if let scale = mods.scale {
+            modifiedView = modifiedView.scaleEffect(x: scale.x, y: scale.y, anchor: resolveUnitPoint(scale.anchor))
         }
 
-        if let mta = properties["multilineTextAlignment"] as? String {
-            switch mta {
-            case "leading":  modifiedView = modifiedView.multilineTextAlignment(.leading)
-            case "trailing": modifiedView = modifiedView.multilineTextAlignment(.trailing)
-            default:         modifiedView = modifiedView.multilineTextAlignment(.center)
-            }
+        switch mods.multilineTextAlignment {
+        case .leading:
+            modifiedView = modifiedView.multilineTextAlignment(.leading)
+        case .center:
+            modifiedView = modifiedView.multilineTextAlignment(.center)
+        case .trailing:
+            modifiedView = modifiedView.multilineTextAlignment(.trailing)
+        case nil:
+            break
         }
 
-        if let zIndex = properties.double(forKey: "zIndex") {
+        if let zIndex = mods.zIndex {
             modifiedView = modifiedView.zIndex(zIndex)
         }
 
-        if let border = properties["border"] as? [String: Any] {
-            let color = ColorHelper.resolveColor(border["color"] as? String) ?? .black
-            let width = border.cgFloat(forKey: "width") ?? 1.0
-            modifiedView = modifiedView.border(color, width: width)
+        if let border = mods.border {
+            let color = ColorHelper.resolveColor(border.color) ?? .black
+            modifiedView = modifiedView.border(color, width: border.width)
         }
 
         // Apply overlay modifier
         if let overlayElement = element.subviews?["overlay"] as? any ActionUIElementBase,
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let overlayModel = windowModel.viewModels[overlayElement.id] {
-            let alignment = resolveAlignment(properties["overlayAlignment"] as? String)
+            let alignment = resolveAlignment(mods.overlayAlignment)
             modifiedView = modifiedView.overlay(alignment: alignment) {
                 ActionUIView(element: overlayElement, model: overlayModel, windowUUID: windowUUID)
             }
@@ -1445,14 +1403,11 @@ struct View: ActionUIViewConstruction {
         // notch / home indicator). `true` ignores all regions on all edges; an object narrows
         // `edges` (top/bottom/leading/trailing/horizontal/vertical/all) and `regions`
         // (all/container/keyboard).
-        if let ignore = properties["ignoresSafeArea"] {
-            if let flag = ignore as? Bool {
-                if flag { modifiedView = AnyView(modifiedView).ignoresSafeArea() }
-            } else if let spec = ignore as? [String: Any] {
-                let regions = resolveSafeAreaRegions(spec["regions"] as? String)
-                let edges = resolveSafeAreaEdges(spec["edges"] as? String)
-                modifiedView = AnyView(modifiedView).ignoresSafeArea(regions, edges: edges)
-            }
+        if let safeArea = mods.ignoresSafeArea {
+            modifiedView = AnyView(modifiedView).ignoresSafeArea(
+                resolveSafeAreaRegions(safeArea.regions),
+                edges: resolveSafeAreaEdges(safeArea.edges)
+            )
         }
 
         // safeAreaInset: place a view in the safe area on an edge; the main content insets to
@@ -1480,64 +1435,60 @@ struct View: ActionUIViewConstruction {
             }
         }
 
-        if let buttonStyle = properties["buttonStyle"] as? String {
-            switch buttonStyle {
-            case "plain":
-                modifiedView = modifiedView.buttonStyle(.plain)
-            case "bordered":
-                modifiedView = modifiedView.buttonStyle(.bordered)
-            case "borderless":
-                modifiedView = modifiedView.buttonStyle(.borderless)
-            case "borderedProminent":
-                modifiedView = modifiedView.buttonStyle(.borderedProminent)
-            default:
-                break
-            }
+        switch mods.buttonStyle {
+        case .plain:
+            modifiedView = modifiedView.buttonStyle(.plain)
+        case .bordered:
+            modifiedView = modifiedView.buttonStyle(.bordered)
+        case .borderless:
+            modifiedView = modifiedView.buttonStyle(.borderless)
+        case .borderedProminent:
+            modifiedView = modifiedView.buttonStyle(.borderedProminent)
+        case .automatic, nil:
+            // automatic: no modifier, so a style inherited from a container stays in effect.
+            break
         }
 
-        if let controlSize = properties["controlSize"] as? String {
-            switch controlSize {
-            case "mini":
-                modifiedView = modifiedView.controlSize(.mini)
-            case "small":
-                modifiedView = modifiedView.controlSize(.small)
-            case "regular":
-                modifiedView = modifiedView.controlSize(.regular)
-            case "large":
-                modifiedView = modifiedView.controlSize(.large)
-            case "extraLarge":
-                modifiedView = modifiedView.controlSize(.extraLarge)
-            default:
-                break
-            }
+        switch mods.controlSize {
+        case .mini:
+            modifiedView = modifiedView.controlSize(.mini)
+        case .small:
+            modifiedView = modifiedView.controlSize(.small)
+        case .regular:
+            modifiedView = modifiedView.controlSize(.regular)
+        case .large:
+            modifiedView = modifiedView.controlSize(.large)
+        case .extraLarge:
+            modifiedView = modifiedView.controlSize(.extraLarge)
+        case nil:
+            break
         }
-        
-        if let labelsHidden = properties["labelsHidden"] as? Bool, labelsHidden {
+
+        if mods.labelsHidden {
             modifiedView = modifiedView.labelsHidden()
         }
 
-        if let scrollContentBackground = properties["scrollContentBackground"] as? String {
-            if scrollContentBackground == "hidden" {
-                modifiedView = modifiedView.scrollContentBackground(.hidden)
-            } else if scrollContentBackground == "visible" {
-                modifiedView = modifiedView.scrollContentBackground(.visible)
-            } // else: "automatic" - no modifier needed
+        switch mods.scrollContentBackground {
+        case .hidden:
+            modifiedView = modifiedView.scrollContentBackground(.hidden)
+        case .visible:
+            modifiedView = modifiedView.scrollContentBackground(.visible)
+        case .automatic, nil:
+            // automatic: no modifier needed
+            break
         }
 
-        if let shadow = properties["shadow"] as? [String: Any] {
-            let color = ColorHelper.resolveColor(shadow["color"] as? String) ?? ColorHelper.defaultShadowColor
-            let radius = shadow.cgFloat(forKey: "radius") ?? 0.0
-            let x = shadow.cgFloat(forKey: "x") ?? 0.0
-            let y = shadow.cgFloat(forKey: "y") ?? 0.0
-            modifiedView = modifiedView.shadow(color: color, radius: radius, x: x, y: y)
+        if let shadow = mods.shadow {
+            let color = ColorHelper.resolveColor(shadow.color) ?? ColorHelper.defaultShadowColor
+            modifiedView = modifiedView.shadow(color: color, radius: shadow.radius, x: shadow.x, y: shadow.y)
         }
-        
+
         // Apply animation (after all decorative modifiers; before behavioral/structural wrappers)
-        if let animConfig = properties["animation"] as? [String: Any] {
+        if let animConfig = mods.animation {
             let anim = resolveAnimation(animConfig)
             let viewModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id]
             let watched = resolveAnimationWatchedValue(
-                named: animConfig["value"] as? String,
+                named: animConfig.watchedValue,
                 mutationToken: viewModel?.mutationToken ?? 0,
                 validatedProperties: properties,
                 states: viewModel?.states ?? [:],
@@ -1549,30 +1500,30 @@ struct View: ActionUIViewConstruction {
         // Apply transition: how this view animates when inserted/removed at runtime. The transition
         // plays only inside an animated transaction; WindowModel.insertElement/removeElement wrap the
         // mutation in withAnimation when `transition` is declared (instant otherwise).
-        if let transitionConfig = properties["transition"], let transition = resolveTransition(transitionConfig) {
-            modifiedView = modifiedView.transition(transition)
+        if let transition = mods.transition {
+            modifiedView = modifiedView.transition(resolveTransition(transition))
         }
 
         // Handle openURLActionID with .onOpenURL modifier
-        if let openURLActionID = properties["openURLActionID"] as? String {
+        if let openURLActionID = mods.openURLActionID {
             modifiedView = modifiedView.onOpenURL { url in
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(openURLActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: url)
                 }
             }
         }
-        
+
         // Handle onAppearActionID with .onAppear modifier
-        if let onAppearActionID = properties["onAppearActionID"] as? String {
+        if let onAppearActionID = mods.onAppearActionID {
             modifiedView = modifiedView.onAppear {
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(onAppearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
                 }
             }
         }
-        
+
         // Handle onDisappearActionID with .onDisappear modifier
-        if let onDisappearActionID = properties["onDisappearActionID"] as? String {
+        if let onDisappearActionID = mods.onDisappearActionID {
             modifiedView = modifiedView.onDisappear {
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(onDisappearActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: nil)
@@ -1582,7 +1533,7 @@ struct View: ActionUIViewConstruction {
 
         // Handle onHoverActionID with .onHover modifier (macOS; silent no-op elsewhere)
 #if os(macOS)
-        if let onHoverActionID = properties["onHoverActionID"] as? String {
+        if let onHoverActionID = mods.onHoverActionID {
             modifiedView = modifiedView.onHover { isHovering in
                 Task { @MainActor in
                     ActionUIModel.shared.actionHandler(onHoverActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0, context: ["isHovering": isHovering])
@@ -1591,79 +1542,57 @@ struct View: ActionUIViewConstruction {
         }
 #endif
 
-        if let columnWidth = properties["navigationSplitViewColumnWidth"] {
-            if let dict = columnWidth as? [String: Any],
-               let ideal = dict.cgFloat(forKey: "ideal"), ideal > 0 {
-                let min = dict.cgFloat(forKey: "min")
-                let max = dict.cgFloat(forKey: "max")
-                
-                modifiedView = modifiedView.navigationSplitViewColumnWidth(
-                    min: min,
-                    ideal: ideal,
-                    max: max
-                )
-            }
-            else if let fixed = properties.cgFloat(forKey: "navigationSplitViewColumnWidth"), fixed > 0 {
-                modifiedView = modifiedView.navigationSplitViewColumnWidth(fixed)
-            }
+        switch mods.columnWidth {
+        case .range(let min, let ideal, let max):
+            modifiedView = modifiedView.navigationSplitViewColumnWidth(
+                min: min.map { CGFloat($0) },
+                ideal: ideal,
+                max: max.map { CGFloat($0) }
+            )
+        case .fixed(let width):
+            modifiedView = modifiedView.navigationSplitViewColumnWidth(width)
+        case nil:
+            break
         }
-        
-        // Handle keyboardShortcut
-        if let keyboardShortcut = properties["keyboardShortcut"] as? [String: Any] {
-            if let keyStr = keyboardShortcut["key"] as? String, !keyStr.isEmpty {
-                if let keyEquivalent = KeyEquivalentHelper.resolveKeyEquivalent(keyStr, logger: logger) {
-                    // nil -> ["command"]; [] -> no modifier (an empty EventModifiers set below). Keep the two apart.
-                    let modifiersArray = (keyboardShortcut["modifiers"] as? [String])?.map { $0.lowercased() } ?? ["command"]
-                    // Ensure unique modifiers
-                    let uniqueModifiers = Array(Set(modifiersArray))
-                    if uniqueModifiers.count < modifiersArray.count {
-                        logger.log("Duplicate modifiers found in keyboardShortcut.modifiers: \(modifiersArray), using unique values: \(uniqueModifiers)", .warning)
-                    }
-                    var eventModifiers: EventModifiers = []
-                    for modifier in uniqueModifiers {
-                        switch modifier {
-                        case "command":
-                            eventModifiers.insert(.command)
-                        case "shift":
-                            eventModifiers.insert(.shift)
-                        case "option":
-                            eventModifiers.insert(.option)
-                        case "control":
-                            eventModifiers.insert(.control)
-                        case "capslock": // the names were lowercased above
-                            eventModifiers.insert(.capsLock)
-                        default:
-                            logger.log("Unknown modifier '\(modifier)' in keyboardShortcut.modifiers, ignoring", .warning)
-                        }
-                    }
-                    // Apply keyboard shortcut with computed modifiers
-                    modifiedView = modifiedView.keyboardShortcut(keyEquivalent, modifiers: eventModifiers)
+
+        // Handle keyboardShortcut. The modifier set is already final: absent -> command; [] -> none.
+        if let shortcut = mods.keyboardShortcut,
+           let keyEquivalent = KeyEquivalentHelper.resolveKeyEquivalent(shortcut.key, logger: logger) {
+            var eventModifiers: EventModifiers = []
+            for modifier in shortcut.modifiers {
+                switch modifier {
+                case .command:  eventModifiers.insert(.command)
+                case .shift:    eventModifiers.insert(.shift)
+                case .option:   eventModifiers.insert(.option)
+                case .control:  eventModifiers.insert(.control)
+                case .capslock: eventModifiers.insert(.capsLock)
                 }
             }
+            modifiedView = modifiedView.keyboardShortcut(keyEquivalent, modifiers: eventModifiers)
         }
-        
-        if let navigationTitle = properties["navigationTitle"] as? String {
+
+        if let navigationTitle = mods.navigationTitle {
             modifiedView = modifiedView.navigationTitle(navigationTitle)
         }
 
-        if let titleDisplayMode = properties["toolbarTitleDisplayMode"] as? String {
-            switch titleDisplayMode {
-            case "inline":
-                modifiedView = modifiedView.toolbarTitleDisplayMode(.inline)
-            case "large":
+        switch mods.titleDisplayMode {
+        case .inline:
+            modifiedView = modifiedView.toolbarTitleDisplayMode(.inline)
+        case .large:
 #if !os(macOS)
-                modifiedView = modifiedView.toolbarTitleDisplayMode(.large)
+            modifiedView = modifiedView.toolbarTitleDisplayMode(.large)
 #endif
-            case "inlineLarge":
+        case .inlineLarge:
 #if !os(macOS)
-                modifiedView = modifiedView.toolbarTitleDisplayMode(.inlineLarge)
+            modifiedView = modifiedView.toolbarTitleDisplayMode(.inlineLarge)
 #endif
-            default: // "automatic"
-                modifiedView = modifiedView.toolbarTitleDisplayMode(.automatic)
-            }
+        case .automatic:
+            modifiedView = modifiedView.toolbarTitleDisplayMode(.automatic)
+        case nil:
+            break
         }
 
-        if let helpLabel = properties["help"] as? String {
+        if let helpLabel = mods.help {
             modifiedView = AnyView(modifiedView).help(helpLabel)
         }
 
@@ -1713,31 +1642,29 @@ struct View: ActionUIViewConstruction {
             }
         }
 
-        if let accessibilityLabel = properties["accessibilityLabel"] as? String {
+        if let accessibilityLabel = mods.accessibilityLabel {
             modifiedView = AnyView(modifiedView).accessibilityLabel(accessibilityLabel)
         }
-        
-        if let accessibilityHint = properties["accessibilityHint"] as? String {
+
+        if let accessibilityHint = mods.accessibilityHint {
             modifiedView = AnyView(modifiedView).accessibilityHint(accessibilityHint)
         }
-        
-        if let accessibilityHidden = properties["accessibilityHidden"] as? Bool {
+
+        if let accessibilityHidden = mods.accessibilityHidden {
             modifiedView = AnyView(modifiedView).accessibilityHidden(accessibilityHidden)
         }
-        
-        if let accessibilityIdentifier = properties["accessibilityIdentifier"] as? String {
+
+        if let accessibilityIdentifier = mods.accessibilityIdentifier {
             modifiedView = AnyView(modifiedView).accessibilityIdentifier(accessibilityIdentifier)
         }
 
-        // Handle onDrop — requires a wrapper view for the isTargeted Binding and @State
-        if let onDropActionID = properties["onDropActionID"] as? String,
-           let onDropTypes = properties["onDropTypes"] as? [String], !onDropTypes.isEmpty {
-            let onDropTargetedActionID = properties["onDropTargetedActionID"] as? String
+        // Handle onDrop - requires a wrapper view for the isTargeted Binding and @State
+        if let drop = mods.drop {
             modifiedView = DropModifierView(
                 content: AnyView(modifiedView),
-                onDropActionID: onDropActionID,
-                onDropTypes: onDropTypes,
-                onDropTargetedActionID: onDropTargetedActionID,
+                onDropActionID: drop.actionID,
+                onDropTypes: drop.types,
+                onDropTargetedActionID: drop.targetedActionID,
                 windowUUID: windowUUID,
                 elementID: element.id
             )
@@ -1765,7 +1692,6 @@ struct View: ActionUIViewConstruction {
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let parentModel = windowModel.viewModels[element.id],
            let sheetModel = windowModel.viewModels[sheetElement.id] {
-            let onDismissActionID = properties["sheetOnDismissActionID"] as? String
             modifiedView = SheetModifierView(
                 content: AnyView(modifiedView),
                 sheetElement: sheetElement,
@@ -1773,7 +1699,7 @@ struct View: ActionUIViewConstruction {
                 parentModel: parentModel,
                 windowUUID: windowUUID,
                 elementID: element.id,
-                onDismissActionID: onDismissActionID
+                onDismissActionID: mods.sheetOnDismissActionID
             )
         }
 
@@ -1782,7 +1708,6 @@ struct View: ActionUIViewConstruction {
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let parentModel = windowModel.viewModels[element.id],
            let coverModel = windowModel.viewModels[coverElement.id] {
-            let onDismissActionID = properties["fullScreenCoverOnDismissActionID"] as? String
             modifiedView = FullScreenCoverModifierView(
                 content: AnyView(modifiedView),
                 coverElement: coverElement,
@@ -1790,20 +1715,19 @@ struct View: ActionUIViewConstruction {
                 parentModel: parentModel,
                 windowUUID: windowUUID,
                 elementID: element.id,
-                onDismissActionID: onDismissActionID
+                onDismissActionID: mods.fullScreenCoverOnDismissActionID
             )
         }
 
         // Apply searchable modifier: adds a search field to List / NavigationStack content.
         // The query is owned by SearchableModifierView and emitted to actionID on each change.
-        if let searchable = properties["searchable"] as? [String: Any],
-           let actionID = searchable["actionID"] as? String {
+        if let searchable = mods.searchable {
             modifiedView = SearchableModifierView(
                 content: AnyView(modifiedView),
                 windowUUID: windowUUID,
                 elementID: element.id,
-                actionID: actionID,
-                prompt: searchable["prompt"] as? String
+                actionID: searchable.actionID,
+                prompt: searchable.prompt
             )
         }
 
@@ -1812,15 +1736,6 @@ struct View: ActionUIViewConstruction {
            let windowModel = ActionUIModel.shared.windowModels[windowUUID],
            let parentModel = windowModel.viewModels[element.id],
            let popoverModel = windowModel.viewModels[popoverElement.id] {
-            let arrowEdge: Edge = {
-                switch properties["popoverArrowEdge"] as? String {
-                case "bottom": return .bottom
-                case "leading": return .leading
-                case "trailing": return .trailing
-                default: return .top
-                }
-            }()
-            let popoverActionID = properties["popoverActionID"] as? String
             return PopoverModifierView(
                 content: AnyView(modifiedView),
                 popoverElement: popoverElement,
@@ -1828,8 +1743,8 @@ struct View: ActionUIViewConstruction {
                 parentModel: parentModel,
                 windowUUID: windowUUID,
                 elementID: element.id,
-                arrowEdge: arrowEdge,
-                popoverActionID: popoverActionID,
+                arrowEdge: resolveEdge(mods.popoverArrowEdge),
+                popoverActionID: mods.popoverActionID,
                 addTapGesture: element.type != "Button"
             )
         }

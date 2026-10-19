@@ -337,4 +337,50 @@ final class DictionaryNumericTests: XCTestCase {
             "Should coerce large UInt to CGFloat"
         )
     }
+
+    func testIntForKeyAcceptsIntegralNumbersOfAnyType() {
+        let dictionary: [String: Any] = [
+            "int": 3,
+            "int64": Int64(3),
+            "uint": UInt(3),
+            "integralDouble": 3.0,
+            "integralFloat": Float(3),
+            "negative": -2,
+        ]
+        XCTAssertEqual(dictionary.int(forKey: "int"), 3)
+        XCTAssertEqual(dictionary.int(forKey: "int64"), 3)
+        XCTAssertEqual(dictionary.int(forKey: "uint"), 3)
+        XCTAssertEqual(dictionary.int(forKey: "integralDouble"), 3)
+        XCTAssertEqual(dictionary.int(forKey: "integralFloat"), 3)
+        XCTAssertEqual(dictionary.int(forKey: "negative"), -2)
+    }
+
+    func testIntForKeyRefusesFractionsOutOfRangeAndNonNumbers() {
+        let dictionary: [String: Any] = [
+            "fraction": 3.5,
+            "huge": 1e300,
+            "infinity": Double.infinity,
+            "hugeUInt": UInt.max,
+            "string": "3",
+            "bool": true,
+        ]
+        XCTAssertNil(dictionary.int(forKey: "fraction"))
+        XCTAssertNil(dictionary.int(forKey: "huge"))
+        XCTAssertNil(dictionary.int(forKey: "infinity"))
+        XCTAssertNil(dictionary.int(forKey: "hugeUInt"))
+        XCTAssertNil(dictionary.int(forKey: "string"))
+        XCTAssertNil(dictionary.int(forKey: "bool"))
+        XCTAssertNil(dictionary.int(forKey: "missing"))
+    }
+
+    func testJSONNumberConvertsSingleValues() {
+        XCTAssertEqual(JSONNumber.double(5), 5)
+        XCTAssertEqual(JSONNumber.double(2.5), 2.5)
+        XCTAssertEqual(JSONNumber.double("Infinity"), .infinity)
+        XCTAssertNil(JSONNumber.double("5"))
+        XCTAssertNil(JSONNumber.double(nil))
+        XCTAssertEqual(JSONNumber.int(4.0), 4)
+        XCTAssertNil(JSONNumber.int(4.5))
+        XCTAssertNil(JSONNumber.int(nil))
+    }
 }

@@ -14,6 +14,42 @@
 
 import SwiftUI
 
+extension Slider {
+    /// Slider's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var initialValue = 0.0
+        var min = 0.0
+        var max = 1.0
+        var step: Double?
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            initialValue = properties.double(forKey: "value") ?? 0.0
+            // A range needs both bounds, numeric, in order; anything else is 0...1.
+            if let range = properties["range"] as? [String: Any],
+               let lo = range.double(forKey: "min"), let hi = range.double(forKey: "max"), lo <= hi {
+                min = lo
+                max = hi
+            }
+            if properties["step"] != nil {
+                // Not a positive number: 1.0, which is then clamped like a given step.
+                let s = properties.double(forKey: "step").flatMap { $0 > 0 ? $0 : nil } ?? 1.0
+                if properties["range"] == nil {
+                    step = 1.0                           // a step without a range
+                } else if max > min {
+                    step = Swift.min(s, max - min)       // clamped to the range; min == max: no step
+                }
+            }
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+
+        /// A value the user may set: inside the range.
+        func accepts(_ value: Double) -> Bool {
+            (min...max).contains(value)
+        }
+    }
+}
+
 struct Slider: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -60,7 +96,8 @@ struct Slider: ActionUIViewConstruction {
                 let rangeSize = max - min
                 if step > rangeSize {
                     logger.log("Slider step must not exceed range (max - min); clamping to \(rangeSize)", .warning)
-                    validatedProperties["step"] = rangeSize
+                    // An empty range (min == max) has no step: removed rather than stored as 0.
+                    validatedProperties["step"] = rangeSize > 0 ? rangeSize : nil
                 } else {
                     validatedProperties["step"] = step
                 }
@@ -77,44 +114,40 @@ struct Slider: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let initialValue = Self.initialValue(model) as? Double ?? 0.0
-        let range = properties["range"] as? [String: Any] ?? ["min": 0.0, "max": 1.0]
-        let min = range.double(forKey: "min") ?? 0.0
-        let max = range.double(forKey: "max") ?? 1.0
-        let step = properties.double(forKey: "step")
-        
-        // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
-        // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let props = Props(properties)
+        let initialValue = Self.initialValue(model) as? Double ?? props.initialValue
+
+        // The binding's main-actor closures capture the Sendable props, not the non-Sendable
+        // [String: Any] properties payload.
         let valueBinding = mainActorBinding(
             get: { model.value as? Double ?? initialValue },
             set: { newValue in
                 guard model.value as? Double != newValue else {
                     return
                 }
-                if (min...max).contains(newValue) {
+                if props.accepts(newValue) {
                     // Use DispatchQueue.main.async to guarantee deferred execution and avoid
                     // "publishing changes from within view updates" warning
                     DispatchQueue.main.async {
                         model.value = newValue
-                        if let valueChangeActionID {
+                        if let valueChangeActionID = props.valueChangeActionID {
                             ActionUIModel.shared.actionHandler(valueChangeActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                         }
                     }
                 }
             }
         )
-        
-        if let step = step, step > 0 {
-            return SwiftUI.Slider(value: valueBinding, in: min...max, step: step)
+
+        if let step = props.step {
+            return SwiftUI.Slider(value: valueBinding, in: props.min...props.max, step: step)
         }
-        return SwiftUI.Slider(value: valueBinding, in: min...max)
+        return SwiftUI.Slider(value: valueBinding, in: props.min...props.max)
     }
-    
+
     static var initialValue: (ViewModel) -> Any? = { model in
         if let initialValue = model.value as? Double {
             return initialValue
         }
-        return model.validatedProperties.double(forKey: "value") ?? 0.0
+        return Props(model.validatedProperties).initialValue
     }
 }
