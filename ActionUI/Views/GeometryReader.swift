@@ -37,6 +37,22 @@
 
 import SwiftUI
 
+extension GeometryReader {
+    /// GeometryReader's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Alignment: String, Sendable, CaseIterable {
+            case topLeading, top, topTrailing, leading, center, trailing, bottomLeading, bottom, bottomTrailing
+        }
+
+        /// A name that is not one of the nine, or no string, is topLeading (GeometryReader's own default).
+        var alignment = Alignment.topLeading
+
+        init(_ properties: [String: Any]) {
+            alignment = (properties["alignment"] as? String).flatMap(Alignment.init(rawValue:)) ?? .topLeading
+        }
+    }
+}
+
 struct GeometryReader: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -70,7 +86,8 @@ struct GeometryReader: ActionUIViewConstruction {
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let alignment = resolveAlignment(properties["alignment"] as? String)
+        let props = Props(properties)
+        let alignment = resolveAlignment(props.alignment)
 
         return GeometryReaderContainer(model: model, alignment: alignment) {
             if let windowModel = ActionUIModel.shared.windowModels[windowUUID],
@@ -84,17 +101,17 @@ struct GeometryReader: ActionUIViewConstruction {
 
     /// Resolves an alignment string to SwiftUI.Alignment.
     /// Defaults to .topLeading (GeometryReader's native default).
-    private static func resolveAlignment(_ string: String?) -> SwiftUI.Alignment {
-        switch string {
-        case "center": return .center
-        case "top": return .top
-        case "bottom": return .bottom
-        case "leading": return .leading
-        case "trailing": return .trailing
-        case "topTrailing": return .topTrailing
-        case "bottomLeading": return .bottomLeading
-        case "bottomTrailing": return .bottomTrailing
-        default: return .topLeading
+    private static func resolveAlignment(_ alignment: Props.Alignment) -> SwiftUI.Alignment {
+        switch alignment {
+        case .center: return .center
+        case .top: return .top
+        case .bottom: return .bottom
+        case .leading: return .leading
+        case .trailing: return .trailing
+        case .topTrailing: return .topTrailing
+        case .bottomLeading: return .bottomLeading
+        case .bottomTrailing: return .bottomTrailing
+        case .topLeading: return .topLeading
         }
     }
 

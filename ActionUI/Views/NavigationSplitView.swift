@@ -92,6 +92,35 @@
 import SwiftUI
 import Combine
 
+extension NavigationSplitView {
+    /// NavigationSplitView's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum ColumnVisibility: String, Sendable, CaseIterable {
+            case automatic, all, doubleColumn, detail
+        }
+
+        enum Style: String, Sendable, CaseIterable {
+            case automatic, balanced, prominentDetail
+        }
+
+        /// A name that is not one of the four is "all"; no string at all is nil.
+        var columnVisibility: ColumnVisibility?
+        /// A name that is not one of the three is "automatic"; no string at all is nil.
+        var style: Style?
+        var valueChangeActionID: String?
+
+        init(_ properties: [String: Any]) {
+            if let name = properties["columnVisibility"] as? String {
+                columnVisibility = ColumnVisibility(rawValue: name) ?? .all
+            }
+            if let name = properties["style"] as? String {
+                style = Style(rawValue: name) ?? .automatic
+            }
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+        }
+    }
+}
+
 struct NavigationSplitView: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -122,6 +151,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let sidebar = element.subviews?["sidebar"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
         let content = element.subviews?["content"] as? any ActionUIElementBase
         let detail = element.subviews?["detail"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
@@ -177,7 +207,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
 
             if let content = content {
                 // 3-pane with destinations: sidebar selection drives detail switching
-                let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+                let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: props.valueChangeActionID) { visibilityBinding in
                     SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
                         PersistentToolbar.onSplitViewColumn(
                             SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID),
@@ -193,7 +223,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                 return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
             } else {
                 // 2-pane with destinations: sidebar selection drives detail switching
-                let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+                let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: props.valueChangeActionID) { visibilityBinding in
                     SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
                         PersistentToolbar.onSplitViewColumn(
                             SelectionListHelper.buildSelectableList(selection: selectionBinding, children: sidebarChildren, listElement: sidebar, listModel: windowModel?.viewModels[sidebar.id], windowModel: windowModel, windowUUID: windowUUID),
@@ -208,7 +238,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
             }
         } else if let content = content {
             // 3-pane without destinations: static sidebar | content | detail
-            let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+            let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: props.valueChangeActionID) { visibilityBinding in
                 SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
                     Self.staticColumn(sidebar, windowModel: windowModel, windowUUID: windowUUID, isDetail: false)
                 } content: {
@@ -220,7 +250,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
             return PersistentToolbar.onContainer(container, items: persistentItems, windowUUID: windowUUID)
         } else {
             // 2-pane without destinations: static sidebar | detail
-            let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: properties["valueChangeActionID"] as? String) { visibilityBinding in
+            let container = ColumnVisibilityContainer(model: model, elementId: element.id, windowUUID: windowUUID, valueChangeActionID: props.valueChangeActionID) { visibilityBinding in
                 SwiftUI.NavigationSplitView(columnVisibility: visibilityBinding) {
                     Self.staticColumn(sidebar, windowModel: windowModel, windowUUID: windowUUID, isDetail: false)
                 } detail: {
@@ -360,17 +390,16 @@ struct NavigationSplitView: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        if let style = properties["style"] as? String {
-            switch style {
-            case "balanced":
-                modifiedView = modifiedView.navigationSplitViewStyle(.balanced)
-            case "prominentDetail":
-                modifiedView = modifiedView.navigationSplitViewStyle(.prominentDetail)
-            case "automatic":
-                modifiedView = modifiedView.navigationSplitViewStyle(.automatic)
-            default:
-                break
-            }
+        let props = Props(properties)
+        switch props.style {
+        case .balanced:
+            modifiedView = modifiedView.navigationSplitViewStyle(.balanced)
+        case .prominentDetail:
+            modifiedView = modifiedView.navigationSplitViewStyle(.prominentDetail)
+        case .automatic:
+            modifiedView = modifiedView.navigationSplitViewStyle(.automatic)
+        case nil:
+            break
         }
         return modifiedView
     }

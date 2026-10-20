@@ -48,6 +48,28 @@
 
 import SwiftUI
 
+extension ToolbarItem {
+    /// ToolbarItem's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Placement: String, Sendable, CaseIterable {
+            case automatic, principal
+            case confirmationAction, cancellationAction, destructiveAction
+            case primaryAction, secondaryAction
+            case topBarLeading, topBarTrailing
+            case bottomBar, keyboard
+            case navigation, status
+        }
+
+        /// A name that is not one of the thirteen, or no string, is automatic. A name the platform
+        /// lacks (bottomBar on macOS, navigation on iOS) is placed as automatic by the renderer.
+        var placement = Placement.automatic
+
+        init(_ properties: [String: Any]) {
+            placement = (properties["placement"] as? String).flatMap(Placement.init(rawValue:)) ?? .automatic
+        }
+    }
+}
+
 struct ToolbarItem: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }

@@ -18,6 +18,32 @@
 import SwiftUI
 import Foundation
 
+extension LoadableView {
+    /// LoadableView's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The three sources: each a String and nothing else. When several are given, "url" wins over
+        /// "filePath" and "filePath" over "name", and the others are nil.
+        var url: String?
+        var filePath: String?
+        var name: String?
+        /// Fires once after a new sub-view is loaded.
+        var viewDidLoadActionID: String?
+
+        init(_ properties: [String: Any]) {
+            url = properties["url"] as? String
+            filePath = properties["filePath"] as? String
+            name = properties["name"] as? String
+            if url != nil {
+                filePath = nil
+                name = nil
+            } else if filePath != nil {
+                name = nil
+            }
+            viewDidLoadActionID = properties["viewDidLoadActionID"] as? String
+        }
+    }
+}
+
 struct LoadableView: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -65,8 +91,9 @@ struct LoadableView: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
 
+        let props = Props(properties)
         let isContentView = false
-        let viewDidLoadActionID = properties["viewDidLoadActionID"] as? String
+        let viewDidLoadActionID = props.viewDidLoadActionID
         // Use model.value if set (heuristics to interpret), else fallback to validated properties
         guard let value = Self.initialValue(model) as? String, !value.isEmpty else {
             logger.log("No valid source for LoadableView, displaying error SwiftUI.Text", .warning)
@@ -114,11 +141,12 @@ struct LoadableView: ActionUIViewConstruction {
             return initialValue
         }
         // Fallback to properties (prioritize url > filePath > name)
-        if let url = model.validatedProperties["url"] as? String {
+        let props = Props(model.validatedProperties)
+        if let url = props.url {
             return url
-        } else if let filePath = model.validatedProperties["filePath"] as? String {
+        } else if let filePath = props.filePath {
             return filePath
-        } else if let name = model.validatedProperties["name"] as? String {
+        } else if let name = props.name {
             return name
         }
         return ""

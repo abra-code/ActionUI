@@ -41,6 +41,90 @@
 
 import SwiftUI
 
+extension Table {
+    /// Table's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The cell of a column (columnTypes[i].viewType). An unknown name, or none, is Text.
+        enum ViewType: String, Sendable, CaseIterable {
+            case text = "Text", button = "Button", image = "Image", asyncImage = "AsyncImage", toggle = "Toggle"
+        }
+
+        /// How an Image or Button cell reads its row text (columnTypes[i].dataInterpretation).
+        enum DataInterpretation: String, Sendable, CaseIterable {
+            case path, systemName, assetName, resourceName, mixed
+        }
+
+        /// What a Button cell passes as its action's context (columnTypes[i].actionContext).
+        enum ActionContext: String, Sendable, CaseIterable {
+            case title, rowIndex, columnIndex, rowColumnIndex
+        }
+
+        /// A Toggle cell's look (columnTypes[i].style).
+        enum ToggleStyle: String, Sendable, CaseIterable {
+            case checkbox, `switch`, button
+        }
+
+        enum HeadersVisibility: String, Sendable, CaseIterable {
+            case visible, hidden, automatic
+        }
+
+        /// One entry of columnTypes.
+        struct ColumnType: Equatable, Sendable {
+            var viewType = ViewType.text
+            /// Image: always set, systemName when missing or unknown. Button: set only when given and
+            /// known, which makes it an image-only button. Other cells: not read.
+            var dataInterpretation: DataInterpretation?
+            /// Button only.
+            var actionContext = ActionContext.title
+            /// Button and Toggle: the action of a click or a user toggle.
+            var actionID: String?
+            /// Toggle only.
+            var toggleStyle = ToggleStyle.checkbox
+            /// Toggle only: the 1-based number of the column whose text disables the cell. Below 1 is none.
+            var disabledColumn: Int?
+
+            init(_ raw: [String: Any]) {
+                viewType = (raw["viewType"] as? String).flatMap(ViewType.init(rawValue:)) ?? .text
+                dataInterpretation = (raw["dataInterpretation"] as? String).flatMap(DataInterpretation.init(rawValue:))
+                if viewType == .image && dataInterpretation == nil {
+                    dataInterpretation = .systemName
+                }
+                actionContext = (raw["actionContext"] as? String).flatMap(ActionContext.init(rawValue:)) ?? .title
+                actionID = raw["actionID"] as? String
+                toggleStyle = (raw["style"] as? String).flatMap(ToggleStyle.init(rawValue:)) ?? .checkbox
+                disabledColumn = (raw["disabledColumn"] as? Int).flatMap { $0 >= 1 ? $0 : nil }
+            }
+        }
+
+        /// The column headers; a value that is not an array of strings is no columns.
+        var columns: [String] = []
+        /// One entry per column at least: missing entries are Text. A list with anything but
+        /// dictionaries in it is no list.
+        var columnTypes: [ColumnType] = []
+        /// Ideal column widths in points; only an array of Int counts.
+        var widths: [Int]?
+        /// Minimum column widths in points; only an array of Int counts.
+        var minWidths: [Int]?
+        var columnHeadersVisibility: HeadersVisibility?
+        /// Fires on every selection change the user makes.
+        var actionID: String?
+        var doubleClickActionID: String?
+
+        init(_ properties: [String: Any]) {
+            columns = properties["columns"] as? [String] ?? []
+            columnTypes = (properties["columnTypes"] as? [[String: Any]] ?? []).map(ColumnType.init)
+            while columnTypes.count < columns.count {
+                columnTypes.append(ColumnType([:]))
+            }
+            widths = properties["widths"] as? [Int]
+            minWidths = properties["minWidths"] as? [Int]
+            columnHeadersVisibility = (properties["columnHeadersVisibility"] as? String).flatMap(HeadersVisibility.init(rawValue:))
+            actionID = properties["actionID"] as? String
+            doubleClickActionID = properties["doubleClickActionID"] as? String
+        }
+    }
+}
+
 struct TableRowData: Identifiable {
     let id: String
     let values: [String]
@@ -59,7 +143,7 @@ struct ColumnData: Identifiable {
 /// table then redraws from the row written.
 struct TableToggleCell: SwiftUI.View {
     let isOn: Bool
-    let style: String
+    let style: Table.Props.ToggleStyle
     let isDisabled: Bool
     let onToggle: @MainActor (Bool) -> Void
 
@@ -78,11 +162,11 @@ struct TableToggleCell: SwiftUI.View {
     @ViewBuilder
     private func styled(_ toggle: some SwiftUI.View) -> some SwiftUI.View {
         switch style {
-        case "switch":
+        case .switch:
             toggle.toggleStyle(SwitchToggleStyle())
-        case "button":
+        case .button:
             toggle.toggleStyle(ButtonToggleStyle())
-        default:
+        case .checkbox:
             #if os(macOS)
             toggle.toggleStyle(CheckboxToggleStyle())
             #else
@@ -205,20 +289,22 @@ struct Table: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AppKit)
-        let columnTypes = properties["columnTypes"] as? [[String: Any]] ?? []
-        let columns = (properties["columns"] as? [String]) ?? []
+        let props = Props(properties)
+        let columnTypes = props.columnTypes
+        let columns = props.columns
         let rows = (model.states["content"] as? [[String]]) ?? []
-        let idealWidths = (properties["widths"] as? [Int])?.map { CGFloat($0) }
-        let minWidths = (properties["minWidths"] as? [Int])?.map { CGFloat($0) }
+        let idealWidths = props.widths?.map { CGFloat($0) }
+        let minWidths = props.minWidths?.map { CGFloat($0) }
         let lastVisibleIndex = columns.count - 1
 
         var columnHeadersVisibility: SwiftUI.Visibility = .automatic
-        if let columnHeadersVisibilityString = properties["columnHeadersVisibility"] as? String {
-            if columnHeadersVisibilityString == "hidden" {
-                columnHeadersVisibility = .hidden
-            } else if columnHeadersVisibilityString == "visible" {
-                columnHeadersVisibility = .visible
-            }
+        switch props.columnHeadersVisibility {
+        case .hidden:
+            columnHeadersVisibility = .hidden
+        case .visible:
+            columnHeadersVisibility = .visible
+        case .automatic, nil:
+            break
         }
 
         // Find the column with the largest ideal width — it fills remaining space
@@ -248,7 +334,7 @@ struct Table: ActionUIViewConstruction {
         }
         
         let selectionBinding = makeSelectionBinding(
-            rowData: rowData, model: model, actionID: properties["actionID"] as? String,
+            rowData: rowData, model: model, actionID: props.actionID,
             windowUUID: windowUUID, viewID: element.id
         )
 
@@ -256,18 +342,18 @@ struct Table: ActionUIViewConstruction {
             SwiftUI.TableColumnForEach(columnData) { column in
                 SwiftUI.TableColumn(column.name) { row in
                     let value = column.id < row.values.count ? row.values[column.id] : ""
-                    let colType = column.id < columnTypes.count ? columnTypes[column.id] : ["viewType": "Text"]
-                    let viewType = colType["viewType"] as? String ?? "Text"
-                    let dataInterpretation = colType["dataInterpretation"] as? String
-                    let actionContext = colType["actionContext"] as? String ?? "title"
-                    // Extract the button actionID here: colType is a non-Sendable [String: Any] and
-                    // must not be captured into the Button's main-actor action closure (Swift 6 sending rule).
-                    let buttonActionID = colType["actionID"] as? String
-                    let toggleStyle = colType["style"] as? String ?? "checkbox"
-                    let disabledColumn = colType["disabledColumn"] as? Int
+                    let colType = column.id < columnTypes.count ? columnTypes[column.id] : Props.ColumnType([:])
+                    let viewType = colType.viewType
+                    let dataInterpretation = colType.dataInterpretation
+                    let actionContext = colType.actionContext
+                    // Extract the button actionID here so the Button's main-actor action closure
+                    // captures only this String?, not the whole column entry.
+                    let buttonActionID = colType.actionID
+                    let toggleStyle = colType.toggleStyle
+                    let disabledColumn = colType.disabledColumn
                     SwiftUI.Group {
                         switch viewType {
-                        case "Toggle":
+                        case .toggle:
                             TableToggleCell(
                                 isOn: TemplateHelper.rowBool(value) ?? false,
                                 style: toggleStyle,
@@ -280,38 +366,36 @@ struct Table: ActionUIViewConstruction {
                                     windowUUID: windowUUID, viewID: element.id
                                 )
                             }
-                        case "Text":
+                        case .text:
                             SwiftUI.Text(value)
-                        case "Button":
+                        case .button:
                             SwiftUI.Button {
                                 if let buttonActionID {
                                     let context: Any = {
                                         switch actionContext {
-                                        case "rowIndex": return rowData.firstIndex(where: { $0.id == row.id }) ?? -1
-                                        case "columnIndex": return column.id
-                                        case "rowColumnIndex": return Point(row: rowData.firstIndex(where: { $0.id == row.id }) ?? -1, column: column.id)
-                                        default: return value
+                                        case .rowIndex: return rowData.firstIndex(where: { $0.id == row.id }) ?? -1
+                                        case .columnIndex: return column.id
+                                        case .rowColumnIndex: return Point(row: rowData.firstIndex(where: { $0.id == row.id }) ?? -1, column: column.id)
+                                        case .title: return value
                                         }
                                     }()
                                     ActionUIModel.shared.actionHandler(buttonActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: column.id, context: context)
                                 }
                             } label: {
                                 if let dataInterpretation {
-                                    SwiftUI.Image(from: value, interpretation: dataInterpretation)
+                                    SwiftUI.Image(from: value, interpretation: dataInterpretation.rawValue)
                                 } else {
                                     SwiftUI.Text(value)
                                 }
                             }
-                        case "Image":
-                            SwiftUI.Image(from: value, interpretation: dataInterpretation ?? "mixed")
-                        case "AsyncImage":
+                        case .image:
+                            SwiftUI.Image(from: value, interpretation: (dataInterpretation ?? .systemName).rawValue)
+                        case .asyncImage:
                             SwiftUI.AsyncImage(url: URL(string: value)) { image in
                                 image.resizable().scaledToFit()
                             } placeholder: {
                                 SwiftUI.ProgressView()
                             }
-                        default:
-                            SwiftUI.Text(value)
                         }
                     }
                 }
@@ -326,7 +410,7 @@ struct Table: ActionUIViewConstruction {
         .contextMenu(forSelectionType: String.self) { _ in
             // No context-menu items: this modifier is used only for its primaryAction.
         } primaryAction: { ids in
-            if let doubleClickActionID = properties["doubleClickActionID"] as? String,
+            if let doubleClickActionID = props.doubleClickActionID,
                let firstID = ids.first,
                let index = rowData.firstIndex(where: { $0.id == firstID }) {
                 // Keep selection/value in sync for env export, with the row as it is now.

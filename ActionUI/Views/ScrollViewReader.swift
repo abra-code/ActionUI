@@ -17,6 +17,25 @@
 
 import SwiftUI
 
+extension ScrollViewReader {
+    /// ScrollViewReader's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Anchor: String, Sendable, CaseIterable {
+            case top, center, bottom
+        }
+
+        /// The id of the element to scroll to; an Int and nothing else.
+        var scrollTo: Int?
+        /// A name that is not one of the three, or no string, is center.
+        var anchor = Anchor.center
+
+        init(_ properties: [String: Any]) {
+            scrollTo = properties["scrollTo"] as? Int
+            anchor = (properties["anchor"] as? String).flatMap(Anchor.init(rawValue:)) ?? .center
+        }
+    }
+}
+
 struct ScrollViewReader: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -59,14 +78,15 @@ struct ScrollViewReader: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
-        if let scrollTo = properties["scrollTo"] as? Int {
-            let anchor = (properties["anchor"] as? String).flatMap {
-                switch $0 {
-                case "top": return UnitPoint.top
-                case "bottom": return UnitPoint.bottom
-                default: return UnitPoint.center
+        let props = Props(properties)
+        if let scrollTo = props.scrollTo {
+            let anchor: UnitPoint = {
+                switch props.anchor {
+                case .top: return UnitPoint.top
+                case .bottom: return UnitPoint.bottom
+                case .center: return UnitPoint.center
                 }
-            } ?? .center
+            }()
             modifiedView = modifiedView.onAppear {
                 if let reader = modifiedView as? any ScrollViewReaderRepresentable {
                     withAnimation {

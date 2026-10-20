@@ -54,6 +54,28 @@
 
 import SwiftUI
 
+extension TabView {
+    /// TabView's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// Not every style exists on every platform; the renderer applies none for a missing one.
+        enum Style: String, Sendable, CaseIterable {
+            case automatic, tabBarOnly, sidebarAdaptable, page, verticalPage, grouped
+        }
+
+        /// The initially selected tab, 0-based. An Int and nothing else.
+        var selection = 0
+        var style: Style?
+        /// Fires when the user changes the selected tab.
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            selection = properties["selection"] as? Int ?? 0
+            style = (properties["style"] as? String).flatMap(Style.init(rawValue:))
+            actionID = properties["actionID"] as? String
+        }
+    }
+}
+
 struct TabView: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -92,6 +114,7 @@ struct TabView: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
         
         // Get initial selection value
@@ -100,7 +123,7 @@ struct TabView: ActionUIViewConstruction {
         // Create selection binding
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["actionID"] as? String
+        let valueChangeActionID = props.actionID
         let selectionBinding = mainActorBinding(
             get: { model.value as? Int ?? initialSelection },
             set: { newValue in
@@ -212,42 +235,43 @@ struct TabView: ActionUIViewConstruction {
     
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, element, windowUUID, properties, logger in
         var modifiedView = view
+        let props = Props(properties)
 
-        if let style = properties["style"] as? String {
-            switch style {
-            case "tabBarOnly":
-                if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
-                    modifiedView = modifiedView.tabViewStyle(.tabBarOnly)
-                }
-            case "sidebarAdaptable":
-                if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
-                    modifiedView = modifiedView.tabViewStyle(.sidebarAdaptable)
-                }
-            case "page":
-                #if !os(macOS)
-                modifiedView = modifiedView.tabViewStyle(.page)
-                #else
-                logger.log("TabView style 'page' is not available on macOS; ignoring", .warning)
-                #endif
-            case "verticalPage":
-                #if os(watchOS)
-                modifiedView = modifiedView.tabViewStyle(.verticalPage)
-                #else
-                logger.log("TabView style 'verticalPage' is only available on watchOS; ignoring", .warning)
-                #endif
-            case "grouped":
-                #if os(macOS)
-                if #available(macOS 15.0, *) {
-                    modifiedView = modifiedView.tabViewStyle(.grouped)
-                } else {
-                    logger.log("TabView style 'grouped' requires macOS 15.0+; ignoring", .warning)
-                }
-                #else
-                logger.log("TabView style 'grouped' is only available on macOS; ignoring", .warning)
-                #endif
-            default: // "automatic"
-                modifiedView = modifiedView.tabViewStyle(.automatic)
+        switch props.style {
+        case .tabBarOnly:
+            if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
+                modifiedView = modifiedView.tabViewStyle(.tabBarOnly)
             }
+        case .sidebarAdaptable:
+            if #available(iOS 18.0, macOS 15.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
+                modifiedView = modifiedView.tabViewStyle(.sidebarAdaptable)
+            }
+        case .page:
+            #if !os(macOS)
+            modifiedView = modifiedView.tabViewStyle(.page)
+            #else
+            logger.log("TabView style 'page' is not available on macOS; ignoring", .warning)
+            #endif
+        case .verticalPage:
+            #if os(watchOS)
+            modifiedView = modifiedView.tabViewStyle(.verticalPage)
+            #else
+            logger.log("TabView style 'verticalPage' is only available on watchOS; ignoring", .warning)
+            #endif
+        case .grouped:
+            #if os(macOS)
+            if #available(macOS 15.0, *) {
+                modifiedView = modifiedView.tabViewStyle(.grouped)
+            } else {
+                logger.log("TabView style 'grouped' requires macOS 15.0+; ignoring", .warning)
+            }
+            #else
+            logger.log("TabView style 'grouped' is only available on macOS; ignoring", .warning)
+            #endif
+        case .automatic:
+            modifiedView = modifiedView.tabViewStyle(.automatic)
+        case nil:
+            break
         }
 
         return modifiedView
@@ -257,7 +281,7 @@ struct TabView: ActionUIViewConstruction {
         if let initialValue = model.value as? Int {
             return initialValue
         }
-        return model.validatedProperties["selection"] as? Int ?? 0
+        return Props(model.validatedProperties).selection
     }
 }
 

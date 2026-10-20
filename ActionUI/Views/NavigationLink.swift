@@ -34,6 +34,20 @@
 
 import SwiftUI
 
+extension NavigationLink {
+    /// NavigationLink's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var title = "Link"
+        /// Names the destination in the enclosing navigation container; an Int and nothing else.
+        var destinationViewId: Int?
+
+        init(_ properties: [String: Any]) {
+            title = properties["title"] as? String ?? "Link"
+            destinationViewId = properties["destinationViewId"] as? Int
+        }
+    }
+}
+
 struct NavigationLink: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -59,7 +73,8 @@ struct NavigationLink: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
 
-        let title = properties["title"] as? String ?? "Link"
+        let props = Props(properties)
+        let title = props.title
 
         // Form 1: destination view is provided inline with NavigationLink
         if let destination = element.subviews?["destination"] as? any ActionUIElementBase {
@@ -91,7 +106,7 @@ struct NavigationLink: ActionUIViewConstruction {
         if let initialValue = model.value as? Int {
             return initialValue
         }
-        let initialValue = model.validatedProperties["destinationViewId"] as? Int
+        let initialValue = Props(model.validatedProperties).destinationViewId
         return initialValue
     }
 }

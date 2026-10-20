@@ -37,6 +37,21 @@
 
 import SwiftUI
 
+extension ToolbarItemGroup {
+    /// ToolbarItemGroup's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The same thirteen names as ToolbarItem.
+        typealias Placement = ToolbarItem.Props.Placement
+
+        /// A name that is not one of the thirteen, or no string, is automatic.
+        var placement = Placement.automatic
+
+        init(_ properties: [String: Any]) {
+            placement = (properties["placement"] as? String).flatMap(Placement.init(rawValue:)) ?? .automatic
+        }
+    }
+}
+
 struct ToolbarItemGroup: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
