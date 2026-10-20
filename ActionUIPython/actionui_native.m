@@ -15,6 +15,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #import <ActionUICAdapter/ActionUICAdapter-Swift.h>
 #import <ActionUIAppKitApplication/ActionUIAppKitApplication-Swift.h>
@@ -302,6 +303,11 @@ static PyObject* py_app_set_icon(PyObject* self, PyObject* args) {
 static bool s_app_running = false;
 
 static PyObject* py_app_run(PyObject* self, PyObject* args) {
+    /* AppKit runs only on the main thread; from another thread the run would stop the process. */
+    if (pthread_main_np() == 0) {
+        PyErr_SetString(PyExc_RuntimeError, "app_run must be called on the main thread");
+        return NULL;
+    }
     /* A second app_run from inside a callback would start a nested run loop there, and the
      * rest of the callback would never run. */
     if (s_app_running) {

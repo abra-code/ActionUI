@@ -10,6 +10,7 @@ Run with: python3 test_native_api.py
 
 import _actionui
 import json
+import threading
 import uuid
 
 
@@ -75,6 +76,24 @@ def test_app_calls():
     _actionui.app_set_window_will_close(None)
     _actionui.app_set_window_will_present(None)
     print("  app_calls: OK")
+
+
+def test_app_run_off_the_main_thread():
+    # AppKit runs only on the main thread: from another thread app_run refuses at once.
+    errors = []
+
+    def run():
+        try:
+            _actionui.app_run()
+        except RuntimeError as e:
+            errors.append(str(e))
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join(10)
+    assert not thread.is_alive(), "app_run on another thread did not return"
+    assert errors and "main thread" in errors[0], errors
+    print("  app_run_off_the_main_thread: OK")
 
 
 def test_type_specific_setters_and_getters(uuid_str):
@@ -254,6 +273,7 @@ def main():
     test_error_lifecycle()
     test_action_handler_lifecycle()
     test_app_calls()
+    test_app_run_off_the_main_thread()
 
     test_uuid = str(uuid.uuid4())
 

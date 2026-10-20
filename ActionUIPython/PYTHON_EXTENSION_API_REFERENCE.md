@@ -429,7 +429,7 @@ def _(window: Window): ...
 #### App control
 
 ```python
-app.run()          # start NSApplication run loop; blocks and never returns; raises RuntimeError if already running
+app.run()          # start NSApplication run loop; blocks and never returns; raises RuntimeError if already running or off the main thread
 app.terminate()    # request graceful termination (async, any thread)
 ```
 

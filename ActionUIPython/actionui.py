@@ -375,6 +375,7 @@ class Application:
 
         Raises RuntimeError when the run loop is already running (called from a
         callback): a second loop would start inside that callback.
+        Raises RuntimeError when called on a thread other than the main thread.
 
         This must be the last call in the script.  All setup (action handlers,
         lifecycle callbacks, initial window creation via ``did_finish_launching``)
