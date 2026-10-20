@@ -52,8 +52,16 @@ final class ViewModelExtras {
 // only the engine constructs view models.
 @MainActor
 public class ViewModel: ObservableObject {
-    @Published public var value: Any?
-    @Published public var states: [String: Any]
+    @Published public var value: Any? {
+        didSet { valueObservers?.notify(value) }
+    }
+    @Published public var states: [String: Any] {
+        didSet { statesObservers?.notify(states) }
+    }
+    // The handlers of observeValue and observeStates (ViewModel+Observers.swift), created by the
+    // first registration: most view models are never observed this way.
+    var valueObservers: ObserverList<Any?>?
+    var statesObservers: ObserverList<[String: Any]>?
     // The element's current properties: its JSON properties plus every change made through
     // ActionUIModel.setElementProperty. Renderers, getElementProperty and the element's
     // initialValue read this. Non-published: setElementProperty sends objectWillChange itself.

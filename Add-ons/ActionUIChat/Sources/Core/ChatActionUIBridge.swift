@@ -20,10 +20,10 @@ struct ChatLoggerAdapter: ChatLogger {
 
 extension ViewModel: ChatContentSource {
     public func observeChatContent(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
-        $states.sink { handler($0["content"]) }
+        statesPublisher.sink { handler($0["content"]) }
     }
     public func observeChatConfig(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
-        $states.sink { handler($0["config"]) }
+        statesPublisher.sink { handler($0["config"]) }
     }
     /// states["append"]: ONE ChatItem, added to the end of the live transcript.
     ///
@@ -35,7 +35,7 @@ extension ViewModel: ChatContentSource {
     /// Like states["content"], it does NOT come back as a finalized entry: the host is telling the
     /// element about an item it already has, so a host that also persists would write it twice.
     public func observeChatAppend(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
-        $states.sink { handler($0["append"]) }
+        statesPublisher.sink { handler($0["append"]) }
     }
     /// states["lead"]: ChatItems - one JSON per line - held until the user sends, then placed in
     /// front of that message.
@@ -49,13 +49,13 @@ extension ViewModel: ChatContentSource {
     /// The value is the whole waiting list; an empty value withdraws it. Like states["content"]
     /// and states["append"], it does NOT come back as a finalized entry.
     public func observeChatLead(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
-        $states.sink { handler($0["lead"]) }
+        statesPublisher.sink { handler($0["lead"]) }
     }
     /// states["search"]: a query String for the transcript find. A non-empty value runs the search,
     /// highlights the hits and presents the bar with the term (when the "showFindBar" property is on); ""
     /// dismisses. The component ignores a value equal to the last one it applied, because this sink
     /// fires on EVERY states change and a reader who closed the bar must not see it spring back.
     public func observeChatSearch(_ handler: @escaping (Any?) -> Void) -> AnyCancellable {
-        $states.sink { handler($0["search"]) }
+        statesPublisher.sink { handler($0["search"]) }
     }
 }

@@ -50,7 +50,7 @@ struct RichTextElementView: View {
         .onAppear {
             applySearch(model.states["search"])
         }
-        .onReceive(model.$states.dropFirst()) { states in
+        .onReceive(model.statesPublisher.dropFirst()) { states in
             applySearch(states["search"])
         }
     }
