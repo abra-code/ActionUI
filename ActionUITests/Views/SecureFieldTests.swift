@@ -3,7 +3,7 @@
  SecureFieldTests.swift
 
  Tests for the SecureField component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding, including prompt defaults and restricted textContentType values.
+ Verifies JSON decoding, Props reading, view construction, and state binding, including prompt defaults and restricted textContentType values.
 */
 
 import XCTest
@@ -32,40 +32,40 @@ final class SecureFieldTests: XCTestCase {
         try await super.tearDown()
     }
         
-    func testSecureFieldValidatePropertiesValid() {
+    func testSecureFieldPropsValid() {
         let properties: [String: Any] = [
             "prompt": "Enter password",
             "textContentType": "password",
             "actionID": "secure.submit"
         ]
 
-        let validated = SecureField.validateProperties(properties, logger)
+        let props = SecureField.Props(properties)
 
-        XCTAssertEqual(validated["prompt"] as? String, "Enter password", "Prompt should be valid")
-        XCTAssertEqual(validated["textContentType"] as? String, "password", "textContentType should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "secure.submit", "actionID should be valid")
+        XCTAssertEqual(props.prompt, "Enter password", "Prompt should be valid")
+        XCTAssertEqual(props.textContentType, .password, "textContentType should be valid")
+        XCTAssertEqual(props.actionID, "secure.submit", "actionID should be valid")
     }
     
-    func testSecureFieldValidatePropertiesInvalid() {
+    func testSecureFieldPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "prompt": 123,
             "textContentType": "username"
         ]
 
-        let validated = SecureField.validateProperties(properties, logger)
+        let props = SecureField.Props(properties)
 
-        XCTAssertNil(validated["prompt"], "Invalid prompt should be nil")
-        XCTAssertNil(validated["textContentType"], "Invalid textContentType should be nil")
+        XCTAssertNil(props.prompt, "Invalid prompt should be ignored")
+        XCTAssertNil(props.textContentType, "Invalid textContentType should be ignored")
     }
     
-    func testSecureFieldValidatePropertiesMissing() {
+    func testSecureFieldPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = SecureField.validateProperties(properties, logger)
+        let props = SecureField.Props(properties)
         
-        XCTAssertNil(validated["prompt"], "Missing prompt should be nil")
-        XCTAssertNil(validated["textContentType"], "Missing textContentType should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertNil(props.prompt, "Missing prompt should be nil")
+        XCTAssertNil(props.textContentType, "Missing textContentType should be nil")
+        XCTAssertNil(props.actionID, "Missing actionID should be nil")
     }
     
     func testSecureFieldConstruction() throws {
@@ -81,9 +81,9 @@ final class SecureFieldTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = SecureField.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -133,12 +133,12 @@ final class SecureFieldTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be empty string")
     }
 
-    func testSecureFieldTextPropertyValidation() {
-        let valid = SecureField.validateProperties(["text": "secret"], logger)
-        XCTAssertEqual(valid["text"] as? String, "secret", "Valid text should be preserved")
+    func testSecureFieldPropsText() {
+        let valid = SecureField.Props(["text": "secret"])
+        XCTAssertEqual(valid.text, "secret", "Valid text should be preserved")
 
-        let invalid = SecureField.validateProperties(["text": 123], logger)
-        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+        let invalid = SecureField.Props(["text": 123])
+        XCTAssertEqual(invalid.text, "", "Non-String text should be ignored")
     }
 
     func testSecureFieldInitialValueFromTextProperty() {

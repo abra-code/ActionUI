@@ -3,7 +3,7 @@
  LazyVGridTests.swift
 
  Tests for the LazyVGrid component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 */
 
 import XCTest
@@ -67,12 +67,12 @@ final class LazyVGridTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.properties
+        let storedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        properties: validatedProperties
+                        properties: storedProperties
                     )
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
@@ -174,24 +174,25 @@ final class LazyVGridTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.properties
+        let storedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        properties: validatedProperties
+                        properties: storedProperties
                     )
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertEqual(children.count, 2, "LazyVGrid should have 2 children")
-        XCTAssertNil(validatedProperties["columns"], "Columns should be nil")
-        XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
-        XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
+        let props = LazyVGrid.Props(storedProperties)
+        XCTAssertEqual(props.columns, [.flexible], "Columns should be the default")
+        XCTAssertEqual(props.spacing, 0.0, "Spacing should be the default")
+        XCTAssertEqual(props.alignment, .center, "Alignment should be the default")
         XCTAssertTrue(view is SwiftUI.LazyVGrid<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyVGrid with default columns")
     }
     
-    func testLazyVGridValidatePropertiesColumnsPartial() {
+    func testLazyVGridPropsColumnsPartial() {
         let properties: [String: Any] = [
             "columns": [
                 ["minimum": 100.0],
@@ -201,27 +202,14 @@ final class LazyVGridTests: XCTestCase {
             "offset": ["x": 15.0]
         ]
         
-        let validated = LazyVGrid.validateProperties(properties, logger)
+        let props = LazyVGrid.Props(properties)
         
-        if let columns = validated["columns"] as? [[String: Any]] {
-            XCTAssertEqual(columns.count, 2, "columns should have 2 valid entries")
-            XCTAssertEqual(columns[0].cgFloat(forKey: "minimum"), 100.0, "columns[0].minimum should be valid")
-            XCTAssertNil(columns[0]["flexible"], "columns[0].flexible should be nil")
-            XCTAssertEqual(columns[1]["flexible"] as? Bool, true, "columns[1].flexible should be valid")
-            XCTAssertNil(columns[1]["minimum"], "columns[1].minimum should be nil")
-        } else {
-            XCTFail("columns should be valid array of dictionaries")
-        }
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid")
-            XCTAssertNil(offset["y"], "offset.y should be nil")
-        } else {
-            XCTFail("offset should be valid dictionary")
-        }
+        XCTAssertEqual(props.columns, [.fixed(100.0), .flexible], "columns should have 2 valid entries")
+        XCTAssertEqual(props.spacing, 10.0, "Spacing should be valid")
+        XCTAssertEqual(BaseModifiers(properties).offset, BaseModifiers.Offset(x: 15.0, y: 0.0), "offset.x should be valid and offset.y the default")
     }
     
-    func testLazyVGridValidatePropertiesColumnsInvalid() {
+    func testLazyVGridPropsColumnsInvalid() {
         let properties: [String: Any] = [
             "columns": [
                 ["minimum": "100"],
@@ -231,15 +219,10 @@ final class LazyVGridTests: XCTestCase {
             "offset": ["x": 15.0, "y": -5.0]
         ]
         
-        let validated = LazyVGrid.validateProperties(properties, logger)
+        let props = LazyVGrid.Props(properties)
         
-        XCTAssertNil(validated["columns"], "Invalid columns should be nil")
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid")
-            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be valid")
-        } else {
-            XCTFail("offset should be valid dictionary")
-        }
+        XCTAssertEqual(props.columns, [.flexible], "Invalid columns should be ignored")
+        XCTAssertEqual(props.spacing, 10.0, "Spacing should be valid")
+        XCTAssertEqual(BaseModifiers(properties).offset, BaseModifiers.Offset(x: 15.0, y: -5.0), "offset should be valid")
     }
 }

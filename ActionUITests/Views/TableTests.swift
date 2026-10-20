@@ -62,30 +62,27 @@ final class TableTests: XCTestCase {
             return
         }
 
-        let validatedProperties = Table.validateProperties(element.properties, logger)
+        let properties = element.properties
 
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
 
         // columnTypes should be auto-populated with Text defaults for each column
-        if let columnTypes = validatedProperties["columnTypes"] as? [[String: Any]] {
-            XCTAssertEqual(columnTypes.count, 2, "columnTypes should have 2 entries")
-            XCTAssertEqual(columnTypes[0]["viewType"] as? String, "Text", "Default viewType should be Text")
-            XCTAssertEqual(columnTypes[1]["viewType"] as? String, "Text", "Default viewType should be Text")
-        } else {
-            XCTFail("columnTypes should be a valid array")
-        }
+        let props = Table.Props(properties)
+        XCTAssertEqual(props.columnTypes.count, 2, "columnTypes should have 2 entries")
+        XCTAssertEqual(props.columnTypes[0].viewType, .text, "Default viewType should be Text")
+        XCTAssertEqual(props.columnTypes[1].viewType, .text, "Default viewType should be Text")
         XCTAssertEqual((element.properties["columns"] as? [String])?.count, 2, "Columns should have 2 elements")
         XCTAssertEqual((element.properties["widths"] as? [Int])?.count, 2, "Widths should have 2 elements")
-        XCTAssertEqual(validatedProperties["minWidths"] as? [Int], [60, 40], "minWidths should be preserved")
+        XCTAssertEqual(props.minWidths, [60, 40], "minWidths should be preserved")
         XCTAssertEqual(element.properties["actionID"] as? String, "table.action", "ActionID should be table.action")
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "Padding should be 10.0")
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
         #endif
     }
     
-    func testTableValidatePropertiesInvalid() {
+    func testTablePropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "columnTypes": [
                 ["viewType": "Invalid", "dataInterpretation": "invalid", "actionContext": "invalid"]
@@ -96,46 +93,38 @@ final class TableTests: XCTestCase {
             "doubleClickActionID": 789
         ]
 
-        let validated = Table.validateProperties(properties, logger)
+        let props = Table.Props(properties)
 
-        if let columnTypes = validated["columnTypes"] as? [[String: Any]] {
-            XCTAssertEqual(columnTypes.count, 1, "columnTypes should have 1 entry")
-            XCTAssertEqual(columnTypes[0]["viewType"] as? String, "Text", "Invalid viewType should default to Text")
-        } else {
-            XCTFail("columnTypes should be valid array")
-        }
-        XCTAssertEqual(validated["columns"] as? [String], [], "Invalid columns should default to []")
-        XCTAssertNil(validated["widths"], "Invalid widths should be nil")
-        XCTAssertNil(validated["minWidths"], "Invalid minWidths should be nil")
-        XCTAssertNil(validated["doubleClickActionID"], "Invalid doubleClickActionID should be nil")
+        XCTAssertEqual(props.columnTypes.count, 1, "columnTypes should have 1 entry")
+        XCTAssertEqual(props.columnTypes.first?.viewType, .text, "Invalid viewType should default to Text")
+        XCTAssertEqual(props.columns, [], "Invalid columns should default to []")
+        XCTAssertNil(props.widths, "Invalid widths should be ignored")
+        XCTAssertNil(props.minWidths, "Invalid minWidths should be ignored")
+        XCTAssertNil(props.doubleClickActionID, "Invalid doubleClickActionID should be ignored")
     }
 
-    func testTableValidatePropertiesMinWidths() {
+    func testTablePropsMinWidths() {
         let properties: [String: Any] = [
             "columns": ["Name", "Action", "Icon"],
             "widths": [100, 80, 40],
             "minWidths": [80, 60, 30]
         ]
 
-        let validated = Table.validateProperties(properties, logger)
+        let props = Table.Props(properties)
 
-        XCTAssertEqual(validated["minWidths"] as? [Int], [80, 60, 30], "Valid minWidths should be preserved")
+        XCTAssertEqual(props.minWidths, [80, 60, 30], "Valid minWidths should be preserved")
     }
 
-    func testTableValidatePropertiesMissing() {
+    func testTablePropsMissing() {
         let properties: [String: Any] = [:]
 
-        let validated = Table.validateProperties(properties, logger)
+        let props = Table.Props(properties)
 
-        if let columnTypes = validated["columnTypes"] as? [[String: Any]] {
-            XCTAssertEqual(columnTypes.count, 0, "Missing columnTypes with no columns should be empty")
-        } else {
-            XCTFail("columnTypes should be valid array")
-        }
-        XCTAssertEqual(validated["columns"] as? [String], [], "Missing columns should default to []")
-        XCTAssertNil(validated["widths"], "Missing widths should be nil")
-        XCTAssertNil(validated["minWidths"], "Missing minWidths should be nil")
-        XCTAssertNil(validated["doubleClickActionID"], "Missing doubleClickActionID should be nil")
+        XCTAssertEqual(props.columnTypes.count, 0, "Missing columnTypes with no columns should be empty")
+        XCTAssertEqual(props.columns, [], "Missing columns should default to []")
+        XCTAssertNil(props.widths, "Missing widths should be nil")
+        XCTAssertNil(props.minWidths, "Missing minWidths should be nil")
+        XCTAssertNil(props.doubleClickActionID, "Missing doubleClickActionID should be nil")
     }
 
     // MARK: - Row management tests (macOS only, Table is macOS-only)

@@ -3,7 +3,7 @@
  ZStackTests.swift
 
  Tests for the ZStack component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
  Tests common SwiftUI.View properties (e.g., offset, frame) via ActionUIRegistry.
 */
 
@@ -62,9 +62,9 @@ final class ZStackTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ZStack.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -141,28 +141,28 @@ final class ZStackTests: XCTestCase {
         XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testZStackValidatePropertiesValid() {
+    func testZStackPropsValid() {
         let properties: [String: Any] = ["alignment": "center"]
         
-        let validated = ZStack.validateProperties(properties, logger)
+        let props = ZStack.Props(properties)
         
-        XCTAssertEqual(validated["alignment"] as? String, "center", "Alignment should be valid")
+        XCTAssertEqual(props.alignment, .center, "Alignment should be valid")
     }
     
-    func testZStackValidatePropertiesInvalid() {
+    func testZStackPropsIgnoreInvalidValues() {
         let properties: [String: Any] = ["alignment": "invalid"]
         
-        let validated = ZStack.validateProperties(properties, logger)
+        let props = ZStack.Props(properties)
         
-        XCTAssertNil(validated["alignment"], "Invalid alignment should be nil")
+        XCTAssertEqual(props.alignment, .center, "Invalid alignment should be ignored")
     }
     
-    func testZStackValidatePropertiesMissing() {
+    func testZStackPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = ZStack.validateProperties(properties, logger)
+        let props = ZStack.Props(properties)
         
-        XCTAssertNil(validated["alignment"], "Missing alignment should be nil")
+        XCTAssertEqual(props.alignment, .center, "Missing alignment should be the default")
     }
     
     func testZStackWithCommonProperties() throws {
@@ -197,9 +197,9 @@ final class ZStackTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ZStack.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -209,7 +209,7 @@ final class ZStackTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "ZStack should have 2 children")
-        XCTAssertEqual(validatedProperties["alignment"] as? String, "topLeading", "Alignment should be topLeading")
+        XCTAssertEqual(ZStack.Props(properties).alignment, .topLeading, "Alignment should be topLeading")
         if let offset = element.properties["offset"] as? [String: Any] {
             XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be 15.0")
             XCTAssertEqual(offset.cgFloat(forKey: "y"), 20.0, "offset.y should be 20.0")

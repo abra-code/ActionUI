@@ -2,7 +2,7 @@
  StepperTests.swift
 
  Tests for the Stepper component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -86,7 +86,7 @@ final class StepperTests: XCTestCase {
         XCTAssertEqual(element.properties.double(forKey: "step"), 1.0)
     }
 
-    func testStepperValidatePropertiesValid() {
+    func testStepperPropsValid() {
         let properties: [String: Any] = [
             "value": 5.0,
             "range": ["min": 0.0, "max": 10.0],
@@ -95,14 +95,14 @@ final class StepperTests: XCTestCase {
             "labelFormat": "Count: %.0f"
         ]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertEqual(validated.double(forKey: "value"), 5.0)
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), 0.0)
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 10.0)
-        XCTAssertEqual(validated.double(forKey: "step"), 1.0)
-        XCTAssertEqual(validated["label"] as? String, "Count")
-        XCTAssertEqual(validated["labelFormat"] as? String, "Count: %.0f")
+        XCTAssertEqual(props.initialValue, 5.0)
+        XCTAssertEqual(props.range?.lowerBound, 0.0)
+        XCTAssertEqual(props.range?.upperBound, 10.0)
+        XCTAssertEqual(props.step, 1.0)
+        XCTAssertEqual(props.label, "Count")
+        XCTAssertEqual(props.labelFormat, "Count: %.0f")
     }
 
     func testStepperLabelFormatInvalidType() {
@@ -110,9 +110,9 @@ final class StepperTests: XCTestCase {
             "labelFormat": 42
         ]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertNil(validated["labelFormat"], "Non-string labelFormat should be discarded")
+        XCTAssertNil(props.labelFormat, "Non-string labelFormat should be ignored")
     }
 
     func testStepperLabelFormatRendering() throws {
@@ -140,54 +140,54 @@ final class StepperTests: XCTestCase {
         XCTAssertEqual(viewModel.properties["labelFormat"] as? String, "Quantity: %.0f")
     }
 
-    func testStepperValidatePropertiesDefaults() {
+    func testStepperPropsDefaults() {
         let properties: [String: Any] = [:]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertEqual(validated.double(forKey: "value"), 0.0, "Missing value should default to 0.0")
-        XCTAssertNil(validated["range"], "Missing range should be nil")
-        XCTAssertEqual(validated.double(forKey: "step"), 1.0, "Missing step should default to 1.0")
+        XCTAssertEqual(props.initialValue, 0.0, "Missing value should default to 0.0")
+        XCTAssertNil(props.range, "Missing range should be nil")
+        XCTAssertEqual(props.step, 1.0, "Missing step should default to 1.0")
     }
 
-    func testStepperValidatePropertiesInvalidValue() {
+    func testStepperPropsInvalidValue() {
         let properties: [String: Any] = [
             "value": "bad"
         ]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertEqual(validated.double(forKey: "value"), 0.0, "Invalid value should default to 0.0")
+        XCTAssertEqual(props.initialValue, 0.0, "Invalid value should default to 0.0")
     }
 
-    func testStepperValidatePropertiesInvalidRange() {
+    func testStepperPropsInvalidRange() {
         let properties: [String: Any] = [
             "range": ["min": 10.0, "max": 0.0]  // min > max
         ]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertNil(validated["range"], "Invalid range (min > max) should be discarded")
+        XCTAssertNil(props.range, "Invalid range (min > max) should be ignored")
     }
 
-    func testStepperValidatePropertiesInvalidStep() {
+    func testStepperPropsInvalidStep() {
         let properties: [String: Any] = [
             "step": -1.0
         ]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertEqual(validated.double(forKey: "step"), 1.0, "Negative step should default to 1.0")
+        XCTAssertEqual(props.step, 1.0, "Negative step should default to 1.0")
     }
 
-    func testStepperValidatePropertiesInvalidLabel() {
+    func testStepperPropsInvalidLabel() {
         let properties: [String: Any] = [
             "label": 42
         ]
 
-        let validated = Stepper.validateProperties(properties, logger)
+        let props = Stepper.Props(properties)
 
-        XCTAssertNil(validated["label"], "Non-string label should be discarded")
+        XCTAssertEqual(props.label, "", "Non-string label should be ignored")
     }
 
     func testStepperViewConstructionAndBinding() throws {

@@ -25,7 +25,7 @@ final class DatePickerTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testValidatePropertiesValid() throws {
+    func testDatePickerPropsValid() throws {
         let properties: [String: Any] = [
             "title": "Select Date",
             "displayStyle": "compact",
@@ -33,26 +33,20 @@ final class DatePickerTests: XCTestCase {
             "selectedDate": "2024-07-16T00:00:00Z"
         ]
         
-        let validated = DatePicker.validateProperties(properties, logger)
+        let props = DatePicker.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Select Date", "title should be valid String")
-        XCTAssertEqual(validated["displayStyle"] as? String, "compact", "displayStyle should be valid String")
-        if let range = validated["range"] as? [String: String] {
-            XCTAssertNotNil(range["start"], "range.start should be valid Date string")
-            XCTAssertNotNil(range["end"], "range.end should be valid Date string")
-            XCTAssertEqual(range["start"], "2023-01-01T00:00:00Z", "range.start should match")
-            XCTAssertEqual(range["end"], "2025-12-31T00:00:00Z", "range.end should match")
+        XCTAssertEqual(props.title, "Select Date", "title should be valid String")
+        XCTAssertEqual(props.displayStyle, .compact, "displayStyle should be valid String")
+        if let range = props.range {
+            XCTAssertEqual(range.start, "2023-01-01T00:00:00Z", "range.start should match")
+            XCTAssertEqual(range.end, "2025-12-31T00:00:00Z", "range.end should match")
         } else {
             XCTFail("range should be valid [String: String]")
         }
-        if let selectedDate = validated["selectedDate"] as? String {
-            XCTAssertEqual(selectedDate, "2024-07-16T00:00:00Z", "selectedDate should be valid Date")
-        } else {
-            XCTFail("selectedDate should be valid Date")
-        }
+        XCTAssertEqual(props.selectedDate, "2024-07-16T00:00:00Z", "selectedDate should be valid Date")
     }
     
-    func testValidatePropertiesInvalid() throws {
+    func testDatePickerPropsIgnoreInvalidValues() throws {
         let properties: [String: Any] = [
             "title": 123,
             "displayStyle": "invalid",
@@ -60,38 +54,39 @@ final class DatePickerTests: XCTestCase {
             "selectedDate": true
         ]
         
-        let validated = DatePicker.validateProperties(properties, logger)
+        let props = DatePicker.Props(properties)
         
-        XCTAssertNil(validated["title"], "title should be nil for invalid type")
-        XCTAssertNil(validated["displayStyle"], "displayStyle should be nil for invalid value")
-        // validateProperties is lightweight, it does not check if the string is a valid date
-        XCTAssertNil(validated["selectedDate"], "selectedDate should be nil for invalid type")
+        XCTAssertEqual(props.title, "Date", "title should be the default for invalid type")
+        XCTAssertNil(props.displayStyle, "displayStyle should be nil for invalid value")
+        // Props is lightweight, it does not check if the string is a valid date
+        XCTAssertEqual(props.selectedDate, "", "selectedDate should be the default for invalid type")
     }
     
-    func testValidatePropertiesMissing() throws {
+    func testDatePickerPropsMissing() throws {
         let properties: [String: Any] = [:]
         
-        let validated = DatePicker.validateProperties(properties, logger)
+        let props = DatePicker.Props(properties)
         
-        XCTAssertTrue(validated.isEmpty, "Validated properties should be empty when no properties provided")
+        XCTAssertEqual(props.title, "Date", "title should be the default when no properties provided")
+        XCTAssertNil(props.displayStyle)
+        XCTAssertNil(props.displayedComponents)
+        XCTAssertNil(props.range)
+        XCTAssertEqual(props.selectedDate, "")
+        XCTAssertNil(props.valueChangeActionID)
     }
     
-    func testValidatePropertiesPartial() throws {
+    func testDatePickerPropsPartial() throws {
         let properties: [String: Any] = [
             "title": "Select Date",
             "selectedDate": "2024-07-16T00:00:00Z"
         ]
         
-        let validated = DatePicker.validateProperties(properties, logger)
+        let props = DatePicker.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Select Date", "title should be valid String")
-        XCTAssertNil(validated["displayStyle"], "displayStyle should be nil when not provided")
-        XCTAssertNil(validated["range"], "range should be nil when not provided")
-        if let selectedDate = validated["selectedDate"] as? String {
-            XCTAssertEqual(selectedDate, "2024-07-16T00:00:00Z", "selectedDate should be valid Date")
-        } else {
-            XCTFail("selectedDate should be valid Date string")
-        }
+        XCTAssertEqual(props.title, "Select Date", "title should be valid String")
+        XCTAssertNil(props.displayStyle, "displayStyle should be nil when not provided")
+        XCTAssertNil(props.range, "range should be nil when not provided")
+        XCTAssertEqual(props.selectedDate, "2024-07-16T00:00:00Z", "selectedDate should be valid Date")
     }
     
     func testBuildViewAndApplyModifiersValidProperties() throws {
@@ -107,10 +102,10 @@ final class DatePickerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = DatePicker.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = DatePicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = DatePicker.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = DatePicker.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = DatePicker.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DatePicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect DatePicker state or modifiers due to SwiftUI's opaque hierarchy
@@ -118,18 +113,19 @@ final class DatePickerTests: XCTestCase {
     
     // MARK: - displayedComponents
 
-    func testValidateDisplayedComponentsValid() throws {
-        for value in ["date", "hourAndMinute", "dateAndTime"] {
-            let validated = DatePicker.validateProperties(["displayedComponents": value], logger)
-            XCTAssertEqual(validated["displayedComponents"] as? String, value, "\(value) should pass through")
+    func testDatePickerPropsDisplayedComponentsValid() throws {
+        let expected: [(String, ActionUI.DatePicker.Props.DisplayedComponents)] = [("date", .date), ("hourAndMinute", .hourAndMinute), ("dateAndTime", .dateAndTime)]
+        for (value, components) in expected {
+            let props = DatePicker.Props(["displayedComponents": value])
+            XCTAssertEqual(props.displayedComponents, components, "\(value) should pass through")
         }
     }
 
-    func testValidateDisplayedComponentsInvalid() throws {
-        let validated = DatePicker.validateProperties(["displayedComponents": "wheel"], logger)
-        XCTAssertNil(validated["displayedComponents"], "unknown displayedComponents should be dropped")
-        let nonString = DatePicker.validateProperties(["displayedComponents": 7], logger)
-        XCTAssertNil(nonString["displayedComponents"], "non-string displayedComponents should be dropped")
+    func testDatePickerPropsDisplayedComponentsInvalid() throws {
+        let props = DatePicker.Props(["displayedComponents": "wheel"])
+        XCTAssertNil(props.displayedComponents, "unknown displayedComponents should be ignored")
+        let nonString = DatePicker.Props(["displayedComponents": 7])
+        XCTAssertNil(nonString.displayedComponents, "non-string displayedComponents should be ignored")
     }
 
     func testDisplayedComponentsMapping() throws {
@@ -304,10 +300,10 @@ final class DatePickerTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = DatePicker.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = DatePicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = DatePicker.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = DatePicker.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = DatePicker.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DatePicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

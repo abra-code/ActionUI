@@ -103,11 +103,11 @@ final class ListTemplateTests: XCTestCase {
 
         viewModel.states["content"] = [["Alpha"], ["Beta"], ["Gamma"]]
 
-        let validatedProps = List.validateProperties(element.properties, logger)
+        let properties = element.properties
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProps
+            properties: properties
         )
         XCTAssertFalse(view is SwiftUI.EmptyView, "Should render a List, not EmptyView")
     }
@@ -125,11 +125,11 @@ final class ListTemplateTests: XCTestCase {
             XCTFail("viewModel not found"); return
         }
 
-        let validatedProps = List.validateProperties(element.properties, logger)
+        let properties = element.properties
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProps
+            properties: properties
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
@@ -184,11 +184,11 @@ final class ListTemplateTests: XCTestCase {
             ["heart.fill", "Liked", "View"]
         ]
 
-        let validatedProps = List.validateProperties(element.properties, logger)
+        let properties = element.properties
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProps
+            properties: properties
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }

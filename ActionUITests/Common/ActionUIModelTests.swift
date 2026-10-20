@@ -95,14 +95,14 @@ final class ActionUIModelTests: XCTestCase {
         }
 
         logger.log("Value for viewID 1: \(String(describing: viewModel.value))", .debug)
-        let validatedProperties = viewModel.properties
-        XCTAssertEqual(validatedProperties.double(forKey: "value"), 0.75, "Property value should be updated")
+        let storedProperties = viewModel.properties
+        XCTAssertEqual(storedProperties.double(forKey: "value"), 0.75, "Property value should be updated")
     }
 
     // actionID is documented as a runtime-settable property. A view's binding fires the actionID from
-    // the validatedProperties SNAPSHOT that buildView received: ActionUIView.body passes
+    // the properties SNAPSHOT that buildView received: ActionUIView.body passes
     // ActionUIRegistry.currentProperties(...) into buildView, and the binding captures it by value.
-    // So setElementProperty updates the LIVE validatedProperties and rings objectWillChange, but an
+    // So setElementProperty updates the LIVE viewModel.properties and rings objectWillChange, but an
     // already-built binding keeps firing the build-time actionID until the view is rebuilt; only the
     // next rebuild's buildView sees the fresh value. This test pins that behavior so it is not changed
     // silently. (Edge case: if a binding fires before the rebuild, the stale actionID is used.)
@@ -137,7 +137,7 @@ final class ActionUIModelTests: XCTestCase {
 
         // The live cache is updated...
         XCTAssertEqual(viewModel.properties["actionID"] as? String, "toggle.B",
-                       "setElementProperty should update the live validatedProperties")
+                       "setElementProperty should update the live properties")
 
         // ...so the next rebuild's buildView receives the fresh actionID.
         let rebuildSnapshot = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
@@ -176,7 +176,7 @@ final class ActionUIModelTests: XCTestCase {
         XCTAssertEqual(buildTimeSnapshot["valueChangeActionID"] as? String, "slider.A",
                        "An already-built binding's captured snapshot stays stale until the view is rebuilt")
         XCTAssertEqual(viewModel.properties["valueChangeActionID"] as? String, "slider.B",
-                       "setElementProperty should update the live validatedProperties")
+                       "setElementProperty should update the live properties")
 
         let rebuildSnapshot = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
         XCTAssertEqual(rebuildSnapshot["valueChangeActionID"] as? String, "slider.B",
@@ -184,7 +184,7 @@ final class ActionUIModelTests: XCTestCase {
     }
 
     // The two snapshot tests above prove the DATA half of the rebuild contract (re-evaluating body
-    // yields the fresh validatedProperties). This test proves the TRIGGER half on our side: ActionUIView
+    // yields the fresh viewModel.properties). This test proves the TRIGGER half on our side: ActionUIView
     // holds the ViewModel as @ObservedObject (ActionUIView.swift), so SwiftUI re-evaluates its body when
     // the ViewModel emits objectWillChange. setElementProperty must emit that signal for the rebuild
     // (and thus the fresh actionID) to happen. (SwiftUI's own "objectWillChange -> body re-eval" step is
@@ -626,7 +626,7 @@ final class ActionUIModelTests: XCTestCase {
 
     func testGetElementColumnCountFromPropertiesWhenNoContent() throws {
         #if os(macOS)
-        // columns is a Table-only property; List does not validate or expose it
+        // columns is a Table-only property; List does not read or expose it
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "Table",
@@ -637,7 +637,7 @@ final class ActionUIModelTests: XCTestCase {
         ]
         _ = try ActionUIModel.shared.loadDescription(from: elementDict, windowUUID: windowUUID)
         XCTAssertEqual(ActionUIModel.shared.getElementColumnCount(windowUUID: windowUUID, viewID: 1), 3,
-                       "Should fall back to column count from validated 'columns' property when no content is loaded")
+                       "Should fall back to column count from the 'columns' property when no content is loaded")
         #endif
     }
 
@@ -667,7 +667,7 @@ final class ActionUIModelTests: XCTestCase {
         let model = ActionUIModel.shared
         _ = try model.loadDescription(from: elementDict, windowUUID: windowUUID)
         let value = model.getElementProperty(windowUUID: windowUUID, viewID: 1, propertyName: "value")
-        XCTAssertEqual(value as? Double, 0.5, "Should return validated property value")
+        XCTAssertEqual(value as? Double, 0.5, "Should return the stored property value")
     }
 
     func testGetElementPropertyNilForMissingProperty() throws {

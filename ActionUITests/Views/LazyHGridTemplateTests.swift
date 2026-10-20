@@ -81,11 +81,11 @@ final class LazyHGridTemplateTests: XCTestCase {
 
         viewModel.states["content"] = [["Alpha"], ["Beta"], ["Gamma"]]
 
-        let validatedProps = LazyHGrid.validateProperties(element.properties, logger)
+        let properties = element.properties
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProps
+            properties: properties
         )
         XCTAssertFalse(view is SwiftUI.EmptyView, "Should render a LazyHGrid, not EmptyView")
     }
@@ -103,11 +103,11 @@ final class LazyHGridTemplateTests: XCTestCase {
             XCTFail("viewModel not found"); return
         }
 
-        let validatedProps = LazyHGrid.validateProperties(element.properties, logger)
+        let properties = element.properties
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProps
+            properties: properties
         )
         // Empty rows: the grid renders with no cells, still a LazyHGrid (not EmptyView)
         XCTAssertFalse(view is SwiftUI.EmptyView)

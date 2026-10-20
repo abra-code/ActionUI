@@ -3,7 +3,7 @@
  VSplitViewTests.swift
 
  Tests for the VSplitView component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 */
 
 import XCTest
@@ -58,9 +58,9 @@ final class VSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = VSplitView.validateProperties(element.properties, logger)
+        let properties = element.properties
 
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
@@ -108,12 +108,6 @@ final class VSplitViewTests: XCTestCase {
         XCTAssertEqual((children[1] as? ActionUIElement)?.type, "Text", "Second child should be Text")
     }
 
-    func testVSplitViewValidatePropertiesEmpty() {
-        let properties: [String: Any] = [:]
-        let validated = VSplitView.validateProperties(properties, logger)
-        XCTAssertTrue(validated.isEmpty, "Empty properties should remain empty")
-    }
-
     func testVSplitViewWithFrameConstraints() throws {
         let jsonString = """
         {
@@ -140,8 +134,8 @@ final class VSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = VSplitView.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
     }
@@ -168,8 +162,8 @@ final class VSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = VSplitView.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView even with no children")
     }

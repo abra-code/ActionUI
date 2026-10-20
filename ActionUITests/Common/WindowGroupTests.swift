@@ -3,7 +3,7 @@
  WindowGroupTests.swift
 
  Tests for the WindowGroup component in the ActionUI component library.
- Verifies JSON decoding, property validation, scene construction, and command handling.
+ Verifies JSON decoding, Props reading, scene construction, and command handling.
  Includes edge cases for invalid commands and exceeding command limits.
 */
 
@@ -181,8 +181,8 @@ final class WindowGroupTests: XCTestCase {
                 XCTFail("Failed to retrieve viewModel for element id: \(elementId)")
                 return
             }
-            if elementId != 4 && elementId != 6 { // Buttons have validated properties
-                XCTAssertFalse(viewModel.properties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
+            if elementId != 4 && elementId != 6 { // Button properties are not empty
+                XCTAssertFalse(viewModel.properties.isEmpty, "View model properties should not be empty for element id: \(elementId)")
             }
         }
         
@@ -370,8 +370,8 @@ final class WindowGroupTests: XCTestCase {
                 XCTFail("Failed to retrieve viewModel for element id: \(elementId)")
                 return
             }
-            if elementId != 5 { // Button has validated properties
-                XCTAssertFalse(viewModel.properties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
+            if elementId != 5 { // Button properties are not empty
+                XCTAssertFalse(viewModel.properties.isEmpty, "View model properties should not be empty for element id: \(elementId)")
             }
         }
 //        XCTAssertNil(windowModel.viewModels[3], "View model for invalid command id 3 should be nil")
@@ -448,7 +448,7 @@ final class WindowGroupTests: XCTestCase {
                 XCTFail("Failed to retrieve viewModel for command id: \(commandId)")
                 return
             }
-            XCTAssertFalse(viewModel.properties.isEmpty, "Command view model validated properties should not be empty")
+            XCTAssertFalse(viewModel.properties.isEmpty, "Command view model properties should not be empty")
         }
 //        XCTAssertNil(windowModel.viewModels[13], "View model for command id 13 (11th command) should be nil")
         
@@ -561,8 +561,8 @@ final class WindowGroupTests: XCTestCase {
                 XCTFail("Failed to retrieve viewModel for element id: \(elementId)")
                 return
             }
-            if elementId != 4 && elementId != 6 { // Buttons have validated properties
-                XCTAssertFalse(viewModel.properties.isEmpty, "View model validated properties should not be empty for element id: \(elementId)")
+            if elementId != 4 && elementId != 6 { // Button properties are not empty
+                XCTAssertFalse(viewModel.properties.isEmpty, "View model properties should not be empty for element id: \(elementId)")
             }
         }
 //        XCTAssertNil(windowModel.viewModels[3], "View model for invalid CommandMenu id 3 should be nil")
@@ -622,7 +622,7 @@ final class WindowGroupTests: XCTestCase {
             XCTFail("Failed to retrieve viewModel for content element id: 2")
             return
         }
-        XCTAssertFalse(contentViewModel.properties.isEmpty, "Content view model validated properties should not be empty")
+        XCTAssertFalse(contentViewModel.properties.isEmpty, "Content view model properties should not be empty")
         
         // Log state for debugging
         logger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)

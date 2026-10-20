@@ -3,7 +3,7 @@
  NavigationLinkTests.swift
 
  Tests for the NavigationLink component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 
  Sample JSON for NavigationLink:
  {
@@ -72,9 +72,9 @@ final class NavigationLinkTests: XCTestCase {
             return
         }
 
-        let validatedProperties = NavigationLink.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -104,7 +104,6 @@ final class NavigationLinkTests: XCTestCase {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
             let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-            let _ = NavigationLink.validateProperties(element.properties, logger)
             let destination = element.subviews?["destination"] as? any ActionUIElementBase
             XCTAssertNil(destination, "Malformed destination should be nil")
         } catch {
@@ -140,7 +139,7 @@ final class NavigationLinkTests: XCTestCase {
         }
 
         XCTAssertEqual(element.properties["title"] as? String, "Go to Detail")
-        XCTAssertEqual(viewModel.properties["destinationViewId"] as? Int, 10, "destinationViewId should be validated as Int")
+        XCTAssertEqual(viewModel.properties["destinationViewId"] as? Int, 10, "destinationViewId should be stored as Int")
         XCTAssertNil(element.subviews?["destination"], "No inline destination should be present")
 
         // initialValue should return the destinationViewId
@@ -167,20 +166,20 @@ final class NavigationLinkTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let storedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: storedProperties)
         XCTAssertNotNil(view, "buildView should succeed for Form 2 NavigationLink with destinationViewId")
     }
 
-    func testNavigationLinkValidatePropertiesTitle() throws {
+    func testNavigationLinkPropsTitle() throws {
         // Valid title
         let validProps: [String: Any] = ["title": "My Link"]
-        let validated = NavigationLink.validateProperties(validProps, logger)
-        XCTAssertEqual(validated["title"] as? String, "My Link", "Valid string title should be preserved")
+        let props = NavigationLink.Props(validProps)
+        XCTAssertEqual(props.title, "My Link", "Valid string title should be preserved")
 
         // Invalid title type
         let invalidProps: [String: Any] = ["title": 123]
-        let validated2 = NavigationLink.validateProperties(invalidProps, logger)
-        XCTAssertNil(validated2["title"], "Non-string title should be nil")
+        let props2 = NavigationLink.Props(invalidProps)
+        XCTAssertEqual(props2.title, "Link", "Non-string title should be ignored")
     }
 }

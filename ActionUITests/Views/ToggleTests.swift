@@ -3,7 +3,7 @@
  ToggleTests.swift
 
  Tests for the Toggle component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, state binding, and platform-specific style application.
+ Verifies JSON decoding, Props reading, view construction, state binding, and platform-specific style application.
 */
 
 import XCTest
@@ -32,63 +32,64 @@ final class ToggleTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testToggleValidatePropertiesValid() {
+    func testTogglePropsValid() {
         let properties: [String: Any] = [
             "title": "Enable Feature",
             "style": "switch",
             "actionID": "toggle.submit"
         ]
         
-        let validated = Toggle.validateProperties(properties, logger)
+        let props = Toggle.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Enable Feature", "Title should be valid")
-        XCTAssertEqual(validated["style"] as? String, "switch", "Style should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "toggle.submit", "actionID should be valid")
+        XCTAssertEqual(props.title, "Enable Feature", "Title should be valid")
+        XCTAssertEqual(props.style, .switch, "Style should be valid")
+        XCTAssertEqual(props.actionID, "toggle.submit", "actionID should be valid")
     }
     
-    func testToggleValidatePropertiesInvalid() {
+    func testTogglePropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "title": 123,
             "style": "invalidStyle"
         ]
         
-        let validated = Toggle.validateProperties(properties, logger)
+        let props = Toggle.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? Int, 123, "Invalid title should remain unchanged for baseline validation")
-        XCTAssertNil(validated["style"], "Invalid style should be nil")
+        XCTAssertEqual(props.title, "Toggle", "Invalid title should be the default")
+        XCTAssertNil(props.style, "Invalid style should be nil")
     }
     
-    func testToggleValidatePropertiesMissing() {
+    func testTogglePropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Toggle.validateProperties(properties, logger)
+        let props = Toggle.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
-        XCTAssertNil(validated["style"], "Missing style should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertEqual(props.title, "Toggle", "Missing title should be the default")
+        XCTAssertNil(props.style, "Missing style should be nil")
+        XCTAssertNil(props.actionID, "Missing actionID should be nil")
     }
     
     #if os(macOS)
-    func testToggleValidatePropertiesMacOSCheckbox() {
+    func testTogglePropsMacOSCheckbox() {
         let properties: [String: Any] = [
             "title": "Enable Feature",
             "style": "checkbox"
         ]
         
-        let validated = Toggle.validateProperties(properties, logger)
+        let props = Toggle.Props(properties)
         
-        XCTAssertEqual(validated["style"] as? String, "checkbox", "Checkbox style should be valid on macOS")
+        XCTAssertEqual(props.style, .checkbox, "Checkbox style should be valid on macOS")
     }
     #else
-    func testToggleValidatePropertiesNonMacOSCheckbox() {
+    func testTogglePropsNonMacOSCheckbox() {
         let properties: [String: Any] = [
             "title": "Enable Feature",
             "style": "checkbox"
         ]
         
-        let validated = Toggle.validateProperties(properties, logger)
+        let props = Toggle.Props(properties)
         
-        XCTAssertNil(validated["style"], "Checkbox style should be invalid on non-macOS platforms")
+        // Read on every platform; the renderer applies no style for it off macOS.
+        XCTAssertEqual(props.style, .checkbox, "checkbox is read on every platform")
     }
     #endif
     
@@ -105,9 +106,9 @@ final class ToggleTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Toggle.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -157,12 +158,12 @@ final class ToggleTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? Bool, false, "Initial viewModel value should be false")
     }
 
-    func testToggleIsOnPropertyValidation() {
-        let valid = Toggle.validateProperties(["isOn": true], logger)
-        XCTAssertEqual(valid["isOn"] as? Bool, true, "Valid isOn should be preserved")
+    func testTogglePropsIsOn() {
+        let valid = Toggle.Props(["isOn": true])
+        XCTAssertEqual(valid.isOn, true, "Valid isOn should be preserved")
 
-        let invalid = Toggle.validateProperties(["isOn": "yes"], logger)
-        XCTAssertNil(invalid["isOn"], "Non-Bool isOn should be removed")
+        let invalid = Toggle.Props(["isOn": "yes"])
+        XCTAssertNil(invalid.isOn, "Non-Bool isOn should be ignored")
     }
 
     func testToggleInitialValueFromIsOnProperty() {

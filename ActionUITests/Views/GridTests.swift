@@ -3,7 +3,7 @@
  GridTests.swift
 
  Tests for the Grid component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 
  Sample JSON for Grid:
  {
@@ -73,9 +73,9 @@ final class GridTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Grid.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -127,7 +127,6 @@ final class GridTests: XCTestCase {
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
                 
         logger.log("Raw rows: \(String(describing: element.subviews?["rows"]))", .debug)
-        let _ = Grid.validateProperties(element.properties, logger)
         guard let rows = element.subviews?["rows"] as? [[any ActionUIElementBase]] else {
             XCTFail("Rows key not found in element.subviews dictionary")
             return
@@ -151,41 +150,41 @@ final class GridTests: XCTestCase {
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
-    func testGridValidatePropertiesValid() {
+    func testGridPropsValid() {
         let properties: [String: Any] = [
             "alignment": "center",
             "horizontalSpacing": 8.0,
             "verticalSpacing": 8.0
         ]
         
-        let validatedProperties = Grid.validateProperties(properties, logger)
-        XCTAssertEqual(validatedProperties["alignment"] as? String, "center", "Alignment should be center")
-        XCTAssertEqual(validatedProperties.cgFloat(forKey: "horizontalSpacing"), 8.0, "Horizontal spacing should be valid")
-        XCTAssertEqual(validatedProperties.cgFloat(forKey: "verticalSpacing"), 8.0, "Vertical spacing should be valid")
+        let props = Grid.Props(properties)
+        XCTAssertEqual(props.alignment, .center, "Alignment should be center")
+        XCTAssertEqual(props.horizontalSpacing, 8.0, "Horizontal spacing should be valid")
+        XCTAssertEqual(props.verticalSpacing, 8.0, "Vertical spacing should be valid")
     }
     
-    func testGridValidatePropertiesInvalid() {
+    func testGridPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "alignment": "invalid",
             "horizontalSpacing": "8",
             "verticalSpacing": "8"
         ]
         
-        let validatedProperties = Grid.validateProperties(properties, logger)
+        let props = Grid.Props(properties)
         
-        XCTAssertNil(validatedProperties["alignment"], "Invalid alignment should be nil")
-        XCTAssertNil(validatedProperties["horizontalSpacing"], "Invalid horizontalSpacing should be nil")
-        XCTAssertNil(validatedProperties["verticalSpacing"], "Invalid verticalSpacing should be nil")
+        XCTAssertEqual(props.alignment, .center, "Invalid alignment should be ignored")
+        XCTAssertNil(props.horizontalSpacing, "Invalid horizontalSpacing should be ignored")
+        XCTAssertNil(props.verticalSpacing, "Invalid verticalSpacing should be ignored")
     }
     
-    func testGridValidatePropertiesMissing() {
+    func testGridPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validatedProperties = Grid.validateProperties(properties, logger)
+        let props = Grid.Props(properties)
         
-        XCTAssertNil(validatedProperties["alignment"], "Missing alignment should be nil")
-        XCTAssertNil(validatedProperties["horizontalSpacing"], "Missing horizontalSpacing should be nil")
-        XCTAssertNil(validatedProperties["verticalSpacing"], "Missing verticalSpacing should be nil")
+        XCTAssertEqual(props.alignment, .center, "Missing alignment should be the default")
+        XCTAssertNil(props.horizontalSpacing, "Missing horizontalSpacing should be nil")
+        XCTAssertNil(props.verticalSpacing, "Missing verticalSpacing should be nil")
     }
     
     func testGridNilSpacing() throws {
@@ -207,14 +206,15 @@ final class GridTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Grid.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
 
-        XCTAssertNil(validatedProperties["horizontalSpacing"], "Horizontal spacing should be nil")
-        XCTAssertNil(validatedProperties["verticalSpacing"], "Missing verticalSpacing should be nil")
+        let props = Grid.Props(properties)
+        XCTAssertNil(props.horizontalSpacing, "Horizontal spacing should be nil")
+        XCTAssertNil(props.verticalSpacing, "Missing verticalSpacing should be nil")
 
         guard let rows = element.subviews?["rows"] as? [[any ActionUIElementBase]] else {
             XCTFail("Rows key not found in element.subviews dictionary")

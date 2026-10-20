@@ -62,18 +62,16 @@ final class NavigationSplitViewTests: XCTestCase {
     }
     
     // ────────────────────────────────────────────────
-    // navigationSplitViewColumnWidth validation
+    // navigationSplitViewColumnWidth parsing
     // ────────────────────────────────────────────────
-    func testValidateNavigationSplitViewColumnWidthValidShorthand() throws {
+    func testNavigationSplitViewColumnWidthValidShorthand() throws {
         let props: [String: Any] = [
             "navigationSplitViewColumnWidth": 380
         ]
-        let validated = NavigationSplitView.validateProperties(props, logger)
-        let value = validated.cgFloat(forKey: "navigationSplitViewColumnWidth") ?? 0.0
-        XCTAssertEqual(value, 380.0, accuracy: 0.0000001)
+        XCTAssertEqual(BaseModifiers(props).columnWidth, .fixed(380.0))
     }
 
-    func testValidateNavigationSplitViewColumnWidthValidRange() throws {
+    func testNavigationSplitViewColumnWidthValidRange() throws {
         let props: [String: Any] = [
             "navigationSplitViewColumnWidth": [
                 "ideal": 400,
@@ -81,58 +79,35 @@ final class NavigationSplitViewTests: XCTestCase {
                 "max": 520
             ]
         ]
-        let validated = NavigationSplitView.validateProperties(props, logger)
-        let dict = validated["navigationSplitViewColumnWidth"] as? [String: Any]
-        XCTAssertNotNil(dict)
-        
-        let idealNum = dict?.cgFloat(forKey:"ideal") ?? 0.0
-        XCTAssertEqual(idealNum, 400.0, accuracy: 0.0000001)
- 
-        let minNum = dict?.cgFloat(forKey:"min") ?? 0.0
-        XCTAssertEqual(minNum, 280.0, accuracy: 0.0000001)
-
-        let maxNum = dict?.cgFloat(forKey:"max") ?? 0.0
-        XCTAssertEqual(maxNum, 520.0, accuracy: 0.0000001)
+        XCTAssertEqual(BaseModifiers(props).columnWidth, .range(min: 280.0, ideal: 400.0, max: 520.0))
     }
 
-    func testValidateNavigationSplitViewColumnWidthMissingIdeal() throws {
+    func testNavigationSplitViewColumnWidthMissingIdeal() throws {
         let props: [String: Any] = [
             "navigationSplitViewColumnWidth": ["min": 300, "max": 500]
         ]
-        let validated = ActionUIRegistry.shared.validateProperties(
-                forElementType: "NavigationSplitView",
-                properties: props)
-        XCTAssertNil(validated["navigationSplitViewColumnWidth"])
+        XCTAssertNil(BaseModifiers(props).columnWidth)
     }
 
-    func testValidateNavigationSplitViewColumnWidthInvalidType() throws {
+    func testNavigationSplitViewColumnWidthInvalidType() throws {
         let props: [String: Any] = [
             "navigationSplitViewColumnWidth": "invalid"
         ]
-        let validated = ActionUIRegistry.shared.validateProperties(
-                forElementType: "NavigationSplitView",
-                properties: props)
-        XCTAssertNil(validated["navigationSplitViewColumnWidth"])
+        XCTAssertNil(BaseModifiers(props).columnWidth)
     }
 
-    func testValidateNavigationSplitViewColumnWidthNegativeValue() throws {
+    func testNavigationSplitViewColumnWidthNegativeValue() throws {
         let props: [String: Any] = [
             "navigationSplitViewColumnWidth": -100
         ]
-        let validated = ActionUIRegistry.shared.validateProperties(
-                forElementType: "NavigationSplitView",
-                properties: props)
-        XCTAssertNil(validated["navigationSplitViewColumnWidth"])
+        XCTAssertNil(BaseModifiers(props).columnWidth)
     }
 
-    func testValidateNavigationSplitViewColumnWidthZeroValue() throws {
+    func testNavigationSplitViewColumnWidthZeroValue() throws {
         let props: [String: Any] = [
             "navigationSplitViewColumnWidth": 0
         ]
-        let validated = ActionUIRegistry.shared.validateProperties(
-                forElementType: "NavigationSplitView",
-                properties: props)
-        XCTAssertNil(validated["navigationSplitViewColumnWidth"])
+        XCTAssertNil(BaseModifiers(props).columnWidth)
     }
     
     // Optional: test construction still succeeds with width constraints
@@ -154,12 +129,10 @@ final class NavigationSplitViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUIRegistry.shared.validateProperties(
-                                                    forElementType: element.type,
-                                                    properties: element.properties)
+        let properties = element.properties
         let viewModel = ViewModel()
 
-        let view = NavigationSplitView.buildView(element, viewModel, windowUUID, validated, logger)
+        let view = NavigationSplitView.buildView(element, viewModel, windowUUID, properties, logger)
         XCTAssertNotNil(view, "View should build successfully")
     }
 
@@ -293,8 +266,8 @@ final class NavigationSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let storedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: storedProperties)
         XCTAssertNotNil(view, "buildView should succeed with destinations")
     }
 
@@ -332,10 +305,10 @@ final class NavigationSplitViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
+        let storedProperties = ActionUIRegistry.shared.currentProperties(element: element, model: viewModel)
 
         // buildView should log warning about non-List sidebar but still succeed
-        let view = NavigationSplitView.buildView(element, viewModel, windowUUID, validatedProperties, consoleLogger)
+        let view = NavigationSplitView.buildView(element, viewModel, windowUUID, storedProperties, consoleLogger)
         XCTAssertNotNil(view, "buildView should succeed even with non-List sidebar")
 
         // Verify sidebar type is VStack (not List)
@@ -343,16 +316,16 @@ final class NavigationSplitViewTests: XCTestCase {
         XCTAssertEqual((sidebar as? ActionUIElement)?.type, "VStack", "Sidebar should be VStack")
     }
 
-    func testNavigationSplitViewValidateColumnVisibilityInvalid() throws {
+    func testNavigationSplitViewPropsColumnVisibilityInvalid() throws {
         let properties: [String: Any] = ["columnVisibility": "invalid"]
-        let validated = NavigationSplitView.validateProperties(properties, logger)
-        XCTAssertEqual(validated["columnVisibility"] as? String, "all", "Invalid columnVisibility should default to 'all'")
+        let props = NavigationSplitView.Props(properties)
+        XCTAssertEqual(props.columnVisibility, .all, "Invalid columnVisibility should default to 'all'")
     }
 
-    func testNavigationSplitViewValidateStyleInvalid() throws {
+    func testNavigationSplitViewPropsStyleInvalid() throws {
         let properties: [String: Any] = ["style": "invalid"]
-        let validated = NavigationSplitView.validateProperties(properties, logger)
-        XCTAssertEqual(validated["style"] as? String, "automatic", "Invalid style should default to 'automatic'")
+        let props = NavigationSplitView.Props(properties)
+        XCTAssertEqual(props.style, .automatic, "Invalid style should default to 'automatic'")
     }
 
     // ────────────────────────────────────────────────

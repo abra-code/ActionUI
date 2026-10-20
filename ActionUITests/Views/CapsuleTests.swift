@@ -25,39 +25,39 @@ final class CapsuleTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testValidatePropertiesValid() {
+    func testCapsulePropsValid() {
         let properties: [String: Any] = [
             "style": "continuous",
             "fill": "blue",
             "stroke": "red",
             "strokeLineWidth": 2.0
         ]
-        let validated = ActionUI.Capsule.validateProperties(properties, logger)
-        XCTAssertEqual(validated["style"] as? String, "continuous")
-        XCTAssertEqual(validated["fill"] as? String, "blue")
-        XCTAssertEqual(validated["stroke"] as? String, "red")
-        XCTAssertEqual(validated.cgFloat(forKey: "strokeLineWidth"), 2.0)
+        let props = ActionUI.Capsule.Props(properties)
+        XCTAssertEqual(props.style, .continuous)
+        XCTAssertEqual(props.fill, "blue")
+        XCTAssertEqual(props.stroke, "red")
+        XCTAssertEqual(props.strokeLineWidth, 2.0)
     }
 
-    func testValidatePropertiesInvalidStyle() {
+    func testCapsulePropsIgnoreInvalidStyle() {
         let properties: [String: Any] = ["style": "rounded"]
-        let validated = ActionUI.Capsule.validateProperties(properties, logger)
-        XCTAssertNil(validated["style"])
+        let props = ActionUI.Capsule.Props(properties)
+        XCTAssertEqual(props.style, .circular)
     }
 
-    func testValidatePropertiesInvalidTypes() {
+    func testCapsulePropsIgnoreInvalidTypes() {
         let properties: [String: Any] = ["style": 42, "fill": 0, "stroke": false, "strokeLineWidth": "thick"]
-        let validated = ActionUI.Capsule.validateProperties(properties, logger)
-        XCTAssertNil(validated["style"])
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
-        XCTAssertNil(validated["strokeLineWidth"])
+        let props = ActionUI.Capsule.Props(properties)
+        XCTAssertEqual(props.style, .circular)
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
+        XCTAssertEqual(props.strokeLineWidth, 1.0)
     }
 
-    func testValidatePropertiesMissing() {
-        let validated = ActionUI.Capsule.validateProperties([:], logger)
-        XCTAssertNil(validated["style"])
-        XCTAssertNil(validated["fill"])
+    func testCapsulePropsMissing() {
+        let props = ActionUI.Capsule.Props([:])
+        XCTAssertEqual(props.style, .circular)
+        XCTAssertNil(props.fill)
     }
 
     func testBuildViewContinuousWithFill() throws {
@@ -67,9 +67,9 @@ final class CapsuleTests: XCTestCase {
             "properties": ["style": "continuous", "fill": "tint"]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Capsule.validateProperties(element.properties, logger)
-        let view = ActionUI.Capsule.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Capsule.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Capsule.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Capsule.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewCircularWithStroke() throws {
@@ -79,17 +79,17 @@ final class CapsuleTests: XCTestCase {
             "properties": ["style": "circular", "stroke": "blue", "strokeLineWidth": 2.0]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Capsule.validateProperties(element.properties, logger)
-        let view = ActionUI.Capsule.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Capsule.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Capsule.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Capsule.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewBare() throws {
         let elementDict: [String: Any] = ["id": 3, "type": "Capsule", "properties": [:]]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Capsule.validateProperties(element.properties, logger)
-        let view = ActionUI.Capsule.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Capsule.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Capsule.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Capsule.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testJSONDecoding() throws {

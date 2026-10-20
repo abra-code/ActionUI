@@ -3,7 +3,7 @@
  LabelTests.swift
 
  Tests for the Label component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -44,9 +44,9 @@ final class LabelTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Label.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)        
     }
@@ -87,66 +87,66 @@ final class LabelTests: XCTestCase {
         }
     }
     
-    func testLabelValidatePropertiesValid() {
+    func testLabelPropsValid() {
         let properties: [String: Any] = [
             "title": "Title",
             "systemImage": "star.fill",
             "padding": 10.0
         ]
         
-        let validated = Label.validateProperties(properties, logger)
+        let props = Label.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Title", "title should be preserved")
-        XCTAssertEqual(validated["systemImage"] as? String, "star.fill", "systemImage should be preserved")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.title, "Title", "title should be preserved")
+        XCTAssertEqual(props.systemImage, "star.fill", "systemImage should be preserved")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be passed through")
     }
     
-    func testLabelValidatePropertiesInvalid() {
+    func testLabelPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "title": 123,
             "systemImage": 456,
             "imageName": true
         ]
         
-        let validated = Label.validateProperties(properties, logger)
+        let props = Label.Props(properties)
         
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
-        XCTAssertNil(validated["systemImage"], "Invalid systemImage should be nil")
-        XCTAssertNil(validated["imageName"], "Invalid imageName should be nil")
+        XCTAssertEqual(props.title, "", "Invalid title should be ignored")
+        XCTAssertNil(props.systemImage, "Invalid systemImage should be ignored")
+        XCTAssertNil(props.imageName, "Invalid imageName should be ignored")
     }
     
-    func testLabelValidatePropertiesMissing() {
+    func testLabelPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Label.validateProperties(properties, logger)
+        let props = Label.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
-        XCTAssertNil(validated["systemImage"], "Missing systemImage should be nil")
-        XCTAssertNil(validated["imageName"], "Missing imageName should be nil")
+        XCTAssertEqual(props.title, "", "Missing title should be empty")
+        XCTAssertNil(props.systemImage, "Missing systemImage should be nil")
+        XCTAssertNil(props.imageName, "Missing imageName should be nil")
     }
     
-    func testLabelValidatePropertiesTitleOnly() {
+    func testLabelPropsTitleOnly() {
         let properties: [String: Any] = [
             "title": "Title"
         ]
         
-        let validated = Label.validateProperties(properties, logger)
+        let props = Label.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Title", "title should be preserved")
-        XCTAssertNil(validated["systemImage"], "Missing systemImage should be nil")
-        XCTAssertNil(validated["imageName"], "Missing imageName should be nil")
+        XCTAssertEqual(props.title, "Title", "title should be preserved")
+        XCTAssertNil(props.systemImage, "Missing systemImage should be nil")
+        XCTAssertNil(props.imageName, "Missing imageName should be nil")
     }
     
-    func testLabelValidatePropertiesImageName() {
+    func testLabelPropsImageName() {
         let properties: [String: Any] = [
             "title": "Title",
             "imageName": "customIcon"
         ]
         
-        let validated = Label.validateProperties(properties, logger)
+        let props = Label.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Title", "title should be preserved")
-        XCTAssertNil(validated["systemImage"], "Missing systemImage should be nil")
-        XCTAssertEqual(validated["imageName"] as? String, "customIcon", "imageName should be preserved")
+        XCTAssertEqual(props.title, "Title", "title should be preserved")
+        XCTAssertNil(props.systemImage, "Missing systemImage should be nil")
+        XCTAssertEqual(props.imageName, "customIcon", "imageName should be preserved")
     }
 }

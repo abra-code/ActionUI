@@ -3,7 +3,7 @@
  MenuTests.swift
 
  Tests for the Menu component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -32,34 +32,34 @@ final class MenuTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testMenuValidatePropertiesValid() {
+    func testMenuPropsValid() {
         let properties: [String: Any] = [
             "title": "Options",
             "padding": 10.0
         ]
         
-        let validated = Menu.validateProperties(properties, logger)
+        let props = Menu.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Options", "title should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.title, "Options", "title should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be read by BaseModifiers")
     }
     
-    func testMenuValidatePropertiesInvalid() {
+    func testMenuPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "title": 123
         ]
         
-        let validated = Menu.validateProperties(properties, logger)
+        let props = Menu.Props(properties)
         
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
+        XCTAssertEqual(props.title, "", "Invalid title should be ignored")
     }
     
-    func testMenuValidatePropertiesMissing() {
+    func testMenuPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Menu.validateProperties(properties, logger)
+        let props = Menu.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
+        XCTAssertEqual(props.title, "", "Missing title should be the default")
     }
     
     func testMenuConstruction() throws {
@@ -76,9 +76,9 @@ final class MenuTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Menu.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

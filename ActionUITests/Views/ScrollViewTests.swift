@@ -3,7 +3,7 @@
  ScrollViewTests.swift
 
  Tests for the ScrollView component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 
  Sample JSON for ScrollView:
  {
@@ -72,9 +72,9 @@ final class ScrollViewTests: XCTestCase {
             return
         }
 
-        let validatedProperties = ScrollView.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -103,7 +103,6 @@ final class ScrollViewTests: XCTestCase {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
             let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-            let _ = ScrollView.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")
         } catch {

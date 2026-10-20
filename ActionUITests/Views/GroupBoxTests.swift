@@ -3,7 +3,7 @@
  GroupBoxTests.swift
 
  Tests for the GroupBox component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
  */
 
 import XCTest
@@ -32,34 +32,34 @@ final class GroupBoxTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testGroupBoxValidatePropertiesValid() {
+    func testGroupBoxPropsValid() {
         let properties: [String: Any] = [
             "title": "Settings",
             "padding": 10.0
         ]
         
-        let validated = GroupBox.validateProperties(properties, logger)
+        let props = GroupBox.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Settings", "title should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.title, "Settings", "title should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be read by BaseModifiers")
     }
     
-    func testGroupBoxValidatePropertiesInvalid() {
+    func testGroupBoxPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "title": 123
         ]
         
-        let validated = GroupBox.validateProperties(properties, logger)
+        let props = GroupBox.Props(properties)
         
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
+        XCTAssertNil(props.title, "Invalid title should be ignored")
     }
     
-    func testGroupBoxValidatePropertiesMissing() {
+    func testGroupBoxPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = GroupBox.validateProperties(properties, logger)
+        let props = GroupBox.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
+        XCTAssertNil(props.title, "Missing title should be nil")
     }
     
     func testGroupBoxConstruction() throws {
@@ -76,9 +76,9 @@ final class GroupBoxTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = GroupBox.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -94,9 +94,9 @@ final class GroupBoxTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = GroupBox.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

@@ -32,154 +32,151 @@ final class ListStylingTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - listStyle validation
+    // MARK: - listStyle
 
-    func testValidateProperties_listStylePlain_preserved() {
-        let validated = List.validateProperties(["listStyle": "plain"], logger)
-        XCTAssertEqual(validated["listStyle"] as? String, "plain")
+    func testProps_listStylePlain_preserved() {
+        let props = List.Props(["listStyle": "plain"])
+        XCTAssertEqual(props.listStyle, .plain)
     }
 
-    func testValidateProperties_listStyleAutomatic_preserved() {
-        let validated = List.validateProperties(["listStyle": "automatic"], logger)
-        XCTAssertEqual(validated["listStyle"] as? String, "automatic")
+    func testProps_listStyleAutomatic_preserved() {
+        let props = List.Props(["listStyle": "automatic"])
+        XCTAssertEqual(props.listStyle, .automatic)
     }
 
-    func testValidateProperties_listStyleMissing_remainsNil() {
-        let validated = List.validateProperties([:], logger)
-        XCTAssertNil(validated["listStyle"])
+    func testProps_listStyleMissing_remainsNil() {
+        let props = List.Props([:])
+        XCTAssertNil(props.listStyle)
     }
 
-    func testValidateProperties_listStyleNonString_nilledOut() {
-        let validated = List.validateProperties(["listStyle": 42], logger)
-        XCTAssertNil(validated["listStyle"])
+    func testProps_listStyleNonString_ignored() {
+        let props = List.Props(["listStyle": 42])
+        XCTAssertNil(props.listStyle)
     }
 
-    func testValidateProperties_listStyleUnknownValue_nilledOut() {
-        let validated = List.validateProperties(["listStyle": "carousel"], logger)
-        XCTAssertNil(validated["listStyle"])
+    func testProps_listStyleUnknownValue_ignored() {
+        let props = List.Props(["listStyle": "carousel"])
+        XCTAssertNil(props.listStyle)
     }
 
 #if os(macOS)
-    func testValidateProperties_listStylePlatformSpecific_macOS() {
+    func testProps_listStylePlatformSpecific_macOS() {
         // inset and sidebar are valid on macOS
-        XCTAssertEqual(List.validateProperties(["listStyle": "inset"],   logger)["listStyle"] as? String, "inset")
-        XCTAssertEqual(List.validateProperties(["listStyle": "sidebar"], logger)["listStyle"] as? String, "sidebar")
-        // insetGrouped and grouped are iOS-only — rejected on macOS
-        XCTAssertNil(List.validateProperties(["listStyle": "insetGrouped"], logger)["listStyle"])
-        XCTAssertNil(List.validateProperties(["listStyle": "grouped"],      logger)["listStyle"])
+        XCTAssertEqual(List.Props(["listStyle": "inset"]).listStyle, .inset)
+        XCTAssertEqual(List.Props(["listStyle": "sidebar"]).listStyle, .sidebar)
+        // insetGrouped and grouped are iOS-only: read on every platform, and the renderer
+        // applies no style for them on macOS
+        XCTAssertEqual(List.Props(["listStyle": "insetGrouped"]).listStyle, .insetGrouped)
+        XCTAssertEqual(List.Props(["listStyle": "grouped"]).listStyle, .grouped)
     }
 #elseif os(iOS)
-    func testValidateProperties_listStylePlatformSpecific_iOS() {
+    func testProps_listStylePlatformSpecific_iOS() {
         // All six values are valid on iOS
         for style in ["automatic", "plain", "inset", "sidebar", "grouped", "insetGrouped"] {
-            XCTAssertEqual(List.validateProperties(["listStyle": style], logger)["listStyle"] as? String, style,
+            XCTAssertEqual(List.Props(["listStyle": style]).listStyle?.rawValue, style,
                            "\(style) should be valid on iOS")
         }
     }
 #endif
 
-    // MARK: - listRowBackground validation
+    // MARK: - listRowBackground
 
-    func testValidateProperties_listRowBackground_validString_preserved() {
-        let validated = List.validateProperties(["listRowBackground": "blue"], logger)
-        XCTAssertEqual(validated["listRowBackground"] as? String, "blue")
+    func testProps_listRowBackground_validString_preserved() {
+        let props = List.Props(["listRowBackground": "blue"])
+        XCTAssertEqual(props.rowBackground, "blue")
     }
 
-    func testValidateProperties_listRowBackground_hexString_preserved() {
-        let validated = List.validateProperties(["listRowBackground": "#E8F4FD"], logger)
-        XCTAssertEqual(validated["listRowBackground"] as? String, "#E8F4FD")
+    func testProps_listRowBackground_hexString_preserved() {
+        let props = List.Props(["listRowBackground": "#E8F4FD"])
+        XCTAssertEqual(props.rowBackground, "#E8F4FD")
     }
 
-    func testValidateProperties_listRowBackground_missingKey_remainsNil() {
-        let validated = List.validateProperties([:], logger)
-        XCTAssertNil(validated["listRowBackground"])
+    func testProps_listRowBackground_missingKey_remainsNil() {
+        let props = List.Props([:])
+        XCTAssertNil(props.rowBackground)
     }
 
-    func testValidateProperties_listRowBackground_nonString_nilledOut() {
-        let validated = List.validateProperties(["listRowBackground": 123], logger)
-        XCTAssertNil(validated["listRowBackground"])
+    func testProps_listRowBackground_nonString_ignored() {
+        let props = List.Props(["listRowBackground": 123])
+        XCTAssertNil(props.rowBackground)
     }
 
-    // MARK: - listRowSeparator validation
+    // MARK: - listRowSeparator
 
-    func testValidateProperties_listRowSeparator_validValues_preserved() {
+    func testProps_listRowSeparator_validValues_preserved() {
         for value in ["visible", "hidden", "automatic"] {
-            let validated = List.validateProperties(["listRowSeparator": value], logger)
-            XCTAssertEqual(validated["listRowSeparator"] as? String, value,
+            let props = List.Props(["listRowSeparator": value])
+            XCTAssertEqual(props.rowSeparator?.rawValue, value,
                            "\(value) should be preserved")
         }
     }
 
-    func testValidateProperties_listRowSeparator_missingKey_remainsNil() {
-        let validated = List.validateProperties([:], logger)
-        XCTAssertNil(validated["listRowSeparator"])
+    func testProps_listRowSeparator_missingKey_remainsNil() {
+        let props = List.Props([:])
+        XCTAssertNil(props.rowSeparator)
     }
 
-    func testValidateProperties_listRowSeparator_invalidValue_nilledOut() {
-        let validated = List.validateProperties(["listRowSeparator": "always"], logger)
-        XCTAssertNil(validated["listRowSeparator"])
+    func testProps_listRowSeparator_invalidValue_ignored() {
+        let props = List.Props(["listRowSeparator": "always"])
+        XCTAssertNil(props.rowSeparator)
     }
 
-    func testValidateProperties_listRowSeparator_nonString_nilledOut() {
-        let validated = List.validateProperties(["listRowSeparator": true], logger)
-        XCTAssertNil(validated["listRowSeparator"])
+    func testProps_listRowSeparator_nonString_ignored() {
+        let props = List.Props(["listRowSeparator": true])
+        XCTAssertNil(props.rowSeparator)
     }
 
-    // MARK: - listRowSeparatorTint validation
+    // MARK: - listRowSeparatorTint
 
-    func testValidateProperties_listRowSeparatorTint_validString_preserved() {
-        let validated = List.validateProperties(["listRowSeparatorTint": "red"], logger)
-        XCTAssertEqual(validated["listRowSeparatorTint"] as? String, "red")
+    func testProps_listRowSeparatorTint_validString_preserved() {
+        let props = List.Props(["listRowSeparatorTint": "red"])
+        XCTAssertEqual(props.rowSeparatorTint, "red")
     }
 
-    func testValidateProperties_listRowSeparatorTint_missingKey_remainsNil() {
-        let validated = List.validateProperties([:], logger)
-        XCTAssertNil(validated["listRowSeparatorTint"])
+    func testProps_listRowSeparatorTint_missingKey_remainsNil() {
+        let props = List.Props([:])
+        XCTAssertNil(props.rowSeparatorTint)
     }
 
-    func testValidateProperties_listRowSeparatorTint_nonString_nilledOut() {
-        let validated = List.validateProperties(["listRowSeparatorTint": 0xFF0000], logger)
-        XCTAssertNil(validated["listRowSeparatorTint"])
+    func testProps_listRowSeparatorTint_nonString_ignored() {
+        let props = List.Props(["listRowSeparatorTint": 0xFF0000])
+        XCTAssertNil(props.rowSeparatorTint)
     }
 
-    // MARK: - listRowInsets validation
+    // MARK: - listRowInsets
 
-    func testValidateProperties_listRowInsets_numberDouble_preserved() {
-        let validated = List.validateProperties(["listRowInsets": 16.0], logger)
-        XCTAssertNotNil(validated["listRowInsets"])
-        XCTAssertEqual(validated["listRowInsets"] as? Double, 16.0)
+    func testProps_listRowInsets_numberDouble_preserved() {
+        let props = List.Props(["listRowInsets": 16.0])
+        XCTAssertNotNil(props.rowInsets)
+        XCTAssertEqual(props.rowInsets, .uniform(16.0))
     }
 
-    func testValidateProperties_listRowInsets_numberInt_preserved() {
-        let validated = List.validateProperties(["listRowInsets": 8], logger)
-        XCTAssertNotNil(validated["listRowInsets"])
-        XCTAssertEqual(validated["listRowInsets"] as? Int, 8)
+    func testProps_listRowInsets_numberInt_preserved() {
+        let props = List.Props(["listRowInsets": 8])
+        XCTAssertNotNil(props.rowInsets)
+        XCTAssertEqual(props.rowInsets, .uniform(8.0))
     }
 
-    func testValidateProperties_listRowInsets_dictionary_preserved() {
+    func testProps_listRowInsets_dictionary_preserved() {
         let insetsDict: [String: Any] = ["top": 4.0, "leading": 16.0, "bottom": 4.0, "trailing": 16.0]
-        let validated = List.validateProperties(["listRowInsets": insetsDict], logger)
-        XCTAssertNotNil(validated["listRowInsets"])
-        let result = validated["listRowInsets"] as? [String: Any]
-        XCTAssertEqual(result?["top"] as? Double, 4.0)
-        XCTAssertEqual(result?["leading"] as? Double, 16.0)
-        XCTAssertEqual(result?["bottom"] as? Double, 4.0)
-        XCTAssertEqual(result?["trailing"] as? Double, 16.0)
+        let props = List.Props(["listRowInsets": insetsDict])
+        XCTAssertNotNil(props.rowInsets)
+        XCTAssertEqual(props.rowInsets, .edges(top: 4.0, leading: 16.0, bottom: 4.0, trailing: 16.0))
     }
 
-    func testValidateProperties_listRowInsets_missingKey_remainsNil() {
-        let validated = List.validateProperties([:], logger)
-        XCTAssertNil(validated["listRowInsets"])
+    func testProps_listRowInsets_missingKey_remainsNil() {
+        let props = List.Props([:])
+        XCTAssertNil(props.rowInsets)
     }
 
-    func testValidateProperties_listRowInsets_invalidType_nilledOut() {
-        let validated = List.validateProperties(["listRowInsets": "wide"], logger)
-        XCTAssertNil(validated["listRowInsets"])
+    func testProps_listRowInsets_invalidType_ignored() {
+        let props = List.Props(["listRowInsets": "wide"])
+        XCTAssertNil(props.rowInsets)
     }
 
-    // MARK: - Combined validation — all styling properties in one pass
+    // MARK: - Combined Props - all styling properties in one pass
 
-    func testValidateProperties_allStylingProperties_preserved() {
+    func testProps_allStylingProperties_preserved() {
         let properties: [String: Any] = [
             "listStyle": "plain",
             "listRowBackground": "mint",
@@ -187,28 +184,27 @@ final class ListStylingTests: XCTestCase {
             "listRowSeparatorTint": "gray",
             "listRowInsets": 12.0
         ]
-        let validated = List.validateProperties(properties, logger)
-        XCTAssertEqual(validated["listStyle"] as? String, "plain")
-        XCTAssertEqual(validated["listRowBackground"] as? String, "mint")
-        XCTAssertEqual(validated["listRowSeparator"] as? String, "hidden")
-        XCTAssertEqual(validated["listRowSeparatorTint"] as? String, "gray")
-        XCTAssertEqual(validated["listRowInsets"] as? Double, 12.0)
+        let props = List.Props(properties)
+        XCTAssertEqual(props.listStyle, .plain)
+        XCTAssertEqual(props.rowBackground, "mint")
+        XCTAssertEqual(props.rowSeparator, .hidden)
+        XCTAssertEqual(props.rowSeparatorTint, "gray")
+        XCTAssertEqual(props.rowInsets, .uniform(12.0))
     }
 
-    func testValidateProperties_existingPropertiesUnaffectedByStyling() {
-        // Existing itemType and actionID validation should be unaffected when styling is also set
+    func testProps_existingPropertiesUnaffectedByStyling() {
+        // Existing itemType and actionID parsing should be unaffected when styling is also set
         let properties: [String: Any] = [
             "itemType": ["viewType": "Text"],
             "actionID": "list.sel",
             "listStyle": "plain",
             "listRowSeparator": "hidden"
         ]
-        let validated = List.validateProperties(properties, logger)
-        let itemType = validated["itemType"] as? [String: Any]
-        XCTAssertEqual(itemType?["viewType"] as? String, "Text")
-        XCTAssertEqual(validated["actionID"] as? String, "list.sel")
-        XCTAssertEqual(validated["listStyle"] as? String, "plain")
-        XCTAssertEqual(validated["listRowSeparator"] as? String, "hidden")
+        let props = List.Props(properties)
+        XCTAssertEqual(props.viewType, .text)
+        XCTAssertEqual(props.actionID, "list.sel")
+        XCTAssertEqual(props.listStyle, .plain)
+        XCTAssertEqual(props.rowSeparator, .hidden)
     }
 
     // MARK: - buildView with styling properties
@@ -229,8 +225,8 @@ final class ListStylingTests: XCTestCase {
             XCTFail("ViewModel not found"); return
         }
         viewModel.states["content"] = [["Alpha"], ["Beta"], ["Gamma"]]
-        let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertFalse(view is SwiftUI.EmptyView, "buildView should succeed with row styling properties")
     }
 
@@ -247,8 +243,8 @@ final class ListStylingTests: XCTestCase {
             XCTFail("ViewModel not found"); return
         }
         viewModel.states["content"] = [["Row 1"], ["Row 2"]]
-        let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
 
@@ -267,8 +263,8 @@ final class ListStylingTests: XCTestCase {
             XCTFail("ViewModel not found"); return
         }
         viewModel.states["content"] = [["Item A"], ["Item B"]]
-        let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
 
@@ -294,8 +290,8 @@ final class ListStylingTests: XCTestCase {
             ["star.fill", "Favorites"],
             ["heart.fill", "Liked"]
         ]
-        let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertFalse(view is SwiftUI.EmptyView, "Template list with row styling should build successfully")
     }
 
@@ -317,8 +313,8 @@ final class ListStylingTests: XCTestCase {
         guard let viewModel = ActionUIModel.shared.windowModels[windowUUID]?.viewModels[element.id] else {
             XCTFail("ViewModel not found"); return
         }
-        let validated = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertFalse(view is SwiftUI.EmptyView, "Heterogeneous list with row styling should build successfully")
     }
 }

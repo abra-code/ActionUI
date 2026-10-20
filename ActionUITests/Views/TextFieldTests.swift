@@ -3,7 +3,7 @@
  TextFieldTests.swift
 
  Tests for the TextField component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, state binding, and textContentType application.
+ Verifies JSON decoding, Props reading, view construction, state binding, and textContentType application.
 */
 
 import XCTest
@@ -32,40 +32,40 @@ final class TextFieldTests: XCTestCase {
         try await super.tearDown()
     }
         
-    func testTextFieldValidatePropertiesValid() {
+    func testTextFieldPropsValid() {
         let properties: [String: Any] = [
             "prompt": "Enter text",
             "textContentType": "username",
             "actionID": "text.submit"
         ]
 
-        let validated = TextField.validateProperties(properties, logger)
+        let props = TextField.Props(properties)
 
-        XCTAssertEqual(validated["prompt"] as? String, "Enter text", "Prompt should be valid")
-        XCTAssertEqual(validated["textContentType"] as? String, "username", "textContentType should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "text.submit", "actionID should be valid")
+        XCTAssertEqual(props.prompt, "Enter text", "Prompt should be valid")
+        XCTAssertEqual(props.textContentType, "username", "textContentType should be valid")
+        XCTAssertEqual(props.actionID, "text.submit", "actionID should be valid")
     }
     
-    func testTextFieldValidatePropertiesInvalid() {
+    func testTextFieldPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "prompt": 123,
             "textContentType": 456
         ]
 
-        let validated = TextField.validateProperties(properties, logger)
+        let props = TextField.Props(properties)
 
-        XCTAssertNil(validated["prompt"], "Invalid prompt should be nil")
-        XCTAssertNil(validated["textContentType"], "Invalid textContentType should be nil")
+        XCTAssertNil(props.prompt, "Invalid prompt should be ignored")
+        XCTAssertNil(props.textContentType, "Invalid textContentType should be ignored")
     }
     
-    func testTextFieldValidatePropertiesMissing() {
+    func testTextFieldPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = TextField.validateProperties(properties, logger)
+        let props = TextField.Props(properties)
         
-        XCTAssertNil(validated["prompt"], "Missing prompt should be nil")
-        XCTAssertNil(validated["textContentType"], "Missing textContentType should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertNil(props.prompt, "Missing prompt should be nil")
+        XCTAssertNil(props.textContentType, "Missing textContentType should be nil")
+        XCTAssertNil(props.actionID, "Missing actionID should be nil")
     }
     
     func testTextFieldConstruction() throws {
@@ -81,9 +81,9 @@ final class TextFieldTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -133,12 +133,12 @@ final class TextFieldTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
     }
 
-    func testTextFieldTextPropertyValidation() {
-        let valid = TextField.validateProperties(["text": "hello"], logger)
-        XCTAssertEqual(valid["text"] as? String, "hello", "Valid text should be preserved")
+    func testTextFieldPropsText() {
+        let valid = TextField.Props(["text": "hello"])
+        XCTAssertEqual(valid.text, "hello", "Valid text should be preserved")
 
-        let invalid = TextField.validateProperties(["text": 123], logger)
-        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+        let invalid = TextField.Props(["text": 123])
+        XCTAssertNil(invalid.text, "Non-String text should be ignored")
     }
 
     func testTextFieldInitialValueFromTextProperty() {
@@ -158,52 +158,51 @@ final class TextFieldTests: XCTestCase {
         XCTAssertEqual(value, "typed", "initialValue should prefer model.value over text property")
     }
 
-    // MARK: - Format property validation
+    // MARK: - Format property
 
-    func testTextFieldFormatValidation() {
-        let valid = TextField.validateProperties(["format": "integer"], logger)
-        XCTAssertEqual(valid["format"] as? String, "integer", "Valid format should be preserved")
+    func testTextFieldPropsFormat() {
+        let valid = TextField.Props(["format": "integer"])
+        XCTAssertEqual(valid.format, .integer, "Valid format should be preserved")
 
-        let validDecimal = TextField.validateProperties(["format": "decimal"], logger)
-        XCTAssertEqual(validDecimal["format"] as? String, "decimal")
+        let validDecimal = TextField.Props(["format": "decimal"])
+        XCTAssertEqual(validDecimal.format, .decimal(minFraction: nil, maxFraction: nil))
 
-        let validPercent = TextField.validateProperties(["format": "percent"], logger)
-        XCTAssertEqual(validPercent["format"] as? String, "percent")
+        let validPercent = TextField.Props(["format": "percent"])
+        XCTAssertEqual(validPercent.format, .percent(minFraction: nil, maxFraction: nil))
 
-        let validCurrency = TextField.validateProperties(["format": "currency", "currencyCode": "EUR"], logger)
-        XCTAssertEqual(validCurrency["format"] as? String, "currency")
-        XCTAssertEqual(validCurrency["currencyCode"] as? String, "EUR")
+        let validCurrency = TextField.Props(["format": "currency", "currencyCode": "EUR"])
+        XCTAssertEqual(validCurrency.format, .currency(code: "EUR", minFraction: nil, maxFraction: nil))
 
-        let invalidFormat = TextField.validateProperties(["format": "unknown"], logger)
-        XCTAssertNil(invalidFormat["format"], "Invalid format should be removed")
+        let invalidFormat = TextField.Props(["format": "unknown"])
+        XCTAssertNil(invalidFormat.format, "Invalid format should be ignored")
 
-        let nonStringFormat = TextField.validateProperties(["format": 123], logger)
-        XCTAssertNil(nonStringFormat["format"], "Non-String format should be removed")
+        let nonStringFormat = TextField.Props(["format": 123])
+        XCTAssertNil(nonStringFormat.format, "Non-String format should be ignored")
     }
 
-    func testTextFieldFractionLengthValidation() {
-        let exact = TextField.validateProperties(["format": "decimal", "fractionLength": 2], logger)
-        XCTAssertEqual(exact["fractionLength"] as? Int, 2, "Exact fractionLength should be preserved")
+    func testTextFieldPropsFractionLength() {
+        let exact = TextField.Props(["format": "decimal", "fractionLength": 2])
+        XCTAssertEqual(exact.format, .decimal(minFraction: 2, maxFraction: 2), "Exact fractionLength should be preserved")
 
-        let range = TextField.validateProperties(["format": "decimal", "fractionLength": ["min": 0, "max": 3]], logger)
-        XCTAssertNotNil(range["fractionLength"], "Range fractionLength should be preserved")
+        let range = TextField.Props(["format": "decimal", "fractionLength": ["min": 0, "max": 3]])
+        XCTAssertEqual(range.format, .decimal(minFraction: 0, maxFraction: 3), "Range fractionLength should be preserved")
 
-        let invalid = TextField.validateProperties(["format": "decimal", "fractionLength": "two"], logger)
-        XCTAssertNil(invalid["fractionLength"], "Invalid fractionLength should be removed")
+        let invalid = TextField.Props(["format": "decimal", "fractionLength": "two"])
+        XCTAssertEqual(invalid.format, .decimal(minFraction: nil, maxFraction: nil), "Invalid fractionLength should be ignored")
     }
 
-    func testTextFieldValuePropertyValidation() {
-        let intValue = TextField.validateProperties(["format": "integer", "value": 42], logger)
-        XCTAssertEqual(intValue["value"] as? Int, 42, "Int value should be preserved")
+    func testTextFieldPropsValue() {
+        let intValue = TextField.Props(["format": "integer", "value": 42])
+        XCTAssertEqual(intValue.formattedInitialValue, "42", "Int value should be preserved")
 
-        let doubleValue = TextField.validateProperties(["format": "decimal", "value": 3.14], logger)
-        XCTAssertEqual(doubleValue["value"] as? Double, 3.14, "Double value should be preserved")
+        let doubleValue = TextField.Props(["format": "decimal", "value": 3.14])
+        XCTAssertEqual(doubleValue.formattedInitialValue, "3.14", "Double value should be preserved")
 
-        let stringValue = TextField.validateProperties(["format": "integer", "value": "100"], logger)
-        XCTAssertEqual(stringValue["value"] as? String, "100", "String value should be preserved")
+        let stringValue = TextField.Props(["format": "integer", "value": "100"])
+        XCTAssertEqual(stringValue.formattedInitialValue, "100", "String value should be preserved")
 
-        let invalidValue = TextField.validateProperties(["format": "integer", "value": [1, 2]], logger)
-        XCTAssertNil(invalidValue["value"], "Array value should be removed")
+        let invalidValue = TextField.Props(["format": "integer", "value": [1, 2]])
+        XCTAssertEqual(invalidValue.formattedInitialValue, "0", "Array value should be ignored")
     }
 
     // MARK: - Formatted TextField initial value
@@ -232,41 +231,41 @@ final class TextFieldTests: XCTestCase {
         XCTAssertEqual(value, "0", "initialValue for formatted field should default to '0'")
     }
 
-    // MARK: - Axis property validation
+    // MARK: - Axis property
 
-    func testTextFieldAxisValidation() {
-        let vertical = TextField.validateProperties(["axis": "vertical"], logger)
-        XCTAssertEqual(vertical["axis"] as? String, "vertical", "Valid vertical axis should be preserved")
+    func testTextFieldPropsAxis() {
+        let vertical = TextField.Props(["axis": "vertical"])
+        XCTAssertEqual(vertical.axis, .vertical, "Valid vertical axis should be preserved")
 
-        let horizontal = TextField.validateProperties(["axis": "horizontal"], logger)
-        XCTAssertEqual(horizontal["axis"] as? String, "horizontal", "Valid horizontal axis should be preserved")
+        let horizontal = TextField.Props(["axis": "horizontal"])
+        XCTAssertEqual(horizontal.axis, .horizontal, "Valid horizontal axis should be preserved")
 
-        let invalid = TextField.validateProperties(["axis": "diagonal"], logger)
-        XCTAssertNil(invalid["axis"], "Invalid axis value should be removed")
+        let invalid = TextField.Props(["axis": "diagonal"])
+        XCTAssertNil(invalid.axis, "Invalid axis value should be ignored")
 
-        let nonString = TextField.validateProperties(["axis": 123], logger)
-        XCTAssertNil(nonString["axis"], "Non-String axis should be removed")
+        let nonString = TextField.Props(["axis": 123])
+        XCTAssertNil(nonString.axis, "Non-String axis should be ignored")
     }
 
-    // MARK: - LineLimit property validation
+    // MARK: - LineLimit property
 
-    func testTextFieldLineLimitExactValidation() {
-        let exact = TextField.validateProperties(["lineLimit": 5], logger)
-        XCTAssertEqual(exact["lineLimit"] as? Int, 5, "Exact lineLimit should be preserved")
+    func testTextFieldPropsLineLimitExact() {
+        let exact = TextField.Props(["lineLimit": 5])
+        XCTAssertEqual(exact.lineLimit, .exact(5), "Exact lineLimit should be preserved")
     }
 
-    func testTextFieldLineLimitRangeValidation() {
-        let range = TextField.validateProperties(["lineLimit": ["min": 3, "max": 10]], logger)
-        XCTAssertNotNil(range["lineLimit"], "Range lineLimit should be preserved")
+    func testTextFieldPropsLineLimitRange() {
+        let range = TextField.Props(["lineLimit": ["min": 3, "max": 10]])
+        XCTAssertEqual(range.lineLimit, .range(min: 3, max: 10), "Range lineLimit should be preserved")
 
-        let minOnly = TextField.validateProperties(["lineLimit": ["min": 3]], logger)
-        XCTAssertNotNil(minOnly["lineLimit"], "Min-only lineLimit should be preserved")
+        let minOnly = TextField.Props(["lineLimit": ["min": 3]])
+        XCTAssertEqual(minOnly.lineLimit, .range(min: 3, max: nil), "Min-only lineLimit should be preserved")
 
-        let emptyDict = TextField.validateProperties(["lineLimit": ["foo": "bar"]], logger)
-        XCTAssertNil(emptyDict["lineLimit"], "Dict without min/max should be removed")
+        let emptyDict = TextField.Props(["lineLimit": ["foo": "bar"]])
+        XCTAssertNil(emptyDict.lineLimit, "Dict without min/max should be ignored")
 
-        let invalid = TextField.validateProperties(["lineLimit": "five"], logger)
-        XCTAssertNil(invalid["lineLimit"], "Non-Int/dict lineLimit should be removed")
+        let invalid = TextField.Props(["lineLimit": "five"])
+        XCTAssertNil(invalid.lineLimit, "Non-Int/dict lineLimit should be ignored")
     }
 
     // MARK: - Vertical TextField construction
@@ -283,10 +282,10 @@ final class TextFieldTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        viewModel.properties = properties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     // MARK: - Formatted TextField construction
@@ -303,10 +302,10 @@ final class TextFieldTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        viewModel.properties = properties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     func testTextFieldCurrencyFormatConstruction() throws {
@@ -323,10 +322,10 @@ final class TextFieldTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        viewModel.properties = properties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     func testTextFieldPercentFormatConstruction() throws {
@@ -341,9 +340,9 @@ final class TextFieldTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextField.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        viewModel.properties = properties
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 }

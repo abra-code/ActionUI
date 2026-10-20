@@ -3,7 +3,7 @@
  WebViewTests.swift
 
  Tests for the WebView component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, initialValue / initialStates,
+ Verifies JSON decoding, Props reading, view construction, initialValue / initialStates,
  and programmatic value updates.
 
  Note: WebView requires iOS 26+ / macOS 26+. buildView returns a SwiftUI Label fallback on
@@ -42,9 +42,9 @@ final class WebViewTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - validateProperties – valid input
+    // MARK: - Props - valid input
 
-    func testWebViewValidatePropertiesValid() {
+    func testWebViewPropsValid() {
         let properties: [String: Any] = [
             "url": "https://www.swift.org",
             "customUserAgent": "MyApp/1.0",
@@ -55,35 +55,33 @@ final class WebViewTests: XCTestCase {
             "padding": 10.0
         ]
 
-        let validated = WebView.validateProperties(properties, logger)
+        let props = WebView.Props(properties)
 
-        XCTAssertEqual(validated["url"] as? String, "https://www.swift.org", "url should be preserved")
-        XCTAssertEqual(validated["customUserAgent"] as? String, "MyApp/1.0", "customUserAgent should be preserved")
-        XCTAssertEqual(validated["backForwardNavigationGestures"] as? Bool, true, "backForwardNavigationGestures should be preserved")
-        XCTAssertEqual(validated["magnificationGestures"] as? Bool, false, "magnificationGestures should be preserved")
-        XCTAssertEqual(validated["linkPreviews"] as? Bool, true, "linkPreviews should be preserved")
-        XCTAssertEqual(validated["navigationActionID"] as? String, "nav.event", "navigationActionID should be preserved")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "base View padding should pass through")
+        XCTAssertEqual(props.url, "https://www.swift.org", "url should be preserved")
+        XCTAssertEqual(props.customUserAgent, "MyApp/1.0", "customUserAgent should be preserved")
+        XCTAssertEqual(props.backForwardNavigationGestures, true, "backForwardNavigationGestures should be preserved")
+        XCTAssertEqual(props.magnificationGestures, false, "magnificationGestures should be preserved")
+        XCTAssertEqual(props.linkPreviews, true, "linkPreviews should be preserved")
+        XCTAssertEqual(props.navigationActionID, "nav.event", "navigationActionID should be preserved")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "base View padding should be read")
     }
 
-    func testWebViewValidatePropertiesValid_HTML() {
+    func testWebViewPropsValid_HTML() {
         let properties: [String: Any] = [
             "html": "<h1>Hello</h1>",
             "baseURL": "https://example.com"
         ]
 
-        let validated = WebView.validateProperties(properties, logger)
+        let props = WebView.Props(properties)
 
-        XCTAssertEqual(validated["html"] as? String, "<h1>Hello</h1>", "html should be preserved")
-        XCTAssertEqual(validated["baseURL"] as? String, "https://example.com", "baseURL should be preserved")
-        XCTAssertNil(validated["url"], "url should be absent when not provided")
+        XCTAssertEqual(props.html, "<h1>Hello</h1>", "html should be preserved")
+        XCTAssertEqual(props.baseURL, "https://example.com", "baseURL should be preserved")
+        XCTAssertNil(props.url, "url should be absent when not provided")
     }
 
-    // MARK: - validateProperties – invalid types
+    // MARK: - Props - invalid types
 
-    func testWebViewValidatePropertiesInvalid_Types() {
-        ActionUIModel.shared.logger = consoleLogger
-
+    func testWebViewPropsIgnoreInvalidTypes() {
         let properties: [String: Any] = [
             "url": 42,                              // should be String
             "html": true,                           // should be String
@@ -95,53 +93,51 @@ final class WebViewTests: XCTestCase {
             "navigationActionID": false             // should be String
         ]
 
-        let validated = WebView.validateProperties(properties, consoleLogger)
+        let props = WebView.Props(properties)
 
-        XCTAssertNil(validated["url"], "Non-String url should be nil")
-        XCTAssertNil(validated["html"], "Non-String html should be nil")
-        XCTAssertNil(validated["baseURL"], "Non-String baseURL should be nil")
-        XCTAssertNil(validated["customUserAgent"], "Non-String customUserAgent should be nil")
-        XCTAssertNil(validated["backForwardNavigationGestures"], "Non-Bool backForwardNavigationGestures should be nil")
-        XCTAssertNil(validated["magnificationGestures"], "Non-Bool magnificationGestures should be nil")
-        XCTAssertNil(validated["linkPreviews"], "Non-Bool linkPreviews should be nil")
-        XCTAssertNil(validated["navigationActionID"], "Non-String navigationActionID should be nil")
-
-        ActionUIModel.shared.logger = logger
+        XCTAssertNil(props.url, "Non-String url should be ignored")
+        XCTAssertNil(props.html, "Non-String html should be ignored")
+        XCTAssertNil(props.baseURL, "Non-String baseURL should be ignored")
+        XCTAssertNil(props.customUserAgent, "Non-String customUserAgent should be ignored")
+        XCTAssertEqual(props.backForwardNavigationGestures, true, "Non-Bool backForwardNavigationGestures should be the default")
+        XCTAssertEqual(props.magnificationGestures, true, "Non-Bool magnificationGestures should be the default")
+        XCTAssertEqual(props.linkPreviews, true, "Non-Bool linkPreviews should be the default")
+        XCTAssertNil(props.navigationActionID, "Non-String navigationActionID should be ignored")
     }
 
-    // MARK: - validateProperties – missing properties
+    // MARK: - Props - missing properties
 
-    func testWebViewValidatePropertiesMissing() {
+    func testWebViewPropsMissing() {
         let properties: [String: Any] = [:]
 
-        let validated = WebView.validateProperties(properties, logger)
+        let props = WebView.Props(properties)
 
-        XCTAssertNil(validated["url"], "Missing url should be nil")
-        XCTAssertNil(validated["html"], "Missing html should be nil")
-        XCTAssertNil(validated["baseURL"], "Missing baseURL should be nil")
-        XCTAssertNil(validated["customUserAgent"], "Missing customUserAgent should be nil")
-        XCTAssertNil(validated["backForwardNavigationGestures"], "Missing backForwardNavigationGestures should be nil")
-        XCTAssertNil(validated["magnificationGestures"], "Missing magnificationGestures should be nil")
-        XCTAssertNil(validated["linkPreviews"], "Missing linkPreviews should be nil")
-        XCTAssertNil(validated["navigationActionID"], "Missing navigationActionID should be nil")
+        XCTAssertNil(props.url, "Missing url should be nil")
+        XCTAssertNil(props.html, "Missing html should be nil")
+        XCTAssertNil(props.baseURL, "Missing baseURL should be nil")
+        XCTAssertNil(props.customUserAgent, "Missing customUserAgent should be nil")
+        XCTAssertEqual(props.backForwardNavigationGestures, true, "Missing backForwardNavigationGestures should be the default")
+        XCTAssertEqual(props.magnificationGestures, true, "Missing magnificationGestures should be the default")
+        XCTAssertEqual(props.linkPreviews, true, "Missing linkPreviews should be the default")
+        XCTAssertNil(props.navigationActionID, "Missing navigationActionID should be nil")
     }
 
-    // MARK: - validateProperties – valueChangeActionID (base View property)
+    // MARK: - Props - valueChangeActionID (base View property)
 
-    func testWebViewValidatePropertiesValueChangeActionID() {
+    func testWebViewPropsValueChangeActionID() {
         let properties: [String: Any] = [
             "valueChangeActionID": "url.changed"
         ]
 
-        let validated = WebView.validateProperties(properties, logger)
+        let props = WebView.Props(properties)
 
-        XCTAssertEqual(validated["valueChangeActionID"] as? String, "url.changed",
-                       "valueChangeActionID should pass through base View validation")
+        XCTAssertEqual(props.valueChangeActionID, "url.changed",
+                       "valueChangeActionID should be read")
     }
 
     // MARK: - initialValue
     // Note: initialValue / initialStates closures access @MainActor-isolated ViewModel
-    // properties (e.g. validatedProperties) and are exercised safely through loadDescription in
+    // properties (e.g. viewModel.properties) and are exercised safely through loadDescription in
     // the JSON decoding tests below. The two tests here only verify branches that touch the
     // @Published var value (which has MainActor-aware bridging) so they are safe to call directly.
 
@@ -195,14 +191,15 @@ final class WebViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
-        XCTAssertEqual(validatedProperties["url"] as? String, "https://www.swift.org", "Validated url should be correct")
-        XCTAssertEqual(validatedProperties["backForwardNavigationGestures"] as? Bool, true)
-        XCTAssertEqual(validatedProperties["magnificationGestures"] as? Bool, true)
-        XCTAssertEqual(validatedProperties["linkPreviews"] as? Bool, true)
+        let props = WebView.Props(properties)
+        XCTAssertEqual(props.url, "https://www.swift.org", "url should be read correctly")
+        XCTAssertEqual(props.backForwardNavigationGestures, true)
+        XCTAssertEqual(props.magnificationGestures, true)
+        XCTAssertEqual(props.linkPreviews, true)
     }
 
     func testWebViewConstruction_WithHTML() throws {
@@ -216,13 +213,14 @@ final class WebViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
-        XCTAssertEqual(validatedProperties["html"] as? String, "<p>Hello, world!</p>", "html should be preserved")
-        XCTAssertEqual(validatedProperties["baseURL"] as? String, "https://example.com", "baseURL should be preserved")
-        XCTAssertNil(validatedProperties["url"], "url should be absent")
+        let props = WebView.Props(properties)
+        XCTAssertEqual(props.html, "<p>Hello, world!</p>", "html should be preserved")
+        XCTAssertEqual(props.baseURL, "https://example.com", "baseURL should be preserved")
+        XCTAssertNil(props.url, "url should be absent")
     }
 
     func testWebViewConstruction_NoContent() throws {
@@ -236,12 +234,13 @@ final class WebViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-        let validatedProperties = WebView.validateProperties(element.properties, consoleLogger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
-        XCTAssertNil(validatedProperties["url"], "url should be nil when absent")
-        XCTAssertNil(validatedProperties["html"], "html should be nil when absent")
+        let props = WebView.Props(properties)
+        XCTAssertNil(props.url, "url should be nil when absent")
+        XCTAssertNil(props.html, "html should be nil when absent")
 
         ActionUIModel.shared.logger = logger
     }
@@ -257,11 +256,12 @@ final class WebViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
-        XCTAssertEqual(validatedProperties["customUserAgent"] as? String, "TestAgent/2.0", "customUserAgent should be validated correctly")
+        let props = WebView.Props(properties)
+        XCTAssertEqual(props.customUserAgent, "TestAgent/2.0", "customUserAgent should be read correctly")
     }
 
     // MARK: - JSON decoding
@@ -399,13 +399,13 @@ final class WebViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         // Simulate setElementValue with a new URL
         viewModel.value = "https://www.apple.com"
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.value as? String, "https://www.apple.com",
                        "model.value should reflect the updated URL")
@@ -423,9 +423,9 @@ final class WebViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         for command in ["#goBack", "#goForward", "#reload", "#stop"] {
             viewModel.value = command
@@ -440,128 +440,109 @@ final class WebViewTests: XCTestCase {
         XCTAssertTrue(WebView.valueType == String.self, "WebView valueType should be String")
     }
 
-    // MARK: - validateProperties – new configuration properties
+    // MARK: - Props - new configuration properties
 
-    func testWebViewValidateProperties_LimitsNavigationsToAppBoundDomains_Valid() {
-        let validated = WebView.validateProperties(["limitsNavigationsToAppBoundDomains": true], logger)
-        XCTAssertEqual(validated["limitsNavigationsToAppBoundDomains"] as? Bool, true)
+    func testWebViewProps_LimitsNavigationsToAppBoundDomains_Valid() {
+        let props = WebView.Props(["limitsNavigationsToAppBoundDomains": true])
+        XCTAssertEqual(props.limitsNavigationsToAppBoundDomains, true)
     }
 
-    func testWebViewValidateProperties_LimitsNavigationsToAppBoundDomains_Invalid() {
-        ActionUIModel.shared.logger = consoleLogger
-        let validated = WebView.validateProperties(["limitsNavigationsToAppBoundDomains": "yes"], consoleLogger)
-        XCTAssertNil(validated["limitsNavigationsToAppBoundDomains"], "Non-Bool should be removed")
-        ActionUIModel.shared.logger = logger
+    func testWebViewProps_LimitsNavigationsToAppBoundDomains_Invalid() {
+        let props = WebView.Props(["limitsNavigationsToAppBoundDomains": "yes"])
+        XCTAssertNil(props.limitsNavigationsToAppBoundDomains, "Non-Bool should be ignored")
     }
 
-    func testWebViewValidateProperties_UpgradeKnownHostsToHTTPS_Valid() {
-        let validated = WebView.validateProperties(["upgradeKnownHostsToHTTPS": true], logger)
-        XCTAssertEqual(validated["upgradeKnownHostsToHTTPS"] as? Bool, true)
+    func testWebViewProps_UpgradeKnownHostsToHTTPS_Valid() {
+        let props = WebView.Props(["upgradeKnownHostsToHTTPS": true])
+        XCTAssertEqual(props.upgradeKnownHostsToHTTPS, true)
     }
 
-    func testWebViewValidateProperties_UpgradeKnownHostsToHTTPS_Invalid() {
-        ActionUIModel.shared.logger = consoleLogger
-        let validated = WebView.validateProperties(["upgradeKnownHostsToHTTPS": 1], consoleLogger)
-        XCTAssertNil(validated["upgradeKnownHostsToHTTPS"], "Non-Bool should be removed")
-        ActionUIModel.shared.logger = logger
+    func testWebViewProps_UpgradeKnownHostsToHTTPS_Invalid() {
+        let props = WebView.Props(["upgradeKnownHostsToHTTPS": 1])
+        XCTAssertNil(props.upgradeKnownHostsToHTTPS, "Non-Bool should be ignored")
     }
 
-    // MARK: - validateProperties – userScripts
+    // MARK: - Props - userScripts
 
-    func testWebViewValidateProperties_UserScripts_InlineSource() {
+    func testWebViewProps_UserScripts_InlineSource() {
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentStart", "source": "window.foo = 1;", "forMainFrameOnly": false]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], logger)
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.count, 1, "Valid script should be preserved")
-        XCTAssertEqual(out?.first?["source"] as? String, "window.foo = 1;")
-        XCTAssertEqual(out?.first?["injectionTime"] as? String, "documentStart")
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.count, 1, "Valid script should be preserved")
+        XCTAssertEqual(props.userScripts.first?.source, "window.foo = 1;")
+        XCTAssertEqual(props.userScripts.first?.injectionTime, .documentStart)
     }
 
-    func testWebViewValidateProperties_UserScripts_DocumentEnd() {
+    func testWebViewProps_UserScripts_DocumentEnd() {
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentEnd", "source": "console.log('ready');"]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], logger)
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.first?["injectionTime"] as? String, "documentEnd")
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.first?.injectionTime, .documentEnd)
     }
 
-    func testWebViewValidateProperties_UserScripts_FilePath() {
+    func testWebViewProps_UserScripts_FilePath() {
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentEnd", "filePath": "/tmp/script.js"]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], logger)
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.count, 1, "Script with filePath should be accepted at validation time")
-        XCTAssertEqual(out?.first?["filePath"] as? String, "/tmp/script.js")
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.count, 1, "Script with filePath should be accepted at parse time")
+        XCTAssertEqual(props.userScripts.first?.filePath, "/tmp/script.js")
     }
 
-    func testWebViewValidateProperties_UserScripts_ResourceName() {
+    func testWebViewProps_UserScripts_ResourceName() {
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentStart", "resourceName": "MyScript.js"]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], logger)
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.count, 1, "Script with resourceName should be accepted at validation time")
-        XCTAssertEqual(out?.first?["resourceName"] as? String, "MyScript.js")
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.count, 1, "Script with resourceName should be accepted at parse time")
+        XCTAssertEqual(props.userScripts.first?.resourceName, "MyScript.js")
     }
 
-    func testWebViewValidateProperties_UserScripts_ResourceName_UppercaseExtension() {
+    func testWebViewProps_UserScripts_ResourceName_UppercaseExtension() {
         // .JS (uppercase) must be treated the same as .js when stripping the extension
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentStart", "resourceName": "MyScript.JS"]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], logger)
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.count, 1, "Script with uppercase .JS extension should be accepted")
-        XCTAssertEqual(out?.first?["resourceName"] as? String, "MyScript.JS")
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.count, 1, "Script with uppercase .JS extension should be accepted")
+        XCTAssertEqual(props.userScripts.first?.resourceName, "MyScript.JS")
     }
 
-    func testWebViewValidateProperties_UserScripts_MissingSource_Skipped() {
-        ActionUIModel.shared.logger = consoleLogger
+    func testWebViewProps_UserScripts_MissingSource_Skipped() {
         // No source, filePath, or resourceName — should be dropped
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentStart"]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], consoleLogger)
-        XCTAssertNil(validated["userScripts"], "Scripts without any source should be removed entirely")
-        ActionUIModel.shared.logger = logger
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertTrue(props.userScripts.isEmpty, "Scripts without any source should be skipped entirely")
     }
 
-    func testWebViewValidateProperties_UserScripts_InvalidInjectionTime_NormalisedToDocumentEnd() {
-        ActionUIModel.shared.logger = consoleLogger
+    func testWebViewProps_UserScripts_InvalidInjectionTime_NormalisedToDocumentEnd() {
         let scripts: [[String: Any]] = [
             ["injectionTime": "immediately", "source": "1+1;"]
         ]
-        let validated = WebView.validateProperties(["userScripts": scripts], consoleLogger)
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.first?["injectionTime"] as? String, "documentEnd",
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.first?.injectionTime, .documentEnd,
                        "Invalid injectionTime should be normalised to 'documentEnd'")
-        ActionUIModel.shared.logger = logger
     }
 
-    func testWebViewValidateProperties_UserScripts_NotAnArray_Removed() {
-        ActionUIModel.shared.logger = consoleLogger
-        let validated = WebView.validateProperties(["userScripts": "console.log('hi');"], consoleLogger)
-        XCTAssertNil(validated["userScripts"], "Non-array userScripts should be removed")
-        ActionUIModel.shared.logger = logger
+    func testWebViewProps_UserScripts_NotAnArray_Ignored() {
+        let props = WebView.Props(["userScripts": "console.log('hi');"])
+        XCTAssertTrue(props.userScripts.isEmpty, "Non-array userScripts should be ignored")
     }
 
-    func testWebViewValidateProperties_UserScripts_MultipleScripts() {
+    func testWebViewProps_UserScripts_MultipleScripts() {
         let scripts: [[String: Any]] = [
             ["injectionTime": "documentStart", "source": "var a = 1;"],
             ["injectionTime": "documentEnd",   "source": "var b = 2;", "forMainFrameOnly": true],
             ["injectionTime": "documentStart"] // no source — should be dropped
         ]
-        ActionUIModel.shared.logger = consoleLogger
-        let validated = WebView.validateProperties(["userScripts": scripts], consoleLogger)
-        ActionUIModel.shared.logger = logger
-        let out = validated["userScripts"] as? [[String: Any]]
-        XCTAssertEqual(out?.count, 2, "Only scripts with a source should be kept")
-        XCTAssertEqual(out?[0]["injectionTime"] as? String, "documentStart")
-        XCTAssertEqual(out?[1]["forMainFrameOnly"] as? Bool, true)
+        let props = WebView.Props(["userScripts": scripts])
+        XCTAssertEqual(props.userScripts.count, 2, "Only scripts with a source should be kept")
+        XCTAssertEqual(props.userScripts[0].injectionTime, .documentStart)
+        XCTAssertEqual(props.userScripts[1].forMainFrameOnly, true)
     }
 
     // MARK: - Implementation selection (global flag)
@@ -591,9 +572,9 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: [
             "id": 1, "type": "WebView", "properties": ["url": "https://www.swift.org"]
         ], logger: logger)
-        let validated = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view, "Native backing should build a view")
     }
 
@@ -603,9 +584,9 @@ final class WebViewTests: XCTestCase {
         let element = try ActionUIElement(from: [
             "id": 1, "type": "WebView", "properties": ["url": "https://www.swift.org"]
         ], logger: logger)
-        let validated = WebView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validated)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view, "SwiftUI backing should build a view (or native fallback)")
     }
 
@@ -683,10 +664,10 @@ final class WebViewTests: XCTestCase {
         let jsonData = try XCTUnwrap(jsonString.data(using: .utf8))
         let element = try ActionUIModel.shared.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
 
-        let validated = element.properties
-        XCTAssertEqual(validated["limitsNavigationsToAppBoundDomains"] as? Bool, true)
-        XCTAssertEqual(validated["upgradeKnownHostsToHTTPS"] as? Bool, true)
-        let scripts = validated["userScripts"] as? [[String: Any]]
+        let properties = element.properties
+        XCTAssertEqual(properties["limitsNavigationsToAppBoundDomains"] as? Bool, true)
+        XCTAssertEqual(properties["upgradeKnownHostsToHTTPS"] as? Bool, true)
+        let scripts = properties["userScripts"] as? [[String: Any]]
         XCTAssertEqual(scripts?.count, 1)
         XCTAssertEqual(scripts?.first?["source"] as? String, "window.injected = true;")
         XCTAssertEqual(scripts?.first?["injectionTime"] as? String, "documentStart")

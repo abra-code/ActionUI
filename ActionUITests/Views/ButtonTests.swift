@@ -25,53 +25,61 @@ final class ButtonTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testValidatePropertiesValid() throws {
+    func testButtonPropsValid() throws {
         let properties: [String: Any] = [
             "title": "Click Me",
             "buttonStyle": "bordered",
             "role": "destructive"
         ]
         
-        let validated = Button.validateProperties(properties, logger)
+        let props = Button.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Click Me", "title should be valid String")
-        XCTAssertEqual(validated["buttonStyle"] as? String, "bordered", "buttonStyle should be valid String")
-        XCTAssertEqual(validated["role"] as? String, "destructive", "role should be valid String")
+        XCTAssertEqual(props.title, "Click Me", "title should be valid String")
+        XCTAssertEqual(mods.buttonStyle, .bordered, "buttonStyle should be valid String")
+        XCTAssertEqual(props.role, .destructive, "role should be valid String")
     }
     
-    func testValidatePropertiesInvalid() throws {
+    func testButtonPropsIgnoreInvalidValues() throws {
         let properties: [String: Any] = [
             "title": 123,
             "buttonStyle": "invalid",
             "role": "invalid"
         ]
         
-        var validated = Button.validateProperties(properties, logger)
-        validated = View.validateProperties(validated, logger)
+        let props = Button.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertNil(validated["title"], "title should be nil for invalid type")
-        XCTAssertNil(validated["buttonStyle"], "buttonStyle should be nil for invalid value")
-        XCTAssertNil(validated["role"], "role should be nil for invalid value")
+        XCTAssertEqual(props.title, "", "title should be the default for invalid type")
+        XCTAssertNil(mods.buttonStyle, "buttonStyle should be nil for invalid value")
+        XCTAssertNil(props.role, "role should be nil for invalid value")
     }
     
-    func testValidatePropertiesMissing() throws {
+    func testButtonPropsMissing() throws {
         let properties: [String: Any] = [:]
         
-        let validated = Button.validateProperties(properties, logger)
+        let props = Button.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertTrue(validated.isEmpty, "validated properties should be empty when no properties provided")
+        XCTAssertEqual(props.title, "", "title should be the default when no properties provided")
+        XCTAssertNil(props.systemImage)
+        XCTAssertNil(props.assetImage)
+        XCTAssertNil(props.imageScale)
+        XCTAssertNil(props.role)
+        XCTAssertNil(mods.buttonStyle)
     }
     
-    func testValidatePropertiesPartial() throws {
+    func testButtonPropsPartial() throws {
         let properties: [String: Any] = [
             "title": "Click Me"
         ]
         
-        let validated = Button.validateProperties(properties, logger)
+        let props = Button.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Click Me", "title should be valid String")
-        XCTAssertNil(validated["buttonStyle"], "buttonStyle should be nil when not provided")
-        XCTAssertNil(validated["role"], "role should be nil when not provided")
+        XCTAssertEqual(props.title, "Click Me", "title should be valid String")
+        XCTAssertNil(mods.buttonStyle, "buttonStyle should be nil when not provided")
+        XCTAssertNil(props.role, "role should be nil when not provided")
     }
     
     func testBuildViewAndApplyModifiersValidProperties() throws {
@@ -86,10 +94,10 @@ final class ButtonTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Button.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = Button.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = Button.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = Button.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = Button.applyModifiers(view, element, windowUUID, properties, logger)
         
         // Note: Cannot check modifiedView type as SwiftUI.Button<SwiftUI.Text> due to SwiftUI's modifier wrapping (e.g., _ModifiedContent)
         // Note: Cannot inspect buttonStyle or other modifiers due to SwiftUI's opaque view hierarchy
@@ -103,10 +111,10 @@ final class ButtonTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Button.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = Button.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = Button.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = Button.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = Button.applyModifiers(view, element, windowUUID, properties, logger)
         
         // Note: Cannot check modifiedView type as SwiftUI.Button<SwiftUI.Text> due to SwiftUI's modifier wrapping (e.g., _ModifiedContent)
         // Note: Cannot inspect buttonStyle or other modifiers due to SwiftUI's opaque view hierarchy
@@ -128,10 +136,10 @@ final class ButtonTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = Button.validateProperties(element.properties, logger)
+        let rawProperties = element.properties
         let viewModel = ViewModel()
         
-        let _ = Button.buildView(element, viewModel, windowUUID, validated, logger)
+        let _ = Button.buildView(element, viewModel, windowUUID, rawProperties, logger)
         
         // We can't deeply inspect SwiftUI view hierarchy in unit tests easily,
         // but we can at least confirm it builds without crash and is Button type
@@ -151,27 +159,23 @@ final class ButtonTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = Button.validateProperties(element.properties, logger)
+        let rawProperties = element.properties
         let viewModel = ViewModel()
         
-        let _ = Button.buildView(element, viewModel, windowUUID, validated, logger)
+        let _ = Button.buildView(element, viewModel, windowUUID, rawProperties, logger)
     }
 
-    func testValidatePropertiesImageScale() throws {
+    func testButtonPropsImageScale() throws {
         // valid values
         let props1: [String: Any] = ["imageScale": "large"]
-        var validated = Button.validateProperties(props1, logger)
-        XCTAssertEqual(validated["imageScale"] as? String, "large")
+        XCTAssertEqual(Button.Props(props1).imageScale, .large)
         
         // invalid type
         let props2: [String: Any] = ["imageScale": 123]
-        validated = Button.validateProperties(props2, logger)
-        XCTAssertNil(validated["imageScale"])
+        XCTAssertNil(Button.Props(props2).imageScale)
         
-        // invalid string value (kept but ignored in logic)
+        // invalid string value (not a known name, the scale falls back to .medium)
         let props3: [String: Any] = ["imageScale": "extra-large"]
-        validated = Button.validateProperties(props3, logger)
-        XCTAssertEqual(validated["imageScale"] as? String, "extra-large")
-        // Note: current code keeps invalid strings and scale falls back to .medium
+        XCTAssertNil(Button.Props(props3).imageScale)
     }
 }

@@ -2,7 +2,7 @@
  SliderTests.swift
 
  Tests for the Slider component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -89,59 +89,60 @@ final class SliderTests: XCTestCase {
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
-    func testSliderValidatePropertiesValid() {
+    func testSliderPropsValid() {
         let properties: [String: Any] = [
             "value": 0.5,
             "range": ["min": -10.0, "max": 10.0],
             "step": 2.0
         ]
         
-        let validated = Slider.validateProperties(properties, logger)
+        let props = Slider.Props(properties)
         
-        XCTAssertEqual(validated.double(forKey: "value"), 0.5, "Value should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), -10.0, "Range min should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 10.0, "Range max should be valid")
-        XCTAssertEqual(validated.double(forKey: "step"), 2.0, "Step should be valid")
+        XCTAssertEqual(props.initialValue, 0.5, "Value should be valid")
+        XCTAssertEqual(props.min, -10.0, "Range min should be valid")
+        XCTAssertEqual(props.max, 10.0, "Range max should be valid")
+        XCTAssertEqual(props.step, 2.0, "Step should be valid")
     }
     
-    func testSliderValidatePropertiesInvalidStepLargerThanRange() {
+    func testSliderPropsStepLargerThanRange() {
         let properties: [String: Any] = [
             "value": 5.0,
             "range": ["min": 0.0, "max": 10.0],
             "step": 20.0
         ]
         
-        let validated = Slider.validateProperties(properties, logger)
+        let props = Slider.Props(properties)
         
-        XCTAssertEqual(validated.double(forKey: "value"), 5.0, "Value should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Range min should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 10.0, "Range max should be valid")
-        XCTAssertEqual(validated.double(forKey: "step"), 10.0, "Step should be clamped to range (max - min)")
+        XCTAssertEqual(props.initialValue, 5.0, "Value should be valid")
+        XCTAssertEqual(props.min, 0.0, "Range min should be valid")
+        XCTAssertEqual(props.max, 10.0, "Range max should be valid")
+        XCTAssertEqual(props.step, 10.0, "Step should be clamped to range (max - min)")
     }
     
-    func testSliderValidatePropertiesInvalidTypes() {
+    func testSliderPropsIgnoreInvalidTypes() {
         let properties: [String: Any] = [
             "value": "0.5",
             "range": ["min": "0", "max": true],
             "step": "1.0"
         ]
         
-        let validated = Slider.validateProperties(properties, logger)
+        let props = Slider.Props(properties)
         
-        XCTAssertEqual(validated.double(forKey: "value"), 0.0, "Invalid value should default to 0.0")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Invalid range min should default to 0.0")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 1.0, "Invalid range max should default to 1.0")
-        XCTAssertEqual(validated.double(forKey: "step"), 1.0, "Invalid step should default to 1.0")
+        XCTAssertEqual(props.initialValue, 0.0, "Invalid value should default to 0.0")
+        XCTAssertEqual(props.min, 0.0, "Invalid range min should default to 0.0")
+        XCTAssertEqual(props.max, 1.0, "Invalid range max should default to 1.0")
+        XCTAssertEqual(props.step, 1.0, "Invalid step should default to 1.0")
     }
     
-    func testSliderValidatePropertiesMissing() {
+    func testSliderPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Slider.validateProperties(properties, logger)
+        let props = Slider.Props(properties)
         
-        XCTAssertEqual(validated.double(forKey: "value"), 0.0, "Missing value should default to 0.0")
-        XCTAssertNil(validated["range"], "Missing range should be nil")
-        XCTAssertNil(validated["step"], "Missing step should be nil")
+        XCTAssertEqual(props.initialValue, 0.0, "Missing value should default to 0.0")
+        XCTAssertEqual(props.min, 0.0, "Missing range min should be the default")
+        XCTAssertEqual(props.max, 1.0, "Missing range max should be the default")
+        XCTAssertNil(props.step, "Missing step should be nil")
     }
     
     func testSliderViewConstructionAndBinding() throws {

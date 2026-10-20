@@ -52,8 +52,8 @@ final class ListTests: XCTestCase {
             return
         }
 
-        let validatedProperties = List.validateProperties(element.properties, logger)
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty")
     }
@@ -101,7 +101,7 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? [String], [], "State value should be empty")
     }
 
-    func testListValidatePropertiesValid() {
+    func testListPropsValid() {
         let properties: [String: Any] = [
             "itemType": ["viewType": "Image", "dataInterpretation": "systemName"],
             "actionID": "list.action",
@@ -109,48 +109,36 @@ final class ListTests: XCTestCase {
             "padding": 10.0
         ]
 
-        let validated = List.validateProperties(properties, logger)
+        let props = List.Props(properties)
 
-        if let itemType = validated["itemType"] as? [String: Any] {
-            XCTAssertEqual(itemType["viewType"] as? String, "Image", "itemType.viewType should be preserved")
-            XCTAssertEqual(itemType["dataInterpretation"] as? String, "systemName", "itemType.dataInterpretation should be preserved")
-        } else {
-            XCTFail("itemType should be valid dictionary")
-        }
-        XCTAssertEqual(validated["actionID"] as? String, "list.action", "actionID should be preserved")
-        XCTAssertEqual(validated["doubleClickActionID"] as? String, "list.double.click", "doubleClickActionID should be preserved")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.viewType, .image, "itemType.viewType should be preserved")
+        XCTAssertEqual(props.dataInterpretation, .systemName, "itemType.dataInterpretation should be preserved")
+        XCTAssertEqual(props.actionID, "list.action", "actionID should be preserved")
+        XCTAssertEqual(props.doubleClickActionID, "list.double.click", "doubleClickActionID should be preserved")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be passed through")
     }
 
-    func testListValidatePropertiesInvalid() {
+    func testListPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "itemType": ["viewType": "Invalid", "dataInterpretation": "invalid", "actionContext": "invalid"],
             "doubleClickActionID": 456
         ]
 
-        let validated = List.validateProperties(properties, logger)
+        let props = List.Props(properties)
 
-        if let itemType = validated["itemType"] as? [String: Any] {
-            XCTAssertEqual(itemType["viewType"] as? String, "Text", "Invalid viewType should default to Text")
-            XCTAssertEqual(itemType["dataInterpretation"] as? String, "invalid", "Invalid dataInterpretation should be preserved")
-            XCTAssertEqual(itemType["actionContext"] as? String, "invalid", "Invalid actionContext should be preserved")
-        } else {
-            XCTFail("itemType should be valid dictionary")
-        }
-        XCTAssertNil(validated["doubleClickActionID"], "Invalid doubleClickActionID should be nil")
+        XCTAssertEqual(props.viewType, .text, "Invalid viewType should default to Text")
+        XCTAssertEqual(props.dataInterpretation, .systemName, "Invalid dataInterpretation should be ignored")
+        XCTAssertEqual(props.actionContext, .title, "Invalid actionContext should be ignored")
+        XCTAssertNil(props.doubleClickActionID, "Invalid doubleClickActionID should be ignored")
     }
 
-    func testListValidatePropertiesMissing() {
+    func testListPropsMissing() {
         let properties: [String: Any] = [:]
 
-        let validated = List.validateProperties(properties, logger)
+        let props = List.Props(properties)
 
-        if let itemType = validated["itemType"] as? [String: Any] {
-            XCTAssertEqual(itemType["viewType"] as? String, "Text", "Missing itemType should default to Text")
-        } else {
-            XCTFail("itemType should be valid dictionary")
-        }
-        XCTAssertNil(validated["doubleClickActionID"], "Missing doubleClickActionID should be nil")
+        XCTAssertEqual(props.viewType, .text, "Missing itemType should default to Text")
+        XCTAssertNil(props.doubleClickActionID, "Missing doubleClickActionID should be nil")
     }
 
     // MARK: - Row management tests
@@ -294,8 +282,8 @@ final class ListTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[10], "ViewModel should be created for child id 10")
         XCTAssertNotNil(windowModel.viewModels[11], "ViewModel should be created for child id 11")
 
-        let validatedProperties = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view, "buildView should succeed with heterogeneous children")
     }
 
@@ -324,8 +312,8 @@ final class ListTests: XCTestCase {
         XCTAssertTrue(children.isEmpty, "Empty children array should result in empty subviews")
 
         // Should still build successfully (homogeneous mode)
-        let validatedProperties = List.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view, "buildView should succeed with empty children (homogeneous fallback)")
         XCTAssertEqual(viewModel.states["content"] as? [[String]], [], "State content should start empty in homogeneous mode")
     }

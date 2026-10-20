@@ -3,7 +3,7 @@
  SectionTests.swift
 
  Tests for the Section component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -32,34 +32,34 @@ final class SectionTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testSectionValidatePropertiesValid() {
+    func testSectionPropsValid() {
         let properties: [String: Any] = [
             "header": "Details",
             "padding": 10.0
         ]
         
-        let validated = Section.validateProperties(properties, logger)
+        let props = Section.Props(properties)
         
-        XCTAssertEqual(validated["header"] as? String, "Details", "header should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.header, "Details", "header should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be read by BaseModifiers")
     }
     
-    func testSectionValidatePropertiesInvalid() {
+    func testSectionPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "header": 123
         ]
         
-        let validated = Section.validateProperties(properties, logger)
+        let props = Section.Props(properties)
         
-        XCTAssertNil(validated["header"], "Invalid header should be nil")
+        XCTAssertNil(props.header, "Invalid header should be ignored")
     }
     
-    func testSectionValidatePropertiesMissing() {
+    func testSectionPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Section.validateProperties(properties, logger)
+        let props = Section.Props(properties)
         
-        XCTAssertNil(validated["header"], "Missing header should be nil")
+        XCTAssertNil(props.header, "Missing header should be nil")
     }
     
     func testSectionConstruction() throws {
@@ -76,9 +76,9 @@ final class SectionTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Section.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

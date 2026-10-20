@@ -3,7 +3,7 @@
  GroupTests.swift
 
  Tests for the Group component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 */
 
 import XCTest
@@ -44,9 +44,9 @@ final class GroupTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Group.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -99,20 +99,12 @@ final class GroupTests: XCTestCase {
         XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testGroupValidatePropertiesValid() {
+    func testGroupPaddingIsRead() {
         let properties: [String: Any] = ["padding": 10.0]
         
-        let validated = Group.validateProperties(properties, logger)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "Padding should be valid")
-    }
-    
-    func testGroupValidatePropertiesEmpty() {
-        let properties: [String: Any] = [:]
-        
-        let validated = Group.validateProperties(properties, logger)
-        
-        XCTAssertTrue(validated.isEmpty, "Empty properties should be valid")
+        XCTAssertEqual(mods.padding, .uniform(10.0), "Padding should be valid")
     }
     
     func testGroupDynamicHierarchyChange() throws {

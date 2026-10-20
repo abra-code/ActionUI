@@ -3,7 +3,7 @@
  ContentUnavailableViewTests.swift
 
  Tests for the ContentUnavailableView component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and search variant.
+ Verifies JSON decoding, Props reading, view construction, and search variant.
 */
 
 import XCTest
@@ -32,23 +32,23 @@ final class ContentUnavailableViewTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - Validation Tests
+    // MARK: - Props Tests
 
-    func testValidatePropertiesValid() {
+    func testPropsValid() {
         let properties: [String: Any] = [
             "title": "No Results",
             "systemImage": "magnifyingglass",
             "description": "Try a different search term."
         ]
 
-        let validated = ContentUnavailableView.validateProperties(properties, logger)
+        let props = ContentUnavailableView.Props(properties)
 
-        XCTAssertEqual(validated["title"] as? String, "No Results")
-        XCTAssertEqual(validated["systemImage"] as? String, "magnifyingglass")
-        XCTAssertEqual(validated["description"] as? String, "Try a different search term.")
+        XCTAssertEqual(props.title, "No Results")
+        XCTAssertEqual(props.systemImage, "magnifyingglass")
+        XCTAssertEqual(props.description, "Try a different search term.")
     }
 
-    func testValidatePropertiesInvalidTypes() {
+    func testPropsIgnoreInvalidTypes() {
         let properties: [String: Any] = [
             "title": 123,
             "systemImage": true,
@@ -57,36 +57,36 @@ final class ContentUnavailableViewTests: XCTestCase {
             "query": 789
         ]
 
-        let validated = ContentUnavailableView.validateProperties(properties, logger)
+        let props = ContentUnavailableView.Props(properties)
 
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
-        XCTAssertNil(validated["systemImage"], "Invalid systemImage should be nil")
-        XCTAssertNil(validated["description"], "Invalid description should be nil")
-        XCTAssertNil(validated["search"], "Invalid search should be nil")
-        XCTAssertNil(validated["query"], "Invalid query should be nil")
+        XCTAssertEqual(props.title, "No Content", "Invalid title should be the default")
+        XCTAssertNil(props.systemImage, "Invalid systemImage should be nil")
+        XCTAssertNil(props.description, "Invalid description should be nil")
+        XCTAssertFalse(props.search, "Invalid search should be the default")
+        XCTAssertEqual(props.query, "", "Invalid query should be the default")
     }
 
-    func testValidatePropertiesSearchVariant() {
+    func testPropsSearchVariant() {
         let properties: [String: Any] = [
             "search": true,
             "query": "planets"
         ]
 
-        let validated = ContentUnavailableView.validateProperties(properties, logger)
+        let props = ContentUnavailableView.Props(properties)
 
-        XCTAssertEqual(validated["search"] as? Bool, true)
-        XCTAssertEqual(validated["query"] as? String, "planets")
+        XCTAssertTrue(props.search)
+        XCTAssertEqual(props.query, "planets")
     }
 
-    func testValidatePropertiesEmpty() {
+    func testPropsEmpty() {
         let properties: [String: Any] = [:]
 
-        let validated = ContentUnavailableView.validateProperties(properties, logger)
+        let props = ContentUnavailableView.Props(properties)
 
-        XCTAssertNil(validated["title"])
-        XCTAssertNil(validated["systemImage"])
-        XCTAssertNil(validated["description"])
-        XCTAssertNil(validated["search"])
+        XCTAssertEqual(props.title, "No Content")
+        XCTAssertNil(props.systemImage)
+        XCTAssertNil(props.description)
+        XCTAssertFalse(props.search)
     }
 
     // MARK: - Construction Tests
@@ -103,11 +103,11 @@ final class ContentUnavailableViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
+        viewModel.properties = properties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.value as? String, "No Favorites")
     }
@@ -123,11 +123,11 @@ final class ContentUnavailableViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
+        viewModel.properties = properties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.value as? String, "planets")
     }
@@ -142,11 +142,11 @@ final class ContentUnavailableViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
+        viewModel.properties = properties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.value as? String, "")
     }
@@ -161,11 +161,11 @@ final class ContentUnavailableViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ContentUnavailableView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
+        viewModel.properties = properties
         viewModel.value = ContentUnavailableView.initialValue(viewModel)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         XCTAssertEqual(viewModel.value as? String, "Nothing Here")
     }

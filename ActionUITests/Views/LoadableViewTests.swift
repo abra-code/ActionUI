@@ -3,7 +3,7 @@
  LoadableViewTests.swift
 
  Tests for the LoadableView component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -32,25 +32,24 @@ final class LoadableViewTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testLoadableViewValidatePropertiesValid() {
+    func testLoadableViewPropsValid() {
         let properties: [String: Any] = [
             "url": "https://example.com/view.json"
         ]
         
-        let validated = LoadableView.validateProperties(properties, logger)
+        let props = LoadableView.Props(properties)
         
-        XCTAssertEqual(validated["url"] as? String, "https://example.com/view.json", "url should be valid")
+        XCTAssertEqual(props.url, "https://example.com/view.json", "url should be valid")
     }
     
-    func testLoadableViewValidatePropertiesInvalid() {
+    func testLoadableViewPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "url": 123
         ]
         
-        let consoleLogger = ConsoleLogger()
-        let validated = LoadableView.validateProperties(properties, consoleLogger)
+        let props = LoadableView.Props(properties)
         
-        XCTAssertNil(validated["url"], "Invalid url should be nil")
+        XCTAssertNil(props.url, "Invalid url should be ignored")
     }
     
     func testLoadableViewJSONDecoding() throws {
@@ -89,8 +88,8 @@ final class LoadableViewTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? String, "https://example.com/view.json", "Initial viewModel value should be the URL string")
         
 //        // Verify view construction
-//        let validatedProperties = LoadableView.validateProperties(element.properties, logger)
-//        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+//        let properties = element.properties
+//        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 //        XCTAssertTrue(view is SwiftUI.AnyView, "Built view should be wrapped in AnyView")
     }
 
@@ -318,11 +317,11 @@ final class LoadableViewTests: XCTestCase {
         ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: parentID, viewPartID: 0)
     }
 
-    func testViewDidLoadActionIDPropertyValidation() throws {
+    func testViewDidLoadActionIDPropertyIsStored() throws {
         let windowModel = try loadRootWithViewDidLoadAction()
         let viewModel = windowModel.viewModels[100]!
         XCTAssertEqual(viewModel.properties["viewDidLoadActionID"] as? String, "params.loaded",
-                       "viewDidLoadActionID should be preserved in validated properties")
+                       "viewDidLoadActionID should be preserved in the properties")
     }
 
     func testViewDidLoadFiresOnFirstLoad() throws {

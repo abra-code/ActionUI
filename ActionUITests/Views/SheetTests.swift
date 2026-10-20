@@ -4,7 +4,7 @@
 
  Tests for the sheet and fullScreenCover modifier support in ActionUI.
  Verifies JSON decoding of the "sheet" and "fullScreenCover" subview keys,
- property validation, state initialization, and ViewModel creation.
+ Props reading, state initialization, and ViewModel creation.
 */
 
 import XCTest
@@ -33,33 +33,33 @@ final class SheetTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - sheetOnDismissActionID validation
+    // MARK: - sheetOnDismissActionID props
 
     func testSheetOnDismissActionIDValid() {
-        let validated = View.validateProperties(["sheetOnDismissActionID": "sheet.dismissed"], logger)
-        XCTAssertEqual(validated["sheetOnDismissActionID"] as? String, "sheet.dismissed")
+        let mods = BaseModifiers(["sheetOnDismissActionID": "sheet.dismissed"])
+        XCTAssertEqual(mods.sheetOnDismissActionID, "sheet.dismissed")
     }
 
     func testSheetOnDismissActionIDInvalidType() {
-        let validated = View.validateProperties(["sheetOnDismissActionID": 123], logger)
-        XCTAssertNil(validated["sheetOnDismissActionID"], "Non-String sheetOnDismissActionID should be removed")
+        let mods = BaseModifiers(["sheetOnDismissActionID": 123])
+        XCTAssertNil(mods.sheetOnDismissActionID, "Non-String sheetOnDismissActionID should be ignored")
     }
 
     func testSheetOnDismissActionIDMissing() {
-        let validated = View.validateProperties([:], logger)
-        XCTAssertNil(validated["sheetOnDismissActionID"], "Missing sheetOnDismissActionID should be nil")
+        let mods = BaseModifiers([:])
+        XCTAssertNil(mods.sheetOnDismissActionID, "Missing sheetOnDismissActionID should be nil")
     }
 
-    // MARK: - fullScreenCoverOnDismissActionID validation
+    // MARK: - fullScreenCoverOnDismissActionID props
 
     func testFullScreenCoverOnDismissActionIDValid() {
-        let validated = View.validateProperties(["fullScreenCoverOnDismissActionID": "cover.dismissed"], logger)
-        XCTAssertEqual(validated["fullScreenCoverOnDismissActionID"] as? String, "cover.dismissed")
+        let mods = BaseModifiers(["fullScreenCoverOnDismissActionID": "cover.dismissed"])
+        XCTAssertEqual(mods.fullScreenCoverOnDismissActionID, "cover.dismissed")
     }
 
     func testFullScreenCoverOnDismissActionIDInvalidType() {
-        let validated = View.validateProperties(["fullScreenCoverOnDismissActionID": true], logger)
-        XCTAssertNil(validated["fullScreenCoverOnDismissActionID"], "Non-String fullScreenCoverOnDismissActionID should be removed")
+        let mods = BaseModifiers(["fullScreenCoverOnDismissActionID": true])
+        XCTAssertNil(mods.fullScreenCoverOnDismissActionID, "Non-String fullScreenCoverOnDismissActionID should be ignored")
     }
 
     // MARK: - JSON decoding — sheet subview

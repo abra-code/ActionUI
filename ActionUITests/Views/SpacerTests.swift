@@ -3,7 +3,7 @@
  SpacerTests.swift
 
  Tests for the Spacer component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -32,34 +32,34 @@ final class SpacerTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testSpacerValidatePropertiesValid() {
+    func testSpacerPropsValid() {
         let properties: [String: Any] = [
             "minLength": 20.0,
             "padding": 10.0
         ]
         
-        let validated = Spacer.validateProperties(properties, logger)
+        let props = Spacer.Props(properties)
         
-        XCTAssertEqual(validated.cgFloat(forKey: "minLength"), 20.0, "minLength should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.minLength, 20.0, "minLength should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be read by BaseModifiers")
     }
     
-    func testSpacerValidatePropertiesInvalid() {
+    func testSpacerPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "minLength": "invalid"
         ]
         
-        let validated = Spacer.validateProperties(properties, logger)
+        let props = Spacer.Props(properties)
         
-        XCTAssertNil(validated["minLength"], "Invalid minLength should be nil")
+        XCTAssertNil(props.minLength, "Invalid minLength should be ignored")
     }
     
-    func testSpacerValidatePropertiesMissing() {
+    func testSpacerPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Spacer.validateProperties(properties, logger)
+        let props = Spacer.Props(properties)
         
-        XCTAssertNil(validated["minLength"], "Missing minLength should be nil")
+        XCTAssertNil(props.minLength, "Missing minLength should be nil")
     }
     
     func testSpacerConstruction() throws {
@@ -73,9 +73,9 @@ final class SpacerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Spacer.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

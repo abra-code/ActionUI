@@ -3,7 +3,7 @@
  TabViewTests.swift
 
  Tests for the TabView component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding.
+ Verifies JSON decoding, Props reading, view construction, and state binding.
 */
 
 import XCTest
@@ -32,34 +32,34 @@ final class TabViewTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testTabViewValidatePropertiesValid() {
+    func testTabViewPropsValid() {
         let properties: [String: Any] = [
             "selection": 0,
             "padding": 10.0
         ]
         
-        let validated = TabView.validateProperties(properties, logger)
+        let props = TabView.Props(properties)
         
-        XCTAssertEqual(validated["selection"] as? Int, 0, "selection should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.selection, 0, "selection should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be passed through")
     }
     
-    func testTabViewValidatePropertiesInvalid() {
+    func testTabViewPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "selection": "invalid"
         ]
         
-        let validated = TabView.validateProperties(properties, logger)
+        let props = TabView.Props(properties)
         
-        XCTAssertNil(validated["selection"], "Invalid selection should be nil")
+        XCTAssertEqual(props.selection, 0, "Invalid selection should be ignored")
     }
     
-    func testTabViewValidatePropertiesMissing() {
+    func testTabViewPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = TabView.validateProperties(properties, logger)
+        let props = TabView.Props(properties)
         
-        XCTAssertNil(validated["selection"], "Missing selection should be nil")
+        XCTAssertEqual(props.selection, 0, "Missing selection should default to 0")
     }
     
     func testTabViewConstruction() throws {
@@ -80,9 +80,9 @@ final class TabViewTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TabView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -149,25 +149,25 @@ final class TabViewTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? Int, 0, "Initial viewModel value should be 0")
     }
 
-    // MARK: - Style validation
+    // MARK: - Style Props
 
-    func testTabViewValidatePropertiesStyleValid() {
+    func testTabViewPropsStyleValid() {
         for style in ["automatic", "tabBarOnly", "sidebarAdaptable", "page", "verticalPage", "grouped"] {
             let properties: [String: Any] = ["style": style]
-            let validated = TabView.validateProperties(properties, logger)
-            XCTAssertEqual(validated["style"] as? String, style, "Style '\(style)' should be valid")
+            let props = TabView.Props(properties)
+            XCTAssertEqual(props.style?.rawValue, style, "Style '\(style)' should be valid")
         }
     }
 
-    func testTabViewValidatePropertiesStyleInvalidValue() {
+    func testTabViewPropsStyleInvalidValue() {
         let properties: [String: Any] = ["style": "carousel"]
-        let validated = TabView.validateProperties(properties, logger)
-        XCTAssertNil(validated["style"], "Invalid style value should be nil")
+        let props = TabView.Props(properties)
+        XCTAssertNil(props.style, "Invalid style value should be ignored")
     }
 
-    func testTabViewValidatePropertiesStyleInvalidType() {
+    func testTabViewPropsStyleInvalidType() {
         let properties: [String: Any] = ["style": 42]
-        let validated = TabView.validateProperties(properties, logger)
-        XCTAssertNil(validated["style"], "Non-string style should be nil")
+        let props = TabView.Props(properties)
+        XCTAssertNil(props.style, "Non-string style should be ignored")
     }
 }

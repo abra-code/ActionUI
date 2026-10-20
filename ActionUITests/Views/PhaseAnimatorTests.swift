@@ -3,7 +3,7 @@
  PhaseAnimatorTests.swift
 
  Tests for the PhaseAnimator component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 
  Sample JSON for PhaseAnimator:
  {
@@ -74,9 +74,9 @@ final class PhaseAnimatorTests: XCTestCase {
             return
         }
 
-        let validatedProperties = PhaseAnimator.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -113,7 +113,6 @@ final class PhaseAnimatorTests: XCTestCase {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
             let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-            let _ = PhaseAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")
         } catch {

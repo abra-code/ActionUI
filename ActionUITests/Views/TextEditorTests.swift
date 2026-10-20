@@ -3,7 +3,7 @@
  TextEditorTests.swift
 
  Tests for the TextEditor component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding.
+ Verifies JSON decoding, Props reading, view construction, and state binding.
 */
 
 import XCTest
@@ -32,35 +32,37 @@ final class TextEditorTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testTextEditorValidatePropertiesValid() {
+    func testTextEditorPropsValid() {
         let properties: [String: Any] = [
             "placeholder": "Enter text here",
             "actionID": "texteditor.submit"
         ]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let props = TextEditor.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated["placeholder"] as? String, "Enter text here", "Placeholder should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "texteditor.submit", "actionID should be valid")
+        XCTAssertEqual(props.placeholder, "Enter text here", "Placeholder should be valid")
+        XCTAssertEqual(mods.actionID, "texteditor.submit", "actionID should be valid")
     }
     
-    func testTextEditorValidatePropertiesInvalid() {
+    func testTextEditorPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "placeholder": 123
         ]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let props = TextEditor.Props(properties)
         
-        XCTAssertNil(validated["placeholder"], "Invalid placeholder should be nil")
+        XCTAssertNil(props.placeholder, "Invalid placeholder should be nil")
     }
     
-    func testTextEditorValidatePropertiesMissing() {
+    func testTextEditorPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = TextEditor.validateProperties(properties, logger)
+        let props = TextEditor.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertNil(validated["placeholder"], "Missing placeholder should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertNil(props.placeholder, "Missing placeholder should be nil")
+        XCTAssertNil(mods.actionID, "Missing actionID should be nil")
     }
     
     func testTextEditorConstruction() throws {
@@ -75,9 +77,9 @@ final class TextEditorTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextEditor.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -125,12 +127,12 @@ final class TextEditorTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? String, "", "Initial viewModel value should be an empty string")
     }
 
-    func testTextEditorTextPropertyValidation() {
-        let valid = TextEditor.validateProperties(["text": "hello"], logger)
-        XCTAssertEqual(valid["text"] as? String, "hello", "Valid text should be preserved")
+    func testTextEditorPropsText() {
+        let valid = TextEditor.Props(["text": "hello"])
+        XCTAssertEqual(valid.text, "hello", "Valid text should be preserved")
 
-        let invalid = TextEditor.validateProperties(["text": 123], logger)
-        XCTAssertNil(invalid["text"], "Non-String text should be removed")
+        let invalid = TextEditor.Props(["text": 123])
+        XCTAssertNil(invalid.text, "Non-String text should be ignored")
     }
 
     func testTextEditorInitialValueFromTextProperty() {
@@ -150,20 +152,20 @@ final class TextEditorTests: XCTestCase {
         XCTAssertEqual(value, "edited", "initialValue should prefer model.value over text property")
     }
 
-    func testTextEditorValidatePropertiesMarkdownValid() {
-        let validated = TextEditor.validateProperties(["markdown": "**bold** _italic_"], logger)
-        XCTAssertEqual(validated["markdown"] as? String, "**bold** _italic_", "Valid markdown should be preserved")
+    func testTextEditorPropsMarkdownValid() {
+        let props = TextEditor.Props(["markdown": "**bold** _italic_"])
+        XCTAssertEqual(props.markdown, "**bold** _italic_", "Valid markdown should be preserved")
     }
 
-    func testTextEditorValidatePropertiesMarkdownInvalid() {
-        let validated = TextEditor.validateProperties(["markdown": 123], logger)
-        XCTAssertNil(validated["markdown"], "Non-String markdown should be removed")
+    func testTextEditorPropsMarkdownInvalid() {
+        let props = TextEditor.Props(["markdown": 123])
+        XCTAssertNil(props.markdown, "Non-String markdown should be ignored")
     }
 
-    func testTextEditorValidatePropertiesBothTextAndMarkdown() {
-        let validated = TextEditor.validateProperties(["text": "plain", "markdown": "**bold**"], logger)
-        XCTAssertEqual(validated["text"] as? String, "plain", "text should be preserved when both properties are provided")
-        XCTAssertEqual(validated["markdown"] as? String, "**bold**", "markdown should be preserved when both properties are provided")
+    func testTextEditorPropsBothTextAndMarkdown() {
+        let props = TextEditor.Props(["text": "plain", "markdown": "**bold**"])
+        XCTAssertEqual(props.text, "plain", "text should be preserved when both properties are provided")
+        XCTAssertEqual(props.markdown, "**bold**", "markdown should be preserved when both properties are provided")
     }
 
     func testTextEditorInitialValueFromAttributedMarkdown() {
@@ -205,9 +207,9 @@ final class TextEditorTests: XCTestCase {
             ]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = TextEditor.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     // MARK: - setElementValueFromString with contentType

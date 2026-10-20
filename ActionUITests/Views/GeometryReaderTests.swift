@@ -3,7 +3,7 @@
  GeometryReaderTests.swift
 
  Tests for the GeometryReader component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -32,33 +32,33 @@ final class GeometryReaderTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - Property Validation
+    // MARK: - Props
 
-    func testValidatePropertiesValidAlignment() {
+    func testPropsValidAlignment() {
         let properties: [String: Any] = ["alignment": "center"]
-        let validated = GeometryReader.validateProperties(properties, logger)
-        XCTAssertEqual(validated["alignment"] as? String, "center", "Valid alignment should be preserved")
+        let props = GeometryReader.Props(properties)
+        XCTAssertEqual(props.alignment, .center, "Valid alignment should be preserved")
     }
 
-    func testValidatePropertiesAllAlignments() {
+    func testPropsAllAlignments() {
         let validAlignments = ["topLeading", "top", "topTrailing", "leading", "center", "trailing", "bottomLeading", "bottom", "bottomTrailing"]
         for alignment in validAlignments {
             let properties: [String: Any] = ["alignment": alignment]
-            let validated = GeometryReader.validateProperties(properties, logger)
-            XCTAssertEqual(validated["alignment"] as? String, alignment, "Alignment '\(alignment)' should be valid")
+            let props = GeometryReader.Props(properties)
+            XCTAssertEqual(props.alignment.rawValue, alignment, "Alignment '\(alignment)' should be valid")
         }
     }
 
-    func testValidatePropertiesInvalidAlignment() {
+    func testPropsInvalidAlignment() {
         let properties: [String: Any] = ["alignment": "invalid"]
-        let validated = GeometryReader.validateProperties(properties, logger)
-        XCTAssertEqual(validated["alignment"] as? String, "topLeading", "Invalid alignment should default to 'topLeading'")
+        let props = GeometryReader.Props(properties)
+        XCTAssertEqual(props.alignment, .topLeading, "Invalid alignment should default to 'topLeading'")
     }
 
-    func testValidatePropertiesNoAlignment() {
+    func testPropsNoAlignment() {
         let properties: [String: Any] = [:]
-        let validated = GeometryReader.validateProperties(properties, logger)
-        XCTAssertNil(validated["alignment"], "Missing alignment should remain nil (default applied in buildView)")
+        let props = GeometryReader.Props(properties)
+        XCTAssertEqual(props.alignment, .topLeading, "Missing alignment should default to 'topLeading'")
     }
 
     // MARK: - Initial States
@@ -96,9 +96,9 @@ final class GeometryReaderTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = GeometryReader.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -111,9 +111,9 @@ final class GeometryReaderTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = GeometryReader.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     // MARK: - JSON Decoding

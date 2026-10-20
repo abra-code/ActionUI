@@ -3,7 +3,7 @@
  NavigationStackTests.swift
 
  Tests for the NavigationStack component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and navigation handling.
+ Verifies JSON decoding, Props reading, view construction, and navigation handling.
 
  Sample JSON for NavigationStack:
  {
@@ -72,9 +72,9 @@ final class NavigationStackTests: XCTestCase {
             return
         }
 
-        let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -103,7 +103,6 @@ final class NavigationStackTests: XCTestCase {
             // Expecting failure, use ConsoleLogger to avoid test failure
             let consoleLogger = ConsoleLogger()
             let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-            let _ = NavigationStack.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content, "Malformed content should be nil")
         } catch {
@@ -148,8 +147,8 @@ final class NavigationStackTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[11], "ViewModel should exist for destination id 11")
 
         // Build should succeed
-        let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view, "buildView should succeed with destinations")
     }
 
@@ -239,8 +238,8 @@ final class NavigationStackTests: XCTestCase {
         XCTAssertEqual(seeded, [], "navigationPath should seed empty")
 
         // Build should succeed for the standard branch with destinations.
-        let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view)
 
         // Programmatic push: setElementState must update navigationPath (the value the
@@ -279,8 +278,8 @@ final class NavigationStackTests: XCTestCase {
         XCTAssertNil(destinations, "destinations should be nil when not provided")
 
         // Build should still succeed
-        let validatedProperties = NavigationStack.validateProperties(element.properties, logger)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let properties = element.properties
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertNotNil(view, "buildView should succeed without destinations")
     }
 }

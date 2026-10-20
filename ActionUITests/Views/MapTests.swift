@@ -3,7 +3,7 @@
  MapTests.swift
 
  Tests for the Map component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, state binding, and annotation rendering.
+ Verifies JSON decoding, Props reading, view construction, state binding, and annotation rendering.
 */
 
 import XCTest
@@ -87,7 +87,7 @@ final class MapTests: XCTestCase {
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
-    func testMapValidatePropertiesValid() {
+    func testMapPropsValid() {
         let properties: [String: Any] = [
             "coordinate": ["latitude": 37.33233141, "longitude": -122.0312186],
             "showsUserLocation": true,
@@ -97,30 +97,29 @@ final class MapTests: XCTestCase {
             ]
         ]
         
-        let validated = Map.validateProperties(properties, logger)
+        let props = Map.Props(properties)
         
-        if let coord = validated.coordinate(forKey:"coordinate") {
+        if let coord = props.coordinate {
             XCTAssertEqual(coord.latitude, 37.33233141, accuracy: 0.0001, "Coordinate latitude should be valid")
             XCTAssertEqual(coord.longitude, -122.0312186, accuracy: 0.0001, "Coordinate longitude should be valid")
         } else {
             XCTFail("expected valid coordinate")
         }
-        XCTAssertEqual(validated["showsUserLocation"] as? Bool, true, "showsUserLocation should be valid")
-        XCTAssertEqual(validated["interactionModes"] as? [String], ["pan", "zoom", "rotate"], "interactionModes should be valid")
-        let annotations = validated["annotations"] as? [[String: Any]]
-        XCTAssertEqual(annotations?.count, 1, "Annotations should have 1 item")
-        let annotation = annotations?.first
-        if let annotationCoord = annotation?.coordinate(forKey:"coordinate") {
+        XCTAssertEqual(props.showsUserLocation, true, "showsUserLocation should be valid")
+        XCTAssertEqual(props.interactionModes, [.pan, .zoom, .rotate], "interactionModes should be valid")
+        XCTAssertEqual(props.annotations.count, 1, "Annotations should have 1 item")
+        let annotation = props.annotations.first
+        if let annotationCoord = annotation?.coordinate {
             XCTAssertEqual(annotationCoord.latitude, 37.332, accuracy: 0.0001, "Annotation coordinate latitude should be valid")
             XCTAssertEqual(annotationCoord.longitude, -122.031, accuracy: 0.0001, "Annotation coordinate longitude should be valid")
         } else {
-            XCTFail("annotation[\"coordinate\"] must not be nil")
+            XCTFail("annotation coordinate must not be nil")
         }
-        XCTAssertEqual(annotation?["title"] as? String, "Point A", "Annotation title should be valid")
-        XCTAssertEqual(annotation?["subtitle"] as? String, "Location A", "Annotation subtitle should be valid")
+        XCTAssertEqual(annotation?.title, "Point A", "Annotation title should be valid")
+        XCTAssertEqual(annotation?.subtitle, "Location A", "Annotation subtitle should be valid")
     }
     
-    func testMapValidatePropertiesInvalid() {
+    func testMapPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "coordinate": ["latitude": "invalid", "longitude": true],
             "showsUserLocation": "true",
@@ -130,33 +129,26 @@ final class MapTests: XCTestCase {
             ]
         ]
         
-        let validated = Map.validateProperties(properties, logger)
+        let props = Map.Props(properties)
         
-        if validated.coordinate(forKey:"coordinate") != nil {
+        if props.coordinate != nil {
             XCTFail("invalid coordinate should be nil")
         }
         
-        XCTAssertEqual(validated["showsUserLocation"] as? Bool, false, "Invalid showsUserLocation should default to false")
-        XCTAssertEqual(validated["interactionModes"] as? [String], ["pan", "zoom", "rotate"], "Invalid interactionModes should default to all")
-        let annotations = validated["annotations"] as? [[String: Any]]
-        XCTAssertEqual(annotations?.count, 0, "Invalid annotations should default to empty array")
+        XCTAssertEqual(props.showsUserLocation, false, "Invalid showsUserLocation should default to false")
+        XCTAssertEqual(props.interactionModes, [.pan, .zoom, .rotate], "Invalid interactionModes should default to all")
+        XCTAssertEqual(props.annotations.count, 0, "Invalid annotations should default to empty array")
     }
     
-    func testMapValidatePropertiesMissing() {
+    func testMapPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Map.validateProperties(properties, logger)
+        let props = Map.Props(properties)
         
-        XCTAssertNil(validated["coordinate"], "Missing coordinate should be nil")
-        XCTAssertEqual(validated["showsUserLocation"] as? Bool, false, "Missing showsUserLocation should default to false")
-        XCTAssertEqual(validated["interactionModes"] as? [String], ["pan", "zoom", "rotate"], "Missing interactionModes should default to all")
-        XCTAssertTrue(
-            PropertyComparison.arePropertiesEqual(
-                validated["annotations"] as? [String: Any] ?? [:],
-                [:]
-            ),
-            "Missing annotations should default to empty array"
-        )
+        XCTAssertNil(props.coordinate, "Missing coordinate should be nil")
+        XCTAssertEqual(props.showsUserLocation, false, "Missing showsUserLocation should default to false")
+        XCTAssertEqual(props.interactionModes, [.pan, .zoom, .rotate], "Missing interactionModes should default to all")
+        XCTAssertTrue(props.annotations.isEmpty, "Missing annotations should default to empty array")
     }
     
     func testMapCameraBindingUpdatesState() throws {

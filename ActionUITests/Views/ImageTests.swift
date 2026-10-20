@@ -3,7 +3,7 @@
  ImageTests.swift
 
  Tests for the Image component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -44,9 +44,9 @@ final class ImageTests: XCTestCase {
             ]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Image.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -91,7 +91,7 @@ final class ImageTests: XCTestCase {
         }
     }
     
-    func testImageValidatePropertiesValid() {
+    func testImagePropsValid() {
         let properties: [String: Any] = [
             "systemName": "star.fill",
             "resizable": true,
@@ -100,16 +100,17 @@ final class ImageTests: XCTestCase {
             "padding": 10.0
         ]
         
-        let validated = Image.validateProperties(properties, logger)
+        let props = Image.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated["systemName"] as? String, "star.fill", "systemName should be preserved")
-        XCTAssertEqual(validated["resizable"] as? Bool, true, "resizable should be preserved")
-        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode should be preserved")
-        XCTAssertEqual(validated["imageScale"] as? String, "large", "imageScale should be preserved")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.sources, [.systemName("star.fill")], "systemName should be preserved")
+        XCTAssertTrue(props.resizable, "resizable should be preserved")
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be preserved")
+        XCTAssertEqual(props.imageScale, .large, "imageScale should be preserved")
+        XCTAssertEqual(mods.padding, .uniform(10.0), "padding should be passed through")
     }
     
-    func testImageValidatePropertiesInvalid() {
+    func testImagePropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "systemName": 123,
             "resizable": "true",
@@ -118,30 +119,28 @@ final class ImageTests: XCTestCase {
             "filePath": "/path/to/doc.txt"
         ]
         
-        let validated = Image.validateProperties(properties, logger)
+        let props = Image.Props(properties)
         
-        XCTAssertNil(validated["systemName"], "Invalid systemName should be nil")
-        XCTAssertNil(validated["resizable"], "Invalid resizable should be nil")
-        XCTAssertNil(validated["contentMode"], "Invalid contentMode should be nil")
-        XCTAssertNil(validated["imageScale"], "Invalid imageScale should be nil")
-        XCTAssertNil(validated["filePath"], "Invalid filePath should be nil")
+        XCTAssertTrue(props.sources.allSatisfy { if case .systemName = $0 { return false } else { return true } }, "Invalid systemName should be ignored")
+        XCTAssertFalse(props.resizable, "Invalid resizable should be ignored")
+        XCTAssertNil(props.contentMode, "Invalid contentMode should be nil")
+        XCTAssertNil(props.imageScale, "Invalid imageScale should be nil")
+        // A filePath that is not an image or PDF is kept as a source; the renderer skips it.
+        XCTAssertEqual(props.sources, [.filePath("/path/to/doc.txt")], "only the filePath is a String source")
     }
     
-    func testImageValidatePropertiesMissing() {
+    func testImagePropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Image.validateProperties(properties, logger)
+        let props = Image.Props(properties)
         
-        XCTAssertTrue(validated.isEmpty, "Empty properties should result in empty validated properties")
-        XCTAssertNil(validated["systemName"], "Missing systemName should be nil")
-        XCTAssertNil(validated["name"], "Missing name should be nil")
-        XCTAssertNil(validated["filePath"], "Missing filePath should be nil")
-        XCTAssertNil(validated["resizable"], "Missing resizable should be nil")
-        XCTAssertNil(validated["contentMode"], "Missing contentMode should be nil")
-        XCTAssertNil(validated["imageScale"], "Missing imageScale should be nil")
+        XCTAssertTrue(props.sources.isEmpty, "Empty properties should result in no sources")
+        XCTAssertFalse(props.resizable, "Missing resizable should be the default")
+        XCTAssertNil(props.contentMode, "Missing contentMode should be nil")
+        XCTAssertNil(props.imageScale, "Missing imageScale should be nil")
     }
     
-    func testImageValidatePropertiesFilePathValid() {
+    func testImagePropsFilePathValid() {
         let properties: [String: Any] = [
             "filePath": "/path/to/image.jpg",
             "resizable": false,
@@ -149,48 +148,44 @@ final class ImageTests: XCTestCase {
             "imageScale": "small"
         ]
 
-        let validated = Image.validateProperties(properties, logger)
+        let props = Image.Props(properties)
 
-        XCTAssertEqual(validated["filePath"] as? String, "/path/to/image.jpg", "Valid filePath should be preserved")
-        XCTAssertEqual(validated["resizable"] as? Bool, false, "resizable should be preserved")
-        XCTAssertEqual(validated["contentMode"] as? String, "fill", "contentMode should be preserved")
-        XCTAssertEqual(validated["imageScale"] as? String, "small", "imageScale should be preserved")
+        XCTAssertEqual(props.sources, [.filePath("/path/to/image.jpg")], "Valid filePath should be preserved")
+        XCTAssertFalse(props.resizable, "resizable should be preserved")
+        XCTAssertEqual(props.contentMode, .fill, "contentMode should be preserved")
+        XCTAssertEqual(props.imageScale, .small, "imageScale should be preserved")
     }
 
     func testImageContentModeValid() {
         let fitProps: [String: Any] = ["systemName": "star", "contentMode": "fit"]
-        let validated = Image.validateProperties(fitProps, logger)
-        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode 'fit' should be preserved")
+        XCTAssertEqual(Image.Props(fitProps).contentMode, .fit, "contentMode 'fit' should be preserved")
 
         let fillProps: [String: Any] = ["systemName": "star", "contentMode": "fill"]
-        let validated2 = Image.validateProperties(fillProps, logger)
-        XCTAssertEqual(validated2["contentMode"] as? String, "fill", "contentMode 'fill' should be preserved")
+        XCTAssertEqual(Image.Props(fillProps).contentMode, .fill, "contentMode 'fill' should be preserved")
     }
 
     func testImageContentModeInvalid() {
         let properties: [String: Any] = ["systemName": "star", "contentMode": "stretch"]
-        let validated = Image.validateProperties(properties, logger)
-        XCTAssertNil(validated["contentMode"], "Invalid contentMode should be cleared")
+        let props = Image.Props(properties)
+        XCTAssertNil(props.contentMode, "Invalid contentMode should be ignored")
     }
 
     func testImageContentModeTakesPrecedenceOverScaleMode() {
-        // When both are present, contentMode wins and scaleMode is cleared
+        // When both are present, contentMode wins
         let properties: [String: Any] = [
             "systemName": "star",
             "contentMode": "fit",
             "scaleMode": "fill"
         ]
-        let validated = Image.validateProperties(properties, logger)
-        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode should be kept")
-        XCTAssertNil(validated["scaleMode"], "scaleMode should be cleared when contentMode is set")
+        let props = Image.Props(properties)
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be kept")
     }
 
     func testImageScaleModeBackwardCompat() {
         // scaleMode still works when contentMode is absent (deprecated but functional)
         let properties: [String: Any] = ["systemName": "star", "scaleMode": "fill"]
-        let validated = Image.validateProperties(properties, logger)
-        XCTAssertEqual(validated["scaleMode"] as? String, "fill", "scaleMode should pass through when contentMode is absent")
-        XCTAssertNil(validated["contentMode"], "contentMode should not be auto-set from scaleMode")
+        let props = Image.Props(properties)
+        XCTAssertEqual(props.contentMode, .fill, "scaleMode should be read when contentMode is absent")
     }
     
     func testImageJSONDecodingWithImageScale() throws {

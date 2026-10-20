@@ -3,7 +3,7 @@
  LazyHStackTests.swift
 
  Tests for the LazyHStack component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 */
 
 import XCTest
@@ -63,12 +63,12 @@ final class LazyHStackTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.properties
+        let storedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        properties: validatedProperties
+                        properties: storedProperties
                     )
 
         XCTAssertEqual(children.count, 2, "LazyHStack should have 2 children")
@@ -129,7 +129,7 @@ final class LazyHStackTests: XCTestCase {
         XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testLazyHStackValidatePropertiesValid() {
+    func testLazyHStackPropsValid() {
         let properties: [String: Any] = [
             "spacing": 10.0,
             "alignment": "center",
@@ -137,39 +137,34 @@ final class LazyHStackTests: XCTestCase {
             "offset": ["x": 15.0, "y": -5.0]
         ]
         
-        let validated = LazyHStack.validateProperties(properties, logger)
+        let props = LazyHStack.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
-        XCTAssertEqual(validated["alignment"] as? String, "center", "Alignment should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "Padding should be valid")
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid")
-            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be valid")
-        } else {
-            XCTFail("offset should be valid dictionary")
-        }
+        XCTAssertEqual(props.spacing, 10.0, "Spacing should be valid")
+        XCTAssertEqual(props.alignment, .center, "Alignment should be valid")
+        XCTAssertEqual(mods.padding, .uniform(20.0), "Padding should be valid")
+        XCTAssertEqual(mods.offset, BaseModifiers.Offset(x: 15.0, y: -5.0), "offset should be valid")
     }
     
-    func testLazyHStackValidatePropertiesInvalid() {
+    func testLazyHStackPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "spacing": "10",
             "alignment": "invalid"
         ]
         
-        let validated = LazyHStack.validateProperties(properties, logger)
+        let props = LazyHStack.Props(properties)
         
-        XCTAssertNil(validated["spacing"], "Invalid spacing should be nil")
-        XCTAssertNil(validated["alignment"], "Invalid alignment should be nil")
+        XCTAssertEqual(props.spacing, 0.0, "Invalid spacing should be ignored")
+        XCTAssertEqual(props.alignment, .center, "Invalid alignment should be ignored")
     }
     
-    func testLazyHStackValidatePropertiesMissing() {
+    func testLazyHStackPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = LazyHStack.validateProperties(properties, logger)
+        let props = LazyHStack.Props(properties)
         
-        XCTAssertTrue(validated.isEmpty, "Empty properties should result in empty validated properties")
-        XCTAssertNil(validated["spacing"], "Missing spacing should be nil")
-        XCTAssertNil(validated["alignment"], "Missing alignment should be nil")
+        XCTAssertEqual(props.spacing, 0.0, "Missing spacing should be the default")
+        XCTAssertEqual(props.alignment, .center, "Missing alignment should be the default")
     }
     
     func testLazyHStackNilProperties() throws {
@@ -198,19 +193,20 @@ final class LazyHStackTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.properties
+        let storedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        properties: validatedProperties
+                        properties: storedProperties
                     )
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertEqual(children.count, 2, "LazyHStack should have 2 children")
-        XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
-        XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
+        let props = LazyHStack.Props(storedProperties)
+        XCTAssertEqual(props.spacing, 0.0, "Spacing should be the default")
+        XCTAssertEqual(props.alignment, .center, "Alignment should be the default")
         XCTAssertTrue(view is SwiftUI.LazyHStack<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyHStack")
     }
 }

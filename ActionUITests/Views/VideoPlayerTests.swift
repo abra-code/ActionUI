@@ -3,7 +3,7 @@
  VideoPlayerTests.swift
 
  Tests for the VideoPlayer component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding.
+ Verifies JSON decoding, Props reading, view construction, and state binding.
 */
 
 import XCTest
@@ -36,21 +36,22 @@ final class VideoPlayerTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testVideoPlayerValidatePropertiesValid() {
+    func testVideoPlayerPropsValid() {
         let properties: [String: Any] = [
             "url": "https://example.com/video.mp4",
             "autoplay": true,
             "padding": 10.0
         ]
         
-        let validated = VideoPlayer.validateProperties(properties, logger)
+        let props = VideoPlayer.Props(properties)
+        let mods = BaseModifiers(properties)
         
-        XCTAssertEqual(validated["url"] as? String, "https://example.com/video.mp4", "url should be valid")
-        XCTAssertEqual(validated["autoplay"] as? Bool, true, "autoplay should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.url, "https://example.com/video.mp4", "url should be valid")
+        XCTAssertEqual(props.autoplay, true, "autoplay should be valid")
+        XCTAssertEqual(mods.padding, .uniform(10.0), "padding should be passed through")
     }
     
-    func testVideoPlayerValidatePropertiesInvalid() {
+    func testVideoPlayerPropsIgnoreInvalidValues() {
         // Use ConsoleLogger to avoid test failure from expected error
         ActionUIModel.shared.logger = consoleLogger
 
@@ -59,21 +60,21 @@ final class VideoPlayerTests: XCTestCase {
             "autoplay": "invalid"
         ]
         
-        let validated = VideoPlayer.validateProperties(properties, consoleLogger)
+        let props = VideoPlayer.Props(properties)
         
-        XCTAssertNil(validated["url"], "Invalid url should be nil")
-        XCTAssertNil(validated["autoplay"], "Invalid autoplay should be nil")
+        XCTAssertNil(props.url, "Invalid url should be nil")
+        XCTAssertNil(props.autoplay, "Invalid autoplay should be nil")
 
         ActionUIModel.shared.logger = logger
     }
     
-    func testVideoPlayerValidatePropertiesMissing() {
+    func testVideoPlayerPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = VideoPlayer.validateProperties(properties, logger)
+        let props = VideoPlayer.Props(properties)
         
-        XCTAssertNil(validated["url"], "Missing url should be nil")
-        XCTAssertNil(validated["autoplay"], "Missing autoplay should be nil")
+        XCTAssertNil(props.url, "Missing url should be nil")
+        XCTAssertNil(props.autoplay, "Missing autoplay should be nil")
     }
     
     func testVideoPlayerConstruction() throws {
@@ -88,14 +89,15 @@ final class VideoPlayerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = VideoPlayer.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
         viewModel.seedProperties(element.properties)
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
-        // Verify properties were validated correctly
-        XCTAssertEqual(validatedProperties["url"] as? String, "https://example.com/video.mp4", "Validated url should be correct")
-        XCTAssertEqual(validatedProperties["autoplay"] as? Bool, true, "Validated autoplay should be true")
+        // Verify properties were read correctly
+        let props = VideoPlayer.Props(properties)
+        XCTAssertEqual(props.url, "https://example.com/video.mp4", "url should be correct")
+        XCTAssertEqual(props.autoplay, true, "autoplay should be true")
     }
     
     func testVideoPlayerJSONDecoding() throws {
@@ -153,17 +155,17 @@ final class VideoPlayerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = VideoPlayer.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
         viewModel.seedProperties(element.properties)
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         // Verify initial properties
-        XCTAssertEqual(validatedProperties["url"] as? String, "https://example.com/video.mp4", "Initial validated url should be correct")
+        XCTAssertEqual(VideoPlayer.Props(properties).url, "https://example.com/video.mp4", "Initial url should be correct")
         
         // Simulate dynamic URL update
         viewModel.value = "https://example.com/new-video.mp4"
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         // No viewModel.value verification, as it requires loadDescription
     }
@@ -183,13 +185,13 @@ final class VideoPlayerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-        let validatedProperties = VideoPlayer.validateProperties(element.properties, consoleLogger)
+        let properties = element.properties
         let viewModel = ViewModel()
         viewModel.seedProperties(element.properties)
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
-        // Verify validated properties
-        XCTAssertEqual(validatedProperties["url"] as? String, "invalid-url", "Validated url should be the invalid URL string")
+        // Verify properties
+        XCTAssertEqual(VideoPlayer.Props(properties).url, "invalid-url", "url should be the invalid URL string")
 
         ActionUIModel.shared.logger = logger
     }
@@ -208,13 +210,13 @@ final class VideoPlayerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = VideoPlayer.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
         viewModel.seedProperties(element.properties)
-        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
-        // Verify validated properties
-        XCTAssertNil(validatedProperties["url"], "Missing url should be nil")
+        // Verify properties
+        XCTAssertNil(VideoPlayer.Props(properties).url, "Missing url should be nil")
 
         ActionUIModel.shared.logger = logger
     }

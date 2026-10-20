@@ -3,7 +3,7 @@
  DisclosureGroupTests.swift
 
  Tests for the DisclosureGroup component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding.
+ Verifies JSON decoding, Props reading, view construction, and state binding.
 */
 
 import XCTest
@@ -40,44 +40,44 @@ final class DisclosureGroupTests: XCTestCase {
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
 
-        let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         _ = view // Ensure view is used
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)        
     }
     
-    func testValidatePropertiesValid() {
+    func testPropsValid() {
         let properties: [String: Any] = [
             "title": "Details",
             "isExpanded": true
         ]
         
-        let validated = DisclosureGroup.validateProperties(properties, logger)
+        let props = DisclosureGroup.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Details", "title should be valid String")
-        XCTAssertEqual(validated["isExpanded"] as? Bool, true, "isExpanded should be valid Bool")
+        XCTAssertEqual(props.title, "Details", "title should be valid String")
+        XCTAssertEqual(props.isExpanded, true, "isExpanded should be valid Bool")
     }
     
-    func testValidatePropertiesInvalid() {
+    func testPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "title": 123,
             "isExpanded": "true"
         ]
         
-        let validated = DisclosureGroup.validateProperties(properties, logger)
+        let props = DisclosureGroup.Props(properties)
         
-        XCTAssertNil(validated["title"], "title should be nil for invalid type")
-        XCTAssertNil(validated["isExpanded"], "isExpanded should be nil for invalid type")
+        XCTAssertEqual(props.title, "", "title should be ignored for invalid type")
+        XCTAssertEqual(props.isExpanded, false, "isExpanded should be ignored for invalid type")
     }
     
-    func testValidatePropertiesMissing() {
+    func testPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = DisclosureGroup.validateProperties(properties, logger)
+        let props = DisclosureGroup.Props(properties)
         
-        XCTAssertNil(validated["title"], "title should be nil when missing")
-        XCTAssertNil(validated["isExpanded"], "isExpanded should be nil when missing")
+        XCTAssertEqual(props.title, "", "title should be the default when missing")
+        XCTAssertEqual(props.isExpanded, false, "isExpanded should be the default when missing")
     }
     
     func testBuildViewAndApplyModifiersMissingProperties() throws {
@@ -88,10 +88,10 @@ final class DisclosureGroupTests: XCTestCase {
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
 
-        let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
-        _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
+        _ = DisclosureGroup.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.DisclosureGroup) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
@@ -141,18 +141,18 @@ final class DisclosureGroupTests: XCTestCase {
         }
         
         // Test corrected buildView via ActionUIRegistry
-        let validatedProperties = DisclosureGroup.validateProperties(element.properties, logger)
+        let properties = element.properties
         
         logger.log("Creating view for element \(element.id) with children", .debug)
         let viewModel = ViewModel()
-        viewModel.properties = validatedProperties
+        viewModel.properties = properties
         viewModel.states = ActionUIRegistry.shared.getInitialStates(forElementType: element.type, model: viewModel)
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
-        _ = DisclosureGroup.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
+        _ = DisclosureGroup.applyModifiers(view, element, windowUUID, properties, logger)
         logger.log("After build: state[\(element.id)] = \(String(describing: viewModel))", .debug)
         
         // Verify state initialization
         XCTAssertEqual(viewModel.states["isExpanded"] as? Bool, true, "State isExpanded should be true")
-        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.properties, validatedProperties), "State validatedProperties should match")
+        XCTAssertTrue(PropertyComparison.arePropertiesEqual(viewModel.properties, properties), "State properties should match")
     }
 }

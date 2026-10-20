@@ -3,7 +3,7 @@
  ControlGroupTests.swift
 
  Tests for the ControlGroup component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
  */
 
 import XCTest
@@ -32,34 +32,34 @@ final class ControlGroupTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testControlGroupValidatePropertiesValid() {
+    func testControlGroupPropsValid() {
         let properties: [String: Any] = [
             "title": "Options",
             "padding": 10.0
         ]
         
-        let validated = ControlGroup.validateProperties(properties, logger)
+        let props = ControlGroup.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Options", "title should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.title, "Options", "title should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be read by BaseModifiers")
     }
     
-    func testControlGroupValidatePropertiesInvalid() {
+    func testControlGroupPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "title": 123
         ]
         
-        let validated = ControlGroup.validateProperties(properties, logger)
+        let props = ControlGroup.Props(properties)
         
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
+        XCTAssertNil(props.title, "Invalid title should be ignored")
     }
     
-    func testControlGroupValidatePropertiesMissing() {
+    func testControlGroupPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = ControlGroup.validateProperties(properties, logger)
+        let props = ControlGroup.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
+        XCTAssertNil(props.title, "Missing title should be nil")
     }
     
     func testControlGroupConstruction() throws {
@@ -76,9 +76,9 @@ final class ControlGroupTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ControlGroup.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -94,9 +94,9 @@ final class ControlGroupTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ControlGroup.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

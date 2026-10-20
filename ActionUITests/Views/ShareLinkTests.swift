@@ -3,7 +3,7 @@
  ShareLinkTests.swift
 
  Tests for the ShareLink component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -32,7 +32,7 @@ final class ShareLinkTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testShareLinkValidatePropertiesValid() {
+    func testShareLinkPropsValid() {
         let properties: [String: Any] = [
             "item": "https://example.com",
             "subject": "Check this out",
@@ -40,38 +40,38 @@ final class ShareLinkTests: XCTestCase {
             "padding": 10.0
         ]
         
-        let validated = ShareLink.validateProperties(properties, logger)
+        let props = ShareLink.Props(properties)
         
-        XCTAssertEqual(validated["item"] as? String, "https://example.com", "item should be valid")
-        XCTAssertEqual(validated["subject"] as? String, "Check this out", "subject should be valid")
-        XCTAssertEqual(validated["message"] as? String, "Look at this link!", "message should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.item, "https://example.com", "item should be valid")
+        XCTAssertEqual(props.subject, "Check this out", "subject should be valid")
+        XCTAssertEqual(props.message, "Look at this link!", "message should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be read by BaseModifiers")
     }
     
-    func testShareLinkValidatePropertiesInvalid() {
+    func testShareLinkPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "item": "invalid-url",
             "subject": 123,
             "message": true
         ]
         
-        let validated = ShareLink.validateProperties(properties, logger)
+        let props = ShareLink.Props(properties)
         
         // creating URL("invalid-url") is not nil
-        // XCTAssertNil(validated["item"], "Invalid URL item should be nil")
+        // XCTAssertNil(props.item, "Invalid URL item should be nil")
         
-        XCTAssertNil(validated["subject"], "Invalid subject should be nil")
-        XCTAssertNil(validated["message"], "Invalid message should be nil")
+        XCTAssertNil(props.subject, "Invalid subject should be ignored")
+        XCTAssertNil(props.message, "Invalid message should be ignored")
     }
     
-    func testShareLinkValidatePropertiesMissing() {
+    func testShareLinkPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = ShareLink.validateProperties(properties, logger)
+        let props = ShareLink.Props(properties)
         
-        XCTAssertNil(validated["item"], "Missing item should be nil")
-        XCTAssertNil(validated["subject"], "Missing subject should be nil")
-        XCTAssertNil(validated["message"], "Missing message should be nil")
+        XCTAssertNil(props.item, "Missing item should be nil")
+        XCTAssertNil(props.subject, "Missing subject should be nil")
+        XCTAssertNil(props.message, "Missing message should be nil")
     }
     
     func testShareLinkConstruction() throws {
@@ -87,9 +87,9 @@ final class ShareLinkTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ShareLink.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

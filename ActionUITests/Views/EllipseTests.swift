@@ -25,26 +25,26 @@ final class EllipseTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testValidatePropertiesValid() {
+    func testEllipsePropsValid() {
         let properties: [String: Any] = ["fill": "orange", "stroke": "purple", "strokeLineWidth": 1.0]
-        let validated = ActionUI.Ellipse.validateProperties(properties, logger)
-        XCTAssertEqual(validated["fill"] as? String, "orange")
-        XCTAssertEqual(validated["stroke"] as? String, "purple")
-        XCTAssertEqual(validated.cgFloat(forKey: "strokeLineWidth"), 1.0)
+        let props = ActionUI.Ellipse.Props(properties)
+        XCTAssertEqual(props.fill, "orange")
+        XCTAssertEqual(props.stroke, "purple")
+        XCTAssertEqual(props.strokeLineWidth, 1.0)
     }
 
-    func testValidatePropertiesInvalidTypes() {
+    func testEllipsePropsIgnoreInvalidTypes() {
         let properties: [String: Any] = ["fill": 7, "stroke": true, "strokeLineWidth": "thin"]
-        let validated = ActionUI.Ellipse.validateProperties(properties, logger)
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
-        XCTAssertNil(validated["strokeLineWidth"])
+        let props = ActionUI.Ellipse.Props(properties)
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
+        XCTAssertEqual(props.strokeLineWidth, 1.0)
     }
 
-    func testValidatePropertiesMissing() {
-        let validated = ActionUI.Ellipse.validateProperties([:], logger)
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
+    func testEllipsePropsMissing() {
+        let props = ActionUI.Ellipse.Props([:])
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
     }
 
     func testBuildViewWithFill() throws {
@@ -54,9 +54,9 @@ final class EllipseTests: XCTestCase {
             "properties": ["fill": "orange", "frame": ["width": 120.0, "height": 60.0]]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Ellipse.validateProperties(element.properties, logger)
-        let view = ActionUI.Ellipse.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Ellipse.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Ellipse.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Ellipse.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewWithStroke() throws {
@@ -66,17 +66,17 @@ final class EllipseTests: XCTestCase {
             "properties": ["stroke": "blue", "strokeLineWidth": 2.5]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Ellipse.validateProperties(element.properties, logger)
-        let view = ActionUI.Ellipse.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Ellipse.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Ellipse.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Ellipse.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewBare() throws {
         let elementDict: [String: Any] = ["id": 3, "type": "Ellipse", "properties": [:]]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Ellipse.validateProperties(element.properties, logger)
-        let view = ActionUI.Ellipse.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Ellipse.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Ellipse.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Ellipse.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testJSONDecoding() throws {

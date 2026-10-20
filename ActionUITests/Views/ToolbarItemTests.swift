@@ -3,7 +3,7 @@
  ToolbarItemTests.swift
 
  Tests for the ToolbarItem component and the "toolbar" subview key in ActionUI.
- Verifies JSON decoding, property validation, ViewModel population, and element traversal.
+ Verifies JSON decoding, Props reading, ViewModel population, and element traversal.
 */
 
 import XCTest
@@ -32,44 +32,44 @@ final class ToolbarItemTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - ToolbarItem.validateProperties
+    // MARK: - ToolbarItem.Props
 
-    func testToolbarItemValidatePropertiesValidPlacement() {
-        let validPlacements = [
-            "automatic", "principal",
-            "confirmationAction", "cancellationAction", "destructiveAction",
-            "primaryAction", "secondaryAction",
-            "topBarLeading", "topBarTrailing",
-            "bottomBar", "keyboard",
-            "navigation", "status"
+    func testToolbarItemPropsValidPlacement() {
+        let validPlacements: [(String, ActionUI.ToolbarItem.Props.Placement)] = [
+            ("automatic", .automatic), ("principal", .principal),
+            ("confirmationAction", .confirmationAction), ("cancellationAction", .cancellationAction), ("destructiveAction", .destructiveAction),
+            ("primaryAction", .primaryAction), ("secondaryAction", .secondaryAction),
+            ("topBarLeading", .topBarLeading), ("topBarTrailing", .topBarTrailing),
+            ("bottomBar", .bottomBar), ("keyboard", .keyboard),
+            ("navigation", .navigation), ("status", .status)
         ]
 
-        for placement in validPlacements {
-            let properties: [String: Any] = ["placement": placement]
-            let validated = ActionUI.ToolbarItem.validateProperties(properties, logger)
-            XCTAssertEqual(validated["placement"] as? String, placement,
-                           "Placement '\(placement)' should be preserved")
+        for (name, placement) in validPlacements {
+            let properties: [String: Any] = ["placement": name]
+            let props = ActionUI.ToolbarItem.Props(properties)
+            XCTAssertEqual(props.placement, placement,
+                           "Placement '\(name)' should be preserved")
         }
     }
 
-    func testToolbarItemValidatePropertiesInvalidPlacement() {
+    func testToolbarItemPropsInvalidPlacement() {
         let properties: [String: Any] = ["placement": "floating"]
-        let validated = ActionUI.ToolbarItem.validateProperties(properties, logger)
-        XCTAssertEqual(validated["placement"] as? String, "automatic",
+        let props = ActionUI.ToolbarItem.Props(properties)
+        XCTAssertEqual(props.placement, .automatic,
                        "Invalid placement should default to 'automatic'")
     }
 
-    func testToolbarItemValidatePropertiesWrongTypePlacement() {
+    func testToolbarItemPropsWrongTypePlacement() {
         let properties: [String: Any] = ["placement": 42]
-        let validated = ActionUI.ToolbarItem.validateProperties(properties, logger)
-        XCTAssertEqual(validated["placement"] as? String, "automatic",
+        let props = ActionUI.ToolbarItem.Props(properties)
+        XCTAssertEqual(props.placement, .automatic,
                        "Non-string placement should default to 'automatic'")
     }
 
-    func testToolbarItemValidatePropertiesMissingPlacement() {
+    func testToolbarItemPropsMissingPlacement() {
         let properties: [String: Any] = [:]
-        let validated = ActionUI.ToolbarItem.validateProperties(properties, logger)
-        XCTAssertNil(validated["placement"], "Missing placement should remain nil (defaults to automatic at render)")
+        let props = ActionUI.ToolbarItem.Props(properties)
+        XCTAssertEqual(props.placement, .automatic, "Missing placement should be the default 'automatic'")
     }
 
     // MARK: - toolbar subview key decoding
@@ -184,7 +184,7 @@ final class ToolbarItemTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[100], "ToolbarItem's Button content should have a ViewModel")
     }
 
-    func testToolbarItemValidatedPlacementInViewModel() throws {
+    func testToolbarItemPlacementInViewModel() throws {
         let jsonString = """
         {
           "id": 1,
@@ -212,7 +212,7 @@ final class ToolbarItemTests: XCTestCase {
         }
 
         XCTAssertEqual(toolbarItemModel.properties["placement"] as? String, "confirmationAction",
-                       "ToolbarItem ViewModel should hold the validated placement")
+                       "ToolbarItem ViewModel should hold the placement")
     }
 
     // MARK: - findElement traversal
@@ -300,29 +300,29 @@ final class ToolbarItemTests: XCTestCase {
         XCTAssertEqual(originalContent.id, decodedItemContent.id, "ToolbarItem content ID should round-trip")
     }
 
-    // MARK: - toolbarTitleDisplayMode validation
+    // MARK: - toolbarTitleDisplayMode parsing
 
     func testToolbarTitleDisplayModeValidValues() throws {
-        let validModes = ["automatic", "inline", "large", "inlineLarge"]
-        for mode in validModes {
-            let properties: [String: Any] = ["toolbarTitleDisplayMode": mode]
-            let validated = View.validateProperties(properties, logger)
-            XCTAssertEqual(validated["toolbarTitleDisplayMode"] as? String, mode,
-                           "Mode '\(mode)' should be preserved")
+        let validModes: [(String, BaseModifiers.TitleDisplayMode)] = [("automatic", .automatic), ("inline", .inline), ("large", .large), ("inlineLarge", .inlineLarge)]
+        for (name, mode) in validModes {
+            let properties: [String: Any] = ["toolbarTitleDisplayMode": name]
+            let mods = BaseModifiers(properties)
+            XCTAssertEqual(mods.titleDisplayMode, mode,
+                           "Mode '\(name)' should be preserved")
         }
     }
 
     func testToolbarTitleDisplayModeInvalidValue() {
         let properties: [String: Any] = ["toolbarTitleDisplayMode": "giant"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["toolbarTitleDisplayMode"],
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.titleDisplayMode,
                      "Invalid toolbarTitleDisplayMode should be nil")
     }
 
     func testToolbarTitleDisplayModeInvalidType() {
         let properties: [String: Any] = ["toolbarTitleDisplayMode": true]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["toolbarTitleDisplayMode"],
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.titleDisplayMode,
                      "Non-string toolbarTitleDisplayMode should be nil")
     }
 

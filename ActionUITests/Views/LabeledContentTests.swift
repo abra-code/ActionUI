@@ -3,7 +3,7 @@
  LabeledContentTests.swift
 
  Tests for the LabeledContent component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and child view handling.
+ Verifies JSON decoding, Props reading, view construction, and child view handling.
 */
 
 import XCTest
@@ -32,34 +32,34 @@ final class LabeledContentTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testLabeledContentValidatePropertiesValid() {
+    func testLabeledContentPropsValid() {
         let properties: [String: Any] = [
             "title": "Username",
             "padding": 10.0
         ]
 
-        let validated = ActionUI.LabeledContent.validateProperties(properties, logger)
+        let props = ActionUI.LabeledContent.Props(properties)
 
-        XCTAssertEqual(validated["title"] as? String, "Username", "title should be valid")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.title, "Username", "title should be valid")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be passed through")
     }
 
-    func testLabeledContentValidatePropertiesInvalid() {
+    func testLabeledContentPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "title": 123
         ]
 
-        let validated = ActionUI.LabeledContent.validateProperties(properties, logger)
+        let props = ActionUI.LabeledContent.Props(properties)
 
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
+        XCTAssertEqual(props.title, "", "Invalid title should be ignored")
     }
 
-    func testLabeledContentValidatePropertiesMissing() {
+    func testLabeledContentPropsMissing() {
         let properties: [String: Any] = [:]
 
-        let validated = ActionUI.LabeledContent.validateProperties(properties, logger)
+        let props = ActionUI.LabeledContent.Props(properties)
 
-        XCTAssertNil(validated["title"], "Missing title should be nil")
+        XCTAssertEqual(props.title, "", "Missing title should be empty")
     }
 
     func testLabeledContentConstruction() throws {
@@ -76,9 +76,9 @@ final class LabeledContentTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ActionUI.LabeledContent.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -97,9 +97,9 @@ final class LabeledContentTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ActionUI.LabeledContent.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         guard let children = element.subviews?["children"] as? [any ActionUIElementBase] else {
             XCTFail("Children should not be nil")
@@ -119,9 +119,9 @@ final class LabeledContentTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ActionUI.LabeledContent.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
 
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }

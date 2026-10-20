@@ -25,14 +25,14 @@ final class ColorTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testValidatePropertiesValid() {
-        let validated = ActionUI.Color.validateProperties(["color": "blue"], logger)
-        XCTAssertEqual(validated["color"] as? String, "blue")
+    func testColorPropsValid() {
+        let props = ActionUI.Color.Props(["color": "blue"])
+        XCTAssertEqual(props.color, "blue")
     }
 
-    func testValidatePropertiesInvalidType() {
-        let validated = ActionUI.Color.validateProperties(["color": 123], logger)
-        XCTAssertNil(validated["color"], "non-String color is dropped")
+    func testColorPropsIgnoreInvalidType() {
+        let props = ActionUI.Color.Props(["color": 123])
+        XCTAssertNil(props.color, "non-String color is ignored")
     }
 
     func testBuildViewWithColor() throws {
@@ -41,17 +41,17 @@ final class ColorTests: XCTestCase {
             "properties": ["color": "red", "frame": ["height": 2.0]]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Color.validateProperties(element.properties, logger)
-        let view = ActionUI.Color.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Color.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Color.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Color.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewMissingColorRendersClear() throws {
         // A Color with no color string still builds (clear), warning at build time.
         let elementDict: [String: Any] = ["id": 2, "type": "Color", "properties": [:]]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Color.validateProperties(element.properties, logger)
-        _ = ActionUI.Color.buildView(element, ViewModel(), windowUUID, validated, logger)
+        let properties = element.properties
+        _ = ActionUI.Color.buildView(element, ViewModel(), windowUUID, properties, logger)
     }
 
     func testRegisteredAsColorType() throws {

@@ -28,18 +28,18 @@ final class SafeAreaTests: XCTestCase {
     // MARK: - ignoresSafeArea (property)
 
     func testIgnoresSafeAreaBoolKept() {
-        let validated = View.validateProperties(["ignoresSafeArea": true], logger)
-        XCTAssertEqual(validated["ignoresSafeArea"] as? Bool, true)
+        let mods = BaseModifiers(["ignoresSafeArea": true])
+        XCTAssertEqual(mods.ignoresSafeArea, BaseModifiers.SafeArea())
     }
 
     func testIgnoresSafeAreaObjectKept() {
-        let validated = View.validateProperties(["ignoresSafeArea": ["edges": "bottom", "regions": "container"]], logger)
-        XCTAssertNotNil(validated["ignoresSafeArea"] as? [String: Any])
+        let mods = BaseModifiers(["ignoresSafeArea": ["edges": "bottom", "regions": "container"]])
+        XCTAssertEqual(mods.ignoresSafeArea, BaseModifiers.SafeArea(regions: .container, edges: .bottom))
     }
 
     func testIgnoresSafeAreaInvalidDropped() {
-        let validated = View.validateProperties(["ignoresSafeArea": "yes"], logger)
-        XCTAssertNil(validated["ignoresSafeArea"], "a non-Bool/non-object ignoresSafeArea is dropped")
+        let mods = BaseModifiers(["ignoresSafeArea": "yes"])
+        XCTAssertNil(mods.ignoresSafeArea, "a non-Bool/non-object ignoresSafeArea is ignored")
     }
 
     // MARK: - safeAreaInset (subview slot)

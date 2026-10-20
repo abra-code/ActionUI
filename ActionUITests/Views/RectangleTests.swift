@@ -25,34 +25,34 @@ final class RectangleTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testValidatePropertiesValid() {
+    func testRectanglePropsValid() {
         let properties: [String: Any] = [
             "fill": "blue",
             "stroke": "red",
             "strokeLineWidth": 2.0
         ]
-        let validated = ActionUI.Rectangle.validateProperties(properties, logger)
-        XCTAssertEqual(validated["fill"] as? String, "blue")
-        XCTAssertEqual(validated["stroke"] as? String, "red")
-        XCTAssertEqual(validated.cgFloat(forKey: "strokeLineWidth"), 2.0)
+        let props = ActionUI.Rectangle.Props(properties)
+        XCTAssertEqual(props.fill, "blue")
+        XCTAssertEqual(props.stroke, "red")
+        XCTAssertEqual(props.strokeLineWidth, 2.0)
     }
 
-    func testValidatePropertiesInvalidTypes() {
+    func testRectanglePropsIgnoreInvalidTypes() {
         let properties: [String: Any] = [
             "fill": 123,
             "stroke": true,
             "strokeLineWidth": "not-a-number"
         ]
-        let validated = ActionUI.Rectangle.validateProperties(properties, logger)
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
-        XCTAssertNil(validated["strokeLineWidth"])
+        let props = ActionUI.Rectangle.Props(properties)
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
+        XCTAssertEqual(props.strokeLineWidth, 1.0)
     }
 
-    func testValidatePropertiesMissing() {
-        let validated = ActionUI.Rectangle.validateProperties([:], logger)
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
+    func testRectanglePropsMissing() {
+        let props = ActionUI.Rectangle.Props([:])
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
     }
 
     func testBuildViewWithFill() throws {
@@ -62,9 +62,9 @@ final class RectangleTests: XCTestCase {
             "properties": ["fill": "blue", "frame": ["width": 100.0, "height": 50.0]]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Rectangle.validateProperties(element.properties, logger)
-        let view = ActionUI.Rectangle.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Rectangle.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Rectangle.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Rectangle.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewWithStroke() throws {
@@ -74,17 +74,17 @@ final class RectangleTests: XCTestCase {
             "properties": ["stroke": "red", "strokeLineWidth": 3.0]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Rectangle.validateProperties(element.properties, logger)
-        let view = ActionUI.Rectangle.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Rectangle.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Rectangle.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Rectangle.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewBare() throws {
         let elementDict: [String: Any] = ["id": 3, "type": "Rectangle", "properties": [:]]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Rectangle.validateProperties(element.properties, logger)
-        let view = ActionUI.Rectangle.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Rectangle.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Rectangle.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Rectangle.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testJSONDecoding() throws {

@@ -25,54 +25,54 @@ final class OverlayBackgroundTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - overlayAlignment validation
+    // MARK: - overlayAlignment Props
 
     func testOverlayAlignmentValidValues() {
         let valid = ["center", "leading", "trailing", "top", "bottom",
                      "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
         for value in valid {
-            let result = View.validateProperties(["overlayAlignment": value], logger)
-            XCTAssertEqual(result["overlayAlignment"] as? String, value,
+            let mods = BaseModifiers(["overlayAlignment": value])
+            XCTAssertEqual(mods.overlayAlignment.rawValue, value,
                            "'\(value)' should be a valid overlayAlignment")
         }
     }
 
     func testOverlayAlignmentInvalidValue() {
-        let result = View.validateProperties(["overlayAlignment": "left"], logger)
-        XCTAssertEqual(result["overlayAlignment"] as? String, "center",
+        let mods = BaseModifiers(["overlayAlignment": "left"])
+        XCTAssertEqual(mods.overlayAlignment, .center,
                        "Invalid overlayAlignment should default to 'center'")
     }
 
     func testOverlayAlignmentInvalidType() {
-        let result = View.validateProperties(["overlayAlignment": 42], logger)
-        XCTAssertNil(result["overlayAlignment"],
-                     "Non-String overlayAlignment should be removed")
+        let mods = BaseModifiers(["overlayAlignment": 42])
+        XCTAssertEqual(mods.overlayAlignment, .center,
+                       "Non-String overlayAlignment should be ignored")
     }
 
     func testOverlayAlignmentMissing() {
-        let result = View.validateProperties([:], logger)
-        XCTAssertNil(result["overlayAlignment"])
+        let mods = BaseModifiers([:])
+        XCTAssertEqual(mods.overlayAlignment, .center)
     }
 
-    // MARK: - backgroundAlignment validation
+    // MARK: - backgroundAlignment Props
 
     func testBackgroundAlignmentValidValues() {
         let valid = ["center", "leading", "trailing", "top", "bottom",
                      "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"]
         for value in valid {
-            let result = View.validateProperties(["backgroundAlignment": value], logger)
-            XCTAssertEqual(result["backgroundAlignment"] as? String, value)
+            let mods = BaseModifiers(["backgroundAlignment": value])
+            XCTAssertEqual(mods.backgroundAlignment.rawValue, value)
         }
     }
 
     func testBackgroundAlignmentInvalidValue() {
-        let result = View.validateProperties(["backgroundAlignment": "right"], logger)
-        XCTAssertEqual(result["backgroundAlignment"] as? String, "center")
+        let mods = BaseModifiers(["backgroundAlignment": "right"])
+        XCTAssertEqual(mods.backgroundAlignment, .center)
     }
 
     func testBackgroundAlignmentInvalidType() {
-        let result = View.validateProperties(["backgroundAlignment": true], logger)
-        XCTAssertNil(result["backgroundAlignment"])
+        let mods = BaseModifiers(["backgroundAlignment": true])
+        XCTAssertEqual(mods.backgroundAlignment, .center)
     }
 
     // MARK: - overlay JSON decoding

@@ -3,7 +3,7 @@
  PopoverTests.swift
 
  Tests for the popover modifier support in the ActionUI component library.
- Verifies JSON decoding of the "popover" subview key, popoverArrowEdge property validation,
+ Verifies JSON decoding of the "popover" subview key, popoverArrowEdge property reading,
  and popover state initialization.
 */
 
@@ -33,28 +33,28 @@ final class PopoverTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - popoverArrowEdge validation
+    // MARK: - popoverArrowEdge props
 
     func testPopoverArrowEdgeValid() {
         for edge in ["top", "bottom", "leading", "trailing"] {
-            let validated = View.validateProperties(["popoverArrowEdge": edge], logger)
-            XCTAssertEqual(validated["popoverArrowEdge"] as? String, edge, "'\(edge)' should be a valid popoverArrowEdge")
+            let mods = BaseModifiers(["popoverArrowEdge": edge])
+            XCTAssertEqual(mods.popoverArrowEdge.rawValue, edge, "'\(edge)' should be a valid popoverArrowEdge")
         }
     }
 
     func testPopoverArrowEdgeInvalidValue() {
-        let validated = View.validateProperties(["popoverArrowEdge": "left"], logger)
-        XCTAssertEqual(validated["popoverArrowEdge"] as? String, "top", "Invalid popoverArrowEdge should default to 'top'")
+        let mods = BaseModifiers(["popoverArrowEdge": "left"])
+        XCTAssertEqual(mods.popoverArrowEdge, .top, "Invalid popoverArrowEdge should default to 'top'")
     }
 
     func testPopoverArrowEdgeInvalidType() {
-        let validated = View.validateProperties(["popoverArrowEdge": 123], logger)
-        XCTAssertNil(validated["popoverArrowEdge"], "Non-String popoverArrowEdge should be removed")
+        let mods = BaseModifiers(["popoverArrowEdge": 123])
+        XCTAssertEqual(mods.popoverArrowEdge, .top, "Non-String popoverArrowEdge should be ignored")
     }
 
     func testPopoverArrowEdgeMissing() {
-        let validated = View.validateProperties([:], logger)
-        XCTAssertNil(validated["popoverArrowEdge"], "Missing popoverArrowEdge should be nil")
+        let mods = BaseModifiers([:])
+        XCTAssertEqual(mods.popoverArrowEdge, .top, "Missing popoverArrowEdge should be the default")
     }
 
     // MARK: - JSON decoding with popover subview

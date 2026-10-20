@@ -3,7 +3,7 @@
  VStackTests.swift
 
  Tests for the VStack component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 */
 
 import XCTest
@@ -58,9 +58,9 @@ final class VStackTests: XCTestCase {
             return
         }
 
-        let validatedProperties = VStack.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -116,31 +116,31 @@ final class VStackTests: XCTestCase {
         XCTAssertEqual((children[1] as? ActionUIElement)?.id, 3, "Second child ID should be 3")
     }
     
-    func testVStackValidatePropertiesValid() {
+    func testVStackPropsValid() {
         let properties: [String: Any] = ["spacing": 10.0, "alignment": "center"]
         
-        let validated = VStack.validateProperties(properties, logger)
+        let props = VStack.Props(properties)
         
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "spacing should be valid")
-        XCTAssertEqual(validated["alignment"] as? String, "center", "alignment should be valid")
+        XCTAssertEqual(props.spacing, 10.0, "spacing should be valid")
+        XCTAssertEqual(props.alignment, .center, "alignment should be valid")
     }
     
-    func testVStackValidatePropertiesInvalid() {
+    func testVStackPropsIgnoreInvalidValues() {
         let properties: [String: Any] = ["spacing": "10", "alignment": "invalid"]
         
-        let validated = VStack.validateProperties(properties, logger)
+        let props = VStack.Props(properties)
         
-        XCTAssertNil(validated["spacing"], "Invalid spacing should be nil")
-        XCTAssertNil(validated["alignment"], "Invalid alignment should be nil")
+        XCTAssertEqual(props.spacing, 0.0, "Invalid spacing should be ignored")
+        XCTAssertEqual(props.alignment, .center, "Invalid alignment should be ignored")
     }
     
-    func testVStackValidatePropertiesMissing() {
+    func testVStackPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = VStack.validateProperties(properties, logger)
+        let props = VStack.Props(properties)
         
-        XCTAssertNil(validated["spacing"], "Missing spacing should be nil")
-        XCTAssertNil(validated["alignment"], "Missing alignment should be nil")
+        XCTAssertEqual(props.spacing, 0.0, "Missing spacing should be the default")
+        XCTAssertEqual(props.alignment, .center, "Missing alignment should be the default")
     }
     
     func testVStackNilProperties() throws {
@@ -169,9 +169,9 @@ final class VStackTests: XCTestCase {
             return
         }
 
-        let validatedProperties = VStack.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -181,8 +181,9 @@ final class VStackTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "VStack should have 2 children")
-        XCTAssertNil(validatedProperties["spacing"], "spacing should be nil")
-        XCTAssertNil(validatedProperties["alignment"], "alignment should be nil")
+        let props = VStack.Props(properties)
+        XCTAssertEqual(props.spacing, 0.0, "spacing should be the default")
+        XCTAssertEqual(props.alignment, .center, "alignment should be the default")
         XCTAssertFalse(view is SwiftUI.EmptyView, "View should not be EmptyView")
     }
 }

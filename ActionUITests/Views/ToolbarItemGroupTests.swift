@@ -3,7 +3,7 @@
  ToolbarItemGroupTests.swift
 
  Tests for the ToolbarItemGroup component in ActionUI.
- Verifies placement validation, JSON decoding, ViewModel population,
+ Verifies placement reading, JSON decoding, ViewModel population,
  and that ToolbarItem and ToolbarItemGroup can coexist in the same toolbar array.
 */
 
@@ -33,7 +33,7 @@ final class ToolbarItemGroupTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - validateProperties
+    // MARK: - Props
 
     func testValidPlacement() {
         let validPlacements = [
@@ -46,31 +46,31 @@ final class ToolbarItemGroupTests: XCTestCase {
         ]
         for placement in validPlacements {
             let properties: [String: Any] = ["placement": placement]
-            let validated = ActionUI.ToolbarItemGroup.validateProperties(properties, logger)
-            XCTAssertEqual(validated["placement"] as? String, placement,
+            let props = ActionUI.ToolbarItemGroup.Props(properties)
+            XCTAssertEqual(props.placement.rawValue, placement,
                            "Placement '\(placement)' should be preserved")
         }
     }
 
     func testInvalidPlacementDefaultsToAutomatic() {
         let properties: [String: Any] = ["placement": "sidebar"]
-        let validated = ActionUI.ToolbarItemGroup.validateProperties(properties, logger)
-        XCTAssertEqual(validated["placement"] as? String, "automatic",
+        let props = ActionUI.ToolbarItemGroup.Props(properties)
+        XCTAssertEqual(props.placement, .automatic,
                        "Invalid placement should default to 'automatic'")
     }
 
     func testWrongTypePlacementDefaultsToAutomatic() {
         let properties: [String: Any] = ["placement": 99]
-        let validated = ActionUI.ToolbarItemGroup.validateProperties(properties, logger)
-        XCTAssertEqual(validated["placement"] as? String, "automatic",
+        let props = ActionUI.ToolbarItemGroup.Props(properties)
+        XCTAssertEqual(props.placement, .automatic,
                        "Non-string placement should default to 'automatic'")
     }
 
-    func testMissingPlacementRemainsNil() {
+    func testMissingPlacementDefaultsToAutomatic() {
         let properties: [String: Any] = [:]
-        let validated = ActionUI.ToolbarItemGroup.validateProperties(properties, logger)
-        XCTAssertNil(validated["placement"],
-                     "Missing placement should remain nil (defaults to automatic at render)")
+        let props = ActionUI.ToolbarItemGroup.Props(properties)
+        XCTAssertEqual(props.placement, .automatic,
+                       "Missing placement should default to 'automatic'")
     }
 
     // MARK: - JSON decoding
@@ -154,7 +154,7 @@ final class ToolbarItemGroupTests: XCTestCase {
         XCTAssertNotNil(windowModel.viewModels[201], "Second child should have a ViewModel")
     }
 
-    func testValidatedPlacementInViewModel() throws {
+    func testPlacementInViewModel() throws {
         let jsonString = """
         {
           "id": 1,

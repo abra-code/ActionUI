@@ -25,26 +25,26 @@ final class CircleTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testValidatePropertiesValid() {
+    func testCirclePropsValid() {
         let properties: [String: Any] = ["fill": "green", "stroke": "blue", "strokeLineWidth": 1.5]
-        let validated = ActionUI.Circle.validateProperties(properties, logger)
-        XCTAssertEqual(validated["fill"] as? String, "green")
-        XCTAssertEqual(validated["stroke"] as? String, "blue")
-        XCTAssertEqual(validated.cgFloat(forKey: "strokeLineWidth"), 1.5)
+        let props = ActionUI.Circle.Props(properties)
+        XCTAssertEqual(props.fill, "green")
+        XCTAssertEqual(props.stroke, "blue")
+        XCTAssertEqual(props.strokeLineWidth, 1.5)
     }
 
-    func testValidatePropertiesInvalidTypes() {
+    func testCirclePropsIgnoreInvalidTypes() {
         let properties: [String: Any] = ["fill": 42, "stroke": false, "strokeLineWidth": "wide"]
-        let validated = ActionUI.Circle.validateProperties(properties, logger)
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
-        XCTAssertNil(validated["strokeLineWidth"])
+        let props = ActionUI.Circle.Props(properties)
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
+        XCTAssertEqual(props.strokeLineWidth, 1.0)
     }
 
-    func testValidatePropertiesMissing() {
-        let validated = ActionUI.Circle.validateProperties([:], logger)
-        XCTAssertNil(validated["fill"])
-        XCTAssertNil(validated["stroke"])
+    func testCirclePropsMissing() {
+        let props = ActionUI.Circle.Props([:])
+        XCTAssertNil(props.fill)
+        XCTAssertNil(props.stroke)
     }
 
     func testBuildViewWithFill() throws {
@@ -54,9 +54,9 @@ final class CircleTests: XCTestCase {
             "properties": ["fill": "primary", "frame": ["width": 60.0, "height": 60.0]]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Circle.validateProperties(element.properties, logger)
-        let view = ActionUI.Circle.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Circle.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Circle.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Circle.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewWithStroke() throws {
@@ -66,17 +66,17 @@ final class CircleTests: XCTestCase {
             "properties": ["stroke": "red", "strokeLineWidth": 4.0]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Circle.validateProperties(element.properties, logger)
-        let view = ActionUI.Circle.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Circle.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Circle.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Circle.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testBuildViewBare() throws {
         let elementDict: [String: Any] = ["id": 3, "type": "Circle", "properties": [:]]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validated = ActionUI.Circle.validateProperties(element.properties, logger)
-        let view = ActionUI.Circle.buildView(element, ViewModel(), windowUUID, validated, logger)
-        _ = ActionUI.Circle.applyModifiers(view, element, windowUUID, validated, logger)
+        let properties = element.properties
+        let view = ActionUI.Circle.buildView(element, ViewModel(), windowUUID, properties, logger)
+        _ = ActionUI.Circle.applyModifiers(view, element, windowUUID, properties, logger)
     }
 
     func testJSONDecoding() throws {

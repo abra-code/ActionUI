@@ -25,14 +25,6 @@ final class DividerTests: XCTestCase {
         try await super.tearDown()
     }
             
-    func testValidatePropertiesMissing() throws {
-        let properties: [String: Any] = [:]
-        
-        let validated = Divider.validateProperties(properties, logger)
-        
-        XCTAssertTrue(validated.isEmpty, "Validated properties should be empty when no properties provided")
-    }
-        
     func testBuildViewAndApplyModifiersValidProperties() throws {
         let elementDict: [String: Any] = [
             "id": 1,
@@ -43,10 +35,10 @@ final class DividerTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Divider.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = Divider.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = Divider.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = Divider.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect Divider modifiers due to SwiftUI's opaque hierarchy
@@ -60,10 +52,10 @@ final class DividerTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Divider.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = Divider.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = Divider.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = Divider.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = Divider.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Divider) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

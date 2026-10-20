@@ -3,7 +3,7 @@
  LazyHGridTests.swift
 
  Tests for the LazyHGrid component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and subview handling.
+ Verifies JSON decoding, Props reading, view construction, and subview handling.
 */
 
 import XCTest
@@ -67,12 +67,12 @@ final class LazyHGridTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.properties
+        let storedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        properties: validatedProperties
+                        properties: storedProperties
                     )
         
         XCTAssertEqual(children.count, 2, "LazyHGrid should have 2 children")
@@ -172,12 +172,12 @@ final class LazyHGridTests: XCTestCase {
         }
 
         // Act: Create ActionUIView
-        let validatedProperties = viewModel.properties
+        let storedProperties = viewModel.properties
         let view = ActionUIRegistry.shared.buildView(
                         for: element,
                         model: viewModel,
                         windowUUID: windowUUID,
-                        properties: validatedProperties
+                        properties: storedProperties
                     )
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
@@ -188,13 +188,14 @@ final class LazyHGridTests: XCTestCase {
         }
         
         XCTAssertEqual(children.count, 2, "LazyHGrid should have 2 children")
-        XCTAssertNil(validatedProperties["rows"], "Rows should be nil")
-        XCTAssertNil(validatedProperties["spacing"], "Spacing should be nil")
-        XCTAssertNil(validatedProperties["alignment"], "Alignment should be nil")
+        let props = LazyHGrid.Props(storedProperties)
+        XCTAssertEqual(props.rows, [.flexible], "Rows should be the default")
+        XCTAssertEqual(props.spacing, 0.0, "Spacing should be the default")
+        XCTAssertEqual(props.alignment, .center, "Alignment should be the default")
         XCTAssertTrue(view is SwiftUI.LazyHGrid<ForEach<[any ActionUIElementBase], Int, ActionUIView?>>, "View should be LazyHGrid with default rows")
     }
     
-    func testLazyHGridValidatePropertiesRowsPartial() {
+    func testLazyHGridPropsRowsPartial() {
         let properties: [String: Any] = [
             "rows": [
                 ["minimum": 100.0],
@@ -203,21 +204,13 @@ final class LazyHGridTests: XCTestCase {
             "spacing": 10.0
         ]
         
-        let validated = LazyHGrid.validateProperties(properties, logger)
+        let props = LazyHGrid.Props(properties)
         
-        if let rows = validated["rows"] as? [[String: Any]] {
-            XCTAssertEqual(rows.count, 2, "rows should have 2 valid entries")
-            XCTAssertEqual(rows[0].cgFloat(forKey: "minimum"), 100.0, "rows[0].minimum should be valid")
-            XCTAssertNil(rows[0]["flexible"], "rows[0].flexible should be nil")
-            XCTAssertEqual(rows[1]["flexible"] as? Bool, true, "rows[1].flexible should be valid")
-            XCTAssertNil(rows[1]["minimum"], "rows[1].minimum should be nil")
-        } else {
-            XCTFail("rows should be valid array of dictionaries")
-        }
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
+        XCTAssertEqual(props.rows, [.fixed(100.0), .flexible], "rows should have 2 valid entries")
+        XCTAssertEqual(props.spacing, 10.0, "Spacing should be valid")
     }
     
-    func testLazyHGridValidatePropertiesRowsInvalid() {
+    func testLazyHGridPropsRowsInvalid() {
         let properties: [String: Any] = [
             "rows": [
                 ["minimum": "100"],
@@ -226,9 +219,9 @@ final class LazyHGridTests: XCTestCase {
             "spacing": 10.0
         ]
         
-        let validated = LazyHGrid.validateProperties(properties, logger)
+        let props = LazyHGrid.Props(properties)
         
-        XCTAssertNil(validated["rows"], "Invalid rows should be nil")
-        XCTAssertEqual(validated.cgFloat(forKey: "spacing"), 10.0, "Spacing should be valid")
+        XCTAssertEqual(props.rows, [.flexible], "Invalid rows should be ignored")
+        XCTAssertEqual(props.spacing, 10.0, "Spacing should be valid")
     }
 }

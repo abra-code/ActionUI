@@ -25,15 +25,18 @@ final class CanvasTests: XCTestCase {
         try await super.tearDown()
     }
     
-    // MARK: - Property Validation
+    // MARK: - Props
     
-    func testValidatePropertiesValidMinimal() throws {
+    func testPropsValidMinimal() throws {
         let properties: [String: Any] = [:]
-        let validated = Canvas.validateProperties(properties, logger)
-        XCTAssertTrue(validated.isEmpty, "Empty properties should validate")
+        let props = Canvas.Props(properties)
+        XCTAssertTrue(props.operations.isEmpty, "Empty properties should give no operations")
+        XCTAssertNil(props.backgroundColor)
+        XCTAssertEqual(props.coordinateMode, .normalized)
+        XCTAssertNil(props.actionID)
     }
     
-    func testValidatePropertiesValidAllPrimitives() throws {
+    func testPropsValidAllPrimitives() throws {
         let properties: [String: Any] = [
             "operations": [
                 ["type": "fill", "path": ["type": "circle", "center": [0.5, 0.5], "radius": 0.4], "color": "#FF0000"],
@@ -52,27 +55,27 @@ final class CanvasTests: XCTestCase {
             "actionID": "canvasTap"
         ]
         
-        let validated = Canvas.validateProperties(properties, logger)
-        XCTAssertNotNil(validated["operations"] as? [[String: Any]], "operations should be preserved")
-        XCTAssertEqual(validated["backgroundColor"] as? String, "#F5F5F5")
-        XCTAssertEqual(validated["coordinateMode"] as? String, "normalized")
-        XCTAssertEqual(validated["actionID"] as? String, "canvasTap")
+        let props = Canvas.Props(properties)
+        XCTAssertEqual(props.operations.count, 10, "operations should be preserved")
+        XCTAssertEqual(props.backgroundColor, "#F5F5F5")
+        XCTAssertEqual(props.coordinateMode, .normalized)
+        XCTAssertEqual(props.actionID, "canvasTap")
     }
     
-    func testValidatePropertiesInvalidTypes() throws {
+    func testPropsIgnoreInvalidTypes() throws {
         let properties: [String: Any] = [
             "operations": "not an array",
             "backgroundColor": 123,
             "coordinateMode": 456
         ]
         
-        let validated = Canvas.validateProperties(properties, logger)
-        XCTAssertNil(validated["operations"], "invalid operations type should be removed")
-        XCTAssertNil(validated["backgroundColor"], "invalid backgroundColor type should be removed")
-        XCTAssertNil(validated["coordinateMode"], "invalid coordinateMode type should be removed")
+        let props = Canvas.Props(properties)
+        XCTAssertTrue(props.operations.isEmpty, "invalid operations type should be ignored")
+        XCTAssertNil(props.backgroundColor, "invalid backgroundColor type should be ignored")
+        XCTAssertEqual(props.coordinateMode, .normalized, "invalid coordinateMode type should be the default")
     }
     
-    func testValidatePropertiesRequiredFieldsMissing() throws {
+    func testPropsRequiredFieldsMissing() throws {
         let properties: [String: Any] = [
             "operations": [
                 ["type": "fill"],  // missing path
@@ -81,8 +84,8 @@ final class CanvasTests: XCTestCase {
             ]
         ]
         
-        let validated = Canvas.validateProperties(properties, logger)
-        let ops = validated["operations"] as? [[String: Any]] ?? []
+        let props = Canvas.Props(properties)
+        let ops = props.operations
         XCTAssertEqual(ops.count, 0, "Ops missing required fields should be filtered out")
     }
     
@@ -97,9 +100,9 @@ final class CanvasTests: XCTestCase {
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let viewModel = ViewModel()
-        let validated = Canvas.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = Canvas.buildView(element, viewModel, windowUUID, validated, logger)
+        let view = Canvas.buildView(element, viewModel, windowUUID, properties, logger)
         XCTAssertNotNil(view, "BuildView should return a non-nil view")
     }
     
@@ -119,9 +122,9 @@ final class CanvasTests: XCTestCase {
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let viewModel = ViewModel()
-        let validated = Canvas.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = Canvas.buildView(element, viewModel, windowUUID, validated, logger)
+        let view = Canvas.buildView(element, viewModel, windowUUID, properties, logger)
         XCTAssertNotNil(view, "BuildView with operations should succeed")
     }
     
@@ -138,10 +141,10 @@ final class CanvasTests: XCTestCase {
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let viewModel = ViewModel()
-        let validated = Canvas.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let baseView = Canvas.buildView(element, viewModel, windowUUID, validated, logger)
-        let modifiedView = Canvas.applyModifiers(baseView, element, windowUUID, validated, logger)
+        let baseView = Canvas.buildView(element, viewModel, windowUUID, properties, logger)
+        let modifiedView = Canvas.applyModifiers(baseView, element, windowUUID, properties, logger)
         
         XCTAssertNotNil(modifiedView, "applyModifiers should return a view")
         // Cannot easily assert on modifiers due to opaque types, but no crash = success
@@ -173,13 +176,13 @@ final class CanvasTests: XCTestCase {
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
         let viewModel = ViewModel()
-        let validated = Canvas.validateProperties(element.properties, logger)
+        let rawProperties = element.properties
         
         // Build the view
-        let view = Canvas.buildView(element, viewModel, windowUUID, validated, logger)
+        let view = Canvas.buildView(element, viewModel, windowUUID, rawProperties, logger)
         
         // Apply modifiers (baseline + any custom)
-        let _ = Canvas.applyModifiers(view, element, windowUUID, validated, logger)
+        let _ = Canvas.applyModifiers(view, element, windowUUID, rawProperties, logger)
         
         // Minimal runtime check – no crash means success
         XCTAssertTrue(true, "View construction and body evaluation completed without crash")
@@ -259,13 +262,13 @@ final class CanvasTests: XCTestCase {
             return
         }
         
-        let validatedProperties = Canvas.validateProperties(element.properties, logger)
+        let properties = element.properties
         
         let view = ActionUIRegistry.shared.buildView(
             for: element,
             model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProperties
+            properties: properties
         )
         
         XCTAssertFalse(view is SwiftUI.EmptyView, "Canvas view should not be EmptyView")
@@ -273,11 +276,12 @@ final class CanvasTests: XCTestCase {
         // Basic structural checks
         XCTAssertEqual(element.id, 1)
         XCTAssertEqual(element.type, "Canvas")
-        XCTAssertEqual(validatedProperties["backgroundColor"] as? String, "#F0F0F0")
-        XCTAssertEqual(validatedProperties["coordinateMode"] as? String, "normalized")
-        XCTAssertEqual(validatedProperties["actionID"] as? String, "canvasTapped")
+        let props = Canvas.Props(properties)
+        XCTAssertEqual(props.backgroundColor, "#F0F0F0")
+        XCTAssertEqual(props.coordinateMode, .normalized)
+        XCTAssertEqual(props.actionID, "canvasTapped")
         
-        let ops = validatedProperties["operations"] as? [[String: Any]] ?? []
+        let ops = props.operations
         XCTAssertEqual(ops.count, 6, "All 6 valid operations should be preserved")
     }
     
@@ -298,23 +302,23 @@ final class CanvasTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        let validatedProperties = Canvas.validateProperties(element.properties, logger)
-        XCTAssertTrue(validatedProperties.isEmpty, "Empty properties should remain empty after validation")
+        let properties = element.properties
+        XCTAssertTrue(Canvas.Props(properties).operations.isEmpty, "Empty properties should give no operations")
         
         let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(
             for: element,
             model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProperties
+            properties: properties
         )
         
         XCTAssertFalse(view is SwiftUI.EmptyView, "Empty Canvas should still produce a view")
     }
     
-    // MARK: - Validation Tests
+    // MARK: - Props Tests
     
-    func testValidatePropertiesValid() {
+    func testPropsValid() {
         let properties: [String: Any] = [
             "backgroundColor": "#FFFFFF",
             "coordinateMode": "points",
@@ -325,34 +329,34 @@ final class CanvasTests: XCTestCase {
             ]
         ]
         
-        let validated = Canvas.validateProperties(properties, logger)
-        XCTAssertEqual(validated["backgroundColor"] as? String, "#FFFFFF")
-        XCTAssertEqual(validated["coordinateMode"] as? String, "points")
-        XCTAssertEqual(validated["actionID"] as? String, "tap")
-        XCTAssertNotNil(validated["operations"])
+        let props = Canvas.Props(properties)
+        XCTAssertEqual(props.backgroundColor, "#FFFFFF")
+        XCTAssertEqual(props.coordinateMode, .points)
+        XCTAssertEqual(props.actionID, "tap")
+        XCTAssertEqual(props.operations.count, 2)
     }
     
-    func testValidatePropertiesInvalidBlurMissingRadius() {
+    func testPropsBlurMissingRadius() {
         let properties: [String: Any] = [
             "operations": [
                 ["type": "blur"]  // missing radius
             ]
         ]
         
-        let validated = Canvas.validateProperties(properties, logger)
-        let ops = validated["operations"] as? [[String: Any]] ?? []
+        let props = Canvas.Props(properties)
+        let ops = props.operations
         XCTAssertEqual(ops.count, 0, "Blur without radius should be filtered out")
     }
     
-    func testValidatePropertiesInvalidFillMissingPath() {
+    func testPropsFillMissingPath() {
         let properties: [String: Any] = [
             "operations": [
                 ["type": "fill", "color": "#FF0000"]  // missing path
             ]
         ]
         
-        let validated = Canvas.validateProperties(properties, logger)
-        let ops = validated["operations"] as? [[String: Any]] ?? []
+        let props = Canvas.Props(properties)
+        let ops = props.operations
         XCTAssertEqual(ops.count, 0, "Fill without path should be filtered")
     }
     
@@ -391,13 +395,13 @@ final class CanvasTests: XCTestCase {
         let actionUIModel = ActionUIModel.shared
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        let validated = Canvas.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
         let view = ActionUIRegistry.shared.buildView(
             for: element,
             model: viewModel,
             windowUUID: windowUUID,
-            properties: validated
+            properties: properties
         )
         
         XCTAssertFalse(view is SwiftUI.EmptyView, "Canvas with custom path should produce a view")

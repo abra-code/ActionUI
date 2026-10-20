@@ -25,7 +25,7 @@ final class AsyncImageTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testValidatePropertiesValid() throws {
+    func testAsyncImagePropsValid() throws {
         let properties: [String: Any] = [
             "url": "https://example.com/image.jpg",
             "placeholder": "photo.fill",
@@ -33,15 +33,15 @@ final class AsyncImageTests: XCTestCase {
             "contentMode": "fit"
         ]
         
-        let validated = AsyncImage.validateProperties(properties, logger)
+        let props = AsyncImage.Props(properties)
         
-        XCTAssertEqual(validated["url"] as? String, "https://example.com/image.jpg", "url should be valid String")
-        XCTAssertEqual(validated["placeholder"] as? String, "photo.fill", "placeholder should be valid String")
-        XCTAssertEqual(validated["resizable"] as? Bool, true, "resizable should be valid Bool")
-        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode should be valid String")
+        XCTAssertEqual(props.url, "https://example.com/image.jpg", "url should be valid String")
+        XCTAssertEqual(props.placeholder, "photo.fill", "placeholder should be valid String")
+        XCTAssertEqual(props.resizable, true, "resizable should be valid Bool")
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be valid")
     }
     
-    func testValidatePropertiesInvalid() throws {
+    func testAsyncImagePropsIgnoreInvalid() throws {
         let properties: [String: Any] = [
             "url": 123,
             "placeholder": 456,
@@ -49,37 +49,40 @@ final class AsyncImageTests: XCTestCase {
             "contentMode": "invalid"
         ]
         
-        let validated = AsyncImage.validateProperties(properties, logger)
+        let props = AsyncImage.Props(properties)
         
-        XCTAssertNil(validated["url"], "url should be nil for invalid type")
-        XCTAssertNil(validated["placeholder"], "placeholder should be nil for invalid type")
-        XCTAssertNil(validated["resizable"], "resizable should be nil for invalid type")
-        XCTAssertNil(validated["contentMode"], "contentMode should be nil for invalid value")
+        XCTAssertNil(props.url, "url should be nil for invalid type")
+        XCTAssertEqual(props.placeholder, "photo", "placeholder should be the default for invalid type")
+        XCTAssertEqual(props.resizable, true, "resizable should be the default for invalid type")
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be the default for invalid value")
     }
     
-    func testValidatePropertiesMissing() throws {
+    func testAsyncImagePropsMissing() throws {
         let properties: [String: Any] = [:]
         
-        let validated = AsyncImage.validateProperties(properties, logger)
+        let props = AsyncImage.Props(properties)
         
-        XCTAssertTrue(validated.isEmpty, "validated properties should be empty when no properties provided")
+        XCTAssertNil(props.url, "url should be nil when no properties provided")
+        XCTAssertEqual(props.placeholder, "photo", "placeholder should be the default when no properties provided")
+        XCTAssertEqual(props.resizable, true, "resizable should be the default when no properties provided")
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be the default when no properties provided")
     }
     
-    func testValidatePropertiesPartial() throws {
+    func testAsyncImagePropsPartial() throws {
         let properties: [String: Any] = [
             "url": "https://example.com/image.jpg",
             "placeholder": "photo.fill"
         ]
         
-        let validated = AsyncImage.validateProperties(properties, logger)
+        let props = AsyncImage.Props(properties)
         
-        XCTAssertEqual(validated["url"] as? String, "https://example.com/image.jpg", "url should be valid String")
-        XCTAssertEqual(validated["placeholder"] as? String, "photo.fill", "placeholder should be valid String")
-        XCTAssertNil(validated["resizable"], "resizable should be nil when not provided")
-        XCTAssertNil(validated["contentMode"], "contentMode should be nil when not provided")
+        XCTAssertEqual(props.url, "https://example.com/image.jpg", "url should be valid String")
+        XCTAssertEqual(props.placeholder, "photo.fill", "placeholder should be valid String")
+        XCTAssertEqual(props.resizable, true, "resizable should be the default when not provided")
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be the default when not provided")
     }
     
-    func testValidatePropertiesInvalidUrl() throws {
+    func testAsyncImagePropsInvalidUrl() throws {
         let properties: [String: Any] = [
             "url": "invalid-url",
             "placeholder": "photo.fill",
@@ -87,12 +90,12 @@ final class AsyncImageTests: XCTestCase {
             "contentMode": "fit"
         ]
         
-        let validated = AsyncImage.validateProperties(properties, logger)
+        let props = AsyncImage.Props(properties)
         
-        XCTAssertEqual(validated["url"] as? String, "invalid-url", "url should pass through as string, even if invalid")
-        XCTAssertEqual(validated["placeholder"] as? String, "photo.fill", "placeholder should be valid String")
-        XCTAssertEqual(validated["resizable"] as? Bool, true, "resizable should be valid Bool")
-        XCTAssertEqual(validated["contentMode"] as? String, "fit", "contentMode should be valid String")
+        XCTAssertEqual(props.url, "invalid-url", "url should pass through as string, even if invalid")
+        XCTAssertEqual(props.placeholder, "photo.fill", "placeholder should be valid String")
+        XCTAssertEqual(props.resizable, true, "resizable should be valid Bool")
+        XCTAssertEqual(props.contentMode, .fit, "contentMode should be valid")
     }
     
     func testBuildViewAndApplyModifiersValidUrl() throws {
@@ -137,10 +140,10 @@ final class AsyncImageTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = AsyncImage.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = AsyncImage.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = AsyncImage.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy
@@ -158,10 +161,10 @@ final class AsyncImageTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = AsyncImage.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = AsyncImage.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = AsyncImage.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = AsyncImage.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = AsyncImage.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.Image) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

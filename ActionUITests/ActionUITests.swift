@@ -4,10 +4,10 @@
 
  Integration tests for the ActionUI component library.
  Verifies the construction of an ActionUIView with a TextField element from a JSON description,
- ensuring proper state binding with ActionUIModel.shared.state and property validation.
+ ensuring proper state binding with ActionUIModel.shared.state and property reading.
  Uses Dictionary+Numeric extension to ensure numeric properties like padding are retrieved as Double and CGFloat.
  Verifies the construction of a WindowGroup with valid CommandMenu and CommandGroup elements from a JSON description,
- ensuring proper command parsing, validation, and scene construction.
+ ensuring proper command parsing and scene construction.
 */
 
 import XCTest
@@ -87,15 +87,15 @@ final class ActionUITests: XCTestCase {
         // Assert: Verify model initialization
         XCTAssertEqual(viewModel.value as? String, "", "TextField state should initialize value to empty string")
         
-        // Assert: Verify validated properties
-        let validatedProperties = viewModel.properties
+        // Assert: Verify the stored properties
+        let storedProperties = viewModel.properties
         
-        XCTAssertFalse(validatedProperties.isEmpty, "Validated properties should exist")
-        XCTAssertEqual(validatedProperties["title"] as? String, "Username", "Validated title should match")
-        XCTAssertEqual(validatedProperties["textContentType"] as? String, "username", "Validated textContentType should match")
-        XCTAssertEqual(validatedProperties["actionID"] as? String, "text.submit", "Validated actionID should match")
-        XCTAssertEqual(validatedProperties.double(forKey: "padding"), 8.0, "Validated padding should be Double with value 8.0")
-        XCTAssertEqual(validatedProperties.cgFloat(forKey: "padding"), 8.0, "Validated padding should be CGFloat with value 8.0")
+        XCTAssertFalse(storedProperties.isEmpty, "Properties should exist")
+        XCTAssertEqual(storedProperties["title"] as? String, "Username", "title should match")
+        XCTAssertEqual(storedProperties["textContentType"] as? String, "username", "textContentType should match")
+        XCTAssertEqual(storedProperties["actionID"] as? String, "text.submit", "actionID should match")
+        XCTAssertEqual(storedProperties.double(forKey: "padding"), 8.0, "padding should be Double with value 8.0")
+        XCTAssertEqual(storedProperties.cgFloat(forKey: "padding"), 8.0, "padding should be CGFloat with value 8.0")
         
         // Assert: Verify view construction
         XCTAssertFalse(view is SwiftUI.EmptyView, "ActionUIView body should not return EmptyView")
@@ -289,7 +289,7 @@ final class ActionUITests: XCTestCase {
             XCTFail("Failed to retrieve viewModel for content element id: \(contentElement.id)")
             return
         }
-        XCTAssertTrue(contentViewModel.properties["text"] as? String == "Welcome", "Content view model validated properties should match")
+        XCTAssertTrue(contentViewModel.properties["text"] as? String == "Welcome", "Content view model properties should match")
         
         // Verify command view models
         let validCommandIds = [3, 7] // CommandMenu and CommandGroup
@@ -298,7 +298,7 @@ final class ActionUITests: XCTestCase {
                 XCTFail("Failed to retrieve viewModel for command id: \(commandId)")
                 return
             }
-            XCTAssertFalse(commandViewModel.properties.isEmpty, "Command view model validated properties should not be empty")
+            XCTAssertFalse(commandViewModel.properties.isEmpty, "Command view model properties should not be empty")
         }
         
         // Verify child view models for CommandMenu
@@ -309,7 +309,7 @@ final class ActionUITests: XCTestCase {
                 return
             }
             if childId != 5 { // Divider has empty properties
-                XCTAssertFalse(childViewModel.properties.isEmpty, "CommandMenu child view model validated properties should not be empty")
+                XCTAssertFalse(childViewModel.properties.isEmpty, "CommandMenu child view model properties should not be empty")
             }
         }
         
@@ -319,7 +319,7 @@ final class ActionUITests: XCTestCase {
             XCTFail("Failed to retrieve viewModel for CommandGroup child id: \(groupChildId)")
             return
         }
-        XCTAssertFalse(groupChildViewModel.properties.isEmpty, "CommandGroup child view model validated properties should not be empty")
+        XCTAssertFalse(groupChildViewModel.properties.isEmpty, "CommandGroup child view model properties should not be empty")
         
         // Log state for debugging
         logger.log("Final windowModel for windowUUID \(windowUUID!): \(String(describing: windowModel))", .debug)

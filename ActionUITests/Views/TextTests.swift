@@ -3,7 +3,7 @@
  TextTests.swift
 
  Tests for the Text component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -43,9 +43,9 @@ final class TextTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Text.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -84,44 +84,44 @@ final class TextTests: XCTestCase {
         }
     }
     
-    func testTextValidatePropertiesValid() {
+    func testTextPropsValid() {
         let properties: [String: Any] = [
             "text": "Hello, World!",
             "padding": 10.0
         ]
         
-        let validated = Text.validateProperties(properties, logger)
+        let props = Text.Props(properties)
         
-        XCTAssertEqual(validated["text"] as? String, "Hello, World!", "text should be preserved")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.text, "Hello, World!", "text should be preserved")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be passed through")
     }
     
-    func testTextValidatePropertiesInvalid() {
+    func testTextPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "text": 123
         ]
 
-        let validated = Text.validateProperties(properties, logger)
+        let props = Text.Props(properties)
 
-        XCTAssertEqual(validated["text"] as? Int, 123, "Invalid text should be preserved for baseline validation")
+        XCTAssertEqual(props.text, "", "Invalid text should be ignored")
     }
 
-    func testTextValidatePropertiesMissing() {
+    func testTextPropsMissing() {
         let properties: [String: Any] = [:]
 
-        let validated = Text.validateProperties(properties, logger)
+        let props = Text.Props(properties)
 
-        XCTAssertNil(validated["text"], "Missing text should be nil")
+        XCTAssertEqual(props.text, "", "Missing text should be empty")
     }
 
-    func testTextValidatePropertiesMarkdownValid() {
-        let validated = Text.validateProperties(["markdown": "**bold**"], logger)
-        XCTAssertEqual(validated["markdown"] as? String, "**bold**", "Valid markdown should be preserved")
+    func testTextPropsMarkdownValid() {
+        let props = Text.Props(["markdown": "**bold**"])
+        XCTAssertEqual(props.markdown, "**bold**", "Valid markdown should be preserved")
     }
 
-    func testTextValidatePropertiesMarkdownInvalid() {
-        let validated = Text.validateProperties(["markdown": 123], logger)
-        XCTAssertNil(validated["markdown"], "Non-String markdown should be removed")
+    func testTextPropsMarkdownInvalid() {
+        let props = Text.Props(["markdown": 123])
+        XCTAssertNil(props.markdown, "Non-String markdown should be ignored")
     }
 
     func testTextInitialValueFromMarkdown() {
@@ -153,9 +153,9 @@ final class TextTests: XCTestCase {
             "properties": ["markdown": "**Bold** _italic_ `code`"]
         ]
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Text.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     // MARK: - setElementValueFromString with contentType

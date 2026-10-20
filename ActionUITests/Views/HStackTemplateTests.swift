@@ -107,11 +107,11 @@ final class HStackTemplateTests: XCTestCase {
 
         viewModel.states["content"] = [["Swift"], ["Python"], ["Kotlin"]]
 
-        let validatedProps = HStack.validateProperties(element.properties, logger)
+        let properties = element.properties
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel,
             windowUUID: windowUUID,
-            properties: validatedProps
+            properties: properties
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }

@@ -3,7 +3,7 @@
  GaugeTests.swift
 
  Tests for the Gauge component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, state binding, and gauge style application.
+ Verifies JSON decoding, Props reading, view construction, state binding, and gauge style application.
 */
 
 import XCTest
@@ -65,7 +65,7 @@ final class GaugeTests: XCTestCase {
         XCTAssertNil(element.subviews?["children"], "Children should be nil")
     }
     
-    func testGaugeValidatePropertiesValid() {
+    func testGaugePropsValid() {
         let properties: [String: Any] = [
             "value": 0.5,
             "title": "Progress",
@@ -73,16 +73,16 @@ final class GaugeTests: XCTestCase {
             "range": ["min": -10.0, "max": 10.0]
         ]
         
-        let validated = Gauge.validateProperties(properties, logger)
+        let props = Gauge.Props(properties)
         
-        XCTAssertEqual(validated.double(forKey: "value"), 0.5, "Value should be valid")
-        XCTAssertEqual(validated["title"] as? String, "Progress", "Label should be valid")
-        XCTAssertEqual(validated["style"] as? String, "accessoryLinearCapacity", "Style should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), -10.0, "Range min should be valid")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 10.0, "Range max should be valid")
+        XCTAssertEqual(props.initialValue, 0.5, "Value should be valid")
+        XCTAssertEqual(props.title, "Progress", "Label should be valid")
+        XCTAssertEqual(props.style, .accessoryLinearCapacity, "Style should be valid")
+        XCTAssertEqual(props.min, -10.0, "Range min should be valid")
+        XCTAssertEqual(props.max, 10.0, "Range max should be valid")
     }
     
-    func testGaugeValidatePropertiesInvalid() {
+    func testGaugePropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "value": "0.5",
             "title": 123,
@@ -90,23 +90,24 @@ final class GaugeTests: XCTestCase {
             "range": ["min": "0", "max": true]
         ]
         
-        let validated = Gauge.validateProperties(properties, logger)
+        let props = Gauge.Props(properties)
         
-        XCTAssertNil(validated.double(forKey: "value"), "Invalid value should default to nil")
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
-        XCTAssertNil(validated["style"], "Invalid style should be nil")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "min"), 0.0, "Invalid range min should default to 0.0")
-        XCTAssertEqual((validated["range"] as? [String: Any])?.double(forKey: "max"), 1.0, "Invalid range max should default to 1.0")
+        XCTAssertEqual(props.initialValue, 0.0, "Invalid value should default to 0.0")
+        XCTAssertNil(props.title, "Invalid title should be nil")
+        XCTAssertNil(props.style, "Invalid style should be nil")
+        XCTAssertEqual(props.min, 0.0, "Invalid range min should default to 0.0")
+        XCTAssertEqual(props.max, 1.0, "Invalid range max should default to 1.0")
     }
     
-    func testGaugeValidatePropertiesMissing() {
+    func testGaugePropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Gauge.validateProperties(properties, logger)
+        let props = Gauge.Props(properties)
         
-        XCTAssertNil(validated["value"], "Missing value should be nil")
-        XCTAssertNil(validated["title"], "Missing title should be nil")
-        XCTAssertNil(validated["style"], "Missing style should be nil")
-        XCTAssertNil(validated["range"], "Missing range should be nil")
+        XCTAssertEqual(props.initialValue, 0.0, "Missing value should be the default")
+        XCTAssertNil(props.title, "Missing title should be nil")
+        XCTAssertNil(props.style, "Missing style should be nil")
+        XCTAssertEqual(props.min, 0.0, "Missing range min should be the default")
+        XCTAssertEqual(props.max, 1.0, "Missing range max should be the default")
     }
 }

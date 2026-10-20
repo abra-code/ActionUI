@@ -146,11 +146,11 @@ final class ToggleTemplateTests: XCTestCase {
         XCTAssertEqual(locked["isOn"] as? Bool, false)
         XCTAssertEqual(locked["disabled"] as? Bool, true)
 
-        // The Bool read from the row passes the ordinary validation, so the toggle starts as
-        // the row says instead of being dropped as "not a Bool".
-        let validated = ActionUIRegistry.shared.validateProperties(forElementType: "Toggle", properties: locked)
-        XCTAssertEqual(validated["isOn"] as? Bool, false)
-        XCTAssertEqual(validated["disabled"] as? Bool, true)
+        // The Bool read from the row is read by Toggle.Props, so the toggle starts as
+        // the row says instead of being ignored as "not a Bool".
+        let props = Toggle.Props(locked)
+        XCTAssertEqual(props.isOn, false)
+        XCTAssertEqual(BaseModifiers(locked).disabled, true)
     }
 
     func testInstanceProperties_otherTextIsOff() throws {
@@ -191,8 +191,8 @@ final class ToggleTemplateTests: XCTestCase {
     }
 
     func testOutsideATemplate_aStringIsOnIsStillInvalid() {
-        let validated = Toggle.validateProperties(["isOn": "true"], logger)
-        XCTAssertNil(validated["isOn"])
+        let props = Toggle.Props(["isOn": "true"])
+        XCTAssertNil(props.isOn)
     }
 
     // MARK: - A user toggle in a template row
@@ -350,42 +350,42 @@ final class ToggleTemplateTests: XCTestCase {
         viewModel.states["content"] = packRows
         let view = ActionUIRegistry.shared.buildView(
             for: list, model: viewModel, windowUUID: windowUUID,
-            properties: List.validateProperties(list.properties, logger)
+            properties: list.properties
         )
         XCTAssertFalse(view is SwiftUI.EmptyView)
     }
 
     func testListItemTypeToggle_isRefused() {
-        let validated = List.validateProperties(["itemType": ["viewType": "Toggle"]], logger)
-        XCTAssertEqual((validated["itemType"] as? [String: Any])?["viewType"] as? String, "Text")
+        let props = List.Props(["itemType": ["viewType": "Toggle"]])
+        XCTAssertEqual(props.viewType, .text)
     }
 
     // MARK: - Table column
 
-    func testTableValidate_acceptsAToggleColumn() {
-        let validated = Table.validateProperties([
+    func testTableProps_acceptsAToggleColumn() {
+        let props = Table.Props([
             "columns": ["", "Pack"],
             "columnTypes": [
                 ["viewType": "Toggle", "style": "checkbox", "actionID": "packs.toggled", "disabledColumn": 4],
                 ["viewType": "Text"]
             ]
-        ], logger)
-        let toggle = (validated["columnTypes"] as? [[String: Any]])?.first
-        XCTAssertEqual(toggle?["viewType"] as? String, "Toggle")
-        XCTAssertEqual(toggle?["style"] as? String, "checkbox")
-        XCTAssertEqual(toggle?["disabledColumn"] as? Int, 4)
-        XCTAssertEqual(toggle?["actionID"] as? String, "packs.toggled")
+        ])
+        let toggle = props.columnTypes.first
+        XCTAssertEqual(toggle?.viewType, .toggle)
+        XCTAssertEqual(toggle?.toggleStyle, .checkbox)
+        XCTAssertEqual(toggle?.disabledColumn, 4)
+        XCTAssertEqual(toggle?.actionID, "packs.toggled")
     }
 
-    func testTableValidate_dropsABadStyleAndDisabledColumn() {
-        let validated = Table.validateProperties([
+    func testTableProps_ignoresABadStyleAndDisabledColumn() {
+        let props = Table.Props([
             "columns": ["On"],
             "columnTypes": [["viewType": "Toggle", "style": "radio", "disabledColumn": 0]]
-        ], logger)
-        let toggle = (validated["columnTypes"] as? [[String: Any]])?.first
-        XCTAssertEqual(toggle?["viewType"] as? String, "Toggle")
-        XCTAssertNil(toggle?["style"])
-        XCTAssertNil(toggle?["disabledColumn"])
+        ])
+        let toggle = props.columnTypes.first
+        XCTAssertEqual(toggle?.viewType, .toggle)
+        XCTAssertEqual(toggle?.toggleStyle, .checkbox, "a bad style is ignored: the default")
+        XCTAssertNil(toggle?.disabledColumn)
     }
 
     func testTableCommitCellToggle_writesTheCellThenFiresWithColumnAndRow() throws {
@@ -431,7 +431,7 @@ final class ToggleTemplateTests: XCTestCase {
         let viewModel = try XCTUnwrap(ActionUIModel.shared.windowModels[windowUUID]?.viewModels[600])
         let view = ActionUIRegistry.shared.buildView(
             for: element, model: viewModel, windowUUID: windowUUID,
-            properties: Table.validateProperties(element.properties, logger)
+            properties: element.properties
         )
         #if canImport(AppKit)
         XCTAssertFalse(view is SwiftUI.EmptyView)

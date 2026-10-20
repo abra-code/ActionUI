@@ -2,7 +2,7 @@
  HoverDropTests.swift
 
  Tests for the onHover and onDrop View modifier properties.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -31,90 +31,97 @@ final class HoverDropTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - onHoverActionID validation
+    // MARK: - onHoverActionID Props
 
     func testOnHoverActionIDValidString() {
         let properties: [String: Any] = ["onHoverActionID": "card.hovered"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onHoverActionID"] as? String, "card.hovered")
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.onHoverActionID, "card.hovered")
     }
 
     func testOnHoverActionIDInvalidTypeDiscarded() {
         let properties: [String: Any] = ["onHoverActionID": 42]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onHoverActionID"], "Non-string onHoverActionID should be discarded")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.onHoverActionID, "Non-string onHoverActionID should be ignored")
     }
 
     func testOnHoverActionIDInvalidBoolDiscarded() {
         let properties: [String: Any] = ["onHoverActionID": true]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onHoverActionID"], "Bool onHoverActionID should be discarded")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.onHoverActionID, "Bool onHoverActionID should be ignored")
     }
 
-    // MARK: - onDropActionID validation
+    // MARK: - onDrop Props (a drop needs both an action and at least one type)
 
     func testOnDropActionIDValidString() {
-        let properties: [String: Any] = ["onDropActionID": "zone.dropped"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onDropActionID"] as? String, "zone.dropped")
+        let properties: [String: Any] = ["onDropActionID": "zone.dropped", "onDropTypes": ["public.url"]]
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.drop?.actionID, "zone.dropped")
     }
 
     func testOnDropActionIDInvalidTypeDiscarded() {
-        let properties: [String: Any] = ["onDropActionID": 99]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onDropActionID"], "Non-string onDropActionID should be discarded")
+        let properties: [String: Any] = ["onDropActionID": 99, "onDropTypes": ["public.url"]]
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.drop, "Non-string onDropActionID should be ignored")
     }
-
-    // MARK: - onDropTypes validation
 
     func testOnDropTypesValidArray() {
         let properties: [String: Any] = [
+            "onDropActionID": "zone.dropped",
             "onDropTypes": ["public.utf8-plain-text", "public.url"]
         ]
-        let validated = View.validateProperties(properties, logger)
-        let types = validated["onDropTypes"] as? [String]
-        XCTAssertEqual(types, ["public.utf8-plain-text", "public.url"])
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.drop?.types, ["public.utf8-plain-text", "public.url"])
     }
 
     func testOnDropTypesSingleElement() {
-        let properties: [String: Any] = ["onDropTypes": ["public.utf8-plain-text"]]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onDropTypes"] as? [String], ["public.utf8-plain-text"])
+        let properties: [String: Any] = ["onDropActionID": "zone.dropped", "onDropTypes": ["public.utf8-plain-text"]]
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.drop?.types, ["public.utf8-plain-text"])
     }
 
     func testOnDropTypesEmptyArrayDiscarded() {
-        let properties: [String: Any] = ["onDropTypes": [String]()]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onDropTypes"], "Empty onDropTypes should be discarded")
+        let properties: [String: Any] = ["onDropActionID": "zone.dropped", "onDropTypes": [String]()]
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.drop, "Empty onDropTypes should be ignored")
     }
 
     func testOnDropTypesNonArrayDiscarded() {
-        let properties: [String: Any] = ["onDropTypes": "public.utf8-plain-text"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onDropTypes"], "String (not array) onDropTypes should be discarded")
+        let properties: [String: Any] = ["onDropActionID": "zone.dropped", "onDropTypes": "public.utf8-plain-text"]
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.drop, "String (not array) onDropTypes should be ignored")
     }
 
     func testOnDropTypesNumberDiscarded() {
-        let properties: [String: Any] = ["onDropTypes": 42]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onDropTypes"], "Number onDropTypes should be discarded")
+        let properties: [String: Any] = ["onDropActionID": "zone.dropped", "onDropTypes": 42]
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.drop, "Number onDropTypes should be ignored")
     }
 
-    // MARK: - onDropTargetedActionID validation
-
     func testOnDropTargetedActionIDValidString() {
-        let properties: [String: Any] = ["onDropTargetedActionID": "zone.targeted"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onDropTargetedActionID"] as? String, "zone.targeted")
+        let properties: [String: Any] = [
+            "onDropActionID": "zone.dropped", "onDropTypes": ["public.url"], "onDropTargetedActionID": "zone.targeted"
+        ]
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.drop?.targetedActionID, "zone.targeted")
     }
 
     func testOnDropTargetedActionIDInvalidTypeDiscarded() {
-        let properties: [String: Any] = ["onDropTargetedActionID": 7]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["onDropTargetedActionID"], "Non-string onDropTargetedActionID should be discarded")
+        let properties: [String: Any] = [
+            "onDropActionID": "zone.dropped", "onDropTypes": ["public.url"], "onDropTargetedActionID": 7
+        ]
+        let mods = BaseModifiers(properties)
+        XCTAssertNotNil(mods.drop, "the drop itself stays")
+        XCTAssertNil(mods.drop?.targetedActionID, "Non-string onDropTargetedActionID should be ignored")
     }
 
-    // MARK: - Combined validation
+    func testDropActionIDWithoutDropTypesIsNoDrop() {
+        let properties: [String: Any] = ["onDropActionID": "drop.received"]
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.drop, "a drop needs onDropTypes too")
+    }
+
+    // MARK: - Combined Props
 
     func testAllDropPropertiesValidTogether() {
         let properties: [String: Any] = [
@@ -122,19 +129,10 @@ final class HoverDropTests: XCTestCase {
             "onDropTypes": ["public.utf8-plain-text"],
             "onDropTargetedActionID": "drop.targeted"
         ]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onDropActionID"] as? String, "drop.received")
-        XCTAssertEqual(validated["onDropTypes"] as? [String], ["public.utf8-plain-text"])
-        XCTAssertEqual(validated["onDropTargetedActionID"] as? String, "drop.targeted")
-    }
-
-    func testDropActionIDWithoutDropTypesPassesValidation() {
-        // Both are independent; validation doesn't enforce co-presence.
-        // The modifier application skips onDrop if onDropTypes is absent.
-        let properties: [String: Any] = ["onDropActionID": "drop.received"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onDropActionID"] as? String, "drop.received")
-        XCTAssertNil(validated["onDropTypes"])
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.drop?.actionID, "drop.received")
+        XCTAssertEqual(mods.drop?.types, ["public.utf8-plain-text"])
+        XCTAssertEqual(mods.drop?.targetedActionID, "drop.targeted")
     }
 
     func testHoverAndDropTogetherOnSameElement() {
@@ -144,11 +142,11 @@ final class HoverDropTests: XCTestCase {
             "onDropTypes": ["public.utf8-plain-text"],
             "onDropTargetedActionID": "card.targeted"
         ]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["onHoverActionID"] as? String, "card.hovered")
-        XCTAssertEqual(validated["onDropActionID"] as? String, "card.dropped")
-        XCTAssertEqual(validated["onDropTypes"] as? [String], ["public.utf8-plain-text"])
-        XCTAssertEqual(validated["onDropTargetedActionID"] as? String, "card.targeted")
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.onHoverActionID, "card.hovered")
+        XCTAssertEqual(mods.drop?.actionID, "card.dropped")
+        XCTAssertEqual(mods.drop?.types, ["public.utf8-plain-text"])
+        XCTAssertEqual(mods.drop?.targetedActionID, "card.targeted")
     }
 
     // MARK: - JSON decoding

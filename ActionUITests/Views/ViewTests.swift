@@ -25,7 +25,7 @@ final class ViewTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testValidatePropertiesValid() throws {
+    func testBaseModifiersValid() throws {
         let properties: [String: Any] = [
             "padding": 10.0,
             "hidden": false,
@@ -47,69 +47,52 @@ final class ViewTests: XCTestCase {
             "border": ["color": "red", "width": 2.0]
         ]
 
-        let validated = View.validateProperties(properties, logger)
+        let mods = BaseModifiers(properties)
 
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be valid CGFloat")
-        XCTAssertEqual(validated["hidden"] as? Bool, false, "hidden should be valid Bool")
-        XCTAssertEqual(validated["foregroundStyle"] as? String, "blue", "foregroundStyle should be valid string")
-        XCTAssertEqual(validated["tint"] as? String, "red", "tint should be valid string")
-        XCTAssertEqual(validated["font"] as? String, "body", "font should be valid string")
-        XCTAssertEqual(validated["background"] as? String, "#FFFFFF", "background should be valid string")
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "height"), 100.0, "frame.height should be 100.0")
-            XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be center")
-        } else {
-            XCTFail("frame should be a dictionary")
-        }
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 10.0, "offset.x should be 10.0")
-            XCTAssertEqual(offset.cgFloat(forKey: "y"), -5.0, "offset.y should be -5.0")
-        } else {
-            XCTFail("offset should be a dictionary")
-        }
-        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.5, "opacity should be 0.5")
-        XCTAssertEqual(validated.cgFloat(forKey: "cornerRadius"), 5.0, "cornerRadius should be 5.0")
-        XCTAssertEqual(validated["actionID"] as? String, "view.action", "actionID should be view.action")
-        XCTAssertEqual(validated["disabled"] as? Bool, true, "disabled should be true")
-        XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be Test View")
-        XCTAssertEqual(validated["accessibilityHint"] as? String, "Base view", "accessibilityHint should be Base view")
-        XCTAssertEqual(validated["accessibilityHidden"] as? Bool, false, "accessibilityHidden should be false")
-        XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be view_1")
-        if let shadow = validated["shadow"] as? [String: Any] {
-            XCTAssertEqual(shadow["color"] as? String, "black", "shadow.color should be black")
-            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 5.0, "shadow.radius should be 5.0")
-            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 0.0, "shadow.x should be 0.0")
-            XCTAssertEqual(shadow.cgFloat(forKey: "y"), 2.0, "shadow.y should be 2.0")
-        } else {
-            XCTFail("shadow should be a dictionary")
-        }
-        if let border = validated["border"] as? [String: Any] {
-            XCTAssertEqual(border["color"] as? String, "red", "border.color should be red")
-            XCTAssertEqual(border.cgFloat(forKey: "width"), 2.0, "border.width should be 2.0")
-        } else {
-            XCTFail("border should be a dictionary")
-        }
+        XCTAssertEqual(mods.padding, .uniform(10.0), "padding should be uniform 10.0")
+        XCTAssertEqual(mods.hidden, false, "hidden should be valid Bool")
+        XCTAssertEqual(mods.foregroundStyle, "blue", "foregroundStyle should be valid string")
+        XCTAssertEqual(mods.tint, "red", "tint should be valid string")
+        XCTAssertEqual(mods.font as? String, "body", "font should be valid string")
+        XCTAssertEqual(mods.background, "#FFFFFF", "background should be valid string")
+        XCTAssertNotNil(mods.frame, "frame should be parsed")
+        XCTAssertEqual(mods.frame?.width, 100.0, "frame.width should be 100.0")
+        XCTAssertEqual(mods.frame?.height, 100.0, "frame.height should be 100.0")
+        XCTAssertEqual(mods.frame?.alignment, .center, "frame.alignment should be center")
+        XCTAssertEqual(mods.offset, BaseModifiers.Offset(x: 10.0, y: -5.0), "offset should be (10.0, -5.0)")
+        XCTAssertEqual(mods.opacity, 0.5, "opacity should be 0.5")
+        XCTAssertEqual(mods.cornerRadius, 5.0, "cornerRadius should be 5.0")
+        XCTAssertEqual(mods.actionID, "view.action", "actionID should be view.action")
+        XCTAssertEqual(mods.disabled, true, "disabled should be true")
+        XCTAssertEqual(mods.accessibilityLabel, "Test View", "accessibilityLabel should be Test View")
+        XCTAssertEqual(mods.accessibilityHint, "Base view", "accessibilityHint should be Base view")
+        XCTAssertEqual(mods.accessibilityHidden, false, "accessibilityHidden should be false")
+        XCTAssertEqual(mods.accessibilityIdentifier, "view_1", "accessibilityIdentifier should be view_1")
+        XCTAssertNotNil(mods.shadow, "shadow should be parsed")
+        XCTAssertEqual(mods.shadow?.color, "black", "shadow.color should be black")
+        XCTAssertEqual(mods.shadow?.radius, 5.0, "shadow.radius should be 5.0")
+        XCTAssertEqual(mods.shadow?.x, 0.0, "shadow.x should be 0.0")
+        XCTAssertEqual(mods.shadow?.y, 2.0, "shadow.y should be 2.0")
+        XCTAssertNotNil(mods.border, "border should be parsed")
+        XCTAssertEqual(mods.border?.color, "red", "border.color should be red")
+        XCTAssertEqual(mods.border?.width, 2.0, "border.width should be 2.0")
     }
-    
-    func testValidatePropertiesValidFlexibleFrame() throws {
+
+    func testBaseModifiersValidFlexibleFrame() throws {
         let properties: [String: Any] = [
             "frame": ["minWidth": 50.0, "idealWidth": 100.0, "maxWidth": 200.0, "minHeight": 50.0, "idealHeight": 100.0, "maxHeight": 200.0, "alignment": "topLeading"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame.cgFloat(forKey: "minWidth"), 50.0, "frame.minWidth should be 50.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "idealWidth"), 100.0, "frame.idealWidth should be 100.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "maxWidth"), 200.0, "frame.maxWidth should be 200.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "minHeight"), 50.0, "frame.minHeight should be 50.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "idealHeight"), 100.0, "frame.idealHeight should be 100.0")
-            XCTAssertEqual(frame.cgFloat(forKey: "maxHeight"), 200.0, "frame.maxHeight should be 200.0")
-            XCTAssertEqual(frame["alignment"] as? String, "topLeading", "frame.alignment should be topLeading")
-        } else {
-            XCTFail("frame should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.frame, "frame should be parsed")
+        XCTAssertEqual(mods.frame?.minWidth, 50.0, "frame.minWidth should be 50.0")
+        XCTAssertEqual(mods.frame?.idealWidth, 100.0, "frame.idealWidth should be 100.0")
+        XCTAssertEqual(mods.frame?.maxWidth, 200.0, "frame.maxWidth should be 200.0")
+        XCTAssertEqual(mods.frame?.minHeight, 50.0, "frame.minHeight should be 50.0")
+        XCTAssertEqual(mods.frame?.idealHeight, 100.0, "frame.idealHeight should be 100.0")
+        XCTAssertEqual(mods.frame?.maxHeight, 200.0, "frame.maxHeight should be 200.0")
+        XCTAssertEqual(mods.frame?.alignment, .topLeading, "frame.alignment should be topLeading")
     }
 
     // MARK: - searchable
@@ -118,48 +101,45 @@ final class ViewTests: XCTestCase {
         let properties: [String: Any] = [
             "searchable": ["prompt": "Search receivers", "actionID": "home.search"]
         ]
-        let validated = View.validateProperties(properties, logger)
-        let searchable = validated["searchable"] as? [String: Any]
-        XCTAssertNotNil(searchable, "valid searchable dict should be preserved")
-        XCTAssertEqual(searchable?["actionID"] as? String, "home.search")
-        XCTAssertEqual(searchable?["prompt"] as? String, "Search receivers")
+        let mods = BaseModifiers(properties)
+        XCTAssertNotNil(mods.searchable, "valid searchable dict should be read")
+        XCTAssertEqual(mods.searchable?.actionID, "home.search")
+        XCTAssertEqual(mods.searchable?.prompt, "Search receivers")
     }
 
     func testSearchablePromptOptional() throws {
         // actionID alone is sufficient; prompt is optional.
         let properties: [String: Any] = ["searchable": ["actionID": "home.search"]]
-        let validated = View.validateProperties(properties, logger)
-        let searchable = validated["searchable"] as? [String: Any]
-        XCTAssertEqual(searchable?["actionID"] as? String, "home.search")
-        XCTAssertNil(searchable?["prompt"], "prompt may be omitted")
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.searchable?.actionID, "home.search")
+        XCTAssertNil(mods.searchable?.prompt, "prompt may be omitted")
     }
 
     func testSearchableMissingActionIDDropped() throws {
-        // Missing required actionID -> entire searchable dropped.
+        // Missing required actionID -> entire searchable ignored.
         let properties: [String: Any] = ["searchable": ["prompt": "Search"]]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["searchable"], "searchable without actionID should be dropped")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.searchable, "searchable without actionID should be ignored")
     }
 
     func testSearchableEmptyActionIDDropped() throws {
         let properties: [String: Any] = ["searchable": ["actionID": ""]]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["searchable"], "searchable with empty actionID should be dropped")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.searchable, "searchable with empty actionID should be ignored")
     }
 
     func testSearchableInvalidTypeDropped() throws {
         let properties: [String: Any] = ["searchable": "not a dict"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["searchable"], "non-dictionary searchable should be dropped")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.searchable, "non-dictionary searchable should be ignored")
     }
 
     func testSearchableInvalidPromptTypeStripped() throws {
-        // Valid actionID but non-String prompt -> keep actionID, drop prompt.
+        // Valid actionID but non-String prompt -> keep actionID, ignore prompt.
         let properties: [String: Any] = ["searchable": ["actionID": "home.search", "prompt": 42]]
-        let validated = View.validateProperties(properties, logger)
-        let searchable = validated["searchable"] as? [String: Any]
-        XCTAssertEqual(searchable?["actionID"] as? String, "home.search")
-        XCTAssertNil(searchable?["prompt"], "non-String prompt should be stripped while keeping actionID")
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.searchable?.actionID, "home.search")
+        XCTAssertNil(mods.searchable?.prompt, "non-String prompt should be ignored while keeping actionID")
     }
 
     // MARK: - contextMenu / contextMenuPreview (top-level subview keys)
@@ -314,7 +294,7 @@ final class ViewTests: XCTestCase {
         XCTAssertNil(element.subviews?["swipeActions"])
     }
 
-    func testValidatePropertiesInvalid() throws {
+    func testBaseModifiersInvalid() throws {
         let properties: [String: Any] = [
             "padding": "10",
             "hidden": "true",
@@ -336,37 +316,54 @@ final class ViewTests: XCTestCase {
             "border": ["color": 123, "width": "2"]
         ]
 
-        let validated = View.validateProperties(properties, logger)
+        let mods = BaseModifiers(properties)
 
-        XCTAssertNil(validated["padding"], "padding should be nil for invalid type")
-        XCTAssertNil(validated["hidden"], "hidden should be nil for invalid type")
-        XCTAssertNil(validated["foregroundStyle"], "foregroundStyle should be nil for invalid type")
-        XCTAssertNil(validated["tint"], "tint should be nil for invalid type")
-        XCTAssertNil(validated["font"], "font should be nil for invalid type")
-        XCTAssertNil(validated["background"], "background should be nil for invalid type")
-        XCTAssertNil(validated["frame"], "frame should be nil for invalid types")
-        XCTAssertNil(validated["offset"], "offset should be nil for invalid types")
-        XCTAssertNil(validated["opacity"], "opacity should be nil for invalid type")
-        XCTAssertNil(validated["cornerRadius"], "cornerRadius should be nil for invalid type")
-        XCTAssertNil(validated["actionID"], "actionID should be nil for invalid type")
-        XCTAssertNil(validated["disabled"], "disabled should be nil for invalid type")
-        XCTAssertNil(validated["accessibilityLabel"], "accessibilityLabel should be nil for invalid type")
-        XCTAssertNil(validated["accessibilityHint"], "accessibilityHint should be nil for invalid type")
-        XCTAssertNil(validated["accessibilityHidden"], "accessibilityHidden should be nil for invalid type")
-        XCTAssertNil(validated["accessibilityIdentifier"], "accessibilityIdentifier should be nil for invalid type")
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
-        XCTAssertNil(validated["border"], "border should be nil for invalid types")
+        XCTAssertNil(mods.padding, "padding should be nil for invalid type")
+        XCTAssertFalse(mods.hidden, "hidden should be false for invalid type")
+        XCTAssertNil(mods.foregroundStyle, "foregroundStyle should be nil for invalid type")
+        XCTAssertNil(mods.tint, "tint should be nil for invalid type")
+        XCTAssertNil(mods.font, "font should be nil for invalid type")
+        XCTAssertNil(mods.background, "background should be nil for invalid type")
+        XCTAssertNil(mods.frame, "frame should be nil for invalid types")
+        XCTAssertNil(mods.offset, "offset should be nil for invalid types")
+        XCTAssertNil(mods.opacity, "opacity should be nil for invalid type")
+        XCTAssertNil(mods.cornerRadius, "cornerRadius should be nil for invalid type")
+        XCTAssertNil(mods.actionID, "actionID should be nil for invalid type")
+        XCTAssertNil(mods.disabled, "disabled should be nil for invalid type")
+        XCTAssertNil(mods.accessibilityLabel, "accessibilityLabel should be nil for invalid type")
+        XCTAssertNil(mods.accessibilityHint, "accessibilityHint should be nil for invalid type")
+        XCTAssertNil(mods.accessibilityHidden, "accessibilityHidden should be nil for invalid type")
+        XCTAssertNil(mods.accessibilityIdentifier, "accessibilityIdentifier should be nil for invalid type")
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid types")
+        XCTAssertNil(mods.border, "border should be nil for invalid types")
     }
-    
-    func testValidatePropertiesMissing() throws {
+
+    func testBaseModifiersMissing() throws {
         let properties: [String: Any] = [:]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertTrue(validated.isEmpty, "validated properties should be empty when no properties provided")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.padding, "padding should be nil when no properties provided")
+        XCTAssertFalse(mods.hidden, "hidden should be false when no properties provided")
+        XCTAssertNil(mods.foregroundStyle, "foregroundStyle should be nil when no properties provided")
+        XCTAssertNil(mods.tint, "tint should be nil when no properties provided")
+        XCTAssertNil(mods.font, "font should be nil when no properties provided")
+        XCTAssertNil(mods.background, "background should be nil when no properties provided")
+        XCTAssertNil(mods.frame, "frame should be nil when no properties provided")
+        XCTAssertNil(mods.offset, "offset should be nil when no properties provided")
+        XCTAssertNil(mods.opacity, "opacity should be nil when no properties provided")
+        XCTAssertNil(mods.cornerRadius, "cornerRadius should be nil when no properties provided")
+        XCTAssertNil(mods.actionID, "actionID should be nil when no properties provided")
+        XCTAssertNil(mods.disabled, "disabled should be nil when no properties provided")
+        XCTAssertNil(mods.accessibilityLabel, "accessibilityLabel should be nil when no properties provided")
+        XCTAssertNil(mods.accessibilityHint, "accessibilityHint should be nil when no properties provided")
+        XCTAssertNil(mods.accessibilityHidden, "accessibilityHidden should be nil when no properties provided")
+        XCTAssertNil(mods.accessibilityIdentifier, "accessibilityIdentifier should be nil when no properties provided")
+        XCTAssertNil(mods.shadow, "shadow should be nil when no properties provided")
+        XCTAssertNil(mods.border, "border should be nil when no properties provided")
     }
-    
-    func testValidatePropertiesPartial() throws {
+
+    func testBaseModifiersPartial() throws {
         let properties: [String: Any] = [
             "padding": 20.0,
             "foregroundStyle": "red",
@@ -376,277 +373,248 @@ final class ViewTests: XCTestCase {
             "accessibilityLabel": "Test View",
             "accessibilityIdentifier": "view_1"
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 20.0, "padding should be valid CGFloat")
-        XCTAssertEqual(validated["foregroundStyle"] as? String, "red", "foregroundStyle should be valid string")
-        XCTAssertEqual(validated["tint"] as? String, "green", "tint should be valid string")
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 15.0, "offset.x should be valid CGFloat")
-            XCTAssertEqual(offset.cgFloat(forKey: "y"), 25.0, "offset.y should be valid CGFloat")
-        } else {
-            XCTFail("offset should be valid dictionary")
-        }
-        XCTAssertEqual(validated["disabled"] as? Bool, false, "disabled should be valid Bool")
-        XCTAssertEqual(validated["accessibilityLabel"] as? String, "Test View", "accessibilityLabel should be valid string")
-        XCTAssertEqual(validated["accessibilityIdentifier"] as? String, "view_1", "accessibilityIdentifier should be valid string")
-        XCTAssertNil(validated["hidden"], "hidden should be nil when not provided")
-        XCTAssertNil(validated["font"], "font should be nil when not provided")
-        XCTAssertNil(validated["background"], "background should be nil when not provided")
-        XCTAssertNil(validated["frame"], "frame should be nil when not provided")
-        XCTAssertNil(validated["opacity"], "opacity should be nil when not provided")
-        XCTAssertNil(validated["cornerRadius"], "cornerRadius should be nil when not provided")
-        XCTAssertNil(validated["actionID"], "actionID should be nil when not provided")
-        XCTAssertNil(validated["accessibilityHint"], "accessibilityHint should be nil when not provided")
-        XCTAssertNil(validated["accessibilityHidden"], "accessibilityHidden should be nil when not provided")
-        XCTAssertNil(validated["shadow"], "shadow should be nil when not provided")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.padding, .uniform(20.0), "padding should be uniform 20.0")
+        XCTAssertEqual(mods.foregroundStyle, "red", "foregroundStyle should be valid string")
+        XCTAssertEqual(mods.tint, "green", "tint should be valid string")
+        XCTAssertEqual(mods.offset, BaseModifiers.Offset(x: 15.0, y: 25.0), "offset should be (15.0, 25.0)")
+        XCTAssertEqual(mods.disabled, false, "disabled should be valid Bool")
+        XCTAssertEqual(mods.accessibilityLabel, "Test View", "accessibilityLabel should be valid string")
+        XCTAssertEqual(mods.accessibilityIdentifier, "view_1", "accessibilityIdentifier should be valid string")
+        XCTAssertFalse(mods.hidden, "hidden should be false when not provided")
+        XCTAssertNil(mods.font, "font should be nil when not provided")
+        XCTAssertNil(mods.background, "background should be nil when not provided")
+        XCTAssertNil(mods.frame, "frame should be nil when not provided")
+        XCTAssertNil(mods.opacity, "opacity should be nil when not provided")
+        XCTAssertNil(mods.cornerRadius, "cornerRadius should be nil when not provided")
+        XCTAssertNil(mods.actionID, "actionID should be nil when not provided")
+        XCTAssertNil(mods.accessibilityHint, "accessibilityHint should be nil when not provided")
+        XCTAssertNil(mods.accessibilityHidden, "accessibilityHidden should be nil when not provided")
+        XCTAssertNil(mods.shadow, "shadow should be nil when not provided")
     }
-    
-    func testValidatePropertiesFramePartial() throws {
+
+    func testBaseModifiersFramePartial() throws {
         let properties: [String: Any] = [
             "frame": ["width": 100.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame.cgFloat(forKey: "width"), 100.0, "frame.width should be 100.0")
-            XCTAssertNil(frame["height"], "frame.height should be nil when not provided")
-            XCTAssertNil(frame["alignment"], "frame.alignment should be nil when not provided")
-        } else {
-            XCTFail("frame should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.frame, "frame should be parsed")
+        XCTAssertEqual(mods.frame?.width, 100.0, "frame.width should be 100.0")
+        XCTAssertNil(mods.frame?.height, "frame.height should be nil when not provided")
+        XCTAssertNil(mods.frame?.alignment, "frame.alignment should be nil when not provided")
     }
-    
-    func testValidatePropertiesFrameMixedForms() throws {
+
+    func testBaseModifiersFrameMixedForms() throws {
         let properties: [String: Any] = [
             "frame": ["width": 100.0, "minWidth": 50.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["frame"], "frame should be nil for mixed fixed and flexible keys")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.frame, "frame should be nil for mixed fixed and flexible keys")
     }
-    
-    func testValidatePropertiesFrameInvalidAlignment() throws {
+
+    func testBaseModifiersFrameInvalidAlignment() throws {
         let properties: [String: Any] = [
             "frame": ["alignment": "invalid"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame["alignment"] as? String, "invalid", "frame.alignment should retain invalid value")
-        } else {
-            XCTFail("frame should be a dictionary with only alignment")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.frame, "frame with only an alignment should still be parsed")
+        XCTAssertNil(mods.frame?.alignment, "frame.alignment should be nil for an unknown value")
     }
-    
-    func testValidatePropertiesFrameInvalidTypes() throws {
+
+    func testBaseModifiersFrameInvalidTypes() throws {
         let properties: [String: Any] = [
             "frame": ["width": "100", "height": true]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["frame"], "frame should be nil for invalid dimension types")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.frame, "frame should be nil for invalid dimension types")
     }
-    
-    func testValidatePropertiesShadowPartial() throws {
+
+    func testBaseModifiersShadowPartial() throws {
         let properties: [String: Any] = [
             "shadow": ["radius": 10.0, "x": 3.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shadow = validated["shadow"] as? [String: Any] {
-            XCTAssertNil(shadow["color"], "shadow.color should be nil when not provided")
-            XCTAssertEqual(shadow.cgFloat(forKey: "radius"), 10.0, "shadow.radius should be valid CGFloat")
-            XCTAssertEqual(shadow.cgFloat(forKey: "x"), 3.0, "shadow.x should be valid CGFloat")
-            XCTAssertNil(shadow["y"], "shadow.y should be nil when not provided")
-        } else {
-            XCTFail("shadow should be valid dictionary with partial properties")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.shadow, "shadow should be parsed with partial properties")
+        XCTAssertNil(mods.shadow?.color, "shadow.color should be nil when not provided")
+        XCTAssertEqual(mods.shadow?.radius, 10.0, "shadow.radius should be 10.0")
+        XCTAssertEqual(mods.shadow?.x, 3.0, "shadow.x should be 3.0")
+        XCTAssertEqual(mods.shadow?.y, 0.0, "shadow.y should be 0.0 when not provided")
     }
-    
-    func testValidatePropertiesShadowInvalidTypes() throws {
+
+    func testBaseModifiersShadowInvalidTypes() throws {
         let properties: [String: Any] = [
             "shadow": ["color": 123, "radius": "10", "x": true, "y": "2"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid types")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid types")
     }
-    
-    func testValidatePropertiesShadowInvalidColorType() throws {
+
+    func testBaseModifiersShadowInvalidColorType() throws {
         let properties: [String: Any] = [
             "shadow": ["color": 123]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid color type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid color type")
     }
-    
-    func testValidatePropertiesShadowInvalidRadiusType() throws {
+
+    func testBaseModifiersShadowInvalidRadiusType() throws {
         let properties: [String: Any] = [
             "shadow": ["radius": "10"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid radius type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid radius type")
     }
-    
-    func testValidatePropertiesShadowInvalidXType() throws {
+
+    func testBaseModifiersShadowInvalidXType() throws {
         let properties: [String: Any] = [
             "shadow": ["x": true]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid x type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid x type")
     }
-    
-    func testValidatePropertiesShadowInvalidYType() throws {
+
+    func testBaseModifiersShadowInvalidYType() throws {
         let properties: [String: Any] = [
             "shadow": ["y": "2"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid y type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid y type")
     }
-    
-    func testValidatePropertiesShadowEmptyDict() throws {
+
+    func testBaseModifiersShadowEmptyDict() throws {
         let properties: [String: Any] = [
             "shadow": [:]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for empty dictionary")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for empty dictionary")
     }
-    
-    func testValidatePropertiesShadowInvalidType() throws {
+
+    func testBaseModifiersShadowInvalidType() throws {
         let properties: [String: Any] = [
             "shadow": "invalid"
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["shadow"], "shadow should be nil for invalid type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.shadow, "shadow should be nil for invalid type")
     }
-    
-    func testValidatePropertiesPaddingDictPartial() throws {
+
+    func testBaseModifiersPaddingDictPartial() throws {
         let properties: [String: Any] = [
             "padding": ["top": 10.0, "leading": 5.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let padding = validated["padding"] as? [String: Any] {
-            XCTAssertEqual(padding.cgFloat(forKey: "top"), 10.0, "padding.top should be valid CGFloat")
-            XCTAssertEqual(padding.cgFloat(forKey: "leading"), 5.0, "padding.leading should be valid CGFloat")
-            XCTAssertNil(padding["bottom"], "padding.bottom should be nil when not provided")
-            XCTAssertNil(padding["trailing"], "padding.trailing should be nil when not provided")
-        } else {
-            XCTFail("padding should be valid dictionary with partial properties")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.padding, .edges(top: 10.0, leading: 5.0, bottom: 0.0, trailing: 0.0),
+                       "padding.top and padding.leading should be read; bottom and trailing are 0 when not provided")
     }
-    
-    func testValidatePropertiesPaddingDictInvalidTypes() throws {
+
+    func testBaseModifiersPaddingDictInvalidTypes() throws {
         let properties: [String: Any] = [
             "padding": ["top": "10", "bottom": true, "leading": "5", "trailing": 15.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let padding = validated["padding"] as? [String: Any] {
-            XCTAssertEqual(padding.cgFloat(forKey: "trailing"), 15.0, "padding.trailing should be valid CGFloat")
-            XCTAssertNil(padding["top"], "padding.top should be nil for invalid type")
-            XCTAssertNil(padding["bottom"], "padding.bottom should be nil for invalid type")
-            XCTAssertNil(padding["leading"], "padding.leading should be nil for invalid type")
-        } else {
-            XCTFail("padding should be a dictionary with valid edges")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.padding, .edges(top: 0.0, leading: 0.0, bottom: 0.0, trailing: 15.0),
+                       "padding.trailing should be read; top, bottom and leading are 0 for invalid types")
     }
-    
-    func testValidatePropertiesPaddingStringDefault() throws {
+
+    func testBaseModifiersPaddingStringDefault() throws {
         let properties: [String: Any] = [
             "padding": "default"
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated["padding"] as? String, "default", "padding should be 'default' string")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.padding, .system, "padding should be the system padding for 'default'")
     }
-    
-    func testValidatePropertiesPaddingStringInvalid() throws {
+
+    func testBaseModifiersPaddingStringInvalid() throws {
         let properties: [String: Any] = [
             "padding": "invalid"
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["padding"], "padding should be nil for invalid string")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.padding, "padding should be nil for invalid string")
     }
-    
-    func testValidatePropertiesPaddingInvalidType() throws {
+
+    func testBaseModifiersPaddingInvalidType() throws {
         let properties: [String: Any] = [
             "padding": true
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["padding"], "padding should be nil for invalid type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.padding, "padding should be nil for invalid type")
     }
-    
-    func testValidatePropertiesOpacityInvalidValue() throws {
+
+    func testBaseModifiersOpacityInvalidValue() throws {
         let properties: [String: Any] = [
             "opacity": 1.5
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["opacity"], "opacity should be nil for value outside 0.0-1.0 range")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.opacity, "opacity should be nil for value outside 0.0-1.0 range")
     }
-    
-    func testValidatePropertiesOpacityValidBoundary() throws {
+
+    func testBaseModifiersOpacityValidBoundary() throws {
         let properties: [String: Any] = [
             "opacity": 0.0
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 0.0, "opacity should be valid at 0.0")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.opacity, 0.0, "opacity should be valid at 0.0")
     }
-    
-    func testValidatePropertiesOpacityValidOne() throws {
+
+    func testBaseModifiersOpacityValidOne() throws {
         let properties: [String: Any] = [
             "opacity": 1.0
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertEqual(validated.cgFloat(forKey: "opacity"), 1.0, "opacity should be valid at 1.0")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.opacity, 1.0, "opacity should be valid at 1.0")
     }
-    
-    func testValidatePropertiesFrameAlignmentOnly() throws {
+
+    func testBaseModifiersFrameAlignmentOnly() throws {
         let properties: [String: Any] = [
             "frame": ["alignment": "center"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let frame = validated["frame"] as? [String: Any] {
-            XCTAssertEqual(frame["alignment"] as? String, "center", "frame.alignment should be center")
-            XCTAssertNil(frame["width"], "frame.width should be nil when not provided")
-        } else {
-            XCTFail("frame should be a dictionary with only alignment")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.frame, "frame with only an alignment should be parsed")
+        XCTAssertEqual(mods.frame?.alignment, .center, "frame.alignment should be center")
+        XCTAssertNil(mods.frame?.width, "frame.width should be nil when not provided")
     }
     
     func testBuildViewAndApplyModifiers() throws {
@@ -681,10 +649,10 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -743,10 +711,10 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -783,59 +751,55 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView with empty properties")
     }
     
-    func testValidatePropertiesOffsetPartial() throws {
+    func testBaseModifiersOffsetPartial() throws {
         let properties: [String: Any] = [
             "offset": ["x": 10.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let offset = validated["offset"] as? [String: Any] {
-            XCTAssertEqual(offset.cgFloat(forKey: "x"), 10.0, "offset.x should be valid CGFloat")
-            XCTAssertNil(offset["y"], "offset.y should be nil when not provided")
-        } else {
-            XCTFail("offset should be valid dictionary with partial properties")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertEqual(mods.offset, BaseModifiers.Offset(x: 10.0, y: 0.0),
+                       "offset.x should be 10.0; offset.y is 0 when not provided")
     }
-    
-    func testValidatePropertiesOffsetInvalidX() throws {
+
+    func testBaseModifiersOffsetInvalidX() throws {
         let properties: [String: Any] = [
             "offset": ["x": "10", "y": 20.0]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["offset"], "offset should be nil if x is not a CGFloat")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.offset, "offset should be nil if x is not a number")
     }
-    
-    func testValidatePropertiesOffsetInvalidY() throws {
+
+    func testBaseModifiersOffsetInvalidY() throws {
         let properties: [String: Any] = [
             "offset": ["x": 10.0, "y": "20"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["offset"], "offset should be nil if y is not a CGFloat")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.offset, "offset should be nil if y is not a number")
     }
-    
-    func testValidatePropertiesOffsetInvalidType() throws {
+
+    func testBaseModifiersOffsetInvalidType() throws {
         let properties: [String: Any] = [
             "offset": "invalid"
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["offset"], "offset should be nil for invalid type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.offset, "offset should be nil for invalid type")
     }
     
     func testBuildViewAndApplyModifiersWithOffset() throws {
@@ -863,10 +827,10 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -881,199 +845,142 @@ final class ViewTests: XCTestCase {
         XCTAssertEqual(element.properties.cgFloat(forKey: "padding"), 10.0, "padding should be 10.0")
     }
     
-    func testValidatePropertiesKeyboardShortcutValidSingleChar() throws {
+    func testBaseModifiersKeyboardShortcutValidSingleChar() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "a", "modifiers": ["command", "shift"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "a", "keyboardShortcut.key should be 'a'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(Set(modifiers), Set(["command", "shift"]), "keyboardShortcut.modifiers should be ['command', 'shift']")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "a", "keyboardShortcut.key should be 'a'")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.command, .shift], "keyboardShortcut.modifiers should be ['command', 'shift']")
     }
-    
-    func testValidatePropertiesKeyboardShortcutValidSpecialKey() throws {
+
+    func testBaseModifiersKeyboardShortcutValidSpecialKey() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "return", "modifiers": ["option"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "return", "keyboardShortcut.key should be 'return'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(Set(modifiers), Set(["option"]), "keyboardShortcut.modifiers should be ['option']")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "return", "keyboardShortcut.key should be 'return'")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.option], "keyboardShortcut.modifiers should be ['option']")
     }
-    
-    func testValidatePropertiesKeyboardShortcutDuplicateModifiers() throws {
+
+    func testBaseModifiersKeyboardShortcutDuplicateModifiers() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "b", "modifiers": ["command", "command", "shift"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "b", "keyboardShortcut.key should be 'b'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(Set(modifiers), Set(["command", "shift"]), "keyboardShortcut.modifiers should remove duplicates")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
-        // Note: Check logger for warning about duplicates, but since XCTestLogger doesn't expose logs for assertion, assume it's logged
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "b", "keyboardShortcut.key should be 'b'")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.command, .shift], "keyboardShortcut.modifiers should remove duplicates")
     }
-    
-    func testValidatePropertiesKeyboardShortcutInvalidModifiers() throws {
+
+    func testBaseModifiersKeyboardShortcutInvalidModifiers() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "c", "modifiers": ["invalid1", "invalid2"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "c", "keyboardShortcut.key should be 'c'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] for invalid modifiers")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "c", "keyboardShortcut.key should be 'c'")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.command], "keyboardShortcut.modifiers should default to ['command'] for invalid modifiers")
     }
-    
-    func testValidatePropertiesKeyboardShortcutCapsLockIsCaseInsensitive() throws {
-        // "capsLock" is the documented spelling; the validator lowercases names, so it must
+
+    func testBaseModifiersKeyboardShortcutCapsLockIsCaseInsensitive() throws {
+        // "capsLock" is the documented spelling; the parser lowercases names, so it must
         // compare against "capslock" or the modifier is silently dropped (an old bug).
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "k", "modifiers": ["capsLock", "Shift"]]
         ]
 
-        let validated = View.validateProperties(properties, logger)
+        let mods = BaseModifiers(properties)
 
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(Set(modifiers), ["capslock", "shift"], "capsLock must survive validation regardless of case")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.capslock, .shift], "capsLock must be read regardless of case")
     }
 
-    func testValidatePropertiesKeyboardShortcutMissingModifiers() throws {
+    func testBaseModifiersKeyboardShortcutMissingModifiers() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "d"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "d", "keyboardShortcut.key should be 'd'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] when missing")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "d", "keyboardShortcut.key should be 'd'")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.command], "keyboardShortcut.modifiers should default to ['command'] when missing")
     }
-    
-    func testValidatePropertiesKeyboardShortcutEmptyModifiers() throws {
+
+    func testBaseModifiersKeyboardShortcutEmptyModifiers() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "e", "modifiers": []]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "e", "keyboardShortcut.key should be 'e'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                // Provided but empty is not the same as omitted: it means the bare key, no modifier.
-                XCTAssertEqual(modifiers, [], "keyboardShortcut.modifiers [] must stay empty (no modifier), unlike a missing key which defaults to ['command']")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "e", "keyboardShortcut.key should be 'e'")
+        // Provided but empty is not the same as omitted: it means the bare key, no modifier.
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [], "keyboardShortcut.modifiers [] must stay empty (no modifier), unlike a missing key which defaults to ['command']")
     }
-    
-    func testValidatePropertiesKeyboardShortcutInvalidKey() throws {
+
+    func testBaseModifiersKeyboardShortcutInvalidKey() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "invalid", "modifiers": ["command"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for invalid key")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.keyboardShortcut, "keyboardShortcut should be nil for invalid key")
     }
-    
-    func testValidatePropertiesKeyboardShortcutMultiCharKey() throws {
+
+    func testBaseModifiersKeyboardShortcutMultiCharKey() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "ab", "modifiers": ["command"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for multi-character key (non-special)")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.keyboardShortcut, "keyboardShortcut should be nil for multi-character key (non-special)")
     }
-    
-    func testValidatePropertiesKeyboardShortcutInvalidType() throws {
+
+    func testBaseModifiersKeyboardShortcutInvalidType() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": "invalid"
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for invalid type")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.keyboardShortcut, "keyboardShortcut should be nil for invalid type")
     }
-    
-    func testValidatePropertiesKeyboardShortcutMissingKey() throws {
+
+    func testBaseModifiersKeyboardShortcutMissingKey() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["modifiers": ["command"]]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        XCTAssertNil(validated["keyboardShortcut"], "keyboardShortcut should be nil for missing key")
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNil(mods.keyboardShortcut, "keyboardShortcut should be nil for missing key")
     }
-    
-    func testValidatePropertiesKeyboardShortcutInvalidModifiersType() throws {
+
+    func testBaseModifiersKeyboardShortcutInvalidModifiersType() throws {
         let properties: [String: Any] = [
             "keyboardShortcut": ["key": "f", "modifiers": "command"]
         ]
-        
-        let validated = View.validateProperties(properties, logger)
-        
-        if let shortcut = validated["keyboardShortcut"] as? [String: Any] {
-            XCTAssertEqual(shortcut["key"] as? String, "f", "keyboardShortcut.key should be 'f'")
-            if let modifiers = shortcut["modifiers"] as? [String] {
-                XCTAssertEqual(modifiers, ["command"], "keyboardShortcut.modifiers should default to ['command'] for invalid type")
-            } else {
-                XCTFail("keyboardShortcut.modifiers should be an array")
-            }
-        } else {
-            XCTFail("keyboardShortcut should be a dictionary")
-        }
+
+        let mods = BaseModifiers(properties)
+
+        XCTAssertNotNil(mods.keyboardShortcut, "keyboardShortcut should be parsed")
+        XCTAssertEqual(mods.keyboardShortcut?.key, "f", "keyboardShortcut.key should be 'f'")
+        XCTAssertEqual(mods.keyboardShortcut?.modifiers, [.command], "keyboardShortcut.modifiers should default to ['command'] for invalid type")
     }
     
     func testBuildViewAndApplyModifiersWithKeyboardShortcut() throws {
@@ -1100,10 +1007,10 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -1144,10 +1051,10 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
@@ -1188,154 +1095,141 @@ final class ViewTests: XCTestCase {
             return
         }
         
-        let validatedProperties = View.validateProperties(element.properties, logger)
+        let properties = element.properties
         
-        let view = View.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        let _ = View.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = View.buildView(element, viewModel, windowUUID, properties, logger)
+        let _ = View.applyModifiers(view, element, windowUUID, properties, logger)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
         
         XCTAssertTrue(view is SwiftUI.EmptyView, "buildView should return EmptyView")
-        XCTAssertNil(validatedProperties["keyboardShortcut"], "keyboardShortcut should be nil for invalid key")
+        XCTAssertNil(BaseModifiers(properties).keyboardShortcut, "keyboardShortcut should be nil for invalid key")
     }
 
-    // MARK: - controlSize validation
+    // MARK: - controlSize Props
 
-    func testValidatePropertiesControlSizeValid() throws {
+    func testBaseModifiersControlSizeValid() throws {
         for size in ["mini", "small", "regular", "large", "extraLarge"] {
             let properties: [String: Any] = ["controlSize": size]
-            let validated = View.validateProperties(properties, logger)
-            XCTAssertEqual(validated["controlSize"] as? String, size, "controlSize '\(size)' should be valid")
+            let mods = BaseModifiers(properties)
+            XCTAssertEqual(mods.controlSize?.rawValue, size, "controlSize '\(size)' should be valid")
         }
     }
 
-    func testValidatePropertiesControlSizeInvalidValue() throws {
+    func testBaseModifiersControlSizeInvalidValue() throws {
         let properties: [String: Any] = ["controlSize": "huge"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["controlSize"], "Invalid controlSize should be nil")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.controlSize, "Invalid controlSize should be nil")
     }
 
-    func testValidatePropertiesControlSizeInvalidType() throws {
+    func testBaseModifiersControlSizeInvalidType() throws {
         let properties: [String: Any] = ["controlSize": 42]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["controlSize"], "Non-string controlSize should be nil")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.controlSize, "Non-string controlSize should be nil")
     }
 
-    // MARK: - destinationViewId validation
+    // MARK: - destinationViewId Props
 
-    func testValidatePropertiesDestinationViewIdValidInt() throws {
+    func testBaseModifiersDestinationViewIdValidInt() throws {
         let properties: [String: Any] = ["destinationViewId": 10]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertEqual(validated["destinationViewId"] as? Int, 10, "destinationViewId should preserve valid Int")
+        let mods = BaseModifiers(properties)
+        XCTAssertEqual(mods.destinationViewId, 10, "destinationViewId should read a valid Int")
     }
 
-    func testValidatePropertiesDestinationViewIdInvalidType() throws {
+    func testBaseModifiersDestinationViewIdInvalidType() throws {
         let properties: [String: Any] = ["destinationViewId": "ten"]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["destinationViewId"], "destinationViewId should be nil for String type")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.destinationViewId, "destinationViewId should be nil for String type")
 
         let properties2: [String: Any] = ["destinationViewId": 10.5]
-        let validated2 = View.validateProperties(properties2, logger)
-        XCTAssertNil(validated2["destinationViewId"], "destinationViewId should be nil for Double type")
+        let mods2 = BaseModifiers(properties2)
+        XCTAssertNil(mods2.destinationViewId, "destinationViewId should be nil for Double type")
     }
 
-    func testValidatePropertiesDestinationViewIdMissing() throws {
+    func testBaseModifiersDestinationViewIdMissing() throws {
         let properties: [String: Any] = ["padding": 10.0]
-        let validated = View.validateProperties(properties, logger)
-        XCTAssertNil(validated["destinationViewId"], "destinationViewId should not be present when not provided")
+        let mods = BaseModifiers(properties)
+        XCTAssertNil(mods.destinationViewId, "destinationViewId should be nil when not provided")
     }
 
-    func testValidatePropertiesRotationEffectValid() throws {
-        let validated = View.validateProperties(["rotationEffect": 45.0], logger)
-        XCTAssertEqual(validated.double(forKey: "rotationEffect"), 45.0)
+    func testBaseModifiersRotationEffectValid() throws {
+        let mods = BaseModifiers(["rotationEffect": 45.0])
+        XCTAssertEqual(mods.rotationDegrees, 45.0)
     }
 
-    func testValidatePropertiesRotationEffectNegative() throws {
-        let validated = View.validateProperties(["rotationEffect": -90.0], logger)
-        XCTAssertEqual(validated.double(forKey: "rotationEffect"), -90.0)
+    func testBaseModifiersRotationEffectNegative() throws {
+        let mods = BaseModifiers(["rotationEffect": -90.0])
+        XCTAssertEqual(mods.rotationDegrees, -90.0)
     }
 
-    func testValidatePropertiesRotationEffectInvalidType() throws {
-        let validated = View.validateProperties(["rotationEffect": "45"], logger)
-        XCTAssertNil(validated["rotationEffect"])
+    func testBaseModifiersRotationEffectInvalidType() throws {
+        let mods = BaseModifiers(["rotationEffect": "45"])
+        XCTAssertNil(mods.rotationDegrees)
     }
 
-    func testValidatePropertiesScaleEffectUniform() throws {
-        let validated = View.validateProperties(["scaleEffect": 1.5], logger)
-        XCTAssertEqual(validated.double(forKey: "scaleEffect"), 1.5)
+    func testBaseModifiersScaleEffectUniform() throws {
+        let mods = BaseModifiers(["scaleEffect": 1.5])
+        XCTAssertEqual(mods.scale, BaseModifiers.Scale(x: 1.5, y: 1.5, anchor: .center))
     }
 
-    func testValidatePropertiesScaleEffectDict() throws {
-        let validated = View.validateProperties(["scaleEffect": ["x": 2.0, "y": 0.5, "anchor": "topLeading"]], logger)
-        if let scale = validated["scaleEffect"] as? [String: Any] {
-            XCTAssertEqual(scale.double(forKey: "x"), 2.0)
-            XCTAssertEqual(scale.double(forKey: "y"), 0.5)
-            XCTAssertEqual(scale["anchor"] as? String, "topLeading")
-        } else {
-            XCTFail("scaleEffect should be a dictionary")
-        }
+    func testBaseModifiersScaleEffectDict() throws {
+        let mods = BaseModifiers(["scaleEffect": ["x": 2.0, "y": 0.5, "anchor": "topLeading"]])
+        XCTAssertEqual(mods.scale, BaseModifiers.Scale(x: 2.0, y: 0.5, anchor: .topLeading))
     }
 
-    func testValidatePropertiesScaleEffectDictInvalidAnchor() throws {
-        let validated = View.validateProperties(["scaleEffect": ["x": 1.0, "y": 1.0, "anchor": "invalid"]], logger)
-        if let scale = validated["scaleEffect"] as? [String: Any] {
-            XCTAssertNil(scale["anchor"], "invalid anchor should be dropped")
-        } else {
-            XCTFail("scaleEffect should be a dictionary")
-        }
+    func testBaseModifiersScaleEffectDictInvalidAnchor() throws {
+        let mods = BaseModifiers(["scaleEffect": ["x": 1.0, "y": 1.0, "anchor": "invalid"]])
+        XCTAssertNotNil(mods.scale, "scaleEffect should still be parsed with an unknown anchor")
+        XCTAssertEqual(mods.scale?.anchor, .center, "invalid anchor should fall back to center")
     }
 
-    func testValidatePropertiesScaleEffectInvalidType() throws {
-        let validated = View.validateProperties(["scaleEffect": "big"], logger)
-        XCTAssertNil(validated["scaleEffect"])
+    func testBaseModifiersScaleEffectInvalidType() throws {
+        let mods = BaseModifiers(["scaleEffect": "big"])
+        XCTAssertNil(mods.scale)
     }
 
-    func testValidatePropertiesZIndexValid() throws {
-        let validated = View.validateProperties(["zIndex": 5.0], logger)
-        XCTAssertEqual(validated.double(forKey: "zIndex"), 5.0)
+    func testBaseModifiersZIndexValid() throws {
+        let mods = BaseModifiers(["zIndex": 5.0])
+        XCTAssertEqual(mods.zIndex, 5.0)
     }
 
-    func testValidatePropertiesZIndexNegative() throws {
-        let validated = View.validateProperties(["zIndex": -10.0], logger)
-        XCTAssertEqual(validated.double(forKey: "zIndex"), -10.0)
+    func testBaseModifiersZIndexNegative() throws {
+        let mods = BaseModifiers(["zIndex": -10.0])
+        XCTAssertEqual(mods.zIndex, -10.0)
     }
 
-    func testValidatePropertiesZIndexInvalidType() throws {
-        let validated = View.validateProperties(["zIndex": "first"], logger)
-        XCTAssertNil(validated["zIndex"])
+    func testBaseModifiersZIndexInvalidType() throws {
+        let mods = BaseModifiers(["zIndex": "first"])
+        XCTAssertNil(mods.zIndex)
     }
 
-    func testValidatePropertiesScaleEffectDictInvalidX() throws {
-        let validated = View.validateProperties(["scaleEffect": ["x": "bad", "y": 1.0]], logger)
-        XCTAssertNil(validated["scaleEffect"])
+    func testBaseModifiersScaleEffectDictInvalidX() throws {
+        let mods = BaseModifiers(["scaleEffect": ["x": "bad", "y": 1.0]])
+        XCTAssertNil(mods.scale)
     }
 
-    // MARK: - animation validation
+    // MARK: - animation Props
 
-    func testValidatePropertiesAnimationStringShorthand() throws {
-        let validated = View.validateProperties(["animation": "spring"], logger)
-        if let anim = validated["animation"] as? [String: Any] {
-            XCTAssertEqual(anim["curve"] as? String, "spring")
-        } else {
-            XCTFail("animation should be normalized to dict")
-        }
+    func testBaseModifiersAnimationStringShorthand() throws {
+        let mods = BaseModifiers(["animation": "spring"])
+        XCTAssertEqual(mods.animation?.curve, .spring)
     }
 
-    func testValidatePropertiesAnimationStringAllCurves() throws {
+    func testBaseModifiersAnimationStringAllCurves() throws {
         let curves = ["default", "linear", "easeIn", "easeOut", "easeInOut",
                       "spring", "bouncy", "smooth", "snappy", "interactiveSpring"]
         for curve in curves {
-            let validated = View.validateProperties(["animation": curve], logger)
-            XCTAssertNotNil(validated["animation"], "curve '\(curve)' should be valid")
+            let mods = BaseModifiers(["animation": curve])
+            XCTAssertNotNil(mods.animation, "curve '\(curve)' should be valid")
         }
     }
 
-    func testValidatePropertiesAnimationStringInvalidCurve() throws {
-        let validated = View.validateProperties(["animation": "bounce"], logger)
-        XCTAssertNil(validated["animation"])
+    func testBaseModifiersAnimationStringInvalidCurve() throws {
+        let mods = BaseModifiers(["animation": "bounce"])
+        XCTAssertNil(mods.animation)
     }
 
-    func testValidatePropertiesAnimationDictFullForm() throws {
+    func testBaseModifiersAnimationDictFullForm() throws {
         let props: [String: Any] = ["animation": [
             "curve": "easeInOut",
             "duration": 0.3,
@@ -1343,273 +1237,223 @@ final class ViewTests: XCTestCase {
             "speed": 2.0,
             "value": "opacity"
         ]]
-        let validated = View.validateProperties(props, logger)
-        if let anim = validated["animation"] as? [String: Any] {
-            XCTAssertEqual(anim["curve"] as? String, "easeInOut")
-            XCTAssertEqual(anim.double(forKey: "duration"), 0.3)
-            XCTAssertEqual(anim.double(forKey: "delay"), 0.1)
-            XCTAssertEqual(anim.double(forKey: "speed"), 2.0)
-            XCTAssertEqual(anim["value"] as? String, "opacity")
-        } else {
-            XCTFail("animation should be a dict")
-        }
+        let mods = BaseModifiers(props)
+        XCTAssertNotNil(mods.animation, "animation should be parsed")
+        XCTAssertEqual(mods.animation?.curve, .easeInOut)
+        XCTAssertEqual(mods.animation?.duration, 0.3)
+        XCTAssertEqual(mods.animation?.delay, 0.1)
+        XCTAssertEqual(mods.animation?.speed, 2.0)
+        XCTAssertEqual(mods.animation?.watchedValue, "opacity")
     }
 
-    func testValidatePropertiesAnimationDictMissingCurve() throws {
-        let validated = View.validateProperties(["animation": ["duration": 0.3]], logger)
-        XCTAssertNil(validated["animation"])
+    func testBaseModifiersAnimationDictMissingCurve() throws {
+        let mods = BaseModifiers(["animation": ["duration": 0.3]])
+        XCTAssertNil(mods.animation)
     }
 
-    func testValidatePropertiesAnimationDictInvalidCurve() throws {
-        let validated = View.validateProperties(["animation": ["curve": "warp"]], logger)
-        XCTAssertNil(validated["animation"])
+    func testBaseModifiersAnimationDictInvalidCurve() throws {
+        let mods = BaseModifiers(["animation": ["curve": "warp"]])
+        XCTAssertNil(mods.animation)
     }
 
-    func testValidatePropertiesAnimationDictNegativeDurationIgnored() throws {
-        let validated = View.validateProperties(["animation": ["curve": "spring", "duration": -1.0]], logger)
-        if let anim = validated["animation"] as? [String: Any] {
-            XCTAssertNil(anim["duration"], "negative duration should be dropped")
-        } else {
-            XCTFail("animation dict should still be valid without duration")
-        }
+    func testBaseModifiersAnimationDictNegativeDurationIgnored() throws {
+        let mods = BaseModifiers(["animation": ["curve": "spring", "duration": -1.0]])
+        XCTAssertNotNil(mods.animation, "animation dict should still be valid without duration")
+        XCTAssertNil(mods.animation?.duration, "negative duration should be ignored")
     }
 
-    func testValidatePropertiesAnimationDictInvalidSpeedIgnored() throws {
-        let validated = View.validateProperties(["animation": ["curve": "linear", "speed": "fast"]], logger)
-        if let anim = validated["animation"] as? [String: Any] {
-            XCTAssertNil(anim["speed"], "invalid speed type should be dropped")
-        } else {
-            XCTFail("animation dict should still be valid without speed")
-        }
+    func testBaseModifiersAnimationDictInvalidSpeedIgnored() throws {
+        let mods = BaseModifiers(["animation": ["curve": "linear", "speed": "fast"]])
+        XCTAssertNotNil(mods.animation, "animation dict should still be valid without speed")
+        XCTAssertEqual(mods.animation?.speed, 1.0, "invalid speed type should be ignored (default speed)")
     }
 
-    func testValidatePropertiesAnimationDictInvalidValueTypeIgnored() throws {
-        let validated = View.validateProperties(["animation": ["curve": "spring", "value": 42]], logger)
-        if let anim = validated["animation"] as? [String: Any] {
-            XCTAssertNil(anim["value"], "non-String value should be dropped")
-        } else {
-            XCTFail("animation dict should still be valid without value")
-        }
+    func testBaseModifiersAnimationDictInvalidValueTypeIgnored() throws {
+        let mods = BaseModifiers(["animation": ["curve": "spring", "value": 42]])
+        XCTAssertNotNil(mods.animation, "animation dict should still be valid without value")
+        XCTAssertNil(mods.animation?.watchedValue, "non-String value should be ignored")
     }
 
-    func testValidatePropertiesAnimationInvalidType() throws {
-        let validated = View.validateProperties(["animation": true], logger)
-        XCTAssertNil(validated["animation"])
+    func testBaseModifiersAnimationInvalidType() throws {
+        let mods = BaseModifiers(["animation": true])
+        XCTAssertNil(mods.animation)
     }
 
-    // MARK: - transition validation
+    // MARK: - transition Props
 
-    func testValidatePropertiesTransitionStringShorthand() throws {
-        let validated = View.validateProperties(["transition": "opacity"], logger)
-        if let t = validated["transition"] as? [String: Any] {
-            XCTAssertEqual(t["type"] as? String, "opacity", "shorthand should normalize to a dict")
-        } else {
-            XCTFail("transition should be normalized to a dict")
-        }
+    func testBaseModifiersTransitionStringShorthand() throws {
+        let mods = BaseModifiers(["transition": "opacity"])
+        XCTAssertEqual(mods.transition, .opacity, "shorthand should read as the named transition")
     }
 
-    func testValidatePropertiesTransitionAllShorthands() throws {
+    func testBaseModifiersTransitionAllShorthands() throws {
         for name in ["opacity", "slide", "scale", "identity"] {
-            let validated = View.validateProperties(["transition": name], logger)
-            XCTAssertNotNil(validated["transition"], "shorthand '\(name)' should be valid")
+            let mods = BaseModifiers(["transition": name])
+            XCTAssertNotNil(mods.transition, "shorthand '\(name)' should be valid")
         }
     }
 
-    func testValidatePropertiesTransitionInvalidShorthand() throws {
-        let validated = View.validateProperties(["transition": "explode"], logger)
-        XCTAssertNil(validated["transition"])
+    func testBaseModifiersTransitionInvalidShorthand() throws {
+        let mods = BaseModifiers(["transition": "explode"])
+        XCTAssertNil(mods.transition)
     }
 
-    func testValidatePropertiesTransitionMoveDict() throws {
-        let validated = View.validateProperties(["transition": ["type": "move", "edge": "bottom"]], logger)
-        if let t = validated["transition"] as? [String: Any] {
-            XCTAssertEqual(t["type"] as? String, "move")
-            XCTAssertEqual(t["edge"] as? String, "bottom")
-        } else {
-            XCTFail("move transition should be a dict")
-        }
+    func testBaseModifiersTransitionMoveDict() throws {
+        let mods = BaseModifiers(["transition": ["type": "move", "edge": "bottom"]])
+        XCTAssertEqual(mods.transition, .move(edge: .bottom))
     }
 
-    func testValidatePropertiesTransitionDictMissingType() throws {
-        let validated = View.validateProperties(["transition": ["edge": "top"]], logger)
-        XCTAssertNil(validated["transition"])
+    func testBaseModifiersTransitionDictMissingType() throws {
+        let mods = BaseModifiers(["transition": ["edge": "top"]])
+        XCTAssertNil(mods.transition)
     }
 
-    func testValidatePropertiesTransitionDictInvalidType() throws {
-        let validated = View.validateProperties(["transition": ["type": "warp"]], logger)
-        XCTAssertNil(validated["transition"])
+    func testBaseModifiersTransitionDictInvalidType() throws {
+        let mods = BaseModifiers(["transition": ["type": "warp"]])
+        XCTAssertNil(mods.transition)
     }
 
-    func testValidatePropertiesTransitionAsymmetricNormalizesHalves() throws {
+    func testBaseModifiersTransitionAsymmetricReadsHalves() throws {
         let props: [String: Any] = ["transition": [
             "type": "asymmetric",
             "insertion": "opacity",
             "removal": ["type": "move", "edge": "leading"]
         ]]
-        let validated = View.validateProperties(props, logger)
-        guard let t = validated["transition"] as? [String: Any] else {
-            return XCTFail("asymmetric transition should be a dict")
-        }
-        XCTAssertEqual(t["type"] as? String, "asymmetric")
-        XCTAssertEqual((t["insertion"] as? [String: Any])?["type"] as? String, "opacity",
-                       "insertion shorthand should normalize to a dict")
-        XCTAssertEqual((t["removal"] as? [String: Any])?["type"] as? String, "move")
+        let mods = BaseModifiers(props)
+        XCTAssertEqual(mods.transition, .asymmetric(insertion: .opacity, removal: .move(edge: .leading)),
+                       "insertion shorthand and removal dict should both be read")
     }
 
-    func testValidatePropertiesTransitionAsymmetricDefaultsMissingHalves() throws {
-        let validated = View.validateProperties(["transition": ["type": "asymmetric"]], logger)
-        guard let t = validated["transition"] as? [String: Any] else {
-            return XCTFail("asymmetric transition should remain valid")
-        }
-        XCTAssertEqual((t["insertion"] as? [String: Any])?["type"] as? String, "identity")
-        XCTAssertEqual((t["removal"] as? [String: Any])?["type"] as? String, "identity")
+    func testBaseModifiersTransitionAsymmetricDefaultsMissingHalves() throws {
+        let mods = BaseModifiers(["transition": ["type": "asymmetric"]])
+        XCTAssertEqual(mods.transition, .asymmetric(insertion: .identity, removal: .identity))
     }
 
-    func testValidatePropertiesTransitionArrayCombined() throws {
-        let validated = View.validateProperties(["transition": ["opacity", ["type": "scale", "scale": 0.8]]], logger)
-        guard let arr = validated["transition"] as? [Any] else {
-            return XCTFail("array transition should stay an array")
-        }
-        XCTAssertEqual(arr.count, 2)
-        XCTAssertEqual((arr[0] as? [String: Any])?["type"] as? String, "opacity")
-        XCTAssertEqual((arr[1] as? [String: Any])?["type"] as? String, "scale")
+    func testBaseModifiersTransitionArrayCombined() throws {
+        let mods = BaseModifiers(["transition": ["opacity", ["type": "scale", "scale": 0.8]]])
+        XCTAssertEqual(mods.transition, .combined([.opacity, .scale(factor: 0.8, anchor: .center)]))
     }
 
-    func testValidatePropertiesTransitionArrayDropsInvalidEntries() throws {
-        let validated = View.validateProperties(["transition": ["opacity", "explode"]], logger)
-        guard let arr = validated["transition"] as? [Any] else {
-            return XCTFail("array with one valid entry should survive")
-        }
-        XCTAssertEqual(arr.count, 1, "the invalid entry should be dropped")
-        XCTAssertEqual((arr[0] as? [String: Any])?["type"] as? String, "opacity")
+    func testBaseModifiersTransitionArrayDropsInvalidEntries() throws {
+        let mods = BaseModifiers(["transition": ["opacity", "explode"]])
+        XCTAssertEqual(mods.transition, .combined([.opacity]), "the invalid entry should be skipped")
     }
 
-    func testValidatePropertiesTransitionEmptyArrayDropped() throws {
-        let validated = View.validateProperties(["transition": ["explode", "warp"]], logger)
-        XCTAssertNil(validated["transition"])
+    func testBaseModifiersTransitionEmptyArrayDropped() throws {
+        let mods = BaseModifiers(["transition": ["explode", "warp"]])
+        XCTAssertNil(mods.transition)
     }
 
-    func testValidatePropertiesTransitionInvalidType() throws {
-        let validated = View.validateProperties(["transition": 42], logger)
-        XCTAssertNil(validated["transition"])
+    func testBaseModifiersTransitionInvalidType() throws {
+        let mods = BaseModifiers(["transition": 42])
+        XCTAssertNil(mods.transition)
     }
 
-    // MARK: - clipShape validation
+    // MARK: - clipShape Props
 
-    func testValidatePropertiesClipShapeCircle() throws {
-        let validated = View.validateProperties(["clipShape": "circle"], logger)
-        XCTAssertEqual(validated["clipShape"] as? String, "circle")
+    func testBaseModifiersClipShapeCircle() throws {
+        let mods = BaseModifiers(["clipShape": "circle"])
+        XCTAssertEqual(mods.clipShape, .circle)
     }
 
-    func testValidatePropertiesClipShapeCapsule() throws {
-        let validated = View.validateProperties(["clipShape": "capsule"], logger)
-        XCTAssertEqual(validated["clipShape"] as? String, "capsule")
+    func testBaseModifiersClipShapeCapsule() throws {
+        let mods = BaseModifiers(["clipShape": "capsule"])
+        XCTAssertEqual(mods.clipShape, .capsule)
     }
 
-    func testValidatePropertiesClipShapeEllipse() throws {
-        let validated = View.validateProperties(["clipShape": "ellipse"], logger)
-        XCTAssertEqual(validated["clipShape"] as? String, "ellipse")
+    func testBaseModifiersClipShapeEllipse() throws {
+        let mods = BaseModifiers(["clipShape": "ellipse"])
+        XCTAssertEqual(mods.clipShape, .ellipse)
     }
 
-    func testValidatePropertiesClipShapeRectangle() throws {
-        let validated = View.validateProperties(["clipShape": "rectangle"], logger)
-        XCTAssertEqual(validated["clipShape"] as? String, "rectangle")
+    func testBaseModifiersClipShapeRectangle() throws {
+        let mods = BaseModifiers(["clipShape": "rectangle"])
+        XCTAssertEqual(mods.clipShape, .rectangle)
     }
 
-    func testValidatePropertiesClipShapeInvalidString() throws {
-        let validated = View.validateProperties(["clipShape": "square"], logger)
-        XCTAssertNil(validated["clipShape"])
+    func testBaseModifiersClipShapeInvalidString() throws {
+        let mods = BaseModifiers(["clipShape": "square"])
+        XCTAssertNil(mods.clipShape)
     }
 
-    func testValidatePropertiesClipShapeRoundedRectangleUniform() throws {
-        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle", "cornerRadius": 12] as [String: Any]], logger)
-        if let shape = validated["clipShape"] as? [String: Any] {
-            XCTAssertEqual(shape["type"] as? String, "roundedRectangle")
-            XCTAssertEqual(shape.cgFloat(forKey: "cornerRadius"), 12.0)
-        } else {
-            XCTFail("clipShape should be a dictionary")
-        }
+    func testBaseModifiersClipShapeRoundedRectangleUniform() throws {
+        let mods = BaseModifiers(["clipShape": ["type": "roundedRectangle", "cornerRadius": 12] as [String: Any]])
+        XCTAssertEqual(mods.clipShape, .roundedRectangle(radiusX: 12.0, radiusY: 12.0))
     }
 
-    func testValidatePropertiesClipShapeRoundedRectanglePerAxis() throws {
-        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle", "cornerRadiusX": 20, "cornerRadiusY": 8] as [String: Any]], logger)
-        if let shape = validated["clipShape"] as? [String: Any] {
-            XCTAssertEqual(shape["type"] as? String, "roundedRectangle")
-            XCTAssertEqual(shape.cgFloat(forKey: "cornerRadiusX"), 20.0)
-            XCTAssertEqual(shape.cgFloat(forKey: "cornerRadiusY"), 8.0)
-        } else {
-            XCTFail("clipShape should be a dictionary")
-        }
+    func testBaseModifiersClipShapeRoundedRectanglePerAxis() throws {
+        let mods = BaseModifiers(["clipShape": ["type": "roundedRectangle", "cornerRadiusX": 20, "cornerRadiusY": 8] as [String: Any]])
+        XCTAssertEqual(mods.clipShape, .roundedRectangle(radiusX: 20.0, radiusY: 8.0))
     }
 
-    func testValidatePropertiesClipShapeRoundedRectangleMissingRadius() throws {
-        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle"] as [String: Any]], logger)
-        XCTAssertNil(validated["clipShape"])
+    func testBaseModifiersClipShapeRoundedRectangleMissingRadius() throws {
+        let mods = BaseModifiers(["clipShape": ["type": "roundedRectangle"] as [String: Any]])
+        XCTAssertNil(mods.clipShape)
     }
 
-    func testValidatePropertiesClipShapeRoundedRectanglePartialPerAxis() throws {
+    func testBaseModifiersClipShapeRoundedRectanglePartialPerAxis() throws {
         // cornerRadiusX without cornerRadiusY should be rejected
-        let validated = View.validateProperties(["clipShape": ["type": "roundedRectangle", "cornerRadiusX": 12] as [String: Any]], logger)
-        XCTAssertNil(validated["clipShape"])
+        let mods = BaseModifiers(["clipShape": ["type": "roundedRectangle", "cornerRadiusX": 12] as [String: Any]])
+        XCTAssertNil(mods.clipShape)
     }
 
-    func testValidatePropertiesClipShapeUnsupportedDictType() throws {
-        let validated = View.validateProperties(["clipShape": ["type": "star"] as [String: Any]], logger)
-        XCTAssertNil(validated["clipShape"])
+    func testBaseModifiersClipShapeUnsupportedDictType() throws {
+        let mods = BaseModifiers(["clipShape": ["type": "star"] as [String: Any]])
+        XCTAssertNil(mods.clipShape)
     }
 
-    func testValidatePropertiesClipShapeInvalidType() throws {
-        let validated = View.validateProperties(["clipShape": 12], logger)
-        XCTAssertNil(validated["clipShape"])
+    func testBaseModifiersClipShapeInvalidType() throws {
+        let mods = BaseModifiers(["clipShape": 12])
+        XCTAssertNil(mods.clipShape)
     }
 
     func testTextSelectionEnabled() throws {
-        let validated = View.validateProperties(["textSelection": "enabled"], logger)
-        XCTAssertEqual(validated["textSelection"] as? String, "enabled")
+        let mods = BaseModifiers(["textSelection": "enabled"])
+        XCTAssertEqual(mods.textSelection, .enabled)
     }
 
     func testTextSelectionDisabled() throws {
-        let validated = View.validateProperties(["textSelection": "disabled"], logger)
-        XCTAssertEqual(validated["textSelection"] as? String, "disabled")
+        let mods = BaseModifiers(["textSelection": "disabled"])
+        XCTAssertEqual(mods.textSelection, .disabled)
     }
 
     func testTextSelectionInvalidValue() throws {
-        let validated = View.validateProperties(["textSelection": "yes"], logger)
-        XCTAssertNil(validated["textSelection"])
+        let mods = BaseModifiers(["textSelection": "yes"])
+        XCTAssertNil(mods.textSelection)
     }
 
     func testTextSelectionInvalidType() throws {
-        let validated = View.validateProperties(["textSelection": true], logger)
-        XCTAssertNil(validated["textSelection"])
+        let mods = BaseModifiers(["textSelection": true])
+        XCTAssertNil(mods.textSelection)
     }
 
     func testMultilineTextAlignmentValid() throws {
         for value in ["leading", "center", "trailing"] {
-            let validated = View.validateProperties(["multilineTextAlignment": value], logger)
-            XCTAssertEqual(validated["multilineTextAlignment"] as? String, value,
-                           "multilineTextAlignment '\(value)' should be preserved")
+            let mods = BaseModifiers(["multilineTextAlignment": value])
+            XCTAssertEqual(mods.multilineTextAlignment?.rawValue, value,
+                           "multilineTextAlignment '\(value)' should be read")
         }
     }
 
     func testMultilineTextAlignmentInvalid() throws {
-        let validated = View.validateProperties(["multilineTextAlignment": "justify"], logger)
-        XCTAssertNil(validated["multilineTextAlignment"], "Invalid multilineTextAlignment should be cleared")
+        let mods = BaseModifiers(["multilineTextAlignment": "justify"])
+        XCTAssertNil(mods.multilineTextAlignment, "Invalid multilineTextAlignment should be ignored")
     }
 
     func testMultilineTextAlignmentInvalidType() throws {
-        let validated = View.validateProperties(["multilineTextAlignment": 1], logger)
-        XCTAssertNil(validated["multilineTextAlignment"], "Non-string multilineTextAlignment should be cleared")
+        let mods = BaseModifiers(["multilineTextAlignment": 1])
+        XCTAssertNil(mods.multilineTextAlignment, "Non-string multilineTextAlignment should be ignored")
     }
 
-    // MARK: - help validation
+    // MARK: - help Props
 
     func testHelpValid() throws {
-        let validated = View.validateProperties(["help": "Run action"], logger)
-        XCTAssertEqual(validated["help"] as? String, "Run action")
+        let mods = BaseModifiers(["help": "Run action"])
+        XCTAssertEqual(mods.help, "Run action")
     }
 
     func testHelpInvalidType() throws {
-        let validated = View.validateProperties(["help": 42], logger)
-        XCTAssertNil(validated["help"])
+        let mods = BaseModifiers(["help": 42])
+        XCTAssertNil(mods.help)
     }
 }

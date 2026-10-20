@@ -3,7 +3,7 @@
  LinkTests.swift
 
  Tests for the Link component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 */
 
 import XCTest
@@ -44,9 +44,9 @@ final class LinkTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Link.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element,  model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element,  model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
         
@@ -64,9 +64,9 @@ final class LinkTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = Link.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let view = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After viewBuild: viewModel = \(String(describing: viewModel))", .debug)
         // Swift's URL() does not fail when initialized with a string like "invalid-url"
@@ -108,61 +108,61 @@ final class LinkTests: XCTestCase {
         }
     }
     
-    func testLinkValidatePropertiesValid() {
+    func testLinkPropsValid() {
         let properties: [String: Any] = [
             "title": "Visit Site",
             "url": "https://example.com",
             "padding": 10.0
         ]
         
-        let validated = Link.validateProperties(properties, logger)
+        let props = Link.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Visit Site", "title should be preserved")
-        XCTAssertEqual(validated["url"] as? String, "https://example.com", "url should be preserved")
-        XCTAssertEqual(validated.cgFloat(forKey: "padding"), 10.0, "padding should be passed through")
+        XCTAssertEqual(props.title, "Visit Site", "title should be preserved")
+        XCTAssertEqual(props.url, "https://example.com", "url should be preserved")
+        XCTAssertEqual(BaseModifiers(properties).padding, .uniform(10.0), "padding should be passed through")
     }
     
-    func testLinkValidatePropertiesInvalid() {
+    func testLinkPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "title": 123,
             "url": 456
         ]
         
-        let validated = Link.validateProperties(properties, logger)
+        let props = Link.Props(properties)
         
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
-        XCTAssertNil(validated["url"], "Invalid url should be nil")
+        XCTAssertEqual(props.title, "Link", "Invalid title should be ignored")
+        XCTAssertNil(props.url, "Invalid url should be ignored")
     }
     
-    func testLinkValidatePropertiesInvalidURL() {
+    func testLinkPropsInvalidURL() {
         let properties: [String: Any] = [
             "title": "Visit Site",
             "url": "invalid-url"
         ]
         
-        let validated = Link.validateProperties(properties, logger)
+        let props = Link.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Visit Site", "title should be preserved")
-        XCTAssertEqual(validated["url"] as? String, "invalid-url", "url should be preserved as a valid string")
+        XCTAssertEqual(props.title, "Visit Site", "title should be preserved")
+        XCTAssertEqual(props.url, "invalid-url", "url should be preserved as a valid string")
     }
     
-    func testLinkValidatePropertiesMissing() {
+    func testLinkPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Link.validateProperties(properties, logger)
+        let props = Link.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
-        XCTAssertNil(validated["url"], "Missing url should be nil")
+        XCTAssertEqual(props.title, "Link", "Missing title should be the default")
+        XCTAssertNil(props.url, "Missing url should be nil")
     }
     
-    func testLinkValidatePropertiesTitleOnly() {
+    func testLinkPropsTitleOnly() {
         let properties: [String: Any] = [
             "title": "Visit Site"
         ]
         
-        let validated = Link.validateProperties(properties, logger)
+        let props = Link.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Visit Site", "title should be preserved")
-        XCTAssertNil(validated["url"], "Missing url should be nil")
+        XCTAssertEqual(props.title, "Visit Site", "title should be preserved")
+        XCTAssertNil(props.url, "Missing url should be nil")
     }
 }

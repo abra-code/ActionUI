@@ -3,7 +3,7 @@
  ProgressViewTests.swift
 
  Tests for the ProgressView component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, and state binding.
+ Verifies JSON decoding, Props reading, view construction, and state binding.
 */
 
 import XCTest
@@ -32,7 +32,7 @@ final class ProgressViewTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testProgressViewValidatePropertiesValid() {
+    func testProgressViewPropsValid() {
         let properties: [String: Any] = [
             "value": 0.5,
             "total": 1.0,
@@ -40,63 +40,64 @@ final class ProgressViewTests: XCTestCase {
             "actionID": "progress.tap"
         ]
         
-        let validated = ProgressView.validateProperties(properties, logger)
+        let props = ProgressView.Props(properties)
         
-        XCTAssertEqual(validated["value"] as? Double, 0.5, "value should be valid")
-        XCTAssertEqual(validated["total"] as? Double, 1.0, "total should be valid")
-        XCTAssertEqual(validated["title"] as? String, "Loading", "title should be valid")
-        XCTAssertEqual(validated["actionID"] as? String, "progress.tap", "actionID should be valid")
+        XCTAssertEqual(props.value, 0.5, "value should be valid")
+        XCTAssertEqual(props.total, 1.0, "total should be valid")
+        XCTAssertEqual(props.title, "Loading", "title should be valid")
+        XCTAssertEqual(props.actionID, "progress.tap", "actionID should be valid")
     }
     
-    func testProgressViewValidatePropertiesInvalid() {
+    func testProgressViewPropsIgnoreInvalidValues() {
         let properties: [String: Any] = [
             "value": -0.5,
             "total": 0.0,
             "title": 123
         ]
         
-        let validated = ProgressView.validateProperties(properties, logger)
+        let props = ProgressView.Props(properties)
         
-        XCTAssertNil(validated["value"], "Invalid value should be nil")
-        XCTAssertNil(validated["total"], "Invalid total should be nil")
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
+        XCTAssertNil(props.value, "Invalid value should be nil")
+        XCTAssertNil(props.total, "Invalid total should be nil")
+        XCTAssertNil(props.title, "Invalid title should be nil")
     }
     
-    func testProgressViewValidatePropertiesMissing() {
+    func testProgressViewPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = ProgressView.validateProperties(properties, logger)
+        let props = ProgressView.Props(properties)
         
-        XCTAssertNil(validated["value"], "Missing value should be nil")
-        XCTAssertNil(validated["total"], "Missing total should be nil")
-        XCTAssertNil(validated["title"], "Missing title should be nil")
-        XCTAssertNil(validated["actionID"], "Missing actionID should be nil")
+        XCTAssertNil(props.value, "Missing value should be nil")
+        XCTAssertNil(props.total, "Missing total should be nil")
+        XCTAssertNil(props.title, "Missing title should be nil")
+        XCTAssertNil(props.actionID, "Missing actionID should be nil")
     }
     
-    func testProgressViewValidateProgressViewStyle() {
-        for style in ["automatic", "linear", "circular"] {
-            let validated = ProgressView.validateProperties(["progressViewStyle": style], logger)
-            XCTAssertEqual(validated["progressViewStyle"] as? String, style,
-                           "\(style) should survive validation")
+    func testProgressViewPropsProgressViewStyle() {
+        let expected: [(String, ActionUI.ProgressView.Props.Style)] = [("automatic", .automatic), ("linear", .linear), ("circular", .circular)]
+        for (name, style) in expected {
+            let props = ProgressView.Props(["progressViewStyle": name])
+            XCTAssertEqual(props.style, style,
+                           "\(name) should be read as a style")
         }
     }
 
-    func testProgressViewValidateProgressViewStyleInvalid() {
-        // A misspelling and a non-String. Both are dropped rather than passed
+    func testProgressViewPropsProgressViewStyleInvalid() {
+        // A misspelling and a non-String. Both are ignored rather than passed
         // through, so applyModifiers' switch only ever sees a value it knows.
-        let misspelled = ProgressView.validateProperties(["progressViewStyle": "bar"], logger)
-        XCTAssertNil(misspelled["progressViewStyle"], "An unknown style should be nil")
+        let misspelled = ProgressView.Props(["progressViewStyle": "bar"])
+        XCTAssertNil(misspelled.style, "An unknown style should be nil")
 
-        let wrongType = ProgressView.validateProperties(["progressViewStyle": 3], logger)
-        XCTAssertNil(wrongType["progressViewStyle"], "A non-String style should be nil")
+        let wrongType = ProgressView.Props(["progressViewStyle": 3])
+        XCTAssertNil(wrongType.style, "A non-String style should be nil")
     }
 
     func testProgressViewConstructionLinearIndeterminate() throws {
         // The case the property exists for: no value, so the progress is
         // indeterminate, and "linear" asks for the animated bar rather than the
         // spinner macOS would otherwise resolve to. The rendering itself is not
-        // observable from here - what is pinned is that the style survives
-        // validation and the view builds with it applied.
+        // observable from here - what is pinned is that the style is read
+        // and the view builds with it applied.
         let elementDict: [String: Any] = [
             "id": 1,
             "type": "ProgressView",
@@ -106,13 +107,14 @@ final class ProgressViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
-        XCTAssertEqual(validatedProperties["progressViewStyle"] as? String, "linear",
-                       "style should survive validation")
-        XCTAssertNil(validatedProperties["value"], "no value: the progress is indeterminate")
+        let properties = element.properties
+        let props = ProgressView.Props(properties)
+        XCTAssertEqual(props.style, .linear,
+                       "style should be read")
+        XCTAssertNil(props.value, "no value: the progress is indeterminate")
 
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
     }
 
     func testProgressViewConstructionCircularDeterminate() throws {
@@ -129,13 +131,14 @@ final class ProgressViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
-        XCTAssertEqual(validatedProperties["progressViewStyle"] as? String, "circular",
-                       "style should survive validation")
+        let properties = element.properties
+        let props = ProgressView.Props(properties)
+        XCTAssertEqual(props.style, .circular,
+                       "style should be read")
 
         let viewModel = ViewModel()
         viewModel.seedProperties(element.properties)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertEqual(ProgressView.initialValue(viewModel) as? Double, 0.25,
                        "a style must not disturb the value")
     }
@@ -154,9 +157,9 @@ final class ProgressViewTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         
         logger.log("After buildView viewModel = \(String(describing: viewModel))", .debug)
     }
@@ -176,13 +179,14 @@ final class ProgressViewTests: XCTestCase {
         ]
 
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ProgressView.validateProperties(element.properties, logger)
-        XCTAssertEqual(validatedProperties["value"] as? Double, 0.3, "value should survive validation")
-        XCTAssertNil(validatedProperties["total"], "total stays absent; it is defaulted in buildView, not validation")
+        let properties = element.properties
+        let props = ProgressView.Props(properties)
+        XCTAssertEqual(props.value, 0.3, "value should be read")
+        XCTAssertNil(props.total, "total stays absent; it is defaulted in buildView, not in Props")
 
         let viewModel = ViewModel()
         viewModel.seedProperties(element.properties)
-        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: validatedProperties)
+        let _ = ActionUIRegistry.shared.buildView(for: element, model: viewModel, windowUUID: windowUUID, properties: properties)
         XCTAssertEqual(ProgressView.initialValue(viewModel) as? Double, 0.3, "initialValue should resolve to the JSON value")
     }
 

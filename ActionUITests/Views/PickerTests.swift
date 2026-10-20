@@ -3,7 +3,7 @@
  PickerTests.swift
 
  Tests for the Picker component in the ActionUI component library.
- Verifies JSON decoding, property validation, view construction, state binding, and value change action handler behavior for programmatic changes.
+ Verifies JSON decoding, Props reading, view construction, state binding, and value change action handler behavior for programmatic changes.
 */
 
 import XCTest
@@ -76,68 +76,69 @@ final class PickerTests: XCTestCase {
         XCTAssertEqual(viewModel.value as? String, "1", "State should initialize with first option index tag")
     }
         
-    func testPickerValidatePropertiesValid() {
+    func testPickerPropsValid() {
         let properties: [String: Any] = [
             "title": "Choose",
             "options": ["Item1", "Item2", "Item3"],
             "pickerStyle": "segmented"
         ]
         
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Choose", "Title should be valid")
-        XCTAssertEqual(validated["options"] as? [String], ["Item1", "Item2", "Item3"], "Options should be valid")
-        XCTAssertEqual(validated["pickerStyle"] as? String, "segmented", "Picker style should be valid")
+        XCTAssertEqual(props.title, "Choose", "Title should be valid")
+        XCTAssertEqual(props.options.map(\.title), ["Item1", "Item2", "Item3"], "Options should be valid")
+        XCTAssertEqual(props.style, .segmented, "Picker style should be valid")
     }
     
-    func testPickerValidatePropertiesInvalid() {
+    func testPickerPropsIgnoreInvalid() {
         let properties: [String: Any] = [
             "title": 123,
             "options": [1, 2, 3],
             "pickerStyle": "invalidStyle"
         ]
         
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
         
-        XCTAssertNil(validated["title"], "Invalid title should be nil")
-        XCTAssertNil(validated["options"], "Invalid options should be nil")
-        XCTAssertNil(validated["pickerStyle"], "Invalid picker style should be nil")
+        XCTAssertEqual(props.title, "", "Invalid title should be ignored")
+        XCTAssertTrue(props.options.isEmpty, "Invalid options should be ignored")
+        XCTAssertNil(props.style, "Invalid picker style should be ignored")
     }
     
-    func testPickerValidatePropertiesMissing() {
+    func testPickerPropsMissing() {
         let properties: [String: Any] = [:]
         
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
         
-        XCTAssertNil(validated["title"], "Missing title should be nil")
-        XCTAssertNil(validated["options"], "Missing options should be nil")
-        XCTAssertNil(validated["pickerStyle"], "Missing picker style should be nil")
+        XCTAssertEqual(props.title, "", "Missing title should be empty")
+        XCTAssertTrue(props.options.isEmpty, "Missing options should be empty")
+        XCTAssertNil(props.style, "Missing picker style should be nil")
     }
     
-    func testPickerValidatePropertiesEmptyOptions() {
+    func testPickerPropsEmptyOptions() {
         let properties: [String: Any] = [
             "options": [],
             "pickerStyle": "menu"
         ]
         
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
         
-        XCTAssertEqual(validated["options"] as? [String], [], "Empty options should be valid")
-        XCTAssertEqual(validated["pickerStyle"] as? String, "menu", "Picker style should remain menu")
-        XCTAssertNil(validated["title"], "Missing title should be nil")
+        XCTAssertEqual(props.options.map(\.title), [], "Empty options should be valid")
+        XCTAssertEqual(props.style, .menu, "Picker style should remain menu")
+        XCTAssertEqual(props.title, "", "Missing title should be empty")
     }
     
     #if os(macOS)
-    func testPickerValidatePropertiesWheelStyleMacOS() {
+    func testPickerPropsWheelStyleMacOS() {
         let properties: [String: Any] = [
             "options": ["Option1", "Option2"],
             "pickerStyle": "wheel"
         ]
 
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
 
-        XCTAssertNil(validated["pickerStyle"], "Wheel style should be nil on macOS")
-        XCTAssertEqual(validated["options"] as? [String], ["Option1", "Option2"], "Options should remain valid")
+        // Read on every platform; the renderer applies no style for it on macOS.
+        XCTAssertEqual(props.style, .wheel, "wheel is read on every platform")
+        XCTAssertEqual(props.options.map(\.title), ["Option1", "Option2"], "Options should remain valid")
     }
 
     func testPickerRadioGroupStyleMacOS() {
@@ -146,9 +147,9 @@ final class PickerTests: XCTestCase {
             "pickerStyle": "radioGroup"
         ]
 
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
 
-        XCTAssertEqual(validated["pickerStyle"] as? String, "radioGroup", "radioGroup style should be valid on macOS")
+        XCTAssertEqual(props.style, .radioGroup, "radioGroup style should be valid on macOS")
     }
 
     func testPickerRadioGroupHorizontalLayout() {
@@ -158,10 +159,10 @@ final class PickerTests: XCTestCase {
             "horizontalRadioGroupLayout": true
         ]
 
-        let validated = Picker.validateProperties(properties, logger)
+        let props = Picker.Props(properties)
 
-        XCTAssertEqual(validated["pickerStyle"] as? String, "radioGroup")
-        XCTAssertEqual(validated["horizontalRadioGroupLayout"] as? Bool, true)
+        XCTAssertEqual(props.style, .radioGroup)
+        XCTAssertEqual(props.horizontalRadioGroupLayout, true)
     }
     #endif
     

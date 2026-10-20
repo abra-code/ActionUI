@@ -25,47 +25,49 @@ final class ColorPickerTests: XCTestCase {
         try await super.tearDown()
     }
     
-    func testValidatePropertiesValid() throws {
+    func testColorPickerPropsValid() throws {
         let properties: [String: Any] = [
             "title": "Pick a Color",
             "selectedColor": "#FF0000"
         ]
         
-        let validated = ColorPicker.validateProperties(properties, logger)
+        let props = ColorPicker.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Pick a Color", "title should be valid String")
-        XCTAssertEqual(validated["selectedColor"] as? String, "#FF0000", "selectedColor should be valid String")
+        XCTAssertEqual(props.title, "Pick a Color", "title should be valid String")
+        XCTAssertEqual(props.selectedColor, "#FF0000", "selectedColor should be valid String")
     }
     
-    func testValidatePropertiesInvalid() throws {
+    func testColorPickerPropsIgnoreInvalidValues() throws {
         let properties: [String: Any] = [
             "title": 123,
             "selectedColor": true
         ]
         
-        let validated = ColorPicker.validateProperties(properties, logger)
+        let props = ColorPicker.Props(properties)
         
-        XCTAssertNil(validated["title"], "title should be nil for invalid type")
-        XCTAssertNil(validated["selectedColor"], "selectedColor should be nil for invalid type")
+        XCTAssertEqual(props.title, "", "title should be ignored for invalid type")
+        XCTAssertNil(props.selectedColor, "selectedColor should be ignored for invalid type")
     }
     
-    func testValidatePropertiesMissing() throws {
+    func testColorPickerPropsMissing() throws {
         let properties: [String: Any] = [:]
         
-        let validated = ColorPicker.validateProperties(properties, logger)
+        let props = ColorPicker.Props(properties)
         
-        XCTAssertTrue(validated.isEmpty, "validated properties should be empty when no properties provided")
+        XCTAssertEqual(props.title, "", "title should be the default when no properties provided")
+        XCTAssertNil(props.selectedColor, "selectedColor should be nil when no properties provided")
+        XCTAssertNil(props.actionID, "actionID should be nil when no properties provided")
     }
     
-    func testValidatePropertiesPartial() throws {
+    func testColorPickerPropsPartial() throws {
         let properties: [String: Any] = [
             "title": "Pick a Color"
         ]
         
-        let validated = ColorPicker.validateProperties(properties, logger)
+        let props = ColorPicker.Props(properties)
         
-        XCTAssertEqual(validated["title"] as? String, "Pick a Color", "title should be valid String")
-        XCTAssertNil(validated["selectedColor"], "selectedColor should be nil when not provided")
+        XCTAssertEqual(props.title, "Pick a Color", "title should be valid String")
+        XCTAssertNil(props.selectedColor, "selectedColor should be nil when not provided")
     }
     
     func testBuildViewAndApplyModifiersValidProperties() throws {
@@ -79,10 +81,10 @@ final class ColorPickerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = ColorPicker.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = ColorPicker.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = ColorPicker.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers (e.g., padding), wrapping the view in _ModifiedContent
         // Note: Cannot inspect ColorPicker state or modifiers due to SwiftUI's opaque hierarchy
@@ -96,10 +98,10 @@ final class ColorPickerTests: XCTestCase {
         ]
         
         let element = try ActionUIElement(from: elementDict, logger: logger)
-        let validatedProperties = ColorPicker.validateProperties(element.properties, logger)
+        let properties = element.properties
         let viewModel = ViewModel()
-        let view = ColorPicker.buildView(element, viewModel, windowUUID, validatedProperties, logger)
-        _ = ColorPicker.applyModifiers(view, element, windowUUID, validatedProperties, logger)
+        let view = ColorPicker.buildView(element, viewModel, windowUUID, properties, logger)
+        _ = ColorPicker.applyModifiers(view, element, windowUUID, properties, logger)
         // Note: Avoid strict type checks (e.g., SwiftUI.ColorPicker) due to SwiftUI's opaque type system
         // Note: ActionUIRegistry.build may apply baseline modifiers, wrapping the view in _ModifiedContent
         // Note: Cannot inspect modifiers due to SwiftUI's opaque hierarchy

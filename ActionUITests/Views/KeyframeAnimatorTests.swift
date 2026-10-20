@@ -3,7 +3,7 @@
  KeyframeAnimatorTests.swift
 
  Tests for the KeyframeAnimator component in the ActionUI component library.
- Verifies JSON decoding, property validation, and view construction.
+ Verifies JSON decoding, Props reading, and view construction.
 
  Sample JSON for KeyframeAnimator:
  {
@@ -73,9 +73,8 @@ final class KeyframeAnimatorTests: XCTestCase {
         // Parse JSON into ActionUIElement
         let element = try actionUIModel.loadDescription(from: jsonData, format: "json", windowUUID: windowUUID)
         
-        let _ = KeyframeAnimator.validateProperties(element.properties, logger)
         let content = element.subviews?["content"] as? any ActionUIElementBase
-        logger.log("Validated content: \((content as? ActionUIElement)?.type ?? "nil")", .debug)
+        logger.log("Content: \((content as? ActionUIElement)?.type ?? "nil")", .debug)
         
         XCTAssertEqual(element.id, 1, "Element ID should be 1")
         XCTAssertEqual(element.type, "KeyframeAnimator", "Element type should be KeyframeAnimator")
@@ -118,7 +117,6 @@ final class KeyframeAnimatorTests: XCTestCase {
             // expecting failure, use ConsoleLogger instead of XCTestLogger
             let consoleLogger = ConsoleLogger()
             let element = try ActionUIElement(from: elementDict, logger: consoleLogger)
-            let _ = KeyframeAnimator.validateProperties(element.properties, logger)
             let content = element.subviews?["content"] as? any ActionUIElementBase
             XCTAssertNil(content as? ActionUIElement, "Malformed content should be nil")
         } catch {
