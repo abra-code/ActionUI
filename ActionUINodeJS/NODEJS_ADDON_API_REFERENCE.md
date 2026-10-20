@@ -29,10 +29,16 @@ inside every callback without a `napi_threadsafe_function`.
 
 Background work (closing windows, triggering termination) must be done from a worker
 thread that loads the native addon separately via `require('node-gyp-build')(__dirname)`.
-Because the addon is registered with `NAPI_MODULE` (non-context-aware), it is loaded
-once per process; subsequent `require` calls in workers return the same exported
-functions.  Functions that only call through to C (`appCloseWindow`, `appTerminate`,
-etc.) are safe to call from any thread; they dispatch to the main queue internally.
+The native library is loaded once per process, but `Init()` runs once per environment:
+each worker that requires it gets its own exports and its own state.  Functions that
+only call through to C (`appCloseWindow`, `appTerminate`, etc.) are safe to call from
+any thread; they dispatch to the main queue internally.
+
+The calls that store a JS callback (`setLogger`, `registerActionHandler`,
+`unregisterActionHandler`, `setDefaultActionHandler`, the `appSet...` lifecycle and window
+setters) and `appRun` belong to the main thread: ActionUI calls every callback there, with
+the main thread's environment. From a worker they throw "... must be called on the main
+thread, not in a worker".
 
 ---
 
@@ -94,13 +100,14 @@ app.onWindowWillPresent(fn)     // fn(window: Window)
 > ```
 >
 > **Worker thread gotcha — `g_state` overwrite.**
-> The native module uses a process-wide `g_state` pointer that is set once in
-> `Init()`.  When a worker thread loads the same native addon, Node.js calls
+> The native module uses a process-wide `g_state` pointer for the main thread's
+> environment.  When a worker thread loads the same native addon, Node.js calls
 > `Init()` again for that worker's V8 environment.  If `g_state` were
 > reassigned unconditionally, the worker's blank state would overwrite the main
 > thread's registered callbacks, silently preventing all lifecycle events from
-> firing.  The addon guards against this with `if (g_state == NULL) g_state = state;`
-> in `Init()` — do not regress that guard.
+> firing.  `Init()` sets `g_state` only once and only on the main thread
+> (`if (g_state == NULL && pthread_main_np())`), even when a worker loads the
+> addon first, and a worker's exit leaves it alone. Do not regress either guard.
 
 #### App control
 
@@ -662,3 +669,4 @@ internally, so calling them from a worker thread is safe.
 - **test_app_api.js** — JS wrapper API surface and lifecycle registration smoke test
 - **test_app_lifecycle.js** — full lifecycle integration test (real NSApplication run loop)
 - **test_menu_bar.js** — menu bar integration test (custom menus, action dispatch)
+- **test_worker_guard.js** - callback setters and appRun throw in a worker; the main thread keeps working (no run loop)

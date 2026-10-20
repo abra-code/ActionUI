@@ -30,6 +30,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
 
 #import <CoreFoundation/CoreFoundation.h>
 #import <ApplicationServices/ApplicationServices.h>
@@ -117,8 +119,8 @@ static void addon_state_finalizer(napi_env env, void* data, void* hint) {
     }
 
     /* Each environment (the main thread and every worker that loads the addon) has its own
-     * state, but only the first one is g_state. A worker exiting must not clear the main
-     * thread's, which the run loop pump is still reading. */
+     * state, but only the main thread's is g_state. A worker exiting must not clear it: the run
+     * loop pump is still reading it. */
     if (g_state == state) g_state = NULL;
     free(state);
 }
@@ -186,6 +188,17 @@ static napi_status store_callback(napi_env env, napi_value fn, napi_ref* out_ref
         return napi_function_expected;
     }
     return napi_create_reference(env, fn, 1, out_ref);
+}
+
+/* ActionUI calls every stored callback on the main thread, through g_state->env, and appRun
+ * runs the main thread's event loop. A worker has an environment of its own: storing a callback
+ * or running the app from it would mix the two, so those calls throw there instead. */
+static bool require_main_env(napi_env env, const char* name) {
+    if (g_state != NULL && g_state->env == env) return true;
+    char message[160];
+    snprintf(message, sizeof(message), "%s must be called on the main thread, not in a worker", name);
+    napi_throw_error(env, NULL, message);
+    return false;
 }
 
 // MARK: - Logger Bridge
@@ -313,8 +326,9 @@ static void app_window_will_present_bridge(const char* windowUUID) {
 
 // MARK: - Lifecycle Setter Macro
 
-#define APP_LIFECYCLE_SETTER(func_name, state_field, c_setter, bridge) \
+#define APP_LIFECYCLE_SETTER(func_name, js_name, state_field, c_setter, bridge) \
 static napi_value func_name(napi_env env, napi_callback_info info) { \
+    if (!require_main_env(env, js_name)) return NULL; \
     size_t argc = 1; napi_value argv[1]; \
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL); \
     if (argc < 1) { napi_throw_error(env, NULL, "expected 1 argument"); return NULL; } \
@@ -323,22 +337,16 @@ static napi_value func_name(napi_env env, napi_callback_info info) { \
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined; \
 }
 
-APP_LIFECYCLE_SETTER(node_app_set_will_finish_launching, app_will_finish_launching,
-                     actionUIAppSetWillFinishLaunchingHandler, app_will_finish_launching_bridge)
-APP_LIFECYCLE_SETTER(node_app_set_did_finish_launching,  app_did_finish_launching,
-                     actionUIAppSetDidFinishLaunchingHandler,  app_did_finish_launching_bridge)
-APP_LIFECYCLE_SETTER(node_app_set_will_become_active,    app_will_become_active,
-                     actionUIAppSetWillBecomeActiveHandler,    app_will_become_active_bridge)
-APP_LIFECYCLE_SETTER(node_app_set_did_become_active,     app_did_become_active,
-                     actionUIAppSetDidBecomeActiveHandler,     app_did_become_active_bridge)
-APP_LIFECYCLE_SETTER(node_app_set_will_resign_active,    app_will_resign_active,
-                     actionUIAppSetWillResignActiveHandler,    app_will_resign_active_bridge)
-APP_LIFECYCLE_SETTER(node_app_set_did_resign_active,     app_did_resign_active,
-                     actionUIAppSetDidResignActiveHandler,     app_did_resign_active_bridge)
-APP_LIFECYCLE_SETTER(node_app_set_will_terminate,        app_will_terminate,
-                     actionUIAppSetWillTerminateHandler,       app_will_terminate_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_will_finish_launching, "appSetWillFinishLaunching",                     app_will_finish_launching, actionUIAppSetWillFinishLaunchingHandler,  app_will_finish_launching_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_did_finish_launching,  "appSetDidFinishLaunching",                     app_did_finish_launching,  actionUIAppSetDidFinishLaunchingHandler,   app_did_finish_launching_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_will_become_active,    "appSetWillBecomeActive",                     app_will_become_active,    actionUIAppSetWillBecomeActiveHandler,     app_will_become_active_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_did_become_active,     "appSetDidBecomeActive",                     app_did_become_active,     actionUIAppSetDidBecomeActiveHandler,      app_did_become_active_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_will_resign_active,    "appSetWillResignActive",                     app_will_resign_active,    actionUIAppSetWillResignActiveHandler,     app_will_resign_active_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_did_resign_active,     "appSetDidResignActive",                     app_did_resign_active,     actionUIAppSetDidResignActiveHandler,      app_did_resign_active_bridge)
+APP_LIFECYCLE_SETTER(node_app_set_will_terminate,        "appSetWillTerminate",                     app_will_terminate,        actionUIAppSetWillTerminateHandler,        app_will_terminate_bridge)
 
 static napi_value node_app_set_should_terminate(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "appSetShouldTerminate")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 1) { napi_throw_error(env, NULL, "expected 1 argument"); return NULL; }
@@ -349,6 +357,7 @@ static napi_value node_app_set_should_terminate(napi_env env, napi_callback_info
 }
 
 static napi_value node_app_set_window_will_close(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "appSetWindowWillClose")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 1) { napi_throw_error(env, NULL, "expected 1 argument"); return NULL; }
@@ -359,6 +368,7 @@ static napi_value node_app_set_window_will_close(napi_env env, napi_callback_inf
 }
 
 static napi_value node_app_set_window_will_present(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "appSetWindowWillPresent")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 1) { napi_throw_error(env, NULL, "expected 1 argument"); return NULL; }
@@ -382,6 +392,7 @@ static napi_value node_get_version(napi_env env, napi_callback_info info) {
 // MARK: - N-API: Logging
 
 static napi_value node_set_logger(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "setLogger")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 1) { napi_throw_error(env, NULL, "expected 1 argument"); return NULL; }
@@ -420,6 +431,7 @@ static napi_value node_clear_error(napi_env env, napi_callback_info info) {
 // MARK: - N-API: Action Handlers
 
 static napi_value node_register_action_handler(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "registerActionHandler")) return NULL;
     size_t argc = 2; napi_value argv[2];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     char actionID[256]; size_t len;
@@ -445,6 +457,7 @@ static napi_value node_register_action_handler(napi_env env, napi_callback_info 
 }
 
 static napi_value node_unregister_action_handler(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "unregisterActionHandler")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     char actionID[256]; size_t len;
@@ -463,6 +476,7 @@ static napi_value node_unregister_action_handler(napi_env env, napi_callback_inf
 }
 
 static napi_value node_set_default_action_handler(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "setDefaultActionHandler")) return NULL;
     size_t argc = 1; napi_value argv[1];
     napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
     if (argc < 1) { napi_throw_error(env, NULL, "expected 1 argument"); return NULL; }
@@ -1512,6 +1526,7 @@ static napi_value node_app_set_icon(napi_env env, napi_callback_info info) {
 }
 
 static napi_value node_app_run(napi_env env, napi_callback_info info) {
+    if (!require_main_env(env, "appRun")) return NULL;
     uv_loop_t* loop = NULL;
     napi_get_uv_event_loop(env, &loop);
     g_state->uv_loop = loop;
@@ -1715,7 +1730,9 @@ static napi_value Init(napi_env env, napi_value exports) {
     napi_create_reference(env, handlers_obj, 1, &state->action_handlers);
 
     napi_set_instance_data(env, state, addon_state_finalizer, NULL);
-    if (g_state == NULL) g_state = state;
+    /* Only the main thread's environment can receive ActionUI's callbacks, so only its state is
+     * g_state, even when a worker loads the addon first. */
+    if (g_state == NULL && pthread_main_np()) g_state = state;
 
     /* Async context for napi_make_callback — a proper context (not NULL)
      * ensures Node.js creates a real InternalCallbackScope that drains
