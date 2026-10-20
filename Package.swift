@@ -25,7 +25,14 @@
 
 import PackageDescription
 
-let package = Package(
+// Two packages, one chosen at the end. applePackage() is the full package for Apple platforms.
+// coreCheckPackage() builds only the portable code in ActionUI/Core, as the module ActionUI; set
+// ACTIONUI_CORE_ONLY=1 to select it on a Mac, which Scripts/check-core.sh does to cross-build Core
+// for Linux. A Linux host builds it too, until the Linux renderer joins.
+let coreOnly = Context.environment["ACTIONUI_CORE_ONLY"] == "1"
+
+func applePackage() -> Package {
+Package(
     name: "ActionUI",
     platforms: [
         .macOS("14.6"),    // macOS 14.6+
@@ -319,3 +326,28 @@ let package = Package(
         ),
     ]
 )
+}
+
+func coreCheckPackage() -> Package {
+Package(
+    name: "ActionUI",
+    products: [
+        .library(name: "ActionUI", targets: ["ActionUI"]),
+    ],
+    targets: [
+        // The portable code alone.
+        .target(
+            name: "ActionUI",
+            path: "ActionUI/Core"
+        ),
+    ]
+)
+}
+
+// Only the chosen package may be constructed: PackageDescription takes the last Package created as
+// the manifest.
+#if os(Linux)
+let package = coreCheckPackage()
+#else
+let package = coreOnly ? coreCheckPackage() : applePackage()
+#endif
