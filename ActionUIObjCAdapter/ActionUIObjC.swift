@@ -111,7 +111,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     }
     
     /// Sets the value of a view element from a string representation, parsing it to the view's expected type.
-    /// Supports ISO 8601 for Date, JSON for CLLocationCoordinate2D, and other type conversions per ActionUIModel.
+    /// Supports ISO 8601 for Date, JSON for a Map coordinate, and other type conversions per ActionUIModel.
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.
     ///   - viewID: Unique identifier for the view element.
@@ -132,7 +132,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
     }
     
     /// Gets the string representation of a view element's value.
-    /// Uses type-specific formatting (e.g., ISO 8601 for Date, JSON for CLLocationCoordinate2D).
+    /// Uses type-specific formatting (e.g., ISO 8601 for Date, JSON for a Map coordinate).
     /// - Parameters:
     ///   - windowUUID: Unique identifier for the window.
     ///   - viewID: Unique identifier for the view element.

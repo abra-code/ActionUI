@@ -175,10 +175,12 @@ final class MapTests: XCTestCase {
          _ = actionUIView.body // Force body creation
 
         // Simulate camera change
-        let newCoord = CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060)
+        XCTAssertEqual(viewModel.value as? ActionUICoordinate, ActionUICoordinate(latitude: 37.33233141, longitude: -122.0312186),
+                       "The loaded value is the portable coordinate")
+        let newCoord = ActionUICoordinate(latitude: 40.7128, longitude: -74.0060)
         actionUIModel.setElementValue(windowUUID: windowUUID, viewID: element.id, value: newCoord)
                 
-        if let stateCoord = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id) as? CLLocationCoordinate2D {
+        if let stateCoord = actionUIModel.getElementValue(windowUUID: windowUUID, viewID: element.id) as? ActionUICoordinate {
             XCTAssertEqual(stateCoord.latitude, 40.7128, accuracy: 0.0001, "Map state should update to new coordinate latitude")
             XCTAssertEqual(stateCoord.longitude, -74.0060, accuracy: 0.0001, "Map state should update to new coordinate longitude")
         }

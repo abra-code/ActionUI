@@ -1,6 +1,5 @@
 // Common/ActionUIModel.swift
 import SwiftUI
-import MapKit
 
 /*
  ActionUIModel manages the global state for ActionUI, including view descriptions and state.
@@ -262,7 +261,7 @@ public class ActionUIModel {
     }
 
     // Converts control value to a string representation for scripting
-    // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for CLLocationCoordinate2D
+    // Design decision: Returns non-optional String, using "" for nil, invalid conversions, or unsupported types; uses ISO 8601 for Date; uses JSON for a Map coordinate (ActionUICoordinate)
     public func getElementValueAsString(windowUUID: String, viewID: Int, viewPartID: Int = 0, contentType: String? = nil) -> String? {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -310,7 +309,7 @@ public class ActionUIModel {
                     return DateHelper.formatDateTime(from: date)
                 }
                 return DateHelper.formatDate(from: date)
-            } else if valueType == CLLocationCoordinate2D.self, let coordinate = value as? CLLocationCoordinate2D {
+            } else if valueType == ActionUICoordinate.self, let coordinate = value as? ActionUICoordinate {
                 return "{\"latitude\":\(coordinate.latitude),\"longitude\":\(coordinate.longitude)}"
             } else if valueType == [String].self, let stringArray = value as? [String] {
                 return stringArray.joined(separator: "\t")
@@ -325,7 +324,7 @@ public class ActionUIModel {
     }
 
     // Converts a string to the view's value type and delegates to setElementValue
-    // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for CLLocationCoordinate2D
+    // Design decision: Uses view's declared valueType to parse string, ensuring type safety and modularity; supports ISO 8601 for Date; supports JSON for a Map coordinate (ActionUICoordinate)
     public func setElementValueFromString(windowUUID: String, viewID: Int, viewPartID: Int = 0, value: String, contentType: String? = nil) {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
             logger.log("No view found for windowUUID: \(windowUUID), viewID: \(viewID)", .warning)
@@ -397,13 +396,13 @@ public class ActionUIModel {
                 logger.log("Invalid ISO 8601 date string: \(value) for viewID: \(viewID)", .warning)
                 return
             }
-        } else if valueType == CLLocationCoordinate2D.self {
-            // Design decision: Parses JSON string into CLLocationCoordinate2D, matching Map's coordinate property format
+        } else if valueType == ActionUICoordinate.self {
+            // Design decision: Parses JSON string into an ActionUICoordinate, matching Map's coordinate property format
             do {
                 let data = value.data(using: .utf8)!
                 let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Double]
                 if let latitude = json?["latitude"], let longitude = json?["longitude"] {
-                    convertedValue = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                    convertedValue = ActionUICoordinate(latitude: latitude, longitude: longitude)
                 } else {
                     logger.log("Invalid coordinate format '\(value)' for viewID: \(viewID)", .warning)
                     return
