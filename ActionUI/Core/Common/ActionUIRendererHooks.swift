@@ -2,7 +2,7 @@
 /*
  The few places where portable model code needs its renderer to take part in a change. Core sets a
  plain default; a renderer installs its own when it loads its built-in elements (SwiftUI:
- ActionUIRegistry.loadBuiltIns).
+ ActionUIRegistry.loadRendererBuiltIns in Common/ActionUIRegistry+SwiftUI.swift).
 */
 
 #if canImport(FoundationEssentials)

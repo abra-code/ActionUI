@@ -145,3 +145,14 @@ struct WebView: ActionUIElementSpec {
         return states
     }
 }
+
+/// Selects which backing renders ActionUI.WebView. Set globally by the host app via
+/// `ActionUIRegistry.shared.webViewImplementation` before windows are built.
+public enum WebViewImplementation: String, Sendable {
+    /// UIKit/AppKit WKWebView wrapped in NS/UIViewRepresentable. Works on the package
+    /// baseline (macOS 14.6+ / iOS 17.6+). Default.
+    case native
+    /// SwiftUI's WebKit.WebView. Requires iOS 26.0+ / macOS 26.0+; falls back to `.native`
+    /// on older OS versions.
+    case swiftUI
+}
