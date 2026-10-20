@@ -116,8 +116,11 @@ static void addon_state_finalizer(napi_env env, void* data, void* hint) {
         state->async_ctx = NULL;
     }
 
+    /* Each environment (the main thread and every worker that loads the addon) has its own
+     * state, but only the first one is g_state. A worker exiting must not clear the main
+     * thread's, which the run loop pump is still reading. */
+    if (g_state == state) g_state = NULL;
     free(state);
-    g_state = NULL;
 }
 
 // MARK: - Callback helpers
