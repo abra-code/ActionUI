@@ -65,5 +65,14 @@ let package = Package(
                 .copy("Elements"),
             ]
         ),
+        // Element-level tests (ActionUIRichText); the view's own tests live in the RichText repo.
+        .testTarget(
+            name: "RichTextTests",
+            dependencies: [
+                "ActionUIRichText",
+                .product(name: "RichText", package: "RichText"),
+            ],
+            path: "Tests"
+        ),
     ]
 )

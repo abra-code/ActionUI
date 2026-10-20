@@ -250,3 +250,29 @@ final class ChatHostEventDispatchTests: XCTestCase {
                        "the checkpoint event carries its cursor JSON as the action context")
     }
 }
+
+/// ChatConfig reads the properties the element's buildView receives. These tests hand it raw,
+/// unvalidated properties: what it makes of them must not depend on validate() having run first.
+final class ChatConfigRawPropertiesTests: XCTestCase {
+
+    private func config(_ properties: [String: Any]) -> ChatConfig {
+        ChatConfig(properties: properties, logger: ElementTestLogger())
+    }
+
+    func testUnknownRemoteImagesFailsClosedWithoutValidation() {
+        // validate() rewrites an unknown value to "on-click"; the configuration does the same itself.
+        XCTAssertEqual(config(["remoteImages": "onclick"]).configuration.remoteImages, .onClick)
+        XCTAssertEqual(config(["remoteImages": false]).configuration.remoteImages, .onClick)
+        XCTAssertEqual(config(["remoteImages": "never"]).configuration.remoteImages, .never)
+        XCTAssertEqual(config([:]).configuration.remoteImages, .automatic)
+    }
+
+    func testWronglyTypedActionIDsAreIgnoredWithoutValidation() {
+        let parsed = config(["sendActionID": 5, "entryActionID": true, "attachActionID": ["x"]])
+        XCTAssertNil(parsed.sendActionID)
+        XCTAssertNil(parsed.entryActionID)
+        XCTAssertNil(parsed.attachActionID)
+        XCTAssertFalse(parsed.configuration.emitsEntryEvents)
+        XCTAssertFalse(parsed.configuration.attachEnabled)
+    }
+}

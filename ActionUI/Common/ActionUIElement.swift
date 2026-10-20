@@ -81,10 +81,17 @@ public protocol ActionUIViewConstruction : ActionUIPropertyValidation {
     // change beyond re-rendering (Chart moves a new description's inline data into its rows).
     // Default nil.
     static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? { get }
+    // Base View property keys (for example "cornerRadius") that the element applies itself, in its
+    // buildView or applyModifiers. ActionUIRegistry.applyViewModifiers leaves them out of the base
+    // View modifiers, so they are not applied twice; the element still receives them in its own
+    // properties. Only that registry path honors it: a direct call to View.applyModifiers does not.
+    // Default: none.
+    static var handledBaseModifiers: Set<String> { get }
 }
 
 extension ActionUIViewConstruction {
     public static var didSetProperty: ((String, ViewModel, any ActionUILogger) -> Void)? { nil }
+    public static var handledBaseModifiers: Set<String> { [] }
 }
 
 

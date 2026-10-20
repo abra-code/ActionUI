@@ -146,13 +146,23 @@ struct RichTextView: ActionUIViewConstruction {
         // When http / https images are fetched: "automatic" (default) at once, "on-click" when the reader
         // clicks the placeholder naming the image's host, "never" not at all. A document shown to a user
         // may carry Markdown someone else wrote - a model, an agent - and an image URL can carry data out.
-        let remoteImages = RichTextView.remoteImagesPolicy(properties["remoteImages"]) ?? .automatic
+        let remoteImages = RichTextView.effectiveRemoteImagesPolicy(properties["remoteImages"])
 
         // The find layers ride on the element's SwiftUI body (RichTextElementView), which owns the find
         // controller, renders the Markdown once per source, and observes states["search"].
         return RichTextElementView(model: model, markdown: markdown, theme: theme, behavior: behavior,
                                    remoteImages: remoteImages,
                                    showsFindBar: (properties["showFindBar"] as? Bool) ?? false, logger: logger)
+    }
+
+    // The policy a "remoteImages" property value gives. Fails closed: absent is "automatic", but a value
+    // that is present and not one of the three names is "on-click" - whoever set the key meant to
+    // restrict fetching, so a misspelling must not turn into fetching at once.
+    static func effectiveRemoteImagesPolicy(_ value: Any?) -> RichTextRemoteImages {
+        if let policy = remoteImagesPolicy(value) {
+            return policy
+        }
+        return value == nil ? .automatic : .onClick
     }
 
     // The document spelling of RichTextRemoteImages, the same as the Chat element's "remoteImages";

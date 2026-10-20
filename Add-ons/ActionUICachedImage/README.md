@@ -47,9 +47,10 @@ path, exactly like the core `AsyncImage` element.
 `cornerRadius` uses the standard View property name, but this element rounds the image **itself**
 rather than via the baseline `cornerRadius` modifier: CachedImage draws the image as an aspect-fit
 overlay on a transparent box, so with a filling `frame` the baseline modifier would round only the
-transparent outer frame, leaving the centered image square. The element therefore consumes
-`cornerRadius` in `validateProperties` and passes it to the wrapped view's own (continuous-corner)
-parameter. Sizing still uses the baseline `frame` modifier.
+transparent outer frame, leaving the centered image square. The element therefore declares
+`cornerRadius` in `handledBaseModifiers`, so the registry leaves it out of the baseline modifiers,
+and passes it to the wrapped view's own (continuous-corner) parameter. Sizing still uses the
+baseline `frame` modifier.
 
 ## Design: compiles against ActionUI, links AsyncImageCache transitively
 

@@ -80,19 +80,15 @@ struct CachedImage: ActionUIViewConstruction {
             validated["intrinsicSize"] = nil
         }
 
-        // cornerRadius: baseline View.validateProperties (run before this) has already validated it as
-        // numeric. Move it out of the dict the registry hands to the baseline modifier and stash it for
-        // buildView, so CachedImage applies the rounding NATIVELY (a continuous clip right around the
-        // image). The baseline "cornerRadius" modifier cannot round the image here: CachedImage renders
-        // the image as an aspect-fit overlay on a Color.clear box, so under a filling frame the baseline
-        // clip rounds the transparent outer frame while the centered image keeps square corners.
-        if let radius = validated["cornerRadius"] {
-            validated[cornerRadiusStashKey] = radius
-            validated["cornerRadius"] = nil
-        }
-
         return validated
     }
+
+    // cornerRadius is applied NATIVELY by CachedImage (a continuous clip right around the image), so the
+    // registry leaves it out of the baseline modifiers. The baseline "cornerRadius" modifier cannot round
+    // the image here: CachedImage renders the image as an aspect-fit overlay on a Color.clear box, so
+    // under a filling frame the baseline clip would round the transparent outer frame while the
+    // centered image kept square corners.
+    static var handledBaseModifiers: Set<String> { ["cornerRadius"] }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         // Effective source: the runtime value (setElementValue) wins, else the "url" JSON property.
@@ -108,9 +104,9 @@ struct CachedImage: ActionUIViewConstruction {
         let maxPixelWidth = numericCGFloat(properties["maxPixelWidth"])
 
         // cornerRadius rounds the image via CachedImage's own (continuous-corner) clip, which sits right
-        // around the image; validateProperties stashed it here (see cornerRadiusStashKey) so the baseline
-        // modifier does not also apply an ineffective outer clip.
-        let cornerRadius = numericCGFloat(properties[cornerRadiusStashKey]) ?? 0
+        // around the image; handledBaseModifiers keeps the baseline modifier from also applying an
+        // ineffective outer clip.
+        let cornerRadius = numericCGFloat(properties["cornerRadius"]) ?? 0
         return AsyncImageCache.CachedImage(url: url,
                                            intrinsicSize: intrinsic,
                                            cornerRadius: cornerRadius,
@@ -153,11 +149,6 @@ private func numericCGFloat(_ any: Any?) -> CGFloat? {
     default: return nil
     }
 }
-
-/// Private key under which validateProperties stashes the (baseline-validated) cornerRadius, so buildView
-/// can pass it to CachedImage's native corner clip while the baseline "cornerRadius" modifier - which
-/// would round only the transparent outer frame, not the image - does not also apply.
-private let cornerRadiusStashKey = "__cachedImageCornerRadius"
 
 /// Parses an `{ "width": Number, "height": Number }` object into a CGSize; nil if the shape or either
 /// component is missing or non-numeric. Zero / negative dimensions are rejected - an intrinsic size

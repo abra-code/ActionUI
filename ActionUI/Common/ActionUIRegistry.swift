@@ -256,6 +256,15 @@ public class ActionUIRegistry {
         viewRegistrations[type]?.insertableContainers
     }
     
+    // The properties the base View modifiers apply for an element: all of them, minus the keys the
+    // element's type declares in handledBaseModifiers (it applies those itself).
+    func baseModifierProperties(_ properties: [String: Any], forElementType type: String) -> [String: Any] {
+        guard let handled = viewRegistrations[type]?.handledBaseModifiers, !handled.isEmpty else {
+            return properties
+        }
+        return properties.filter { !handled.contains($0.key) }
+    }
+
     // Applies modifiers to a view, using a ViewModel for dynamic updates
     // Design decision: Uses validatedProperties in model to support dynamic property changes (e.g., disabled) via setProperty, ensuring SwiftUI refreshes
     // Applies baseline View modifiers first, then view-specific modifiers, per the guide's modifier separation principle
@@ -271,7 +280,7 @@ public class ActionUIRegistry {
         
         // Apply base View modifications dynamically
         // Design decision: Delegates baseline modifiers (e.g., padding, disabled, hidden) to View.applyModifiers to centralize shared logic
-        modifiedView = View.applyModifiers(modifiedView, element, windowUUID, properties, logger)
+        modifiedView = View.applyModifiers(modifiedView, element, windowUUID, baseModifierProperties(properties, forElementType: element.type), logger)
 
         // Whole-container tap (Helpers/ContainerActionHelper.swift): a VStack/HStack/ZStack
         // carrying an actionID becomes ONE tap target. Applied here, last, because the target
