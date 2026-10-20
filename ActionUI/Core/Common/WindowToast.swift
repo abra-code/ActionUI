@@ -1,6 +1,10 @@
-// Common/WindowToast.swift
+// Core/Common/WindowToast.swift
 
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 
 // MARK: - Public types (used in ActionUIModel public API)
 

@@ -525,7 +525,7 @@ public class ActionUIJavaScriptCore {
                   let array = jsButtons.toObject() as? [[String: Any]], !array.isEmpty else { return nil }
             return array.compactMap { dict -> ActionUI.DialogButton? in
                 guard let title = dict["title"] as? String else { return nil }
-                let role: SwiftUI.ButtonRole? = switch dict["role"] as? String {
+                let role: ActionUI.DialogButtonRole? = switch dict["role"] as? String {
                     case "cancel": .cancel
                     case "destructive": .destructive
                     default: nil

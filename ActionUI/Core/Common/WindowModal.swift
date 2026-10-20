@@ -1,6 +1,10 @@
-// Common/WindowModal.swift
+// Core/Common/WindowModal.swift
 
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 
 // MARK: - Public types (used in ActionUIModel public API)
 
@@ -10,13 +14,19 @@ public enum ModalStyle: Sendable {
     case fullScreenCover
 }
 
+/// The role of a dialog button. A renderer maps it to its own (SwiftUI: ButtonRole).
+public enum DialogButtonRole: Sendable {
+    case cancel
+    case destructive
+}
+
 /// A button descriptor for window-level alerts and confirmation dialogs.
 public struct DialogButton: Sendable {
     public let title: String
-    public let role: ButtonRole?    // nil = default, .destructive, .cancel
+    public let role: DialogButtonRole?    // nil = default, .destructive, .cancel
     public let actionID: String?    // action fired on tap; nil = dismiss only
 
-    public init(title: String, role: ButtonRole? = nil, actionID: String? = nil) {
+    public init(title: String, role: DialogButtonRole? = nil, actionID: String? = nil) {
         self.title = title
         self.role = role
         self.actionID = actionID

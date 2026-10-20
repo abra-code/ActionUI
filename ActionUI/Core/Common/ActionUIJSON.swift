@@ -1,6 +1,10 @@
-// Common/ActionUIJSON.swift
+// Core/Common/ActionUIJSON.swift
 
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 
 /// Error raised by the ActionUIJSON helpers. `message` carries the exact text the C adapter
 /// used to report through actionUIGetLastError(), so adapters that surface a last-error string
@@ -139,7 +143,7 @@ public enum ActionUIJSON {
 
         return array.compactMap { dict -> DialogButton? in
             guard let title = dict["title"] as? String else { return nil }
-            let role: ButtonRole? = switch dict["role"] as? String {
+            let role: DialogButtonRole? = switch dict["role"] as? String {
                 case "cancel": .cancel
                 case "destructive": .destructive
                 default: nil

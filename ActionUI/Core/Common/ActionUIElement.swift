@@ -1,4 +1,4 @@
-// Sources/ActionUIElement.swift
+// Core/Common/ActionUIElement.swift
 /*
  Sample JSON for ActionUIElementBase (base structure for all elements):
  {
@@ -35,8 +35,11 @@
  }
 */
 
-import SwiftUI
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // Protocol defining the structure of an ActionUIElementBase, used for JSON-based UI construction.
 // Sendable: elements are effectively-immutable JSON-derived data passed into SwiftUI's @Sendable

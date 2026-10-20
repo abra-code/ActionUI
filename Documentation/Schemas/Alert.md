@@ -66,9 +66,14 @@ ActionUISwift.dismissDialog(windowUUID: uuid)
 
 ```swift
 public struct DialogButton {
-    public let title: String        // Button label
-    public let role: ButtonRole?    // nil = default, .destructive, .cancel
-    public let actionID: String?    // Action fired on tap; nil = dismiss only
+    public let title: String              // Button label
+    public let role: DialogButtonRole?    // nil = default, .destructive, .cancel
+    public let actionID: String?          // Action fired on tap; nil = dismiss only
+}
+
+public enum DialogButtonRole {
+    case cancel
+    case destructive
 }
 ```
 

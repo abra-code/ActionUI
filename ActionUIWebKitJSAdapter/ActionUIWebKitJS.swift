@@ -476,7 +476,7 @@ public class ActionUIWebKitJS: NSObject, WKScriptMessageHandler, WKNavigationDel
         return array.compactMap { element -> ActionUI.DialogButton? in
             guard let dict = element as? [String: Any],
                   let title = dict["title"] as? String else { return nil }
-            let role: SwiftUI.ButtonRole? = switch dict["role"] as? String {
+            let role: ActionUI.DialogButtonRole? = switch dict["role"] as? String {
                 case "cancel": .cancel
                 case "destructive": .destructive
                 default: nil

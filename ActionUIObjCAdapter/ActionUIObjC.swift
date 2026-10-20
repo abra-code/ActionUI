@@ -56,7 +56,7 @@ private final class ObjCLoggerBridge: ActionUILogger, @unchecked Sendable {
     case fullScreenCover = 1
 }
 
-/// Button role for Objective-C dialog buttons. Maps to SwiftUI.ButtonRole.
+/// Button role for Objective-C dialog buttons. Maps to ActionUI.DialogButtonRole.
 @objc public enum ActionUIObjCButtonRole: NSInteger {
     /// Default (no special role).
     case `default` = 0
@@ -509,7 +509,7 @@ public typealias ActionUIObjCActionHandlerBlock = (_ actionID: NSString, _ windo
         guard let array, array.count > 0 else { return nil }
         return array.compactMap { element -> ActionUI.DialogButton? in
             guard let btn = element as? ActionUIObjCDialogButton else { return nil }
-            let role: SwiftUI.ButtonRole? = switch btn.role {
+            let role: ActionUI.DialogButtonRole? = switch btn.role {
                 case .cancel: .cancel
                 case .destructive: .destructive
                 default: nil

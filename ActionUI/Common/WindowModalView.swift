@@ -154,11 +154,21 @@ struct WindowModalView: SwiftUI.View {
     private func dialogButtons(for dialog: WindowDialog) -> some SwiftUI.View {
         ForEach(dialog.buttons.indices, id: \.self) { i in
             let btn = dialog.buttons[i]
-            SwiftUI.Button(btn.title, role: btn.role) {
+            SwiftUI.Button(btn.title, role: btn.role?.buttonRole) {
                 if let actionID = btn.actionID {
                     ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: 0, viewPartID: 0)
                 }
             }
+        }
+    }
+}
+
+extension DialogButtonRole {
+    /// The SwiftUI role of a dialog button.
+    var buttonRole: ButtonRole {
+        switch self {
+        case .cancel: return .cancel
+        case .destructive: return .destructive
         }
     }
 }
