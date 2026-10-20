@@ -1,0 +1,24 @@
+/*
+ Sample JSON for EmptyView:
+ {
+   "type": "EmptyView",
+   "id": 1,              // Optional: Non-zero positive integer for runtime programmatic interaction
+   "properties": {}
+   // Note: EmptyView has no specific properties. All properties/modifiers from the base View (padding, hidden, foregroundStyle, font, background, frame, opacity, cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and applied via ActionUIRegistry.shared.applyModifiers to the group as a whole.
+ }
+*/
+
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+
+struct EmptyView: ActionUIElementSpec {
+    static var valueType: Any.Type = Void.self
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
+}

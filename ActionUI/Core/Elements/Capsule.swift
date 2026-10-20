@@ -1,0 +1,53 @@
+// Core/Elements/Capsule.swift
+/*
+ Sample JSON for Capsule:
+ {
+   "type": "Capsule",
+   "id": 1,
+   "properties": {
+     "style": "circular",    // Optional: "circular" (default) or "continuous" (squircle-style end caps)
+     "fill": "blue",         // Optional: fill color/style string (e.g. "red", "primary", "tint")
+     "stroke": "red",        // Optional: stroke color/style string (mutually exclusive with fill; fill takes priority)
+     "strokeLineWidth": 2.0  // Optional: stroke line width (default 1.0, used with stroke)
+   }
+   // Note: Baseline View properties (frame, padding, foregroundStyle, background, opacity, cornerRadius, etc.)
+   // are inherited via ActionUIRegistry.shared.applyViewModifiers.
+ }
+*/
+
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+
+extension Capsule {
+    /// Capsule's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Style: String, Sendable, CaseIterable {
+            case circular, continuous
+        }
+
+        var style = Style.circular
+        /// Colors and gradients stay as the names the renderer resolves.
+        var fill: String?
+        var stroke: String?
+        var strokeLineWidth = 1.0
+
+        init(_ properties: [String: Any]) {
+            style = (properties["style"] as? String).flatMap(Style.init(rawValue:)) ?? .circular
+            fill = properties["fill"] as? String
+            stroke = properties["stroke"] as? String
+            strokeLineWidth = properties.double(forKey: "strokeLineWidth") ?? 1.0
+        }
+    }
+}
+
+struct Capsule: ActionUIElementSpec {
+    static var valueType: Any.Type = Void.self
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
+}

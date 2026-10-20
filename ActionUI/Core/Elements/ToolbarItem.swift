@@ -1,0 +1,84 @@
+// Core/Elements/ToolbarItem.swift
+/*
+ ToolbarItem declares a single item (or group of items) at a specific placement in a view's
+ toolbar or navigation bar. ToolbarItem elements are declared inside the "toolbar" subview
+ array on any view, not rendered standalone — the parent view's .toolbar modifier, applied
+ through View.applyModifiers, consumes them.
+
+ Sample JSON for a navigation bar button (iOS trailing position):
+ {
+   "type": "VStack",
+   "toolbar": [
+     {
+       "type": "ToolbarItem",
+       "id": 10,                        // Optional: Non-zero positive integer
+       "properties": {
+         "placement": "topBarTrailing"  // Optional: placement string; defaults to "automatic"
+       },
+       "content": { "type": "Button", "properties": { "title": "Done", "actionID": "toolbar.done" } }
+     }
+   ]
+ }
+
+ Multiple ToolbarItem entries in "toolbar" create separate items at their respective placements.
+ "content" is a single view — use Button, Menu, ControlGroup, Image, or any layout container
+ (HStack, ZStack, etc.) when you need to compose multiple views into one toolbar slot.
+
+ Supported placement values:
+   Cross-platform:
+     "automatic"          — System-chosen default placement
+     "principal"          — Center of the toolbar / navigation bar (title area)
+     "confirmationAction" — Platform primary confirmation action (e.g., "Done", "Save")
+     "cancellationAction" — Platform cancel action (e.g., "Cancel")
+     "destructiveAction"  — Platform destructive action (e.g., "Delete")
+     "primaryAction"      — macOS/iPadOS primary toolbar action (leading toolbar area)
+     "secondaryAction"    — Secondary toolbar action
+   iOS / visionOS only:
+     "topBarLeading"      — Navigation bar leading edge
+     "topBarTrailing"     — Navigation bar trailing edge
+     "bottomBar"          — Bottom toolbar bar
+     "keyboard"           — Above the software keyboard
+   macOS only:
+     "navigation"         — Leading portion of the toolbar (before back/forward navigation)
+     "status"             — Bottom status bar of the macOS app window
+
+ Note: Platform-unavailable placements fall back to "automatic" at runtime without warning.
+ ToolbarItem elements are never rendered standalone. Their content is built by ToolbarModifierView.
+*/
+
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+
+extension ToolbarItem {
+    /// ToolbarItem's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum Placement: String, Sendable, CaseIterable {
+            case automatic, principal
+            case confirmationAction, cancellationAction, destructiveAction
+            case primaryAction, secondaryAction
+            case topBarLeading, topBarTrailing
+            case bottomBar, keyboard
+            case navigation, status
+        }
+
+        /// A name that is not one of the thirteen, or no string, is automatic. A name the platform
+        /// lacks (bottomBar on macOS, navigation on iOS) is placed as automatic by the renderer.
+        var placement = Placement.automatic
+
+        init(_ properties: [String: Any]) {
+            placement = (properties["placement"] as? String).flatMap(Placement.init(rawValue:)) ?? .automatic
+        }
+    }
+}
+
+struct ToolbarItem: ActionUIElementSpec {
+    static var valueType: Any.Type = Void.self
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
+}

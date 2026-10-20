@@ -1,0 +1,61 @@
+// SwiftUI rendering of HStack; its portable part is in Core/Elements/HStack.swift.
+
+import SwiftUI
+
+extension HStack: ActionUISwiftUIRenderer {
+    static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
+
+    static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
+        let spacing = props.spacing.map { CGFloat($0) }
+        let alignment: VerticalAlignment
+        switch props.alignment {
+        case .top:               alignment = .top
+        case .bottom:            alignment = .bottom
+        case .firstTextBaseline: alignment = .firstTextBaseline
+        case .lastTextBaseline:  alignment = .lastTextBaseline
+        case .center:            alignment = .center
+        }
+
+        // Data-driven template container mode: render one template instance per row.
+        if let template = element.subviews?["template"] as? any ActionUIElementBase {
+            let rows = (model.states["content"] as? [[String]]) ?? []
+            logger.log("HStack(id:\(element.id)) template mode — template type: \(template.type), rows: \(rows.count)", .debug)
+            let parentID = element.id
+            let rowViews: [AnyView] = rows.indices.map { rowIndex in
+                TemplateHelper.buildTemplateView(
+                    template: template, row: rows[rowIndex], rowIndex: rowIndex,
+                    parentID: parentID, windowUUID: windowUUID, logger: logger
+                )
+            }
+            return SwiftUI.HStack(alignment: alignment, spacing: spacing) {
+                ForEach(rowViews.indices, id: \.self) { i in rowViews[i] }
+            }
+        }
+
+        // Children mode
+        let children = element.subviews?["children"] as? [any ActionUIElementBase] ?? []
+        if let tc = model.templateContext {
+            // Template child mode: this HStack is inside a template, children are blueprints
+            let childViews: [AnyView] = children.map { child in
+                TemplateHelper.buildTemplateView(
+                    template: child, row: tc.row, rowIndex: tc.rowIndex,
+                    parentID: tc.parentID, windowUUID: windowUUID, logger: logger
+                )
+            }
+            return SwiftUI.HStack(alignment: alignment, spacing: spacing) {
+                ForEach(childViews.indices, id: \.self) { i in childViews[i] }
+            }
+        } else {
+            // Normal mode: children have registered ViewModels
+            return SwiftUI.HStack(alignment: alignment, spacing: spacing) {
+                let windowModel = ActionUIModel.shared.windowModels[windowUUID]
+                ForEach(children, id: \.id) { child in
+                    if let childModel = windowModel?.viewModels[child.id] {
+                        ActionUIView(element: child, model: childModel, windowUUID: windowUUID)
+                    }
+                }
+            }
+        }
+    }
+}

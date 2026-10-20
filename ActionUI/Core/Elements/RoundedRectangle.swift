@@ -1,0 +1,56 @@
+// Core/Elements/RoundedRectangle.swift
+/*
+ Sample JSON for RoundedRectangle:
+ {
+   "type": "RoundedRectangle",
+   "id": 1,
+   "properties": {
+     "cornerRadius": 12.0,   // Required: corner radius in points (default 0)
+     "cornerStyle": "circular",  // Optional: "circular" (default) or "continuous" (squircle-style)
+     "fill": "blue",         // Optional: fill color/style string (e.g. "red", "primary", "tint")
+     "stroke": "red",        // Optional: stroke color/style string (mutually exclusive with fill; fill takes priority)
+     "strokeLineWidth": 2.0  // Optional: stroke line width (default 1.0, used with stroke)
+   }
+   // Note: Baseline View properties (frame, padding, foregroundStyle, background, opacity, etc.)
+   // are inherited via ActionUIRegistry.shared.applyViewModifiers.
+ }
+*/
+
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
+
+extension RoundedRectangle {
+    /// RoundedRectangle's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        enum CornerStyle: String, Sendable, CaseIterable {
+            case circular, continuous
+        }
+
+        var cornerRadius = 0.0
+        var cornerStyle = CornerStyle.circular
+        /// Colors and gradients stay as the names the renderer resolves.
+        var fill: String?
+        var stroke: String?
+        var strokeLineWidth = 1.0
+
+        init(_ properties: [String: Any]) {
+            cornerRadius = properties.double(forKey: "cornerRadius") ?? 0.0
+            cornerStyle = (properties["cornerStyle"] as? String).flatMap(CornerStyle.init(rawValue:)) ?? .circular
+            fill = properties["fill"] as? String
+            stroke = properties["stroke"] as? String
+            strokeLineWidth = properties.double(forKey: "strokeLineWidth") ?? 1.0
+        }
+    }
+}
+
+struct RoundedRectangle: ActionUIElementSpec {
+    static var valueType: Any.Type = Void.self
+    static var initialValue: (ViewModel) -> Any? = { model in model.value }
+    static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
+    static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
+    static var serializeValueToString: ((Any, String?, any ActionUILogger) -> String?)? = nil
+    static var insertableContainers: [String: ContainerShape]? = nil
+}
