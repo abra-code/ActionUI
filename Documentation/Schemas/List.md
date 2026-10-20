@@ -95,7 +95,6 @@ JSON schema and usage documentation for `List`.
     //      Baseline View properties (padding, hidden, foregroundStyle, font, background, frame, opacity,
     //      cornerRadius, actionID, disabled) and additional View protocol modifiers are inherited and
     //      applied via ActionUIRegistry.shared.applyViewModifiers(to: baseView, properties: element.properties).
-    //      The applyModifiers implementation is provided by the ActionUIViewConstruction protocol extension.
     //   3. Template-based list: homogeneous rows of ActionUI views based on pre-declared template
     //      Column text values are assigned to specific sub-view values by index
     //      Column indexes are 1-based: $1 (col 0), $2 (col 1), $N (col N-1), $0 (all)
