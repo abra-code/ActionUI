@@ -71,12 +71,6 @@ extension DatePicker: ActionUISwiftUIRenderer {
         }
     }
 
-    /// True when the mode carries a time-of-day component (so the value-bridge
-    /// serializes a full ISO datetime rather than a bare "YYYY-MM-DD").
-    static func isTimeBearing(_ raw: String?) -> Bool {
-        raw == "hourAndMinute" || raw == "dateAndTime"
-    }
-    
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, properties, logger in
         var modifiedView = view
         switch Props(properties).displayStyle {

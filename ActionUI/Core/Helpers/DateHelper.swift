@@ -135,4 +135,11 @@ struct DateHelper {
                       c.year ?? 0, c.month ?? 0, c.day ?? 0,
                       c.hour ?? 0, c.minute ?? 0, c.second ?? 0)
     }
+
+    /// True when a DatePicker's displayedComponents carry a time of day ("hourAndMinute",
+    /// "dateAndTime"), so its value serializes as a full ISO datetime (formatDateTime) rather
+    /// than a bare "YYYY-MM-DD" (formatDate).
+    static func isTimeBearing(_ displayedComponents: String?) -> Bool {
+        displayedComponents == "hourAndMinute" || displayedComponents == "dateAndTime"
+    }
 }

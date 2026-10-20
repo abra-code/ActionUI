@@ -305,7 +305,7 @@ public class ActionUIModel {
                 // other Date-valued element (and date-only DatePickers) stays a
                 // bare "YYYY-MM-DD" for backward compatibility.
                 let components = ActionUI.DatePicker.Props(viewModel.properties).displayedComponents?.rawValue
-                if viewModel.elementType == "DatePicker", ActionUI.DatePicker.isTimeBearing(components) {
+                if viewModel.elementType == "DatePicker", DateHelper.isTimeBearing(components) {
                     return DateHelper.formatDateTime(from: date)
                 }
                 return DateHelper.formatDate(from: date)

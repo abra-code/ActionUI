@@ -136,10 +136,10 @@ final class DatePickerTests: XCTestCase {
     }
 
     func testIsTimeBearing() throws {
-        XCTAssertFalse(DatePicker.isTimeBearing(nil))
-        XCTAssertFalse(DatePicker.isTimeBearing("date"))
-        XCTAssertTrue(DatePicker.isTimeBearing("hourAndMinute"))
-        XCTAssertTrue(DatePicker.isTimeBearing("dateAndTime"))
+        XCTAssertFalse(DateHelper.isTimeBearing(nil))
+        XCTAssertFalse(DateHelper.isTimeBearing("date"))
+        XCTAssertTrue(DateHelper.isTimeBearing("hourAndMinute"))
+        XCTAssertTrue(DateHelper.isTimeBearing("dateAndTime"))
     }
 
     // MARK: - DateHelper value formatting
