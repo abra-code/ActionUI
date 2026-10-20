@@ -67,25 +67,25 @@ function mark(name, ok, detail = null) {
     maybeTerminate();
 }
 
-// Terminate once both network checks have settled (pass or fail).
-// The other probes are quick — if they haven't run by then, that's
-// meaningful data and will show up as MISS in the summary.
+// Terminate once every check has run (pass or fail). The network can settle before the
+// 100 ms timer fires, so waiting for the network alone missed the timer. A check that never
+// runs shows up as MISS in the summary when the safety worker terminates the app.
 let terminated = false;
 function maybeTerminate() {
     if (terminated) return;
-    if (checks['https.get(example.com)'].done &&
-        checks['fetch(example.com)'].done) {
+    if (Object.values(checks).every((c) => c.done)) {
         terminated = true;
-        console.log('  [done] both network checks settled — terminating app');
+        console.log('  [done] every check has run - terminating app');
         app.terminate();
     }
 }
 
 // ---------------------------------------------------------------------------
-// Exit handler — NSApplication.terminate() → exit() so this always runs
+// Summary - runs from willTerminate, the last callback: AppKit then ends the process with C
+// exit(), which emits no process "exit" event, so a process.on("exit") handler never runs.
 // ---------------------------------------------------------------------------
 
-process.on('exit', () => {
+function summary() {
     console.log('\n=== Summary ===');
     let allPass = true;
     for (const [name, r] of Object.entries(checks)) {
@@ -97,17 +97,19 @@ process.on('exit', () => {
     console.log();
     if (!allPass) {
         console.error('FAILED');
-        process.exitCode = 1;
+        process.exit(1);   // AppKit exits with 0 once this callback returns
     } else {
         console.log('All checks PASSED.');
     }
-});
+}
 
 // ---------------------------------------------------------------------------
 // Application
 // ---------------------------------------------------------------------------
 
 const app = new actionui.Application({ name: 'ActionUIUvRunTest' });
+
+app.onWillTerminate(summary);
 
 app.onWillFinishLaunching(() => {
     t0 = Date.now();

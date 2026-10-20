@@ -12,8 +12,8 @@
  *   6. Action handler dispatch from a custom menu item
  *
  * Starts a real NSApplication run loop (requires a graphical macOS environment).
- * Uses the process.on('exit') pattern from test_app_lifecycle.js because
- * NSApplication.terminate() calls C exit() directly.
+ * Reports from willTerminate, like test_app_lifecycle.js, because
+ * NSApplication.terminate() calls C exit(), which emits no process "exit" event.
  *
  * Note: onWillFinishLaunching must be registered before onDidFinishLaunching
  * for the Swift framework's AppDelegate to be fully activated before app.run().
@@ -83,11 +83,12 @@ function check(label, condition) {
 }
 
 // ---------------------------------------------------------------------------
-// Exit handler — runs after NSApplication.terminate() → exit()
+// Report - runs from willTerminate, the last callback: AppKit then ends the process with C
+// exit(), which emits no process "exit" event, so a process.on("exit") handler never runs.
 // ---------------------------------------------------------------------------
 
-process.on('exit', () => {
-    console.log('\nNSApplication exited — running assertions …\n');
+function report() {
+    console.log('\nNSApplication terminating - running assertions ...\n');
 
     if (state.errors.length > 0) {
         for (const err of state.errors) console.log(`  [ERROR] ${err}`);
@@ -126,11 +127,11 @@ process.on('exit', () => {
     if (allBad.length > 0) {
         console.error(`FAILED — ${allBad.length} issue(s):`);
         for (const item of allBad) console.error(`  - ${item}`);
-        process.exitCode = 1;
+        process.exit(1);   // AppKit exits with 0 once this callback returns
     } else {
         console.log(`All ${checkCount} menu bar checks PASSED.`);
     }
-});
+}
 
 // ---------------------------------------------------------------------------
 // Pre-run-loop tests (no NSApplication needed)
@@ -270,6 +271,11 @@ app.action('test.menuAction', onTestAction);
 app.onWillFinishLaunching(() => {
     state.willFinishLaunching = true;
     console.log('  [CB] willFinishLaunching');
+});
+
+app.onWillTerminate(() => {
+    console.log('  [CB] willTerminate');
+    report();
 });
 
 app.onDidFinishLaunching(() => {

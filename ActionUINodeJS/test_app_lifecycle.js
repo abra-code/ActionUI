@@ -14,8 +14,8 @@
  * Design note
  * -----------
  * NSApplication.terminate() calls C exit() directly — app.run() never returns.
- * Assertions are registered via process.on('exit', ...) which fires via Node.js's
- * C-level atexit handler, same mechanism as Python's atexit module.
+ * That exit() emits no process "exit" event, so the assertions run from willTerminate, the
+ * last callback, which exits with 1 on failure.
  *
  * Background close/terminate is handled by a worker thread (mirrors Python's
  * threading.Thread) since the main thread is blocked inside [NSApp run].
@@ -71,6 +71,7 @@ const state = {
     windowOpenedUuid:       null,
     windowPresentUuid:      null,
     windowClosedUuid:       null,
+    nestedRunError:         null,
     errors:                 [],
 };
 
@@ -86,11 +87,12 @@ function check(label, condition) {
 }
 
 // ---------------------------------------------------------------------------
-// Exit handler — runs after NSApplication.terminate() → exit()
+// Report - runs from willTerminate, the last callback: AppKit then ends the process with C
+// exit(), which emits no process "exit" event, so a process.on("exit") handler never runs.
 // ---------------------------------------------------------------------------
 
-process.on('exit', () => {
-    console.log('\nNSApplication exited — running assertions …\n');
+function report() {
+    console.log('\nNSApplication terminating - running assertions ...\n');
 
     if (state.errors.length > 0) {
         for (const err of state.errors) console.log(`  [ERROR] ${err}`);
@@ -100,11 +102,15 @@ process.on('exit', () => {
     console.log('Lifecycle callbacks:');
     check('willFinishLaunching fired',    state.willFinishLaunching);
     check('didFinishLaunching fired',     state.didFinishLaunching);
-    check('willBecomeActive fired',       state.willBecomeActive);
-    check('didBecomeActive fired',        state.didBecomeActive);
+    // Not checks: macOS activates a launched app only when nothing else holds the focus, so a
+    // run started while another app is in front does not become active.
+    console.log(`  [INFO] willBecomeActive fired: ${state.willBecomeActive ? 'yes' : 'no'}`);
+    console.log(`  [INFO] didBecomeActive fired: ${state.didBecomeActive ? 'yes' : 'no'}`);
     check('shouldTerminate was called',   state.shouldTerminateCalled);
     check('shouldTerminate returned true', state.shouldTerminateResult === true);
     check('willTerminate fired',          state.willTerminate);
+    check('a second app.run() while running throws',
+          /appRun is already running/.test(state.nestedRunError || ''));
 
     console.log();
     console.log('Window lifecycle:');
@@ -130,11 +136,11 @@ process.on('exit', () => {
     if (allBad.length > 0) {
         console.error(`FAILED — ${allBad.length} issue(s):`);
         for (const item of allBad) console.error(`  - ${item}`);
-        process.exitCode = 1;
+        process.exit(1);   // AppKit exits with 0 once this callback returns
     } else {
         console.log(`All ${checkCount} lifecycle integration checks PASSED.`);
     }
-});
+}
 
 // ---------------------------------------------------------------------------
 // Pre-flight checks
@@ -166,6 +172,13 @@ app.onWillFinishLaunching(() => {
 app.onDidFinishLaunching(() => {
     state.didFinishLaunching = true;
     console.log('  [CB] didFinishLaunching');
+
+    // A second run while the app runs is refused.
+    try {
+        app.run();
+    } catch (e) {
+        state.nestedRunError = e.message;
+    }
 
     if (!fs.existsSync(FIXTURE_JSON)) {
         state.errors.push(`Fixture disappeared: ${FIXTURE_JSON}`);
@@ -218,6 +231,7 @@ app.onShouldTerminate(() => {
 app.onWillTerminate(() => {
     state.willTerminate = true;
     console.log('  [CB] willTerminate');
+    report();
 });
 
 // ---------------------------------------------------------------------------

@@ -585,13 +585,14 @@ app.action('tools.run', (ctx) => console.log('Run clicked!'));
 ## Exit handling
 
 `NSApplication.terminate()` calls C `exit()` directly — `app.run()` never returns.
-Register assertions and cleanup using `process.on('exit', fn)`, which fires via
-Node.js's C-level `atexit` handler even during a native `exit()` call.  This is the
-same mechanism as Python's `atexit` module.
+That `exit()` emits no process `exit` event, so a `process.on('exit', fn)` handler never
+runs. Do final work (cleanup, a test's report) in `onWillTerminate`, the last callback
+before the process ends; exit with `process.exit(1)` there to fail, because AppKit's
+`exit(0)` would override `process.exitCode`.
 
 ```js
-process.on('exit', () => {
-    // report results, set process.exitCode = 1 on failure
+app.onWillTerminate(() => {
+    // report results; process.exit(1) on failure
 });
 
 app.run();

@@ -1283,6 +1283,7 @@ static napi_value node_get_content_size_limits(napi_env env, napi_callback_info 
 
 static CFRunLoopObserverRef s_cf_observer = NULL;
 static CFRunLoopTimerRef    s_cf_timer    = NULL;
+static bool                 s_app_running = false;   /* appRun is on the stack */
 /* Note: kqueue code disabled */
 #if KQUEUE_ENABLED
 static CFFileDescriptorRef  s_kq_fdref    = NULL;
@@ -1527,12 +1528,20 @@ static napi_value node_app_set_icon(napi_env env, napi_callback_info info) {
 
 static napi_value node_app_run(napi_env env, napi_callback_info info) {
     if (!require_main_env(env, "appRun")) return NULL;
+    /* A second appRun from inside a callback would set up the pump a second time, leaking the
+     * first observer and timer, and tear it down on return while the first run goes on. */
+    if (s_app_running) {
+        napi_throw_error(env, NULL, "appRun is already running");
+        return NULL;
+    }
+    s_app_running = true;
     uv_loop_t* loop = NULL;
     napi_get_uv_event_loop(env, &loop);
     g_state->uv_loop = loop;
     uv_cf_setup(loop);
     actionUIAppRun();   /* blocks until NSApp terminates */
     uv_cf_teardown();
+    s_app_running = false;
     napi_value undefined; napi_get_undefined(env, &undefined); return undefined;
 }
 
