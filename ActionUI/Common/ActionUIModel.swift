@@ -309,7 +309,7 @@ public class ActionUIModel: ObservableObject {
                 // serialize a full ISO datetime so a host can read HH:mm; every
                 // other Date-valued element (and date-only DatePickers) stays a
                 // bare "YYYY-MM-DD" for backward compatibility.
-                let components = viewModel.validatedProperties["displayedComponents"] as? String
+                let components = ActionUI.DatePicker.Props(viewModel.validatedProperties).displayedComponents?.rawValue
                 if viewModel.elementType == "DatePicker", ActionUI.DatePicker.isTimeBearing(components) {
                     return DateHelper.formatDateTime(from: date)
                 }
@@ -579,7 +579,7 @@ public class ActionUIModel: ObservableObject {
     // Uses the actual content rows to determine column count, which may exceed the number
     // of visible columns defined in the JSON — this supports hidden columns beyond the
     // displayed ones (e.g., a hidden ID column needed at runtime but not shown to the user).
-    // Falls back to validatedProperties["columns"].count if content is not yet loaded.
+    // Falls back to the number of "columns" property names (Table) if content is not yet loaded.
     // Returns 0 for non-table elements, or if the view is not found.
     public func getElementColumnCount(windowUUID: String, viewID: Int) -> Int {
         guard let viewModel = windowModels[windowUUID]?.viewModels[viewID] else {
@@ -591,10 +591,7 @@ public class ActionUIModel: ObservableObject {
             return content.map { $0.count }.max() ?? 0
         }
         // Fall back to visible column count before any content is loaded
-        if let columns = viewModel.validatedProperties["columns"] as? [String] {
-            return columns.count
-        }
-        return 0
+        return Table.Props(viewModel.validatedProperties).columns.count
     }
 
     // Returns all content rows for a table view element.

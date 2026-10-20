@@ -16,7 +16,7 @@ struct SelectionListHelper {
         var childToDestination: [Int: Int] = [:]
         var destinationToChild: [Int: Int] = [:]
         for child in children {
-            if let destId = windowModel?.viewModels[child.id]?.validatedProperties["destinationViewId"] as? Int {
+            if let destId = windowModel?.viewModels[child.id].flatMap({ BaseModifiers($0.validatedProperties).destinationViewId }) {
                 childToDestination[child.id] = destId
                 destinationToChild[destId] = child.id
             }

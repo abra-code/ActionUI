@@ -5,6 +5,14 @@ import SwiftUI
 // Maps a JSON placement string to the SwiftUI ToolbarItemPlacement value.
 // Platform-unavailable placements (e.g., "bottomBar" on macOS) fall back to .automatic.
 enum ToolbarHelper {
+    /// The placement name of a toolbar item: from its view model's current properties when they carry
+    /// a placement, else from the element's own. ToolbarItem and ToolbarItemGroup parse it the same
+    /// way: a name that is not one of theirs, or no string, is "automatic".
+    static func placementName(current: [String: Any]?, element: [String: Any]) -> String {
+        let source = current.flatMap { $0["placement"] != nil ? $0 : nil } ?? element
+        return ToolbarItem.Props(source).placement.rawValue
+    }
+
     static func resolvePlacement(_ string: String?) -> ToolbarItemPlacement {
         switch string {
         case "automatic":
@@ -380,10 +388,9 @@ struct ToolbarModifierView<Content: SwiftUI.View>: SwiftUI.View {
         var view: AnyView = AnyView(content)
         for item in toolbarItems {
             let windowModel = ActionUIModel.shared.windowModels[windowUUID]
-            // Prefer validated placement from the ViewModel; fall back to raw property.
-            let placementStr = windowModel?.viewModels[item.id]?.validatedProperties["placement"] as? String
-                ?? item.properties["placement"] as? String
-            let placement = ToolbarHelper.resolvePlacement(placementStr)
+            let placement = ToolbarHelper.resolvePlacement(ToolbarHelper.placementName(
+                current: windowModel?.viewModels[item.id]?.validatedProperties, element: item.properties
+            ))
             let capturedItem = item
             let capturedWindowUUID = windowUUID
             if item.type == "ToolbarItemGroup" {

@@ -224,6 +224,18 @@ final class BaseModifiersTests: XCTestCase {
         XCTAssertNil(BaseModifiers(["searchable": "query"]).searchable)
     }
 
+    func testPropertiesOtherElementsRead() {
+        let mods = BaseModifiers(["actionID": "row.selected", "destinationViewId": 12])
+        XCTAssertEqual(mods.actionID, "row.selected")
+        XCTAssertEqual(mods.destinationViewId, 12)
+        XCTAssertNil(BaseModifiers([:]).actionID)
+        XCTAssertNil(BaseModifiers([:]).destinationViewId)
+        // An Int only, and a String only.
+        XCTAssertNil(BaseModifiers(["destinationViewId": "12"]).destinationViewId)
+        XCTAssertNil(BaseModifiers(["destinationViewId": 12.5]).destinationViewId)
+        XCTAssertNil(BaseModifiers(["actionID": 5]).actionID)
+    }
+
     func testStructuredKeysUseModifierParsing() {
         let mods = BaseModifiers([
             "padding": 10, "frame": ["width": 100], "clipShape": "circle", "offset": ["x": 1],

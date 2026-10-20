@@ -227,6 +227,13 @@ struct BaseModifiers {
     var popoverArrowEdge: EdgeName
     var popoverActionID: String?
 
+    // MARK: - Base properties other elements read (not modifiers)
+
+    /// The element's action; what fires it depends on the element. A container reads its child's.
+    var actionID: String?
+    /// Links the element to a destination of an enclosing navigation container (an Int only).
+    var destinationViewId: Int?
+
     init(_ properties: [String: Any]) {
         padding = ModifierParsing.padding(properties["padding"])
         let font = properties["font"]
@@ -295,5 +302,7 @@ struct BaseModifiers {
         }
         popoverArrowEdge = (properties["popoverArrowEdge"] as? String).flatMap(EdgeName.init(rawValue:)) ?? .top
         popoverActionID = properties["popoverActionID"] as? String
+        actionID = properties["actionID"] as? String
+        destinationViewId = properties["destinationViewId"] as? Int
     }
 }

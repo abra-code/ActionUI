@@ -101,6 +101,8 @@ final class BaseModifiersValidationTests: XCTestCase {
                        ["actionID": ""], ["prompt": "Search"], "query"],
         "popoverArrowEdge": ["bottom", "leading", "nowhere", 5],
         "popoverActionID": ["popover", 5],
+        "actionID": ["row.selected", 5],
+        "destinationViewId": [12, "12", 12.5, true],
     ]
 
     func testEveryKeyAloneMatchesValidation() {

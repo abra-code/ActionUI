@@ -206,7 +206,7 @@ struct NavigationSplitView: ActionUIViewConstruction {
                     DispatchQueue.main.async {
                         model.states["selectedDestination"] = destinationId
                         if let sidebarModel = windowModel?.viewModels[sidebar.id],
-                           let actionID = sidebarModel.validatedProperties["actionID"] as? String {
+                           let actionID = BaseModifiers(sidebarModel.validatedProperties).actionID {
                             ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: sidebar.id, viewPartID: 0)
                         }
                     }
