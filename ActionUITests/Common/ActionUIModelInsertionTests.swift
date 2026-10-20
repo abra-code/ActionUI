@@ -508,6 +508,40 @@ final class ActionUIModelInsertionTests: XCTestCase {
         XCTAssertNil(insertedCell?.properties["text:android"], "Inactive-platform key should be dropped")
     }
 
+    // MARK: - Renderer hook for structural mutations
+
+    func testStructuralMutationsGoThroughRendererHookAnimatedOnlyWithTransition() throws {
+        try loadVStack(id: 1)
+        var calls: [Bool] = []
+        ActionUIRendererHooks.structuralMutation = { animated, body in
+            calls.append(animated)
+            body()
+        }
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 10))
+        var withTransition = textDict(id: 11)
+        withTransition["properties"] = ["text": "fades", "transition": "opacity"]
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: withTransition)
+        try model.removeElement(windowUUID: windowUUID, viewID: 11)
+        try model.removeElement(windowUUID: windowUUID, viewID: 10)
+
+        XCTAssertEqual(calls, [false, true, true, false])
+        let children = model.windowModels[windowUUID]?.viewModels[1]?.dynamicSubviews?["children"] as? [ActionUIElement]
+        XCTAssertEqual(children?.count, 0, "The hook must run the mutation it is given")
+    }
+
+    func testLoadingBuiltInsInstallsTheSwiftUIHook() throws {
+        var called = false
+        ActionUIRendererHooks.structuralMutation = { _, body in
+            called = true
+            body()
+        }
+        ActionUIRegistry.shared.resetForTesting()
+        try loadVStack(id: 1)
+        _ = try model.insertElement(windowUUID: windowUUID, parentID: 1, dict: textDict(id: 10))
+        XCTAssertFalse(called, "loadBuiltIns must replace any earlier hook with the SwiftUI one")
+        XCTAssertNotNil(model.windowModels[windowUUID]?.viewModels[10])
+    }
+
     #if os(macOS)
     func testInsertElementPlatformSuffixSpecificityMacOS() throws {
         // On macOS the active set is ["macos", "apple"]; a specific `:macos` key must

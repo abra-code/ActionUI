@@ -2,7 +2,8 @@
 /*
  The SwiftUI renderers of the built-in element types, keyed like ActionUIRegistry.builtInSpecs
  (Core/Elements/BuiltInElements.swift), and the built-in elements that are still Apple-only: their
- spec needs SwiftUI types or helpers, so one type is both their spec and their renderer.
+ spec needs SwiftUI types or helpers, so one type is both their spec and their renderer. Also the
+ SwiftUI side of ActionUIRendererHooks.
 */
 
 import SwiftUI
@@ -81,4 +82,14 @@ extension ActionUIRegistry {
         ("Color", Color.self),
         ("ColorPicker", ColorPicker.self),
     ]
+
+    // ActionUIRendererHooks.structuralMutation for SwiftUI: an animated insert or removal runs
+    // inside withAnimation, so the element's .transition() plays.
+    static func swiftUIStructuralMutation(animated: Bool, body: () -> Void) {
+        if animated {
+            withAnimation { body() }
+        } else {
+            body()
+        }
+    }
 }

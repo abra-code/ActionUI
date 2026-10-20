@@ -1,5 +1,9 @@
-// Common/WindowModel.swift
-import SwiftUI
+// Core/Common/WindowModel.swift
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
+import Foundation
+#endif
 import Observation
 
 /*
@@ -243,15 +247,12 @@ final class WindowModel {
     // list. The static element graph is left untouched — the merge happens in
     // ActionUIRegistry.buildView via applyDynamicSubviews(to:from:).
 
-    /// Runs a structural mutation, wrapping it in `withAnimation` when the inserted/removed
-    /// `element` declares a `transition` so SwiftUI plays that element's `.transition()`. Without a
-    /// declared transition the change applies instantly (the gap-#21 default - no behavior change).
+    /// Runs a structural mutation through the renderer, animated when the inserted/removed
+    /// `element` declares a `transition` so the renderer plays it (SwiftUI: `withAnimation`, so the
+    /// element's `.transition()` runs). Without a declared transition the change applies instantly
+    /// (the gap-#21 default - no behavior change).
     private func runStructuralMutation(animatedFor element: any ActionUIElementBase, _ body: () -> Void) {
-        if element.properties["transition"] != nil {
-            withAnimation { body() }
-        } else {
-            body()
-        }
+        ActionUIRendererHooks.structuralMutation(element.properties["transition"] != nil, body)
     }
 
     /// Insert an element into a flat container. Returns the inserted element's id.

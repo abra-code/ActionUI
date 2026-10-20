@@ -48,6 +48,7 @@ public class ActionUIRegistry {
     internal func loadBuiltIns() {
         specs = Dictionary(uniqueKeysWithValues: (Self.builtInSpecs + Self.appleOnlySpecs).map { ($0.name, $0.type) })
         renderers = Self.builtInSwiftUIRenderers
+        ActionUIRendererHooks.structuralMutation = Self.swiftUIStructuralMutation
     }
     
     /// Registers an external, add-on view-construction type so its `type` token can be used in
