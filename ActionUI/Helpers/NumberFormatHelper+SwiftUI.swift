@@ -97,27 +97,21 @@ extension NumberFormatHelper {
     private static func decimalStyle(
         minFraction: Int?, maxFraction: Int?
     ) -> FloatingPointFormatStyle<Double>? {
-        guard minFraction != nil || maxFraction != nil else { return nil }
-        let min = minFraction ?? 0
-        let max = maxFraction ?? min
-        return .number.precision(.fractionLength(min...max))
+        NumberFormatHelper.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
+            .map { .number.precision(.fractionLength($0)) }
     }
 
     private static func percentStyle(
         minFraction: Int?, maxFraction: Int?
     ) -> FloatingPointFormatStyle<Double>.Percent? {
-        guard minFraction != nil || maxFraction != nil else { return nil }
-        let min = minFraction ?? 0
-        let max = maxFraction ?? min
-        return .percent.precision(.fractionLength(min...max))
+        NumberFormatHelper.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
+            .map { .percent.precision(.fractionLength($0)) }
     }
 
     private static func currencyStyle(
         code: String, minFraction: Int?, maxFraction: Int?
     ) -> FloatingPointFormatStyle<Double>.Currency? {
-        guard minFraction != nil || maxFraction != nil else { return nil }
-        let min = minFraction ?? 0
-        let max = maxFraction ?? min
-        return .currency(code: code).precision(.fractionLength(min...max))
+        NumberFormatHelper.fractionRange(minFraction: minFraction, maxFraction: maxFraction)
+            .map { .currency(code: code).precision(.fractionLength($0)) }
     }
 }

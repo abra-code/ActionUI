@@ -783,9 +783,7 @@ enum ChartAxisContentBuilder {
     // Number formats: Double styles on number and integer axes alike (Swift Charts formats an
     // Int axis value through a Double style).
     private static func precision(_ low: Int?, _ high: Int?) -> ClosedRange<Int>? {
-        guard low != nil || high != nil else { return nil }
-        let min = low ?? 0
-        return min...max(min, high ?? min)
+        NumberFormatHelper.fractionRange(minFraction: low, maxFraction: high)
     }
 
     private static func decimal(_ low: Int?, _ high: Int?) -> FloatingPointFormatStyle<Double> {

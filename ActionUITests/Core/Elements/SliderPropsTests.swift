@@ -66,6 +66,22 @@ final class SliderPropsTests: XCTestCase {
         XCTAssertNil(Slider.Props(["range": ["min": 2, "max": 2], "step": 0]).step)
     }
 
+    func testStepThatMakesTooManyStepsIsNone() {
+        // A million steps is the limit: SwiftUI keeps each in memory and stops the app on too many.
+        XCTAssertEqual(Slider.Props(["range": ["min": 0, "max": 1_000_000], "step": 1]).step, 1)
+        XCTAssertNil(Slider.Props(["range": ["min": 0, "max": 1_000_001], "step": 1]).step)
+        XCTAssertNil(Slider.Props(["range": ["min": 0, "max": 1], "step": 1e-15]).step)
+        XCTAssertNil(Slider.Props(["range": ["min": 0, "max": 1e300], "step": 1]).step)
+    }
+
+    func testStepWithAnInfiniteRangeIsNone() {
+        // Only a host adapter can set an infinite bound; JSON has no infinity.
+        XCTAssertNil(Slider.Props(["range": ["min": 0, "max": Double.infinity], "step": 1]).step)
+        XCTAssertNil(Slider.Props(["range": ["min": -Double.infinity, "max": Double.infinity], "step": 1]).step)
+        XCTAssertNil(Slider.Props(["range": ["min": 0, "max": Double.infinity], "step": Double.infinity]).step)
+        XCTAssertNil(Slider.Props(["range": ["min": -1e308, "max": 1e308], "step": 1e308]).step)
+    }
+
     func testAcceptsOnlyValuesInTheRange() {
         let props = Slider.Props(["range": ["min": 1, "max": 3]])
         XCTAssertTrue(props.accepts(1))

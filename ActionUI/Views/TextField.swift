@@ -100,7 +100,9 @@ extension TextField {
                 lineLimit = .exact(exact)
             } else if let dict = properties["lineLimit"] as? [String: Any] {
                 let min = dict["min"] as? Int
-                let max = dict["max"] as? Int
+                var max = dict["max"] as? Int
+                // A max below the min is raised to it: a reversed range would stop the app.
+                if let lo = min, let hi = max, hi < lo { max = lo }
                 lineLimit = (min != nil || max != nil) ? .range(min: min, max: max) : nil
             }
             actionID = properties["actionID"] as? String

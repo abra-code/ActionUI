@@ -95,4 +95,20 @@ final class TextFieldPropsTests: XCTestCase {
         XCTAssertNil(TextField.Props(["lineLimit": ["min": "a"]]).lineLimit)
         XCTAssertNil(TextField.Props(["lineLimit": "3"]).lineLimit)
     }
+
+    func testReversedLineLimitIsRaisedToTheMin() {
+        XCTAssertEqual(TextField.Props(["lineLimit": ["min": 5, "max": 2]]).lineLimit, .range(min: 5, max: 5))
+        XCTAssertEqual(TextField.Props(["lineLimit": ["min": 0, "max": -1]]).lineLimit, .range(min: 0, max: 0))
+    }
+
+    func testFractionRange() {
+        XCTAssertNil(NumberFormatHelper.fractionRange(minFraction: nil, maxFraction: nil))
+        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 2, maxFraction: 2), 2...2)
+        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 1, maxFraction: 3), 1...3)
+        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 2, maxFraction: nil), 2...2)
+        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: nil, maxFraction: 3), 0...3)
+        // A reversed range would stop the app: the max is raised to the min.
+        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: 4, maxFraction: 1), 4...4)
+        XCTAssertEqual(NumberFormatHelper.fractionRange(minFraction: nil, maxFraction: -1), 0...0)
+    }
 }

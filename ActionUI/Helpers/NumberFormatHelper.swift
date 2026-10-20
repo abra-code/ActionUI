@@ -54,6 +54,15 @@ enum NumberFormatHelper: Equatable, Sendable {
         return "0"
     }
 
+    /// The fraction digits as a range, or nil when neither bound is given. A missing min is 0, a
+    /// missing max is the min, and a max below the min is raised to it: a reversed range would
+    /// stop the app.
+    static func fractionRange(minFraction: Int?, maxFraction: Int?) -> ClosedRange<Int>? {
+        guard minFraction != nil || maxFraction != nil else { return nil }
+        let min = minFraction ?? 0
+        return min...Swift.max(min, maxFraction ?? min)
+    }
+
     // MARK: - Private
 
     private static func parseFractionLength(from properties: [String: Any]) -> (Int?, Int?) {
