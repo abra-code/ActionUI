@@ -176,6 +176,71 @@
 
 import SwiftUI
 
+extension Canvas {
+    /// Canvas's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props {
+        enum CoordinateMode: String, Sendable, CaseIterable {
+            case normalized, points
+        }
+
+        /// The drawing operations that survive filtering, as raw dictionaries: the renderer
+        /// (CanvasRenderer) parses them.
+        var operations: [[String: Any]] = []
+        var backgroundColor: String?
+        var coordinateMode = CoordinateMode.normalized
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            operations = Self.filtered(properties["operations"] as? [[String: Any]] ?? [])
+            backgroundColor = properties["backgroundColor"] as? String
+            coordinateMode = (properties["coordinateMode"] as? String).flatMap(CoordinateMode.init(rawValue:)) ?? .normalized
+            actionID = properties["actionID"] as? String
+        }
+
+        /// Drops what the renderer could not draw: no type, an unknown type, or the required keys
+        /// missing (a path, text and frame, exactly one image source and a frame, a blur radius,
+        /// a layer frame). A layer's own operations are filtered the same way.
+        private static func filtered(_ operations: [[String: Any]]) -> [[String: Any]] {
+            operations.compactMap { operation -> [String: Any]? in
+                guard let type = operation["type"] as? String else { return nil }
+
+                var kept = operation
+
+                switch type.lowercased() {
+                case "fill", "stroke", "clip":
+                    if operation["path"] as? [String: Any] == nil { return nil }
+
+                case "text":
+                    if operation["text"] as? String == nil || (operation["frame"] as? [Any])?.count != 4 { return nil }
+
+                case "image":
+                    let sources = ["systemName", "assetName", "resourceName", "filePath"].filter { operation[$0] != nil }
+                    if sources.count != 1 || (operation["frame"] as? [Any])?.count != 4 { return nil }
+
+                case "shadow":
+                    break
+
+                case "blur":
+                    if operation.double(forKey: "radius") == nil { return nil }
+
+                case "layer":
+                    if (operation["frame"] as? [Any])?.count != 4 { return nil }
+                    if let sub = operation["operations"] as? [[String: Any]] {
+                        kept["operations"] = filtered(sub)
+                    }
+
+                case "translate", "scale", "rotate":
+                    break
+
+                default:
+                    return nil
+                }
+                return kept
+            }
+        }
+    }
+}
+
 struct Canvas: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -261,10 +326,11 @@ struct Canvas: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        let ops = properties["operations"] as? [[String: Any]] ?? []
-        let bg = ColorHelper.resolveColor(properties["backgroundColor"] as? String) ?? .clear
-        let coord = properties["coordinateMode"] as? String ?? "normalized"
-        let actionID = properties["actionID"] as? String
+        let props = Props(properties)
+        let ops = props.operations
+        let bg = ColorHelper.resolveColor(props.backgroundColor) ?? .clear
+        let coord = props.coordinateMode.rawValue
+        let actionID = props.actionID
         
         return SwiftUI.Canvas { context, size in
             if bg != .clear {

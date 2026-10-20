@@ -71,6 +71,65 @@ public enum WebViewImplementation: String, Sendable {
     case swiftUI
 }
 
+extension WebView {
+    /// WebView's properties, parsed from the raw dictionary. Built at the start of every render.
+    /// Both backings (WebViewContent here and WKWebViewRepresentable in WebViewNative.swift) read this.
+    struct Props: Sendable {
+        enum InjectionTime: String, Sendable, CaseIterable {
+            case documentStart, documentEnd
+        }
+
+        struct UserScript: Sendable {
+            var source: String?
+            var filePath: String?
+            var resourceName: String?
+            /// documentEnd when absent or not a valid name.
+            var injectionTime = InjectionTime.documentEnd
+            var forMainFrameOnly = false
+
+            init(_ descriptor: [String: Any]) {
+                source = descriptor["source"] as? String
+                filePath = descriptor["filePath"] as? String
+                resourceName = descriptor["resourceName"] as? String
+                injectionTime = (descriptor["injectionTime"] as? String).flatMap(InjectionTime.init(rawValue:)) ?? .documentEnd
+                forMainFrameOnly = descriptor["forMainFrameOnly"] as? Bool ?? false
+            }
+        }
+
+        var url: String?
+        var html: String?
+        var baseURL: String?
+        var customUserAgent: String?
+        var backForwardNavigationGestures = true
+        var magnificationGestures = true
+        var linkPreviews = true
+        /// nil leaves the web view's own default.
+        var limitsNavigationsToAppBoundDomains: Bool?
+        var upgradeKnownHostsToHTTPS: Bool?
+        /// The scripts with a source, a file path or a resource name; others are skipped.
+        var userScripts: [UserScript] = []
+        var valueChangeActionID: String?
+        var navigationActionID: String?
+
+        init(_ properties: [String: Any]) {
+            url = properties["url"] as? String
+            html = properties["html"] as? String
+            baseURL = properties["baseURL"] as? String
+            customUserAgent = properties["customUserAgent"] as? String
+            backForwardNavigationGestures = properties["backForwardNavigationGestures"] as? Bool ?? true
+            magnificationGestures = properties["magnificationGestures"] as? Bool ?? true
+            linkPreviews = properties["linkPreviews"] as? Bool ?? true
+            limitsNavigationsToAppBoundDomains = properties["limitsNavigationsToAppBoundDomains"] as? Bool
+            upgradeKnownHostsToHTTPS = properties["upgradeKnownHostsToHTTPS"] as? Bool
+            userScripts = (properties["userScripts"] as? [[String: Any]] ?? []).map(UserScript.init).filter {
+                $0.source != nil || $0.filePath != nil || $0.resourceName != nil
+            }
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+            navigationActionID = properties["navigationActionID"] as? String
+        }
+    }
+}
+
 struct WebView: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -163,9 +222,10 @@ struct WebView: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let native = WKWebViewRepresentable(
             model: model,
-            properties: properties,
+            props: props,
             element: element,
             windowUUID: windowUUID,
             logger: logger
@@ -178,7 +238,7 @@ struct WebView: ActionUIViewConstruction {
             if #available(iOS 26.0, macOS 26.0, *) {
                 return WebViewContent(
                     model: model,
-                    properties: properties,
+                    props: props,
                     element: element,
                     windowUUID: windowUUID,
                     logger: logger
@@ -192,7 +252,7 @@ struct WebView: ActionUIViewConstruction {
 
     static var initialValue: (ViewModel) -> Any? = { model in
         if let existing = model.value as? String { return existing }
-        return model.validatedProperties["url"] as? String ?? ""
+        return Props(model.validatedProperties).url ?? ""
     }
 
     static var initialStates: (ViewModel) -> [String: Any] = { model in
@@ -216,18 +276,18 @@ private struct WebViewContent: SwiftUI.View {
     /// programmatic URL updates from host-app navigation commands in onChange(of: commandValue).
     @State private var lastTrackedURL: String
     @ObservedObject var model: ViewModel
-    let properties: [String: Any]
+    let props: WebView.Props
     let element: any ActionUIElementBase
     let windowUUID: String
     let logger: any ActionUILogger
 
-    init(model: ViewModel, properties: [String: Any], element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
+    init(model: ViewModel, props: WebView.Props, element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
         self.model = model
-        self.properties = properties
+        self.props = props
         self.element = element
         self.windowUUID = windowUUID
         self.logger = logger
-        _page = State(initialValue: WebPage(configuration: WebViewContent.makeConfiguration(properties: properties, logger: logger)))
+        _page = State(initialValue: WebPage(configuration: WebViewContent.makeConfiguration(props: props, logger: logger)))
         _lastTrackedURL = State(initialValue: "")
     }
 
@@ -243,7 +303,7 @@ private struct WebViewContent: SwiftUI.View {
             // Loading state changed – sync progress/navigation state and fire navigationActionID
             .onChange(of: page.isLoading) { _, _ in
                 syncNavigationState()
-                if let navActionID = properties["navigationActionID"] as? String {
+                if let navActionID = props.navigationActionID {
                     ActionUIModel.shared.actionHandler(navActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
                 }
             }
@@ -269,9 +329,9 @@ private struct WebViewContent: SwiftUI.View {
 
     @ViewBuilder
     private func makeWebView() -> some SwiftUI.View {
-        let backForward = properties["backForwardNavigationGestures"] as? Bool ?? true
-        let magnification = properties["magnificationGestures"] as? Bool ?? true
-        let linkPreviews = properties["linkPreviews"] as? Bool ?? true
+        let backForward = props.backForwardNavigationGestures
+        let magnification = props.magnificationGestures
+        let linkPreviews = props.linkPreviews
         // WebKit.WebView refers to the SDK's SwiftUI WebView type (from _WebKit_SwiftUI overlay).
         // The explicit module prefix disambiguates from our own ActionUI.WebView struct.
         WebKit.WebView(page)
@@ -282,20 +342,20 @@ private struct WebViewContent: SwiftUI.View {
 
     // MARK: Configuration
 
-    /// Builds a WebPage.Configuration from validated properties.
+    /// Builds a WebPage.Configuration from the parsed properties.
     /// Called once at init time so user scripts survive page reloads within the same view lifetime.
-    private static func makeConfiguration(properties: [String: Any], logger: any ActionUILogger) -> WebPage.Configuration {
+    private static func makeConfiguration(props: WebView.Props, logger: any ActionUILogger) -> WebPage.Configuration {
         var config = WebPage.Configuration()
 
-        if let limits = properties["limitsNavigationsToAppBoundDomains"] as? Bool {
+        if let limits = props.limitsNavigationsToAppBoundDomains {
             config.limitsNavigationsToAppBoundDomains = limits
         }
 
-        if let upgrade = properties["upgradeKnownHostsToHTTPS"] as? Bool {
+        if let upgrade = props.upgradeKnownHostsToHTTPS {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = WebViewSupport.buildUserScripts(from: properties, logger: logger)
+        let scripts = WebViewSupport.buildUserScripts(props.userScripts, logger: logger)
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {
@@ -310,7 +370,7 @@ private struct WebViewContent: SwiftUI.View {
     // MARK: Setup
 
     private func setupPage() {
-        if let userAgent = properties["customUserAgent"] as? String {
+        if let userAgent = props.customUserAgent {
             page.customUserAgent = userAgent
         }
     }
@@ -320,9 +380,9 @@ private struct WebViewContent: SwiftUI.View {
         // a previously persisted URL. Prefer it over re-reading properties directly.
         if let urlString = model.value as? String, !urlString.isEmpty, let url = URL(string: urlString) {
             page.load(URLRequest(url: url))
-        } else if let html = properties["html"] as? String {
+        } else if let html = props.html {
             // baseURL has a default of "about:blank" in the SDK, but we honour the property when set.
-            let baseURL = (properties["baseURL"] as? String).flatMap { URL(string: $0) }
+            let baseURL = props.baseURL.flatMap { URL(string: $0) }
                 ?? URL(string: "about:blank")!
             page.load(html: html, baseURL: baseURL)
         }
@@ -338,7 +398,7 @@ private struct WebViewContent: SwiftUI.View {
             model.value = urlString
             model.states["canGoBack"] = !page.backForwardList.backList.isEmpty
             model.states["canGoForward"] = !page.backForwardList.forwardList.isEmpty
-            if let actionID = properties["valueChangeActionID"] as? String, !urlString.isEmpty {
+            if let actionID = props.valueChangeActionID, !urlString.isEmpty {
                 ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
             }
         }

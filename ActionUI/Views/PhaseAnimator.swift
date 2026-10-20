@@ -33,6 +33,37 @@
 import SwiftUI
 import Combine // Explicitly set access level to internal
 
+extension PhaseAnimator {
+    /// PhaseAnimator's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var values: [Double] = [0.0, 1.0]
+        var trigger = "onAppear"
+        var timerInterval = 1.0
+        var stateKey = "counter"
+        /// The "animation" key is also a base View key: what the base validation keeps of it
+        /// (a valid curve with optional duration, delay, speed and value; nothing else) is all
+        /// the renderer gets, so this is the base parse. nil without a valid curve.
+        var animation: BaseModifiers.Animation?
+
+        init(_ properties: [String: Any]) {
+            if let list = properties["values"] as? [Any] {
+                values = list.map(Self.numberOrZero)
+            }
+            trigger = properties["trigger"] as? String ?? "onAppear"
+            timerInterval = properties.double(forKey: "timerInterval") ?? 1.0
+            stateKey = properties["stateKey"] as? String ?? "counter"
+            animation = ModifierParsing.animation(properties["animation"])
+        }
+
+        /// A list entry that does not bridge to NSNumber counts as 0 (a Bool as 0 or 1; a String,
+        /// even "inf", as 0). NSNumber is what the renderer has always read these through, so a
+        /// Decimal counts and a Float16 does not.
+        private static func numberOrZero(_ value: Any) -> Double {
+            (value as? NSNumber)?.doubleValue ?? 0.0
+        }
+    }
+}
+
 struct PhaseAnimator: ActionUIViewConstruction {
     static var valueType: Any.Type = Void.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -46,22 +77,25 @@ struct PhaseAnimator: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let values = properties.doubleArray(forKey: "values") ?? [0.0, 1.0]
-        let trigger = (properties["trigger"] as? String) ?? "onAppear"
-        let timerInterval = (properties.double(forKey: "timerInterval")) ?? 1.0
-        let stateKey = (properties["stateKey"] as? String) ?? "counter"
-        let animationDict = (properties["animation"] as? [String: Any]) ?? ["type": "linear", "duration": 1.0]
+        let values = props.values
+        let trigger = props.trigger
+        let timerInterval = props.timerInterval
+        let stateKey = props.stateKey
 
         // Define animation
+        // The base validation rebuilds "animation" with only curve, duration, delay, speed and value, so
+        // this renderer never got a "type" or the keys of the other curves: it was always linear, with the
+        // duration kept by the base validation, or 1.0 when there is none.
         let animation: Animation
-        let type = animationDict["type"] as? String ?? "linear"
-        let duration = animationDict.double(forKey: "duration") ?? 1.0
-        let response = animationDict.double(forKey: "response") ?? 0.5
-        let dampingFraction = animationDict.double(forKey: "dampingFraction") ?? 0.7
-        let blendDuration = animationDict.double(forKey: "blendDuration") ?? 0.0
-        let extraBounce = animationDict.double(forKey: "extraBounce") ?? 0.0
-        let controlPoints = animationDict.doubleArray(forKey: "controlPoints") ?? [0.0, 0.0, 1.0, 1.0]
+        let type = "linear"
+        let duration = props.animation?.duration ?? 1.0
+        let response = 0.5
+        let dampingFraction = 0.7
+        let blendDuration = 0.0
+        let extraBounce = 0.0
+        let controlPoints = [0.0, 0.0, 1.0, 1.0]
         
         switch type {
         case "linear":

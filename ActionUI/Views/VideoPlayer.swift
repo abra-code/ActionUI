@@ -15,6 +15,19 @@
 import SwiftUI
 import AVKit
 
+extension VideoPlayer {
+    /// VideoPlayer's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        var url: String?
+        var autoplay: Bool?
+
+        init(_ properties: [String: Any]) {
+            url = properties["url"] as? String
+            autoplay = properties["autoplay"] as? Bool
+        }
+    }
+}
+
 struct VideoPlayer: ActionUIViewConstruction {
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
     static var parseStringValue: ((String, String?, any ActionUILogger) -> Any?)? = nil
@@ -43,11 +56,12 @@ struct VideoPlayer: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(AVKit)
+        let props = Props(properties)
         // Use viewModel.value if set, otherwise use initialValue
         let urlString = Self.initialValue(model) as? String ?? ""
         if let url = URL(string: urlString) {
             // Hoist autoplay out of the closure: [String: Any] is non-Sendable.
-            let autoplay = properties["autoplay"] as? Bool
+            let autoplay = props.autoplay
             // Construction is delegated to a dedicated SwiftUI view: AVKit's VideoPlayer initializer
             // carries main-actor-isolated default arguments that cannot be resolved from this nonisolated
             // buildView closure under Swift 6. A View struct's body is @MainActor-isolated, so the AVKit
@@ -71,7 +85,7 @@ struct VideoPlayer: ActionUIViewConstruction {
         if let initialValue = model.value as? String {
             return initialValue
         }
-        let initialValue = model.validatedProperties["url"] as? String ?? ""
+        let initialValue = Props(model.validatedProperties).url ?? ""
         return initialValue
     }
 }

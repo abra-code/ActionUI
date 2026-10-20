@@ -176,6 +176,25 @@
 import SwiftUI
 import Charts
 
+extension Chart {
+    /// Chart's properties, parsed from the raw dictionary. Built at the start of every render.
+    /// The chart description ("chart") is not here: the validator stores it parsed and cleaned,
+    /// and the renderer caches the parse in the view model.
+    struct Props: Sendable {
+        enum SelectionActionTiming: String, Sendable, CaseIterable {
+            case settled, continuous
+        }
+
+        var valueChangeActionID: String?
+        var selectionActionTiming = SelectionActionTiming.settled
+
+        init(_ properties: [String: Any]) {
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+            selectionActionTiming = (properties["selectionActionTiming"] as? String).flatMap(SelectionActionTiming.init(rawValue:)) ?? .settled
+        }
+    }
+}
+
 struct Chart: ActionUIViewConstruction {
     static var valueType: Any.Type = String.self
     static var initialValue: (ViewModel) -> Any? = { model in model.value as? String ?? "" }
@@ -248,6 +267,7 @@ struct Chart: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let cache: ChartRenderCache
         if let existing = model.elementCache as? ChartRenderCache {
             cache = existing
@@ -266,8 +286,8 @@ struct Chart: ActionUIViewConstruction {
         // without subviews.
         let plotElement = ActionUIElement(id: element.id, type: element.type, properties: plotStyle, subviews: nil)
         let binder = ChartSelectionBinder(model: model, spec: rendered.spec.selection, cache: cache, windowUUID: windowUUID,
-                                          viewID: element.id, actionID: properties["valueChangeActionID"] as? String,
-                                          continuous: properties["selectionActionTiming"] as? String == "continuous")
+                                          viewID: element.id, actionID: props.valueChangeActionID,
+                                          continuous: props.selectionActionTiming == .continuous)
         return Charts.Chart(items, id: \.id) { $0.content }
             .chartModifiers(rendered.spec, plotStyle: plotStyle.isEmpty ? nil : { plot in
                 AnyView(View.applyModifiers(plot, plotElement, windowUUID, plotStyle, logger))

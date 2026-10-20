@@ -42,6 +42,40 @@ struct AnimationValues: Equatable {
     var rotation: Double = 0.0
 }
 
+extension KeyframeAnimator {
+    /// KeyframeAnimator's properties, parsed from the raw dictionary. Built at the start of every render.
+    /// The keyframes stay raw dictionaries (the renderer reads their keys), so Props is not Sendable.
+    struct Props {
+        var initialValue = AnimationValues()
+        var trigger = "onAppear"
+        var timerInterval = 1.0
+        var stateKey = "counter"
+        /// "repeat"."count"; only an Int counts.
+        var repeatCount = 1
+        var autoreverses = false
+        var delay = 0.0
+        var keyframes: [String: [String: Any]] = [:]
+
+        init(_ properties: [String: Any]) {
+            if let values = properties["initialValue"] as? [String: Any] {
+                initialValue = AnimationValues(
+                    opacity: values.double(forKey: "opacity") ?? 1.0,
+                    scale: values.double(forKey: "scale") ?? 1.0,
+                    rotation: values.double(forKey: "rotation") ?? 0.0
+                )
+            }
+            trigger = properties["trigger"] as? String ?? "onAppear"
+            timerInterval = properties.double(forKey: "timerInterval") ?? 1.0
+            stateKey = properties["stateKey"] as? String ?? "counter"
+            let repeatDict = properties["repeat"] as? [String: Any]
+            repeatCount = repeatDict?["count"] as? Int ?? 1
+            autoreverses = repeatDict?["autoreverses"] as? Bool ?? false
+            delay = properties.double(forKey: "delay") ?? 0.0
+            keyframes = properties["keyframes"] as? [String: [String: Any]] ?? [:]
+        }
+    }
+}
+
 struct KeyframeAnimator: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
@@ -66,22 +100,16 @@ struct KeyframeAnimator: ActionUIViewConstruction {
     }
 
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
+        let props = Props(properties)
         let content = element.subviews?["content"] as? any ActionUIElementBase ?? ActionUIElement(id: ActionUIElement.generateNegativeID(), type: "EmptyView", properties: [:], subviews: nil)
-        let initialValue = (properties["initialValue"] as? [String: Any]).map {
-            AnimationValues(
-                opacity: $0.double(forKey: "opacity") ?? 1.0,
-                scale: $0.double(forKey: "scale") ?? 1.0,
-                rotation: $0.double(forKey: "rotation") ?? 0.0
-            )
-        } ?? AnimationValues()
-        let trigger = (properties["trigger"] as? String) ?? "onAppear"
-        let timerInterval = (properties.double(forKey: "timerInterval")) ?? 1.0
-        let stateKey = (properties["stateKey"] as? String) ?? "counter"
-        let repeatDict = properties["repeat"] as? [String: Any]
-        let count = (repeatDict?["count"] as? Int) ?? 1
-        let autoreverses = (repeatDict?["autoreverses"] as? Bool) ?? false
-        let delay = (properties.double(forKey: "delay")) ?? 0.0
-        let keyframes = (properties["keyframes"] as? [String: [String: Any]]) ?? [:]
+        let initialValue = props.initialValue
+        let trigger = props.trigger
+        let timerInterval = props.timerInterval
+        let stateKey = props.stateKey
+        let count = props.repeatCount
+        let autoreverses = props.autoreverses
+        let delay = props.delay
+        let keyframes = props.keyframes
         let initialRepeatCount = model.states["currentRepeatCount"] as? Int ?? 0
 
         return KeyframeAnimatorContent(

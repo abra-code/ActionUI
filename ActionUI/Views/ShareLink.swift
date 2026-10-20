@@ -15,6 +15,22 @@
 
 import SwiftUI
 
+extension ShareLink {
+    /// ShareLink's properties, parsed from the raw dictionary. Built at the start of every render.
+    struct Props: Sendable {
+        /// The URL string; nil when absent, not a String or not a valid URL.
+        var item: String?
+        var subject: String?
+        var message: String?
+
+        init(_ properties: [String: Any]) {
+            item = (properties["item"] as? String).flatMap { URL(string: $0) == nil ? nil : $0 }
+            subject = properties["subject"] as? String
+            message = properties["message"] as? String
+        }
+    }
+}
+
 struct ShareLink: ActionUIViewConstruction {
     static var initialValue: (ViewModel) -> Any? = { model in model.value }
     static var initialStates: (ViewModel) -> [String: Any] = { model in model.states }
@@ -51,12 +67,13 @@ struct ShareLink: ActionUIViewConstruction {
     }
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
-        guard let item = properties["item"] as? String, let url = URL(string: item) else {
+        let props = Props(properties)
+        guard let item = props.item, let url = URL(string: item) else {
             logger.log("ShareLink missing valid URL, returning EmptyView", .warning)
             return SwiftUI.EmptyView()
         }
-        let subject = properties["subject"] as? String
-        let message = properties["message"] as? String
+        let subject = props.subject
+        let message = props.message
         return SwiftUI.ShareLink(item: url, subject: SwiftUI.Text(subject ?? ""), message: SwiftUI.Text(message ?? ""))
     }
     

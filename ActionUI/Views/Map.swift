@@ -41,6 +41,71 @@ extension [String: Any] {
     }
 }
 
+extension Map {
+    /// Map's properties, parsed from the raw dictionary. Built at the start of every render.
+    /// The map's value (the center coordinate) is not a property.
+    struct Props: Sendable {
+        struct Coordinate: Equatable, Sendable {
+            var latitude: Double
+            var longitude: Double
+
+            init(latitude: Double, longitude: Double) {
+                self.latitude = latitude
+                self.longitude = longitude
+            }
+
+            /// nil unless the dictionary at `key` has numeric latitude and longitude.
+            init?(_ properties: [String: Any], key: String) {
+                guard let coordinate = properties[key] as? [String: Any],
+                      let latitude = coordinate.double(forKey: "latitude"),
+                      let longitude = coordinate.double(forKey: "longitude") else {
+                    return nil
+                }
+                self.init(latitude: latitude, longitude: longitude)
+            }
+        }
+
+        struct Annotation: Equatable, Sendable {
+            var coordinate: Coordinate
+            var title: String?
+            var subtitle: String?
+        }
+
+        enum InteractionMode: String, Sendable, CaseIterable {
+            case pan, zoom, rotate
+        }
+
+        var coordinate: Coordinate?
+        var showsUserLocation = false
+        /// The modes in the order given. All three when absent or when any entry is not a mode name.
+        var interactionModes: [InteractionMode] = InteractionMode.allCases
+        /// The annotations with a valid coordinate; one without is skipped.
+        var annotations: [Annotation] = []
+        var valueChangeActionID: String?
+        var actionID: String?
+
+        init(_ properties: [String: Any]) {
+            coordinate = Coordinate(properties, key: "coordinate")
+            showsUserLocation = properties["showsUserLocation"] as? Bool ?? false
+            if let names = properties["interactionModes"] as? [String] {
+                let modes = names.compactMap(InteractionMode.init(rawValue:))
+                if modes.count == names.count {
+                    interactionModes = modes
+                }
+            }
+            annotations = (properties["annotations"] as? [[String: Any]] ?? []).compactMap { dictionary in
+                guard let coordinate = Coordinate(dictionary, key: "coordinate") else { return nil }
+                return Annotation(
+                    coordinate: coordinate,
+                    title: dictionary["title"] as? String,
+                    subtitle: dictionary["subtitle"] as? String
+                )
+            }
+            valueChangeActionID = properties["valueChangeActionID"] as? String
+            actionID = properties["actionID"] as? String
+        }
+    }
+}
 
 struct Map: ActionUIViewConstruction {
     static var applyModifiers: (any SwiftUI.View, any ActionUIElementBase, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { view, _, _, _, _ in view }
@@ -152,25 +217,24 @@ struct Map: ActionUIViewConstruction {
     
     static var buildView: (any ActionUIElementBase, ViewModel, String, [String: Any], any ActionUILogger) -> any SwiftUI.View = { element, model, windowUUID, properties, logger in
         #if canImport(MapKit)
+        let props = Props(properties)
         let initialCoordinate = Self.initialValue(model) as? CLLocationCoordinate2D ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
-        let showsUserLocation = properties["showsUserLocation"] as? Bool ?? false
-        let interactionModes = (properties["interactionModes"] as? [String])?.reduce(MapInteractionModes()) { modes, mode in
+        let showsUserLocation = props.showsUserLocation
+        let interactionModes = props.interactionModes.reduce(MapInteractionModes()) { modes, mode in
             switch mode {
-            case "pan": return modes.union(.pan)
-            case "zoom": return modes.union(.zoom)
-            case "rotate": return modes.union(.rotate)
-            default: return modes
+            case .pan: return modes.union(.pan)
+            case .zoom: return modes.union(.zoom)
+            case .rotate: return modes.union(.rotate)
             }
-        } ?? .all
+        }
 
-        let annotations: [MapAnnotationItem] = (properties["annotations"] as? [[String: Any]])?.compactMap { dict in
-            guard let coord = dict.coordinate(forKey: "coordinate") else { return nil }
-            return MapAnnotationItem(
-                coordinate: coord,
-                title: dict["title"] as? String,
-                subtitle: dict["subtitle"] as? String
+        let annotations: [MapAnnotationItem] = props.annotations.map { annotation in
+            MapAnnotationItem(
+                coordinate: CLLocationCoordinate2D(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude),
+                title: annotation.title,
+                subtitle: annotation.subtitle
             )
-        } ?? []
+        }
         
         @Sendable func extractRegion(from pos: MapKit.MapCameraPosition) -> MKCoordinateRegion? {
             let children = Mirror(reflecting: pos).children
@@ -182,7 +246,7 @@ struct Map: ActionUIViewConstruction {
 
         // Hoisted out of the binding: its main-actor closures capture only this Sendable String?,
         // not the non-Sendable [String: Any] properties payload.
-        let valueChangeActionID = properties["valueChangeActionID"] as? String
+        let valueChangeActionID = props.valueChangeActionID
         let positionBinding: Binding<MapKit.MapCameraPosition> = mainActorBinding(
             get: {
                 if let coord = model.value as? CLLocationCoordinate2D {
@@ -210,7 +274,7 @@ struct Map: ActionUIViewConstruction {
             }
         )
 
-        let actionID = properties["actionID"] as? String
+        let actionID = props.actionID
 
         return MapKit.Map(
             position: positionBinding,
@@ -246,7 +310,7 @@ struct Map: ActionUIViewConstruction {
         if let initalValue = model.value as? CLLocationCoordinate2D {
             return initalValue
         }
-        let initalValue = model.validatedProperties.coordinate(forKey: "coordinate") ?? CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0)
-        return initalValue
+        let coordinate = Props(model.validatedProperties).coordinate
+        return CLLocationCoordinate2D(latitude: coordinate?.latitude ?? 0.0, longitude: coordinate?.longitude ?? 0.0)
     }
 }

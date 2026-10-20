@@ -27,29 +27,40 @@ import WebKit
 /// WKUserScript, WKUserContentController); both call sites are already on the main actor.
 @MainActor
 enum WebViewSupport {
-    /// Builds WKUserScript objects from the validated `userScripts` property array.
+    /// Builds WKUserScript objects from the raw properties' `userScripts` array.
     /// Returns an empty array when no (valid) scripts are present.
     static func buildUserScripts(from properties: [String: Any], logger: any ActionUILogger) -> [WKUserScript] {
-        guard let scripts = properties["userScripts"] as? [[String: Any]], !scripts.isEmpty else { return [] }
+        buildUserScripts(WebView.Props(properties).userScripts, logger: logger)
+    }
+
+    /// Builds WKUserScript objects from the parsed scripts.
+    static func buildUserScripts(_ scripts: [WebView.Props.UserScript], logger: any ActionUILogger) -> [WKUserScript] {
         var result: [WKUserScript] = []
-        for descriptor in scripts {
-            guard let source = resolveJSSource(from: descriptor, logger: logger) else { continue }
-            let injectionTimeStr = descriptor["injectionTime"] as? String ?? "documentEnd"
-            let injectionTime: WKUserScriptInjectionTime = (injectionTimeStr == "documentStart") ? .atDocumentStart : .atDocumentEnd
-            let forMainFrameOnly = descriptor["forMainFrameOnly"] as? Bool ?? false
-            result.append(WKUserScript(source: source, injectionTime: injectionTime, forMainFrameOnly: forMainFrameOnly))
+        for script in scripts {
+            guard let source = resolveJSSource(from: script, logger: logger) else { continue }
+            let injectionTime: WKUserScriptInjectionTime
+            switch script.injectionTime {
+            case .documentStart: injectionTime = .atDocumentStart
+            case .documentEnd: injectionTime = .atDocumentEnd
+            }
+            result.append(WKUserScript(source: source, injectionTime: injectionTime, forMainFrameOnly: script.forMainFrameOnly))
         }
         return result
     }
 
-    /// Resolves the JavaScript source string from a script descriptor.
-    /// Mirrors the Image.swift resourceName / filePath / source pattern.
+    /// Resolves the JavaScript source string from a script descriptor dictionary.
     static func resolveJSSource(from descriptor: [String: Any], logger: any ActionUILogger) -> String? {
-        if let source = descriptor["source"] as? String {
+        resolveJSSource(from: WebView.Props.UserScript(descriptor), logger: logger)
+    }
+
+    /// Resolves the JavaScript source string from a parsed script.
+    /// Mirrors the Image.swift resourceName / filePath / source pattern.
+    static func resolveJSSource(from script: WebView.Props.UserScript, logger: any ActionUILogger) -> String? {
+        if let source = script.source {
             return source
         }
 
-        if let filePath = descriptor["filePath"] as? String {
+        if let filePath = script.filePath {
             do {
                 return try String(contentsOfFile: filePath, encoding: .utf8)
             } catch {
@@ -58,7 +69,7 @@ enum WebViewSupport {
             }
         }
 
-        if let resourceName = descriptor["resourceName"] as? String {
+        if let resourceName = script.resourceName {
             // Strip .js extension to use Bundle path(forResource:ofType:)
             let nameWithoutExt = resourceName.lowercased().hasSuffix(".js") ? String(resourceName.dropLast(3)) : resourceName
             if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: "js") {
@@ -85,18 +96,23 @@ enum WebViewSupport {
         return nil
     }
 
-    /// Builds a WKWebViewConfiguration for the native backing from validated properties.
+    /// Builds a WKWebViewConfiguration for the native backing from raw properties.
     static func makeWKConfiguration(properties: [String: Any], logger: any ActionUILogger) -> WKWebViewConfiguration {
+        makeWKConfiguration(props: WebView.Props(properties), logger: logger)
+    }
+
+    /// Builds a WKWebViewConfiguration for the native backing from parsed properties.
+    static func makeWKConfiguration(props: WebView.Props, logger: any ActionUILogger) -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
 
-        if let limits = properties["limitsNavigationsToAppBoundDomains"] as? Bool {
+        if let limits = props.limitsNavigationsToAppBoundDomains {
             config.limitsNavigationsToAppBoundDomains = limits
         }
-        if let upgrade = properties["upgradeKnownHostsToHTTPS"] as? Bool {
+        if let upgrade = props.upgradeKnownHostsToHTTPS {
             config.upgradeKnownHostsToHTTPS = upgrade
         }
 
-        let scripts = buildUserScripts(from: properties, logger: logger)
+        let scripts = buildUserScripts(props.userScripts, logger: logger)
         if !scripts.isEmpty {
             let userContentController = WKUserContentController()
             for script in scripts {
@@ -117,32 +133,32 @@ enum WebViewSupport {
 @MainActor
 struct WKWebViewRepresentable {
     @ObservedObject var model: ViewModel
-    let properties: [String: Any]
+    let props: WebView.Props
     let element: any ActionUIElementBase
     let windowUUID: String
     let logger: any ActionUILogger
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(model: model, properties: properties, element: element, windowUUID: windowUUID, logger: logger)
+        Coordinator(model: model, props: props, element: element, windowUUID: windowUUID, logger: logger)
     }
 
     /// Creates and configures the WKWebView, attaches the coordinator, and loads initial content.
     private func makeWebView(context: Context) -> WKWebView {
-        let config = WebViewSupport.makeWKConfiguration(properties: properties, logger: logger)
+        let config = WebViewSupport.makeWKConfiguration(props: props, logger: logger)
         let webView = WKWebView(frame: .zero, configuration: config)
 
-        if let userAgent = properties["customUserAgent"] as? String {
+        if let userAgent = props.customUserAgent {
             webView.customUserAgent = userAgent
         }
 
-        let backForward = properties["backForwardNavigationGestures"] as? Bool ?? true
+        let backForward = props.backForwardNavigationGestures
         webView.allowsBackForwardNavigationGestures = backForward
 
-        let linkPreviews = properties["linkPreviews"] as? Bool ?? true
+        let linkPreviews = props.linkPreviews
         webView.allowsLinkPreview = linkPreviews
 
         #if os(macOS)
-        let magnification = properties["magnificationGestures"] as? Bool ?? true
+        let magnification = props.magnificationGestures
         webView.allowsMagnification = magnification
         #endif
 
@@ -191,7 +207,7 @@ extension WKWebViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, WKUIDelegate {
         let model: ViewModel
-        let properties: [String: Any]
+        let props: WebView.Props
         let element: any ActionUIElementBase
         let windowUUID: String
         let logger: any ActionUILogger
@@ -202,9 +218,9 @@ extension WKWebViewRepresentable {
         private weak var webView: WKWebView?
         private var observations: [NSKeyValueObservation] = []
 
-        init(model: ViewModel, properties: [String: Any], element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
+        init(model: ViewModel, props: WebView.Props, element: any ActionUIElementBase, windowUUID: String, logger: any ActionUILogger) {
             self.model = model
-            self.properties = properties
+            self.props = props
             self.element = element
             self.windowUUID = windowUUID
             self.logger = logger
@@ -262,8 +278,8 @@ extension WKWebViewRepresentable {
                 // value in model.value) doesn't re-load the page as if it were a host command.
                 lastTrackedURL = urlString
                 load(url, into: webView)
-            } else if let html = properties["html"] as? String {
-                let baseURL = (properties["baseURL"] as? String).flatMap { URL(string: $0) }
+            } else if let html = props.html {
+                let baseURL = props.baseURL.flatMap { URL(string: $0) }
                     ?? URL(string: "about:blank")!
                 webView.loadHTMLString(html, baseURL: baseURL)
             }
@@ -288,7 +304,7 @@ extension WKWebViewRepresentable {
             model.value = urlString
             model.states["canGoBack"] = webView.canGoBack
             model.states["canGoForward"] = webView.canGoForward
-            if let actionID = properties["valueChangeActionID"] as? String, !urlString.isEmpty {
+            if let actionID = props.valueChangeActionID, !urlString.isEmpty {
                 ActionUIModel.shared.actionHandler(actionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
             }
         }
@@ -298,7 +314,7 @@ extension WKWebViewRepresentable {
             model.states["isLoading"] = webView.isLoading
             model.states["estimatedProgress"] = webView.estimatedProgress
             syncBackForwardState()
-            if let navActionID = properties["navigationActionID"] as? String {
+            if let navActionID = props.navigationActionID {
                 ActionUIModel.shared.actionHandler(navActionID, windowUUID: windowUUID, viewID: element.id, viewPartID: 0)
             }
         }
